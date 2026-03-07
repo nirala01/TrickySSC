@@ -1,0 +1,2225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TrickySSC – Master SSC CGL with Smart Tricks</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Baloo+2:wght@400;500;600;700;800&family=Hind:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --saffron: #FF6B00;
+    --saffron-light: #FF8C38;
+    --saffron-dark: #CC5500;
+    --navy: #0A1628;
+    --navy-mid: #112240;
+    --navy-card: #162A48;
+    --navy-border: #1E3A5F;
+    --green: #00C896;
+    --green-dim: #00A07A;
+    --gold: #FFD700;
+    --sky: #38BDF8;
+    --text-main: #E8EDF5;
+    --text-dim: #8BA0BF;
+    --text-muted: #4A6585;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'Hind', sans-serif;
+    background: var(--navy);
+    color: var(--text-main);
+    overflow-x: hidden;
+  }
+
+  /* ===== NOISE TEXTURE OVERLAY ===== */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.4;
+  }
+
+  /* ===== NAVBAR ===== */
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 1000;
+    background: rgba(10,22,40,0.95);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--navy-border);
+    padding: 0 2rem;
+  }
+
+  .nav-inner {
+    max-width: 1280px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 64px;
+  }
+
+  .logo {
+    font-family: 'Baloo 2', cursive;
+    font-size: 1.7rem;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    color: var(--text-main);
+    text-decoration: none;
+  }
+  .logo span { color: var(--saffron); }
+
+  .nav-links {
+    display: flex;
+    gap: 0.15rem;
+    list-style: none;
+  }
+
+  .nav-links a {
+    display: block;
+    padding: 0.45rem 0.85rem;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 0.88rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    text-decoration: none;
+    border-radius: 6px;
+    transition: all 0.2s;
+  }
+  .nav-links a:hover { color: var(--saffron); background: rgba(255,107,0,0.08); }
+
+  .nav-cta {
+    background: var(--saffron) !important;
+    color: white !important;
+    padding: 0.45rem 1.1rem !important;
+  }
+  .nav-cta:hover { background: var(--saffron-light) !important; }
+
+  .hamburger { display: none; cursor: pointer; flex-direction: column; gap: 5px; }
+  .hamburger span { display: block; width: 24px; height: 2px; background: var(--text-main); border-radius: 2px; }
+
+  /* ===== SECTION SYSTEM ===== */
+  section { padding: 6rem 2rem; position: relative; z-index: 1; display: none; }
+  section.active { display: block; }
+  #home { display: block; } /* home always shows first */
+
+  /* ===== HERO ===== */
+  .hero {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    padding-top: 80px;
+    background: radial-gradient(ellipse 80% 60% at 50% -10%, rgba(255,107,0,0.18) 0%, transparent 70%),
+                radial-gradient(ellipse 40% 40% at 90% 80%, rgba(0,200,150,0.08) 0%, transparent 60%);
+  }
+
+  .hero-inner {
+    max-width: 1280px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4rem;
+    align-items: center;
+  }
+
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: rgba(255,107,0,0.12);
+    border: 1px solid rgba(255,107,0,0.3);
+    border-radius: 100px;
+    padding: 0.35rem 1rem;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--saffron-light);
+    margin-bottom: 1.5rem;
+    animation: fadeSlideUp 0.6s ease both;
+  }
+
+  .hero h1 {
+    font-family: 'Baloo 2', cursive;
+    font-size: clamp(2.4rem, 4.5vw, 3.8rem);
+    font-weight: 800;
+    line-height: 1.1;
+    margin-bottom: 1.2rem;
+    animation: fadeSlideUp 0.6s 0.1s ease both;
+  }
+
+  .hero h1 .highlight {
+    background: linear-gradient(135deg, var(--saffron), var(--gold));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .hero p {
+    font-size: 1.1rem;
+    color: var(--text-dim);
+    line-height: 1.7;
+    margin-bottom: 2rem;
+    max-width: 500px;
+    animation: fadeSlideUp 0.6s 0.2s ease both;
+  }
+
+  .hero-btns {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    animation: fadeSlideUp 0.6s 0.3s ease both;
+  }
+
+  .btn-primary {
+    background: var(--saffron);
+    color: white;
+    border: none;
+    padding: 0.85rem 2rem;
+    border-radius: 10px;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: all 0.2s;
+    box-shadow: 0 4px 20px rgba(255,107,0,0.35);
+  }
+  .btn-primary:hover { background: var(--saffron-light); transform: translateY(-2px); box-shadow: 0 8px 30px rgba(255,107,0,0.45); }
+
+  .btn-secondary {
+    background: transparent;
+    color: var(--text-main);
+    border: 1px solid var(--navy-border);
+    padding: 0.85rem 2rem;
+    border-radius: 10px;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: all 0.2s;
+  }
+  .btn-secondary:hover { border-color: var(--saffron); color: var(--saffron); background: rgba(255,107,0,0.05); }
+
+  .hero-stats {
+    display: flex;
+    gap: 2rem;
+    margin-top: 2.5rem;
+    animation: fadeSlideUp 0.6s 0.4s ease both;
+  }
+
+  .stat { text-align: left; }
+  .stat-num {
+    font-family: 'Baloo 2', cursive;
+    font-size: 1.8rem;
+    font-weight: 800;
+    color: var(--saffron);
+    line-height: 1;
+  }
+  .stat-label { font-size: 0.78rem; color: var(--text-muted); letter-spacing: 0.5px; margin-top: 2px; }
+
+  /* Hero visual side */
+  .hero-visual {
+    position: relative;
+    animation: fadeSlideUp 0.6s 0.2s ease both;
+  }
+
+  .hero-card-main {
+    background: var(--navy-card);
+    border: 1px solid var(--navy-border);
+    border-radius: 20px;
+    padding: 2rem;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero-card-main::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--saffron), var(--gold), var(--green));
+  }
+
+  .quiz-preview { }
+  .qp-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+  }
+  .qp-tag {
+    background: rgba(255,107,0,0.15);
+    color: var(--saffron);
+    border-radius: 6px;
+    padding: 0.25rem 0.7rem;
+    font-size: 0.75rem;
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+  .qp-timer {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    color: var(--green);
+    font-size: 1.1rem;
+  }
+  .qp-question {
+    font-size: 1rem;
+    line-height: 1.6;
+    margin-bottom: 1.2rem;
+    color: var(--text-main);
+  }
+  .qp-options { display: flex; flex-direction: column; gap: 0.6rem; }
+  .qp-option {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    padding: 0.75rem 1rem;
+    border-radius: 10px;
+    border: 1px solid var(--navy-border);
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 0.9rem;
+  }
+  .qp-option:hover { border-color: var(--saffron); background: rgba(255,107,0,0.06); }
+  .qp-option.correct { border-color: var(--green); background: rgba(0,200,150,0.08); }
+  .qp-option.wrong { border-color: #EF4444; background: rgba(239,68,68,0.08); }
+  .opt-letter {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: var(--navy-mid);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+  }
+  .correct .opt-letter { background: var(--green); color: white; }
+  .wrong .opt-letter { background: #EF4444; color: white; }
+
+  .floating-badge {
+    position: absolute;
+    background: var(--navy-card);
+    border: 1px solid var(--navy-border);
+    border-radius: 12px;
+    padding: 0.8rem 1.2rem;
+    font-size: 0.82rem;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+    animation: float 3s ease-in-out infinite;
+  }
+  .fb1 { top: -20px; right: -20px; animation-delay: 0s; }
+  .fb2 { bottom: -20px; left: -20px; animation-delay: 1.5s; }
+
+  /* ===== FEATURES GRID ===== */
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
+    margin-top: 3rem;
+  }
+
+  .feat-card {
+    background: var(--navy-card);
+    border: 1px solid var(--navy-border);
+    border-radius: 16px;
+    padding: 1.8rem;
+    cursor: pointer;
+    transition: all 0.25s;
+    position: relative;
+    overflow: hidden;
+    text-decoration: none;
+    color: var(--text-main);
+    display: block;
+  }
+  .feat-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(255,107,0,0.05) 0%, transparent 60%);
+    opacity: 0;
+    transition: opacity 0.25s;
+  }
+  .feat-card:hover { transform: translateY(-4px); border-color: rgba(255,107,0,0.4); box-shadow: 0 12px 40px rgba(0,0,0,0.3); }
+  .feat-card:hover::before { opacity: 1; }
+
+  .feat-icon {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+    display: block;
+  }
+  .feat-title {
+    font-family: 'Baloo 2', cursive;
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 0.4rem;
+  }
+  .feat-desc { font-size: 0.88rem; color: var(--text-dim); line-height: 1.6; }
+
+  /* ===== SECTION HEADERS ===== */
+  .section-header { text-align: center; margin-bottom: 3.5rem; }
+  .section-tag {
+    display: inline-block;
+    background: rgba(255,107,0,0.12);
+    border: 1px solid rgba(255,107,0,0.25);
+    color: var(--saffron);
+    border-radius: 100px;
+    padding: 0.3rem 1rem;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-bottom: 1rem;
+  }
+  .section-title {
+    font-family: 'Baloo 2', cursive;
+    font-size: clamp(1.8rem, 3vw, 2.8rem);
+    font-weight: 800;
+    line-height: 1.15;
+    margin-bottom: 0.75rem;
+  }
+  .section-sub { font-size: 1.05rem; color: var(--text-dim); max-width: 600px; margin: 0 auto; }
+
+  /* ===== CONTENT WRAPPER ===== */
+  .content-wrap { max-width: 1280px; margin: 0 auto; }
+
+  /* ===== PYQ SECTION ===== */
+  .pyq-layout {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    gap: 2rem;
+    margin-top: 2rem;
+  }
+
+  .pyq-sidebar {
+    background: var(--navy-card);
+    border: 1px solid var(--navy-border);
+    border-radius: 16px;
+    overflow: hidden;
+    height: fit-content;
+    position: sticky;
+    top: 80px;
+  }
+
+  .sidebar-section { border-bottom: 1px solid var(--navy-border); }
+  .sidebar-section:last-child { border-bottom: none; }
+  .sidebar-header {
+    padding: 1rem 1.2rem;
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 0.8rem;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--saffron);
+    background: rgba(255,107,0,0.06);
+  }
+  .sidebar-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.7rem 1.2rem;
+    font-size: 0.88rem;
+    cursor: pointer;
+    transition: all 0.15s;
+    border-left: 3px solid transparent;
+  }
+  .sidebar-item:hover, .sidebar-item.active-item {
+    background: rgba(255,107,0,0.08);
+    border-left-color: var(--saffron);
+    color: var(--saffron-light);
+  }
+  .sidebar-count {
+    background: var(--navy-mid);
+    border-radius: 100px;
+    padding: 0.1rem 0.5rem;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 600;
+  }
+
+  .pyq-main { }
+  .chapter-card {
+    background: var(--navy-card);
+    border: 1px solid var(--navy-border);
+    border-radius: 16px;
+    padding: 2rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .ch-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 1.5rem; }
+  .ch-title {
+    font-family: 'Baloo 2', cursive;
+    font-size: 1.4rem;
+    font-weight: 800;
+  }
+  .ch-badges { display: flex; gap: 0.5rem; margin-top: 0.4rem; flex-wrap: wrap; }
+  .badge {
+    padding: 0.2rem 0.6rem;
+    border-radius: 6px;
+    font-size: 0.72rem;
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+  .badge-green { background: rgba(0,200,150,0.12); color: var(--green); border: 1px solid rgba(0,200,150,0.2); }
+  .badge-blue { background: rgba(56,189,248,0.1); color: var(--sky); border: 1px solid rgba(56,189,248,0.2); }
+  .badge-orange { background: rgba(255,107,0,0.1); color: var(--saffron-light); border: 1px solid rgba(255,107,0,0.2); }
+
+  .ch-tabs { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; }
+  .ch-tab {
+    padding: 0.5rem 1.2rem;
+    border-radius: 8px;
+    border: 1px solid var(--navy-border);
+    background: transparent;
+    color: var(--text-dim);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .ch-tab.active, .ch-tab:hover { background: var(--saffron); border-color: var(--saffron); color: white; }
+
+  .question-box {
+    background: var(--navy-mid);
+    border-radius: 12px;
+    padding: 1.4rem;
+    margin-bottom: 1rem;
+  }
+  .q-meta { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; flex-wrap: wrap; }
+  .q-year { font-size: 0.72rem; color: var(--text-muted); font-family: 'Rajdhani', sans-serif; font-weight: 600; }
+  .q-text { font-size: 0.95rem; line-height: 1.6; margin-bottom: 1rem; }
+  .q-options { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+  .q-opt {
+    padding: 0.55rem 0.9rem;
+    border-radius: 8px;
+    border: 1px solid var(--navy-border);
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .q-opt:hover { border-color: var(--saffron); }
+  .q-opt.answer-correct { border-color: var(--green); background: rgba(0,200,150,0.08); color: var(--green); }
+  .q-opt span { font-family: 'Rajdhani', sans-serif; font-weight: 700; }
+
+  /* ===== PRACTICE SECTION ===== */
+  .practice-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
+    margin-top: 2rem;
+  }
+
+  .practice-card {
+    background: var(--navy-card);
+    border: 1px solid var(--navy-border);
+    border-radius: 16px;
+    padding: 1.8rem;
+    cursor: pointer;
+    transition: all 0.25s;
+  }
+  .practice-card:hover { transform: translateY(-3px); border-color: var(--saffron); box-shadow: 0 12px 40px rgba(0,0,0,0.25); }
+
+  .pc-icon { font-size: 2.2rem; margin-bottom: 1rem; }
+  .pc-name {
+    font-family: 'Baloo 2', cursive;
+    font-size: 1.05rem;
+    font-weight: 700;
+    margin-bottom: 0.3rem;
+  }
+  .pc-count { font-size: 0.82rem; color: var(--text-muted); margin-bottom: 1.2rem; }
+  .pc-levels { display: flex; gap: 0.4rem; }
+  .level-pill {
+    padding: 0.2rem 0.6rem;
+    border-radius: 100px;
+    font-size: 0.7rem;
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+  }
+  .lvl-easy { background: rgba(0,200,150,0.15); color: var(--green); }
+  .lvl-med { background: rgba(255,215,0,0.15); color: var(--gold); }
+  .lvl-hard { background: rgba(239,68,68,0.15); color: #EF4444; }
+
+  /* ===== MOCK TESTS ===== */
+  .mock-types { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem; margin-top: 2rem; }
+  .mock-type-card {
+    background: var(--navy-card);
+    border: 1px solid var(--navy-border);
+    border-radius: 16px;
+    padding: 2rem;
+    cursor: pointer;
+    transition: all 0.25s;
+    position: relative;
+    overflow: hidden;
+  }
+  .mock-type-card:hover { transform: translateY(-3px); border-color: var(--saffron); }
+  .mock-type-card .mt-accent {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+  }
+  .accent-orange { background: linear-gradient(90deg, var(--saffron), var(--gold)); }
+  .accent-green { background: linear-gradient(90deg, var(--green), var(--sky)); }
+  .accent-blue { background: linear-gradient(90deg, var(--sky), #818CF8); }
+  .accent-purple { background: linear-gradient(90deg, #818CF8, #EC4899); }
+
+  .mt-title { font-family: 'Baloo 2', cursive; font-size: 1.3rem; font-weight: 800; margin-bottom: 0.5rem; }
+  .mt-desc { font-size: 0.88rem; color: var(--text-dim); margin-bottom: 1.5rem; line-height: 1.6; }
+  .mt-features { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+  .mt-feat { display: flex; align-items: center; gap: 0.35rem; font-size: 0.78rem; color: var(--text-dim); }
+
+  .mock-list { margin-top: 2.5rem; }
+  .mock-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.2rem 1.5rem;
+    background: var(--navy-card);
+    border: 1px solid var(--navy-border);
+    border-radius: 12px;
+    margin-bottom: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .mock-item:hover { border-color: var(--saffron); background: rgba(255,107,0,0.04); }
+  .mi-left { display: flex; align-items: center; gap: 1rem; }
+  .mi-num {
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    background: rgba(255,107,0,0.12);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    color: var(--saffron);
+    flex-shrink: 0;
+  }
+  .mi-name { font-weight: 500; font-size: 0.95rem; }
+  .mi-meta { font-size: 0.8rem; color: var(--text-muted); margin-top: 2px; }
+  .mi-right { display: flex; gap: 0.5rem; align-items: center; }
+
+  /* ===== TRICKS ===== */
+  .tricks-cats { display: flex; gap: 0.75rem; margin-bottom: 2rem; flex-wrap: wrap; }
+  .trick-cat-btn {
+    padding: 0.55rem 1.3rem;
+    border-radius: 10px;
+    border: 1px solid var(--navy-border);
+    background: transparent;
+    color: var(--text-dim);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .trick-cat-btn.active, .trick-cat-btn:hover { background: var(--saffron); border-color: var(--saffron); color: white; }
+
+  .tricks-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
+  .trick-card {
+    background: var(--navy-card);
+    border: 1px solid var(--navy-border);
+    border-radius: 16px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.25s;
+  }
+  .trick-card:hover { transform: translateY(-3px); border-color: rgba(255,107,0,0.4); }
+  .trick-header { padding: 1.5rem; border-bottom: 1px solid var(--navy-border); }
+  .trick-name { font-family: 'Baloo 2', cursive; font-weight: 700; font-size: 1.05rem; margin-bottom: 0.3rem; }
+  .trick-tag { font-size: 0.75rem; color: var(--saffron); font-family: 'Rajdhani', sans-serif; font-weight: 600; }
+  .trick-body { padding: 1.5rem; }
+  .trick-formula {
+    background: var(--navy-mid);
+    border-radius: 10px;
+    padding: 1rem;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--gold);
+    text-align: center;
+    margin-bottom: 0.75rem;
+    letter-spacing: 0.5px;
+  }
+  .trick-example { font-size: 0.85rem; color: var(--text-dim); line-height: 1.6; }
+
+  /* ===== AI GENERATOR ===== */
+  .ai-section-layout { display: grid; grid-template-columns: 1fr 1.2fr; gap: 3rem; align-items: start; }
+  .ai-form-card {
+    background: var(--navy-card);
+    border: 1px solid var(--navy-border);
+    border-radius: 20px;
+    padding: 2.5rem;
+    position: relative;
+    overflow: hidden;
+  }
+  .ai-form-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--saffron), var(--gold), var(--green));
+  }
+
+  .form-label {
+    display: block;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 0.5rem;
+  }
+  .form-select {
+    width: 100%;
+    background: var(--navy-mid);
+    border: 1px solid var(--navy-border);
+    border-radius: 10px;
+    padding: 0.75rem 1rem;
+    color: var(--text-main);
+    font-family: 'Hind', sans-serif;
+    font-size: 0.95rem;
+    appearance: none;
+    margin-bottom: 1.5rem;
+    cursor: pointer;
+    transition: border-color 0.2s;
+  }
+  .form-select:focus { outline: none; border-color: var(--saffron); }
+
+  .difficulty-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; margin-bottom: 1.5rem; }
+  .diff-btn {
+    padding: 0.65rem;
+    border-radius: 10px;
+    border: 1px solid var(--navy-border);
+    background: transparent;
+    color: var(--text-dim);
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+  }
+  .diff-btn:hover { border-color: var(--saffron); color: var(--saffron); }
+  .diff-btn.selected { background: var(--saffron); border-color: var(--saffron); color: white; }
+
+  .count-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; margin-bottom: 2rem; }
+
+  .ai-output-card {
+    background: var(--navy-card);
+    border: 1px solid var(--navy-border);
+    border-radius: 20px;
+    padding: 2rem;
+  }
+
+  .ai-generated-q { padding: 1.5rem; background: var(--navy-mid); border-radius: 12px; margin-bottom: 1rem; }
+  .ai-q-num { font-family: 'Rajdhani', sans-serif; font-weight: 700; color: var(--saffron); font-size: 0.85rem; margin-bottom: 0.5rem; }
+  .ai-q-text { font-size: 0.95rem; line-height: 1.6; }
+
+  .generating-state { text-align: center; padding: 3rem; }
+  .spinner {
+    width: 48px; height: 48px;
+    border: 3px solid var(--navy-border);
+    border-top-color: var(--saffron);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 1rem;
+  }
+
+  /* ===== DAILY QUIZ ===== */
+  .daily-quiz-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem; }
+  .dq-card {
+    background: var(--navy-card);
+    border: 1px solid var(--navy-border);
+    border-radius: 16px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.25s;
+  }
+  .dq-card:hover { transform: translateY(-3px); border-color: var(--saffron); }
+  .dq-banner {
+    height: 80px;
+    display: flex;
+    align-items: center;
+    padding: 0 1.5rem;
+    font-family: 'Baloo 2', cursive;
+    font-size: 1.1rem;
+    font-weight: 800;
+    gap: 0.75rem;
+  }
+  .dq-body { padding: 1.5rem; }
+  .dq-info { display: flex; justify-content: space-between; margin-bottom: 1.2rem; }
+  .dq-stat { text-align: center; }
+  .dq-stat-num { font-family: 'Baloo 2', cursive; font-size: 1.4rem; font-weight: 700; }
+  .dq-stat-label { font-size: 0.75rem; color: var(--text-muted); }
+  .progress-bar { height: 6px; background: var(--navy-mid); border-radius: 100px; overflow: hidden; margin-bottom: 0.5rem; }
+  .progress-fill { height: 100%; border-radius: 100px; background: linear-gradient(90deg, var(--saffron), var(--gold)); }
+  .progress-label { font-size: 0.75rem; color: var(--text-muted); }
+
+  /* ===== CURRENT AFFAIRS ===== */
+  .ca-layout { display: grid; grid-template-columns: 1fr 300px; gap: 2rem; }
+  .ca-list { }
+  .ca-item {
+    display: flex;
+    gap: 1.2rem;
+    padding: 1.3rem;
+    background: var(--navy-card);
+    border: 1px solid var(--navy-border);
+    border-radius: 12px;
+    margin-bottom: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .ca-item:hover { border-color: var(--saffron); }
+  .ca-date {
+    text-align: center;
+    min-width: 50px;
+    padding-top: 0.2rem;
+  }
+  .ca-d { font-family: 'Baloo 2', cursive; font-size: 1.5rem; font-weight: 800; color: var(--saffron); line-height: 1; }
+  .ca-m { font-size: 0.7rem; color: var(--text-muted); font-family: 'Rajdhani', sans-serif; font-weight: 600; text-transform: uppercase; }
+  .ca-content {}
+  .ca-headline { font-weight: 600; font-size: 0.95rem; margin-bottom: 0.3rem; }
+  .ca-excerpt { font-size: 0.83rem; color: var(--text-dim); line-height: 1.5; }
+  .ca-cat { display: inline-block; margin-top: 0.5rem; }
+
+  .ca-sidebar { }
+  .ca-widget {
+    background: var(--navy-card);
+    border: 1px solid var(--navy-border);
+    border-radius: 16px;
+    overflow: hidden;
+    margin-bottom: 1.5rem;
+  }
+  .ca-widget-header {
+    padding: 1rem 1.2rem;
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 0.85rem;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    background: rgba(255,107,0,0.06);
+    color: var(--saffron);
+    border-bottom: 1px solid var(--navy-border);
+  }
+  .ca-scheme {
+    padding: 0.8rem 1.2rem;
+    font-size: 0.88rem;
+    border-bottom: 1px solid var(--navy-border);
+    cursor: pointer;
+    transition: background 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .ca-scheme:hover { background: rgba(255,107,0,0.05); }
+  .ca-scheme:last-child { border-bottom: none; }
+
+  /* ===== STUDY NOTES ===== */
+  .notes-layout { display: grid; grid-template-columns: 220px 1fr; gap: 2rem; }
+  .notes-nav { background: var(--navy-card); border: 1px solid var(--navy-border); border-radius: 16px; height: fit-content; overflow: hidden; position: sticky; top: 80px; }
+  .notes-nav-item {
+    padding: 0.85rem 1.2rem;
+    font-size: 0.88rem;
+    cursor: pointer;
+    border-left: 3px solid transparent;
+    border-bottom: 1px solid var(--navy-border);
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+  .notes-nav-item:hover, .notes-nav-item.active { background: rgba(255,107,0,0.07); border-left-color: var(--saffron); color: var(--saffron-light); }
+  .notes-nav-item:last-child { border-bottom: none; }
+
+  .note-card {
+    background: var(--navy-card);
+    border: 1px solid var(--navy-border);
+    border-radius: 16px;
+    padding: 2rem;
+    margin-bottom: 1.5rem;
+  }
+  .note-title { font-family: 'Baloo 2', cursive; font-size: 1.3rem; font-weight: 800; margin-bottom: 1.2rem; display: flex; align-items: center; gap: 0.6rem; }
+  .formula-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+  .formula-item {
+    background: var(--navy-mid);
+    border-radius: 10px;
+    padding: 1rem;
+  }
+  .formula-name { font-size: 0.75rem; color: var(--text-muted); font-family: 'Rajdhani', sans-serif; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.4rem; }
+  .formula-text { font-family: 'Rajdhani', sans-serif; font-size: 1.05rem; font-weight: 600; color: var(--gold); }
+
+  /* ===== LEADERBOARD ===== */
+  .lb-layout { display: grid; grid-template-columns: 1fr 340px; gap: 2rem; }
+  .top-3 { display: flex; justify-content: center; gap: 1rem; align-items: flex-end; margin-bottom: 3rem; }
+  .podium-card { text-align: center; }
+  .podium-rank { font-family: 'Baloo 2', cursive; font-size: 2rem; font-weight: 800; }
+  .podium-avatar {
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    margin: 0.5rem auto;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.8rem;
+    border: 3px solid transparent;
+  }
+  .p1 .podium-avatar { border-color: var(--gold); background: rgba(255,215,0,0.1); width: 80px; height: 80px; }
+  .p2 .podium-avatar { border-color: #C0C0C0; background: rgba(192,192,192,0.1); }
+  .p3 .podium-avatar { border-color: #CD7F32; background: rgba(205,127,50,0.1); }
+  .podium-name { font-weight: 600; font-size: 0.9rem; margin-bottom: 0.2rem; }
+  .podium-score { font-family: 'Rajdhani', sans-serif; font-weight: 700; color: var(--saffron); }
+
+  .lb-table { }
+  .lb-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 1.5rem;
+    background: var(--navy-card);
+    border: 1px solid var(--navy-border);
+    border-radius: 12px;
+    margin-bottom: 0.6rem;
+    transition: all 0.2s;
+  }
+  .lb-row.you { border-color: var(--saffron); background: rgba(255,107,0,0.05); }
+  .lb-row:hover { border-color: rgba(255,107,0,0.3); }
+  .lb-rank { font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 1.1rem; min-width: 30px; color: var(--text-muted); }
+  .lb-avatar { font-size: 1.4rem; }
+  .lb-name { flex: 1; font-weight: 500; }
+  .lb-score { font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 1.05rem; color: var(--saffron); }
+  .lb-change { font-size: 0.78rem; }
+  .up { color: var(--green); }
+  .down { color: #EF4444; }
+
+  /* ===== BLOG ===== */
+  .blog-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
+  .blog-card {
+    background: var(--navy-card);
+    border: 1px solid var(--navy-border);
+    border-radius: 16px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.25s;
+  }
+  .blog-card:hover { transform: translateY(-4px); border-color: rgba(255,107,0,0.4); box-shadow: 0 12px 40px rgba(0,0,0,0.3); }
+  .blog-thumb {
+    height: 140px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 3.5rem;
+    position: relative;
+  }
+  .blog-body { padding: 1.5rem; }
+  .blog-cat { font-size: 0.72rem; font-family: 'Rajdhani', sans-serif; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--saffron); margin-bottom: 0.5rem; }
+  .blog-title { font-family: 'Baloo 2', cursive; font-size: 1rem; font-weight: 700; line-height: 1.4; margin-bottom: 0.5rem; }
+  .blog-excerpt { font-size: 0.83rem; color: var(--text-dim); line-height: 1.5; margin-bottom: 1rem; }
+  .blog-meta { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); }
+
+  /* ===== FOOTER ===== */
+  footer {
+    background: var(--navy-mid);
+    border-top: 1px solid var(--navy-border);
+    padding: 4rem 2rem 2rem;
+    position: relative;
+    z-index: 1;
+  }
+  .footer-inner { max-width: 1280px; margin: 0 auto; }
+  .footer-grid { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 3rem; margin-bottom: 3rem; }
+  .footer-brand p { font-size: 0.88rem; color: var(--text-dim); line-height: 1.7; margin-top: 0.75rem; max-width: 280px; }
+  .footer-col h4 { font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 0.82rem; letter-spacing: 1px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 1rem; }
+  .footer-col a { display: block; color: var(--text-dim); text-decoration: none; font-size: 0.88rem; margin-bottom: 0.5rem; transition: color 0.15s; }
+  .footer-col a:hover { color: var(--saffron); }
+  .footer-bottom { border-top: 1px solid var(--navy-border); padding-top: 1.5rem; display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem; color: var(--text-muted); }
+
+  /* ===== ANIMATIONS ===== */
+  @keyframes fadeSlideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+  }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+  @keyframes pulse-border {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(255,107,0,0.4); }
+    50% { box-shadow: 0 0 0 8px rgba(255,107,0,0); }
+  }
+
+  .section-anim {
+    animation: fadeSlideUp 0.5s ease both;
+  }
+
+  /* ===== RESPONSIVE ===== */
+  @media (max-width: 1024px) {
+    .hero-inner { grid-template-columns: 1fr; }
+    .hero-visual { display: none; }
+    .features-grid { grid-template-columns: repeat(2, 1fr); }
+    .pyq-layout { grid-template-columns: 1fr; }
+    .pyq-sidebar { position: static; }
+    .practice-grid { grid-template-columns: repeat(2, 1fr); }
+    .ai-section-layout { grid-template-columns: 1fr; }
+    .footer-grid { grid-template-columns: 1fr 1fr; }
+    .ca-layout { grid-template-columns: 1fr; }
+    .lb-layout { grid-template-columns: 1fr; }
+    .notes-layout { grid-template-columns: 1fr; }
+    .notes-nav { position: static; }
+    .blog-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 768px) {
+    .nav-links { display: none; }
+    .hamburger { display: flex; }
+    .features-grid { grid-template-columns: 1fr; }
+    .practice-grid { grid-template-columns: 1fr; }
+    .mock-types { grid-template-columns: 1fr; }
+    .tricks-grid { grid-template-columns: 1fr; }
+    .daily-quiz-grid { grid-template-columns: 1fr; }
+    .blog-grid { grid-template-columns: 1fr; }
+    .footer-grid { grid-template-columns: 1fr; gap: 2rem; }
+    .q-options { grid-template-columns: 1fr; }
+    .formula-grid { grid-template-columns: 1fr; }
+    .top-3 { gap: 0.5rem; }
+  }
+
+  /* Mobile menu */
+  .mobile-menu {
+    display: none;
+    position: fixed;
+    top: 64px; left: 0; right: 0;
+    background: var(--navy-mid);
+    border-bottom: 1px solid var(--navy-border);
+    padding: 1rem;
+    z-index: 999;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  .mobile-menu.open { display: flex; }
+  .mobile-menu a {
+    padding: 0.75rem 1rem;
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 600;
+    font-size: 1rem;
+    letter-spacing: 0.5px;
+    color: var(--text-dim);
+    text-decoration: none;
+    border-radius: 8px;
+    transition: all 0.15s;
+  }
+  .mobile-menu a:hover { background: rgba(255,107,0,0.08); color: var(--saffron); }
+
+  /* ===== EXAM ANALYSIS ===== */
+  .analysis-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-bottom: 2rem; }
+  .analysis-card {
+    background: var(--navy-card);
+    border: 1px solid var(--navy-border);
+    border-radius: 16px;
+    padding: 1.5rem;
+  }
+  .ana-label { font-size: 0.75rem; color: var(--text-muted); font-family: 'Rajdhani', sans-serif; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.4rem; }
+  .ana-value { font-family: 'Baloo 2', cursive; font-size: 2rem; font-weight: 800; color: var(--saffron); }
+  .ana-sub { font-size: 0.82rem; color: var(--text-dim); margin-top: 0.2rem; }
+
+  .topic-weight-table { background: var(--navy-card); border: 1px solid var(--navy-border); border-radius: 16px; overflow: hidden; }
+  .tw-header { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; padding: 1rem 1.5rem; background: rgba(255,107,0,0.06); border-bottom: 1px solid var(--navy-border); font-family: 'Rajdhani', sans-serif; font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); }
+  .tw-row { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; padding: 1rem 1.5rem; border-bottom: 1px solid var(--navy-border); font-size: 0.9rem; align-items: center; transition: background 0.15s; cursor: pointer; }
+  .tw-row:hover { background: rgba(255,107,0,0.04); }
+  .tw-row:last-child { border-bottom: none; }
+  .diff-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 0.4rem; }
+  .dot-easy { background: var(--green); }
+  .dot-med { background: var(--gold); }
+  .dot-hard { background: #EF4444; }
+  .weight-bar { height: 6px; background: var(--navy-mid); border-radius: 100px; overflow: hidden; margin-top: 0.3rem; }
+  .wb-fill { height: 100%; background: linear-gradient(90deg, var(--saffron), var(--gold)); border-radius: 100px; }
+</style>
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav>
+  <div class="nav-inner">
+    <a href="#" class="logo" onclick="showSection('home')">Tricky<span>SSC</span></a>
+    <ul class="nav-links">
+      <li><a href="#" onclick="showSection('home')">Home</a></li>
+      <li><a href="#" onclick="showSection('practice')">Practice</a></li>
+      <li><a href="#" onclick="showSection('pyq')">PYQ Bank</a></li>
+      <li><a href="#" onclick="showSection('mock')">Mock Tests</a></li>
+      <li><a href="#" onclick="showSection('tricks')">Tricks</a></li>
+      <li><a href="#" onclick="showSection('ai')">AI Practice</a></li>
+      <li><a href="#" onclick="showSection('ca')">Current Affairs</a></li>
+      <li><a href="#" onclick="showSection('notes')">Study Notes</a></li>
+      <li><a href="#" onclick="showSection('blog')">Blog</a></li>
+    </ul>
+    <div class="hamburger" onclick="toggleMenu()">
+      <span></span><span></span><span></span>
+    </div>
+  </div>
+</nav>
+
+<!-- MOBILE MENU -->
+<div class="mobile-menu" id="mobileMenu">
+  <a href="#" onclick="showSection('home');toggleMenu()">🏠 Home</a>
+  <a href="#" onclick="showSection('practice');toggleMenu()">📝 Practice</a>
+  <a href="#" onclick="showSection('pyq');toggleMenu()">📚 PYQ Bank</a>
+  <a href="#" onclick="showSection('mock');toggleMenu()">🎯 Mock Tests</a>
+  <a href="#" onclick="showSection('tricks');toggleMenu()">⚡ Tricks</a>
+  <a href="#" onclick="showSection('ai');toggleMenu()">🤖 AI Practice</a>
+  <a href="#" onclick="showSection('ca');toggleMenu()">📰 Current Affairs</a>
+  <a href="#" onclick="showSection('notes');toggleMenu()">📓 Study Notes</a>
+  <a href="#" onclick="showSection('blog');toggleMenu()">✍️ Blog</a>
+</div>
+
+<!-- ==================== HOME ==================== -->
+<section id="home" class="active">
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-inner content-wrap">
+      <div class="hero-text">
+        <div class="hero-badge">🏆 India's #1 SSC CGL Prep Platform</div>
+        <h1>Crack SSC CGL with <span class="highlight">Smart Tricks</span> & PYQs</h1>
+        <p>Practice 15 years of SSC CGL Previous Year Questions, master shortcut tricks, take AI-powered tests, and track your rank — all in one place.</p>
+        <div class="hero-btns">
+          <a href="#" class="btn-primary" onclick="showSection('practice')">🚀 Start Practicing Free</a>
+          <a href="#" class="btn-secondary" onclick="showSection('mock')">📋 Take Mock Test</a>
+        </div>
+        <div class="hero-stats">
+          <div class="stat">
+            <div class="stat-num">15K+</div>
+            <div class="stat-label">PYQ Questions</div>
+          </div>
+          <div class="stat">
+            <div class="stat-num">2.4L+</div>
+            <div class="stat-label">Students</div>
+          </div>
+          <div class="stat">
+            <div class="stat-num">500+</div>
+            <div class="stat-label">Shortcut Tricks</div>
+          </div>
+          <div class="stat">
+            <div class="stat-num">98%</div>
+            <div class="stat-label">Coverage Rate</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quiz preview card -->
+      <div class="hero-visual">
+        <div class="floating-badge fb1">
+          <span>🔥</span>
+          <div>
+            <div style="font-weight:600;font-size:0.85rem;">Daily Streak</div>
+            <div style="color:var(--saffron);font-family:'Rajdhani',sans-serif;font-weight:700;">14 Days</div>
+          </div>
+        </div>
+        <div class="hero-card-main">
+          <div class="quiz-preview">
+            <div class="qp-header">
+              <span class="qp-tag">📐 PERCENTAGE • 2023</span>
+              <span class="qp-timer">⏱ 00:45</span>
+            </div>
+            <div class="qp-question">If 30% of A = 0.25 of B = 1/5 of C, what is A : B : C?</div>
+            <div class="qp-options">
+              <div class="qp-option" onclick="selectOption(this, false)"><span class="opt-letter">A</span> 6 : 7 : 8</div>
+              <div class="qp-option correct" onclick="selectOption(this, true)"><span class="opt-letter">B</span> 10 : 12 : 15</div>
+              <div class="qp-option" onclick="selectOption(this, false)"><span class="opt-letter">C</span> 15 : 12 : 10</div>
+              <div class="qp-option" onclick="selectOption(this, false)"><span class="opt-letter">D</span> 12 : 10 : 15</div>
+            </div>
+          </div>
+        </div>
+        <div class="floating-badge fb2">
+          <span>📈</span>
+          <div>
+            <div style="font-weight:600;font-size:0.85rem;">Your Rank</div>
+            <div style="color:var(--green);font-family:'Rajdhani',sans-serif;font-weight:700;">#247 / 24,891</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- KEY FEATURES -->
+  <div style="padding: 5rem 2rem; background: rgba(255,107,0,0.03);">
+    <div class="content-wrap">
+      <div class="section-header">
+        <div class="section-tag">What We Offer</div>
+        <h2 class="section-title">Everything You Need to <span style="color:var(--saffron)">Crack SSC CGL</span></h2>
+        <p class="section-sub">From PYQs to AI-generated tests, we have all the tools to make you exam-ready.</p>
+      </div>
+      <div class="features-grid">
+        <a class="feat-card" href="#" onclick="showSection('pyq')">
+          <span class="feat-icon">📚</span>
+          <div class="feat-title">15 Years PYQ Bank</div>
+          <div class="feat-desc">Topic-wise sorted Previous Year Questions from 2009–2024 with detailed solutions and trick explanations.</div>
+        </a>
+        <a class="feat-card" href="#" onclick="showSection('tricks')">
+          <span class="feat-icon">⚡</span>
+          <div class="feat-title">Shortcut Trick Library</div>
+          <div class="feat-desc">500+ speed tricks for Quant, Reasoning, and English — solve questions in under 30 seconds.</div>
+        </a>
+        <a class="feat-card" href="#" onclick="showSection('ai')">
+          <span class="feat-icon">🤖</span>
+          <div class="feat-title">AI Practice Generator</div>
+          <div class="feat-desc">Choose topic and difficulty — AI generates fresh practice questions tailored to SSC CGL pattern.</div>
+        </a>
+        <a class="feat-card" href="#" onclick="showSection('mock')">
+          <span class="feat-icon">🎯</span>
+          <div class="feat-title">Full Mock Tests</div>
+          <div class="feat-desc">Tier 1 & Tier 2 mock tests with timer, rank, and section-wise performance analysis.</div>
+        </a>
+        <a class="feat-card" href="#" onclick="showSection('home')">
+          <span class="feat-icon">📊</span>
+          <div class="feat-title">Exam Analysis</div>
+          <div class="feat-desc">Year-wise topic weightage, difficulty analysis, and expected questions for upcoming exams.</div>
+        </a>
+        <a class="feat-card" href="#" onclick="showSection('home')">
+          <span class="feat-icon">🏆</span>
+          <div class="feat-title">Rank & Leaderboard</div>
+          <div class="feat-desc">Compete with lakhs of students. Track weekly and monthly rank to stay motivated.</div>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- DAILY QUIZ TEASER -->
+  <div style="padding: 5rem 2rem;">
+    <div class="content-wrap">
+      <div class="section-header">
+        <div class="section-tag">Stay Active</div>
+        <h2 class="section-title">Today's <span style="color:var(--saffron)">Daily Quizzes</span></h2>
+      </div>
+      <div class="daily-quiz-grid">
+        <div class="dq-card" onclick="showSection('practice')">
+          <div class="dq-banner" style="background:linear-gradient(135deg,rgba(255,107,0,0.3),rgba(255,107,0,0.1))">📐 Daily Quant Quiz</div>
+          <div class="dq-body">
+            <div class="dq-info">
+              <div class="dq-stat"><div class="dq-stat-num" style="color:var(--saffron)">15</div><div class="dq-stat-label">Questions</div></div>
+              <div class="dq-stat"><div class="dq-stat-num" style="color:var(--gold)">20</div><div class="dq-stat-label">Minutes</div></div>
+              <div class="dq-stat"><div class="dq-stat-num" style="color:var(--green)">2891</div><div class="dq-stat-label">Attempted</div></div>
+            </div>
+            <div class="progress-bar"><div class="progress-fill" style="width:72%"></div></div>
+            <div class="progress-label">72% students scored above 10</div>
+          </div>
+        </div>
+        <div class="dq-card" onclick="showSection('practice')">
+          <div class="dq-banner" style="background:linear-gradient(135deg,rgba(56,189,248,0.3),rgba(56,189,248,0.1))">🧠 Daily Reasoning Quiz</div>
+          <div class="dq-body">
+            <div class="dq-info">
+              <div class="dq-stat"><div class="dq-stat-num" style="color:var(--sky)">15</div><div class="dq-stat-label">Questions</div></div>
+              <div class="dq-stat"><div class="dq-stat-num" style="color:var(--gold)">20</div><div class="dq-stat-label">Minutes</div></div>
+              <div class="dq-stat"><div class="dq-stat-num" style="color:var(--green)">3412</div><div class="dq-stat-label">Attempted</div></div>
+            </div>
+            <div class="progress-bar"><div class="progress-fill" style="width:65%;background:linear-gradient(90deg,var(--sky),#818CF8)"></div></div>
+            <div class="progress-label">65% students scored above 10</div>
+          </div>
+        </div>
+        <div class="dq-card" onclick="showSection('practice')">
+          <div class="dq-banner" style="background:linear-gradient(135deg,rgba(0,200,150,0.3),rgba(0,200,150,0.1))">📝 Daily English Quiz</div>
+          <div class="dq-body">
+            <div class="dq-info">
+              <div class="dq-stat"><div class="dq-stat-num" style="color:var(--green)">10</div><div class="dq-stat-label">Questions</div></div>
+              <div class="dq-stat"><div class="dq-stat-num" style="color:var(--gold)">12</div><div class="dq-stat-label">Minutes</div></div>
+              <div class="dq-stat"><div class="dq-stat-num" style="color:var(--green)">2156</div><div class="dq-stat-label">Attempted</div></div>
+            </div>
+            <div class="progress-bar"><div class="progress-fill" style="width:58%;background:linear-gradient(90deg,var(--green),var(--sky))"></div></div>
+            <div class="progress-label">58% students scored above 7</div>
+          </div>
+        </div>
+        <div class="dq-card" onclick="showSection('ca')">
+          <div class="dq-banner" style="background:linear-gradient(135deg,rgba(255,215,0,0.3),rgba(255,215,0,0.1))">🌐 Daily Current Affairs</div>
+          <div class="dq-body">
+            <div class="dq-info">
+              <div class="dq-stat"><div class="dq-stat-num" style="color:var(--gold)">10</div><div class="dq-stat-label">Questions</div></div>
+              <div class="dq-stat"><div class="dq-stat-num" style="color:var(--gold)">10</div><div class="dq-stat-label">Minutes</div></div>
+              <div class="dq-stat"><div class="dq-stat-num" style="color:var(--green)">4891</div><div class="dq-stat-label">Attempted</div></div>
+            </div>
+            <div class="progress-bar"><div class="progress-fill" style="width:80%;background:linear-gradient(90deg,var(--gold),var(--saffron))"></div></div>
+            <div class="progress-label">80% students scored above 7</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== PYQ BANK ==================== -->
+<section id="pyq">
+  <div class="content-wrap section-anim">
+    <div class="section-header">
+      <div class="section-tag">Previous Year Questions</div>
+      <h2 class="section-title">SSC CGL <span style="color:var(--saffron)">PYQ Bank</span></h2>
+      <p class="section-sub">15 years of SSC CGL questions, chapter-wise sorted with solutions & tricks</p>
+    </div>
+
+    <div class="pyq-layout">
+      <div class="pyq-sidebar">
+        <div class="sidebar-section">
+          <div class="sidebar-header">📐 Quantitative Aptitude</div>
+          <div class="sidebar-item active-item" onclick="activeSidebarItem(this)">Number System <span class="sidebar-count">342</span></div>
+          <div class="sidebar-item" onclick="activeSidebarItem(this)">Simplification <span class="sidebar-count">289</span></div>
+          <div class="sidebar-item" onclick="activeSidebarItem(this)">Percentage <span class="sidebar-count">412</span></div>
+          <div class="sidebar-item" onclick="activeSidebarItem(this)">Ratio & Proportion <span class="sidebar-count">287</span></div>
+          <div class="sidebar-item" onclick="activeSidebarItem(this)">Average <span class="sidebar-count">198</span></div>
+          <div class="sidebar-item" onclick="activeSidebarItem(this)">Profit & Loss <span class="sidebar-count">356</span></div>
+          <div class="sidebar-item" onclick="activeSidebarItem(this)">Time & Work <span class="sidebar-count">278</span></div>
+          <div class="sidebar-item" onclick="activeSidebarItem(this)">Time Speed Distance <span class="sidebar-count">312</span></div>
+          <div class="sidebar-item" onclick="activeSidebarItem(this)">Algebra <span class="sidebar-count">445</span></div>
+          <div class="sidebar-item" onclick="activeSidebarItem(this)">Geometry <span class="sidebar-count">389</span></div>
+          <div class="sidebar-item" onclick="activeSidebarItem(this)">Trigonometry <span class="sidebar-count">276</span></div>
+          <div class="sidebar-item" onclick="activeSidebarItem(this)">Mensuration <span class="sidebar-count">334</span></div>
+        </div>
+        <div class="sidebar-section">
+          <div class="sidebar-header">🧠 Reasoning</div>
+          <div class="sidebar-item" onclick="activeSidebarItem(this)">Analogy <span class="sidebar-count">245</span></div>
+          <div class="sidebar-item" onclick="activeSidebarItem(this)">Series <span class="sidebar-count">312</span></div>
+          <div class="sidebar-item" onclick="activeSidebarItem(this)">Coding-Decoding <span class="sidebar-count">289</span></div>
+          <div class="sidebar-item" onclick="activeSidebarItem(this)">Blood Relations <span class="sidebar-count">178</span></div>
+        </div>
+        <div class="sidebar-section">
+          <div class="sidebar-header">📝 English</div>
+          <div class="sidebar-item" onclick="activeSidebarItem(this)">Error Detection <span class="sidebar-count">367</span></div>
+          <div class="sidebar-item" onclick="activeSidebarItem(this)">Cloze Test <span class="sidebar-count">289</span></div>
+          <div class="sidebar-item" onclick="activeSidebarItem(this)">Synonyms/Antonyms <span class="sidebar-count">445</span></div>
+        </div>
+      </div>
+
+      <div class="pyq-main">
+        <div class="chapter-card">
+          <div class="ch-header">
+            <div>
+              <div class="ch-title">📊 Number System</div>
+              <div class="ch-badges">
+                <span class="badge badge-orange">342 PYQs</span>
+                <span class="badge badge-green">Concept Notes</span>
+                <span class="badge badge-blue">8 Tricks</span>
+              </div>
+            </div>
+            <a href="#" class="btn-primary" style="font-size:0.85rem;padding:0.6rem 1.2rem">Practice All →</a>
+          </div>
+
+          <div class="ch-tabs">
+            <button class="ch-tab active" onclick="activateTab(this)">📖 PYQ Questions</button>
+            <button class="ch-tab" onclick="activateTab(this)">💡 Shortcut Tricks</button>
+            <button class="ch-tab" onclick="activateTab(this)">📋 Concept Notes</button>
+          </div>
+
+          <div class="question-box">
+            <div class="q-meta">
+              <span class="badge badge-orange">SSC CGL 2023</span>
+              <span class="badge badge-green">Easy</span>
+            </div>
+            <div class="q-text">The HCF of two numbers is 12 and their LCM is 1800. If one of the numbers is 360, find the other number.</div>
+            <div class="q-options">
+              <div class="q-opt" onclick="markAnswer(this, false)"><span>A.</span> 54</div>
+              <div class="q-opt answer-correct" onclick="markAnswer(this, true)"><span>B.</span> 60</div>
+              <div class="q-opt" onclick="markAnswer(this, false)"><span>C.</span> 72</div>
+              <div class="q-opt" onclick="markAnswer(this, false)"><span>D.</span> 48</div>
+            </div>
+          </div>
+
+          <div class="question-box">
+            <div class="q-meta">
+              <span class="badge badge-orange">SSC CGL 2022</span>
+              <span class="badge" style="background:rgba(255,215,0,0.1);color:var(--gold);border:1px solid rgba(255,215,0,0.2)">Moderate</span>
+            </div>
+            <div class="q-text">How many numbers between 1 and 200 are divisible by both 3 and 7?</div>
+            <div class="q-options">
+              <div class="q-opt" onclick="markAnswer(this, false)"><span>A.</span> 7</div>
+              <div class="q-opt" onclick="markAnswer(this, false)"><span>B.</span> 8</div>
+              <div class="q-opt answer-correct" onclick="markAnswer(this, true)"><span>C.</span> 9</div>
+              <div class="q-opt" onclick="markAnswer(this, false)"><span>D.</span> 10</div>
+            </div>
+          </div>
+
+          <div class="question-box">
+            <div class="q-meta">
+              <span class="badge badge-orange">SSC CGL 2021</span>
+              <span class="badge" style="background:rgba(239,68,68,0.1);color:#EF4444;border:1px solid rgba(239,68,68,0.2)">Hard</span>
+            </div>
+            <div class="q-text">The sum of all prime numbers between 60 and 80 is:</div>
+            <div class="q-options">
+              <div class="q-opt" onclick="markAnswer(this, false)"><span>A.</span> 351</div>
+              <div class="q-opt answer-correct" onclick="markAnswer(this, true)"><span>B.</span> 351</div>
+              <div class="q-opt" onclick="markAnswer(this, false)"><span>C.</span> 341</div>
+              <div class="q-opt" onclick="markAnswer(this, false)"><span>D.</span> 371</div>
+            </div>
+          </div>
+
+          <div style="text-align:center;margin-top:1rem">
+            <a href="#" class="btn-secondary">Load More Questions (339 remaining)</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== PRACTICE ==================== -->
+<section id="practice">
+  <div class="content-wrap section-anim">
+    <div class="section-header">
+      <div class="section-tag">Practice Mode</div>
+      <h2 class="section-title">Chapter-wise <span style="color:var(--saffron)">Practice Tests</span></h2>
+      <p class="section-sub">Easy, Moderate, and Hard level questions for every chapter</p>
+    </div>
+
+    <h3 style="font-family:'Baloo 2',cursive;font-size:1.2rem;margin-bottom:1.5rem;color:var(--text-dim)">📐 Quantitative Aptitude</h3>
+    <div class="practice-grid">
+      <div class="practice-card">
+        <div class="pc-icon">📊</div>
+        <div class="pc-name">Percentage</div>
+        <div class="pc-count">412 Questions · Avg 68% accuracy</div>
+        <div class="pc-levels">
+          <span class="level-pill lvl-easy">Easy 142</span>
+          <span class="level-pill lvl-med">Medium 178</span>
+          <span class="level-pill lvl-hard">Hard 92</span>
+        </div>
+      </div>
+      <div class="practice-card">
+        <div class="pc-icon">⚖️</div>
+        <div class="pc-name">Ratio & Proportion</div>
+        <div class="pc-count">287 Questions · Avg 72% accuracy</div>
+        <div class="pc-levels">
+          <span class="level-pill lvl-easy">Easy 98</span>
+          <span class="level-pill lvl-med">Medium 124</span>
+          <span class="level-pill lvl-hard">Hard 65</span>
+        </div>
+      </div>
+      <div class="practice-card">
+        <div class="pc-icon">🔺</div>
+        <div class="pc-name">Geometry</div>
+        <div class="pc-count">389 Questions · Avg 54% accuracy</div>
+        <div class="pc-levels">
+          <span class="level-pill lvl-easy">Easy 112</span>
+          <span class="level-pill lvl-med">Medium 167</span>
+          <span class="level-pill lvl-hard">Hard 110</span>
+        </div>
+      </div>
+      <div class="practice-card">
+        <div class="pc-icon">📈</div>
+        <div class="pc-name">Profit & Loss</div>
+        <div class="pc-count">356 Questions · Avg 65% accuracy</div>
+        <div class="pc-levels">
+          <span class="level-pill lvl-easy">Easy 120</span>
+          <span class="level-pill lvl-med">Medium 154</span>
+          <span class="level-pill lvl-hard">Hard 82</span>
+        </div>
+      </div>
+      <div class="practice-card">
+        <div class="pc-icon">⏱️</div>
+        <div class="pc-name">Time & Work</div>
+        <div class="pc-count">278 Questions · Avg 61% accuracy</div>
+        <div class="pc-levels">
+          <span class="level-pill lvl-easy">Easy 95</span>
+          <span class="level-pill lvl-med">Medium 118</span>
+          <span class="level-pill lvl-hard">Hard 65</span>
+        </div>
+      </div>
+      <div class="practice-card">
+        <div class="pc-icon">🚗</div>
+        <div class="pc-name">Time Speed Distance</div>
+        <div class="pc-count">312 Questions · Avg 59% accuracy</div>
+        <div class="pc-levels">
+          <span class="level-pill lvl-easy">Easy 104</span>
+          <span class="level-pill lvl-med">Medium 138</span>
+          <span class="level-pill lvl-hard">Hard 70</span>
+        </div>
+      </div>
+    </div>
+
+    <h3 style="font-family:'Baloo 2',cursive;font-size:1.2rem;margin:2.5rem 0 1.5rem;color:var(--text-dim)">🧠 Reasoning Ability</h3>
+    <div class="practice-grid">
+      <div class="practice-card">
+        <div class="pc-icon">🔗</div>
+        <div class="pc-name">Analogy</div>
+        <div class="pc-count">245 Questions · Avg 78% accuracy</div>
+        <div class="pc-levels">
+          <span class="level-pill lvl-easy">Easy 95</span>
+          <span class="level-pill lvl-med">Medium 108</span>
+          <span class="level-pill lvl-hard">Hard 42</span>
+        </div>
+      </div>
+      <div class="practice-card">
+        <div class="pc-icon">🔢</div>
+        <div class="pc-name">Number Series</div>
+        <div class="pc-count">312 Questions · Avg 67% accuracy</div>
+        <div class="pc-levels">
+          <span class="level-pill lvl-easy">Easy 112</span>
+          <span class="level-pill lvl-med">Medium 134</span>
+          <span class="level-pill lvl-hard">Hard 66</span>
+        </div>
+      </div>
+      <div class="practice-card">
+        <div class="pc-icon">🔐</div>
+        <div class="pc-name">Coding-Decoding</div>
+        <div class="pc-count">289 Questions · Avg 71% accuracy</div>
+        <div class="pc-levels">
+          <span class="level-pill lvl-easy">Easy 108</span>
+          <span class="level-pill lvl-med">Medium 122</span>
+          <span class="level-pill lvl-hard">Hard 59</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== MOCK TESTS ==================== -->
+<section id="mock">
+  <div class="content-wrap section-anim">
+    <div class="section-header">
+      <div class="section-tag">Full Exam Simulation</div>
+      <h2 class="section-title">Mock <span style="color:var(--saffron)">Test Series</span></h2>
+      <p class="section-sub">Timer, rank, analysis & solutions — just like the real SSC CGL exam</p>
+    </div>
+
+    <div class="mock-types">
+      <div class="mock-type-card">
+        <div class="mt-accent accent-orange"></div>
+        <div class="mt-title">🎯 SSC CGL Tier 1</div>
+        <div class="mt-desc">Full 100-question paper with Quant, Reasoning, English, and GK — 60 minutes timer, auto evaluation.</div>
+        <div class="mt-features">
+          <span class="mt-feat">⏱ 60 Min</span>
+          <span class="mt-feat">📊 100 Questions</span>
+          <span class="mt-feat">🏆 Live Rank</span>
+          <span class="mt-feat">📈 Analysis</span>
+        </div>
+        <a href="#" class="btn-primary" style="font-size:0.85rem;padding:0.65rem 1.4rem">Start Test</a>
+      </div>
+      <div class="mock-type-card">
+        <div class="mt-accent accent-green"></div>
+        <div class="mt-title">🏅 SSC CGL Tier 2</div>
+        <div class="mt-desc">Full Tier-2 simulation with Maths, English, Statistics, and General Studies papers.</div>
+        <div class="mt-features">
+          <span class="mt-feat">⏱ 2.5 Hours</span>
+          <span class="mt-feat">📊 390 Questions</span>
+          <span class="mt-feat">🏆 Live Rank</span>
+          <span class="mt-feat">📈 Analysis</span>
+        </div>
+        <a href="#" class="btn-primary" style="font-size:0.85rem;padding:0.65rem 1.4rem;background:var(--green)">Start Test</a>
+      </div>
+      <div class="mock-type-card">
+        <div class="mt-accent accent-blue"></div>
+        <div class="mt-title">📑 Sectional Tests</div>
+        <div class="mt-desc">Section-only tests — practice just Quant, just Reasoning, or just English to focus on weak areas.</div>
+        <div class="mt-features">
+          <span class="mt-feat">⏱ 20 Min</span>
+          <span class="mt-feat">📊 25 Questions</span>
+          <span class="mt-feat">📈 Section Analysis</span>
+        </div>
+        <a href="#" class="btn-primary" style="font-size:0.85rem;padding:0.65rem 1.4rem;background:var(--sky)">Choose Section</a>
+      </div>
+      <div class="mock-type-card">
+        <div class="mt-accent accent-purple"></div>
+        <div class="mt-title">📅 Previous Year Papers</div>
+        <div class="mt-desc">Attempt actual SSC CGL question papers from 2015–2024 in exam-like interface.</div>
+        <div class="mt-features">
+          <span class="mt-feat">⏱ 60 Min</span>
+          <span class="mt-feat">📊 100 Questions</span>
+          <span class="mt-feat">📅 Year Filter</span>
+        </div>
+        <a href="#" class="btn-primary" style="font-size:0.85rem;padding:0.65rem 1.4rem;background:#818CF8">Select Year</a>
+      </div>
+    </div>
+
+    <div class="mock-list" style="margin-top:3rem">
+      <h3 style="font-family:'Baloo 2',cursive;font-size:1.3rem;margin-bottom:1.2rem">🔥 Latest Mock Tests</h3>
+      <div class="mock-item">
+        <div class="mi-left">
+          <div class="mi-num">1</div>
+          <div><div class="mi-name">SSC CGL Tier 1 Mock Test 2025 — Set 12</div><div class="mi-meta">100 Qs · 60 Min · 18,924 Attempted · Avg Score: 67.4</div></div>
+        </div>
+        <div class="mi-right">
+          <span class="badge badge-green">New</span>
+          <a href="#" class="btn-primary" style="font-size:0.8rem;padding:0.5rem 1rem">Attempt</a>
+        </div>
+      </div>
+      <div class="mock-item">
+        <div class="mi-left">
+          <div class="mi-num">2</div>
+          <div><div class="mi-name">SSC CGL Tier 1 Mock Test 2025 — Set 11</div><div class="mi-meta">100 Qs · 60 Min · 24,567 Attempted · Avg Score: 71.2</div></div>
+        </div>
+        <div class="mi-right">
+          <a href="#" class="btn-secondary" style="font-size:0.8rem;padding:0.5rem 1rem">Reattempt</a>
+          <a href="#" class="btn-primary" style="font-size:0.8rem;padding:0.5rem 1rem">Solutions</a>
+        </div>
+      </div>
+      <div class="mock-item">
+        <div class="mi-left">
+          <div class="mi-num">3</div>
+          <div><div class="mi-name">SSC CGL PYP 2024 (01 March Shift 1)</div><div class="mi-meta">100 Qs · 60 Min · 31,245 Attempted · Avg Score: 63.8</div></div>
+        </div>
+        <div class="mi-right">
+          <span class="badge badge-blue">PYP</span>
+          <a href="#" class="btn-primary" style="font-size:0.8rem;padding:0.5rem 1rem">Attempt</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== TRICKS ==================== -->
+<section id="tricks">
+  <div class="content-wrap section-anim">
+    <div class="section-header">
+      <div class="section-tag">Speed Tricks</div>
+      <h2 class="section-title">Shortcut <span style="color:var(--saffron)">Trick Library</span></h2>
+      <p class="section-sub">500+ proven shortcut tricks to solve SSC CGL questions in under 30 seconds</p>
+    </div>
+
+    <div class="tricks-cats">
+      <button class="trick-cat-btn active" onclick="activeBtn(this)">All Tricks</button>
+      <button class="trick-cat-btn" onclick="activeBtn(this)">📐 Quant</button>
+      <button class="trick-cat-btn" onclick="activeBtn(this)">🧠 Reasoning</button>
+      <button class="trick-cat-btn" onclick="activeBtn(this)">📝 English</button>
+    </div>
+
+    <div class="tricks-grid">
+      <div class="trick-card">
+        <div class="trick-header">
+          <div class="trick-name">⚡ Square of Number Ending in 5</div>
+          <div class="trick-tag">📐 QUANT · MULTIPLICATION</div>
+        </div>
+        <div class="trick-body">
+          <div class="trick-formula">n5² = n(n+1) | 25</div>
+          <div class="trick-example"><b>Example:</b> 75² = 7×8 | 25 = 5625<br>65² = 6×7 | 25 = 4225<br>This trick works for ANY number ending in 5!</div>
+        </div>
+      </div>
+      <div class="trick-card">
+        <div class="trick-header">
+          <div class="trick-name">⚡ Percentage ↔ Fraction</div>
+          <div class="trick-tag">📐 QUANT · PERCENTAGE</div>
+        </div>
+        <div class="trick-body">
+          <div class="trick-formula">1/6 = 16.67% | 1/7 = 14.28%</div>
+          <div class="trick-example">Memorize: 1/8=12.5%, 1/9=11.11%, 1/11=9.09%, 1/12=8.33%, 1/13=7.69%<br>Converting fractions is 3× faster than dividing!</div>
+        </div>
+      </div>
+      <div class="trick-card">
+        <div class="trick-header">
+          <div class="trick-name">⚡ Successive Discount Formula</div>
+          <div class="trick-tag">📐 QUANT · PROFIT & LOSS</div>
+        </div>
+        <div class="trick-body">
+          <div class="trick-formula">Net% = a + b - ab/100</div>
+          <div class="trick-example"><b>Example:</b> 20% + 30% discount<br>= 20+30 - (20×30)/100 = 50-6 = <b>44% net</b><br>Avoid lengthy calculations instantly!</div>
+        </div>
+      </div>
+      <div class="trick-card">
+        <div class="trick-header">
+          <div class="trick-name">⚡ Dice Opposite Face Rule</div>
+          <div class="trick-tag">🧠 REASONING · DICE</div>
+        </div>
+        <div class="trick-body">
+          <div class="trick-formula">Opposite = 7 − face value</div>
+          <div class="trick-example"><b>Standard Dice:</b> 1↔6, 2↔5, 3↔4<br>For non-standard dice, use unfolding method or elimination by adjacent faces.</div>
+        </div>
+      </div>
+      <div class="trick-card">
+        <div class="trick-header">
+          <div class="trick-name">⚡ Blood Relation Shorthand</div>
+          <div class="trick-tag">🧠 REASONING · BLOOD RELATIONS</div>
+        </div>
+        <div class="trick-body">
+          <div class="trick-formula">+M = Male · -F = Female</div>
+          <div class="trick-example">Draw a tree: Use + for male, − for female. Connect via = (married), ↓ (child). Solves 4-step chains in under 20 seconds!</div>
+        </div>
+      </div>
+      <div class="trick-card">
+        <div class="trick-header">
+          <div class="trick-name">⚡ Error Detection: S-V Agreement</div>
+          <div class="trick-tag">📝 ENGLISH · ERROR DETECTION</div>
+        </div>
+        <div class="trick-body">
+          <div class="trick-formula">Each/Every/Neither → Singular verb</div>
+          <div class="trick-example">Rule: "Each of the boys <b>is</b> (not are) present." <br>FANBOYS join two clauses — check both subjects separately. Covers 40% of grammar errors!</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== AI PRACTICE ==================== -->
+<section id="ai">
+  <div class="content-wrap section-anim">
+    <div class="section-header">
+      <div class="section-tag">AI-Powered</div>
+      <h2 class="section-title">AI Practice <span style="color:var(--saffron)">Generator</span></h2>
+      <p class="section-sub">Choose exam, topic & difficulty — AI generates fresh SSC-pattern questions instantly</p>
+    </div>
+
+    <div class="ai-section-layout">
+      <div class="ai-form-card">
+        <h3 style="font-family:'Baloo 2',cursive;font-size:1.3rem;font-weight:800;margin-bottom:1.8rem">⚙️ Configure Your Test</h3>
+
+        <label class="form-label">Select Exam</label>
+        <select class="form-select">
+          <option>SSC CGL — Combined Graduate Level</option>
+          <option>SSC CHSL — Combined Higher Secondary</option>
+          <option>SSC CPO — Central Police Organisation</option>
+          <option>SSC MTS — Multi Tasking Staff</option>
+        </select>
+
+        <label class="form-label">Select Subject</label>
+        <select class="form-select">
+          <option>Quantitative Aptitude</option>
+          <option>General Intelligence & Reasoning</option>
+          <option>English Language</option>
+          <option>General Awareness</option>
+        </select>
+
+        <label class="form-label">Select Chapter</label>
+        <select class="form-select">
+          <option>Percentage</option>
+          <option>Ratio & Proportion</option>
+          <option>Number System</option>
+          <option>Profit & Loss</option>
+          <option>Geometry</option>
+          <option>Trigonometry</option>
+        </select>
+
+        <label class="form-label">Difficulty Level</label>
+        <div class="difficulty-grid">
+          <button class="diff-btn selected" onclick="selectDiff(this)">🟢 Easy</button>
+          <button class="diff-btn" onclick="selectDiff(this)">🟡 Medium</button>
+          <button class="diff-btn" onclick="selectDiff(this)">🔴 Hard</button>
+        </div>
+
+        <label class="form-label">Number of Questions</label>
+        <div class="count-grid">
+          <button class="diff-btn selected" onclick="selectDiff(this)">10 Qs</button>
+          <button class="diff-btn" onclick="selectDiff(this)">20 Qs</button>
+          <button class="diff-btn" onclick="selectDiff(this)">Full Test (50)</button>
+        </div>
+
+        <button class="btn-primary" style="width:100%;justify-content:center;font-size:1.05rem;padding:1rem" onclick="generateAI()">🤖 Generate Questions</button>
+      </div>
+
+      <div class="ai-output-card">
+        <div id="aiPlaceholder" style="text-align:center;padding:4rem 2rem;color:var(--text-muted)">
+          <div style="font-size:4rem;margin-bottom:1rem">🤖</div>
+          <div style="font-family:'Baloo 2',cursive;font-size:1.2rem;font-weight:700;margin-bottom:0.5rem">Ready to Generate</div>
+          <div style="font-size:0.9rem">Configure your preferences on the left and click Generate to get AI-powered SSC CGL practice questions.</div>
+        </div>
+        <div id="aiGenerating" style="display:none">
+          <div class="generating-state">
+            <div class="spinner"></div>
+            <div style="font-family:'Baloo 2',cursive;font-size:1.1rem;font-weight:700">Generating questions...</div>
+            <div style="font-size:0.85rem;color:var(--text-muted);margin-top:0.5rem">Analyzing SSC CGL pattern & difficulty</div>
+          </div>
+        </div>
+        <div id="aiQuestions" style="display:none">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem">
+            <div style="font-family:'Baloo 2',cursive;font-size:1.1rem;font-weight:800">🎯 10 Questions Generated</div>
+            <span class="badge badge-green">Percentage · Easy</span>
+          </div>
+          <div class="ai-generated-q">
+            <div class="ai-q-num">Q1.</div>
+            <div class="ai-q-text">A shopkeeper marks his goods 25% above the cost price and then gives a discount of 10%. What is his profit percentage?</div>
+          </div>
+          <div class="ai-generated-q">
+            <div class="ai-q-num">Q2.</div>
+            <div class="ai-q-text">If 40% of a number is equal to two-third of another number, what is the ratio of the first number to the second number?</div>
+          </div>
+          <div class="ai-generated-q">
+            <div class="ai-q-num">Q3.</div>
+            <div class="ai-q-text">In an election, a candidate who gets 60% of the total votes cast wins by 480 votes. Find the total number of votes cast.</div>
+          </div>
+          <div style="text-align:center;padding:1rem;color:var(--text-muted);font-size:0.88rem">+ 7 more questions</div>
+          <button class="btn-primary" style="width:100%;justify-content:center">Start This Test →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== CURRENT AFFAIRS ==================== -->
+<section id="ca">
+  <div class="content-wrap section-anim">
+    <div class="section-header">
+      <div class="section-tag">Stay Updated</div>
+      <h2 class="section-title">Current <span style="color:var(--saffron)">Affairs</span></h2>
+      <p class="section-sub">Daily & monthly current affairs with government schemes, reports, and indices</p>
+    </div>
+
+    <div class="ca-layout">
+      <div class="ca-list">
+        <div class="ca-item">
+          <div class="ca-date"><div class="ca-d">07</div><div class="ca-m">Mar</div></div>
+          <div class="ca-content">
+            <div class="ca-headline">India's GDP Growth projected at 6.8% for FY2025-26 by IMF</div>
+            <div class="ca-excerpt">The International Monetary Fund revised India's growth forecast upward, citing strong domestic consumption and manufacturing expansion.</div>
+            <span class="badge badge-blue ca-cat">Economy</span>
+          </div>
+        </div>
+        <div class="ca-item">
+          <div class="ca-date"><div class="ca-d">07</div><div class="ca-m">Mar</div></div>
+          <div class="ca-content">
+            <div class="ca-headline">India ranks 85th in Global Hunger Index 2024</div>
+            <div class="ca-excerpt">India's position in the annual index shows improvement from previous year's 111th rank, driven by better nutrition outcomes.</div>
+            <span class="badge badge-orange ca-cat">Reports</span>
+          </div>
+        </div>
+        <div class="ca-item">
+          <div class="ca-date"><div class="ca-d">06</div><div class="ca-m">Mar</div></div>
+          <div class="ca-content">
+            <div class="ca-headline">ISRO successfully launches NVS-02 Navigation Satellite</div>
+            <div class="ca-excerpt">The NavIC satellite system gets enhanced with the launch from Satish Dhawan Space Centre, Sriharikota.</div>
+            <span class="badge badge-green ca-cat">Science & Tech</span>
+          </div>
+        </div>
+        <div class="ca-item">
+          <div class="ca-date"><div class="ca-d">06</div><div class="ca-m">Mar</div></div>
+          <div class="ca-content">
+            <div class="ca-headline">Union Cabinet approves PM Vidyalaxmi Scheme for higher education</div>
+            <div class="ca-excerpt">The scheme provides collateral-free education loans up to ₹7.5 lakh to meritorious students from non-affluent families.</div>
+            <span class="badge badge-orange ca-cat">Government Scheme</span>
+          </div>
+        </div>
+        <div class="ca-item">
+          <div class="ca-date"><div class="ca-d">05</div><div class="ca-m">Mar</div></div>
+          <div class="ca-content">
+            <div class="ca-headline">India becomes 4th largest economy in PPP terms: World Bank</div>
+            <div class="ca-excerpt">India surpassed Japan to become the 4th largest economy in Purchasing Power Parity terms as per the latest World Bank data release.</div>
+            <span class="badge badge-blue ca-cat">Economy</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="ca-sidebar">
+        <div class="ca-widget">
+          <div class="ca-widget-header">📋 Important Government Schemes</div>
+          <div class="ca-scheme">📌 PM Kisan Samman Nidhi</div>
+          <div class="ca-scheme">📌 Ayushman Bharat Yojana</div>
+          <div class="ca-scheme">📌 PM Awas Yojana 2.0</div>
+          <div class="ca-scheme">📌 Startup India Program</div>
+          <div class="ca-scheme">📌 National Education Policy 2020</div>
+          <div class="ca-scheme">📌 PM Gati Shakti</div>
+        </div>
+        <div class="ca-widget">
+          <div class="ca-widget-header">📊 Important Reports 2024-25</div>
+          <div class="ca-scheme">📈 WEF Global Competitiveness</div>
+          <div class="ca-scheme">📈 UNDP Human Development Index</div>
+          <div class="ca-scheme">📈 World Press Freedom Index</div>
+          <div class="ca-scheme">📈 EIU Democracy Index</div>
+          <div class="ca-scheme">📈 Global Innovation Index</div>
+        </div>
+        <div class="ca-widget">
+          <div class="ca-widget-header">📅 Monthly Archive</div>
+          <div class="ca-scheme">📖 February 2025</div>
+          <div class="ca-scheme">📖 January 2025</div>
+          <div class="ca-scheme">📖 December 2024</div>
+          <div class="ca-scheme">📖 November 2024</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== STUDY NOTES ==================== -->
+<section id="notes">
+  <div class="content-wrap section-anim">
+    <div class="section-header">
+      <div class="section-tag">Quick Revision</div>
+      <h2 class="section-title">Study <span style="color:var(--saffron)">Notes</span></h2>
+      <p class="section-sub">Concise formula sheets and revision notes for all chapters</p>
+    </div>
+
+    <div class="notes-layout">
+      <div class="notes-nav">
+        <div class="notes-nav-item active" onclick="activeNavItem(this)">📐 Percentage</div>
+        <div class="notes-nav-item" onclick="activeNavItem(this)">📊 Algebra</div>
+        <div class="notes-nav-item" onclick="activeNavItem(this)">🔺 Trigonometry</div>
+        <div class="notes-nav-item" onclick="activeNavItem(this)">📏 Geometry</div>
+        <div class="notes-nav-item" onclick="activeNavItem(this)">📦 Mensuration</div>
+        <div class="notes-nav-item" onclick="activeNavItem(this)">✍️ Grammar Rules</div>
+        <div class="notes-nav-item" onclick="activeNavItem(this)">📖 Vocabulary</div>
+        <div class="notes-nav-item" onclick="activeNavItem(this)">🔢 Number Theory</div>
+      </div>
+
+      <div>
+        <div class="note-card">
+          <div class="note-title">📐 Percentage — Formula Sheet</div>
+          <div class="formula-grid">
+            <div class="formula-item">
+              <div class="formula-name">Basic Formula</div>
+              <div class="formula-text">% = (Part/Whole) × 100</div>
+            </div>
+            <div class="formula-item">
+              <div class="formula-name">% Change</div>
+              <div class="formula-text">[(New−Old)/Old] × 100</div>
+            </div>
+            <div class="formula-item">
+              <div class="formula-name">A is x% of B</div>
+              <div class="formula-text">B = (A × 100) / x</div>
+            </div>
+            <div class="formula-item">
+              <div class="formula-name">Successive Change</div>
+              <div class="formula-text">Net = a+b+(ab/100)</div>
+            </div>
+            <div class="formula-item">
+              <div class="formula-name">Population Growth</div>
+              <div class="formula-text">P(1 + r/100)^n</div>
+            </div>
+            <div class="formula-item">
+              <div class="formula-name">Depreciation</div>
+              <div class="formula-text">P(1 − r/100)^n</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="note-card">
+          <div class="note-title">⚡ Important Fraction-Percentage Table</div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.6rem">
+            <div style="background:var(--navy-mid);border-radius:8px;padding:0.75rem;text-align:center">
+              <div style="font-family:'Rajdhani',sans-serif;font-size:1.1rem;font-weight:700;color:var(--gold)">1/2</div>
+              <div style="font-size:0.8rem;color:var(--text-muted);margin-top:0.2rem">50%</div>
+            </div>
+            <div style="background:var(--navy-mid);border-radius:8px;padding:0.75rem;text-align:center">
+              <div style="font-family:'Rajdhani',sans-serif;font-size:1.1rem;font-weight:700;color:var(--gold)">1/3</div>
+              <div style="font-size:0.8rem;color:var(--text-muted);margin-top:0.2rem">33.33%</div>
+            </div>
+            <div style="background:var(--navy-mid);border-radius:8px;padding:0.75rem;text-align:center">
+              <div style="font-family:'Rajdhani',sans-serif;font-size:1.1rem;font-weight:700;color:var(--gold)">1/4</div>
+              <div style="font-size:0.8rem;color:var(--text-muted);margin-top:0.2rem">25%</div>
+            </div>
+            <div style="background:var(--navy-mid);border-radius:8px;padding:0.75rem;text-align:center">
+              <div style="font-family:'Rajdhani',sans-serif;font-size:1.1rem;font-weight:700;color:var(--gold)">1/5</div>
+              <div style="font-size:0.8rem;color:var(--text-muted);margin-top:0.2rem">20%</div>
+            </div>
+            <div style="background:var(--navy-mid);border-radius:8px;padding:0.75rem;text-align:center">
+              <div style="font-family:'Rajdhani',sans-serif;font-size:1.1rem;font-weight:700;color:var(--gold)">1/6</div>
+              <div style="font-size:0.8rem;color:var(--text-muted);margin-top:0.2rem">16.67%</div>
+            </div>
+            <div style="background:var(--navy-mid);border-radius:8px;padding:0.75rem;text-align:center">
+              <div style="font-family:'Rajdhani',sans-serif;font-size:1.1rem;font-weight:700;color:var(--gold)">1/7</div>
+              <div style="font-size:0.8rem;color:var(--text-muted);margin-top:0.2rem">14.28%</div>
+            </div>
+            <div style="background:var(--navy-mid);border-radius:8px;padding:0.75rem;text-align:center">
+              <div style="font-family:'Rajdhani',sans-serif;font-size:1.1rem;font-weight:700;color:var(--gold)">1/8</div>
+              <div style="font-size:0.8rem;color:var(--text-muted);margin-top:0.2rem">12.5%</div>
+            </div>
+            <div style="background:var(--navy-mid);border-radius:8px;padding:0.75rem;text-align:center">
+              <div style="font-family:'Rajdhani',sans-serif;font-size:1.1rem;font-weight:700;color:var(--gold)">1/9</div>
+              <div style="font-size:0.8rem;color:var(--text-muted);margin-top:0.2rem">11.11%</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Exam Analysis mini-section -->
+        <div class="note-card" style="margin-top:0">
+          <div class="note-title">📊 Exam Analysis — SSC CGL 2024</div>
+          <div class="analysis-grid" style="margin-bottom:1.5rem">
+            <div class="analysis-card">
+              <div class="ana-label">Total Questions</div>
+              <div class="ana-value">100</div>
+              <div class="ana-sub">Tier 1 Pattern</div>
+            </div>
+            <div class="analysis-card">
+              <div class="ana-label">Overall Difficulty</div>
+              <div class="ana-value" style="color:var(--gold)">Moderate</div>
+              <div class="ana-sub">Quant was tougher</div>
+            </div>
+            <div class="analysis-card">
+              <div class="ana-label">Good Attempts</div>
+              <div class="ana-value" style="color:var(--green)">82-88</div>
+              <div class="ana-sub">To clear cut-off</div>
+            </div>
+          </div>
+          <div class="topic-weight-table">
+            <div class="tw-header"><div>Topic</div><div>Questions</div><div>Difficulty</div><div>Weightage</div></div>
+            <div class="tw-row"><div>Algebra</div><div>6-7</div><div><span class="diff-dot dot-med"></span>Medium</div><div><div class="weight-bar"><div class="wb-fill" style="width:70%"></div></div></div></div>
+            <div class="tw-row"><div>Geometry</div><div>5-6</div><div><span class="diff-dot dot-hard"></span>Hard</div><div><div class="weight-bar"><div class="wb-fill" style="width:60%"></div></div></div></div>
+            <div class="tw-row"><div>Percentage</div><div>4-5</div><div><span class="diff-dot dot-easy"></span>Easy</div><div><div class="weight-bar"><div class="wb-fill" style="width:50%"></div></div></div></div>
+            <div class="tw-row"><div>Number System</div><div>3-4</div><div><span class="diff-dot dot-med"></span>Medium</div><div><div class="weight-bar"><div class="wb-fill" style="width:40%"></div></div></div></div>
+            <div class="tw-row"><div>Trigonometry</div><div>3-4</div><div><span class="diff-dot dot-hard"></span>Hard</div><div><div class="weight-bar"><div class="wb-fill" style="width:40%"></div></div></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== BLOG ==================== -->
+<section id="blog">
+  <div class="content-wrap section-anim">
+    <div class="section-header">
+      <div class="section-tag">Knowledge Hub</div>
+      <h2 class="section-title">SSC CGL <span style="color:var(--saffron)">Blog</span></h2>
+      <p class="section-sub">Expert tips, study plans, and preparation strategies</p>
+    </div>
+
+    <div class="blog-grid">
+      <div class="blog-card">
+        <div class="blog-thumb" style="background:linear-gradient(135deg,rgba(255,107,0,0.2),rgba(255,107,0,0.05))">📅</div>
+        <div class="blog-body">
+          <div class="blog-cat">Study Plan</div>
+          <div class="blog-title">6-Month SSC CGL Study Plan for Working Professionals</div>
+          <div class="blog-excerpt">A realistic, time-efficient strategy to clear SSC CGL while managing a 9-to-5 job.</div>
+          <div class="blog-meta"><span>📖 8 min read</span><span>Mar 5, 2025</span></div>
+        </div>
+      </div>
+      <div class="blog-card">
+        <div class="blog-thumb" style="background:linear-gradient(135deg,rgba(0,200,150,0.2),rgba(0,200,150,0.05))">📚</div>
+        <div class="blog-body">
+          <div class="blog-cat">Books & Resources</div>
+          <div class="blog-title">Best Books for SSC CGL 2025 — Subject-wise Complete List</div>
+          <div class="blog-excerpt">Expert-recommended books for Quant, Reasoning, English and GK with honest reviews.</div>
+          <div class="blog-meta"><span>📖 12 min read</span><span>Mar 3, 2025</span></div>
+        </div>
+      </div>
+      <div class="blog-card">
+        <div class="blog-thumb" style="background:linear-gradient(135deg,rgba(56,189,248,0.2),rgba(56,189,248,0.05))">⚡</div>
+        <div class="blog-body">
+          <div class="blog-cat">Quant Tricks</div>
+          <div class="blog-title">Top 20 Quant Shortcuts That SSC Toppers Use</div>
+          <div class="blog-excerpt">Powerful tricks that can save 30-40 minutes in the exam — tested by students who scored 90+.</div>
+          <div class="blog-meta"><span>📖 10 min read</span><span>Mar 1, 2025</span></div>
+        </div>
+      </div>
+      <div class="blog-card">
+        <div class="blog-thumb" style="background:linear-gradient(135deg,rgba(255,215,0,0.2),rgba(255,215,0,0.05))">🎯</div>
+        <div class="blog-body">
+          <div class="blog-cat">Exam Strategy</div>
+          <div class="blog-title">How to Attempt SSC CGL Tier 1 to Maximize Score</div>
+          <div class="blog-excerpt">Section-wise time allocation, question selection strategy, and negative marking management.</div>
+          <div class="blog-meta"><span>📖 6 min read</span><span>Feb 28, 2025</span></div>
+        </div>
+      </div>
+      <div class="blog-card">
+        <div class="blog-thumb" style="background:linear-gradient(135deg,rgba(129,140,248,0.2),rgba(129,140,248,0.05))">📊</div>
+        <div class="blog-body">
+          <div class="blog-cat">Analysis</div>
+          <div class="blog-title">SSC CGL 2024 Paper Analysis — All Shifts</div>
+          <div class="blog-excerpt">Detailed analysis of difficulty level, topic distribution, and expected cut-off for SSC CGL 2024.</div>
+          <div class="blog-meta"><span>📖 15 min read</span><span>Feb 25, 2025</span></div>
+        </div>
+      </div>
+      <div class="blog-card">
+        <div class="blog-thumb" style="background:linear-gradient(135deg,rgba(236,72,153,0.2),rgba(236,72,153,0.05))">🧠</div>
+        <div class="blog-body">
+          <div class="blog-cat">Reasoning</div>
+          <div class="blog-title">Master Reasoning in 30 Days — Proven Method</div>
+          <div class="blog-excerpt">Day-by-day plan to cover all Reasoning topics from basics to advanced level with practice sets.</div>
+          <div class="blog-meta"><span>📖 9 min read</span><span>Feb 22, 2025</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Leaderboard below blog -->
+    <div style="margin-top:5rem">
+      <div class="section-header">
+        <div class="section-tag">Gamification</div>
+        <h2 class="section-title">🏆 Weekly <span style="color:var(--saffron)">Leaderboard</span></h2>
+        <p class="section-sub">Top performers this week — practice more to climb the ranks</p>
+      </div>
+
+      <div class="lb-layout">
+        <div>
+          <div class="top-3">
+            <div class="podium-card p2">
+              <div class="podium-rank" style="color:#C0C0C0">2</div>
+              <div class="podium-avatar">😊</div>
+              <div class="podium-name">Priya Sharma</div>
+              <div class="podium-score">2,847 pts</div>
+            </div>
+            <div class="podium-card p1">
+              <div class="podium-rank" style="color:var(--gold)">👑 1</div>
+              <div class="podium-avatar">🦁</div>
+              <div class="podium-name">Rahul Kumar</div>
+              <div class="podium-score">3,142 pts</div>
+            </div>
+            <div class="podium-card p3">
+              <div class="podium-rank" style="color:#CD7F32">3</div>
+              <div class="podium-avatar">🎓</div>
+              <div class="podium-name">Anjali Singh</div>
+              <div class="podium-score">2,691 pts</div>
+            </div>
+          </div>
+
+          <div class="lb-table">
+            <div class="lb-row"><span class="lb-rank">4</span><span class="lb-avatar">😄</span><span class="lb-name">Vikash Yadav</span><span class="up lb-change">↑2</span><span class="lb-score">2,534 pts</span></div>
+            <div class="lb-row"><span class="lb-rank">5</span><span class="lb-avatar">🎯</span><span class="lb-name">Neha Gupta</span><span class="down lb-change">↓1</span><span class="lb-score">2,489 pts</span></div>
+            <div class="lb-row you"><span class="lb-rank" style="color:var(--saffron)">247</span><span class="lb-avatar">⭐</span><span class="lb-name">You <span style="font-size:0.75rem;color:var(--saffron)">(This is you!)</span></span><span class="up lb-change">↑12</span><span class="lb-score">847 pts</span></div>
+            <div class="lb-row"><span class="lb-rank">248</span><span class="lb-avatar">📚</span><span class="lb-name">Arun Mishra</span><span class="up lb-change">↑3</span><span class="lb-score">839 pts</span></div>
+          </div>
+        </div>
+
+        <div>
+          <div class="ca-widget">
+            <div class="ca-widget-header">📈 Your Stats This Week</div>
+            <div style="padding:1.5rem">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem">
+                <div style="text-align:center;background:var(--navy-mid);border-radius:10px;padding:1rem">
+                  <div style="font-family:'Baloo 2',cursive;font-size:1.6rem;font-weight:800;color:var(--saffron)">847</div>
+                  <div style="font-size:0.75rem;color:var(--text-muted)">Points Earned</div>
+                </div>
+                <div style="text-align:center;background:var(--navy-mid);border-radius:10px;padding:1rem">
+                  <div style="font-family:'Baloo 2',cursive;font-size:1.6rem;font-weight:800;color:var(--green)">142</div>
+                  <div style="font-size:0.75rem;color:var(--text-muted)">Qs Attempted</div>
+                </div>
+                <div style="text-align:center;background:var(--navy-mid);border-radius:10px;padding:1rem">
+                  <div style="font-family:'Baloo 2',cursive;font-size:1.6rem;font-weight:800;color:var(--sky)">74%</div>
+                  <div style="font-size:0.75rem;color:var(--text-muted)">Accuracy</div>
+                </div>
+                <div style="text-align:center;background:var(--navy-mid);border-radius:10px;padding:1rem">
+                  <div style="font-family:'Baloo 2',cursive;font-size:1.6rem;font-weight:800;color:var(--gold)">7🔥</div>
+                  <div style="font-size:0.75rem;color:var(--text-muted)">Day Streak</div>
+                </div>
+              </div>
+              <div class="progress-bar" style="margin-bottom:0.4rem"><div class="progress-fill" style="width:27%"></div></div>
+              <div style="font-size:0.78rem;color:var(--text-muted)">1,153 pts to reach Top 100</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <div class="logo" style="font-size:1.5rem">Tricky<span>SSC</span></div>
+        <p>India's most trusted platform for SSC CGL preparation. Practice PYQs, learn shortcut tricks, and crack the exam with confidence.</p>
+      </div>
+      <div class="footer-col">
+        <h4>Practice</h4>
+        <a href="#" onclick="showSection('pyq')">PYQ Bank</a>
+        <a href="#" onclick="showSection('practice')">Chapter-wise Tests</a>
+        <a href="#" onclick="showSection('mock')">Mock Tests</a>
+        <a href="#" onclick="showSection('ai')">AI Generator</a>
+      </div>
+      <div class="footer-col">
+        <h4>Learn</h4>
+        <a href="#" onclick="showSection('tricks')">Trick Library</a>
+        <a href="#" onclick="showSection('notes')">Study Notes</a>
+        <a href="#" onclick="showSection('ca')">Current Affairs</a>
+        <a href="#" onclick="showSection('blog')">Blog</a>
+      </div>
+      <div class="footer-col">
+        <h4>Exams</h4>
+        <a href="#">SSC CGL</a>
+        <a href="#">SSC CHSL</a>
+        <a href="#">SSC CPO</a>
+        <a href="#">SSC MTS</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2025 TrickySSC. All rights reserved.</span>
+      <span style="color:var(--saffron)">Made with ❤️ for SSC Aspirants</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // ===== NAV SECTION SWITCHING =====
+  function showSection(id) {
+    document.querySelectorAll('section').forEach(s => s.classList.remove('active'));
+    const el = document.getElementById(id);
+    if (el) {
+      el.classList.add('active');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }
+
+  // ===== MOBILE MENU =====
+  function toggleMenu() {
+    document.getElementById('mobileMenu').classList.toggle('open');
+  }
+
+  // ===== PYQ SIDEBAR ACTIVE =====
+  function activeSidebarItem(el) {
+    document.querySelectorAll('.sidebar-item').forEach(i => i.classList.remove('active-item'));
+    el.classList.add('active-item');
+  }
+
+  // ===== CHAPTER TABS =====
+  function activateTab(btn) {
+    const tabs = btn.parentElement.querySelectorAll('.ch-tab');
+    tabs.forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+  }
+
+  // ===== ANSWER MARKING =====
+  function markAnswer(el, isCorrect) {
+    const opts = el.parentElement.querySelectorAll('.q-opt');
+    opts.forEach(o => o.classList.remove('answer-correct'));
+    el.classList.add('answer-correct');
+  }
+
+  // ===== TRICK CAT BUTTONS =====
+  function activeBtn(btn) {
+    btn.parentElement.querySelectorAll('.trick-cat-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  }
+
+  // ===== NOTES NAV =====
+  function activeNavItem(el) {
+    document.querySelectorAll('.notes-nav-item').forEach(i => i.classList.remove('active'));
+    el.classList.add('active');
+  }
+
+  // ===== DIFFICULTY BUTTONS =====
+  function selectDiff(btn) {
+    const siblings = btn.parentElement.querySelectorAll('.diff-btn');
+    siblings.forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+  }
+
+  // ===== AI GENERATOR =====
+  function generateAI() {
+    document.getElementById('aiPlaceholder').style.display = 'none';
+    document.getElementById('aiGenerating').style.display = 'block';
+    document.getElementById('aiQuestions').style.display = 'none';
+    setTimeout(() => {
+      document.getElementById('aiGenerating').style.display = 'none';
+      document.getElementById('aiQuestions').style.display = 'block';
+    }, 2200);
+  }
+
+  // ===== HERO QUIZ OPTION SELECT =====
+  function selectOption(el, correct) {
+    // no-op — options are pre-styled, just for visual demo
+  }
+
+  // Animate sections on show
+  const observer = new MutationObserver((mutations) => {
+    mutations.forEach(m => {
+      if (m.target.classList.contains('active')) {
+        m.target.querySelectorAll('.section-anim').forEach(el => {
+          el.style.animation = 'none';
+          el.offsetHeight;
+          el.style.animation = '';
+        });
+      }
+    });
+  });
+  document.querySelectorAll('section').forEach(s => observer.observe(s, { attributes: true, attributeFilter: ['class'] }));
+</script>
+</body>
+</html>
