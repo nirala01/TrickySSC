@@ -1134,11 +1134,11 @@
               <div style="font-size:0.78rem;color:var(--text-dim);margin-top:0.1rem;">Today: Percentage · 4 Questions · 5 Min</div>
             </div>
           </div>
-          <a href="#" onclick="showSection('practice')" style="background:var(--saffron);color:white;padding:0.45rem 1.1rem;border-radius:8px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.85rem;text-decoration:none;display:inline-block;box-shadow:0 2px 10px rgba(255,107,0,0.3);">Play Now →</a>
+          <a href="#" onclick="showHeroQuestion(this)" style="background:var(--saffron);color:white;padding:0.45rem 1.1rem;border-radius:8px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.85rem;text-decoration:none;display:inline-block;box-shadow:0 2px 10px rgba(255,107,0,0.3);">Play Now →</a>
         </div>
 
         <!-- Question Card -->
-        <div class="hero-card-main">
+        <div class="hero-card-main" id="heroQuestionCard" style="display:none;">
           <div class="quiz-preview">
             <div class="qp-header">
               <span class="qp-tag">📐 PERCENTAGE • 2023</span>
@@ -2214,7 +2214,38 @@
     }, 2200);
   }
 
-  // ===== HERO QUIZ ANSWER =====
+  // ===== SHOW HERO QUESTION ON PLAY =====
+  function showHeroQuestion(btn) {
+    const card = document.getElementById('heroQuestionCard');
+    const popup = document.getElementById('heroResultPopup');
+    if (card.style.display === 'none') {
+      // Show card with animation
+      card.style.display = 'block';
+      card.style.opacity = '0';
+      card.style.transform = 'translateY(-10px)';
+      card.style.transition = 'all 0.35s ease';
+      setTimeout(() => {
+        card.style.opacity = '1';
+        card.style.transform = 'translateY(0)';
+      }, 10);
+      btn.textContent = 'Hide ✕';
+      btn.style.background = 'var(--navy-border)';
+      popup.style.display = 'none';
+      // Reset options
+      document.querySelectorAll('#heroOptions .qp-option').forEach(o => {
+        o.style.pointerEvents = 'auto';
+        o.style.opacity = '1';
+        o.classList.remove('correct','wrong');
+      });
+    } else {
+      card.style.display = 'none';
+      btn.textContent = 'Play Now →';
+      btn.style.background = 'var(--saffron)';
+      popup.style.display = 'none';
+    }
+  }
+
+// ===== HERO QUIZ ANSWER =====
   function heroAnswer(el, isCorrect) {
     const opts = document.querySelectorAll('#heroOptions .qp-option');
     opts.forEach(o => {
