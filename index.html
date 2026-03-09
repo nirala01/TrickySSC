@@ -1123,47 +1123,50 @@
         </div>
       </div>
 
-      <!-- QUIZ OF THE DAY -->
-      <div style="background:rgba(255,107,0,0.1);border:1px solid rgba(255,107,0,0.3);border-radius:12px;padding:0.75rem 1.2rem;margin-top:1.5rem;display:flex;align-items:center;justify-content:space-between;animation:fadeSlideUp 0.6s 0.5s ease both;max-width:520px;">
-        <div style="display:flex;align-items:center;gap:0.75rem;">
-          <span style="font-size:1.5rem;">🎯</span>
-          <div>
-            <div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.88rem;color:var(--saffron);letter-spacing:0.5px;text-transform:uppercase;">Quiz of the Day</div>
-            <div style="font-size:0.78rem;color:var(--text-dim);margin-top:0.1rem;">Today: Percentage · 4 Questions · 5 Min</div>
-          </div>
-        </div>
-        <a href="#" onclick="showSection('practice')" style="background:var(--saffron);color:white;padding:0.45rem 1.1rem;border-radius:8px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.85rem;text-decoration:none;display:inline-block;box-shadow:0 2px 10px rgba(255,107,0,0.3);">Play Now →</a>
-      </div>
-
       <!-- Quiz preview card -->
       <div class="hero-visual">
-        <div class="floating-badge fb1">
-          <span>🔥</span>
-          <div>
-            <div style="font-weight:600;font-size:0.85rem;">Daily Streak</div>
-            <div style="color:var(--saffron);font-family:'Rajdhani',sans-serif;font-weight:700;">14 Days</div>
+        <!-- Quiz of the Day Banner -->
+        <div style="background:rgba(255,107,0,0.1);border:1px solid rgba(255,107,0,0.3);border-radius:12px;padding:0.75rem 1.2rem;margin-bottom:1rem;display:flex;align-items:center;justify-content:space-between;">
+          <div style="display:flex;align-items:center;gap:0.75rem;">
+            <span style="font-size:1.4rem;">🎯</span>
+            <div>
+              <div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.88rem;color:var(--saffron);letter-spacing:0.5px;text-transform:uppercase;">Quiz of the Day</div>
+              <div style="font-size:0.78rem;color:var(--text-dim);margin-top:0.1rem;">Today: Percentage · 4 Questions · 5 Min</div>
+            </div>
           </div>
+          <a href="#" onclick="showSection('practice')" style="background:var(--saffron);color:white;padding:0.45rem 1.1rem;border-radius:8px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.85rem;text-decoration:none;display:inline-block;box-shadow:0 2px 10px rgba(255,107,0,0.3);">Play Now →</a>
         </div>
+
+        <!-- Question Card -->
         <div class="hero-card-main">
           <div class="quiz-preview">
             <div class="qp-header">
               <span class="qp-tag">📐 PERCENTAGE • 2023</span>
-              <span class="qp-timer">⏱ 00:45</span>
+              <span class="qp-timer" id="heroTimer">⏱ 00:45</span>
             </div>
             <div class="qp-question">If 30% of A = 0.25 of B = 1/5 of C, what is A : B : C?</div>
-            <div class="qp-options">
-              <div class="qp-option" onclick="selectOption(this, false)"><span class="opt-letter">A</span> 6 : 7 : 8</div>
-              <div class="qp-option correct" onclick="selectOption(this, true)"><span class="opt-letter">B</span> 10 : 12 : 15</div>
-              <div class="qp-option" onclick="selectOption(this, false)"><span class="opt-letter">C</span> 15 : 12 : 10</div>
-              <div class="qp-option" onclick="selectOption(this, false)"><span class="opt-letter">D</span> 12 : 10 : 15</div>
+            <div class="qp-options" id="heroOptions">
+              <div class="qp-option" onclick="heroAnswer(this, false)"><span class="opt-letter">A</span> 6 : 7 : 8</div>
+              <div class="qp-option" onclick="heroAnswer(this, true)"><span class="opt-letter">B</span> 10 : 12 : 15</div>
+              <div class="qp-option" onclick="heroAnswer(this, false)"><span class="opt-letter">C</span> 15 : 12 : 10</div>
+              <div class="qp-option" onclick="heroAnswer(this, false)"><span class="opt-letter">D</span> 12 : 10 : 15</div>
             </div>
           </div>
         </div>
-        <div class="floating-badge fb2">
-          <span>📈</span>
-          <div>
-            <div style="font-weight:600;font-size:0.85rem;">Your Rank</div>
-            <div style="color:var(--green);font-family:'Rajdhani',sans-serif;font-weight:700;">#247 / 24,891</div>
+
+        <!-- Answer Result Popup -->
+        <div id="heroResultPopup" style="display:none;margin-top:0.75rem;border-radius:14px;overflow:hidden;border:1px solid var(--navy-border);">
+          <div id="heroResultHeader" style="padding:0.75rem 1rem;display:flex;align-items:center;gap:0.6rem;">
+            <span id="heroResultIcon" style="font-size:1.3rem;"></span>
+            <div id="heroResultMsg" style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1rem;"></div>
+          </div>
+          <div style="background:var(--navy-card);padding:0.75rem 1rem;">
+            <div style="font-size:0.75rem;font-family:'Rajdhani',sans-serif;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);margin-bottom:0.3rem;">📝 Solution</div>
+            <div id="heroSolution" style="font-size:0.82rem;color:var(--text-dim);line-height:1.6;margin-bottom:0.6rem;"></div>
+            <div style="background:rgba(255,107,0,0.08);border:1px solid rgba(255,107,0,0.2);border-radius:8px;padding:0.6rem 0.8rem;">
+              <div style="font-size:0.72rem;font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--saffron);margin-bottom:0.2rem;">⚡ TRICKY METHOD</div>
+              <div id="heroTrick" style="font-size:0.82rem;color:var(--text-dim);line-height:1.6;"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -2211,10 +2214,47 @@
     }, 2200);
   }
 
-  // ===== HERO QUIZ OPTION SELECT =====
-  function selectOption(el, correct) {
-    // no-op — options are pre-styled, just for visual demo
+  // ===== HERO QUIZ ANSWER =====
+  function heroAnswer(el, isCorrect) {
+    const opts = document.querySelectorAll('#heroOptions .qp-option');
+    opts.forEach(o => {
+      o.style.pointerEvents = 'none';
+      o.style.opacity = '0.6';
+    });
+    el.style.opacity = '1';
+
+    const popup = document.getElementById('heroResultPopup');
+    const header = document.getElementById('heroResultHeader');
+    const icon = document.getElementById('heroResultIcon');
+    const msg = document.getElementById('heroResultMsg');
+    const sol = document.getElementById('heroSolution');
+    const trick = document.getElementById('heroTrick');
+
+    if (isCorrect) {
+      el.classList.add('correct');
+      header.style.background = 'rgba(0,200,150,0.15)';
+      header.style.borderBottom = '1px solid rgba(0,200,150,0.3)';
+      icon.textContent = '🎉';
+      msg.textContent = 'Great! You got it right!';
+      msg.style.color = 'var(--green)';
+    } else {
+      el.classList.add('wrong');
+      // show correct
+      opts.forEach(o => { if(o.onclick.toString().includes('true')) { o.classList.add('correct'); o.style.opacity='1'; }});
+      header.style.background = 'rgba(239,68,68,0.12)';
+      header.style.borderBottom = '1px solid rgba(239,68,68,0.25)';
+      icon.textContent = '😅';
+      msg.textContent = 'Sorry, wrong answer!';
+      msg.style.color = '#EF4444';
+    }
+
+    sol.textContent = 'Convert % to fractions: 30% = 3/10, 25% = 1/4, 1/5. Let value = k. A = 10k/3, B = 4k, C = 5k → Ratio = 10:12:15';
+    trick.innerHTML = '<b style="color:var(--saffron)">⚡ Trick:</b> Equate all to same value. LCM of denominators (10,4,5) = 20. A=20×(1/3)×10=200/30... Fastest: assume value=60. A=60/0.3=200, B=60/0.25=240, C=60×5=300 → 200:240:300 = 10:12:15 ✓';
+
+    popup.style.display = 'block';
   }
+
+  function selectOption(el, correct) { /* legacy */ }
 
   // Animate sections on show
   const observer = new MutationObserver((mutations) => {
