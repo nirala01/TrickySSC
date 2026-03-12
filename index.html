@@ -1088,8 +1088,76 @@
   .dot-easy { background: var(--green); }
   .dot-med { background: var(--gold); }
   .dot-hard { background: #EF4444; }
-  .weight-bar { height: 6px; background: #E2E8F0; border-radius: 100px; overflow: hidden; margin-top: 0.3rem; }
-  .wb-fill { height: 100%; background: linear-gradient(90deg, var(--saffron), var(--gold)); border-radius: 100px; }
+  /* ===== HOLOGRAM ===== */
+  .login-hologram {
+    width: 90px; height: 90px;
+    position: relative;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto;
+  }
+  .holo-ring {
+    position: absolute;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    animation: holoSpin linear infinite;
+  }
+  .holo-ring-1 {
+    width: 90px; height: 90px;
+    border-top-color: rgba(255,107,0,0.8);
+    border-right-color: rgba(255,107,0,0.3);
+    border-bottom-color: rgba(255,215,0,0.8);
+    border-left-color: rgba(255,215,0,0.3);
+    animation-duration: 3s;
+    box-shadow: 0 0 15px rgba(255,107,0,0.25), inset 0 0 15px rgba(255,107,0,0.1);
+  }
+  .holo-ring-2 {
+    width: 68px; height: 68px;
+    border-top-color: rgba(14,165,233,0.7);
+    border-right-color: rgba(14,165,233,0.2);
+    border-bottom-color: rgba(99,102,241,0.7);
+    border-left-color: rgba(99,102,241,0.2);
+    animation-duration: 2s;
+    animation-direction: reverse;
+    box-shadow: 0 0 12px rgba(14,165,233,0.2), inset 0 0 12px rgba(14,165,233,0.08);
+  }
+  .holo-ring-3 {
+    width: 48px; height: 48px;
+    border-top-color: rgba(0,168,107,0.8);
+    border-right-color: rgba(0,168,107,0.3);
+    border-bottom-color: rgba(16,185,129,0.8);
+    border-left-color: rgba(16,185,129,0.3);
+    animation-duration: 1.5s;
+    box-shadow: 0 0 10px rgba(0,168,107,0.25), inset 0 0 10px rgba(0,168,107,0.1);
+  }
+  .holo-core {
+    position: relative; z-index: 2;
+    width: 36px; height: 36px;
+    background: white;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 20px rgba(255,107,0,0.3);
+    border: 1px solid rgba(255,107,0,0.2);
+  }
+  @keyframes holoSpin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+  @keyframes holoPulse {
+    0%, 100% { opacity: 0.6; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.08); }
+  }
+
+  /* Homepage hologram */
+  .hero-hologram-wrap {
+    position: relative; display: inline-flex; align-items: center; justify-content: center;
+  }
+  .home-holo-ring {
+    position: absolute;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    animation: holoSpin linear infinite;
+    pointer-events: none;
+  }
 </style>
 </head>
 <body>
@@ -1132,7 +1200,7 @@
       <li><a href="#" onclick="showSection('ai')">AI Practice</a></li>
       <li><a href="#" onclick="showSection('ca')">Current Affairs</a></li>
       <li><a href="#" onclick="showSection('notes')">Study Notes</a></li>
-      <li><a href="#" onclick="showSection('blog')">Blog</a></li>
+      <li><a href="#" onclick="showSection('login')" class="nav-cta" style="background:linear-gradient(135deg,#FF6B00,#F59E0B)!important;color:white!important;border-radius:8px!important;padding:0.45rem 1.1rem!important;font-weight:700!important;">👤 Login / Register</a></li>
     </ul>
     <div class="hamburger" onclick="toggleMenu()">
       <span></span><span></span><span></span>
@@ -1165,7 +1233,7 @@
   <a href="#" onclick="showSection('ai');toggleMenu()">🤖 AI Practice</a>
   <a href="#" onclick="showSection('ca');toggleMenu()">📰 Current Affairs</a>
   <a href="#" onclick="showSection('notes');toggleMenu()">📓 Study Notes</a>
-  <a href="#" onclick="showSection('blog');toggleMenu()">✍️ Blog</a>
+  <a href="#" onclick="showSection('login');toggleMenu()" style="background:linear-gradient(135deg,rgba(255,107,0,0.15),rgba(245,158,11,0.1));border:1px solid rgba(255,107,0,0.3);border-radius:8px;font-weight:700;color:var(--saffron)!important;">👤 Login / Register</a>
 </div>
 
 <!-- ==================== HOME ==================== -->
@@ -1210,9 +1278,25 @@
         <a href="#" onclick="showHeroQuestion(this)" style="background:var(--saffron);color:white;padding:0.45rem 1.1rem;border-radius:8px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.85rem;text-decoration:none;display:inline-block;box-shadow:0 2px 10px rgba(255,107,0,0.3);" id="playNowBtn">Play Now →</a>
       </div>
 
-      <!-- Quiz preview card -->
-      <div class="hero-visual">
-        <!-- Question Card -->
+      <!-- HERO HOLOGRAM VISUAL -->
+      <div class="hero-visual" style="display:flex;flex-direction:column;align-items:center;gap:1.5rem;">
+        <!-- Hologram -->
+        <div style="position:relative;width:200px;height:200px;display:flex;align-items:center;justify-content:center;">
+          <!-- Outer glow -->
+          <div style="position:absolute;inset:-20px;border-radius:50%;background:radial-gradient(circle,rgba(255,107,0,0.08) 0%,transparent 70%);animation:holoPulse 3s ease-in-out infinite;"></div>
+          <!-- Ring 1 -->
+          <div style="position:absolute;width:200px;height:200px;border-radius:50%;border:2px solid transparent;border-top-color:rgba(255,107,0,0.9);border-right-color:rgba(255,107,0,0.3);border-bottom-color:rgba(245,158,11,0.9);border-left-color:rgba(245,158,11,0.3);animation:holoSpin 4s linear infinite;box-shadow:0 0 25px rgba(255,107,0,0.2),inset 0 0 25px rgba(255,107,0,0.05);"></div>
+          <!-- Ring 2 -->
+          <div style="position:absolute;width:160px;height:160px;border-radius:50%;border:2px solid transparent;border-top-color:rgba(14,165,233,0.8);border-right-color:rgba(14,165,233,0.2);border-bottom-color:rgba(99,102,241,0.8);border-left-color:rgba(99,102,241,0.2);animation:holoSpin 3s linear infinite reverse;box-shadow:0 0 20px rgba(14,165,233,0.15),inset 0 0 20px rgba(14,165,233,0.05);"></div>
+          <!-- Ring 3 -->
+          <div style="position:absolute;width:120px;height:120px;border-radius:50%;border:1.5px solid transparent;border-top-color:rgba(0,168,107,0.9);border-right-color:rgba(0,168,107,0.3);border-bottom-color:rgba(16,185,129,0.9);border-left-color:rgba(16,185,129,0.2);animation:holoSpin 2s linear infinite;box-shadow:0 0 15px rgba(0,168,107,0.15);"></div>
+          <!-- Ring 4 small -->
+          <div style="position:absolute;width:80px;height:80px;border-radius:50%;border:1.5px solid transparent;border-top-color:rgba(236,72,153,0.7);border-bottom-color:rgba(139,92,246,0.7);animation:holoSpin 1.5s linear infinite reverse;"></div>
+          <!-- Core logo -->
+          <div style="position:relative;z-index:5;width:60px;height:60px;background:white;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 0 30px rgba(255,107,0,0.4),0 4px 15px rgba(0,0,0,0.1);border:1px solid rgba(255,107,0,0.15);">
+            <span style="font-family:'Baloo 2',cursive;font-size:0.75rem;font-weight:800;color:#FF6B00;line-height:1;text-align:center;">T<br><span style="color:#1A202C;font-size:0.6rem;">SSC</span></span>
+          </div>
+        </div>
         <div class="hero-card-main" id="heroQuestionCard" style="display:none;">
           <div class="quiz-preview">
             <div class="qp-header">
@@ -1359,12 +1443,47 @@
       <p class="section-sub">15 years of SSC CGL questions, chapter-wise sorted with solutions &amp; tricks</p>
     </div>
 
-    <div style="background:#fff;border-bottom:2px solid #E2E8F0;padding:0.75rem 0;margin-bottom:1.5rem;position:sticky;top:70px;z-index:10;box-shadow:0 2px 8px rgba(0,0,0,0.04);">
-      <div style="max-width:1200px;margin:0 auto;padding:0 1.5rem;">
-        <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
-          <span style="font-size:0.75rem;font-weight:700;color:#718096;font-family:'Rajdhani',sans-serif;text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap;margin-right:0.25rem;">Choose Exam:</span>
-          <a href="https://nirala01.github.io/TrickySSC/ssc-cgl.html#cgl-pyq-page" style="display:inline-flex;align-items:center;gap:0.35rem;background:#FF6B00;color:white;border-radius:100px;padding:0.4rem 1rem;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.82rem;text-decoration:none;white-space:nowrap;">🎯 SSC CGL</a><a href="https://nirala01.github.io/TrickySSC/ssc-chsl.html#chsl-pyq-page" style="display:inline-flex;align-items:center;gap:0.35rem;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:100px;padding:0.4rem 1rem;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.82rem;color:#4A5568;text-decoration:none;white-space:nowrap;" onmouseenter="this.style.borderColor='#FF6B00';this.style.color='#FF6B00'" onmouseleave="this.style.borderColor='#E2E8F0';this.style.color='#4A5568'">📋 SSC CHSL</a><a href="https://nirala01.github.io/TrickySSC/ssc-mts.html#mts-pyq-page" style="display:inline-flex;align-items:center;gap:0.35rem;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:100px;padding:0.4rem 1rem;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.82rem;color:#4A5568;text-decoration:none;white-space:nowrap;" onmouseenter="this.style.borderColor='#FF6B00';this.style.color='#FF6B00'" onmouseleave="this.style.borderColor='#E2E8F0';this.style.color='#4A5568'">📝 SSC MTS</a><a href="https://nirala01.github.io/TrickySSC/ssc-gd.html#gd-pyq-page" style="display:inline-flex;align-items:center;gap:0.35rem;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:100px;padding:0.4rem 1rem;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.82rem;color:#4A5568;text-decoration:none;white-space:nowrap;" onmouseenter="this.style.borderColor='#FF6B00';this.style.color='#FF6B00'" onmouseleave="this.style.borderColor='#E2E8F0';this.style.color='#4A5568'">🛡️ SSC GD</a><a href="https://nirala01.github.io/TrickySSC/ssc-cpo.html#cpo-pyq-page" style="display:inline-flex;align-items:center;gap:0.35rem;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:100px;padding:0.4rem 1rem;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.82rem;color:#4A5568;text-decoration:none;white-space:nowrap;" onmouseenter="this.style.borderColor='#FF6B00';this.style.color='#FF6B00'" onmouseleave="this.style.borderColor='#E2E8F0';this.style.color='#4A5568'">👮 SSC CPO</a><a href="https://nirala01.github.io/TrickySSC/ssc-jht.html#jht-pyq-page" style="display:inline-flex;align-items:center;gap:0.35rem;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:100px;padding:0.4rem 1rem;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.82rem;color:#4A5568;text-decoration:none;white-space:nowrap;" onmouseenter="this.style.borderColor='#FF6B00';this.style.color='#FF6B00'" onmouseleave="this.style.borderColor='#E2E8F0';this.style.color='#4A5568'">✍️ SSC JHT</a><a href="https://nirala01.github.io/TrickySSC/ssc-je.html#je-pyq-page" style="display:inline-flex;align-items:center;gap:0.35rem;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:100px;padding:0.4rem 1rem;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.82rem;color:#4A5568;text-decoration:none;white-space:nowrap;" onmouseenter="this.style.borderColor='#FF6B00';this.style.color='#FF6B00'" onmouseleave="this.style.borderColor='#E2E8F0';this.style.color='#4A5568'">⚙️ SSC JE</a>
-        </div>
+    <!-- EXAM CATEGORY SELECTOR: PYQ -->
+    <div style="margin-bottom:2.5rem;">
+      <div style="text-align:center;margin-bottom:1.5rem;">
+        <span style="font-family:'Rajdhani',sans-serif;font-size:0.8rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#718096;background:#F1F5F9;padding:0.4rem 1.2rem;border-radius:100px;">📚 Choose Your Exam</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1rem;max-width:1000px;margin:0 auto;">
+        <a href="https://nirala01.github.io/TrickySSC/ssc-cgl.html#cgl-pyq-page" style="text-decoration:none;display:flex;flex-direction:column;align-items:center;gap:0.6rem;padding:1.4rem 1rem;background:linear-gradient(135deg,#FFF3E8,#FFE4CC);border:2px solid #FF6B00;border-radius:16px;transition:all 0.25s;box-shadow:0 4px 20px rgba(255,107,0,0.2);" onmouseenter="this.style.transform='translateY(-4px)';this.style.boxShadow='0 12px 35px rgba(255,107,0,0.35)'" onmouseleave="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 20px rgba(255,107,0,0.2)'">
+          <span style="font-size:2rem;">🎯</span>
+          <span style="font-family:'Baloo 2',cursive;font-weight:800;font-size:1rem;color:#CC4400;">SSC CGL</span>
+          <span style="font-size:0.72rem;color:#FF6B00;font-family:'Rajdhani',sans-serif;font-weight:600;background:rgba(255,107,0,0.12);padding:0.2rem 0.6rem;border-radius:100px;">Graduate Level</span>
+        </a>
+        <a href="https://nirala01.github.io/TrickySSC/ssc-chsl.html#chsl-pyq-page" style="text-decoration:none;display:flex;flex-direction:column;align-items:center;gap:0.6rem;padding:1.4rem 1rem;background:#F8FAFC;border:2px solid #E2E8F0;border-radius:16px;transition:all 0.25s;box-shadow:0 2px 8px rgba(0,0,0,0.05);" onmouseenter="this.style.transform='translateY(-4px)';this.style.borderColor='#0EA5E9';this.style.boxShadow='0 12px 35px rgba(14,165,233,0.2)'" onmouseleave="this.style.transform='translateY(0)';this.style.borderColor='#E2E8F0';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.05)'">
+          <span style="font-size:2rem;">📋</span>
+          <span style="font-family:'Baloo 2',cursive;font-weight:800;font-size:1rem;color:#1A202C;">SSC CHSL</span>
+          <span style="font-size:0.72rem;color:#0EA5E9;font-family:'Rajdhani',sans-serif;font-weight:600;background:rgba(14,165,233,0.1);padding:0.2rem 0.6rem;border-radius:100px;">Higher Secondary</span>
+        </a>
+        <a href="https://nirala01.github.io/TrickySSC/ssc-mts.html#mts-pyq-page" style="text-decoration:none;display:flex;flex-direction:column;align-items:center;gap:0.6rem;padding:1.4rem 1rem;background:#F8FAFC;border:2px solid #E2E8F0;border-radius:16px;transition:all 0.25s;box-shadow:0 2px 8px rgba(0,0,0,0.05);" onmouseenter="this.style.transform='translateY(-4px)';this.style.borderColor='#10B981';this.style.boxShadow='0 12px 35px rgba(16,185,129,0.2)'" onmouseleave="this.style.transform='translateY(0)';this.style.borderColor='#E2E8F0';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.05)'">
+          <span style="font-size:2rem;">📝</span>
+          <span style="font-family:'Baloo 2',cursive;font-weight:800;font-size:1rem;color:#1A202C;">SSC MTS</span>
+          <span style="font-size:0.72rem;color:#10B981;font-family:'Rajdhani',sans-serif;font-weight:600;background:rgba(16,185,129,0.1);padding:0.2rem 0.6rem;border-radius:100px;">Multi Tasking</span>
+        </a>
+        <a href="https://nirala01.github.io/TrickySSC/ssc-gd.html#gd-pyq-page" style="text-decoration:none;display:flex;flex-direction:column;align-items:center;gap:0.6rem;padding:1.4rem 1rem;background:#F8FAFC;border:2px solid #E2E8F0;border-radius:16px;transition:all 0.25s;box-shadow:0 2px 8px rgba(0,0,0,0.05);" onmouseenter="this.style.transform='translateY(-4px)';this.style.borderColor='#EF4444';this.style.boxShadow='0 12px 35px rgba(239,68,68,0.2)'" onmouseleave="this.style.transform='translateY(0)';this.style.borderColor='#E2E8F0';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.05)'">
+          <span style="font-size:2rem;">🛡️</span>
+          <span style="font-family:'Baloo 2',cursive;font-weight:800;font-size:1rem;color:#1A202C;">SSC GD</span>
+          <span style="font-size:0.72rem;color:#EF4444;font-family:'Rajdhani',sans-serif;font-weight:600;background:rgba(239,68,68,0.1);padding:0.2rem 0.6rem;border-radius:100px;">GD Constable</span>
+        </a>
+        <a href="https://nirala01.github.io/TrickySSC/ssc-cpo.html#cpo-pyq-page" style="text-decoration:none;display:flex;flex-direction:column;align-items:center;gap:0.6rem;padding:1.4rem 1rem;background:#F8FAFC;border:2px solid #E2E8F0;border-radius:16px;transition:all 0.25s;box-shadow:0 2px 8px rgba(0,0,0,0.05);" onmouseenter="this.style.transform='translateY(-4px)';this.style.borderColor='#6366F1';this.style.boxShadow='0 12px 35px rgba(99,102,241,0.2)'" onmouseleave="this.style.transform='translateY(0)';this.style.borderColor='#E2E8F0';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.05)'">
+          <span style="font-size:2rem;">👮</span>
+          <span style="font-family:'Baloo 2',cursive;font-weight:800;font-size:1rem;color:#1A202C;">SSC CPO</span>
+          <span style="font-size:0.72rem;color:#6366F1;font-family:'Rajdhani',sans-serif;font-weight:600;background:rgba(99,102,241,0.1);padding:0.2rem 0.6rem;border-radius:100px;">Central Police</span>
+        </a>
+        <a href="https://nirala01.github.io/TrickySSC/ssc-jht.html#jht-pyq-page" style="text-decoration:none;display:flex;flex-direction:column;align-items:center;gap:0.6rem;padding:1.4rem 1rem;background:#F8FAFC;border:2px solid #E2E8F0;border-radius:16px;transition:all 0.25s;box-shadow:0 2px 8px rgba(0,0,0,0.05);" onmouseenter="this.style.transform='translateY(-4px)';this.style.borderColor='#F59E0B';this.style.boxShadow='0 12px 35px rgba(245,158,11,0.2)'" onmouseleave="this.style.transform='translateY(0)';this.style.borderColor='#E2E8F0';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.05)'">
+          <span style="font-size:2rem;">✍️</span>
+          <span style="font-family:'Baloo 2',cursive;font-weight:800;font-size:1rem;color:#1A202C;">SSC JHT</span>
+          <span style="font-size:0.72rem;color:#F59E0B;font-family:'Rajdhani',sans-serif;font-weight:600;background:rgba(245,158,11,0.1);padding:0.2rem 0.6rem;border-radius:100px;">Hindi Translator</span>
+        </a>
+        <a href="https://nirala01.github.io/TrickySSC/ssc-je.html#je-pyq-page" style="text-decoration:none;display:flex;flex-direction:column;align-items:center;gap:0.6rem;padding:1.4rem 1rem;background:#F8FAFC;border:2px solid #E2E8F0;border-radius:16px;transition:all 0.25s;box-shadow:0 2px 8px rgba(0,0,0,0.05);" onmouseenter="this.style.transform='translateY(-4px)';this.style.borderColor='#EC4899';this.style.boxShadow='0 12px 35px rgba(236,72,153,0.2)'" onmouseleave="this.style.transform='translateY(0)';this.style.borderColor='#E2E8F0';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.05)'">
+          <span style="font-size:2rem;">⚙️</span>
+          <span style="font-family:'Baloo 2',cursive;font-weight:800;font-size:1rem;color:#1A202C;">SSC JE</span>
+          <span style="font-size:0.72rem;color:#EC4899;font-family:'Rajdhani',sans-serif;font-weight:600;background:rgba(236,72,153,0.1);padding:0.2rem 0.6rem;border-radius:100px;">Junior Engineer</span>
+        </a>
       </div>
     </div>
 
@@ -1511,12 +1630,47 @@
       <p class="section-sub">500+ proven shortcut tricks to solve SSC CGL questions in under 30 seconds</p>
     </div>
 
-    <div style="background:#fff;border-bottom:2px solid #E2E8F0;padding:0.75rem 0;margin-bottom:1.5rem;position:sticky;top:70px;z-index:10;box-shadow:0 2px 8px rgba(0,0,0,0.04);">
-      <div style="max-width:1200px;margin:0 auto;padding:0 1.5rem;">
-        <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
-          <span style="font-size:0.75rem;font-weight:700;color:#718096;font-family:'Rajdhani',sans-serif;text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap;margin-right:0.25rem;">Choose Exam:</span>
-          <a href="https://nirala01.github.io/TrickySSC/index.html#tricks" style="display:inline-flex;align-items:center;gap:0.35rem;background:#8B5CF6;color:white;border-radius:100px;padding:0.4rem 1rem;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.82rem;text-decoration:none;white-space:nowrap;">🎯 SSC CGL</a><a href="https://nirala01.github.io/TrickySSC/ssc-chsl.html#tricks" style="display:inline-flex;align-items:center;gap:0.35rem;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:100px;padding:0.4rem 1rem;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.82rem;color:#4A5568;text-decoration:none;white-space:nowrap;" onmouseenter="this.style.borderColor='#8B5CF6';this.style.color='#8B5CF6'" onmouseleave="this.style.borderColor='#E2E8F0';this.style.color='#4A5568'">📋 SSC CHSL</a><a href="https://nirala01.github.io/TrickySSC/ssc-mts.html#tricks" style="display:inline-flex;align-items:center;gap:0.35rem;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:100px;padding:0.4rem 1rem;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.82rem;color:#4A5568;text-decoration:none;white-space:nowrap;" onmouseenter="this.style.borderColor='#8B5CF6';this.style.color='#8B5CF6'" onmouseleave="this.style.borderColor='#E2E8F0';this.style.color='#4A5568'">📝 SSC MTS</a><a href="https://nirala01.github.io/TrickySSC/ssc-gd.html#tricks" style="display:inline-flex;align-items:center;gap:0.35rem;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:100px;padding:0.4rem 1rem;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.82rem;color:#4A5568;text-decoration:none;white-space:nowrap;" onmouseenter="this.style.borderColor='#8B5CF6';this.style.color='#8B5CF6'" onmouseleave="this.style.borderColor='#E2E8F0';this.style.color='#4A5568'">🛡️ SSC GD</a><a href="https://nirala01.github.io/TrickySSC/ssc-cpo.html#tricks" style="display:inline-flex;align-items:center;gap:0.35rem;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:100px;padding:0.4rem 1rem;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.82rem;color:#4A5568;text-decoration:none;white-space:nowrap;" onmouseenter="this.style.borderColor='#8B5CF6';this.style.color='#8B5CF6'" onmouseleave="this.style.borderColor='#E2E8F0';this.style.color='#4A5568'">👮 SSC CPO</a><a href="https://nirala01.github.io/TrickySSC/ssc-jht.html#tricks" style="display:inline-flex;align-items:center;gap:0.35rem;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:100px;padding:0.4rem 1rem;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.82rem;color:#4A5568;text-decoration:none;white-space:nowrap;" onmouseenter="this.style.borderColor='#8B5CF6';this.style.color='#8B5CF6'" onmouseleave="this.style.borderColor='#E2E8F0';this.style.color='#4A5568'">✍️ SSC JHT</a><a href="https://nirala01.github.io/TrickySSC/ssc-je.html#tricks" style="display:inline-flex;align-items:center;gap:0.35rem;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:100px;padding:0.4rem 1rem;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.82rem;color:#4A5568;text-decoration:none;white-space:nowrap;" onmouseenter="this.style.borderColor='#8B5CF6';this.style.color='#8B5CF6'" onmouseleave="this.style.borderColor='#E2E8F0';this.style.color='#4A5568'">⚙️ SSC JE</a>
-        </div>
+    <!-- EXAM CATEGORY SELECTOR: TRICKS -->
+    <div style="margin-bottom:2.5rem;">
+      <div style="text-align:center;margin-bottom:1.5rem;">
+        <span style="font-family:'Rajdhani',sans-serif;font-size:0.8rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#718096;background:#F1F5F9;padding:0.4rem 1.2rem;border-radius:100px;">⚡ Choose Your Exam</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1rem;max-width:1000px;margin:0 auto;">
+        <a href="https://nirala01.github.io/TrickySSC/index.html#tricks" style="text-decoration:none;display:flex;flex-direction:column;align-items:center;gap:0.6rem;padding:1.4rem 1rem;background:linear-gradient(135deg,#F5F3FF,#EDE9FE);border:2px solid #8B5CF6;border-radius:16px;transition:all 0.25s;box-shadow:0 4px 20px rgba(139,92,246,0.2);" onmouseenter="this.style.transform='translateY(-4px)';this.style.boxShadow='0 12px 35px rgba(139,92,246,0.35)'" onmouseleave="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 20px rgba(139,92,246,0.2)'">
+          <span style="font-size:2rem;">🎯</span>
+          <span style="font-family:'Baloo 2',cursive;font-weight:800;font-size:1rem;color:#6D28D9;">SSC CGL</span>
+          <span style="font-size:0.72rem;color:#8B5CF6;font-family:'Rajdhani',sans-serif;font-weight:600;background:rgba(139,92,246,0.12);padding:0.2rem 0.6rem;border-radius:100px;">Graduate Level</span>
+        </a>
+        <a href="https://nirala01.github.io/TrickySSC/ssc-chsl.html#tricks" style="text-decoration:none;display:flex;flex-direction:column;align-items:center;gap:0.6rem;padding:1.4rem 1rem;background:#F8FAFC;border:2px solid #E2E8F0;border-radius:16px;transition:all 0.25s;box-shadow:0 2px 8px rgba(0,0,0,0.05);" onmouseenter="this.style.transform='translateY(-4px)';this.style.borderColor='#0EA5E9';this.style.boxShadow='0 12px 35px rgba(14,165,233,0.2)'" onmouseleave="this.style.transform='translateY(0)';this.style.borderColor='#E2E8F0';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.05)'">
+          <span style="font-size:2rem;">📋</span>
+          <span style="font-family:'Baloo 2',cursive;font-weight:800;font-size:1rem;color:#1A202C;">SSC CHSL</span>
+          <span style="font-size:0.72rem;color:#0EA5E9;font-family:'Rajdhani',sans-serif;font-weight:600;background:rgba(14,165,233,0.1);padding:0.2rem 0.6rem;border-radius:100px;">Higher Secondary</span>
+        </a>
+        <a href="https://nirala01.github.io/TrickySSC/ssc-mts.html#tricks" style="text-decoration:none;display:flex;flex-direction:column;align-items:center;gap:0.6rem;padding:1.4rem 1rem;background:#F8FAFC;border:2px solid #E2E8F0;border-radius:16px;transition:all 0.25s;box-shadow:0 2px 8px rgba(0,0,0,0.05);" onmouseenter="this.style.transform='translateY(-4px)';this.style.borderColor='#10B981';this.style.boxShadow='0 12px 35px rgba(16,185,129,0.2)'" onmouseleave="this.style.transform='translateY(0)';this.style.borderColor='#E2E8F0';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.05)'">
+          <span style="font-size:2rem;">📝</span>
+          <span style="font-family:'Baloo 2',cursive;font-weight:800;font-size:1rem;color:#1A202C;">SSC MTS</span>
+          <span style="font-size:0.72rem;color:#10B981;font-family:'Rajdhani',sans-serif;font-weight:600;background:rgba(16,185,129,0.1);padding:0.2rem 0.6rem;border-radius:100px;">Multi Tasking</span>
+        </a>
+        <a href="https://nirala01.github.io/TrickySSC/ssc-gd.html#tricks" style="text-decoration:none;display:flex;flex-direction:column;align-items:center;gap:0.6rem;padding:1.4rem 1rem;background:#F8FAFC;border:2px solid #E2E8F0;border-radius:16px;transition:all 0.25s;box-shadow:0 2px 8px rgba(0,0,0,0.05);" onmouseenter="this.style.transform='translateY(-4px)';this.style.borderColor='#EF4444';this.style.boxShadow='0 12px 35px rgba(239,68,68,0.2)'" onmouseleave="this.style.transform='translateY(0)';this.style.borderColor='#E2E8F0';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.05)'">
+          <span style="font-size:2rem;">🛡️</span>
+          <span style="font-family:'Baloo 2',cursive;font-weight:800;font-size:1rem;color:#1A202C;">SSC GD</span>
+          <span style="font-size:0.72rem;color:#EF4444;font-family:'Rajdhani',sans-serif;font-weight:600;background:rgba(239,68,68,0.1);padding:0.2rem 0.6rem;border-radius:100px;">GD Constable</span>
+        </a>
+        <a href="https://nirala01.github.io/TrickySSC/ssc-cpo.html#tricks" style="text-decoration:none;display:flex;flex-direction:column;align-items:center;gap:0.6rem;padding:1.4rem 1rem;background:#F8FAFC;border:2px solid #E2E8F0;border-radius:16px;transition:all 0.25s;box-shadow:0 2px 8px rgba(0,0,0,0.05);" onmouseenter="this.style.transform='translateY(-4px)';this.style.borderColor='#6366F1';this.style.boxShadow='0 12px 35px rgba(99,102,241,0.2)'" onmouseleave="this.style.transform='translateY(0)';this.style.borderColor='#E2E8F0';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.05)'">
+          <span style="font-size:2rem;">👮</span>
+          <span style="font-family:'Baloo 2',cursive;font-weight:800;font-size:1rem;color:#1A202C;">SSC CPO</span>
+          <span style="font-size:0.72rem;color:#6366F1;font-family:'Rajdhani',sans-serif;font-weight:600;background:rgba(99,102,241,0.1);padding:0.2rem 0.6rem;border-radius:100px;">Central Police</span>
+        </a>
+        <a href="https://nirala01.github.io/TrickySSC/ssc-jht.html#tricks" style="text-decoration:none;display:flex;flex-direction:column;align-items:center;gap:0.6rem;padding:1.4rem 1rem;background:#F8FAFC;border:2px solid #E2E8F0;border-radius:16px;transition:all 0.25s;box-shadow:0 2px 8px rgba(0,0,0,0.05);" onmouseenter="this.style.transform='translateY(-4px)';this.style.borderColor='#F59E0B';this.style.boxShadow='0 12px 35px rgba(245,158,11,0.2)'" onmouseleave="this.style.transform='translateY(0)';this.style.borderColor='#E2E8F0';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.05)'">
+          <span style="font-size:2rem;">✍️</span>
+          <span style="font-family:'Baloo 2',cursive;font-weight:800;font-size:1rem;color:#1A202C;">SSC JHT</span>
+          <span style="font-size:0.72rem;color:#F59E0B;font-family:'Rajdhani',sans-serif;font-weight:600;background:rgba(245,158,11,0.1);padding:0.2rem 0.6rem;border-radius:100px;">Hindi Translator</span>
+        </a>
+        <a href="https://nirala01.github.io/TrickySSC/ssc-je.html#tricks" style="text-decoration:none;display:flex;flex-direction:column;align-items:center;gap:0.6rem;padding:1.4rem 1rem;background:#F8FAFC;border:2px solid #E2E8F0;border-radius:16px;transition:all 0.25s;box-shadow:0 2px 8px rgba(0,0,0,0.05);" onmouseenter="this.style.transform='translateY(-4px)';this.style.borderColor='#EC4899';this.style.boxShadow='0 12px 35px rgba(236,72,153,0.2)'" onmouseleave="this.style.transform='translateY(0)';this.style.borderColor='#E2E8F0';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.05)'">
+          <span style="font-size:2rem;">⚙️</span>
+          <span style="font-family:'Baloo 2',cursive;font-weight:800;font-size:1rem;color:#1A202C;">SSC JE</span>
+          <span style="font-size:0.72rem;color:#EC4899;font-family:'Rajdhani',sans-serif;font-weight:600;background:rgba(236,72,153,0.1);padding:0.2rem 0.6rem;border-radius:100px;">Junior Engineer</span>
+        </a>
       </div>
     </div>
 
@@ -1708,12 +1862,47 @@
       <p class="section-sub">Concise formula sheets and revision notes for all chapters</p>
     </div>
 
-    <div style="background:#fff;border-bottom:2px solid #E2E8F0;padding:0.75rem 0;margin-bottom:1.5rem;position:sticky;top:70px;z-index:10;box-shadow:0 2px 8px rgba(0,0,0,0.04);">
-      <div style="max-width:1200px;margin:0 auto;padding:0 1.5rem;">
-        <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
-          <span style="font-size:0.75rem;font-weight:700;color:#718096;font-family:'Rajdhani',sans-serif;text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap;margin-right:0.25rem;">Choose Exam:</span>
-          <a href="https://nirala01.github.io/TrickySSC/index.html#notes" style="display:inline-flex;align-items:center;gap:0.35rem;background:#00A86B;color:white;border-radius:100px;padding:0.4rem 1rem;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.82rem;text-decoration:none;white-space:nowrap;">🎯 SSC CGL</a><a href="https://nirala01.github.io/TrickySSC/ssc-chsl.html#notes" style="display:inline-flex;align-items:center;gap:0.35rem;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:100px;padding:0.4rem 1rem;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.82rem;color:#4A5568;text-decoration:none;white-space:nowrap;" onmouseenter="this.style.borderColor='#00A86B';this.style.color='#00A86B'" onmouseleave="this.style.borderColor='#E2E8F0';this.style.color='#4A5568'">📋 SSC CHSL</a><a href="https://nirala01.github.io/TrickySSC/ssc-mts.html#notes" style="display:inline-flex;align-items:center;gap:0.35rem;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:100px;padding:0.4rem 1rem;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.82rem;color:#4A5568;text-decoration:none;white-space:nowrap;" onmouseenter="this.style.borderColor='#00A86B';this.style.color='#00A86B'" onmouseleave="this.style.borderColor='#E2E8F0';this.style.color='#4A5568'">📝 SSC MTS</a><a href="https://nirala01.github.io/TrickySSC/ssc-gd.html#notes" style="display:inline-flex;align-items:center;gap:0.35rem;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:100px;padding:0.4rem 1rem;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.82rem;color:#4A5568;text-decoration:none;white-space:nowrap;" onmouseenter="this.style.borderColor='#00A86B';this.style.color='#00A86B'" onmouseleave="this.style.borderColor='#E2E8F0';this.style.color='#4A5568'">🛡️ SSC GD</a><a href="https://nirala01.github.io/TrickySSC/ssc-cpo.html#notes" style="display:inline-flex;align-items:center;gap:0.35rem;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:100px;padding:0.4rem 1rem;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.82rem;color:#4A5568;text-decoration:none;white-space:nowrap;" onmouseenter="this.style.borderColor='#00A86B';this.style.color='#00A86B'" onmouseleave="this.style.borderColor='#E2E8F0';this.style.color='#4A5568'">👮 SSC CPO</a><a href="https://nirala01.github.io/TrickySSC/ssc-jht.html#notes" style="display:inline-flex;align-items:center;gap:0.35rem;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:100px;padding:0.4rem 1rem;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.82rem;color:#4A5568;text-decoration:none;white-space:nowrap;" onmouseenter="this.style.borderColor='#00A86B';this.style.color='#00A86B'" onmouseleave="this.style.borderColor='#E2E8F0';this.style.color='#4A5568'">✍️ SSC JHT</a><a href="https://nirala01.github.io/TrickySSC/ssc-je.html#notes" style="display:inline-flex;align-items:center;gap:0.35rem;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:100px;padding:0.4rem 1rem;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.82rem;color:#4A5568;text-decoration:none;white-space:nowrap;" onmouseenter="this.style.borderColor='#00A86B';this.style.color='#00A86B'" onmouseleave="this.style.borderColor='#E2E8F0';this.style.color='#4A5568'">⚙️ SSC JE</a>
-        </div>
+    <!-- EXAM CATEGORY SELECTOR: NOTES -->
+    <div style="margin-bottom:2.5rem;">
+      <div style="text-align:center;margin-bottom:1.5rem;">
+        <span style="font-family:'Rajdhani',sans-serif;font-size:0.8rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#718096;background:#F1F5F9;padding:0.4rem 1.2rem;border-radius:100px;">📓 Choose Your Exam</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1rem;max-width:1000px;margin:0 auto;">
+        <a href="https://nirala01.github.io/TrickySSC/index.html#notes" style="text-decoration:none;display:flex;flex-direction:column;align-items:center;gap:0.6rem;padding:1.4rem 1rem;background:linear-gradient(135deg,#ECFDF5,#D1FAE5);border:2px solid #00A86B;border-radius:16px;transition:all 0.25s;box-shadow:0 4px 20px rgba(0,168,107,0.2);" onmouseenter="this.style.transform='translateY(-4px)';this.style.boxShadow='0 12px 35px rgba(0,168,107,0.35)'" onmouseleave="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 20px rgba(0,168,107,0.2)'">
+          <span style="font-size:2rem;">🎯</span>
+          <span style="font-family:'Baloo 2',cursive;font-weight:800;font-size:1rem;color:#065F46;">SSC CGL</span>
+          <span style="font-size:0.72rem;color:#00A86B;font-family:'Rajdhani',sans-serif;font-weight:600;background:rgba(0,168,107,0.12);padding:0.2rem 0.6rem;border-radius:100px;">Graduate Level</span>
+        </a>
+        <a href="https://nirala01.github.io/TrickySSC/ssc-chsl.html#notes" style="text-decoration:none;display:flex;flex-direction:column;align-items:center;gap:0.6rem;padding:1.4rem 1rem;background:#F8FAFC;border:2px solid #E2E8F0;border-radius:16px;transition:all 0.25s;box-shadow:0 2px 8px rgba(0,0,0,0.05);" onmouseenter="this.style.transform='translateY(-4px)';this.style.borderColor='#0EA5E9';this.style.boxShadow='0 12px 35px rgba(14,165,233,0.2)'" onmouseleave="this.style.transform='translateY(0)';this.style.borderColor='#E2E8F0';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.05)'">
+          <span style="font-size:2rem;">📋</span>
+          <span style="font-family:'Baloo 2',cursive;font-weight:800;font-size:1rem;color:#1A202C;">SSC CHSL</span>
+          <span style="font-size:0.72rem;color:#0EA5E9;font-family:'Rajdhani',sans-serif;font-weight:600;background:rgba(14,165,233,0.1);padding:0.2rem 0.6rem;border-radius:100px;">Higher Secondary</span>
+        </a>
+        <a href="https://nirala01.github.io/TrickySSC/ssc-mts.html#notes" style="text-decoration:none;display:flex;flex-direction:column;align-items:center;gap:0.6rem;padding:1.4rem 1rem;background:#F8FAFC;border:2px solid #E2E8F0;border-radius:16px;transition:all 0.25s;box-shadow:0 2px 8px rgba(0,0,0,0.05);" onmouseenter="this.style.transform='translateY(-4px)';this.style.borderColor='#10B981';this.style.boxShadow='0 12px 35px rgba(16,185,129,0.2)'" onmouseleave="this.style.transform='translateY(0)';this.style.borderColor='#E2E8F0';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.05)'">
+          <span style="font-size:2rem;">📝</span>
+          <span style="font-family:'Baloo 2',cursive;font-weight:800;font-size:1rem;color:#1A202C;">SSC MTS</span>
+          <span style="font-size:0.72rem;color:#10B981;font-family:'Rajdhani',sans-serif;font-weight:600;background:rgba(16,185,129,0.1);padding:0.2rem 0.6rem;border-radius:100px;">Multi Tasking</span>
+        </a>
+        <a href="https://nirala01.github.io/TrickySSC/ssc-gd.html#notes" style="text-decoration:none;display:flex;flex-direction:column;align-items:center;gap:0.6rem;padding:1.4rem 1rem;background:#F8FAFC;border:2px solid #E2E8F0;border-radius:16px;transition:all 0.25s;box-shadow:0 2px 8px rgba(0,0,0,0.05);" onmouseenter="this.style.transform='translateY(-4px)';this.style.borderColor='#EF4444';this.style.boxShadow='0 12px 35px rgba(239,68,68,0.2)'" onmouseleave="this.style.transform='translateY(0)';this.style.borderColor='#E2E8F0';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.05)'">
+          <span style="font-size:2rem;">🛡️</span>
+          <span style="font-family:'Baloo 2',cursive;font-weight:800;font-size:1rem;color:#1A202C;">SSC GD</span>
+          <span style="font-size:0.72rem;color:#EF4444;font-family:'Rajdhani',sans-serif;font-weight:600;background:rgba(239,68,68,0.1);padding:0.2rem 0.6rem;border-radius:100px;">GD Constable</span>
+        </a>
+        <a href="https://nirala01.github.io/TrickySSC/ssc-cpo.html#notes" style="text-decoration:none;display:flex;flex-direction:column;align-items:center;gap:0.6rem;padding:1.4rem 1rem;background:#F8FAFC;border:2px solid #E2E8F0;border-radius:16px;transition:all 0.25s;box-shadow:0 2px 8px rgba(0,0,0,0.05);" onmouseenter="this.style.transform='translateY(-4px)';this.style.borderColor='#6366F1';this.style.boxShadow='0 12px 35px rgba(99,102,241,0.2)'" onmouseleave="this.style.transform='translateY(0)';this.style.borderColor='#E2E8F0';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.05)'">
+          <span style="font-size:2rem;">👮</span>
+          <span style="font-family:'Baloo 2',cursive;font-weight:800;font-size:1rem;color:#1A202C;">SSC CPO</span>
+          <span style="font-size:0.72rem;color:#6366F1;font-family:'Rajdhani',sans-serif;font-weight:600;background:rgba(99,102,241,0.1);padding:0.2rem 0.6rem;border-radius:100px;">Central Police</span>
+        </a>
+        <a href="https://nirala01.github.io/TrickySSC/ssc-jht.html#notes" style="text-decoration:none;display:flex;flex-direction:column;align-items:center;gap:0.6rem;padding:1.4rem 1rem;background:#F8FAFC;border:2px solid #E2E8F0;border-radius:16px;transition:all 0.25s;box-shadow:0 2px 8px rgba(0,0,0,0.05);" onmouseenter="this.style.transform='translateY(-4px)';this.style.borderColor='#F59E0B';this.style.boxShadow='0 12px 35px rgba(245,158,11,0.2)'" onmouseleave="this.style.transform='translateY(0)';this.style.borderColor='#E2E8F0';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.05)'">
+          <span style="font-size:2rem;">✍️</span>
+          <span style="font-family:'Baloo 2',cursive;font-weight:800;font-size:1rem;color:#1A202C;">SSC JHT</span>
+          <span style="font-size:0.72rem;color:#F59E0B;font-family:'Rajdhani',sans-serif;font-weight:600;background:rgba(245,158,11,0.1);padding:0.2rem 0.6rem;border-radius:100px;">Hindi Translator</span>
+        </a>
+        <a href="https://nirala01.github.io/TrickySSC/ssc-je.html#notes" style="text-decoration:none;display:flex;flex-direction:column;align-items:center;gap:0.6rem;padding:1.4rem 1rem;background:#F8FAFC;border:2px solid #E2E8F0;border-radius:16px;transition:all 0.25s;box-shadow:0 2px 8px rgba(0,0,0,0.05);" onmouseenter="this.style.transform='translateY(-4px)';this.style.borderColor='#EC4899';this.style.boxShadow='0 12px 35px rgba(236,72,153,0.2)'" onmouseleave="this.style.transform='translateY(0)';this.style.borderColor='#E2E8F0';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.05)'">
+          <span style="font-size:2rem;">⚙️</span>
+          <span style="font-family:'Baloo 2',cursive;font-weight:800;font-size:1rem;color:#1A202C;">SSC JE</span>
+          <span style="font-size:0.72rem;color:#EC4899;font-family:'Rajdhani',sans-serif;font-weight:600;background:rgba(236,72,153,0.1);padding:0.2rem 0.6rem;border-radius:100px;">Junior Engineer</span>
+        </a>
       </div>
     </div>
 
@@ -1731,83 +1920,57 @@
           </div>
         </div>
 
-    <div style="background:#fff;border-bottom:2px solid #E2E8F0;padding:0.75rem 0;margin-bottom:1.5rem;position:sticky;top:70px;z-index:10;box-shadow:0 2px 8px rgba(0,0,0,0.04);"><div style="max-width:1200px;margin:0 auto;padding:0 1.5rem;"><div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;"><span style="font-size:0.75rem;font-weight:700;color:#718096;font-family:'Rajdhani',sans-serif;text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap;margin-right:0.25rem;">Choose Exam:</span><span style="display:inline-flex;align-items:center;gap:0.35rem;background:#8B5CF6;color:white;border-radius:100px;padding:0.4rem 1rem;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.82rem;cursor:default;white-space:nowrap;">🎯 SSC CGL</span><a href="https://nirala01.github.io/TrickySSC/ssc-chsl.html#tricks" style="display:inline-flex;align-items:center;gap:0.35rem;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:100px;padding:0.4rem 1rem;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.82rem;color:#4A5568;text-decoration:none;white-space:nowrap;transition:all 0.15s;" onmouseenter="this.style.borderColor='#8B5CF6';this.style.color='#8B5CF6';this.style.background='#FFF7F0'" onmouseleave="this.style.borderColor='#E2E8F0';this.style.color='#4A5568';this.style.background='#F8FAFC'">📋 SSC CHSL</a><a href="https://nirala01.github.io/TrickySSC/ssc-mts.html#tricks" style="display:inline-flex;align-items:center;gap:0.35rem;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:100px;padding:0.4rem 1rem;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.82rem;color:#4A5568;text-decoration:none;white-space:nowrap;transition:all 0.15s;" onmouseenter="this.style.borderColor='#8B5CF6';this.style.color='#8B5CF6';this.style.background='#FFF7F0'" onmouseleave="this.style.borderColor='#E2E8F0';this.style.color='#4A5568';this.style.background='#F8FAFC'">📝 SSC MTS</a><a href="https://nirala01.github.io/TrickySSC/ssc-gd.html#tricks" style="display:inline-flex;align-items:center;gap:0.35rem;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:100px;padding:0.4rem 1rem;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.82rem;color:#4A5568;text-decoration:none;white-space:nowrap;transition:all 0.15s;" onmouseenter="this.style.borderColor='#8B5CF6';this.style.color='#8B5CF6';this.style.background='#FFF7F0'" onmouseleave="this.style.borderColor='#E2E8F0';this.style.color='#4A5568';this.style.background='#F8FAFC'">🛡️ SSC GD</a><a href="https://nirala01.github.io/TrickySSC/ssc-cpo.html#tricks" style="display:inline-flex;align-items:center;gap:0.35rem;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:100px;padding:0.4rem 1rem;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.82rem;color:#4A5568;text-decoration:none;white-space:nowrap;transition:all 0.15s;" onmouseenter="this.style.borderColor='#8B5CF6';this.style.color='#8B5CF6';this.style.background='#FFF7F0'" onmouseleave="this.style.borderColor='#E2E8F0';this.style.color='#4A5568';this.style.background='#F8FAFC'">👮 SSC CPO</a><a href="https://nirala01.github.io/TrickySSC/ssc-jht.html#tricks" style="display:inline-flex;align-items:center;gap:0.35rem;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:100px;padding:0.4rem 1rem;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.82rem;color:#4A5568;text-decoration:none;white-space:nowrap;transition:all 0.15s;" onmouseenter="this.style.borderColor='#8B5CF6';this.style.color='#8B5CF6';this.style.background='#FFF7F0'" onmouseleave="this.style.borderColor='#E2E8F0';this.style.color='#4A5568';this.style.background='#F8FAFC'">✍️ SSC JHT</a><a href="https://nirala01.github.io/TrickySSC/ssc-je.html#tricks" style="display:inline-flex;align-items:center;gap:0.35rem;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:100px;padding:0.4rem 1rem;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.82rem;color:#4A5568;text-decoration:none;white-space:nowrap;transition:all 0.15s;" onmouseenter="this.style.borderColor='#8B5CF6';this.style.color='#8B5CF6';this.style.background='#FFF7F0'" onmouseleave="this.style.borderColor='#E2E8F0';this.style.color='#4A5568';this.style.background='#F8FAFC'">⚙️ SSC JE</a></div></div></div>
-
+    <div style="background:#fff;border-bottom:2px solid #E2E8F0;padding:0.75rem 0;margin-bottom:1.5rem;position:sticky;top:70px;z-index:10;box-shadow:0 2px 8px rgba(0,0,0,0.04);display:none;"></div>
+    <div style="margin-bottom:2.5rem;">
+      <div style="text-align:center;margin-bottom:1.5rem;">
+        <span style="font-family:'Rajdhani',sans-serif;font-size:0.8rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#718096;background:#F1F5F9;padding:0.4rem 1.2rem;border-radius:100px;">🎯 Choose Your Exam</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1rem;max-width:1000px;margin:0 auto;">
+        <a href="#" onclick="return false;" style="text-decoration:none;display:flex;flex-direction:column;align-items:center;gap:0.6rem;padding:1.4rem 1rem;background:linear-gradient(135deg,#EFF6FF,#DBEAFE);border:2px solid #0EA5E9;border-radius:16px;box-shadow:0 4px 20px rgba(14,165,233,0.2);">
+          <span style="font-size:2rem;">🎯</span>
+          <span style="font-family:'Baloo 2',cursive;font-weight:800;font-size:1rem;color:#0369A1;">SSC CGL</span>
+          <span style="font-size:0.72rem;color:#0EA5E9;font-family:'Rajdhani',sans-serif;font-weight:600;background:rgba(14,165,233,0.12);padding:0.2rem 0.6rem;border-radius:100px;">Graduate Level</span>
+        </a>
+        <a href="https://nirala01.github.io/TrickySSC/ssc-chsl.html#chsl-mock-page" style="text-decoration:none;display:flex;flex-direction:column;align-items:center;gap:0.6rem;padding:1.4rem 1rem;background:#F8FAFC;border:2px solid #E2E8F0;border-radius:16px;transition:all 0.25s;box-shadow:0 2px 8px rgba(0,0,0,0.05);" onmouseenter="this.style.transform='translateY(-4px)';this.style.borderColor='#FF6B00';this.style.boxShadow='0 12px 35px rgba(255,107,0,0.2)'" onmouseleave="this.style.transform='translateY(0)';this.style.borderColor='#E2E8F0';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.05)'">
+          <span style="font-size:2rem;">📋</span>
+          <span style="font-family:'Baloo 2',cursive;font-weight:800;font-size:1rem;color:#1A202C;">SSC CHSL</span>
+          <span style="font-size:0.72rem;color:#FF6B00;font-family:'Rajdhani',sans-serif;font-weight:600;background:rgba(255,107,0,0.1);padding:0.2rem 0.6rem;border-radius:100px;">Higher Secondary</span>
+        </a>
+        <a href="https://nirala01.github.io/TrickySSC/ssc-mts.html#mts-mock-page" style="text-decoration:none;display:flex;flex-direction:column;align-items:center;gap:0.6rem;padding:1.4rem 1rem;background:#F8FAFC;border:2px solid #E2E8F0;border-radius:16px;transition:all 0.25s;box-shadow:0 2px 8px rgba(0,0,0,0.05);" onmouseenter="this.style.transform='translateY(-4px)';this.style.borderColor='#10B981';this.style.boxShadow='0 12px 35px rgba(16,185,129,0.2)'" onmouseleave="this.style.transform='translateY(0)';this.style.borderColor='#E2E8F0';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.05)'">
+          <span style="font-size:2rem;">📝</span>
+          <span style="font-family:'Baloo 2',cursive;font-weight:800;font-size:1rem;color:#1A202C;">SSC MTS</span>
+          <span style="font-size:0.72rem;color:#10B981;font-family:'Rajdhani',sans-serif;font-weight:600;background:rgba(16,185,129,0.1);padding:0.2rem 0.6rem;border-radius:100px;">Multi Tasking</span>
+        </a>
+        <a href="https://nirala01.github.io/TrickySSC/ssc-gd.html#gd-mock-page" style="text-decoration:none;display:flex;flex-direction:column;align-items:center;gap:0.6rem;padding:1.4rem 1rem;background:#F8FAFC;border:2px solid #E2E8F0;border-radius:16px;transition:all 0.25s;box-shadow:0 2px 8px rgba(0,0,0,0.05);" onmouseenter="this.style.transform='translateY(-4px)';this.style.borderColor='#EF4444';this.style.boxShadow='0 12px 35px rgba(239,68,68,0.2)'" onmouseleave="this.style.transform='translateY(0)';this.style.borderColor='#E2E8F0';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.05)'">
+          <span style="font-size:2rem;">🛡️</span>
+          <span style="font-family:'Baloo 2',cursive;font-weight:800;font-size:1rem;color:#1A202C;">SSC GD</span>
+          <span style="font-size:0.72rem;color:#EF4444;font-family:'Rajdhani',sans-serif;font-weight:600;background:rgba(239,68,68,0.1);padding:0.2rem 0.6rem;border-radius:100px;">GD Constable</span>
+        </a>
+        <a href="https://nirala01.github.io/TrickySSC/ssc-cpo.html#cpo-mock-page" style="text-decoration:none;display:flex;flex-direction:column;align-items:center;gap:0.6rem;padding:1.4rem 1rem;background:#F8FAFC;border:2px solid #E2E8F0;border-radius:16px;transition:all 0.25s;box-shadow:0 2px 8px rgba(0,0,0,0.05);" onmouseenter="this.style.transform='translateY(-4px)';this.style.borderColor='#6366F1';this.style.boxShadow='0 12px 35px rgba(99,102,241,0.2)'" onmouseleave="this.style.transform='translateY(0)';this.style.borderColor='#E2E8F0';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.05)'">
+          <span style="font-size:2rem;">👮</span>
+          <span style="font-family:'Baloo 2',cursive;font-weight:800;font-size:1rem;color:#1A202C;">SSC CPO</span>
+          <span style="font-size:0.72rem;color:#6366F1;font-family:'Rajdhani',sans-serif;font-weight:600;background:rgba(99,102,241,0.1);padding:0.2rem 0.6rem;border-radius:100px;">Central Police</span>
+        </a>
+        <a href="https://nirala01.github.io/TrickySSC/ssc-jht.html#jht-mock-page" style="text-decoration:none;display:flex;flex-direction:column;align-items:center;gap:0.6rem;padding:1.4rem 1rem;background:#F8FAFC;border:2px solid #E2E8F0;border-radius:16px;transition:all 0.25s;box-shadow:0 2px 8px rgba(0,0,0,0.05);" onmouseenter="this.style.transform='translateY(-4px)';this.style.borderColor='#F59E0B';this.style.boxShadow='0 12px 35px rgba(245,158,11,0.2)'" onmouseleave="this.style.transform='translateY(0)';this.style.borderColor='#E2E8F0';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.05)'">
+          <span style="font-size:2rem;">✍️</span>
+          <span style="font-family:'Baloo 2',cursive;font-weight:800;font-size:1rem;color:#1A202C;">SSC JHT</span>
+          <span style="font-size:0.72rem;color:#F59E0B;font-family:'Rajdhani',sans-serif;font-weight:600;background:rgba(245,158,11,0.1);padding:0.2rem 0.6rem;border-radius:100px;">Hindi Translator</span>
+        </a>
+        <a href="https://nirala01.github.io/TrickySSC/ssc-je.html#je-mock-page" style="text-decoration:none;display:flex;flex-direction:column;align-items:center;gap:0.6rem;padding:1.4rem 1rem;background:#F8FAFC;border:2px solid #E2E8F0;border-radius:16px;transition:all 0.25s;box-shadow:0 2px 8px rgba(0,0,0,0.05);" onmouseenter="this.style.transform='translateY(-4px)';this.style.borderColor='#EC4899';this.style.boxShadow='0 12px 35px rgba(236,72,153,0.2)'" onmouseleave="this.style.transform='translateY(0)';this.style.borderColor='#E2E8F0';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.05)'">
+          <span style="font-size:2rem;">⚙️</span>
+          <span style="font-family:'Baloo 2',cursive;font-weight:800;font-size:1rem;color:#1A202C;">SSC JE</span>
+          <span style="font-size:0.72rem;color:#EC4899;font-family:'Rajdhani',sans-serif;font-weight:600;background:rgba(236,72,153,0.1);padding:0.2rem 0.6rem;border-radius:100px;">Junior Engineer</span>
+        </a>
       </div>
     </div>
-
-    <div style="background:#fff;border-bottom:2px solid #E2E8F0;padding:0.75rem 0;margin-bottom:1.5rem;position:sticky;top:70px;z-index:10;box-shadow:0 2px 8px rgba(0,0,0,0.04);"><div style="max-width:1200px;margin:0 auto;padding:0 1.5rem;"><div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;"><span style="font-size:0.75rem;font-weight:700;color:#718096;font-family:'Rajdhani',sans-serif;text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap;margin-right:0.25rem;">Choose Exam:</span><span style="display:inline-flex;align-items:center;gap:0.35rem;background:#0EA5E9;color:white;border-radius:100px;padding:0.4rem 1rem;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.82rem;cursor:default;white-space:nowrap;">🎯 SSC CGL</span><a href="https://nirala01.github.io/TrickySSC/ssc-chsl.html#chsl-mock-page" style="display:inline-flex;align-items:center;gap:0.35rem;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:100px;padding:0.4rem 1rem;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.82rem;color:#4A5568;text-decoration:none;white-space:nowrap;transition:all 0.15s;" onmouseenter="this.style.borderColor='#0EA5E9';this.style.color='#0EA5E9';this.style.background='#FFF7F0'" onmouseleave="this.style.borderColor='#E2E8F0';this.style.color='#4A5568';this.style.background='#F8FAFC'">📋 SSC CHSL</a><a href="https://nirala01.github.io/TrickySSC/ssc-mts.html#mts-mock-page" style="display:inline-flex;align-items:center;gap:0.35rem;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:100px;padding:0.4rem 1rem;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.82rem;color:#4A5568;text-decoration:none;white-space:nowrap;transition:all 0.15s;" onmouseenter="this.style.borderColor='#0EA5E9';this.style.color='#0EA5E9';this.style.background='#FFF7F0'" onmouseleave="this.style.borderColor='#E2E8F0';this.style.color='#4A5568';this.style.background='#F8FAFC'">📝 SSC MTS</a><a href="https://nirala01.github.io/TrickySSC/ssc-gd.html#gd-mock-page" style="display:inline-flex;align-items:center;gap:0.35rem;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:100px;padding:0.4rem 1rem;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.82rem;color:#4A5568;text-decoration:none;white-space:nowrap;transition:all 0.15s;" onmouseenter="this.style.borderColor='#0EA5E9';this.style.color='#0EA5E9';this.style.background='#FFF7F0'" onmouseleave="this.style.borderColor='#E2E8F0';this.style.color='#4A5568';this.style.background='#F8FAFC'">🛡️ SSC GD</a><a href="https://nirala01.github.io/TrickySSC/ssc-cpo.html#cpo-mock-page" style="display:inline-flex;align-items:center;gap:0.35rem;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:100px;padding:0.4rem 1rem;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.82rem;color:#4A5568;text-decoration:none;white-space:nowrap;transition:all 0.15s;" onmouseenter="this.style.borderColor='#0EA5E9';this.style.color='#0EA5E9';this.style.background='#FFF7F0'" onmouseleave="this.style.borderColor='#E2E8F0';this.style.color='#4A5568';this.style.background='#F8FAFC'">👮 SSC CPO</a><a href="https://nirala01.github.io/TrickySSC/ssc-jht.html#jht-mock-page" style="display:inline-flex;align-items:center;gap:0.35rem;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:100px;padding:0.4rem 1rem;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.82rem;color:#4A5568;text-decoration:none;white-space:nowrap;transition:all 0.15s;" onmouseenter="this.style.borderColor='#0EA5E9';this.style.color='#0EA5E9';this.style.background='#FFF7F0'" onmouseleave="this.style.borderColor='#E2E8F0';this.style.color='#4A5568';this.style.background='#F8FAFC'">✍️ SSC JHT</a><a href="https://nirala01.github.io/TrickySSC/ssc-je.html#je-mock-page" style="display:inline-flex;align-items:center;gap:0.35rem;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:100px;padding:0.4rem 1rem;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.82rem;color:#4A5568;text-decoration:none;white-space:nowrap;transition:all 0.15s;" onmouseenter="this.style.borderColor='#0EA5E9';this.style.color='#0EA5E9';this.style.background='#FFF7F0'" onmouseleave="this.style.borderColor='#E2E8F0';this.style.color='#4A5568';this.style.background='#F8FAFC'">⚙️ SSC JE</a></div></div></div>
 
   </div>
 </section>
 
 <section id="blog">
   <div class="content-wrap section-anim">
-    <div class="section-header">
-      <div class="section-tag">Knowledge Hub</div>
-      <h2 class="section-title">SSC CGL <span style="color:var(--saffron)">Blog</span></h2>
-      <p class="section-sub">Expert tips, study plans, and preparation strategies</p>
-    </div>
-
-    <div class="blog-grid">
-      <div class="blog-card">
-        <div class="blog-thumb" style="background:linear-gradient(135deg,rgba(255,107,0,0.2),rgba(255,107,0,0.05))">📅</div>
-        <div class="blog-body">
-          <div class="blog-cat">Study Plan</div>
-          <div class="blog-title">6-Month SSC CGL Study Plan for Working Professionals</div>
-          <div class="blog-excerpt">A realistic, time-efficient strategy to clear SSC CGL while managing a 9-to-5 job.</div>
-          <div class="blog-meta"><span>📖 8 min read</span><span>Mar 5, 2025</span></div>
-        </div>
-      </div>
-      <div class="blog-card">
-        <div class="blog-thumb" style="background:linear-gradient(135deg,rgba(0,200,150,0.2),rgba(0,200,150,0.05))">📚</div>
-        <div class="blog-body">
-          <div class="blog-cat">Books & Resources</div>
-          <div class="blog-title">Best Books for SSC CGL 2025 — Subject-wise Complete List</div>
-          <div class="blog-excerpt">Expert-recommended books for Quant, Reasoning, English and GK with honest reviews.</div>
-          <div class="blog-meta"><span>📖 12 min read</span><span>Mar 3, 2025</span></div>
-        </div>
-      </div>
-      <div class="blog-card">
-        <div class="blog-thumb" style="background:linear-gradient(135deg,rgba(56,189,248,0.2),rgba(56,189,248,0.05))">⚡</div>
-        <div class="blog-body">
-          <div class="blog-cat">Quant Tricks</div>
-          <div class="blog-title">Top 20 Quant Shortcuts That SSC Toppers Use</div>
-          <div class="blog-excerpt">Powerful tricks that can save 30-40 minutes in the exam — tested by students who scored 90+.</div>
-          <div class="blog-meta"><span>📖 10 min read</span><span>Mar 1, 2025</span></div>
-        </div>
-      </div>
-      <div class="blog-card">
-        <div class="blog-thumb" style="background:linear-gradient(135deg,rgba(255,215,0,0.2),rgba(255,215,0,0.05))">🎯</div>
-        <div class="blog-body">
-          <div class="blog-cat">Exam Strategy</div>
-          <div class="blog-title">How to Attempt SSC CGL Tier 1 to Maximize Score</div>
-          <div class="blog-excerpt">Section-wise time allocation, question selection strategy, and negative marking management.</div>
-          <div class="blog-meta"><span>📖 6 min read</span><span>Feb 28, 2025</span></div>
-        </div>
-      </div>
-      <div class="blog-card">
-        <div class="blog-thumb" style="background:linear-gradient(135deg,rgba(129,140,248,0.2),rgba(129,140,248,0.05))">📊</div>
-        <div class="blog-body">
-          <div class="blog-cat">Analysis</div>
-          <div class="blog-title">SSC CGL 2024 Paper Analysis — All Shifts</div>
-          <div class="blog-excerpt">Detailed analysis of difficulty level, topic distribution, and expected cut-off for SSC CGL 2024.</div>
-          <div class="blog-meta"><span>📖 15 min read</span><span>Feb 25, 2025</span></div>
-        </div>
-      </div>
-      <div class="blog-card">
-        <div class="blog-thumb" style="background:linear-gradient(135deg,rgba(236,72,153,0.2),rgba(236,72,153,0.05))">🧠</div>
-        <div class="blog-body">
-          <div class="blog-cat">Reasoning</div>
-          <div class="blog-title">Master Reasoning in 30 Days — Proven Method</div>
-          <div class="blog-excerpt">Day-by-day plan to cover all Reasoning topics from basics to advanced level with practice sets.</div>
-          <div class="blog-meta"><span>📖 9 min read</span><span>Feb 22, 2025</span></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Leaderboard below blog -->
-    <div style="margin-top:5rem">
+    <!-- Leaderboard -->
+    <div>
       <div class="section-header">
         <div class="section-tag">Gamification</div>
         <h2 class="section-title">🏆 Weekly <span style="color:var(--saffron)">Leaderboard</span></h2>
@@ -1871,6 +2034,109 @@
               <div style="font-size:0.78rem;color:var(--text-muted)">1,153 pts to reach Top 100</div>
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== LOGIN / REGISTER ==================== -->
+<section id="login">
+  <div class="content-wrap section-anim">
+    <div style="max-width:480px;margin:0 auto;">
+      <!-- Hologram Logo -->
+      <div style="text-align:center;margin-bottom:2.5rem;">
+        <div class="login-hologram" style="display:inline-block;position:relative;margin-bottom:1rem;">
+          <div class="holo-ring holo-ring-1"></div>
+          <div class="holo-ring holo-ring-2"></div>
+          <div class="holo-ring holo-ring-3"></div>
+          <div class="holo-core">
+            <span style="font-family:'Baloo 2',cursive;font-size:1.3rem;font-weight:800;color:#FF6B00;">T<span style="color:#1A202C">SSC</span></span>
+          </div>
+        </div>
+        <h2 style="font-family:'Baloo 2',cursive;font-size:2rem;font-weight:800;color:#1A202C;margin-bottom:0.4rem;">Welcome Back! 👋</h2>
+        <p style="color:#718096;font-size:0.95rem;">Sign in to track your progress, access all features & compete on leaderboard</p>
+      </div>
+
+      <!-- Tabs -->
+      <div style="display:flex;background:#F1F5F9;border-radius:12px;padding:4px;margin-bottom:2rem;" id="authTabBar">
+        <button onclick="switchAuthTab('login')" id="loginTab" style="flex:1;padding:0.65rem;border:none;border-radius:9px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.95rem;cursor:pointer;background:white;color:#1A202C;box-shadow:0 2px 8px rgba(0,0,0,0.1);transition:all 0.2s;">🔑 Login</button>
+        <button onclick="switchAuthTab('register')" id="registerTab" style="flex:1;padding:0.65rem;border:none;border-radius:9px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.95rem;cursor:pointer;background:transparent;color:#718096;transition:all 0.2s;">📝 Register</button>
+      </div>
+
+      <!-- Card -->
+      <div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:20px;padding:2.5rem;box-shadow:0 8px 30px rgba(0,0,0,0.08);position:relative;overflow:hidden;">
+        <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#FF6B00,#F59E0B,#00A86B);"></div>
+
+        <!-- LOGIN FORM -->
+        <div id="loginForm">
+          <div style="margin-bottom:1.4rem;">
+            <label style="display:block;font-family:'Rajdhani',sans-serif;font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#718096;margin-bottom:0.5rem;">📧 Email / Mobile</label>
+            <input type="text" placeholder="Enter your email or mobile" style="width:100%;background:#F8FAFC;border:1.5px solid #E2E8F0;border-radius:10px;padding:0.8rem 1rem;font-family:'Hind',sans-serif;font-size:0.95rem;color:#1A202C;outline:none;transition:border-color 0.2s;box-sizing:border-box;" onfocus="this.style.borderColor='#FF6B00'" onblur="this.style.borderColor='#E2E8F0'">
+          </div>
+          <div style="margin-bottom:1.8rem;">
+            <label style="display:block;font-family:'Rajdhani',sans-serif;font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#718096;margin-bottom:0.5rem;">🔒 Password</label>
+            <input type="password" placeholder="Enter your password" style="width:100%;background:#F8FAFC;border:1.5px solid #E2E8F0;border-radius:10px;padding:0.8rem 1rem;font-family:'Hind',sans-serif;font-size:0.95rem;color:#1A202C;outline:none;transition:border-color 0.2s;box-sizing:border-box;" onfocus="this.style.borderColor='#FF6B00'" onblur="this.style.borderColor='#E2E8F0'">
+            <div style="text-align:right;margin-top:0.5rem;"><a href="#" style="font-size:0.82rem;color:#FF6B00;text-decoration:none;font-family:'Rajdhani',sans-serif;font-weight:600;">Forgot Password?</a></div>
+          </div>
+          <button style="width:100%;background:linear-gradient(135deg,#FF6B00,#F59E0B);color:white;border:none;border-radius:12px;padding:1rem;font-family:'Rajdhani',sans-serif;font-size:1.05rem;font-weight:700;cursor:pointer;letter-spacing:0.5px;box-shadow:0 4px 20px rgba(255,107,0,0.35);transition:all 0.2s;" onmouseenter="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 30px rgba(255,107,0,0.45)'" onmouseleave="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 20px rgba(255,107,0,0.35)'">Login to TrickySSC →</button>
+          <div style="text-align:center;margin-top:1.5rem;font-size:0.9rem;color:#718096;">Don't have an account? <a href="#" onclick="switchAuthTab('register')" style="color:#FF6B00;font-weight:700;text-decoration:none;">Register Free</a></div>
+        </div>
+
+        <!-- REGISTER FORM -->
+        <div id="registerForm" style="display:none;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.2rem;">
+            <div>
+              <label style="display:block;font-family:'Rajdhani',sans-serif;font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#718096;margin-bottom:0.5rem;">👤 First Name</label>
+              <input type="text" placeholder="Rahul" style="width:100%;background:#F8FAFC;border:1.5px solid #E2E8F0;border-radius:10px;padding:0.8rem 1rem;font-family:'Hind',sans-serif;font-size:0.92rem;color:#1A202C;outline:none;transition:border-color 0.2s;box-sizing:border-box;" onfocus="this.style.borderColor='#FF6B00'" onblur="this.style.borderColor='#E2E8F0'">
+            </div>
+            <div>
+              <label style="display:block;font-family:'Rajdhani',sans-serif;font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#718096;margin-bottom:0.5rem;">👤 Last Name</label>
+              <input type="text" placeholder="Kumar" style="width:100%;background:#F8FAFC;border:1.5px solid #E2E8F0;border-radius:10px;padding:0.8rem 1rem;font-family:'Hind',sans-serif;font-size:0.92rem;color:#1A202C;outline:none;transition:border-color 0.2s;box-sizing:border-box;" onfocus="this.style.borderColor='#FF6B00'" onblur="this.style.borderColor='#E2E8F0'">
+            </div>
+          </div>
+          <div style="margin-bottom:1.2rem;">
+            <label style="display:block;font-family:'Rajdhani',sans-serif;font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#718096;margin-bottom:0.5rem;">📧 Email Address</label>
+            <input type="email" placeholder="rahul@example.com" style="width:100%;background:#F8FAFC;border:1.5px solid #E2E8F0;border-radius:10px;padding:0.8rem 1rem;font-family:'Hind',sans-serif;font-size:0.92rem;color:#1A202C;outline:none;transition:border-color 0.2s;box-sizing:border-box;" onfocus="this.style.borderColor='#FF6B00'" onblur="this.style.borderColor='#E2E8F0'">
+          </div>
+          <div style="margin-bottom:1.2rem;">
+            <label style="display:block;font-family:'Rajdhani',sans-serif;font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#718096;margin-bottom:0.5rem;">📱 Mobile Number</label>
+            <input type="tel" placeholder="9876543210" style="width:100%;background:#F8FAFC;border:1.5px solid #E2E8F0;border-radius:10px;padding:0.8rem 1rem;font-family:'Hind',sans-serif;font-size:0.92rem;color:#1A202C;outline:none;transition:border-color 0.2s;box-sizing:border-box;" onfocus="this.style.borderColor='#FF6B00'" onblur="this.style.borderColor='#E2E8F0'">
+          </div>
+          <div style="margin-bottom:1.2rem;">
+            <label style="display:block;font-family:'Rajdhani',sans-serif;font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#718096;margin-bottom:0.5rem;">🎯 Target Exam</label>
+            <select style="width:100%;background:#F8FAFC;border:1.5px solid #E2E8F0;border-radius:10px;padding:0.8rem 1rem;font-family:'Hind',sans-serif;font-size:0.92rem;color:#1A202C;outline:none;transition:border-color 0.2s;appearance:none;cursor:pointer;box-sizing:border-box;" onfocus="this.style.borderColor='#FF6B00'" onblur="this.style.borderColor='#E2E8F0'">
+              <option>SSC CGL — Combined Graduate Level</option>
+              <option>SSC CHSL — Combined Higher Secondary</option>
+              <option>SSC MTS — Multi Tasking Staff</option>
+              <option>SSC GD Constable</option>
+              <option>SSC CPO — Central Police Organisation</option>
+              <option>SSC JHT — Junior Hindi Translator</option>
+              <option>SSC JE — Junior Engineer</option>
+            </select>
+          </div>
+          <div style="margin-bottom:1.8rem;">
+            <label style="display:block;font-family:'Rajdhani',sans-serif;font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#718096;margin-bottom:0.5rem;">🔒 Create Password</label>
+            <input type="password" placeholder="Min 8 characters" style="width:100%;background:#F8FAFC;border:1.5px solid #E2E8F0;border-radius:10px;padding:0.8rem 1rem;font-family:'Hind',sans-serif;font-size:0.92rem;color:#1A202C;outline:none;transition:border-color 0.2s;box-sizing:border-box;" onfocus="this.style.borderColor='#FF6B00'" onblur="this.style.borderColor='#E2E8F0'">
+          </div>
+          <button style="width:100%;background:linear-gradient(135deg,#00A86B,#0EA5E9);color:white;border:none;border-radius:12px;padding:1rem;font-family:'Rajdhani',sans-serif;font-size:1.05rem;font-weight:700;cursor:pointer;letter-spacing:0.5px;box-shadow:0 4px 20px rgba(0,168,107,0.35);transition:all 0.2s;" onmouseenter="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 30px rgba(0,168,107,0.45)'" onmouseleave="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 20px rgba(0,168,107,0.35)'">🚀 Create Free Account</button>
+          <div style="text-align:center;margin-top:1.5rem;font-size:0.85rem;color:#718096;">Already registered? <a href="#" onclick="switchAuthTab('login')" style="color:#FF6B00;font-weight:700;text-decoration:none;">Login here</a></div>
+        </div>
+      </div>
+
+      <!-- Benefits bar -->
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0.75rem;margin-top:1.5rem;text-align:center;">
+        <div style="background:#FFF7F0;border:1px solid #FFE8D6;border-radius:12px;padding:1rem 0.5rem;">
+          <div style="font-size:1.4rem;margin-bottom:0.3rem;">📊</div>
+          <div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.8rem;color:#CC4400;">Track Progress</div>
+        </div>
+        <div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:12px;padding:1rem 0.5rem;">
+          <div style="font-size:1.4rem;margin-bottom:0.3rem;">🏆</div>
+          <div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.8rem;color:#065F46;">Leaderboard</div>
+        </div>
+        <div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:12px;padding:1rem 0.5rem;">
+          <div style="font-size:1.4rem;margin-bottom:0.3rem;">⭐</div>
+          <div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.8rem;color:#1E40AF;">100% Free</div>
         </div>
       </div>
     </div>
@@ -2358,6 +2624,21 @@
     } else { t2.style.display='block'; t1.style.display='none';
       b2.style.background='linear-gradient(135deg,#0EA5E9,#6366F1)'; b2.style.color='white'; b2.style.borderColor='#0EA5E9';
       b1.style.background='#fff'; b1.style.color='#4A5568'; b1.style.borderColor='#E2E8F0';
+    }
+  }
+  function switchAuthTab(tab) {
+    var lf = document.getElementById('loginForm');
+    var rf = document.getElementById('registerForm');
+    var lt = document.getElementById('loginTab');
+    var rt = document.getElementById('registerTab');
+    if (tab === 'login') {
+      lf.style.display = 'block'; rf.style.display = 'none';
+      lt.style.background = 'white'; lt.style.color = '#1A202C'; lt.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
+      rt.style.background = 'transparent'; rt.style.color = '#718096'; rt.style.boxShadow = 'none';
+    } else {
+      rf.style.display = 'block'; lf.style.display = 'none';
+      rt.style.background = 'white'; rt.style.color = '#1A202C'; rt.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
+      lt.style.background = 'transparent'; lt.style.color = '#718096'; lt.style.boxShadow = 'none';
     }
   }
   // ===== CGL MOCK TIER SWITCH =====
