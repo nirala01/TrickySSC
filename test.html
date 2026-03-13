@@ -341,6 +341,12 @@ const SECTIONS=[
 let currentUser=null,selectedExam=null,questions=[],currentQ=0,answers={},marked={},timeLeft=3600,timerInterval=null,examCounts={};
 
 // Auth
+// Read URL params for direct launch: test.html?exam=ssc-cgl&year=2024&shift=1
+const _urlParams=new URLSearchParams(window.location.search);
+const _autoExam=_urlParams.get('exam');   // e.g. ssc-cgl
+const _autoYear=_urlParams.get('year');   // e.g. 2024
+const _autoShift=_urlParams.get('shift'); // e.g. 1 (optional)
+
 onAuthStateChanged(auth,user=>{
   if(user){currentUser=user;showSelector(user);}
   else{show('loginScreen');}
@@ -366,8 +372,29 @@ async function showSelector(user){
       <p>${e.full}</p>
       <div class="exam-count">${examCounts[e.id]||0} questions available</div>
     </div>`).join('');
-  // Load years for CGL by default
-  loadYears('ssc-cgl');
+  // Auto-launch from URL params (e.g. test.html?exam=ssc-cgl&year=2024)
+  if(_autoExam){
+    const examEntry=EXAMS.find(e=>e.id===_autoExam);
+    if(examEntry){
+      selectedExam=_autoExam;
+      document.getElementById('card-'+_autoExam)?.classList.add('active');
+      document.getElementById('configTitle').textContent='Launching '+examEntry.name+' Test...';
+      document.getElementById('configPanel').style.display='block';
+      document.getElementById('startBtn').disabled=false;
+      document.getElementById('startBtn').textContent='⏳ Loading questions...';
+      await loadYears(_autoExam);
+      if(_autoYear){
+        const sel=document.getElementById('cfgYear');
+        for(let o of sel.options){ if(o.value==_autoYear){ o.selected=true; break; } }
+      }
+      // Auto-start after small delay so UI renders
+      setTimeout(()=>window.startTest(),400);
+    } else {
+      loadYears('ssc-cgl');
+    }
+  } else {
+    loadYears('ssc-cgl');
+  }
 }
 
 async function loadYears(examId){
