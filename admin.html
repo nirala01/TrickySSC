@@ -173,20 +173,54 @@ textarea{resize:vertical;min-height:80px;}
           </select>
         </div>
       </div>
-      <div class="form-row">
+      <div class="form-row three">
+        <div>
+          <label>Content Type</label>
+          <select id="qType">
+            <option value="pyq">PYQ (Previous Year)</option>
+            <option value="mock">Mock Test</option>
+            <option value="chapterwise">Chapterwise</option>
+            <option value="sectionwise">Sectionwise</option>
+          </select>
+        </div>
         <div>
           <label>Subject</label>
-          <select id="qSubject">
+          <select id="qSubject" onchange="updateChapters()">
             <option value="reasoning">Reasoning</option>
             <option value="english">English</option>
             <option value="quant">Quantitative Aptitude</option>
-            <option value="gk">General Knowledge</option>
             <option value="gk">General Awareness</option>
           </select>
         </div>
         <div>
           <label>Question Number</label>
           <input type="number" id="qNum" placeholder="e.g. 1" min="1" max="200">
+        </div>
+      </div>
+      <div class="form-row">
+        <div>
+          <label>Chapter / Topic</label>
+          <select id="qChapter">
+            <option value="analogies">Analogies</option>
+            <option value="series">Number/Letter Series</option>
+            <option value="coding-decoding">Coding-Decoding</option>
+            <option value="blood-relations">Blood Relations</option>
+            <option value="direction">Direction & Distance</option>
+            <option value="syllogism">Syllogism</option>
+            <option value="matrix">Matrix</option>
+            <option value="venn-diagram">Venn Diagram</option>
+            <option value="missing-number">Missing Number</option>
+            <option value="ranking">Ranking & Order</option>
+            <option value="other-reasoning">Other (Reasoning)</option>
+          </select>
+        </div>
+        <div>
+          <label>Difficulty</label>
+          <select id="qDifficulty">
+            <option value="easy">Easy</option>
+            <option value="medium" selected>Medium</option>
+            <option value="hard">Hard</option>
+          </select>
         </div>
       </div>
       <div style="margin-bottom:1rem;">
@@ -346,6 +380,28 @@ const ADMIN_EMAILS = ['nirala01@gmail.com', 'ashish@trickyssc.com'];
 
 let extractedQuestions = [];
 
+// Dynamic chapter list per subject
+const CHAPTERS = {
+  reasoning: ['Analogies','Number/Letter Series','Coding-Decoding','Blood Relations','Direction & Distance','Syllogism','Matrix','Venn Diagram','Missing Number','Ranking & Order','Other'],
+  english: ['Synonyms','Antonyms','Fill in the Blanks','Error Spotting','Sentence Improvement','One Word Substitution','Idioms & Phrases','Reading Comprehension','Cloze Test','Other'],
+  quant: ['Number System','Percentage','Ratio & Proportion','SI & CI','Profit & Loss','Time & Work','Time & Distance','Geometry','Mensuration','Trigonometry','Algebra','Statistics','Other'],
+  gk: ['History','Geography','Polity','Science & Technology','Economy','Current Affairs','Sports','Art & Culture','Other']
+};
+const CHAPTER_VALS = {
+  reasoning: ['analogies','series','coding-decoding','blood-relations','direction','syllogism','matrix','venn-diagram','missing-number','ranking','other-reasoning'],
+  english: ['synonyms','antonyms','fill-blanks','error-spotting','sentence-improvement','one-word','idioms','comprehension','cloze-test','other-english'],
+  quant: ['number-system','percentage','ratio','si-ci','profit-loss','time-work','time-distance','geometry','mensuration','trigonometry','algebra','statistics','other-quant'],
+  gk: ['history','geography','polity','science','economy','current-affairs','sports','art-culture','other-gk']
+};
+
+window.updateChapters = () => {
+  const subj = document.getElementById('qSubject').value;
+  const sel = document.getElementById('qChapter');
+  const labels = CHAPTERS[subj] || ['Other'];
+  const vals = CHAPTER_VALS[subj] || ['other'];
+  sel.innerHTML = labels.map((l,i) => `<option value="${vals[i]}">${l}</option>`).join('');
+};
+
 window.googleLogin = async () => {
   try {
     await signInWithPopup(auth, provider);
@@ -403,7 +459,10 @@ window.saveQuestion = async () => {
       exam: document.getElementById('qExam').value,
       tier: document.getElementById('qTier').value,
       year: document.getElementById('qYear').value,
+      type: document.getElementById('qType').value,
       subject: document.getElementById('qSubject').value,
+      chapter: document.getElementById('qChapter').value,
+      difficulty: document.getElementById('qDifficulty').value,
       qNum: parseInt(document.getElementById('qNum').value) || 0,
       text: text,
       options: { A: optA, B: optB, C: optC, D: optD },
@@ -471,9 +530,11 @@ window.extractWithAI = async () => {
   "text": "<question text>",
   "options": {"A": "<option A>", "B": "<option B>", "C": "<option C>", "D": "<option D>"},
   "correct": "<A or B or C or D>",
-  "subject": "<reasoning|english|quant|gk>"
+  "subject": "<reasoning|english|quant|gk>",
+  "chapter": "<specific topic e.g. analogies|series|coding-decoding|blood-relations|direction|syllogism|synonyms|antonyms|fill-blanks|error-spotting|comprehension|percentage|ratio|si-ci|profit-loss|time-work|time-distance|geometry|number-system|history|geography|polity|science|current-affairs|other>",
+  "difficulty": "<easy|medium|hard>"
 }
-If you cannot determine the correct answer, put "A". Extract every single question visible.`
+If you cannot determine the correct answer, put "A". Identify the chapter/topic carefully based on the question type. Extract every single question visible.`
             }
           ]
         }]
@@ -510,6 +571,8 @@ function displayExtracted(questions) {
       </div>
       <div class="q-meta">
         <span class="meta-tag">${q.subject}</span>
+        <span class="meta-tag">${q.chapter||'—'}</span>
+        <span class="meta-tag">${q.difficulty||'medium'}</span>
         <span class="meta-tag">Correct: ${q.correct}</span>
       </div>
     </div>
@@ -540,7 +603,10 @@ window.saveAllExtracted = async () => {
     try {
       await addDoc(collection(db, 'questions'), {
         exam, tier, year,
+        type: 'pyq',
         subject: q.subject || 'reasoning',
+        chapter: q.chapter || 'other',
+        difficulty: q.difficulty || 'medium',
         qNum: q.qNum || 0,
         text: q.text,
         options: q.options,
@@ -586,6 +652,8 @@ window.loadQuestions = async () => {
           <span class="meta-tag">${q.year}</span>
           <span class="meta-tag">${q.tier}</span>
           <span class="meta-tag">${q.subject}</span>
+          <span class="meta-tag">${q.chapter||''}</span>
+          <span class="meta-tag">${q.difficulty||''}</span>
         </div>
       </div>
     `).join('');
