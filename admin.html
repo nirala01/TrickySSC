@@ -345,6 +345,66 @@ textarea{resize:vertical;min-height:80px;}
 
   <!-- TAB: Manage Questions -->
   <div class="panel" id="panel-manage">
+
+    <!-- BULK DELETE CARD -->
+    <div class="card" style="border-color:#EF444444;">
+      <h3>🗑️ Bulk Delete Questions</h3>
+      <p style="color:#94A3B8;font-size:0.85rem;margin-bottom:1rem;">Select exam + year + shift to delete all matching questions at once. Use before re-uploading a corrected paper.</p>
+      <div class="filter-row" style="margin-bottom:1rem;">
+        <div>
+          <label>Exam</label>
+          <select id="delExam">
+            <option value="ssc-cgl">SSC CGL</option>
+            <option value="ssc-chsl">SSC CHSL</option>
+            <option value="ssc-mts">SSC MTS</option>
+            <option value="ssc-gd">SSC GD</option>
+            <option value="ssc-cpo">SSC CPO</option>
+            <option value="ssc-jht">SSC JHT</option>
+            <option value="ssc-je">SSC JE</option>
+          </select>
+        </div>
+        <div>
+          <label>Year</label>
+          <select id="delYear">
+            <option value="">All Years</option>
+            <option value="2025">2025</option>
+            <option value="2024">2024</option>
+            <option value="2023">2023</option>
+            <option value="2022">2022</option>
+            <option value="2021">2021</option>
+            <option value="2020">2020</option>
+            <option value="2019">2019</option>
+            <option value="2018">2018</option>
+          </select>
+        </div>
+        <div>
+          <label>Shift</label>
+          <select id="delShift">
+            <option value="">All Shifts</option>
+            <option value="Shift-1">Shift 1</option>
+            <option value="Shift-2">Shift 2</option>
+            <option value="Shift-3">Shift 3</option>
+          </select>
+        </div>
+        <div style="display:flex;align-items:flex-end;">
+          <button class="btn" onclick="previewDelete()" style="background:#F59E0B;color:#fff;white-space:nowrap;">🔍 Preview Count</button>
+        </div>
+      </div>
+      <div id="delPreview" style="display:none;background:#0F172A;border-radius:8px;padding:1rem;margin-bottom:1rem;">
+        <span id="delPreviewText" style="color:#F59E0B;font-weight:600;"></span>
+      </div>
+      <button class="btn btn-danger" id="delBtn" onclick="bulkDelete()" style="display:none;width:100%;padding:0.75rem;font-size:1rem;">
+        🗑️ Delete All Matching Questions
+      </button>
+      <div id="delProgress" style="display:none;margin-top:1rem;">
+        <div style="background:#1E293B;border-radius:6px;height:8px;overflow:hidden;margin-bottom:0.5rem;">
+          <div id="delBar" style="height:100%;background:#EF4444;width:0%;transition:width 0.3s;"></div>
+        </div>
+        <div id="delStatus" style="font-size:0.85rem;color:#94A3B8;"></div>
+      </div>
+    </div>
+
+    <!-- VIEW QUESTIONS CARD -->
     <div class="card">
       <h3>All Questions</h3>
       <div class="filter-row">
@@ -738,6 +798,66 @@ window.loadQuestions = async () => {
       </div>
     `).join('');
   } catch(e) { listEl.innerHTML = '<p style="color:#EF4444;text-align:center;padding:2rem;">Error loading: '+e.message+'</p>'; }
+};
+
+// Bulk delete
+window.previewDelete = async () => {
+  const exam = document.getElementById('delExam').value;
+  const year = document.getElementById('delYear').value;
+  const shift = document.getElementById('delShift').value;
+  let q = query(collection(db,'questions'), where('exam','==',exam));
+  if (year) q = query(collection(db,'questions'), where('exam','==',exam), where('year','==',year));
+  const snap = await getDocs(q);
+  let docs = snap.docs;
+  if (shift) docs = docs.filter(d => d.data().shift === shift);
+  const count = docs.length;
+  document.getElementById('delPreview').style.display = 'block';
+  document.getElementById('delPreviewText').textContent = `Found ${count} questions matching: ${exam.toUpperCase()} ${year||'All Years'} ${shift||'All Shifts'}`;
+  const delBtn = document.getElementById('delBtn');
+  if (count > 0) {
+    delBtn.style.display = 'block';
+    delBtn.textContent = `🗑️ Delete ${count} Questions`;
+    delBtn.dataset.exam = exam;
+    delBtn.dataset.year = year;
+    delBtn.dataset.shift = shift;
+  } else {
+    delBtn.style.display = 'none';
+  }
+};
+
+window.bulkDelete = async () => {
+  const btn = document.getElementById('delBtn');
+  const exam = btn.dataset.exam;
+  const year = btn.dataset.year;
+  const shift = btn.dataset.shift;
+  const label = `${exam.toUpperCase()} ${year||'All Years'} ${shift||'All Shifts'}`;
+  if (!confirm(`DELETE ALL ${label} questions? This cannot be undone!`)) return;
+
+  btn.disabled = true;
+  document.getElementById('delProgress').style.display = 'block';
+
+  let q = query(collection(db,'questions'), where('exam','==',exam));
+  if (year) q = query(collection(db,'questions'), where('exam','==',exam), where('year','==',year));
+  const snap = await getDocs(q);
+  let docs = snap.docs;
+  if (shift) docs = docs.filter(d => d.data().shift === shift);
+  const total = docs.length;
+  let deleted = 0;
+
+  for (const d of docs) {
+    await deleteDoc(doc(db,'questions',d.id));
+    deleted++;
+    const pct = Math.round(deleted/total*100);
+    document.getElementById('delBar').style.width = pct+'%';
+    document.getElementById('delStatus').textContent = `Deleted ${deleted}/${total} questions...`;
+  }
+
+  document.getElementById('delStatus').textContent = `✅ Done! Deleted ${deleted} questions.`;
+  document.getElementById('delPreview').style.display = 'none';
+  btn.style.display = 'none';
+  showToast(`✅ Deleted ${deleted} questions!`, 'success');
+  loadStats();
+  loadQuestions();
 };
 
 window.deleteQuestion = async (id) => {
