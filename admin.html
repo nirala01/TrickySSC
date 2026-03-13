@@ -257,8 +257,8 @@ textarea{resize:vertical;min-height:80px;}
   <!-- TAB: AI Extract -->
   <div class="panel" id="panel-ai">
     <div class="card">
-      <h3>🤖 AI Question Extractor</h3>
-      <p style="color:#94A3B8;font-size:0.9rem;margin-bottom:1.5rem;">Upload a photo or PDF page of exam questions. AI will automatically extract all questions, options, and answers.</p>
+      <h3>🤖 AI Bulk PDF Extractor</h3>
+      <p style="color:#94A3B8;font-size:0.9rem;margin-bottom:1.5rem;">Upload a full question paper PDF — AI will process every page automatically, extract all questions with solutions and tricks, then save everything to the database in one go.</p>
       <div class="form-row three">
         <div>
           <label>Exam</label>
@@ -288,25 +288,56 @@ textarea{resize:vertical;min-height:80px;}
             <option value="2022">2022</option>
             <option value="2021">2021</option>
             <option value="2020">2020</option>
+            <option value="2019">2019</option>
+            <option value="2018">2018</option>
+            <option value="2017">2017</option>
+            <option value="2016">2016</option>
           </select>
         </div>
       </div>
+
+      <!-- Upload modes -->
+      <div style="display:flex;gap:0.5rem;margin-bottom:1rem;">
+        <button class="btn" id="modePdfBtn" onclick="setMode('pdf')" style="background:#7C3AED;color:#fff;flex:1;">📄 Full PDF</button>
+        <button class="btn btn-secondary" id="modeImgBtn" onclick="setMode('image')" style="flex:1;">🖼️ Single Image</button>
+      </div>
+
       <div class="upload-area" onclick="document.getElementById('fileInput').click()">
         <input type="file" id="fileInput" accept="image/*,.pdf" onchange="handleFileUpload(event)">
-        <div class="upload-icon">📸</div>
+        <div class="upload-icon" id="uploadIcon">📄</div>
         <p><strong>Click to upload</strong> or drag & drop</p>
-        <p>Supports JPG, PNG, PDF (one page at a time)</p>
+        <p id="uploadHint">Upload full PDF — all pages processed automatically</p>
       </div>
+
+      <!-- PDF page progress -->
+      <div id="pdfInfo" style="display:none;background:#0F172A;border-radius:10px;padding:1rem;margin-bottom:1rem;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:0.5rem;">
+          <span style="font-size:0.85rem;color:#94A3B8;" id="pdfFileName">—</span>
+          <span style="font-size:0.85rem;color:#FF6B00;font-weight:700;" id="pdfPageCount">0 pages</span>
+        </div>
+        <div style="background:#1E293B;border-radius:6px;height:6px;overflow:hidden;">
+          <div id="pdfProgressBar" style="height:100%;background:linear-gradient(90deg,#7C3AED,#FF6B00);width:0%;transition:width 0.4s;"></div>
+        </div>
+        <div style="font-size:0.78rem;color:#64748B;margin-top:0.4rem;" id="pdfProgressText">Ready</div>
+      </div>
+
       <img id="imgPreview" class="img-preview">
+
       <div style="text-align:center;">
-        <button class="btn btn-ai" id="extractBtn" onclick="extractWithAI()" disabled>🤖 Extract Questions with AI</button>
+        <button class="btn btn-ai" id="extractBtn" onclick="startExtraction()" disabled style="min-width:220px;">🤖 Extract & Save to Database</button>
       </div>
+
+      <!-- Live log -->
+      <div id="liveLog" style="display:none;background:#0F172A;border-radius:10px;padding:1rem;margin-top:1rem;max-height:200px;overflow-y:auto;">
+        <div style="font-size:0.75rem;font-weight:700;color:#64748B;margin-bottom:0.5rem;">PROCESSING LOG</div>
+        <div id="logLines" style="font-size:0.8rem;color:#94A3B8;line-height:1.8;font-family:monospace;"></div>
+      </div>
+
       <div class="ai-result" id="aiResult">
-        <h4>✨ AI Extracted Questions</h4>
+        <h4>✨ Extracted Questions (<span id="extractedCount">0</span>)</h4>
         <div id="extractedList"></div>
         <div style="margin-top:1rem;display:flex;gap:0.75rem;">
-          <button class="btn btn-primary" onclick="saveAllExtracted()">💾 Save All to Database</button>
-          <button class="btn btn-secondary" onclick="clearExtracted()">Clear</button>
+          <button class="btn btn-secondary" onclick="clearExtracted()">Clear All</button>
         </div>
       </div>
     </div>
@@ -485,156 +516,191 @@ window.saveQuestion = async () => {
 };
 
 // Handle file upload for AI
+// ── Mode toggle ──
+let currentMode = 'pdf';
+window.setMode = (mode) => {
+  currentMode = mode;
+  const isPdf = mode === 'pdf';
+  document.getElementById('modePdfBtn').style.cssText = isPdf ? 'background:#7C3AED;color:#fff;flex:1;' : 'flex:1;';
+  document.getElementById('modeImgBtn').style.cssText = !isPdf ? 'background:#7C3AED;color:#fff;flex:1;' : 'flex:1;';
+  document.getElementById('uploadIcon').textContent = isPdf ? '📄' : '📸';
+  document.getElementById('uploadHint').textContent = isPdf
+    ? 'Upload full PDF — all pages processed automatically'
+    : 'Upload JPG or PNG of one question paper page';
+  document.getElementById('fileInput').accept = isPdf ? '.pdf' : 'image/*';
+  document.getElementById('fileInput').value = '';
+  document.getElementById('extractBtn').disabled = true;
+  document.getElementById('imgPreview').style.display = 'none';
+  document.getElementById('pdfInfo').style.display = 'none';
+};
+
+// ── File upload handler ──
 window.handleFileUpload = (event) => {
   const file = event.target.files[0];
   if (!file) return;
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    const preview = document.getElementById('imgPreview');
-    if (file.type.startsWith('image/')) {
-      preview.src = e.target.result;
-      preview.style.display = 'block';
-    }
-    window._uploadedFile = file;
-    window._uploadedDataUrl = e.target.result;
-    document.getElementById('extractBtn').disabled = false;
-  };
-  reader.readAsDataURL(file);
+  window._uploadedFile = file;
+
+  if (file.type === 'application/pdf') {
+    document.getElementById('pdfFileName').textContent = file.name;
+    document.getElementById('pdfInfo').style.display = 'block';
+    document.getElementById('imgPreview').style.display = 'none';
+    loadPdfPages(file).then(pages => {
+      window._pdfPages = pages;
+      document.getElementById('pdfPageCount').textContent = pages.length + ' pages';
+      document.getElementById('pdfProgressText').textContent = 'Ready to extract';
+      document.getElementById('extractBtn').disabled = false;
+    }).catch(e => showToast('PDF error: ' + e.message, 'error'));
+  } else {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      window._uploadedDataUrl = e.target.result;
+      document.getElementById('imgPreview').src = e.target.result;
+      document.getElementById('imgPreview').style.display = 'block';
+      document.getElementById('pdfInfo').style.display = 'none';
+      document.getElementById('extractBtn').disabled = false;
+    };
+    reader.readAsDataURL(file);
+  }
 };
 
-// AI Extract
-window.extractWithAI = async () => {
+// ── Load PDF pages using PDF.js ──
+async function loadPdfPages(file) {
+  if (!window.pdfjsLib) {
+    await new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+      s.onload = resolve; s.onerror = reject;
+      document.head.appendChild(s);
+    });
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  const pages = [];
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const viewport = page.getViewport({ scale: 2.0 });
+    const canvas = document.createElement('canvas');
+    canvas.width = viewport.width; canvas.height = viewport.height;
+    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+    pages.push(canvas.toDataURL('image/jpeg', 0.85));
+  }
+  return pages;
+}
+
+// ── AI prompt ──
+const AI_PROMPT = `Extract ALL questions from this SSC exam paper image. Return ONLY a JSON array. Each item:
+{"qNum":<n>,"text":"<q>","options":{"A":"","B":"","C":"","D":""},"correct":"<A|B|C|D>","subject":"<reasoning|english|quant|gk>","chapter":"<analogies|series|coding-decoding|blood-relations|direction|syllogism|synonyms|antonyms|fill-blanks|error-spotting|comprehension|number-system|percentage|ratio|si-ci|profit-loss|time-work|time-distance|geometry|history|geography|polity|science|current-affairs|other>","difficulty":"<easy|medium|hard>","explanation":"<step-by-step solution>","trick":"<shortcut method>"}
+Write explanation and trick for every question. If answer unknown put A.`;
+
+// ── Extract one image via AI ──
+async function extractPageQuestions(base64, mediaType) {
+  const resp = await fetch("https://trickyssc-ai.nirala01.workers.dev/", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 8000,
+      messages: [{ role: "user", content: [
+        { type: "image", source: { type: "base64", media_type: mediaType, data: base64 } },
+        { type: "text", text: AI_PROMPT }
+      ]}]
+    })
+  });
+  const data = await resp.json();
+  if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
+  const match = data.content[0].text.match(/\[[\s\S]*\]/);
+  return match ? JSON.parse(match[0]) : [];
+}
+
+// ── Log helper ──
+function addLog(msg, color='#94A3B8') {
+  const log = document.getElementById('logLines');
+  const d = document.createElement('div');
+  d.style.color = color; d.textContent = msg;
+  log.appendChild(d); log.scrollTop = log.scrollHeight;
+}
+
+// ── Save one question to Firestore ──
+async function saveQuestion_db(q, meta) {
+  await addDoc(collection(db, 'questions'), {
+    ...meta, type: 'pyq',
+    subject: q.subject || 'reasoning',
+    chapter: q.chapter || 'other',
+    difficulty: q.difficulty || 'medium',
+    qNum: q.qNum || 0,
+    text: q.text,
+    options: q.options,
+    correct: q.correct,
+    explanation: q.explanation || '',
+    trick: q.trick || '',
+    createdAt: new Date()
+  });
+}
+
+// ── Main extraction ──
+window.startExtraction = async () => {
   const btn = document.getElementById('extractBtn');
   const file = window._uploadedFile;
   if (!file) return;
-  btn.innerHTML = '<span class="spinner"></span> Extracting...';
+  btn.innerHTML = '<span class="spinner"></span> Processing...';
   btn.disabled = true;
+  document.getElementById('liveLog').style.display = 'block';
+  document.getElementById('logLines').innerHTML = '';
+  extractedQuestions = [];
+  const meta = {
+    exam: document.getElementById('aiExam').value,
+    tier: document.getElementById('aiTier').value,
+    year: document.getElementById('aiYear').value
+  };
 
   try {
-    const base64 = window._uploadedDataUrl.split(',')[1];
-    const mediaType = file.type || 'image/jpeg';
-
-    const response = await fetch("https://trickyssc-ai.nirala01.workers.dev/", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 8000,
-        messages: [{
-          role: "user",
-          content: [
-            {
-              type: "image",
-              source: { type: "base64", media_type: mediaType, data: base64 }
-            },
-            {
-              type: "text",
-              text: `Extract ALL questions from this SSC exam paper image. Return ONLY a JSON array with no other text. Each question object must have exactly these fields:
-{
-  "qNum": <number>,
-  "text": "<question text>",
-  "options": {"A": "<option A>", "B": "<option B>", "C": "<option C>", "D": "<option D>"},
-  "correct": "<A or B or C or D>",
-  "subject": "<reasoning|english|quant|gk>",
-  "chapter": "<specific topic e.g. analogies|series|coding-decoding|blood-relations|direction|syllogism|synonyms|antonyms|fill-blanks|error-spotting|comprehension|percentage|ratio|si-ci|profit-loss|time-work|time-distance|geometry|number-system|history|geography|polity|science|current-affairs|other>",
-  "difficulty": "<easy|medium|hard>",
-  "explanation": "<clear step-by-step solution>",
-  "trick": "<smart shortcut or tricky method to solve this faster, if applicable>"
-}
-If you cannot determine the correct answer, put "A". Identify the chapter carefully. For every question write a proper explanation and a tricky shortcut method. Extract every single question visible.`
-            }
-          ]
-        }]
-      })
-    });
-
-    const data = await response.json();
-    const text = data.content[0].text;
-    const jsonMatch = text.match(/\[[\s\S]*\]/);
-    if (!jsonMatch) throw new Error('No JSON found in response');
-    extractedQuestions = JSON.parse(jsonMatch[0]);
-    displayExtracted(extractedQuestions);
-    showToast(`✨ Extracted ${extractedQuestions.length} questions!`, 'success');
+    if (file.type === 'application/pdf') {
+      const pages = window._pdfPages;
+      addLog('📄 PDF: ' + pages.length + ' pages to process', '#A78BFA');
+      for (let i = 0; i < pages.length; i++) {
+        const n = i + 1;
+        document.getElementById('pdfProgressBar').style.width = (n/pages.length*100)+'%';
+        document.getElementById('pdfProgressText').textContent = 'Page ' + n + ' of ' + pages.length + '...';
+        addLog('⏳ Page ' + n + '/' + pages.length + ' — extracting...');
+        try {
+          const qs = await extractPageQuestions(pages[i].split(',')[1], 'image/jpeg');
+          if (!qs.length) { addLog('  ↳ No questions (skipped)', '#64748B'); continue; }
+          let saved = 0;
+          for (const q of qs) {
+            try { await saveQuestion_db(q, meta); extractedQuestions.push(q); saved++; }
+            catch(e) { console.error(e); }
+          }
+          addLog('  ✅ ' + saved + ' questions extracted & saved', '#00A86B');
+          document.getElementById('extractedCount').textContent = extractedQuestions.length;
+          displayExtracted(extractedQuestions);
+          if (i < pages.length-1) await new Promise(r => setTimeout(r, 1500));
+        } catch(e) { addLog('  ❌ Page ' + n + ' failed: ' + e.message, '#EF4444'); }
+      }
+      document.getElementById('pdfProgressText').textContent = 'Complete!';
+      addLog('🎉 Done! ' + extractedQuestions.length + ' questions saved.', '#FF6B00');
+      showToast('✅ ' + extractedQuestions.length + ' questions saved from PDF!', 'success');
+    } else {
+      addLog('🖼️ Processing image...');
+      const qs = await extractPageQuestions(window._uploadedDataUrl.split(',')[1], file.type||'image/jpeg');
+      for (const q of qs) {
+        try { await saveQuestion_db(q, meta); extractedQuestions.push(q); } catch(e) { console.error(e); }
+      }
+      addLog('✅ ' + extractedQuestions.length + ' questions saved', '#00A86B');
+      displayExtracted(extractedQuestions);
+      showToast('✅ ' + extractedQuestions.length + ' questions saved!', 'success');
+    }
+    loadStats();
   } catch(e) {
-    showToast('AI extraction failed: ' + e.message, 'error');
-    console.error(e);
+    showToast('Failed: ' + e.message, 'error');
+    addLog('❌ ' + e.message, '#EF4444');
   }
-  btn.innerHTML = '🤖 Extract Questions with AI';
+  btn.innerHTML = '🤖 Extract & Save to Database';
   btn.disabled = false;
 };
 
-function displayExtracted(questions) {
-  const list = document.getElementById('extractedList');
-  list.innerHTML = questions.map((q, i) => `
-    <div class="question-item">
-      <div class="q-header">
-        <div class="q-text"><strong>Q${q.qNum}.</strong> ${q.text}</div>
-        <button class="btn btn-secondary" style="padding:0.3rem 0.6rem;font-size:0.75rem;flex-shrink:0;" onclick="removeExtracted(${i})">✕</button>
-      </div>
-      <div class="q-options">
-        ${['A','B','C','D'].map(l => `<div class="q-option ${q.correct===l?'correct':''}">${l}) ${(q.options&&q.options[l])||''}</div>`).join('')}
-      </div>
-      <div class="q-meta">
-        <span class="meta-tag">${q.subject||''}</span>
-        <span class="meta-tag">${q.chapter||'—'}</span>
-        <span class="meta-tag">${q.difficulty||'medium'}</span>
-        <span class="meta-tag">✓ ${q.correct}</span>
-      </div>
-      <div style="margin-top:0.6rem;padding:0.6rem 0.75rem;background:#0F172A;border-radius:8px;border-left:3px solid #334155;">
-        <div style="font-size:0.7rem;font-weight:700;color:#64748B;margin-bottom:0.25rem;">📝 SOLUTION</div>
-        <div style="font-size:0.82rem;color:#94A3B8;line-height:1.5;">${q.explanation||'<em>Not generated</em>'}</div>
-      </div>
-      <div style="margin-top:0.5rem;padding:0.6rem 0.75rem;background:#1C1500;border-radius:8px;border-left:3px solid #F59E0B;">
-        <div style="font-size:0.7rem;font-weight:700;color:#F59E0B;margin-bottom:0.25rem;">⚡ TRICK</div>
-        <div style="font-size:0.82rem;color:#FCD34D;line-height:1.5;">${q.trick||'<em>Not generated</em>'}</div>
-      </div>
-    </div>
-  `).join('');
-  document.getElementById('aiResult').style.display = 'block';
-}
-
-window.removeExtracted = (i) => {
-  extractedQuestions.splice(i, 1);
-  displayExtracted(extractedQuestions);
-};
-
-window.clearExtracted = () => {
-  extractedQuestions = [];
-  document.getElementById('aiResult').style.display = 'none';
-  document.getElementById('imgPreview').style.display = 'none';
-  document.getElementById('fileInput').value = '';
-  document.getElementById('extractBtn').disabled = true;
-};
-
-window.saveAllExtracted = async () => {
-  if (!extractedQuestions.length) return;
-  const exam = document.getElementById('aiExam').value;
-  const tier = document.getElementById('aiTier').value;
-  const year = document.getElementById('aiYear').value;
-  let saved = 0;
-  for (const q of extractedQuestions) {
-    try {
-      await addDoc(collection(db, 'questions'), {
-        exam, tier, year,
-        type: 'pyq',
-        subject: q.subject || 'reasoning',
-        chapter: q.chapter || 'other',
-        difficulty: q.difficulty || 'medium',
-        qNum: q.qNum || 0,
-        text: q.text,
-        options: q.options,
-        correct: q.correct,
-        explanation: q.explanation || '',
-        trick: q.trick || '',
-        createdAt: new Date()
-      });
-      saved++;
-    } catch(e) { console.error('Save error:', e); }
-  }
-  showToast(`✅ Saved ${saved} questions to database!`, 'success');
-  clearExtracted();
-  loadStats();
-};
+// saveAllExtracted removed - saving now happens inline during extraction
 
 // Load questions
 window.loadQuestions = async () => {
