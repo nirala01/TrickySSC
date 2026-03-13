@@ -112,17 +112,7 @@
   }
   .card-sub{font-size:0.88rem;color:var(--gray);}
 
-  /* ── TAB BAR ── */
-  .tab-bar{
-    display:flex;background:#F1F5F9;border-radius:10px;
-    padding:3px;margin:1.5rem 2.5rem 0;
-  }
-  .tab-btn{
-    flex:1;padding:0.55rem;border:none;border-radius:8px;
-    font-family:'Rajdhani',sans-serif;font-size:0.9rem;font-weight:700;
-    cursor:pointer;transition:all 0.2s;background:transparent;color:var(--gray);
-  }
-  .tab-btn.active{background:#fff;color:var(--dark);box-shadow:0 2px 8px rgba(0,0,0,0.1);}
+
 
   /* ── FORMS ── */
   .form-wrap{padding:1.5rem 2.5rem 2rem;}
@@ -146,32 +136,7 @@
   .divider-line{flex:1;height:1px;background:var(--border);}
   .divider-text{font-family:'Rajdhani',sans-serif;font-size:0.75rem;font-weight:700;color:#94A3B8;letter-spacing:1px;}
 
-  /* Phone input */
-  .phone-wrap{
-    display:flex;border:2px solid var(--border);border-radius:12px;overflow:hidden;
-    transition:border-color 0.2s;margin-bottom:1rem;
-  }
-  .phone-wrap:focus-within{border-color:var(--orange);}
-  .phone-prefix{
-    padding:0 1rem;background:#F8FAFC;font-family:'Rajdhani',sans-serif;
-    font-size:0.95rem;font-weight:700;color:var(--dark);display:flex;align-items:center;
-    border-right:2px solid var(--border);white-space:nowrap;
-  }
-  .phone-input{
-    flex:1;padding:0.85rem 1rem;border:none;outline:none;
-    font-family:'Hind',sans-serif;font-size:1rem;color:var(--dark);background:#fff;
-  }
-  .phone-input::placeholder{color:#CBD5E1;}
 
-  /* OTP row */
-  .otp-row{display:flex;gap:0.5rem;margin-bottom:1rem;}
-  .otp-box{
-    flex:1;text-align:center;padding:0.9rem 0;
-    border:2px solid var(--border);border-radius:10px;
-    font-family:'Rajdhani',sans-serif;font-size:1.3rem;font-weight:700;color:var(--dark);
-    outline:none;transition:border-color 0.2s;
-  }
-  .otp-box:focus{border-color:var(--orange);}
 
   /* Main CTA */
   .cta-btn{
@@ -207,8 +172,6 @@
   }
   .back-link:hover{color:var(--orange);}
 
-  /* ── recaptcha container ── */
-  #recaptcha-container{margin-bottom:1rem;}
 
   /* ── RESPONSIVE ── */
   @media(max-width:768px){
@@ -258,16 +221,12 @@
         <div class="card-sub">Sign in or create your free account</div>
       </div>
 
-      <!-- TAB BAR -->
-      <div class="tab-bar">
-        <button class="tab-btn active" id="tab-google" onclick="switchTab('google')">🔑 Google Login</button>
-        <button class="tab-btn" id="tab-phone" onclick="switchTab('phone')">📱 Phone / OTP</button>
-      </div>
+
 
       <div class="form-wrap">
 
-        <!-- ─── GOOGLE TAB ─── -->
-        <div class="form-section active" id="section-google">
+        <!-- Google Login -->
+        <div>
           <div id="msg-google" class="msg-box"></div>
           <button class="google-btn" onclick="doGoogleLogin()" id="googleBtn">
             <svg width="20" height="20" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
@@ -276,42 +235,7 @@
           <p style="text-align:center;font-size:0.82rem;color:#94A3B8;font-family:'Rajdhani',sans-serif;">New user? Google login creates your account automatically.</p>
         </div>
 
-        <!-- ─── PHONE TAB ─── -->
-        <div class="form-section" id="section-phone">
-          <div id="msg-phone" class="msg-box"></div>
-
-          <!-- Step 1: Enter phone -->
-          <div id="phone-step1">
-            <div class="phone-wrap">
-              <div class="phone-prefix">🇮🇳 +91</div>
-              <input class="phone-input" type="tel" id="phoneInput" maxlength="10"
-                placeholder="Enter 10-digit mobile number"
-                oninput="this.value=this.value.replace(/\D/g,'').slice(0,10)">
-            </div>
-            <div id="recaptcha-container"></div>
-            <button class="cta-btn" onclick="sendOTP()" id="sendOtpBtn">Send OTP →</button>
-          </div>
-
-          <!-- Step 2: Enter OTP -->
-          <div id="phone-step2" style="display:none;">
-            <p style="font-family:'Rajdhani',sans-serif;font-size:0.9rem;color:var(--gray);margin-bottom:1rem;" id="otpSentMsg">OTP sent to +91 XXXXXXXXXX</p>
-            <div class="otp-row">
-              <input class="otp-box" type="tel" maxlength="1" id="otp1" oninput="otpMove(this,'otp2')">
-              <input class="otp-box" type="tel" maxlength="1" id="otp2" oninput="otpMove(this,'otp3')" onkeydown="otpBack(event,this,'otp1')">
-              <input class="otp-box" type="tel" maxlength="1" id="otp3" oninput="otpMove(this,'otp4')" onkeydown="otpBack(event,this,'otp2')">
-              <input class="otp-box" type="tel" maxlength="1" id="otp4" oninput="otpMove(this,'otp5')" onkeydown="otpBack(event,this,'otp3')">
-              <input class="otp-box" type="tel" maxlength="1" id="otp5" oninput="otpMove(this,'otp6')" onkeydown="otpBack(event,this,'otp4')">
-              <input class="otp-box" type="tel" maxlength="1" id="otp6" oninput="otpMove(this,null)" onkeydown="otpBack(event,this,'otp5')">
-            </div>
-            <button class="cta-btn" onclick="verifyOTP()" id="verifyOtpBtn">Verify &amp; Login →</button>
-            <div class="resend-link">
-              Didn't receive? <a onclick="resendOTP()">Resend OTP</a>
-              &nbsp;·&nbsp; <a onclick="backToPhone()">Change number</a>
-            </div>
-          </div>
-        </div>
-
-      </div><!-- /form-wrap -->
+        </div><!-- /form-wrap -->
     </div><!-- /login-card -->
   </div>
 </div><!-- /right-panel -->
@@ -322,7 +246,7 @@ import { getFirestore, doc, setDoc, getDoc, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import {
   getAuth, signInWithPopup, GoogleAuthProvider,
-  RecaptchaVerifier, signInWithPhoneNumber, onAuthStateChanged
+  onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 const app = initializeApp({
@@ -394,78 +318,7 @@ window.doGoogleLogin = async () => {
   }
 };
 
-// ── PHONE / OTP ──
-window.sendOTP = async () => {
-  const phone = document.getElementById('phoneInput').value.trim();
-  if (phone.length !== 10) { showMsg('phone','error','Please enter a valid 10-digit number'); return; }
-
-  const btn = document.getElementById('sendOtpBtn');
-  btn.disabled = true; btn.textContent = '⏳ Sending OTP...';
-  showMsg('phone','','');
-
-  try {
-    // Setup invisible recaptcha
-    if (!window._recaptchaVerifier) {
-      window._recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-        size: 'invisible',
-        callback: () => {}
-      });
-    }
-    confirmationResult = await signInWithPhoneNumber(auth, '+91' + phone, window._recaptchaVerifier);
-    document.getElementById('otpSentMsg').textContent = 'OTP sent to +91 ' + phone;
-    document.getElementById('phone-step1').style.display = 'none';
-    document.getElementById('phone-step2').style.display = 'block';
-    document.getElementById('otp1').focus();
-    showMsg('phone','success','✅ OTP sent successfully!');
-  } catch (e) {
-    btn.disabled = false; btn.textContent = 'Send OTP →';
-    showMsg('phone','error','Failed to send OTP: ' + e.message);
-    // Reset recaptcha
-    window._recaptchaVerifier = null;
-    document.getElementById('recaptcha-container').innerHTML = '';
-  }
-};
-
-window.verifyOTP = async () => {
-  const otp = ['otp1','otp2','otp3','otp4','otp5','otp6']
-    .map(id => document.getElementById(id).value).join('');
-  if (otp.length !== 6) { showMsg('phone','error','Please enter the complete 6-digit OTP'); return; }
-
-  const btn = document.getElementById('verifyOtpBtn');
-  btn.disabled = true; btn.textContent = '⏳ Verifying...';
-
-  try {
-    const result = await confirmationResult.confirm(otp);
-    await saveUserProfile(result.user);
-    showMsg('phone','success','✅ Verified! Redirecting...');
-    setTimeout(goToDashboard, 800);
-  } catch (e) {
-    btn.disabled = false; btn.textContent = 'Verify & Login →';
-    showMsg('phone','error','Wrong OTP. Please try again.');
-    // Clear OTP boxes
-    ['otp1','otp2','otp3','otp4','otp5','otp6'].forEach(id => document.getElementById(id).value='');
-    document.getElementById('otp1').focus();
-  }
-};
-
-window.resendOTP = () => {
-  document.getElementById('phone-step2').style.display = 'none';
-  document.getElementById('phone-step1').style.display = 'block';
-  document.getElementById('sendOtpBtn').disabled = false;
-  document.getElementById('sendOtpBtn').textContent = 'Send OTP →';
-  window._recaptchaVerifier = null;
-  document.getElementById('recaptcha-container').innerHTML = '';
-  showMsg('phone','','');
-};
-window.backToPhone = window.resendOTP;
-
 // ── UI helpers ──
-window.switchTab = (tab) => {
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  document.querySelectorAll('.form-section').forEach(s => s.classList.remove('active'));
-  document.getElementById('tab-' + tab).classList.add('active');
-  document.getElementById('section-' + tab).classList.add('active');
-};
 
 function showMsg(section, type, text) {
   const el = document.getElementById('msg-' + section);
@@ -475,14 +328,6 @@ function showMsg(section, type, text) {
   el.style.display = 'block';
 }
 
-// OTP box navigation
-window.otpMove = (el, nextId) => {
-  el.value = el.value.replace(/\D/g, '');
-  if (el.value && nextId) document.getElementById(nextId).focus();
-};
-window.otpBack = (e, el, prevId) => {
-  if (e.key === 'Backspace' && !el.value && prevId) document.getElementById(prevId).focus();
-};
 </script>
 </body>
 </html>
