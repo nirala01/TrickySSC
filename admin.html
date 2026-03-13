@@ -519,7 +519,7 @@ window.extractWithAI = async () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         model: "claude-sonnet-4-20250514",
-        max_tokens: 4000,
+        max_tokens: 8000,
         messages: [{
           role: "user",
           content: [
@@ -569,21 +569,25 @@ function displayExtracted(questions) {
     <div class="question-item">
       <div class="q-header">
         <div class="q-text"><strong>Q${q.qNum}.</strong> ${q.text}</div>
-        <div class="q-actions">
-          <button class="btn btn-secondary" style="padding:0.3rem 0.6rem;font-size:0.75rem;" onclick="removeExtracted(${i})">✕</button>
-        </div>
+        <button class="btn btn-secondary" style="padding:0.3rem 0.6rem;font-size:0.75rem;flex-shrink:0;" onclick="removeExtracted(${i})">✕</button>
       </div>
       <div class="q-options">
-        ${['A','B','C','D'].map(l => `<div class="q-option ${q.correct===l?'correct':''}">${l}) ${q.options[l]||''}</div>`).join('')}
+        ${['A','B','C','D'].map(l => `<div class="q-option ${q.correct===l?'correct':''}">${l}) ${(q.options&&q.options[l])||''}</div>`).join('')}
       </div>
       <div class="q-meta">
-        <span class="meta-tag">${q.subject}</span>
+        <span class="meta-tag">${q.subject||''}</span>
         <span class="meta-tag">${q.chapter||'—'}</span>
         <span class="meta-tag">${q.difficulty||'medium'}</span>
-        <span class="meta-tag">Correct: ${q.correct}</span>
+        <span class="meta-tag">✓ ${q.correct}</span>
       </div>
-      ${q.explanation ? `<div style="margin-top:0.5rem;font-size:0.78rem;color:#94A3B8;border-left:2px solid #334155;padding-left:0.5rem;">📝 ${q.explanation.slice(0,100)}${q.explanation.length>100?'...':''}</div>` : ''}
-      ${q.trick ? `<div style="margin-top:0.35rem;font-size:0.78rem;color:#F59E0B;border-left:2px solid #F59E0B;padding-left:0.5rem;">⚡ ${q.trick.slice(0,100)}${q.trick.length>100?'...':''}</div>` : ''}
+      <div style="margin-top:0.6rem;padding:0.6rem 0.75rem;background:#0F172A;border-radius:8px;border-left:3px solid #334155;">
+        <div style="font-size:0.7rem;font-weight:700;color:#64748B;margin-bottom:0.25rem;">📝 SOLUTION</div>
+        <div style="font-size:0.82rem;color:#94A3B8;line-height:1.5;">${q.explanation||'<em>Not generated</em>'}</div>
+      </div>
+      <div style="margin-top:0.5rem;padding:0.6rem 0.75rem;background:#1C1500;border-radius:8px;border-left:3px solid #F59E0B;">
+        <div style="font-size:0.7rem;font-weight:700;color:#F59E0B;margin-bottom:0.25rem;">⚡ TRICK</div>
+        <div style="font-size:0.82rem;color:#FCD34D;line-height:1.5;">${q.trick||'<em>Not generated</em>'}</div>
+      </div>
     </div>
   `).join('');
   document.getElementById('aiResult').style.display = 'block';
