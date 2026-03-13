@@ -243,8 +243,12 @@ textarea{resize:vertical;min-height:80px;}
         </div>
       </div>
       <div style="margin-bottom:1rem;">
-        <label>Explanation (optional)</label>
-        <textarea id="qExplanation" placeholder="Explain why the correct answer is correct..."></textarea>
+        <label>📝 Step-by-Step Solution (optional)</label>
+        <textarea id="qExplanation" placeholder="Write the full solution here..."></textarea>
+      </div>
+      <div style="margin-bottom:1rem;">
+        <label>⚡ Tricky Shortcut Method (optional)</label>
+        <textarea id="qTrick" placeholder="Write the quick trick or shortcut to solve this faster..."></textarea>
       </div>
       <button class="btn btn-primary" onclick="saveQuestion()">💾 Save Question</button>
     </div>
@@ -468,11 +472,12 @@ window.saveQuestion = async () => {
       options: { A: optA, B: optB, C: optC, D: optD },
       correct: correct.value,
       explanation: document.getElementById('qExplanation').value.trim(),
+      trick: document.getElementById('qTrick').value.trim(),
       createdAt: new Date()
     });
     showToast('✅ Question saved!', 'success');
     // Clear form
-    ['qText','optA','optB','optC','optD','qExplanation'].forEach(id => document.getElementById(id).value = '');
+    ['qText','optA','optB','optC','optD','qExplanation','qTrick'].forEach(id => document.getElementById(id).value = '');
     document.querySelectorAll('input[name="correct"]').forEach(r => r.checked = false);
     ['A','B','C','D'].forEach(l => { document.getElementById('lbl-'+l).className = 'option-label'; });
     loadStats();
@@ -532,9 +537,11 @@ window.extractWithAI = async () => {
   "correct": "<A or B or C or D>",
   "subject": "<reasoning|english|quant|gk>",
   "chapter": "<specific topic e.g. analogies|series|coding-decoding|blood-relations|direction|syllogism|synonyms|antonyms|fill-blanks|error-spotting|comprehension|percentage|ratio|si-ci|profit-loss|time-work|time-distance|geometry|number-system|history|geography|polity|science|current-affairs|other>",
-  "difficulty": "<easy|medium|hard>"
+  "difficulty": "<easy|medium|hard>",
+  "explanation": "<clear step-by-step solution>",
+  "trick": "<smart shortcut or tricky method to solve this faster, if applicable>"
 }
-If you cannot determine the correct answer, put "A". Identify the chapter/topic carefully based on the question type. Extract every single question visible.`
+If you cannot determine the correct answer, put "A". Identify the chapter carefully. For every question write a proper explanation and a tricky shortcut method. Extract every single question visible.`
             }
           ]
         }]
@@ -575,6 +582,8 @@ function displayExtracted(questions) {
         <span class="meta-tag">${q.difficulty||'medium'}</span>
         <span class="meta-tag">Correct: ${q.correct}</span>
       </div>
+      ${q.explanation ? `<div style="margin-top:0.5rem;font-size:0.78rem;color:#94A3B8;border-left:2px solid #334155;padding-left:0.5rem;">📝 ${q.explanation.slice(0,100)}${q.explanation.length>100?'...':''}</div>` : ''}
+      ${q.trick ? `<div style="margin-top:0.35rem;font-size:0.78rem;color:#F59E0B;border-left:2px solid #F59E0B;padding-left:0.5rem;">⚡ ${q.trick.slice(0,100)}${q.trick.length>100?'...':''}</div>` : ''}
     </div>
   `).join('');
   document.getElementById('aiResult').style.display = 'block';
@@ -611,7 +620,8 @@ window.saveAllExtracted = async () => {
         text: q.text,
         options: q.options,
         correct: q.correct,
-        explanation: '',
+        explanation: q.explanation || '',
+        trick: q.trick || '',
         createdAt: new Date()
       });
       saved++;
