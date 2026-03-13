@@ -200,18 +200,48 @@ select:focus{border-color:var(--orange);}
 </head>
 <body>
 
-<!-- LOGIN -->
+<!-- LOGIN FULL PAGE -->
 <div id="loginScreen">
   <div class="login-card">
     <div class="login-logo">⚡ TrickySSC</div>
-    <p class="login-sub">Sign in to attempt tests & track your progress</p>
+    <p class="login-sub">Sign in to attempt tests &amp; track your progress</p>
     <button class="google-btn" onclick="googleLogin()">
+      <svg width="20" height="20" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+      Sign in / Register with Google
+    </button>
+    <p style="font-size:0.78rem;color:#64748B;margin-top:1rem;text-align:center;">Free registration · No credit card needed</p>
+  </div>
+</div>
+
+<!-- LOGIN POPUP (shown when user clicks Attempt Test without logging in) -->
+<div id="loginPopupOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:20px;padding:2rem 2.5rem;max-width:380px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.3);position:relative;">
+    <button onclick="closeLoginPopup()" style="position:absolute;top:1rem;right:1rem;background:none;border:none;font-size:1.3rem;cursor:pointer;color:#94A3B8;">✕</button>
+    <div style="font-size:2rem;margin-bottom:0.5rem;">⚡</div>
+    <h2 style="font-family:'Rajdhani',sans-serif;font-size:1.4rem;font-weight:800;color:#1A202C;margin:0 0 0.3rem;">Login to Attempt Test</h2>
+    <p style="font-size:0.85rem;color:#64748B;margin:0 0 1.5rem;">Free registration with Google — takes 5 seconds</p>
+    <button id="popupGoogleBtn" onclick="popupGoogleLogin()" style="width:100%;display:flex;align-items:center;justify-content:center;gap:0.75rem;background:#fff;border:2px solid #E2E8F0;border-radius:12px;padding:0.85rem 1rem;font-size:0.95rem;font-weight:600;color:#1A202C;cursor:pointer;font-family:'Rajdhani',sans-serif;transition:all 0.2s;" onmouseenter="this.style.borderColor='#FF6B00'" onmouseleave="this.style.borderColor='#E2E8F0'">
       <svg width="20" height="20" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
       Continue with Google
     </button>
-    <button class="guest-btn" onclick="guestMode()">Continue as Guest (results won't be saved)</button>
+    <p style="font-size:0.75rem;color:#94A3B8;margin-top:1rem;">After login, your test will start automatically</p>
   </div>
 </div>
+
+<!-- LOADING SCREEN (shown during direct launch) -->
+<div id="loadingScreen" style="display:none;position:fixed;inset:0;background:#F8FAFC;z-index:8888;flex-direction:column;align-items:center;justify-content:center;font-family:'Rajdhani',sans-serif;text-align:center;padding:2rem;">
+  <div style="font-size:3rem;animation:pulse 1.5s infinite;">⚡</div>
+  <div style="font-size:1.5rem;font-weight:800;color:#1A202C;margin:1rem 0 0.4rem;">Loading your test...</div>
+  <div id="loadingSubtitle" style="font-size:0.95rem;color:#64748B;margin-bottom:1.5rem;">Fetching questions from database</div>
+  <div style="width:200px;height:4px;background:#E2E8F0;border-radius:4px;overflow:hidden;">
+    <div style="height:100%;background:#FF6B00;border-radius:4px;animation:loadbar 2s ease-in-out infinite;"></div>
+  </div>
+  <div id="loadingMsg" style="margin-top:2rem;font-size:0.9rem;color:#64748B;"></div>
+</div>
+<style>
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+@keyframes loadbar{0%{width:0%;margin-left:0}50%{width:60%;margin-left:20%}100%{width:0%;margin-left:100%}}
+</style>
 
 <!-- SELECTOR -->
 <div id="selectorScreen">
@@ -340,21 +370,111 @@ const SECTIONS=[
 
 let currentUser=null,selectedExam=null,questions=[],currentQ=0,answers={},marked={},timeLeft=3600,timerInterval=null,examCounts={};
 
-// Auth
-// Read URL params for direct launch: test.html?exam=ssc-cgl&year=2024&shift=1
+// ── URL params for direct launch: test.html?exam=ssc-cgl&year=2024
 const _urlParams=new URLSearchParams(window.location.search);
-const _autoExam=_urlParams.get('exam');   // e.g. ssc-cgl
-const _autoYear=_urlParams.get('year');   // e.g. 2024
-const _autoShift=_urlParams.get('shift'); // e.g. 1 (optional)
+const _autoExam=_urlParams.get('exam');
+const _autoYear=_urlParams.get('year');
 
+// ── Auth state: logged in → go straight to test; not logged in → show login
 onAuthStateChanged(auth,user=>{
-  if(user){currentUser=user;showSelector(user);}
-  else{show('loginScreen');}
+  if(user){
+    currentUser=user;
+    // If came from "Attempt Test" button with URL params → start test directly
+    if(_autoExam){ launchTestDirectly(); }
+    else { showSelector(user); }
+  } else {
+    // Not logged in
+    if(_autoExam){
+      // Show popup instead of full login page
+      showLoginPopup();
+    } else {
+      show('loginScreen');
+    }
+  }
 });
 
-window.googleLogin=()=>{signInWithPopup(auth,prov).catch(e=>{if(e.code==='auth/popup-blocked'){alert('Popup blocked! Please allow popups for this site.');}});};
-window.guestMode=()=>{currentUser=null;showSelector(null);};
+// ── Login / popup functions ──
+window.googleLogin=()=>{
+  signInWithPopup(auth,prov).catch(e=>{
+    if(e.code==='auth/popup-blocked'){alert('Please allow popups for trickyssc.com and try again.');}
+  });
+};
+window.popupGoogleLogin=()=>{
+  const btn=document.getElementById('popupGoogleBtn');
+  btn.textContent='⏳ Signing in...'; btn.disabled=true;
+  signInWithPopup(auth,prov).catch(e=>{
+    btn.innerHTML='<svg width="20" height="20" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg> Continue with Google';
+    btn.disabled=false;
+    if(e.code==='auth/popup-blocked'){alert('Please allow popups for trickyssc.com and try again.');}
+  });
+};
+window.closeLoginPopup=()=>{
+  document.getElementById('loginPopupOverlay').style.display='none';
+};
 window.doLogout=()=>{signOut(auth);show('loginScreen');};
+
+function showLoginPopup(){
+  const overlay=document.getElementById('loginPopupOverlay');
+  overlay.style.display='flex';
+  // Reset button state
+  const btn=document.getElementById('popupGoogleBtn');
+  btn.innerHTML='<svg width="20" height="20" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg> Continue with Google';
+  btn.disabled=false;
+}
+
+// ── Direct launch: skip selector, start test immediately ──
+async function launchTestDirectly(){
+  // Show loading overlay
+  ['loginScreen','loginPopupOverlay','selectorScreen','testScreen','resultScreen'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.style.display='none';
+  });
+  document.getElementById('loadingScreen').style.display='flex';
+  // Show what exam is loading
+  const EXAM_LABELS={'ssc-cgl':'SSC CGL','ssc-chsl':'SSC CHSL','ssc-mts':'SSC MTS','ssc-gd':'SSC GD','ssc-cpo':'SSC CPO','ssc-jht':'SSC JHT','ssc-je':'SSC JE'};
+  document.getElementById('loadingSubtitle').textContent=(EXAM_LABELS[_autoExam]||_autoExam)+(_autoYear?' – '+_autoYear+' Paper':' Paper');
+
+  try{
+    let q=query(collection(db,'questions'),where('exam','==',_autoExam));
+    if(_autoYear) q=query(collection(db,'questions'),where('exam','==',_autoExam),where('year','==',parseInt(_autoYear)));
+    const snap=await getDocs(q);
+    let all=[];
+    snap.forEach(d=>all.push({id:d.id,...d.data()}));
+
+    if(all.length===0){
+      document.getElementById('loadingMsg').innerHTML='<b>No questions uploaded yet</b> for this paper.<br><br><a href="javascript:history.back()" style="color:#FF6B00;font-weight:700;">← Go Back</a>';
+      return;
+    }
+
+    // Sort by question number
+    all=all.sort((a,b)=>(a.qNum||0)-(b.qNum||0));
+    questions=all; answers={}; marked={}; currentQ=0;
+    selectedExam=_autoExam;
+    timeLeft=3600;
+
+    const EXAM_NAMES={'ssc-cgl':'SSC CGL','ssc-chsl':'SSC CHSL','ssc-mts':'SSC MTS','ssc-gd':'SSC GD','ssc-cpo':'SSC CPO','ssc-jht':'SSC JHT','ssc-je':'SSC JE'};
+    const examName=EXAM_NAMES[_autoExam]||_autoExam.toUpperCase();
+    document.getElementById('topExamName').textContent=examName+' — '+all.length+' Questions'+(_autoYear?' ('+_autoYear+')':'');
+    document.getElementById('sbName').textContent=currentUser?.displayName||'Student';
+    document.getElementById('sbAvatar').textContent=(currentUser?.displayName||'S')[0].toUpperCase();
+    document.getElementById('sbExam').textContent=examName;
+
+    buildSectionTabs();
+    buildSidebarGrid();
+    renderQuestion();
+    startTimer();
+
+    document.getElementById('loadingScreen').style.display='none';
+    const ts=document.getElementById('testScreen');
+    ts.style.display='flex';
+    ts.style.flexDirection='column';
+    ts.style.height='100vh';
+    document.documentElement.requestFullscreen?.().catch(()=>{});
+
+  }catch(err){
+    document.getElementById('loadingMsg').textContent='Error loading test: '+err.message+'. Please go back and try again.';
+  }
+}
 
 async function showSelector(user){
   show('selectorScreen');
@@ -372,29 +492,7 @@ async function showSelector(user){
       <p>${e.full}</p>
       <div class="exam-count">${examCounts[e.id]||0} questions available</div>
     </div>`).join('');
-  // Auto-launch from URL params (e.g. test.html?exam=ssc-cgl&year=2024)
-  if(_autoExam){
-    const examEntry=EXAMS.find(e=>e.id===_autoExam);
-    if(examEntry){
-      selectedExam=_autoExam;
-      document.getElementById('card-'+_autoExam)?.classList.add('active');
-      document.getElementById('configTitle').textContent='Launching '+examEntry.name+' Test...';
-      document.getElementById('configPanel').style.display='block';
-      document.getElementById('startBtn').disabled=false;
-      document.getElementById('startBtn').textContent='⏳ Loading questions...';
-      await loadYears(_autoExam);
-      if(_autoYear){
-        const sel=document.getElementById('cfgYear');
-        for(let o of sel.options){ if(o.value==_autoYear){ o.selected=true; break; } }
-      }
-      // Auto-start after small delay so UI renders
-      setTimeout(()=>window.startTest(),400);
-    } else {
-      loadYears('ssc-cgl');
-    }
-  } else {
-    loadYears('ssc-cgl');
-  }
+  loadYears('ssc-cgl');
 }
 
 async function loadYears(examId){
