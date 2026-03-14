@@ -225,8 +225,14 @@
 
       <div class="form-wrap">
 
+        <!-- TAB BAR -->
+        <div style="display:flex;background:#F1F5F9;border-radius:10px;padding:3px;margin-bottom:1.5rem;">
+          <button id="tab-google" onclick="switchTab('google')" style="flex:1;padding:0.55rem;border:none;border-radius:8px;font-family:'Rajdhani',sans-serif;font-size:0.9rem;font-weight:700;cursor:pointer;transition:all 0.2s;background:#fff;color:#1A202C;box-shadow:0 2px 8px rgba(0,0,0,0.1);">🔵 Google Login</button>
+          <button id="tab-mobile" onclick="switchTab('mobile')" style="flex:1;padding:0.55rem;border:none;border-radius:8px;font-family:'Rajdhani',sans-serif;font-size:0.9rem;font-weight:700;cursor:pointer;transition:all 0.2s;background:transparent;color:#64748B;">📱 Name & Mobile</button>
+        </div>
+
         <!-- Google Login -->
-        <div>
+        <div id="section-google">
           <div id="msg-google" class="msg-box"></div>
           <button class="google-btn" onclick="doGoogleLogin()" id="googleBtn">
             <svg width="20" height="20" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
@@ -235,6 +241,54 @@
           <p style="text-align:center;font-size:0.82rem;color:#94A3B8;font-family:'Rajdhani',sans-serif;">New user? Google login creates your account automatically.</p>
         </div>
 
+        </div><!-- /section-google -->
+
+        <!-- Name + Mobile Login -->
+        <div id="section-mobile" style="display:none;">
+          <div id="msg-mobile" style="display:none;padding:0.75rem 1rem;border-radius:10px;font-size:0.88rem;font-weight:600;font-family:'Rajdhani',sans-serif;margin-bottom:1rem;"></div>
+
+          <div style="margin-bottom:1rem;">
+            <label style="display:block;font-family:'Rajdhani',sans-serif;font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#64748B;margin-bottom:0.5rem;">👤 Full Name</label>
+            <input type="text" id="mName" placeholder="Enter your full name"
+              style="width:100%;background:#F8FAFC;border:2px solid #E2E8F0;border-radius:12px;padding:0.85rem 1rem;font-family:'Hind',sans-serif;font-size:0.95rem;color:#1A202C;outline:none;transition:border-color 0.2s;box-sizing:border-box;"
+              onfocus="this.style.borderColor='#FF6B00'" onblur="this.style.borderColor='#E2E8F0'">
+          </div>
+
+          <div style="margin-bottom:1rem;">
+            <label style="display:block;font-family:'Rajdhani',sans-serif;font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#64748B;margin-bottom:0.5rem;">📱 Mobile Number</label>
+            <div style="display:flex;border:2px solid #E2E8F0;border-radius:12px;overflow:hidden;transition:border-color 0.2s;" id="mobileWrap">
+              <div style="padding:0 1rem;background:#F8FAFC;font-family:'Rajdhani',sans-serif;font-size:0.95rem;font-weight:700;color:#1A202C;display:flex;align-items:center;border-right:2px solid #E2E8F0;">🇮🇳 +91</div>
+              <input type="tel" id="mPhone" maxlength="10" placeholder="10-digit mobile number"
+                oninput="this.value=this.value.replace(/\D/g,'').slice(0,10)"
+                onfocus="document.getElementById('mobileWrap').style.borderColor='#FF6B00'"
+                onblur="document.getElementById('mobileWrap').style.borderColor='#E2E8F0'"
+                style="flex:1;padding:0.85rem 1rem;border:none;outline:none;font-family:'Hind',sans-serif;font-size:1rem;color:#1A202C;background:#fff;">
+            </div>
+          </div>
+
+          <div style="margin-bottom:1.5rem;">
+            <label style="display:block;font-family:'Rajdhani',sans-serif;font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#64748B;margin-bottom:0.5rem;">🎯 Target Exam</label>
+            <select id="mExam"
+              style="width:100%;background:#F8FAFC;border:2px solid #E2E8F0;border-radius:12px;padding:0.85rem 1rem;font-family:'Hind',sans-serif;font-size:0.92rem;color:#1A202C;outline:none;cursor:pointer;box-sizing:border-box;"
+              onfocus="this.style.borderColor='#FF6B00'" onblur="this.style.borderColor='#E2E8F0'">
+              <option value="">Select your target exam</option>
+              <option value="ssc-cgl">SSC CGL — Combined Graduate Level</option>
+              <option value="ssc-chsl">SSC CHSL — Combined Higher Secondary</option>
+              <option value="ssc-mts">SSC MTS — Multi Tasking Staff</option>
+              <option value="ssc-gd">SSC GD Constable</option>
+              <option value="ssc-cpo">SSC CPO — Central Police Organisation</option>
+              <option value="ssc-jht">SSC JHT — Junior Hindi Translator</option>
+              <option value="ssc-je">SSC JE — Junior Engineer</option>
+            </select>
+          </div>
+
+          <button onclick="mobileLogin()" id="mLoginBtn"
+            style="width:100%;padding:1rem;border:none;border-radius:12px;font-family:'Rajdhani',sans-serif;font-size:1.05rem;font-weight:700;letter-spacing:0.5px;cursor:pointer;background:linear-gradient(135deg,#FF6B00,#FF8C38);color:#fff;box-shadow:0 4px 20px rgba(255,107,0,0.35);transition:all 0.2s;">
+            Register / Login →
+          </button>
+          <p style="text-align:center;font-size:0.8rem;color:#94A3B8;margin-top:0.75rem;font-family:'Rajdhani',sans-serif;">No OTP needed · Free registration</p>
+        </div><!-- /section-mobile -->
+
         </div><!-- /form-wrap -->
     </div><!-- /login-card -->
   </div>
@@ -242,7 +296,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, doc, setDoc, getDoc, serverTimestamp }
+import { getFirestore, doc, setDoc, getDoc, getDocs, collection, query, where, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import {
   getAuth, signInWithPopup, GoogleAuthProvider,
@@ -288,8 +342,18 @@ async function saveUserProfile(user) {
 }
 
 // ── Redirect after login ──
-function goToDashboard() {
-  // If came from a test link, go back to it; else go to dashboard
+function goToDashboard(user) {
+  // Save Google user to sessionStorage too
+  if(user) {
+    sessionStorage.setItem('tssc_user', JSON.stringify({
+      uid: user.uid,
+      name: user.displayName || 'Student',
+      phone: user.phoneNumber || '',
+      email: user.email || '',
+      photoURL: user.photoURL || '',
+      loginMethod: 'google'
+    }));
+  }
   const returnTo = sessionStorage.getItem('loginReturnTo');
   if (returnTo) {
     sessionStorage.removeItem('loginReturnTo');
@@ -300,6 +364,86 @@ function goToDashboard() {
 }
 
 // ── GOOGLE LOGIN ──
+// ── TAB SWITCH ──
+window.switchTab = (tab) => {
+  document.getElementById('section-google').style.display = tab==='google' ? 'block' : 'none';
+  document.getElementById('section-mobile').style.display = tab==='mobile' ? 'block' : 'none';
+  const tg = document.getElementById('tab-google');
+  const tm = document.getElementById('tab-mobile');
+  if(tab==='google'){
+    tg.style.background='#fff'; tg.style.color='#1A202C'; tg.style.boxShadow='0 2px 8px rgba(0,0,0,0.1)';
+    tm.style.background='transparent'; tm.style.color='#64748B'; tm.style.boxShadow='none';
+  } else {
+    tm.style.background='#fff'; tm.style.color='#1A202C'; tm.style.boxShadow='0 2px 8px rgba(0,0,0,0.1)';
+    tg.style.background='transparent'; tg.style.color='#64748B'; tg.style.boxShadow='none';
+  }
+};
+
+// ── NAME + MOBILE LOGIN ──
+window.mobileLogin = async () => {
+  const name  = document.getElementById('mName').value.trim();
+  const phone = document.getElementById('mPhone').value.trim();
+  const exam  = document.getElementById('mExam').value;
+  const msgEl = document.getElementById('msg-mobile');
+
+  function showM(type, text){
+    msgEl.style.display='block';
+    msgEl.style.background = type==='error' ? '#FEF2F2' : '#F0FDF4';
+    msgEl.style.border = type==='error' ? '1px solid #FECACA' : '1px solid #BBF7D0';
+    msgEl.style.color = type==='error' ? '#DC2626' : '#16A34A';
+    msgEl.textContent = text;
+  }
+
+  if(name.length < 2){ showM('error','⚠️ Please enter your full name'); return; }
+  if(phone.length !== 10){ showM('error','⚠️ Please enter a valid 10-digit mobile number'); return; }
+
+  const btn = document.getElementById('mLoginBtn');
+  btn.disabled = true; btn.textContent = '⏳ Please wait...';
+
+  try {
+    // Check if this phone number already has an account
+    const existing = await getDocs(
+      query(collection(db, 'users'), where('phone', '==', '+91'+phone))
+    );
+
+    let userData;
+    if (!existing.empty) {
+      // Returning user — load their data
+      userData = existing.docs[0].data();
+      showM('success', '✅ Welcome back, ' + userData.name + '!');
+    } else {
+      // New user — create account
+      userData = {
+        uid: 'phone_' + phone,
+        name: name,
+        phone: '+91' + phone,
+        email: '',
+        photoURL: '',
+        targetExam: exam,
+        loginMethod: 'mobile',
+        totalTests: 0,
+        createdAt: serverTimestamp(),
+      };
+      await setDoc(doc(db, 'users', 'phone_' + phone), userData);
+      showM('success', '✅ Account created! Welcome, ' + name + '!');
+    }
+
+    // Save to sessionStorage so all pages can show the name
+    sessionStorage.setItem('tssc_user', JSON.stringify({
+      uid: userData.uid,
+      name: userData.name,
+      phone: userData.phone,
+      targetExam: userData.targetExam || exam,
+      loginMethod: 'mobile'
+    }));
+
+    setTimeout(goToDashboard, 800);
+  } catch(e) {
+    btn.disabled = false; btn.textContent = 'Register / Login →';
+    showM('error', 'Error: ' + e.message);
+  }
+};
+
 window.doGoogleLogin = async () => {
   const btn = document.getElementById('googleBtn');
   btn.disabled = true;
@@ -309,7 +453,7 @@ window.doGoogleLogin = async () => {
     const result = await signInWithPopup(auth, gProvider);
     await saveUserProfile(result.user);
     showMsg('google', 'success', '✅ Logged in! Redirecting...');
-    setTimeout(goToDashboard, 800);
+    setTimeout(() => goToDashboard(result.user), 800);
   } catch (e) {
     btn.disabled = false;
     btn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg> Continue with Google';

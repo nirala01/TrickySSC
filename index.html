@@ -2828,5 +2828,34 @@
   }
 </script>
 <script>document.addEventListener("DOMContentLoaded",function(){var h=window.location.hash.replace("#","");if(h&&document.getElementById(h)){showSection(h);}else{showSection("home");}});</script>
+
+<script type="module">
+import{initializeApp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import{getAuth,onAuthStateChanged}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+const _app=initializeApp({apiKey:"AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",authDomain:"trickyssc-17bb3.firebaseapp.com",projectId:"trickyssc-17bb3",storageBucket:"trickyssc-17bb3.firebasestorage.app",messagingSenderId:"450627057220",appId:"1:450627057220:web:366267bf437d94f20c6e11"});
+const _auth=getAuth(_app);
+
+function _setNavUser(name){
+  // Replace Login/Register button with user pill in desktop nav
+  document.querySelectorAll('a[href="login.html"]').forEach(el=>{
+    el.href='dashboard.html';
+    el.style.background='linear-gradient(135deg,#00A86B,#0EA5E9)';
+    el.innerHTML='👤 '+name.split(' ')[0];
+  });
+}
+
+// Check Firebase (Google users)
+onAuthStateChanged(_auth, user=>{
+  if(user){
+    _setNavUser(user.displayName||user.email||'Student');
+    return;
+  }
+  // Check sessionStorage (mobile/name users)
+  const stored=sessionStorage.getItem('tssc_user');
+  if(stored){
+    try{ const u=JSON.parse(stored); _setNavUser(u.name||'Student'); }catch(e){}
+  }
+});
+</script>
 </body>
 </html>

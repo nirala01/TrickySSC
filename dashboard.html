@@ -345,11 +345,19 @@ const EXAM_NAMES = {
 };
 
 onAuthStateChanged(auth, async user => {
-  if (!user) {
-    window.location.href = 'login.html';
-    return;
+  if (user) {
+    // Google user
+    await loadDashboard(user);
+  } else {
+    // Check for mobile/name login stored in sessionStorage
+    const stored = sessionStorage.getItem('tssc_user');
+    if (stored) {
+      const mUser = JSON.parse(stored);
+      await loadDashboardMobile(mUser);
+    } else {
+      window.location.href = 'login.html';
+    }
   }
-  await loadDashboard(user);
 });
 
 async function loadDashboard(user) {
@@ -424,6 +432,47 @@ async function loadDashboard(user) {
   document.getElementById('mainContent').style.display = 'block';
 }
 
+// ── Mobile user dashboard (sessionStorage based) ──
+async function loadDashboardMobile(mUser) {
+  const name = mUser.name || 'Student';
+  const firstName = name.split(' ')[0];
+
+  document.getElementById('topName').textContent = firstName;
+  document.getElementById('wName').textContent = firstName;
+  document.getElementById('topAvatar').textContent = firstName[0].toUpperCase();
+  document.getElementById('profileAvatar').textContent = firstName[0].toUpperCase();
+  document.getElementById('profileName').textContent = name;
+  document.getElementById('profileDetail').textContent = mUser.phone || '';
+  document.getElementById('pfEmail').textContent = mUser.email || '—';
+  document.getElementById('pfPhone').textContent = mUser.phone || '—';
+  document.getElementById('pfMethod').textContent = '📱 Name & Mobile';
+  document.getElementById('pfJoined').textContent = 'Recently joined';
+
+  // Load attempts from Firestore using uid
+  try {
+    const q = query(
+      collection(db, 'attempts'),
+      where('uid', '==', mUser.uid),
+      orderBy('timestamp', 'desc'),
+      limit(10)
+    );
+    const snap = await getDocs(q);
+    const attempts = [];
+    snap.forEach(d => attempts.push({id:d.id,...d.data()}));
+    if(attempts.length > 0){
+      const scores = attempts.map(a=>parseFloat(a.percentage)||0);
+      document.getElementById('statTests').textContent = attempts.length;
+      document.getElementById('statAvg').textContent = (scores.reduce((a,b)=>a+b,0)/scores.length).toFixed(1)+'%';
+      document.getElementById('statBest').textContent = Math.max(...scores).toFixed(1)+'%';
+    }
+    renderAttempts(attempts);
+  } catch(e) { renderAttempts([]); }
+
+  document.getElementById('pageLoader').style.display = 'none';
+  document.getElementById('mainUI').style.display = 'flex';
+  document.getElementById('mainContent').style.display = 'block';
+}
+
 function renderAttempts(attempts) {
   const el = document.getElementById('attemptsBody');
   if (attempts.length === 0) {
@@ -465,6 +514,7 @@ function renderAttempts(attempts) {
 }
 
 window.doLogout = async () => {
+  sessionStorage.removeItem('tssc_user');
   await signOut(auth);
   window.location.href = 'login.html';
 };

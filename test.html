@@ -379,13 +379,31 @@ const _autoYear=_urlParams.get('year');
 onAuthStateChanged(auth,user=>{
   if(user){
     currentUser=user;
-    // If came from "Attempt Test" button with URL params → start test directly
     if(_autoExam){ launchTestDirectly(); }
     else { showSelector(user); }
   } else {
-    // Not logged in → save current URL and redirect to login page
-    sessionStorage.setItem('loginReturnTo', window.location.href);
-    window.location.href = 'login.html';
+    // Check sessionStorage for mobile/name login
+    const stored=sessionStorage.getItem('tssc_user');
+    if(stored){
+      try{
+        const mUser=JSON.parse(stored);
+        currentUser={
+          uid:mUser.uid,
+          displayName:mUser.name,
+          phoneNumber:mUser.phone||'',
+          email:mUser.email||'',
+          photoURL:''
+        };
+        if(_autoExam){ launchTestDirectly(); }
+        else { showSelector(currentUser); }
+      }catch(e){
+        sessionStorage.setItem('loginReturnTo',window.location.href);
+        window.location.href='login.html';
+      }
+    } else {
+      sessionStorage.setItem('loginReturnTo',window.location.href);
+      window.location.href='login.html';
+    }
   }
 });
 
