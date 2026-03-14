@@ -429,12 +429,15 @@ async function launchTestDirectly(){
         return;
       }
       const mins=Math.floor(tLeft/60),secs=String(tLeft%60).padStart(2,'0');
+      // Force hide ALL covering elements including inline-styled initLoader
+      const il=document.getElementById('initLoader');
+      if(il){il.style.display='none';il.style.visibility='hidden';il.style.zIndex='-1';}
       _hide('loadingScreen');
-      _hide('initLoader');
       const msgEl=document.getElementById('resumeDialogMsg');
       if(msgEl)msgEl.textContent=qDone+' questions answered · '+mins+'m '+secs+'s remaining';
       console.log('✅ Showing resume dialog');
-      _show('resumeDialog',true);
+      const rd=document.getElementById('resumeDialog');
+      if(rd){rd.style.display='flex';rd.style.zIndex='999999';}
       return;
     }
     console.log('ℹ️ No paused test found, launching fresh');
