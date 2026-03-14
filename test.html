@@ -96,14 +96,16 @@ body{margin:0;font-family:'Noto Sans',sans-serif;background:#F1F5F9;}
       <div class="stat"><div class="stat-val" style="color:#F59E0B" id="statSkip">0</div><div class="stat-lbl">Skipped</div></div>
       <div class="stat"><div class="stat-val" id="statMarks">0</div><div class="stat-lbl">Marks</div></div>
     </div>
-    <button class="btn btn-next" style="margin-top:20px;" onclick="window.location='https://trickyssc.com/dashboard.html'">Go to Dashboard</button>
+    <button class="btn btn-next" id="goDashboardBtn" style="margin-top:20px;" onclick="window.location='https://trickyssc.com/dashboard.html'" disabled>Saving result...</button>
+    <div id="saveStatus" style="margin-top:10px;font-size:12px;color:#6B7280;">⏳ Saving your result...</div>
+    <button class="btn btn-submit" id="retrySaveBtn" style="margin-top:10px;display:none;" onclick="retrySaveResult()">Retry Save</button>
   </div>
   <div id="review"></div>
 </div>
 
 <script type="module">
 import{initializeApp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import{getFirestore,collection,query,where,getDocs,addDoc,doc,getDoc,setDoc,serverTimestamp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import{getFirestore,collection,query,where,getDocs,doc,getDoc,setDoc,serverTimestamp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import{getAuth,onAuthStateChanged,signOut}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 const app=initializeApp({apiKey:"AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",authDomain:"trickyssc-17bb3.firebaseapp.com",projectId:"trickyssc-17bb3",storageBucket:"trickyssc-17bb3.firebasestorage.app",messagingSenderId:"450627057220",appId:"1:450627057220:web:366267bf437d94f20c6e11"});
@@ -111,6 +113,7 @@ const db=getFirestore(app);
 const auth=getAuth(app);
 
 let questions=[],answers={},currentQ=0,timeLeft=3600,timerInterval,currentUser=null;
+let isSubmitting=false,lastResultPayload=null;
 const params=new URLSearchParams(window.location.search);
 const exam=params.get('exam');
 const year=params.get('year');
@@ -221,12 +224,90 @@ function startTimer(){
   },1000);
 }
 
+
+function setSaveUi(state,msg){
+  const goBtn=document.getElementById('goDashboardBtn');
+  const saveStatus=document.getElementById('saveStatus');
+  const retryBtn=document.getElementById('retrySaveBtn');
+  if(!goBtn||!saveStatus||!retryBtn)return;
+  saveStatus.textContent=msg||'';
+  if(state==='saving'){
+    goBtn.disabled=true;
+    goBtn.textContent='Saving result...';
+    retryBtn.style.display='none';
+    saveStatus.style.color='#6B7280';
+  }else if(state==='saved'){
+    goBtn.disabled=false;
+    goBtn.textContent='Go to Dashboard';
+    retryBtn.style.display='none';
+    saveStatus.style.color='#16A34A';
+  }else if(state==='error'){
+    goBtn.disabled=true;
+    goBtn.textContent='Save required before dashboard';
+    retryBtn.style.display='inline-block';
+    saveStatus.style.color='#DC2626';
+  }
+}
+
+async function persistAttempt(payload, attemptId){
+  await setDoc(doc(db,'attempts',attemptId),payload,{merge:true});
+
+  const userRef = doc(db,'users',payload.uid);
+  const userSnap = await getDoc(userRef);
+  if(userSnap.exists()){
+    const ud = userSnap.data();
+    const prevTotal = parseInt(ud.totalTests)||0;
+    const prevAvg = parseFloat(ud.avgScore)||0;
+    const prevBest = parseFloat(ud.bestScore)||0;
+    const newTotal = prevTotal + 1;
+    const newAvg = parseFloat(((prevAvg * prevTotal + payload.percentage) / newTotal).toFixed(1));
+    const newBest = Math.max(prevBest, payload.percentage);
+    await setDoc(userRef,{totalTests:newTotal, avgScore:newAvg, bestScore:newBest, lastActive:serverTimestamp()},{merge:true});
+  } else {
+    await setDoc(userRef,{uid:payload.uid, totalTests:1, avgScore:payload.percentage, bestScore:payload.percentage, lastActive:serverTimestamp()},{merge:true});
+  }
+}
+
+async function persistWithRetry(payload, attemptId, retries=3){
+  let lastErr;
+  for(let i=1;i<=retries;i++){
+    try{
+      await persistAttempt(payload,attemptId);
+      return;
+    }catch(e){
+      lastErr=e;
+      await new Promise(r=>setTimeout(r,600*i));
+    }
+  }
+  throw lastErr;
+}
+
+window.retrySaveResult=async()=>{
+  if(!lastResultPayload){
+    setSaveUi('error','⚠️ Nothing to retry. Please submit the test again.');
+    return;
+  }
+  setSaveUi('saving','⏳ Retrying save...');
+  try{
+    await persistWithRetry(lastResultPayload.payload,lastResultPayload.attemptId,3);
+    localStorage.removeItem('pending_attempt_'+lastResultPayload.attemptId);
+    setSaveUi('saved','✅ Result saved successfully.');
+  }catch(e){
+    console.warn('Retry save failed:',e);
+    localStorage.setItem('pending_attempt_'+lastResultPayload.attemptId,JSON.stringify(lastResultPayload));
+    setSaveUi('error','⚠️ Save failed again. Check your internet and tap Retry Save.');
+  }
+};
 window.confirmSubmit=()=>{
   if(confirm('Submit test? You cannot change answers after submission.')) submitTest();
 };
 
 window.submitTest=async()=>{
+  if(isSubmitting)return;
+  isSubmitting=true;
   clearInterval(timerInterval);
+  setSaveUi('saving','⏳ Saving your result...');
+
   let correct=0,wrong=0,skip=0;
   questions.forEach((q,i)=>{
     const a=answers[i];
@@ -254,27 +335,41 @@ window.submitTest=async()=>{
       ${q.explanation?`<div style="font-size:12px;color:#374151;margin-top:6px;padding:6px;background:#F8FAFC;border-radius:4px;">💡 ${q.explanation}</div>`:''}
     </div>`;
   }).join('');
-  // Save attempt + update user stats
-  if(currentUser){
-    try{
-      await addDoc(collection(db,'attempts'),{uid:currentUser.uid,exam,year:year||'',total:questions.length,correct,wrong,skip,marks:parseFloat(marks),percentage:pct,answers,timestamp:serverTimestamp()});
-      // Update user profile stats
-      const userRef = doc(db,'users',currentUser.uid);
-      const userSnap = await getDoc(userRef);
-      if(userSnap.exists()){
-        const ud = userSnap.data();
-        const prevTotal = parseInt(ud.totalTests)||0;
-        const prevAvg = parseFloat(ud.avgScore)||0;
-        const prevBest = parseFloat(ud.bestScore)||0;
-        const newTotal = prevTotal + 1;
-        const newAvg = parseFloat(((prevAvg * prevTotal + pct) / newTotal).toFixed(1));
-        const newBest = Math.max(prevBest, pct);
-        await setDoc(userRef,{totalTests:newTotal, avgScore:newAvg, bestScore:newBest, lastActive:serverTimestamp()},{merge:true});
-      } else {
-        await setDoc(userRef,{uid:currentUser.uid, totalTests:1, avgScore:pct, bestScore:pct, lastActive:serverTimestamp()},{merge:true});
-      }
-    }catch(e){console.warn('Save attempt failed:',e);}
+
+  if(!currentUser||!currentUser.uid){
+    setSaveUi('error','⚠️ Not logged in. Result cannot be saved. Please login and retry.');
+    isSubmitting=false;
+    return;
   }
+
+  const attemptId=`${currentUser.uid}_${exam||'exam'}_${year||'na'}_${Date.now()}`;
+  const payload={
+    uid:currentUser.uid,
+    exam,
+    year:year||'',
+    total:questions.length,
+    correct,
+    wrong,
+    skip,
+    marks:parseFloat(marks),
+    percentage:pct,
+    answers,
+    timestamp:serverTimestamp(),
+    clientSubmittedAt:new Date().toISOString()
+  };
+  lastResultPayload={attemptId,payload};
+
+  try{
+    await persistWithRetry(payload,attemptId,3);
+    localStorage.removeItem('pending_attempt_'+attemptId);
+    setSaveUi('saved','✅ Result saved successfully.');
+  }catch(e){
+    console.warn('Save attempt failed:',e);
+    localStorage.setItem('pending_attempt_'+attemptId,JSON.stringify(lastResultPayload));
+    setSaveUi('error','⚠️ Could not save your result. Check internet and tap Retry Save.');
+  }
+
+  isSubmitting=false;
 };
 
 window.doLogout=()=>{
