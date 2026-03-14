@@ -425,15 +425,21 @@ async function loadDashboard(user) {
 
   // ── Load user profile + attempts from Firestore ──
   try {
+    // Get stored uid (may differ from Firebase uid if phone login was used)
+    const stored = localStorage.getItem('tssc_user');
+    const storedUid = stored ? (JSON.parse(stored).uid || user.uid) : user.uid;
+    const effectiveUid = storedUid; // Use stored uid to match attempts
+
     // Get user profile
-    const userRef = doc(db, 'users', user.uid);
+    const userRef = doc(db, 'users', effectiveUid);
     const userSnap = await getDoc(userRef);
     const userProfile = userSnap.exists() ? userSnap.data() : {};
+    console.log('Loading attempts for uid:', effectiveUid);
 
     // Load attempts
     const q = query(
       collection(db, 'attempts'),
-      where('uid', '==', user.uid),
+      where('uid', '==', effectiveUid),
       orderBy('timestamp', 'desc'),
       limit(20)
     );
@@ -456,7 +462,7 @@ async function loadDashboard(user) {
       document.getElementById('wSub').textContent = `${attempts.length} test${attempts.length>1?'s':''} attempted · ${totalCorrect} correct · Avg ${avg}% 💪`;
 
       // Update user profile stats in Firestore
-      await setDoc(userRef, {
+      await setDoc(doc(db, 'users', effectiveUid), {
         totalTests: attempts.length,
         avgScore: parseFloat(avg),
         bestScore: parseFloat(best),

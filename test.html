@@ -147,7 +147,14 @@ onAuthStateChanged(auth,async user=>{
     return;
   }
   currentUser=user;
-  localStorage.setItem('tssc_user',JSON.stringify({uid:user.uid,name:user.displayName||'Student'}));
+  // Always sync Firebase uid to localStorage so dashboard matches
+  const existingStored = localStorage.getItem('tssc_user');
+  const existingData = existingStored ? JSON.parse(existingStored) : {};
+  localStorage.setItem('tssc_user',JSON.stringify({
+    ...existingData,
+    uid:user.uid,
+    name:user.displayName||existingData.name||'Student'
+  }));
   await loadTest();
 });
 
