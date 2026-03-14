@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TrickySSC — Admin Panel</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=JetBrains+Mono:wght@400;500&family=Noto+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --bg:#0F1117;
+  --surface:#1A1D27;
+  --surface2:#22263A;
+  --border:#2E3350;
+  --orange:#FF6B00;
+  --orange2:#FF8C38;
+  --green:#00C47A;
+  --red:#FF4757;
+  --blue:#4E8EFF;
+  --text:#E8EAF0;
+  --muted:#6B7280;
+  --accent:#FF6B00;
+}
+body{font-family:'Noto Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+
+/* AUTH GATE */
+#authGate{
+  position:fixed;inset:0;background:var(--bg);
+  display:flex;align-items:center;justify-content:center;z-index:100;
+}
+.auth-card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:20px;padding:2.5rem;width:100%;max-width:380px;text-align:center;
+}
+.auth-logo{font-family:'Rajdhani',sans-serif;font-size:1.8rem;font-weight:700;color:var(--orange);margin-bottom:0.25rem;}
+.auth-sub{font-size:0.85rem;color:var(--muted);margin-bottom:2rem;}
+.auth-input{
+  width:100%;background:var(--surface2);border:1px solid var(--border);
+  border-radius:10px;padding:0.85rem 1rem;color:var(--text);font-size:1rem;
+  font-family:'Noto Sans',sans-serif;margin-bottom:1rem;outline:none;
+  transition:border-color 0.2s;
+}
+.auth-input:focus{border-color:var(--orange);}
+.auth-btn{
+  width:100%;background:linear-gradient(135deg,var(--orange),var(--orange2));
+  color:#fff;border:none;border-radius:10px;padding:0.9rem;
+  font-family:'Rajdhani',sans-serif;font-size:1rem;font-weight:700;cursor:pointer;
+}
+.auth-err{color:var(--red);font-size:0.85rem;margin-top:0.75rem;display:none;}
+
+/* TOPBAR */
+.topbar{
+  background:var(--surface);border-bottom:1px solid var(--border);
+  padding:1rem 2rem;display:flex;align-items:center;justify-content:space-between;
+  position:sticky;top:0;z-index:10;
+}
+.topbar-brand{font-family:'Rajdhani',sans-serif;font-size:1.3rem;font-weight:700;color:var(--orange);}
+.topbar-badge{background:rgba(255,107,0,0.15);color:var(--orange);font-size:0.75rem;font-weight:600;padding:0.2rem 0.6rem;border-radius:6px;margin-left:0.5rem;font-family:'Rajdhani',sans-serif;}
+.topbar-right{display:flex;align-items:center;gap:1rem;}
+.refresh-btn{
+  background:var(--surface2);border:1px solid var(--border);color:var(--text);
+  padding:0.5rem 1rem;border-radius:8px;cursor:pointer;font-family:'Rajdhani',sans-serif;
+  font-size:0.9rem;font-weight:600;transition:all 0.2s;
+}
+.refresh-btn:hover{border-color:var(--orange);color:var(--orange);}
+
+/* MAIN */
+.main{max-width:1400px;margin:0 auto;padding:2rem;}
+
+/* STATS ROW */
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:2rem;}
+.stat-card{
+  background:var(--surface);border:1px solid var(--border);border-radius:14px;
+  padding:1.25rem 1.5rem;
+}
+.stat-label{font-size:0.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:0.5rem;}
+.stat-val{font-family:'Rajdhani',sans-serif;font-size:2rem;font-weight:700;color:var(--text);}
+.stat-val.orange{color:var(--orange);}
+.stat-val.green{color:var(--green);}
+.stat-val.blue{color:var(--blue);}
+
+/* CONTROLS */
+.controls{display:flex;gap:1rem;margin-bottom:1.25rem;flex-wrap:wrap;align-items:center;}
+.search-box{
+  flex:1;min-width:200px;background:var(--surface);border:1px solid var(--border);
+  border-radius:10px;padding:0.65rem 1rem;color:var(--text);font-size:0.9rem;
+  font-family:'Noto Sans',sans-serif;outline:none;transition:border-color 0.2s;
+}
+.search-box:focus{border-color:var(--orange);}
+.search-box::placeholder{color:var(--muted);}
+.filter-select{
+  background:var(--surface);border:1px solid var(--border);border-radius:10px;
+  padding:0.65rem 1rem;color:var(--text);font-size:0.9rem;outline:none;cursor:pointer;
+}
+.export-btn{
+  background:var(--green);color:#fff;border:none;border-radius:10px;
+  padding:0.65rem 1.25rem;font-family:'Rajdhani',sans-serif;font-size:0.9rem;
+  font-weight:700;cursor:pointer;white-space:nowrap;
+}
+
+/* TABLE */
+.table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;}
+.table-head{
+  display:grid;grid-template-columns:2fr 1.5fr 1fr 1fr 1fr 1fr 1.2fr;
+  padding:0.85rem 1.25rem;background:var(--surface2);
+  font-size:0.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;
+  font-family:'Rajdhani',sans-serif;font-weight:600;
+}
+.table-row{
+  display:grid;grid-template-columns:2fr 1.5fr 1fr 1fr 1fr 1fr 1.2fr;
+  padding:1rem 1.25rem;border-top:1px solid var(--border);
+  transition:background 0.15s;align-items:center;
+}
+.table-row:hover{background:var(--surface2);}
+.user-name{font-weight:600;color:var(--text);font-size:0.9rem;}
+.user-email{font-size:0.75rem;color:var(--muted);margin-top:2px;font-family:'JetBrains Mono',monospace;}
+.phone-tag{font-family:'JetBrains Mono',monospace;font-size:0.82rem;color:var(--blue);}
+.badge{display:inline-block;padding:0.2rem 0.6rem;border-radius:6px;font-size:0.75rem;font-weight:600;font-family:'Rajdhani',sans-serif;}
+.badge-google{background:rgba(78,142,255,0.15);color:var(--blue);}
+.badge-mobile{background:rgba(0,196,122,0.15);color:var(--green);}
+.score-pill{
+  display:inline-block;padding:0.2rem 0.6rem;border-radius:6px;
+  font-family:'Rajdhani',sans-serif;font-size:0.85rem;font-weight:700;
+}
+.score-high{background:rgba(0,196,122,0.15);color:var(--green);}
+.score-mid{background:rgba(255,107,0,0.15);color:var(--orange);}
+.score-low{background:rgba(255,71,87,0.15);color:var(--red);}
+.date-txt{font-size:0.8rem;color:var(--muted);font-family:'JetBrains Mono',monospace;}
+
+.empty-state{padding:4rem;text-align:center;color:var(--muted);}
+.empty-state div{font-size:2.5rem;margin-bottom:1rem;}
+
+#loader{
+  padding:3rem;text-align:center;color:var(--muted);
+  font-family:'Rajdhani',sans-serif;font-size:1rem;
+}
+.spinner{
+  width:28px;height:28px;border:3px solid var(--border);
+  border-top-color:var(--orange);border-radius:50%;
+  animation:spin 0.7s linear infinite;margin:0 auto 1rem;
+}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* MODAL */
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:50;
+  display:none;align-items:center;justify-content:center;padding:1rem;
+}
+.modal-overlay.open{display:flex;}
+.modal{
+  background:var(--surface);border:1px solid var(--border);border-radius:20px;
+  padding:2rem;max-width:500px;width:100%;max-height:80vh;overflow-y:auto;
+}
+.modal-title{font-family:'Rajdhani',sans-serif;font-size:1.3rem;font-weight:700;margin-bottom:1.5rem;color:var(--orange);}
+.modal-row{display:flex;justify-content:space-between;padding:0.6rem 0;border-bottom:1px solid var(--border);font-size:0.88rem;}
+.modal-row:last-child{border-bottom:none;}
+.modal-key{color:var(--muted);}
+.modal-val{color:var(--text);font-weight:500;text-align:right;max-width:60%;}
+.modal-close{
+  margin-top:1.5rem;width:100%;background:var(--surface2);border:1px solid var(--border);
+  color:var(--text);border-radius:10px;padding:0.75rem;cursor:pointer;
+  font-family:'Rajdhani',sans-serif;font-size:0.95rem;font-weight:600;
+}
+
+@media(max-width:768px){
+  .stats-row{grid-template-columns:repeat(2,1fr);}
+  .table-head,.table-row{grid-template-columns:2fr 1.2fr 1fr 1fr;}
+  .table-head span:nth-child(n+5),.table-row span:nth-child(n+5){display:none;}
+  .main{padding:1rem;}
+}
+</style>
+</head>
+<body>
+
+<!-- AUTH GATE -->
+<div id="authGate">
+  <div class="auth-card">
+    <div class="auth-logo">⚡ TrickySSC</div>
+    <div class="auth-sub">Admin Panel — Restricted Access</div>
+    <input class="auth-input" type="password" id="adminPass" placeholder="Enter admin password" onkeydown="if(event.key==='Enter')checkAuth()">
+    <button class="auth-btn" onclick="checkAuth()">Access Panel →</button>
+    <div class="auth-err" id="authErr">⚠️ Incorrect password</div>
+  </div>
+</div>
+
+<!-- TOPBAR -->
+<div class="topbar" id="adminUI" style="display:none;">
+  <div style="display:flex;align-items:center;">
+    <span class="topbar-brand">⚡ TrickySSC</span>
+    <span class="topbar-badge">ADMIN</span>
+  </div>
+  <div class="topbar-right">
+    <span id="lastRefresh" style="font-size:0.8rem;color:var(--muted);"></span>
+    <button class="refresh-btn" onclick="loadData()">↻ Refresh</button>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main" id="adminMain" style="display:none;">
+
+  <!-- Stats -->
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-label">Total Candidates</div>
+      <div class="stat-val orange" id="totalUsers">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Total Tests Taken</div>
+      <div class="stat-val green" id="totalTests">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Avg Score (All)</div>
+      <div class="stat-val blue" id="overallAvg">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Active Today</div>
+      <div class="stat-val" id="activeToday">—</div>
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <div class="controls">
+    <input class="search-box" type="text" id="searchBox" placeholder="🔍 Search by name or mobile..." oninput="filterTable()">
+    <select class="filter-select" id="filterLogin" onchange="filterTable()">
+      <option value="">All Login Types</option>
+      <option value="google">Google</option>
+      <option value="mobile">Mobile</option>
+    </select>
+    <select class="filter-select" id="filterActivity" onchange="filterTable()">
+      <option value="">All Candidates</option>
+      <option value="active">Attempted Tests</option>
+      <option value="inactive">No Tests Yet</option>
+    </select>
+    <button class="export-btn" onclick="exportCSV()">⬇ Export CSV</button>
+  </div>
+
+  <!-- Table -->
+  <div class="table-wrap">
+    <div class="table-head">
+      <span>Candidate</span>
+      <span>Mobile</span>
+      <span>Tests</span>
+      <span>Avg Score</span>
+      <span>Best</span>
+      <span>Login</span>
+      <span>Joined</span>
+    </div>
+    <div id="tableBody">
+      <div id="loader">
+        <div class="spinner"></div>
+        Loading candidates...
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top:1rem;font-size:0.8rem;color:var(--muted);text-align:right;" id="countLabel"></div>
+</div>
+
+<!-- DETAIL MODAL -->
+<div class="modal-overlay" id="detailModal">
+  <div class="modal">
+    <div class="modal-title" id="modalTitle">Candidate Details</div>
+    <div id="modalBody"></div>
+    <button class="modal-close" onclick="closeModal()">Close</button>
+  </div>
+</div>
+
+<script type="module">
+import{initializeApp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import{getFirestore,collection,getDocs,query,orderBy}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+const app=initializeApp({apiKey:"AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",authDomain:"trickyssc-17bb3.firebaseapp.com",projectId:"trickyssc-17bb3",storageBucket:"trickyssc-17bb3.firebasestorage.app",messagingSenderId:"450627057220",appId:"1:450627057220:web:366267bf437d94f20c6e11"});
+const db=getFirestore(app);
+
+const ADMIN_PASS = 'TrickySSC@Admin2024';
+let allUsers = [];
+let allAttempts = [];
+
+window.checkAuth = () => {
+  const pass = document.getElementById('adminPass').value;
+  if(pass === ADMIN_PASS){
+    document.getElementById('authGate').style.display='none';
+    document.getElementById('adminUI').style.display='flex';
+    document.getElementById('adminMain').style.display='block';
+    loadData();
+  } else {
+    document.getElementById('authErr').style.display='block';
+  }
+};
+
+window.loadData = async () => {
+  document.getElementById('tableBody').innerHTML='<div id="loader"><div class="spinner"></div>Loading candidates...</div>';
+
+  try {
+    // Load users
+    const usersSnap = await getDocs(collection(db,'users'));
+    allUsers = [];
+    usersSnap.forEach(d => allUsers.push({id:d.id,...d.data()}));
+
+    // Load attempts for stats
+    const attSnap = await getDocs(collection(db,'attempts'));
+    allAttempts = [];
+    attSnap.forEach(d => allAttempts.push({id:d.id,...d.data()}));
+
+    // Calculate per-user attempt counts from attempts collection
+    const attemptsByUid = {};
+    allAttempts.forEach(a => {
+      if(!attemptsByUid[a.uid]) attemptsByUid[a.uid] = [];
+      attemptsByUid[a.uid].push(a);
+    });
+
+    // Enrich users with live attempt data
+    allUsers = allUsers.map(u => {
+      const uAttempts = attemptsByUid[u.uid] || [];
+      const scores = uAttempts.map(a=>parseFloat(a.percentage)||0);
+      return {
+        ...u,
+        liveTests: uAttempts.length,
+        liveAvg: scores.length ? (scores.reduce((a,b)=>a+b,0)/scores.length).toFixed(1) : null,
+        liveBest: scores.length ? Math.max(...scores).toFixed(1) : null,
+      };
+    });
+
+    // Overall stats
+    const today = new Date().toDateString();
+    const activeToday = allUsers.filter(u => u.lastActive?.toDate && u.lastActive.toDate().toDateString()===today).length;
+    const allScores = allAttempts.map(a=>parseFloat(a.percentage)||0);
+    const overallAvg = allScores.length ? (allScores.reduce((a,b)=>a+b,0)/allScores.length).toFixed(1) : '—';
+
+    document.getElementById('totalUsers').textContent = allUsers.length;
+    document.getElementById('totalTests').textContent = allAttempts.length;
+    document.getElementById('overallAvg').textContent = allScores.length ? overallAvg+'%' : '—';
+    document.getElementById('activeToday').textContent = activeToday;
+    document.getElementById('lastRefresh').textContent = 'Updated: '+new Date().toLocaleTimeString('en-IN');
+
+    renderTable(allUsers);
+  } catch(e) {
+    document.getElementById('tableBody').innerHTML=`<div class="empty-state"><div>⚠️</div>Error loading data: ${e.message}</div>`;
+  }
+};
+
+function renderTable(users) {
+  if(users.length === 0){
+    document.getElementById('tableBody').innerHTML='<div class="empty-state"><div>👥</div>No candidates found</div>';
+    document.getElementById('countLabel').textContent='';
+    return;
+  }
+
+  document.getElementById('tableBody').innerHTML = users.map(u => {
+    const name = u.name || u.displayName || 'Unknown';
+    const phone = u.phone || '—';
+    const tests = u.liveTests || 0;
+    const avg = u.liveAvg ? u.liveAvg+'%' : '—';
+    const best = u.liveBest ? u.liveBest+'%' : '—';
+    const avgNum = parseFloat(u.liveAvg)||0;
+    const scoreCls = avgNum>=70?'score-high':avgNum>=40?'score-mid':tests>0?'score-low':'';
+    const loginType = u.loginMethod==='google'||u.email ? 'google' : 'mobile';
+    const joined = u.createdAt?.toDate ? u.createdAt.toDate().toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'2-digit'}) : '—';
+    const email = u.email || '';
+
+    return `<div class="table-row" onclick="showDetail('${u.id}')" style="cursor:pointer;">
+      <div>
+        <div class="user-name">${name}</div>
+        ${email?`<div class="user-email">${email}</div>`:''}
+      </div>
+      <div class="phone-tag">${phone}</div>
+      <div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1rem;">${tests}</div>
+      <div>${tests>0?`<span class="score-pill ${scoreCls}">${avg}</span>`:'<span style="color:var(--muted)">—</span>'}</div>
+      <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--green);">${best}</div>
+      <div><span class="badge badge-${loginType}">${loginType==='google'?'🔵 Google':'📱 Mobile'}</span></div>
+      <div class="date-txt">${joined}</div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('countLabel').textContent = `Showing ${users.length} of ${allUsers.length} candidates`;
+}
+
+window.filterTable = () => {
+  const search = document.getElementById('searchBox').value.toLowerCase();
+  const loginFilter = document.getElementById('filterLogin').value;
+  const actFilter = document.getElementById('filterActivity').value;
+
+  let filtered = allUsers.filter(u => {
+    const name = (u.name||u.displayName||'').toLowerCase();
+    const phone = (u.phone||'').toLowerCase();
+    const email = (u.email||'').toLowerCase();
+    const matchSearch = !search || name.includes(search) || phone.includes(search) || email.includes(search);
+    const loginType = u.loginMethod==='google'||u.email ? 'google' : 'mobile';
+    const matchLogin = !loginFilter || loginType===loginFilter;
+    const matchAct = !actFilter || (actFilter==='active'?(u.liveTests>0):(u.liveTests===0));
+    return matchSearch && matchLogin && matchAct;
+  });
+
+  renderTable(filtered);
+};
+
+window.showDetail = (uid) => {
+  const u = allUsers.find(x=>x.id===uid);
+  if(!u) return;
+  const name = u.name||u.displayName||'Unknown';
+  const uAttempts = allAttempts.filter(a=>a.uid===u.uid);
+  const joined = u.createdAt?.toDate ? u.createdAt.toDate().toLocaleString('en-IN') : '—';
+  const lastActive = u.lastActive?.toDate ? u.lastActive.toDate().toLocaleString('en-IN') : '—';
+
+  document.getElementById('modalTitle').textContent = name;
+  document.getElementById('modalBody').innerHTML = `
+    <div class="modal-row"><span class="modal-key">Full Name</span><span class="modal-val">${name}</span></div>
+    <div class="modal-row"><span class="modal-key">Mobile</span><span class="modal-val">${u.phone||'—'}</span></div>
+    <div class="modal-row"><span class="modal-key">Email</span><span class="modal-val">${u.email||'—'}</span></div>
+    <div class="modal-row"><span class="modal-key">Login Method</span><span class="modal-val">${u.loginMethod==='google'||u.email?'🔵 Google':'📱 Mobile'}</span></div>
+    <div class="modal-row"><span class="modal-key">Joined</span><span class="modal-val">${joined}</span></div>
+    <div class="modal-row"><span class="modal-key">Last Active</span><span class="modal-val">${lastActive}</span></div>
+    <div class="modal-row"><span class="modal-key">Tests Attempted</span><span class="modal-val" style="color:var(--orange);font-weight:700;">${u.liveTests||0}</span></div>
+    <div class="modal-row"><span class="modal-key">Average Score</span><span class="modal-val">${u.liveAvg?u.liveAvg+'%':'—'}</span></div>
+    <div class="modal-row"><span class="modal-key">Best Score</span><span class="modal-val" style="color:var(--green);">${u.liveBest?u.liveBest+'%':'—'}</span></div>
+    ${uAttempts.length>0?`
+    <div style="margin-top:1rem;font-family:'Rajdhani',sans-serif;font-size:0.85rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:0.5rem;">Recent Attempts</div>
+    ${uAttempts.slice(0,5).map(a=>{
+      const d=a.timestamp?.toDate?a.timestamp.toDate().toLocaleDateString('en-IN'):'—';
+      return `<div class="modal-row"><span class="modal-key">${(a.examName||a.exam||'Test').split('—')[0].trim()} ${a.year||''}</span><span class="modal-val">${parseFloat(a.percentage)||0}% · ${a.correct||0}✅ ${a.wrong||0}❌ · ${d}</span></div>`;
+    }).join('')}`:''}
+  `;
+  document.getElementById('detailModal').classList.add('open');
+};
+
+window.closeModal = () => document.getElementById('detailModal').classList.remove('open');
+
+window.exportCSV = () => {
+  const rows = [['Name','Email','Mobile','Login','Tests Taken','Avg Score','Best Score','Joined']];
+  allUsers.forEach(u=>{
+    const joined = u.createdAt?.toDate ? u.createdAt.toDate().toLocaleDateString('en-IN') : '';
+    rows.push([
+      u.name||u.displayName||'',
+      u.email||'',
+      u.phone||'',
+      u.loginMethod==='google'||u.email?'Google':'Mobile',
+      u.liveTests||0,
+      u.liveAvg?u.liveAvg+'%':'',
+      u.liveBest?u.liveBest+'%':'',
+      joined
+    ]);
+  });
+  const csv = rows.map(r=>r.map(x=>`"${x}"`).join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download='TrickySSC_Candidates_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+};
+
+// Close modal on overlay click
+document.getElementById('detailModal').addEventListener('click', e=>{
+  if(e.target===document.getElementById('detailModal')) closeModal();
+});
+</script>
+</body>
+</html>
