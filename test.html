@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!DOCTYPE html><!-- v1773460804 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -199,6 +199,11 @@ select:focus{border-color:var(--orange);}
 </style>
 </head>
 <body>
+<div id="initLoader" style="position:fixed;inset:0;background:#F8FAFC;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:99999;font-family:'Rajdhani',sans-serif;text-align:center;">
+  <div style="font-size:3rem;margin-bottom:1rem;">⚡</div>
+  <div style="font-size:1.2rem;font-weight:700;color:#1A202C;">TrickySSC</div>
+  <div style="font-size:0.9rem;color:#64748B;margin-top:0.5rem;" id="initMsg">Checking login...</div>
+</div>
 
 <!-- LOGIN FULL PAGE -->
 <div id="loginScreen">
@@ -410,18 +415,26 @@ const _autoExam=_urlParams.get('exam');
 const _autoYear=_urlParams.get('year');
 
 // ── Auth state ──
+function hideInitLoader(){ 
+  const el=document.getElementById('initLoader'); 
+  if(el) el.style.display='none'; 
+}
+function setInitMsg(msg){ 
+  const el=document.getElementById('initMsg'); 
+  if(el) el.textContent=msg; 
+}
+
 onAuthStateChanged(auth,user=>{
   if(user){
     currentUser=user;
-    // Also save to localStorage so mobile users persist
     localStorage.setItem('tssc_user', JSON.stringify({
       uid:user.uid, name:user.displayName||'Student',
       phone:user.phoneNumber||'', email:user.email||'', loginMethod:'google'
     }));
+    hideInitLoader();
     if(_autoExam){ launchTestDirectly(); }
     else { showSelector(user); }
   } else {
-    // Check localStorage for mobile/name login (works across tabs, persists)
     const stored=localStorage.getItem('tssc_user');
     if(stored){
       try{
@@ -434,16 +447,19 @@ onAuthStateChanged(auth,user=>{
           email:mUser.email||'',
           photoURL:''
         };
+        hideInitLoader();
         if(_autoExam){ launchTestDirectly(); }
         else { showSelector(currentUser); }
       }catch(e){
+        setInitMsg('Redirecting to login...');
         localStorage.removeItem('tssc_user');
         localStorage.setItem('loginReturnTo',window.location.href);
         window.location.href='login.html';
       }
     } else {
+      setInitMsg('Please login to continue...');
       localStorage.setItem('loginReturnTo',window.location.href);
-      window.location.href='login.html';
+      setTimeout(()=>{ window.location.href='login.html'; }, 1500);
     }
   }
 });
