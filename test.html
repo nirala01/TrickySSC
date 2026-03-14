@@ -317,6 +317,7 @@ select{background:#fff;border:1.5px solid #D1D5DB;border-radius:8px;padding:0.6r
 <script type="module">
 console.log("SCRIPT STARTED");
 window.onerror=function(m,s,l,c,e){console.error("GLOBAL ERROR:",m,l,c,e);};
+window.addEventListener('unhandledrejection',e=>console.error("UNHANDLED PROMISE:",e.reason));
 
 import{initializeApp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import{getFirestore,collection,query,where,getDocs,addDoc,doc,setDoc,deleteDoc,getDoc,serverTimestamp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
@@ -324,6 +325,7 @@ import{getAuth,signInWithPopup,GoogleAuthProvider,signOut,onAuthStateChanged}fro
 
 const app=initializeApp({apiKey:"AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",authDomain:"trickyssc-17bb3.firebaseapp.com",projectId:"trickyssc-17bb3",storageBucket:"trickyssc-17bb3.firebasestorage.app",messagingSenderId:"450627057220",appId:"1:450627057220:web:366267bf437d94f20c6e11"});
 const db=getFirestore(app),auth=getAuth(app),prov=new GoogleAuthProvider();
+console.log("FIREBASE INITIALIZED");
 
 const EXAMS=[
   {id:'ssc-cgl',name:'SSC CGL',full:'Combined Graduate Level',icon:'🎯'},
@@ -353,6 +355,7 @@ function _hideLoader(){_hide('initLoader');}
 function _setMsg(m){const el=document.getElementById('initMsg');if(el)el.textContent=m;}
 
 onAuthStateChanged(auth,async user=>{
+  console.log("AUTH STATE:",user?user.uid:"null");
   if(user){
     currentUser=user;
     localStorage.setItem('tssc_user',JSON.stringify({uid:user.uid,name:user.displayName||'Student',phone:user.phoneNumber||'',email:user.email||'',loginMethod:'google'}));
