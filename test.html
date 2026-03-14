@@ -409,21 +409,27 @@ const _urlParams=new URLSearchParams(window.location.search);
 const _autoExam=_urlParams.get('exam');
 const _autoYear=_urlParams.get('year');
 
-// ── Auth state: logged in → go straight to test; not logged in → show login
+// ── Auth state ──
 onAuthStateChanged(auth,user=>{
   if(user){
     currentUser=user;
+    // Also save to localStorage so mobile users persist
+    localStorage.setItem('tssc_user', JSON.stringify({
+      uid:user.uid, name:user.displayName||'Student',
+      phone:user.phoneNumber||'', email:user.email||'', loginMethod:'google'
+    }));
     if(_autoExam){ launchTestDirectly(); }
     else { showSelector(user); }
   } else {
-    // Check sessionStorage for mobile/name login
-    const stored=sessionStorage.getItem('tssc_user');
+    // Check localStorage for mobile/name login (works across tabs, persists)
+    const stored=localStorage.getItem('tssc_user');
     if(stored){
       try{
         const mUser=JSON.parse(stored);
+        if(!mUser.uid) throw new Error('No uid');
         currentUser={
           uid:mUser.uid,
-          displayName:mUser.name,
+          displayName:mUser.name||'Student',
           phoneNumber:mUser.phone||'',
           email:mUser.email||'',
           photoURL:''
@@ -431,11 +437,12 @@ onAuthStateChanged(auth,user=>{
         if(_autoExam){ launchTestDirectly(); }
         else { showSelector(currentUser); }
       }catch(e){
-        sessionStorage.setItem('loginReturnTo',window.location.href);
+        localStorage.removeItem('tssc_user');
+        localStorage.setItem('loginReturnTo',window.location.href);
         window.location.href='login.html';
       }
     } else {
-      sessionStorage.setItem('loginReturnTo',window.location.href);
+      localStorage.setItem('loginReturnTo',window.location.href);
       window.location.href='login.html';
     }
   }
@@ -859,10 +866,19 @@ window.retryTest=()=>{
 window.goHome=()=>{show('selectorScreen');};
 
 function show(id){
+  // Hide loading screen whenever we show something else
+  if(id!=='loadingScreen'){
+    const ls=document.getElementById('loadingScreen');
+    if(ls) ls.style.display='none';
+  }
   ['loginScreen','selectorScreen','testScreen','resultScreen'].forEach(s=>{
     const el=document.getElementById(s);
-    if(el)el.style.display=s===id?'block':'none';
+    if(el) el.style.display=s===id?'block':'none';
   });
+  if(id==='testScreen'){
+    const ts=document.getElementById('testScreen');
+    if(ts){ts.style.display='flex';ts.style.flexDirection='column';ts.style.height='100vh';}
+  }
 }
 </script>
 </body>
