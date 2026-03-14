@@ -1,369 +1,239 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-
 <title>TrickySSC Test Engine</title>
-
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&family=Noto+Sans:wght@400;500&display=swap" rel="stylesheet">
-
 <style>
-
-body{
-margin:0;
-font-family:'Noto Sans',sans-serif;
-background:#F1F5F9;
-}
-
-#loader{
-position:fixed;
-inset:0;
-background:#FF6B00;
-color:white;
-display:flex;
-flex-direction:column;
-justify-content:center;
-align-items:center;
-font-weight:700;
-font-size:22px;
-z-index:1000;
-}
-
-#testScreen{
-display:none;
-height:100vh;
-flex-direction:column;
-}
-
-.topbar{
-background:#1F2937;
-color:white;
-display:flex;
-justify-content:space-between;
-align-items:center;
-padding:10px 20px;
-}
-
-.timer{
-font-family:'Rajdhani';
-font-size:24px;
-font-weight:700;
-}
-
-.main{
-flex:1;
-display:flex;
-}
-
-.questionPanel{
-flex:1;
-padding:30px;
-overflow:auto;
-}
-
-.option{
-border:2px solid #ddd;
-padding:12px;
-border-radius:8px;
-margin-bottom:10px;
-cursor:pointer;
-}
-
-.option.selected{
-border-color:#FF6B00;
-background:#FFF3E8;
-}
-
-.sidebar{
-width:200px;
-border-left:1px solid #ddd;
-padding:10px;
-}
-
-.grid{
-display:grid;
-grid-template-columns:repeat(5,1fr);
-gap:5px;
-}
-
-.dot{
-padding:6px;
-text-align:center;
-border:1px solid #ccc;
-background:white;
-cursor:pointer;
-}
-
-.dot.answered{
-background:#16A34A;
-color:white;
-}
-
-#resultScreen{
-display:none;
-padding:40px;
-max-width:800px;
-margin:auto;
-}
-
+body{margin:0;font-family:'Noto Sans',sans-serif;background:#F1F5F9;}
+#loader{position:fixed;inset:0;background:#FF6B00;color:white;display:flex;flex-direction:column;justify-content:center;align-items:center;font-weight:700;font-size:22px;z-index:1000;}
+#testScreen{display:none;height:100vh;flex-direction:column;}
+.topbar{background:#1F2937;color:white;display:flex;justify-content:space-between;align-items:center;padding:10px 20px;gap:10px;flex-wrap:wrap;}
+.topbar-left{display:flex;flex-direction:column;}
+.exam-title{font-family:'Rajdhani';font-size:16px;font-weight:700;color:#FF6B00;}
+.user-name{font-size:12px;color:#9CA3AF;}
+.timer{font-family:'Rajdhani';font-size:24px;font-weight:700;color:#FF6B00;}
+.topbar-right{display:flex;align-items:center;gap:10px;}
+.main{flex:1;display:flex;overflow:hidden;}
+.questionPanel{flex:1;padding:24px;overflow:auto;}
+.qNum{font-size:13px;color:#6B7280;margin-bottom:8px;}
+.qText{font-size:16px;font-weight:500;color:#1F2937;line-height:1.6;margin-bottom:20px;}
+.option{border:2px solid #E5E7EB;padding:12px 16px;border-radius:8px;margin-bottom:10px;cursor:pointer;font-size:14px;transition:all 0.15s;}
+.option:hover{border-color:#FF6B00;}
+.option.selected{border-color:#FF6B00;background:#FFF3E8;}
+.option.correct{border-color:#16A34A;background:#F0FDF4;color:#15803D;}
+.option.wrong{border-color:#DC2626;background:#FEF2F2;color:#DC2626;}
+.nav-btns{display:flex;gap:10px;margin-top:20px;flex-wrap:wrap;}
+.btn{padding:10px 20px;border:none;border-radius:8px;cursor:pointer;font-family:'Rajdhani';font-size:15px;font-weight:700;}
+.btn-prev{background:#E5E7EB;color:#374151;}
+.btn-next{background:#FF6B00;color:white;}
+.btn-submit{background:#1F2937;color:white;}
+.sidebar{width:200px;border-left:1px solid #E5E7EB;padding:12px;overflow:auto;background:white;}
+.sidebar h4{font-family:'Rajdhani';font-size:14px;color:#6B7280;margin-bottom:10px;}
+.grid{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;}
+.dot{padding:6px;text-align:center;border:1px solid #E5E7EB;background:white;cursor:pointer;font-size:12px;border-radius:4px;}
+.dot.answered{background:#16A34A;color:white;border-color:#16A34A;}
+.dot.current{border-color:#FF6B00;font-weight:700;}
+#resultScreen{display:none;padding:30px;max-width:700px;margin:auto;}
+.result-card{background:white;border-radius:16px;padding:30px;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,0.08);margin-bottom:20px;}
+.score-big{font-family:'Rajdhani';font-size:64px;font-weight:700;color:#FF6B00;}
+.score-label{font-size:14px;color:#6B7280;margin-top:-10px;}
+.stats{display:flex;gap:20px;justify-content:center;margin-top:20px;flex-wrap:wrap;}
+.stat{background:#F8FAFC;border-radius:10px;padding:12px 20px;text-align:center;}
+.stat-val{font-family:'Rajdhani';font-size:28px;font-weight:700;}
+.stat-lbl{font-size:12px;color:#6B7280;}
+.review-item{background:white;border-radius:10px;padding:16px;margin-bottom:12px;border-left:4px solid #E5E7EB;}
+.review-item.correct{border-left-color:#16A34A;}
+.review-item.wrong{border-left-color:#DC2626;}
+.review-item.skip{border-left-color:#F59E0B;}
+.review-q{font-size:14px;font-weight:500;color:#1F2937;margin-bottom:8px;}
+.review-ans{font-size:13px;color:#6B7280;}
+.logout-btn{background:transparent;border:1px solid #6B7280;color:#9CA3AF;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;}
 </style>
-
 </head>
-
 <body>
 
-<div id="loader">
-⚡ TrickySSC<br>
-Loading Test...
-</div>
+<div id="loader">⚡ TrickySSC<br><span style="font-size:14px;font-weight:400;margin-top:8px;">Loading...</span></div>
 
 <div id="testScreen">
-
-<div class="topbar">
-<div id="examName">SSC Test</div>
-<div class="timer" id="timer">60:00</div>
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="exam-title" id="examTitle">SSC Test</div>
+      <div class="user-name" id="userName"></div>
+    </div>
+    <div class="timer" id="timer">60:00</div>
+    <div class="topbar-right">
+      <button class="logout-btn" onclick="doLogout()">Logout</button>
+    </div>
+  </div>
+  <div class="main">
+    <div class="questionPanel">
+      <div class="qNum" id="qNum"></div>
+      <div class="qText" id="qText"></div>
+      <div id="options"></div>
+      <div class="nav-btns">
+        <button class="btn btn-prev" onclick="prevQ()">← Prev</button>
+        <button class="btn btn-next" onclick="nextQ()">Next →</button>
+        <button class="btn btn-submit" onclick="confirmSubmit()">Submit Test</button>
+      </div>
+    </div>
+    <div class="sidebar">
+      <h4>Questions</h4>
+      <div class="grid" id="grid"></div>
+    </div>
+  </div>
 </div>
-
-<div class="main">
-
-<div class="questionPanel">
-
-<h3 id="qText"></h3>
-
-<div id="options"></div>
-
-<button onclick="prevQ()">Previous</button>
-<button onclick="nextQ()">Next</button>
-<button onclick="submitTest()">Submit</button>
-
-</div>
-
-<div class="sidebar">
-
-<div class="grid" id="grid"></div>
-
-</div>
-
-</div>
-
-</div>
-
 
 <div id="resultScreen">
-
-<h1 id="score"></h1>
-
-<div id="review"></div>
-
+  <div class="result-card">
+    <div style="font-family:'Rajdhani';font-size:20px;font-weight:700;color:#1F2937;margin-bottom:10px;" id="resultExamName"></div>
+    <div class="score-big" id="scorePct"></div>
+    <div class="score-label">Score</div>
+    <div class="stats">
+      <div class="stat"><div class="stat-val" style="color:#16A34A" id="statCorrect">0</div><div class="stat-lbl">Correct</div></div>
+      <div class="stat"><div class="stat-val" style="color:#DC2626" id="statWrong">0</div><div class="stat-lbl">Wrong</div></div>
+      <div class="stat"><div class="stat-val" style="color:#F59E0B" id="statSkip">0</div><div class="stat-lbl">Skipped</div></div>
+      <div class="stat"><div class="stat-val" id="statMarks">0</div><div class="stat-lbl">Marks</div></div>
+    </div>
+    <button class="btn btn-next" style="margin-top:20px;" onclick="window.location='https://trickyssc.com/dashboard.html'">Go to Dashboard</button>
+  </div>
+  <div id="review"></div>
 </div>
 
-
 <script type="module">
-
 import{initializeApp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import{getFirestore,collection,query,where,getDocs,addDoc,serverTimestamp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-import{getAuth,onAuthStateChanged}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import{getAuth,onAuthStateChanged,signOut}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
-const firebaseConfig={
-apiKey:"AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",
-authDomain:"trickyssc-17bb3.firebaseapp.com",
-projectId:"trickyssc-17bb3",
-storageBucket:"trickyssc-17bb3.firebasestorage.app",
-messagingSenderId:"450627057220",
-appId:"1:450627057220:web:366267bf437d94f20c6e11"
-};
-
-const app=initializeApp(firebaseConfig);
+const app=initializeApp({apiKey:"AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",authDomain:"trickyssc-17bb3.firebaseapp.com",projectId:"trickyssc-17bb3",storageBucket:"trickyssc-17bb3.firebasestorage.app",messagingSenderId:"450627057220",appId:"1:450627057220:web:366267bf437d94f20c6e11"});
 const db=getFirestore(app);
 const auth=getAuth(app);
 
-let questions=[];
-let answers={};
-let currentQ=0;
-let timeLeft=3600;
-let timerInterval;
-
+let questions=[],answers={},currentQ=0,timeLeft=3600,timerInterval,currentUser=null;
 const params=new URLSearchParams(window.location.search);
-const exam=params.get("exam");
-const year=params.get("year");
+const exam=params.get('exam');
+const year=params.get('year');
 
 onAuthStateChanged(auth,async user=>{
-
-if(!user){
-
-localStorage.setItem("loginReturnTo",window.location.href);
-window.location="login.html";
-return;
-
-}
-
-await loadTest(user);
-
+  if(!user){
+    const stored=localStorage.getItem('tssc_user');
+    if(stored){
+      try{
+        const mu=JSON.parse(stored);
+        if(mu.uid){currentUser={uid:mu.uid,displayName:mu.name||'Student'};await loadTest();return;}
+      }catch(e){}
+    }
+    localStorage.setItem('loginReturnTo',window.location.href);
+    window.location.href='login.html';
+    return;
+  }
+  currentUser=user;
+  localStorage.setItem('tssc_user',JSON.stringify({uid:user.uid,name:user.displayName||'Student'}));
+  await loadTest();
 });
 
-async function loadTest(user){
-
-let q=query(collection(db,"questions"),where("exam","==",exam));
-
-if(year){
-q=query(collection(db,"questions"),where("exam","==",exam),where("year","==",year));
-}
-
-const snap=await getDocs(q);
-
-snap.forEach(d=>{
-questions.push({id:d.id,...d.data()});
-});
-
-questions.sort((a,b)=>(a.qNum||0)-(b.qNum||0));
-
-document.getElementById("loader").style.display="none";
-document.getElementById("testScreen").style.display="flex";
-
-buildGrid();
-renderQ();
-startTimer();
-
+async function loadTest(){
+  try{
+    let q=query(collection(db,'questions'),where('exam','==',exam));
+    if(year) q=query(collection(db,'questions'),where('exam','==',exam),where('year','==',year));
+    const snap=await getDocs(q);
+    snap.forEach(d=>questions.push({id:d.id,...d.data()}));
+    questions.sort((a,b)=>(a.qNum||0)-(b.qNum||0));
+    if(questions.length===0){
+      document.getElementById('loader').innerHTML='⚠️ No questions found<br><a href="javascript:history.back()" style="color:white;font-size:14px;">← Go Back</a>';
+      return;
+    }
+    document.getElementById('examTitle').textContent=(exam||'').toUpperCase().replace('-',' ')+(year?' '+year:'');
+    document.getElementById('userName').textContent=currentUser.displayName||'Student';
+    document.getElementById('loader').style.display='none';
+    document.getElementById('testScreen').style.display='flex';
+    buildGrid();renderQ();startTimer();
+  }catch(e){
+    document.getElementById('loader').innerHTML='❌ Error loading: '+e.message+'<br><a href="javascript:history.back()" style="color:white;font-size:14px;">← Go Back</a>';
+  }
 }
 
 function renderQ(){
-
-const q=questions[currentQ];
-
-document.getElementById("qText").innerText=(currentQ+1)+". "+q.text;
-
-const opts=["A","B","C","D"];
-
-document.getElementById("options").innerHTML=opts.map(o=>`
-
-<div class="option ${answers[currentQ]==o?"selected":""}" onclick="selectOpt('${o}')">
-
-${o}) ${q.options[o]||""}
-
-</div>
-
-`).join("");
-
-updateGrid();
-
+  const q=questions[currentQ];
+  document.getElementById('qNum').textContent='Question '+(currentQ+1)+' of '+questions.length;
+  document.getElementById('qText').textContent=q.text||q.question||'';
+  const opts=['A','B','C','D'];
+  document.getElementById('options').innerHTML=opts.map(o=>`<div class="option ${answers[currentQ]===o?'selected':''}" onclick="selectOpt('${o}')">${o}) ${q.options?q.options[o]:q['option'+o]||''}</div>`).join('');
+  updateGrid();
 }
 
-window.selectOpt=(o)=>{
-
-answers[currentQ]=o;
-renderQ();
-
-};
-
-window.nextQ=()=>{
-
-if(currentQ<questions.length-1){
-currentQ++;
-renderQ();
-}
-
-};
-
-window.prevQ=()=>{
-
-if(currentQ>0){
-currentQ--;
-renderQ();
-}
-
-};
+window.selectOpt=o=>{answers[currentQ]=o;renderQ();};
+window.nextQ=()=>{if(currentQ<questions.length-1){currentQ++;renderQ();}};
+window.prevQ=()=>{if(currentQ>0){currentQ--;renderQ();}};
+window.goQ=i=>{currentQ=i;renderQ();};
 
 function buildGrid(){
-
-document.getElementById("grid").innerHTML=questions.map((_,i)=>`
-
-<div class="dot" id="dot${i}" onclick="goQ(${i})">${i+1}</div>
-
-`).join("");
-
+  document.getElementById('grid').innerHTML=questions.map((_,i)=>`<div class="dot" id="dot${i}" onclick="goQ(${i})">${i+1}</div>`).join('');
 }
 
-window.goQ=(i)=>{
-
-currentQ=i;
-renderQ();
-
-};
-
 function updateGrid(){
-
-questions.forEach((_,i)=>{
-
-const el=document.getElementById("dot"+i);
-
-el.className="dot"+(answers[i]?" answered":"");
-
-});
-
+  questions.forEach((_,i)=>{
+    const el=document.getElementById('dot'+i);
+    if(!el)return;
+    el.className='dot'+(answers[i]?' answered':'')+(i===currentQ?' current':'');
+  });
 }
 
 function startTimer(){
-
-timerInterval=setInterval(()=>{
-
-timeLeft--;
-
-const m=Math.floor(timeLeft/60);
-const s=timeLeft%60;
-
-document.getElementById("timer").innerText=
-String(m).padStart(2,"0")+":"+String(s).padStart(2,"0");
-
-if(timeLeft<=0){
-
-clearInterval(timerInterval);
-submitTest();
-
+  timerInterval=setInterval(()=>{
+    timeLeft--;
+    const m=Math.floor(timeLeft/60),s=timeLeft%60;
+    document.getElementById('timer').textContent=String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+    if(timeLeft<=0){clearInterval(timerInterval);submitTest();}
+  },1000);
 }
 
-},1000);
-
-}
-
-window.submitTest=async()=>{
-
-clearInterval(timerInterval);
-
-let correct=0;
-let wrong=0;
-
-questions.forEach((q,i)=>{
-
-const a=answers[i];
-
-if(a===q.correct)correct++;
-else if(a)wrong++;
-
-});
-
-const percent=Math.round((correct/questions.length)*100);
-
-document.getElementById("testScreen").style.display="none";
-document.getElementById("resultScreen").style.display="block";
-
-document.getElementById("score").innerText="Score: "+percent+"%";
-
-await addDoc(collection(db,"attempts"),{
-
-exam,
-total:questions.length,
-correct,
-wrong,
-answers,
-timestamp:serverTimestamp()
-
-});
-
+window.confirmSubmit=()=>{
+  if(confirm('Submit test? You cannot change answers after submission.')) submitTest();
 };
 
-</script>
+window.submitTest=async()=>{
+  clearInterval(timerInterval);
+  let correct=0,wrong=0,skip=0;
+  questions.forEach((q,i)=>{
+    const a=answers[i];
+    if(!a) skip++;
+    else if(a===q.correct) correct++;
+    else wrong++;
+  });
+  const marks=(correct*2 - wrong*0.5).toFixed(1);
+  const pct=Math.round((correct/questions.length)*100);
+  document.getElementById('testScreen').style.display='none';
+  document.getElementById('resultScreen').style.display='block';
+  document.getElementById('resultExamName').textContent=(exam||'').toUpperCase().replace('-',' ')+(year?' '+year:'');
+  document.getElementById('scorePct').textContent=pct+'%';
+  document.getElementById('statCorrect').textContent=correct;
+  document.getElementById('statWrong').textContent=wrong;
+  document.getElementById('statSkip').textContent=skip;
+  document.getElementById('statMarks').textContent=marks;
+  // Review
+  document.getElementById('review').innerHTML=questions.map((q,i)=>{
+    const a=answers[i];
+    const status=!a?'skip':a===q.correct?'correct':'wrong';
+    return`<div class="review-item ${status}">
+      <div class="review-q">${i+1}. ${q.text||q.question||''}</div>
+      <div class="review-ans">Your answer: <b>${a||'Skipped'}</b> &nbsp;|&nbsp; Correct: <b>${q.correct||'?'}</b></div>
+      ${q.explanation?`<div style="font-size:12px;color:#374151;margin-top:6px;padding:6px;background:#F8FAFC;border-radius:4px;">💡 ${q.explanation}</div>`:''}
+    </div>`;
+  }).join('');
+  // Save attempt
+  if(currentUser){
+    try{
+      await addDoc(collection(db,'attempts'),{uid:currentUser.uid,exam,year:year||'',total:questions.length,correct,wrong,skip,marks:parseFloat(marks),percentage:pct,answers,timestamp:serverTimestamp()});
+    }catch(e){console.warn('Save attempt failed:',e);}
+  }
+};
 
+window.doLogout=()=>{
+  localStorage.removeItem('tssc_user');
+  signOut(auth).finally(()=>window.location.href='login.html');
+};
+</script>
 </body>
 </html>
