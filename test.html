@@ -115,7 +115,25 @@ const params=new URLSearchParams(window.location.search);
 const exam=params.get('exam');
 const year=params.get('year');
 
+// Wait for Firebase auth to restore session before deciding to redirect
+let authResolved = false;
+const authTimeout = setTimeout(async()=>{
+  if(authResolved) return;
+  // Firebase took too long — use localStorage fallback
+  const stored = localStorage.getItem('tssc_user');
+  if(stored){
+    try{
+      const mu=JSON.parse(stored);
+      if(mu.uid){currentUser={uid:mu.uid,displayName:mu.name||'Student'};await loadTest();return;}
+    }catch(e){}
+  }
+  localStorage.setItem('loginReturnTo',window.location.href);
+  window.location.href='login.html';
+}, 3000); // wait 3 seconds for Firebase
+
 onAuthStateChanged(auth,async user=>{
+  authResolved = true;
+  clearTimeout(authTimeout);
   if(!user){
     const stored=localStorage.getItem('tssc_user');
     if(stored){
