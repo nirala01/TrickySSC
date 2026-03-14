@@ -3,43 +3,892 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TrickySSC Test v3</title>
+<title>TrickySSC — Test Engine</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Noto+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --bg:#F0F2F5;--white:#FFFFFF;--border:#D1D5DB;
+  --orange:#FF6B00;--orange-light:#FFF3E8;
+  --green:#16A34A;--green-light:#DCFCE7;
+  --red:#DC2626;--red-light:#FEE2E2;
+  --purple:#7C3AED;--purple-light:#EDE9FE;
+  --blue:#2563EB;--blue-light:#DBEAFE;
+  --gray:#6B7280;--dark:#1F2937;--text:#374151;
+}
+body{font-family:'Noto Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+
+/* ===== LOGIN ===== */
+#loginScreen{display:none;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(135deg,#0F172A,#1E3A5F);}
+.login-card{background:#fff;border-radius:20px;padding:2.5rem;width:100%;max-width:400px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.3);}
+.login-logo{font-family:'Rajdhani',sans-serif;font-size:2rem;font-weight:700;color:var(--orange);margin-bottom:0.25rem;}
+.login-sub{color:var(--gray);font-size:0.9rem;margin-bottom:2rem;}
+.google-btn{display:flex;align-items:center;justify-content:center;gap:0.75rem;background:#fff;color:#1A202C;border:2px solid var(--border);padding:0.9rem 1.5rem;border-radius:12px;font-weight:600;font-size:0.95rem;cursor:pointer;width:100%;transition:all 0.2s;margin-bottom:0.75rem;}
+.google-btn:hover{background:#F9FAFB;border-color:#9CA3AF;box-shadow:0 2px 8px rgba(0,0,0,0.1);}
+.guest-btn{background:transparent;border:1px solid var(--border);color:var(--gray);padding:0.7rem;border-radius:10px;width:100%;cursor:pointer;font-size:0.85rem;}
+.guest-btn:hover{border-color:var(--orange);color:var(--orange);}
+
+/* ===== SELECTOR ===== */
+#selectorScreen{display:none;padding:2rem;max-width:960px;margin:0 auto;}
+.sel-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;}
+.sel-header h1{font-family:'Rajdhani',sans-serif;font-size:1.75rem;font-weight:700;color:var(--orange);}
+.user-pill{display:flex;align-items:center;gap:0.5rem;background:#fff;border:1px solid var(--border);border-radius:100px;padding:0.4rem 1rem;font-size:0.85rem;color:var(--dark);}
+.logout-link{color:var(--gray);font-size:0.8rem;cursor:pointer;margin-left:0.25rem;}
+.logout-link:hover{color:var(--red);}
+.exam-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:1rem;}
+.exam-card{background:#fff;border:2px solid var(--border);border-radius:16px;padding:1.5rem;cursor:pointer;transition:all 0.2s;}
+.exam-card:hover{border-color:var(--orange);transform:translateY(-2px);box-shadow:0 6px 20px rgba(255,107,0,0.12);}
+.exam-card.active{border-color:var(--orange);background:var(--orange-light);}
+.exam-icon{font-size:1.75rem;margin-bottom:0.5rem;}
+.exam-card h3{font-family:'Rajdhani',sans-serif;font-size:1.1rem;font-weight:700;color:var(--dark);}
+.exam-card p{font-size:0.78rem;color:var(--gray);margin-top:0.2rem;}
+.exam-count{font-size:0.75rem;font-weight:600;color:var(--orange);margin-top:0.75rem;}
+.config-panel{background:#fff;border:1px solid var(--border);border-radius:16px;padding:1.5rem;margin-top:1.25rem;display:none;}
+.config-panel h3{font-family:'Rajdhani',sans-serif;font-size:1.1rem;font-weight:700;margin-bottom:1rem;color:var(--dark);}
+.config-row{display:flex;gap:0.75rem;flex-wrap:wrap;margin-bottom:1rem;}
+.config-row label{font-size:0.8rem;font-weight:600;color:var(--gray);display:block;margin-bottom:0.3rem;}
+select{background:#fff;border:1.5px solid var(--border);border-radius:8px;padding:0.6rem 0.9rem;color:var(--dark);font-size:0.875rem;outline:none;min-width:140px;}
+select:focus{border-color:var(--orange);}
+.start-btn{background:linear-gradient(135deg,var(--orange),#FF8C38);color:#fff;border:none;padding:0.85rem 2rem;border-radius:12px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.1rem;cursor:pointer;width:100%;transition:all 0.2s;margin-top:0.5rem;}
+.start-btn:hover{opacity:0.92;transform:translateY(-1px);}
+.start-btn:disabled{opacity:0.5;cursor:not-allowed;transform:none;}
+
+/* ===== TEST SCREEN ===== */
+#testScreen{display:none;height:100vh;flex-direction:column;}
+/* Top bar */
+.test-topbar{background:var(--dark);color:#fff;padding:0 1.5rem;height:56px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.test-topbar .logo{font-family:'Rajdhani',sans-serif;font-size:1.25rem;font-weight:700;color:var(--orange);}
+.test-topbar .exam-name{font-size:0.9rem;color:#9CA3AF;}
+.timer-box{display:flex;align-items:center;gap:0.5rem;background:#374151;padding:0.4rem 1rem;border-radius:8px;}
+.timer-box .t-label{font-size:0.7rem;color:#9CA3AF;text-transform:uppercase;}
+.timer-val{font-family:'Rajdhani',sans-serif;font-size:1.4rem;font-weight:700;color:#fff;min-width:70px;text-align:center;}
+.timer-val.warn{color:#FBBF24;}
+.timer-val.danger{color:#EF4444;animation:blink 1s infinite;}
+@keyframes blink{50%{opacity:0.4;}}
+
+/* Section tabs */
+.section-tabs{background:#fff;border-bottom:2px solid var(--border);padding:0 1.5rem;display:flex;gap:0;flex-shrink:0;overflow-x:auto;}
+.sec-tab{padding:0.7rem 1.25rem;font-size:0.82rem;font-weight:600;cursor:pointer;border-bottom:3px solid transparent;color:var(--gray);white-space:nowrap;transition:all 0.2s;display:flex;align-items:center;gap:0.4rem;}
+.sec-tab:hover{color:var(--dark);}
+.sec-tab.active{color:var(--orange);border-bottom-color:var(--orange);}
+.sec-badge{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;font-size:0.65rem;font-weight:700;background:var(--border);color:var(--gray);}
+.sec-tab.active .sec-badge{background:var(--orange);color:#fff;}
+
+/* Main test body */
+.test-main{display:flex;flex:1;overflow:hidden;}
+/* Question panel */
+.q-panel{flex:1;overflow-y:auto;padding:1.5rem 2rem;}
+.q-meta{display:flex;align-items:center;gap:0.75rem;margin-bottom:1rem;}
+.q-num-badge{background:var(--orange);color:#fff;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.85rem;padding:0.25rem 0.75rem;border-radius:6px;}
+.q-type{font-size:0.75rem;color:var(--gray);background:var(--bg);padding:0.25rem 0.6rem;border-radius:4px;}
+.q-text{font-size:1.05rem;color:var(--dark);line-height:1.7;font-weight:500;margin-bottom:1.5rem;white-space:pre-wrap;}
+.options-list{display:flex;flex-direction:column;gap:0.6rem;margin-bottom:1.5rem;}
+.opt{display:flex;align-items:center;gap:0.85rem;background:#fff;border:2px solid var(--border);border-radius:10px;padding:0.85rem 1.1rem;cursor:pointer;transition:all 0.18s;}
+.opt:hover{border-color:#FCA55D;background:#FFFBF7;}
+.opt.selected{border-color:var(--orange);background:var(--orange-light);}
+.opt.marked{border-color:var(--purple);background:var(--purple-light);}
+.opt.correct{border-color:var(--green);background:var(--green-light);}
+.opt.wrong{border-color:var(--red);background:var(--red-light);}
+.opt-circle{width:34px;height:34px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.85rem;flex-shrink:0;color:var(--gray);transition:all 0.18s;}
+.opt.selected .opt-circle{background:var(--orange);border-color:var(--orange);color:#fff;}
+.opt.marked .opt-circle{background:var(--purple);border-color:var(--purple);color:#fff;}
+.opt.correct .opt-circle{background:var(--green);border-color:var(--green);color:#fff;}
+.opt.wrong .opt-circle{background:var(--red);border-color:var(--red);color:#fff;}
+.opt-text{font-size:0.93rem;color:var(--dark);line-height:1.4;}
+/* Action bar */
+.action-bar{display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap;padding:1rem 2rem;background:#fff;border-top:1px solid var(--border);flex-shrink:0;}
+.act-btn{padding:0.55rem 1.1rem;border-radius:8px;font-size:0.83rem;font-weight:600;cursor:pointer;transition:all 0.15s;border:1.5px solid var(--border);background:#fff;color:var(--dark);}
+.act-btn:hover{border-color:#9CA3AF;}
+.act-btn.mark{border-color:var(--purple);color:var(--purple);}
+.act-btn.mark:hover{background:var(--purple-light);}
+.act-btn.clear{border-color:var(--red);color:var(--red);}
+.act-btn.clear:hover{background:var(--red-light);}
+.act-btn.save-next{background:var(--orange);border-color:var(--orange);color:#fff;}
+.act-btn.save-next:hover{background:#E55E00;}
+.act-btn.prev{background:var(--bg);}
+.act-spacer{flex:1;}
+.submit-top-btn{background:var(--green);border:none;color:#fff;padding:0.55rem 1.25rem;border-radius:8px;font-weight:700;font-size:0.83rem;cursor:pointer;font-family:'Rajdhani',sans-serif;}
+.submit-top-btn:hover{background:#15803D;}
+
+/* Explanation */
+.exp-box{background:#fff;border:1px solid var(--border);border-left:4px solid var(--green);border-radius:8px;padding:1rem;margin-top:0.5rem;display:none;}
+.exp-box h5{color:var(--green);font-size:0.78rem;font-weight:700;text-transform:uppercase;margin-bottom:0.4rem;}
+.exp-box p{font-size:0.88rem;color:var(--text);line-height:1.5;}
+.trick-box{background:#FFFBEB;border:1px solid #FDE68A;border-left:4px solid #F59E0B;border-radius:8px;padding:1rem;margin-top:0.5rem;display:none;}
+.trick-box h5{color:#D97706;font-size:0.78rem;font-weight:700;text-transform:uppercase;margin-bottom:0.4rem;}
+.trick-box p{font-size:0.88rem;color:var(--dark);line-height:1.5;}
+
+/* Sidebar */
+.sidebar{width:240px;flex-shrink:0;background:#fff;border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;}
+.sb-user{padding:1rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:0.6rem;}
+.sb-avatar{width:36px;height:36px;border-radius:50%;background:var(--orange);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:0.9rem;flex-shrink:0;}
+.sb-name{font-size:0.82rem;font-weight:600;color:var(--dark);}
+.sb-exam{font-size:0.72rem;color:var(--gray);}
+.sb-legend{padding:0.75rem 1rem;border-bottom:1px solid var(--border);}
+.legend-row{display:flex;align-items:center;gap:0.4rem;font-size:0.72rem;color:var(--gray);margin-bottom:0.3rem;}
+.leg-dot{width:14px;height:14px;border-radius:3px;flex-shrink:0;}
+.leg-dot.answered{background:var(--green);}
+.leg-dot.not-visited{background:#fff;border:2px solid var(--border);}
+.leg-dot.not-answered{background:var(--red);}
+.leg-dot.marked{background:var(--purple);}
+.leg-dot.marked-answered{background:var(--purple);position:relative;}
+.sb-grid-wrap{flex:1;overflow-y:auto;padding:0.75rem 1rem;}
+.sb-sec-label{font-size:0.7rem;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.5rem;margin-top:0.5rem;}
+.q-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:0.35rem;margin-bottom:0.75rem;}
+.q-dot{width:100%;aspect-ratio:1;border-radius:5px;background:#fff;border:1.5px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:0.68rem;font-weight:700;cursor:pointer;transition:all 0.12s;color:var(--gray);}
+.q-dot.current{border-color:var(--orange);color:var(--orange);box-shadow:0 0 0 2px rgba(255,107,0,0.2);}
+.q-dot.answered{background:var(--green);border-color:var(--green);color:#fff;}
+.q-dot.not-answered{background:var(--red);border-color:var(--red);color:#fff;}
+.q-dot.marked{background:var(--purple);border-color:var(--purple);color:#fff;}
+.q-dot.correct{background:var(--green);border-color:var(--green);color:#fff;}
+.q-dot.wrong{background:var(--red);border-color:var(--red);color:#fff;}
+.sb-footer{padding:0.75rem 1rem;border-top:1px solid var(--border);}
+.sb-submit-btn{width:100%;background:var(--green);color:#fff;border:none;padding:0.7rem;border-radius:8px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1rem;cursor:pointer;}
+.sb-submit-btn:hover{background:#15803D;}
+.sb-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:0.4rem;margin-bottom:0.6rem;}
+.sb-stat{text-align:center;background:var(--bg);border-radius:6px;padding:0.35rem;}
+.sb-stat .n{font-family:'Rajdhani',sans-serif;font-size:1rem;font-weight:700;}
+.sb-stat .l{font-size:0.6rem;color:var(--gray);font-weight:600;}
+.sb-stat.ans .n{color:var(--green);}
+.sb-stat.nans .n{color:var(--red);}
+.sb-stat.skip .n{color:var(--gray);}
+
+/* ===== RESULT ===== */
+#resultScreen{display:none;padding:2rem;max-width:860px;margin:0 auto;}
+.res-card{background:#fff;border:1px solid var(--border);border-radius:20px;padding:2rem;text-align:center;margin-bottom:1.5rem;box-shadow:0 2px 12px rgba(0,0,0,0.06);}
+.res-score{font-family:'Rajdhani',sans-serif;font-size:5rem;font-weight:700;line-height:1;}
+.res-score.good{color:var(--green);}
+.res-score.avg{color:#D97706;}
+.res-score.bad{color:var(--red);}
+.res-label{font-size:1rem;color:var(--gray);margin-bottom:1.5rem;}
+.res-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-top:1.5rem;}
+.res-stat{background:var(--bg);border-radius:10px;padding:1rem;}
+.res-stat .n{font-family:'Rajdhani',sans-serif;font-size:1.75rem;font-weight:700;}
+.res-stat .l{font-size:0.7rem;color:var(--gray);font-weight:600;text-transform:uppercase;}
+.res-stat.c .n{color:var(--green);}
+.res-stat.w .n{color:var(--red);}
+.res-stat.s .n{color:var(--gray);}
+.res-stat.m .n{color:var(--orange);}
+.res-btns{display:flex;gap:0.75rem;justify-content:center;margin-top:1.5rem;}
+.res-btn{padding:0.75rem 2rem;border-radius:10px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1rem;cursor:pointer;border:none;}
+.res-btn.retry{background:var(--orange);color:#fff;}
+.res-btn.home{background:var(--bg);color:var(--dark);border:1.5px solid var(--border);}
+.review-wrap{background:#fff;border:1px solid var(--border);border-radius:16px;padding:1.5rem;}
+.review-wrap h3{font-family:'Rajdhani',sans-serif;font-size:1.1rem;font-weight:700;margin-bottom:1rem;color:var(--dark);}
+.rev-item{border:1px solid var(--border);border-radius:10px;padding:1rem;margin-bottom:0.75rem;}
+.rev-item.correct-item{border-left:4px solid var(--green);}
+.rev-item.wrong-item{border-left:4px solid var(--red);}
+.rev-item.skip-item{border-left:4px solid var(--border);}
+.rev-meta{font-size:0.72rem;color:var(--gray);margin-bottom:0.4rem;}
+.rev-q{font-size:0.88rem;color:var(--dark);margin-bottom:0.6rem;line-height:1.5;}
+.rev-opts{display:grid;grid-template-columns:1fr 1fr;gap:0.3rem;margin-bottom:0.5rem;}
+.rev-opt{font-size:0.78rem;padding:0.3rem 0.6rem;border-radius:5px;background:var(--bg);color:var(--gray);}
+.rev-opt.is-correct{background:var(--green-light);color:var(--green);font-weight:600;}
+.rev-opt.is-wrong{background:var(--red-light);color:var(--red);}
+.rev-exp{font-size:0.8rem;color:var(--text);padding:0.6rem 0.75rem;background:#F0FDF4;border-radius:6px;border-left:3px solid var(--green);margin-top:0.4rem;}
+.rev-trick{font-size:0.8rem;color:#92400E;padding:0.6rem 0.75rem;background:#FFFBEB;border-radius:6px;border-left:3px solid #F59E0B;margin-top:0.3rem;}
+
+@media(max-width:768px){
+  .test-main{flex-direction:column;}
+  .sidebar{width:100%;height:auto;border-left:none;border-top:1px solid var(--border);}
+  .q-grid{grid-template-columns:repeat(8,1fr);}
+  .res-stats{grid-template-columns:repeat(2,1fr);}
+  .q-panel{padding:1rem;}
+  .action-bar{padding:0.75rem 1rem;}
+}
+</style>
 </head>
-<body style="background:#FF6B00;display:flex;align-items:center;justify-content:center;min-height:100vh;flex-direction:column;font-family:Arial;">
-<div id="status" style="font-size:2rem;color:white;text-align:center;padding:2rem;">
-  ⚡ Step 1: HTML OK<br>
-  <span style="font-size:1rem;" id="msg">Loading Firebase...</span>
+<body>
+<div id="initLoader" style="position:fixed;inset:0;background:#FF6B00;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:99999;font-family:Arial,sans-serif;text-align:center;">
+  <div style="font-size:3rem;margin-bottom:1rem;">⚡</div>
+  <div style="font-size:1.5rem;font-weight:700;color:#fff;">TrickySSC</div>
+  <div style="font-size:1rem;color:#fff;margin-top:0.5rem;" id="initMsg">Checking login...</div>
 </div>
 
-<script>
-document.getElementById('msg').textContent = 'Step 2: Basic JS OK';
-</script>
+<!-- LOGIN FULL PAGE -->
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-logo">⚡ TrickySSC</div>
+    <p class="login-sub">Sign in to attempt tests &amp; track your progress</p>
+    <button class="google-btn" onclick="googleLogin()">
+      <svg width="20" height="20" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+      Sign in / Register with Google
+    </button>
+    <p style="font-size:0.78rem;color:#64748B;margin-top:1rem;text-align:center;">Free registration · No credit card needed</p>
+  </div>
+</div>
+
+<!-- LOGIN POPUP (shown when user clicks Attempt Test without logging in) -->
+<div id="loginPopupOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:20px;padding:2rem 2.5rem;max-width:380px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.3);position:relative;">
+    <button onclick="closeLoginPopup()" style="position:absolute;top:1rem;right:1rem;background:none;border:none;font-size:1.3rem;cursor:pointer;color:#94A3B8;">✕</button>
+    <div style="font-size:2rem;margin-bottom:0.5rem;">⚡</div>
+    <h2 style="font-family:'Rajdhani',sans-serif;font-size:1.4rem;font-weight:800;color:#1A202C;margin:0 0 0.3rem;">Login to Attempt Test</h2>
+    <p style="font-size:0.85rem;color:#64748B;margin:0 0 1.5rem;">Free registration with Google — takes 5 seconds</p>
+    <button id="popupGoogleBtn" onclick="popupGoogleLogin()" style="width:100%;display:flex;align-items:center;justify-content:center;gap:0.75rem;background:#fff;border:2px solid #E2E8F0;border-radius:12px;padding:0.85rem 1rem;font-size:0.95rem;font-weight:600;color:#1A202C;cursor:pointer;font-family:'Rajdhani',sans-serif;transition:all 0.2s;" onmouseenter="this.style.borderColor='#FF6B00'" onmouseleave="this.style.borderColor='#E2E8F0'">
+      <svg width="20" height="20" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+      Continue with Google
+    </button>
+    <p style="font-size:0.75rem;color:#94A3B8;margin-top:1rem;">After login, your test will start automatically</p>
+  </div>
+</div>
+
+<!-- LOADING SCREEN (shown during direct launch) -->
+<div id="loadingScreen" style="display:none;position:fixed;inset:0;background:#F8FAFC;z-index:8888;flex-direction:column;align-items:center;justify-content:center;font-family:'Rajdhani',sans-serif;text-align:center;padding:2rem;">
+  <div style="font-size:3rem;animation:pulse 1.5s infinite;">⚡</div>
+  <div style="font-size:1.5rem;font-weight:800;color:#1A202C;margin:1rem 0 0.4rem;">Loading your test...</div>
+  <div id="loadingSubtitle" style="font-size:0.95rem;color:#64748B;margin-bottom:1.5rem;">Fetching questions from database</div>
+  <div style="width:200px;height:4px;background:#E2E8F0;border-radius:4px;overflow:hidden;">
+    <div style="height:100%;background:#FF6B00;border-radius:4px;animation:loadbar 2s ease-in-out infinite;"></div>
+  </div>
+  <div id="loadingMsg" style="margin-top:2rem;font-size:0.9rem;color:#64748B;"></div>
+</div>
+<style>
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+@keyframes loadbar{0%{width:0%;margin-left:0}50%{width:60%;margin-left:20%}100%{width:0%;margin-left:100%}}
+</style>
+
+<!-- SELECTOR -->
+<div id="selectorScreen">
+  <div class="sel-header">
+    <div style="display:flex;align-items:center;gap:1rem;">
+      <a href="https://trickyssc.com/index.html" style="font-family:'Rajdhani',sans-serif;font-size:0.88rem;font-weight:700;color:#64748B;text-decoration:none;border:1px solid #E2E8F0;padding:0.35rem 0.9rem;border-radius:8px;background:#fff;transition:all 0.2s;" onmouseover="this.style.borderColor='#FF6B00';this.style.color='#FF6B00'" onmouseout="this.style.borderColor='#E2E8F0';this.style.color='#64748B'">🏠 Home</a>
+      <h1>⚡ Choose Your Test</h1>
+    </div>
+    <div class="user-pill">
+      <span id="userName">Guest</span>
+      <span class="logout-link" onclick="doLogout()">⇤ Logout</span>
+    </div>
+  </div>
+  <div class="exam-grid" id="examGrid"></div>
+  <div class="config-panel" id="configPanel">
+    <h3 id="configTitle">Configure Test</h3>
+    <div class="config-row">
+      <div><label>Year</label><select id="cfgYear"><option value="">All Years</option></select></div>
+      <div><label>Subject</label><select id="cfgSubject"><option value="">All Subjects</option><option value="reasoning">Reasoning</option><option value="gk">General Awareness</option><option value="quant">Quantitative Aptitude</option><option value="english">English</option></select></div>
+      <div><label>Questions</label><select id="cfgCount"><option value="25">25</option><option value="50">50</option><option value="100">100</option></select></div>
+      <div><label>Time (min)</label><select id="cfgTime"><option value="30">30</option><option value="60" selected>60</option><option value="90">90</option></select></div>
+    </div>
+    <button class="start-btn" id="startBtn" onclick="startTest()" disabled>🚀 Start Test</button>
+  </div>
+</div>
+
+<!-- TEST -->
+<div id="testScreen">
+  <!-- PAUSE OVERLAY -->
+  <div id="pauseOverlay" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.92);z-index:9999;flex-direction:column;align-items:center;justify-content:center;font-family:'Rajdhani',sans-serif;text-align:center;">
+    <div style="font-size:3rem;margin-bottom:0.75rem;">⏸️</div>
+    <div style="font-size:2rem;font-weight:800;color:#fff;margin-bottom:0.4rem;">Test Paused</div>
+    <div style="font-size:1rem;color:#94A3B8;margin-bottom:2rem;">Your progress is saved. Timer is stopped.</div>
+    <div style="display:flex;gap:1rem;flex-wrap:wrap;justify-content:center;">
+      <button onclick="resumeTest()" style="background:linear-gradient(135deg,#FF6B00,#FF8C38);color:#fff;border:none;border-radius:12px;padding:0.85rem 2rem;font-family:'Rajdhani',sans-serif;font-size:1.1rem;font-weight:700;cursor:pointer;box-shadow:0 4px 20px rgba(255,107,0,0.4);">▶ Resume Test</button>
+      <a href="https://trickyssc.com/index.html" style="background:#1E293B;color:#fff;border:1px solid #334155;border-radius:12px;padding:0.85rem 2rem;font-family:'Rajdhani',sans-serif;font-size:1.1rem;font-weight:700;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:0.5rem;">🏠 Go to Home</a>
+      <a href="dashboard.html" style="background:#1E293B;color:#fff;border:1px solid #334155;border-radius:12px;padding:0.85rem 2rem;font-family:'Rajdhani',sans-serif;font-size:1.1rem;font-weight:700;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:0.5rem;">📊 My Dashboard</a>
+    </div>
+    <div style="margin-top:1.5rem;font-size:0.85rem;color:#64748B;">⚠️ Leaving the page will end your test</div>
+  </div>
+
+  <!-- RESUME OR FRESH DIALOG -->
+  <div id="resumeDialog" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.85);z-index:9998;align-items:center;justify-content:center;">
+    <div style="background:#fff;border-radius:20px;padding:2.5rem;max-width:420px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+      <div style="font-size:2.5rem;margin-bottom:0.75rem;">⏸️</div>
+      <h2 style="font-family:'Rajdhani',sans-serif;font-size:1.5rem;font-weight:800;color:#1A202C;margin-bottom:0.5rem;">Test In Progress!</h2>
+      <p id="resumeDialogMsg" style="font-size:0.9rem;color:#64748B;margin-bottom:1.5rem;">You have a paused attempt for this test.</p>
+      <div style="display:flex;flex-direction:column;gap:0.75rem;">
+        <button onclick="resumeFromSaved()" style="background:linear-gradient(135deg,#FF6B00,#FF8C38);color:#fff;border:none;border-radius:12px;padding:0.9rem;font-family:'Rajdhani',sans-serif;font-size:1rem;font-weight:700;cursor:pointer;box-shadow:0 4px 15px rgba(255,107,0,0.3);">▶ Resume Where I Left Off</button>
+        <button onclick="startFresh()" style="background:#F1F5F9;color:#1A202C;border:1px solid #E2E8F0;border-radius:12px;padding:0.9rem;font-family:'Rajdhani',sans-serif;font-size:1rem;font-weight:700;cursor:pointer;">🔄 Start Fresh (discard paused)</button>
+        <button onclick="document.getElementById('resumeDialog').style.display='none';history.back();" style="background:transparent;color:#94A3B8;border:none;font-family:'Rajdhani',sans-serif;font-size:0.9rem;cursor:pointer;padding:0.5rem;">✕ Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="test-topbar">
+    <div>
+      <div class="logo">⚡ TrickySSC</div>
+      <div class="exam-name" id="topExamName"></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:0.75rem;">
+      <button id="pauseBtn" onclick="pauseTest()" style="background:#374151;border:none;border-radius:8px;padding:0.35rem 0.9rem;color:#D1D5DB;font-family:'Rajdhani',sans-serif;font-size:0.85rem;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:0.4rem;transition:background 0.2s;" onmouseover="this.style.background='#FF6B00';this.style.color='#fff'" onmouseout="this.style.background='#374151';this.style.color='#D1D5DB'">⏸ Pause</button>
+      <div class="timer-box">
+        <div class="t-label">Time Left</div>
+        <div class="timer-val" id="timerDisplay">60:00</div>
+      </div>
+    </div>
+  </div>
+  <div class="section-tabs" id="sectionTabs"></div>
+  <div class="test-main">
+    <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
+      <div class="q-panel" id="qPanel">
+        <div class="q-meta">
+          <span class="q-num-badge" id="qNumBadge">Q 1</span>
+          <span class="q-type">Multiple Choice</span>
+        </div>
+        <div class="q-text" id="qText"></div>
+        <div class="options-list" id="optionsList"></div>
+        <div class="exp-box" id="expBox"><h5>📝 Solution</h5><p id="expText"></p></div>
+        <div class="trick-box" id="trickBox"><h5>⚡ Trick</h5><p id="trickText"></p></div>
+      </div>
+      <div class="action-bar">
+        <button class="act-btn mark" onclick="markForReview()">🔖 Mark for Review</button>
+        <button class="act-btn clear" onclick="clearResponse()">✕ Clear Response</button>
+        <button class="act-btn prev" onclick="prevQ()">◀ Previous</button>
+        <button class="act-btn save-next" onclick="saveAndNext()">Save & Next ▶</button>
+        <div class="act-spacer"></div>
+        <button class="submit-top-btn" onclick="confirmSubmit()">Submit Test</button>
+      </div>
+    </div>
+    <div class="sidebar">
+      <div class="sb-user">
+        <div class="sb-avatar" id="sbAvatar">A</div>
+        <div><div class="sb-name" id="sbName">Student</div><div class="sb-exam" id="sbExam">SSC CGL</div></div>
+      </div>
+      <div class="sb-legend">
+        <div class="legend-row"><div class="leg-dot answered"></div> Answered</div>
+        <div class="legend-row"><div class="leg-dot not-answered"></div> Not Answered</div>
+        <div class="legend-row"><div class="leg-dot not-visited"></div> Not Visited</div>
+        <div class="legend-row"><div class="leg-dot marked"></div> Marked for Review</div>
+      </div>
+      <div class="sb-grid-wrap" id="sbGridWrap"></div>
+      <div class="sb-footer">
+        <div class="sb-stats">
+          <div class="sb-stat ans"><div class="n" id="statAns">0</div><div class="l">Done</div></div>
+          <div class="sb-stat nans"><div class="n" id="statNAns">0</div><div class="l">Pending</div></div>
+          <div class="sb-stat skip"><div class="n" id="statMark">0</div><div class="l">Marked</div></div>
+        </div>
+        <button class="sb-submit-btn" onclick="confirmSubmit()">Submit Test</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- RESULT -->
+<div id="resultScreen">
+  <div class="res-card">
+    <div class="res-score" id="resScore">0%</div>
+    <div class="res-label" id="resLabel">Keep practicing!</div>
+    <div class="res-stats">
+      <div class="res-stat c"><div class="n" id="rC">0</div><div class="l">✅ Correct</div></div>
+      <div class="res-stat w"><div class="n" id="rW">0</div><div class="l">❌ Wrong</div></div>
+      <div class="res-stat s"><div class="n" id="rS">0</div><div class="l">⬜ Skipped</div></div>
+      <div class="res-stat m"><div class="n" id="rM">0</div><div class="l">📊 Marks</div></div>
+    </div>
+    <div class="res-btns">
+      <button class="res-btn retry" onclick="retryTest()">🔄 Retry</button>
+      <button class="res-btn home" onclick="goHome()">📋 All Tests</button>
+      <button class="res-btn" onclick="window.location='https://trickyssc.com/index.html'" style="background:#1A202C;color:#fff;border:none;border-radius:12px;padding:0.75rem 1.5rem;font-family:'Rajdhani',sans-serif;font-size:0.95rem;font-weight:700;cursor:pointer;">🏠 Website Home</button>
+    </div>
+  </div>
+  <div class="review-wrap">
+    <h3>📋 Review All Questions</h3>
+    <div id="reviewArea"></div>
+  </div>
+</div>
 
 <script type="module">
-document.getElementById('msg').textContent = 'Step 3: Module JS OK';
+import{initializeApp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import{getFirestore,collection,query,where,getDocs,addDoc,doc,setDoc,deleteDoc,getDoc,serverTimestamp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import{getAuth,signInWithPopup,GoogleAuthProvider,signOut,onAuthStateChanged}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
-import {initializeApp} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-document.getElementById('msg').textContent = 'Step 4: Firebase imported OK';
+const app=initializeApp({apiKey:"AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",authDomain:"trickyssc-17bb3.firebaseapp.com",projectId:"trickyssc-17bb3",storageBucket:"trickyssc-17bb3.firebasestorage.app",messagingSenderId:"450627057220",appId:"1:450627057220:web:366267bf437d94f20c6e11"});
+const db=getFirestore(app),auth=getAuth(app),prov=new GoogleAuthProvider();
 
-const app = initializeApp({
-  apiKey:"AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",
-  authDomain:"trickyssc-17bb3.firebaseapp.com",
-  projectId:"trickyssc-17bb3"
-});
-document.getElementById('msg').textContent = 'Step 5: Firebase app OK';
+const EXAMS=[
+  {id:'ssc-cgl',name:'SSC CGL',full:'Combined Graduate Level',icon:'🎯'},
+  {id:'ssc-chsl',name:'SSC CHSL',full:'Combined Higher Secondary',icon:'📗'},
+  {id:'ssc-mts',name:'SSC MTS',full:'Multi Tasking Staff',icon:'🟠'},
+  {id:'ssc-gd',name:'SSC GD',full:'General Duty Constable',icon:'🛡️'},
+  {id:'ssc-cpo',name:'SSC CPO',full:'Central Police Organisation',icon:'👮'},
+  {id:'ssc-je',name:'SSC JE',full:'Junior Engineer',icon:'⚙️'},
+];
+const SECTIONS=[
+  {id:'reasoning',label:'General Intelligence & Reasoning'},
+  {id:'gk',label:'General Awareness'},
+  {id:'quant',label:'Quantitative Aptitude'},
+  {id:'english',label:'English Comprehension'},
+];
 
-import {getAuth, onAuthStateChanged} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-const auth = getAuth(app);
-document.getElementById('msg').textContent = 'Step 6: Auth imported OK';
+let currentUser=null,selectedExam=null,questions=[],currentQ=0,answers={},marked={},timeLeft=3600,timerInterval=null,examCounts={};
 
-onAuthStateChanged(auth, user => {
+// ── URL params for direct launch: test.html?exam=ssc-cgl&year=2024
+const _urlParams=new URLSearchParams(window.location.search);
+const _autoExam=_urlParams.get('exam');
+const _autoYear=_urlParams.get('year');
+
+// ── Auth state ──
+function _hideLoader(){ const el=document.getElementById('initLoader'); if(el) el.style.display='none'; }
+function _setMsg(m){ const el=document.getElementById('initMsg'); if(el) el.textContent=m; }
+
+onAuthStateChanged(auth,user=>{
   if(user){
-    document.getElementById('msg').textContent = 'Step 7: Logged in as ' + (user.displayName || user.email || user.uid);
+    currentUser=user;
+    localStorage.setItem('tssc_user',JSON.stringify({
+      uid:user.uid,name:user.displayName||'Student',
+      phone:user.phoneNumber||'',email:user.email||'',loginMethod:'google'
+    }));
+    _hideLoader();
+    if(_autoExam){ 
+      try{ await launchTestDirectly(); }
+      catch(e){ 
+        document.body.innerHTML='<div style="padding:2rem;font-family:Arial;"><h2 style="color:red;">Error</h2><pre>'+e.stack+'</pre><a href="login.html">Go to Login</a></div>';
+      }
+    }
+    else { showSelector(user); }
   } else {
-    document.getElementById('msg').textContent = 'Step 7: Not logged in — redirecting to login.html in 2s';
-    setTimeout(()=>{ window.location.href='login.html'; }, 2000);
+    const stored=localStorage.getItem('tssc_user');
+    if(stored){
+      try{
+        const mUser=JSON.parse(stored);
+        if(!mUser.uid) throw new Error('no uid');
+        currentUser={uid:mUser.uid,displayName:mUser.name||'Student',phoneNumber:mUser.phone||'',email:mUser.email||'',photoURL:''};
+        _hideLoader();
+        if(_autoExam){ 
+          try{ await launchTestDirectly(); }
+          catch(e){ 
+            document.body.innerHTML='<div style="padding:2rem;font-family:Arial;"><h2 style="color:red;">Error (mobile user)</h2><pre>'+e.stack+'</pre><a href="login.html">Go to Login</a></div>';
+          }
+        }
+        else { showSelector(currentUser); }
+      }catch(e){
+        localStorage.removeItem('tssc_user');
+        _setMsg('Redirecting to login...');
+        localStorage.setItem('loginReturnTo',window.location.href);
+        setTimeout(()=>window.location.href='login.html',1000);
+      }
+    } else {
+      _setMsg('Please login to continue...');
+      localStorage.setItem('loginReturnTo',window.location.href);
+      setTimeout(()=>window.location.href='login.html',1500);
+    }
   }
 });
+
+// ── Login / popup functions ──
+window.googleLogin=()=>{
+  signInWithPopup(auth,prov).catch(e=>{
+    if(e.code==='auth/popup-blocked'){alert('Please allow popups for trickyssc.com and try again.');}
+  });
+};
+window.popupGoogleLogin=()=>{
+  const btn=document.getElementById('popupGoogleBtn');
+  btn.textContent='⏳ Signing in...'; btn.disabled=true;
+  signInWithPopup(auth,prov).catch(e=>{
+    btn.innerHTML='<svg width="20" height="20" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg> Continue with Google';
+    btn.disabled=false;
+    if(e.code==='auth/popup-blocked'){alert('Please allow popups for trickyssc.com and try again.');}
+  });
+};
+window.closeLoginPopup=()=>{
+  document.getElementById('loginPopupOverlay').style.display='none';
+};
+window.doLogout=()=>{signOut(auth);show('loginScreen');};
+
+function showLoginPopup(){
+  const overlay=document.getElementById('loginPopupOverlay');
+  overlay.style.display='flex';
+  // Reset button state
+  const btn=document.getElementById('popupGoogleBtn');
+  btn.innerHTML='<svg width="20" height="20" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg> Continue with Google';
+  btn.disabled=false;
+}
+
+// ── Direct launch: skip selector, start test immediately ──
+// ── Paused test key helper ──
+function _pauseKey(exam,year){ return currentUser.uid+'_'+(exam||_autoExam)+((year||_autoYear)?'_'+(year||_autoYear):''); }
+
+// ── Resume from Firestore saved state ──
+window.resumeFromSaved=async()=>{
+  document.getElementById('resumeDialog').style.display='none';
+  document.getElementById('loadingScreen').style.display='flex';
+  document.getElementById('loadingMsg').textContent='';
+  try{
+    const snap=await getDoc(doc(db,'paused_tests',_pauseKey(_autoExam,_autoYear)));
+    if(!snap.exists()){_doLaunchFresh();return;}
+    const d=snap.data();
+
+    // Re-fetch questions from Firestore using saved IDs (in original order)
+    let fetchedQs=[];
+    if(d.questionIds && d.questionIds.length>0){
+      // Fetch all questions for this exam+year, then sort by saved ID order
+      let q=query(collection(db,'questions'),where('exam','==',d.exam||_autoExam));
+      if(d.year) q=query(collection(db,'questions'),where('exam','==',d.exam||_autoExam),where('year','==',d.year));
+      const qSnap=await getDocs(q);
+      const qMap={};
+      qSnap.forEach(doc=>qMap[doc.id]={id:doc.id,...doc.data()});
+      // Restore original order using saved IDs
+      fetchedQs=d.questionIds.map(id=>qMap[id]).filter(Boolean);
+    }
+
+    if(fetchedQs.length===0){_doLaunchFresh();return;}
+
+    // Restore full state
+    questions=fetchedQs;
+    answers=d.answers||{};
+    marked=d.marked||{};
+    currentQ=parseInt(d.currentQ)||0;
+    timeLeft=parseInt(d.timeLeft)||3600;
+    selectedExam=d.exam||_autoExam;
+
+    const examName=d.examName||selectedExam.toUpperCase();
+    document.getElementById('topExamName').textContent=examName;
+    document.getElementById('sbName').textContent=currentUser?.displayName||'Student';
+    document.getElementById('sbAvatar').textContent=(currentUser?.displayName||'S')[0].toUpperCase();
+    document.getElementById('sbExam').textContent=examName.split(' — ')[0];
+
+    buildSectionTabs();
+    buildSidebarGrid();
+    renderQuestion(); // renders at saved currentQ
+    startTimer();
+
+    document.getElementById('loadingScreen').style.display='none';
+    const ts=document.getElementById('testScreen');
+    ts.style.display='flex'; ts.style.flexDirection='column'; ts.style.height='100vh';
+    document.documentElement.requestFullscreen?.().catch(()=>{});
+    console.log('Resumed at Q:'+currentQ+' T:'+timeLeft+' A:'+Object.keys(answers).length);
+  }catch(e){
+    document.getElementById('loadingMsg').textContent='Error resuming: '+e.message;
+  }
+};
+
+// ── Start fresh (delete paused state first) ──
+window.startFresh=async()=>{
+  document.getElementById('resumeDialog').style.display='none';
+  if(currentUser){
+    try{await deleteDoc(doc(db,'paused_tests',_pauseKey(_autoExam,_autoYear)));}catch(e){}
+  }
+  _doLaunchFresh();
+};
+
+async function _doLaunchFresh(){
+  document.getElementById('loadingScreen').style.display='flex';
+  document.getElementById('loadingMsg').textContent='';
+  try{
+    let q=query(collection(db,'questions'),where('exam','==',_autoExam));
+    if(_autoYear) q=query(collection(db,'questions'),where('exam','==',_autoExam),where('year','==',_autoYear));
+    const snap=await getDocs(q);
+    let all=[];
+    snap.forEach(d=>all.push({id:d.id,...d.data()}));
+    if(all.length===0){
+      document.getElementById('loadingMsg').innerHTML='<b>No questions uploaded yet</b> for this paper.<br><br><a href="javascript:history.back()" style="color:#FF6B00;font-weight:700;">← Go Back</a>';
+      return;
+    }
+    all=all.sort((a,b)=>(a.qNum||0)-(b.qNum||0));
+    questions=all; answers={}; marked={}; currentQ=0;
+    selectedExam=_autoExam; timeLeft=3600;
+    const EXAM_NAMES2={'ssc-cgl':'SSC CGL','ssc-chsl':'SSC CHSL','ssc-mts':'SSC MTS','ssc-gd':'SSC GD','ssc-cpo':'SSC CPO','ssc-jht':'SSC JHT','ssc-je':'SSC JE'};
+    const examName=EXAM_NAMES2[_autoExam]||_autoExam.toUpperCase();
+    document.getElementById('topExamName').textContent=examName+' — '+all.length+' Questions'+(_autoYear?' ('+_autoYear+')':'');
+    document.getElementById('sbName').textContent=currentUser?.displayName||'Student';
+    document.getElementById('sbAvatar').textContent=(currentUser?.displayName||'S')[0].toUpperCase();
+    document.getElementById('sbExam').textContent=examName;
+    buildSectionTabs(); buildSidebarGrid(); renderQuestion(); startTimer();
+    document.getElementById('loadingScreen').style.display='none';
+    const ts=document.getElementById('testScreen');
+    ts.style.display='flex'; ts.style.flexDirection='column'; ts.style.height='100vh';
+    document.documentElement.requestFullscreen?.().catch(()=>{});
+  }catch(err){
+    document.getElementById('loadingMsg').textContent='Error loading test: '+err.message;
+  }
+}
+
+async function launchTestDirectly(){
+  ['loginScreen','selectorScreen','testScreen','resultScreen'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.style.display='none';
+  });
+  const ls=document.getElementById('loadingScreen');
+  if(ls) ls.style.display='flex';
+
+  // Check for paused test
+  if(currentUser && currentUser.uid){
+    try{
+      const pauseKey=currentUser.uid+'_'+_autoExam+((_autoYear)?'_'+_autoYear:'');
+      const pausedSnap=await getDoc(doc(db,'paused_tests',pauseKey));
+      if(pausedSnap.exists()){
+        const pd=pausedSnap.data();
+        const qDone=Object.keys(pd.answers||{}).length;
+        const tLeft=parseInt(pd.timeLeft)||0;
+        const mins=Math.floor(tLeft/60),secs=String(tLeft%60).padStart(2,'0');
+        if(ls) ls.style.display='none';
+        const msgEl=document.getElementById('resumeDialogMsg');
+        if(msgEl) msgEl.textContent=qDone+' questions answered · '+mins+'m '+secs+'s remaining';
+        const rd=document.getElementById('resumeDialog');
+        if(rd) rd.style.display='flex';
+        return;
+      }
+    }catch(e){ console.warn('Pause check:',e.message); }
+  }
+  await _doLaunchFresh();
+}
+
+
+async function showSelector(user){
+  show('selectorScreen');
+  document.getElementById('userName').textContent=user?user.displayName||user.email:'Guest';
+  // Load counts
+  const grid=document.getElementById('examGrid');
+  grid.innerHTML='<div style="color:var(--gray);font-size:0.9rem;padding:1rem;">Loading exams...</div>';
+  const snap=await getDocs(collection(db,'questions'));
+  examCounts={};
+  snap.forEach(d=>{const e=d.data().exam;examCounts[e]=(examCounts[e]||0)+1;});
+  grid.innerHTML=EXAMS.map(e=>`
+    <div class="exam-card" id="card-${e.id}" onclick="selectExam('${e.id}','${e.name}')">
+      <div class="exam-icon">${e.icon}</div>
+      <h3>${e.name}</h3>
+      <p>${e.full}</p>
+      <div class="exam-count">${examCounts[e.id]||0} questions available</div>
+    </div>`).join('');
+  loadYears('ssc-cgl');
+}
+
+async function loadYears(examId){
+  const snap=await getDocs(query(collection(db,'questions'),where('exam','==',examId)));
+  const years=new Set();
+  snap.forEach(d=>years.add(d.data().year));
+  const sel=document.getElementById('cfgYear');
+  sel.innerHTML='<option value="">All Years</option>'+[...years].sort((a,b)=>b-a).map(y=>`<option value="${y}">${y}</option>`).join('');
+}
+
+window.selectExam=async(id,name)=>{
+  selectedExam=id;
+  document.querySelectorAll('.exam-card').forEach(c=>c.classList.remove('active'));
+  document.getElementById('card-'+id)?.classList.add('active');
+  document.getElementById('configTitle').textContent='Configure '+name+' Test';
+  document.getElementById('configPanel').style.display='block';
+  document.getElementById('startBtn').disabled=false;
+  document.getElementById('startBtn').textContent='🚀 Start Test ('+(examCounts[id]||0)+' questions)';
+  await loadYears(id);
+  document.getElementById('configPanel').scrollIntoView({behavior:'smooth'});
+};
+
+window.startTest=async()=>{
+  const btn=document.getElementById('startBtn');
+  btn.disabled=true;btn.textContent='Loading questions...';
+  const year=document.getElementById('cfgYear').value;
+  const subject=document.getElementById('cfgSubject').value;
+  const count=parseInt(document.getElementById('cfgCount').value);
+  timeLeft=parseInt(document.getElementById('cfgTime').value)*60;
+
+  let q=query(collection(db,'questions'),where('exam','==',selectedExam));
+  if(year) q=query(collection(db,'questions'),where('exam','==',selectedExam),where('year','==',year));
+  const snap=await getDocs(q);
+  let all=[];
+  snap.forEach(d=>all.push({id:d.id,...d.data()}));
+  if(subject) all=all.filter(q=>q.subject===subject);
+  all=all.sort(()=>Math.random()-0.5).slice(0,count);
+
+  if(all.length===0){alert('No questions found for this selection!');btn.disabled=false;btn.textContent='🚀 Start Test';return;}
+
+  questions=all;answers={};marked={};currentQ=0;
+  document.getElementById('topExamName').textContent=EXAMS.find(e=>e.id===selectedExam)?.name+' — '+all.length+' Questions';
+  document.getElementById('sbName').textContent=currentUser?.displayName||'Guest';
+  document.getElementById('sbAvatar').textContent=(currentUser?.displayName||'G')[0].toUpperCase();
+  document.getElementById('sbExam').textContent=EXAMS.find(e=>e.id===selectedExam)?.name;
+
+  buildSectionTabs();
+  buildSidebarGrid();
+  renderQuestion();
+  startTimer();
+
+  document.getElementById('selectorScreen').style.display='none';
+  const ts=document.getElementById('testScreen');
+  ts.style.display='flex';
+  ts.style.flexDirection='column';
+  ts.style.height='100vh';
+  // Request fullscreen
+  document.documentElement.requestFullscreen?.().catch(()=>{});
+  btn.disabled=false;btn.textContent='🚀 Start Test';
+};
+
+function buildSectionTabs(){
+  const tabs=document.getElementById('sectionTabs');
+  // Get unique subjects in questions
+  const subs=new Set(questions.map(q=>q.subject));
+  tabs.innerHTML='<div class="sec-tab active" id="tab-all" onclick="jumpToSection(null,this)">All <span class="sec-badge">'+questions.length+'</span></div>';
+  SECTIONS.forEach(s=>{
+    if(!subs.has(s.id))return;
+    const cnt=questions.filter(q=>q.subject===s.id).length;
+    tabs.innerHTML+=`<div class="sec-tab" id="tab-${s.id}" onclick="jumpToSection('${s.id}',this)">${s.label} <span class="sec-badge">${cnt}</span></div>`;
+  });
+}
+
+window.jumpToSection=(subj,el)=>{
+  document.querySelectorAll('.sec-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  if(!subj){currentQ=0;}
+  else{const idx=questions.findIndex(q=>q.subject===subj);if(idx>=0)currentQ=idx;}
+  renderQuestion();
+};
+
+function buildSidebarGrid(){
+  const wrap=document.getElementById('sbGridWrap');
+  // Group by section
+  let html='';
+  const subs=new Set(questions.map(q=>q.subject));
+  SECTIONS.forEach(s=>{
+    if(!subs.has(s.id))return;
+    const idxs=questions.map((q,i)=>q.subject===s.id?i:-1).filter(i=>i>=0);
+    html+=`<div class="sb-sec-label">${s.label.split(' ').slice(-1)[0]}</div>`;
+    html+=`<div class="q-grid">${idxs.map(i=>`<div class="q-dot" id="dot-${i}" onclick="goToQ(${i})">${i+1}</div>`).join('')}</div>`;
+  });
+  wrap.innerHTML=html;
+  updateGrid();
+}
+
+function updateGrid(){
+  questions.forEach((_,i)=>{
+    const dot=document.getElementById('dot-'+i);
+    if(!dot)return;
+    dot.className='q-dot'+(i===currentQ?' current':'')+(marked[i]?' marked':answers[i]?' answered':'');
+  });
+  // Update stats
+  const ans=Object.keys(answers).length;
+  const mrk=Object.keys(marked).length;
+  document.getElementById('statAns').textContent=ans;
+  document.getElementById('statNAns').textContent=questions.length-ans;
+  document.getElementById('statMark').textContent=mrk;
+}
+
+function renderQuestion(){
+  const q=questions[currentQ];
+  document.getElementById('qNumBadge').textContent='Q '+(currentQ+1)+' of '+questions.length;
+  document.getElementById('qText').textContent=q.text||'';
+  const sel=answers[currentQ];
+  document.getElementById('optionsList').innerHTML=['A','B','C','D'].map(l=>`
+    <div class="opt ${sel===l?(marked[currentQ]?'marked':'selected'):''}" onclick="selectOpt('${l}')">
+      <div class="opt-circle">${l}</div>
+      <div class="opt-text">${q.options?.[l]||''}</div>
+    </div>`).join('');
+  // Hide explanation during test
+  document.getElementById('expBox').style.display='none';
+  document.getElementById('trickBox').style.display='none';
+  updateGrid();
+  // Scroll to top of panel
+  document.getElementById('qPanel').scrollTop=0;
+}
+
+window.selectOpt=(l)=>{answers[currentQ]=l;renderQuestion();};
+window.markForReview=()=>{marked[currentQ]=true;saveAndNext();};
+window.clearResponse=()=>{delete answers[currentQ];delete marked[currentQ];renderQuestion();};
+window.saveAndNext=()=>{if(currentQ<questions.length-1){currentQ++;renderQuestion();}};
+window.prevQ=()=>{if(currentQ>0){currentQ--;renderQuestion();}};
+window.goToQ=(i)=>{currentQ=i;renderQuestion();};
+
+window.pauseTest=async()=>{
+  clearInterval(timerInterval);
+  // Save paused state — only save IDs + progress, NOT full questions array
+  if(currentUser){
+    try{
+      const questionIds=questions.map(q=>q.id); // just IDs, small size
+      const pauseData={
+        uid:currentUser.uid,
+        exam:selectedExam,
+        year:_autoYear||'',
+        questionIds:questionIds,
+        answers:answers,
+        marked:marked,
+        currentQ:currentQ,
+        timeLeft:timeLeft,
+        pausedAt:serverTimestamp(),
+        examName:document.getElementById('topExamName').textContent,
+      };
+      await setDoc(doc(db,'paused_tests',_pauseKey(selectedExam,_autoYear)),pauseData);
+      console.log('Paused saved ✓ Q:'+currentQ+' T:'+timeLeft+' A:'+Object.keys(answers).length);
+    }catch(e){console.log('Pause save error:',e);}
+  }
+  document.getElementById('pauseOverlay').style.display='flex';
+};
+
+window.resumeTest=()=>{
+  document.getElementById('pauseOverlay').style.display='none';
+  timerInterval=setInterval(()=>{
+    timeLeft--;
+    updateTimerDisplay();
+    if(timeLeft<=0){clearInterval(timerInterval);submitTest();}
+  },1000);
+};
+
+function startTimer(){
+  clearInterval(timerInterval);
+  updateTimerDisplay();
+  timerInterval=setInterval(()=>{timeLeft--;updateTimerDisplay();if(timeLeft<=0){clearInterval(timerInterval);submitTest();}},1000);
+}
+function updateTimerDisplay(){
+  const m=Math.floor(timeLeft/60),s=timeLeft%60;
+  const el=document.getElementById('timerDisplay');
+  el.textContent=String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+  el.className='timer-val'+(timeLeft<300?' danger':timeLeft<600?' warn':'');
+}
+
+window.confirmSubmit=()=>{
+  const unanswered=questions.length-Object.keys(answers).length;
+  if(unanswered>0&&!confirm(`You have ${unanswered} unanswered questions. Submit anyway?`))return;
+  submitTest();
+};
+
+async function submitTest(){
+  clearInterval(timerInterval);
+  if(document.fullscreenElement)document.exitFullscreen?.();
+  // Delete paused state from Firestore
+  if(currentUser){
+    try{
+      await deleteDoc(doc(db,'paused_tests',_pauseKey(selectedExam,_autoYear)));
+    }catch(e){}
+  }
+  let correct=0,wrong=0,skip=0;
+  questions.forEach((q,i)=>{const a=answers[i];if(!a)skip++;else if(a===q.correct)correct++;else wrong++;});
+  const marks=correct*2-wrong*0.5;
+  const pct=Math.round(correct/questions.length*100);
+  if(currentUser){
+    try{await addDoc(collection(db,'attempts'),{uid:currentUser.uid,exam:selectedExam,total:questions.length,correct,wrong,skip,marks:marks.toFixed(1),percentage:pct,answers,timestamp:serverTimestamp()});}
+    catch(e){console.log('Save error:',e);}
+  }
+  showResult(correct,wrong,skip,marks,pct);
+}
+
+function showResult(correct,wrong,skip,marks,pct){
+  document.getElementById('testScreen').style.display='none';
+  show('resultScreen');
+  const el=document.getElementById('resScore');
+  el.textContent=pct+'%';
+  el.className='res-score '+(pct>=70?'good':pct>=40?'avg':'bad');
+  document.getElementById('resLabel').textContent=pct>=80?'Excellent! 🏆':pct>=60?'Good job! 👍':pct>=40?'Keep practicing! 💪':'Need more practice 📚';
+  document.getElementById('rC').textContent=correct;
+  document.getElementById('rW').textContent=wrong;
+  document.getElementById('rS').textContent=skip;
+  document.getElementById('rM').textContent=marks.toFixed(1);
+  document.getElementById('reviewArea').innerHTML=questions.map((q,i)=>{
+    const a=answers[i];
+    const st=!a?'skip':a===q.correct?'correct':'wrong';
+    return`<div class="rev-item ${st}-item">
+      <div class="rev-meta">Q${i+1} · ${(q.subject||'').toUpperCase()} · ${q.difficulty||''}</div>
+      <div class="rev-q">${q.text}</div>
+      <div class="rev-opts">${['A','B','C','D'].map(l=>`<div class="rev-opt ${l===q.correct?'is-correct':l===a&&a!==q.correct?'is-wrong':''}">${l}) ${q.options?.[l]||''}</div>`).join('')}</div>
+      ${q.explanation?`<div class="rev-exp">📝 ${q.explanation}</div>`:''}
+      ${q.trick?`<div class="rev-trick">⚡ Trick: ${q.trick}</div>`:''}
+    </div>`;
+  }).join('');
+}
+
+window.retryTest=()=>{
+  show('selectorScreen');
+  window.startTest();
+};
+window.goHome=()=>{show('selectorScreen');};
+
+function show(id){
+  // Hide loading screen whenever we show something else
+  if(id!=='loadingScreen'){
+    const ls=document.getElementById('loadingScreen');
+    if(ls) ls.style.display='none';
+  }
+  ['loginScreen','selectorScreen','testScreen','resultScreen'].forEach(s=>{
+    const el=document.getElementById(s);
+    if(el) el.style.display=s===id?'block':'none';
+  });
+  if(id==='testScreen'){
+    const ts=document.getElementById('testScreen');
+    if(ts){ts.style.display='flex';ts.style.flexDirection='column';ts.style.height='100vh';}
+  }
+}
 </script>
 </body>
 </html>
