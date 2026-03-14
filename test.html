@@ -418,8 +418,15 @@ async function launchTestDirectly(){
       const pd=pausedSnap.data();
       const qDone=Object.keys(pd.answers||{}).length;
       const tLeft=parseInt(pd.timeLeft)||0;
+      // Delete corrupt paused test (0 questions or no valid data)
+      if(qDone===0 || !pd.questions || pd.questions.length===0){
+        try{ await deleteDoc(doc(db,'paused_tests',pauseKey)); }catch(e){}
+        await _doLaunchFresh();
+        return;
+      }
       const mins=Math.floor(tLeft/60),secs=String(tLeft%60).padStart(2,'0');
       _hide('loadingScreen');
+      _hide('initLoader');
       const msgEl=document.getElementById('resumeDialogMsg');
       if(msgEl)msgEl.textContent=qDone+' questions answered · '+mins+'m '+secs+'s remaining';
       _show('resumeDialog',true);
