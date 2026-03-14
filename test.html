@@ -413,13 +413,17 @@ async function launchTestDirectly(){
   if(sub)sub.textContent=(EXAM_NAMES[_autoExam]||_autoExam)+(_autoYear?' – '+_autoYear:'');
   try{
     const pauseKey=currentUser.uid+'_'+_autoExam+((_autoYear)?'_'+_autoYear:'');
+    console.log('🔍 Checking paused test key:',pauseKey);
     const pausedSnap=await getDoc(doc(db,'paused_tests',pauseKey));
+    console.log('🔍 Paused test exists:',pausedSnap.exists());
     if(pausedSnap.exists()){
       const pd=pausedSnap.data();
+      console.log('🔍 Paused data:',JSON.stringify({questionIds:(pd.questionIds||[]).length,answers:Object.keys(pd.answers||{}).length,currentQ:pd.currentQ,timeLeft:pd.timeLeft}));
       const qDone=Object.keys(pd.answers||{}).length;
       const tLeft=parseInt(pd.timeLeft)||0;
       // Delete corrupt paused test (no questionIds saved)
       if(!pd.questionIds || pd.questionIds.length===0){
+        console.log('🗑️ Deleting corrupt paused test');
         try{ await deleteDoc(doc(db,'paused_tests',pauseKey)); }catch(e){}
         await _doLaunchFresh();
         return;
@@ -429,10 +433,12 @@ async function launchTestDirectly(){
       _hide('initLoader');
       const msgEl=document.getElementById('resumeDialogMsg');
       if(msgEl)msgEl.textContent=qDone+' questions answered · '+mins+'m '+secs+'s remaining';
+      console.log('✅ Showing resume dialog');
       _show('resumeDialog',true);
       return;
     }
-  }catch(e){console.warn('Pause check:',e.message);}
+    console.log('ℹ️ No paused test found, launching fresh');
+  }catch(e){console.warn('Pause check error:',e.message);}
   await _doLaunchFresh();
 }
 
