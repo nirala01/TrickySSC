@@ -19,7 +19,7 @@
 body{font-family:'Noto Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
 
 /* ===== LOGIN ===== */
-#loginScreen{display:flex;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(135deg,#0F172A,#1E3A5F);}
+#loginScreen{display:none;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(135deg,#0F172A,#1E3A5F);}
 .login-card{background:#fff;border-radius:20px;padding:2.5rem;width:100%;max-width:400px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.3);}
 .login-logo{font-family:'Rajdhani',sans-serif;font-size:2rem;font-weight:700;color:var(--orange);margin-bottom:0.25rem;}
 .login-sub{color:var(--gray);font-size:0.9rem;margin-bottom:2rem;}
@@ -577,37 +577,47 @@ async function _doLaunchFresh(){
 }
 
 async function launchTestDirectly(){
-  // Hide all screens, show loader
-  ['loginScreen','loginPopupOverlay','selectorScreen','testScreen','resultScreen'].forEach(id=>{
-    const el=document.getElementById(id);
-    if(el) el.style.display='none';
-  });
-  document.getElementById('loadingScreen').style.display='flex';
-  const EXAM_LABELS={'ssc-cgl':'SSC CGL','ssc-chsl':'SSC CHSL','ssc-mts':'SSC MTS','ssc-gd':'SSC GD','ssc-cpo':'SSC CPO','ssc-jht':'SSC JHT','ssc-je':'SSC JE'};
-  document.getElementById('loadingSubtitle').textContent=(EXAM_LABELS[_autoExam]||_autoExam)+(_autoYear?' – '+_autoYear+' Paper':' Paper');
+  try{
+    // Hide everything, show loader
+    ['loginScreen','loginPopupOverlay','selectorScreen','testScreen','resultScreen'].forEach(id=>{
+      const el=document.getElementById(id);
+      if(el) el.style.display='none';
+    });
+    const ls=document.getElementById('loadingScreen');
+    if(ls){ ls.style.display='flex'; }
 
-  // Check for paused test FIRST
-  if(currentUser && currentUser.uid){
-    try{
-      const pauseKey=currentUser.uid+'_'+_autoExam+((_autoYear)?'_'+_autoYear:'');
-      const pausedSnap=await getDoc(doc(db,'paused_tests',pauseKey));
-      if(pausedSnap.exists()){
-        const pd=pausedSnap.data();
-        const qDone=Object.keys(pd.answers||{}).length;
-        const tLeft=parseInt(pd.timeLeft)||0;
-        const mins=Math.floor(tLeft/60), secs=tLeft%60;
-        // Show resume dialog
-        document.getElementById('loadingScreen').style.display='none';
-        document.getElementById('resumeDialogMsg').textContent=
-          qDone+' questions answered · '+mins+'m '+secs+'s remaining';
-        document.getElementById('resumeDialog').style.display='flex';
-        return;
-      }
-    }catch(e){ console.log('Paused check error:',e); }
+    const EXAM_LABELS={'ssc-cgl':'SSC CGL','ssc-chsl':'SSC CHSL','ssc-mts':'SSC MTS','ssc-gd':'SSC GD','ssc-cpo':'SSC CPO','ssc-jht':'SSC JHT','ssc-je':'SSC JE'};
+    const sub=document.getElementById('loadingSubtitle');
+    if(sub) sub.textContent=(EXAM_LABELS[_autoExam]||_autoExam)+(_autoYear?' – '+_autoYear+' Paper':' Paper');
+
+    // Check for paused test
+    if(currentUser && currentUser.uid){
+      try{
+        const pauseKey=currentUser.uid+'_'+_autoExam+((_autoYear)?'_'+_autoYear:'');
+        const pausedSnap=await getDoc(doc(db,'paused_tests',pauseKey));
+        if(pausedSnap.exists()){
+          const pd=pausedSnap.data();
+          const qDone=Object.keys(pd.answers||{}).length;
+          const tLeft=parseInt(pd.timeLeft)||0;
+          const mins=Math.floor(tLeft/60), secs=String(tLeft%60).padStart(2,'0');
+          if(ls) ls.style.display='none';
+          const msgEl=document.getElementById('resumeDialogMsg');
+          if(msgEl) msgEl.textContent=qDone+' questions answered · '+mins+'m '+secs+'s remaining';
+          const rd=document.getElementById('resumeDialog');
+          if(rd) rd.style.display='flex';
+          return;
+        }
+      }catch(e){ console.warn('Paused check skipped:',e.message); }
+    }
+
+    // No paused test — launch fresh
+    await _doLaunchFresh();
+
+  }catch(err){
+    console.error('launchTestDirectly error:',err);
+    const msgEl=document.getElementById('loadingMsg');
+    if(msgEl) msgEl.textContent='Error: '+err.message+'. Please refresh the page.';
   }
-
-  // No paused test — launch fresh
-  _doLaunchFresh();
 }
 
 
