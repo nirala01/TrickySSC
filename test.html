@@ -283,6 +283,20 @@ select:focus{border-color:var(--orange);}
     <div style="margin-top:1.5rem;font-size:0.85rem;color:#64748B;">⚠️ Leaving the page will end your test</div>
   </div>
 
+  <!-- RESUME OR FRESH DIALOG -->
+  <div id="resumeDialog" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.85);z-index:9998;align-items:center;justify-content:center;">
+    <div style="background:#fff;border-radius:20px;padding:2.5rem;max-width:420px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+      <div style="font-size:2.5rem;margin-bottom:0.75rem;">⏸️</div>
+      <h2 style="font-family:'Rajdhani',sans-serif;font-size:1.5rem;font-weight:800;color:#1A202C;margin-bottom:0.5rem;">Test In Progress!</h2>
+      <p id="resumeDialogMsg" style="font-size:0.9rem;color:#64748B;margin-bottom:1.5rem;">You have a paused attempt for this test.</p>
+      <div style="display:flex;flex-direction:column;gap:0.75rem;">
+        <button onclick="resumeFromSaved()" style="background:linear-gradient(135deg,#FF6B00,#FF8C38);color:#fff;border:none;border-radius:12px;padding:0.9rem;font-family:'Rajdhani',sans-serif;font-size:1rem;font-weight:700;cursor:pointer;box-shadow:0 4px 15px rgba(255,107,0,0.3);">▶ Resume Where I Left Off</button>
+        <button onclick="startFresh()" style="background:#F1F5F9;color:#1A202C;border:1px solid #E2E8F0;border-radius:12px;padding:0.9rem;font-family:'Rajdhani',sans-serif;font-size:1rem;font-weight:700;cursor:pointer;">🔄 Start Fresh (discard paused)</button>
+        <button onclick="document.getElementById('resumeDialog').style.display='none';history.back();" style="background:transparent;color:#94A3B8;border:none;font-family:'Rajdhani',sans-serif;font-size:0.9rem;cursor:pointer;padding:0.5rem;">✕ Cancel</button>
+      </div>
+    </div>
+  </div>
+
   <div class="test-topbar">
     <div>
       <div class="logo">⚡ TrickySSC</div>
@@ -367,7 +381,7 @@ select:focus{border-color:var(--orange);}
 
 <script type="module">
 import{initializeApp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import{getFirestore,collection,query,where,getDocs,addDoc,doc,setDoc,serverTimestamp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import{getFirestore,collection,query,where,getDocs,addDoc,doc,setDoc,deleteDoc,getDoc,serverTimestamp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import{getAuth,signInWithPopup,GoogleAuthProvider,signOut,onAuthStateChanged}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 const app=initializeApp({apiKey:"AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",authDomain:"trickyssc-17bb3.firebaseapp.com",projectId:"trickyssc-17bb3",storageBucket:"trickyssc-17bb3.firebasestorage.app",messagingSenderId:"450627057220",appId:"1:450627057220:web:366267bf437d94f20c6e11"});
@@ -457,6 +471,77 @@ function showLoginPopup(){
 }
 
 // ── Direct launch: skip selector, start test immediately ──
+// ── Paused test key helper ──
+function _pauseKey(){ return currentUser.uid+'_'+_autoExam+((_autoYear)?'_'+_autoYear:''); }
+
+// ── Resume from Firestore saved state ──
+window.resumeFromSaved=async()=>{
+  document.getElementById('resumeDialog').style.display='none';
+  document.getElementById('loadingScreen').style.display='flex';
+  document.getElementById('loadingMsg').textContent='';
+  try{
+    const snap=await getDoc(doc(db,'paused_tests',_pauseKey()));
+    if(!snap.exists()){_doLaunchFresh();return;}
+    const d=snap.data();
+    questions=d.questions; answers=d.answers||{}; marked=d.marked||{};
+    currentQ=d.currentQ||0; timeLeft=d.timeLeft||3600;
+    selectedExam=_autoExam;
+    const examName=d.examName||(_autoExam.toUpperCase());
+    document.getElementById('topExamName').textContent=examName;
+    document.getElementById('sbName').textContent=currentUser?.displayName||'Student';
+    document.getElementById('sbAvatar').textContent=(currentUser?.displayName||'S')[0].toUpperCase();
+    document.getElementById('sbExam').textContent=examName.split(' — ')[0];
+    buildSectionTabs(); buildSidebarGrid(); renderQuestion(); startTimer();
+    document.getElementById('loadingScreen').style.display='none';
+    const ts=document.getElementById('testScreen');
+    ts.style.display='flex'; ts.style.flexDirection='column'; ts.style.height='100vh';
+    document.documentElement.requestFullscreen?.().catch(()=>{});
+  }catch(e){
+    document.getElementById('loadingMsg').textContent='Error: '+e.message;
+  }
+};
+
+// ── Start fresh (delete paused state first) ──
+window.startFresh=async()=>{
+  document.getElementById('resumeDialog').style.display='none';
+  if(currentUser){
+    try{await deleteDoc(doc(db,'paused_tests',_pauseKey()));}catch(e){}
+  }
+  _doLaunchFresh();
+};
+
+async function _doLaunchFresh(){
+  document.getElementById('loadingScreen').style.display='flex';
+  document.getElementById('loadingMsg').textContent='';
+  try{
+    let q=query(collection(db,'questions'),where('exam','==',_autoExam));
+    if(_autoYear) q=query(collection(db,'questions'),where('exam','==',_autoExam),where('year','==',_autoYear));
+    const snap=await getDocs(q);
+    let all=[];
+    snap.forEach(d=>all.push({id:d.id,...d.data()}));
+    if(all.length===0){
+      document.getElementById('loadingMsg').innerHTML='<b>No questions uploaded yet</b> for this paper.<br><br><a href="javascript:history.back()" style="color:#FF6B00;font-weight:700;">← Go Back</a>';
+      return;
+    }
+    all=all.sort((a,b)=>(a.qNum||0)-(b.qNum||0));
+    questions=all; answers={}; marked={}; currentQ=0;
+    selectedExam=_autoExam; timeLeft=3600;
+    const EXAM_NAMES2={'ssc-cgl':'SSC CGL','ssc-chsl':'SSC CHSL','ssc-mts':'SSC MTS','ssc-gd':'SSC GD','ssc-cpo':'SSC CPO','ssc-jht':'SSC JHT','ssc-je':'SSC JE'};
+    const examName=EXAM_NAMES2[_autoExam]||_autoExam.toUpperCase();
+    document.getElementById('topExamName').textContent=examName+' — '+all.length+' Questions'+(_autoYear?' ('+_autoYear+')':'');
+    document.getElementById('sbName').textContent=currentUser?.displayName||'Student';
+    document.getElementById('sbAvatar').textContent=(currentUser?.displayName||'S')[0].toUpperCase();
+    document.getElementById('sbExam').textContent=examName;
+    buildSectionTabs(); buildSidebarGrid(); renderQuestion(); startTimer();
+    document.getElementById('loadingScreen').style.display='none';
+    const ts=document.getElementById('testScreen');
+    ts.style.display='flex'; ts.style.flexDirection='column'; ts.style.height='100vh';
+    document.documentElement.requestFullscreen?.().catch(()=>{});
+  }catch(err){
+    document.getElementById('loadingMsg').textContent='Error loading test: '+err.message;
+  }
+}
+
 async function launchTestDirectly(){
   // Show loading overlay
   ['loginScreen','loginPopupOverlay','selectorScreen','testScreen','resultScreen'].forEach(id=>{
@@ -662,15 +747,31 @@ window.saveAndNext=()=>{if(currentQ<questions.length-1){currentQ++;renderQuestio
 window.prevQ=()=>{if(currentQ>0){currentQ--;renderQuestion();}};
 window.goToQ=(i)=>{currentQ=i;renderQuestion();};
 
-window.pauseTest=()=>{
+window.pauseTest=async()=>{
   clearInterval(timerInterval);
-  const overlay=document.getElementById('pauseOverlay');
-  overlay.style.display='flex';
+  // Save paused state to Firestore
+  if(currentUser){
+    try{
+      const pauseData={
+        uid:currentUser.uid,
+        exam:selectedExam,
+        year:_autoYear||'',
+        questions:questions,
+        answers:answers,
+        marked:marked,
+        currentQ:currentQ,
+        timeLeft:timeLeft,
+        pausedAt:serverTimestamp(),
+        examName:document.getElementById('topExamName').textContent,
+      };
+      await setDoc(doc(db,'paused_tests',currentUser.uid+'_'+selectedExam+((_autoYear)?'_'+_autoYear:'')),pauseData);
+    }catch(e){console.log('Pause save error:',e);}
+  }
+  document.getElementById('pauseOverlay').style.display='flex';
 };
 
 window.resumeTest=()=>{
   document.getElementById('pauseOverlay').style.display='none';
-  // Restart timer from where it left off
   timerInterval=setInterval(()=>{
     timeLeft--;
     updateTimerDisplay();
@@ -699,6 +800,12 @@ window.confirmSubmit=()=>{
 async function submitTest(){
   clearInterval(timerInterval);
   if(document.fullscreenElement)document.exitFullscreen?.();
+  // Delete paused state from Firestore
+  if(currentUser){
+    try{
+      await deleteDoc(doc(db,'paused_tests',currentUser.uid+'_'+selectedExam+((_autoYear)?'_'+_autoYear:'')));
+    }catch(e){}
+  }
   let correct=0,wrong=0,skip=0;
   questions.forEach((q,i)=>{const a=answers[i];if(!a)skip++;else if(a===q.correct)correct++;else wrong++;});
   const marks=correct*2-wrong*0.5;
