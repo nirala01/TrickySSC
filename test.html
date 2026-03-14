@@ -270,14 +270,30 @@ select:focus{border-color:var(--orange);}
 
 <!-- TEST -->
 <div id="testScreen">
+  <!-- PAUSE OVERLAY -->
+  <div id="pauseOverlay" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.92);z-index:9999;flex-direction:column;align-items:center;justify-content:center;font-family:'Rajdhani',sans-serif;text-align:center;">
+    <div style="font-size:3rem;margin-bottom:0.75rem;">⏸️</div>
+    <div style="font-size:2rem;font-weight:800;color:#fff;margin-bottom:0.4rem;">Test Paused</div>
+    <div style="font-size:1rem;color:#94A3B8;margin-bottom:2rem;">Your progress is saved. Timer is stopped.</div>
+    <div style="display:flex;gap:1rem;flex-wrap:wrap;justify-content:center;">
+      <button onclick="resumeTest()" style="background:linear-gradient(135deg,#FF6B00,#FF8C38);color:#fff;border:none;border-radius:12px;padding:0.85rem 2rem;font-family:'Rajdhani',sans-serif;font-size:1.1rem;font-weight:700;cursor:pointer;box-shadow:0 4px 20px rgba(255,107,0,0.4);">▶ Resume Test</button>
+      <a href="https://trickyssc.com/index.html" style="background:#1E293B;color:#fff;border:1px solid #334155;border-radius:12px;padding:0.85rem 2rem;font-family:'Rajdhani',sans-serif;font-size:1.1rem;font-weight:700;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:0.5rem;">🏠 Go to Home</a>
+      <a href="dashboard.html" style="background:#1E293B;color:#fff;border:1px solid #334155;border-radius:12px;padding:0.85rem 2rem;font-family:'Rajdhani',sans-serif;font-size:1.1rem;font-weight:700;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:0.5rem;">📊 My Dashboard</a>
+    </div>
+    <div style="margin-top:1.5rem;font-size:0.85rem;color:#64748B;">⚠️ Leaving the page will end your test</div>
+  </div>
+
   <div class="test-topbar">
     <div>
       <div class="logo">⚡ TrickySSC</div>
       <div class="exam-name" id="topExamName"></div>
     </div>
-    <div class="timer-box">
-      <div class="t-label">Time Left</div>
-      <div class="timer-val" id="timerDisplay">60:00</div>
+    <div style="display:flex;align-items:center;gap:0.75rem;">
+      <button id="pauseBtn" onclick="pauseTest()" style="background:#374151;border:none;border-radius:8px;padding:0.35rem 0.9rem;color:#D1D5DB;font-family:'Rajdhani',sans-serif;font-size:0.85rem;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:0.4rem;transition:background 0.2s;" onmouseover="this.style.background='#FF6B00';this.style.color='#fff'" onmouseout="this.style.background='#374151';this.style.color='#D1D5DB'">⏸ Pause</button>
+      <div class="timer-box">
+        <div class="t-label">Time Left</div>
+        <div class="timer-val" id="timerDisplay">60:00</div>
+      </div>
     </div>
   </div>
   <div class="section-tabs" id="sectionTabs"></div>
@@ -645,6 +661,22 @@ window.clearResponse=()=>{delete answers[currentQ];delete marked[currentQ];rende
 window.saveAndNext=()=>{if(currentQ<questions.length-1){currentQ++;renderQuestion();}};
 window.prevQ=()=>{if(currentQ>0){currentQ--;renderQuestion();}};
 window.goToQ=(i)=>{currentQ=i;renderQuestion();};
+
+window.pauseTest=()=>{
+  clearInterval(timerInterval);
+  const overlay=document.getElementById('pauseOverlay');
+  overlay.style.display='flex';
+};
+
+window.resumeTest=()=>{
+  document.getElementById('pauseOverlay').style.display='none';
+  // Restart timer from where it left off
+  timerInterval=setInterval(()=>{
+    timeLeft--;
+    updateTimerDisplay();
+    if(timeLeft<=0){clearInterval(timerInterval);submitTest();}
+  },1000);
+};
 
 function startTimer(){
   clearInterval(timerInterval);
