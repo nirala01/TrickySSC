@@ -350,7 +350,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, collection, query, where, orderBy, limit, getDocs, doc, getDoc, collectionGroup }
+import { getFirestore, collection, query, where, orderBy, limit, getDocs, doc, getDoc, setDoc, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { getAuth, signOut, onAuthStateChanged }
   from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
@@ -423,33 +423,45 @@ async function loadDashboard(user) {
     : '—';
   document.getElementById('pfJoined').textContent = joined;
 
-  // ── Load attempts ──
+  // ── Load user profile + attempts from Firestore ──
   try {
+    // Get user profile
+    const userRef = doc(db, 'users', user.uid);
+    const userSnap = await getDoc(userRef);
+    const userProfile = userSnap.exists() ? userSnap.data() : {};
+
+    // Load attempts
     const q = query(
       collection(db, 'attempts'),
       where('uid', '==', user.uid),
       orderBy('timestamp', 'desc'),
-      limit(10)
+      limit(20)
     );
     const snap = await getDocs(q);
     const attempts = [];
     snap.forEach(d => attempts.push({id:d.id,...d.data()}));
 
-    // Stats
+    // Calculate stats from attempts
     if (attempts.length > 0) {
       const scores = attempts.map(a => parseFloat(a.percentage)||0);
       const avg = (scores.reduce((a,b)=>a+b,0)/scores.length).toFixed(1);
       const best = Math.max(...scores).toFixed(1);
       const totalCorrect = attempts.reduce((s,a)=>s+(parseInt(a.correct)||0),0);
-      const totalWrong = attempts.reduce((s,a)=>s+(parseInt(a.wrong)||0),0);
-      const totalMarks = attempts.reduce((s,a)=>s+(parseFloat(a.marks)||0),0).toFixed(1);
+      const days = new Set(attempts.map(a => a.timestamp?.toDate ? a.timestamp.toDate().toDateString() : null).filter(Boolean));
+
       document.getElementById('statTests').textContent = attempts.length;
       document.getElementById('statAvg').textContent = avg + '%';
       document.getElementById('statBest').textContent = best + '%';
-      // Update streak based on unique days
-      const days = new Set(attempts.map(a => a.timestamp?.toDate ? a.timestamp.toDate().toDateString() : null).filter(Boolean));
       document.getElementById('statStreak').textContent = days.size;
       document.getElementById('wSub').textContent = `${attempts.length} test${attempts.length>1?'s':''} attempted · ${totalCorrect} correct · Avg ${avg}% 💪`;
+
+      // Update user profile stats in Firestore
+      await setDoc(userRef, {
+        totalTests: attempts.length,
+        avgScore: parseFloat(avg),
+        bestScore: parseFloat(best),
+        lastActive: serverTimestamp(),
+      }, {merge: true});
     }
 
     // Render attempts table

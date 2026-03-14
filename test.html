@@ -103,7 +103,7 @@ body{margin:0;font-family:'Noto Sans',sans-serif;background:#F1F5F9;}
 
 <script type="module">
 import{initializeApp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import{getFirestore,collection,query,where,getDocs,addDoc,serverTimestamp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import{getFirestore,collection,query,where,getDocs,addDoc,doc,getDoc,setDoc,serverTimestamp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import{getAuth,onAuthStateChanged,signOut}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 const app=initializeApp({apiKey:"AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",authDomain:"trickyssc-17bb3.firebaseapp.com",projectId:"trickyssc-17bb3",storageBucket:"trickyssc-17bb3.firebasestorage.app",messagingSenderId:"450627057220",appId:"1:450627057220:web:366267bf437d94f20c6e11"});
@@ -247,10 +247,25 @@ window.submitTest=async()=>{
       ${q.explanation?`<div style="font-size:12px;color:#374151;margin-top:6px;padding:6px;background:#F8FAFC;border-radius:4px;">💡 ${q.explanation}</div>`:''}
     </div>`;
   }).join('');
-  // Save attempt
+  // Save attempt + update user stats
   if(currentUser){
     try{
       await addDoc(collection(db,'attempts'),{uid:currentUser.uid,exam,year:year||'',total:questions.length,correct,wrong,skip,marks:parseFloat(marks),percentage:pct,answers,timestamp:serverTimestamp()});
+      // Update user profile stats
+      const userRef = doc(db,'users',currentUser.uid);
+      const userSnap = await getDoc(userRef);
+      if(userSnap.exists()){
+        const ud = userSnap.data();
+        const prevTotal = parseInt(ud.totalTests)||0;
+        const prevAvg = parseFloat(ud.avgScore)||0;
+        const prevBest = parseFloat(ud.bestScore)||0;
+        const newTotal = prevTotal + 1;
+        const newAvg = parseFloat(((prevAvg * prevTotal + pct) / newTotal).toFixed(1));
+        const newBest = Math.max(prevBest, pct);
+        await setDoc(userRef,{totalTests:newTotal, avgScore:newAvg, bestScore:newBest, lastActive:serverTimestamp()},{merge:true});
+      } else {
+        await setDoc(userRef,{uid:currentUser.uid, totalTests:1, avgScore:pct, bestScore:pct, lastActive:serverTimestamp()},{merge:true});
+      }
     }catch(e){console.warn('Save attempt failed:',e);}
   }
 };
