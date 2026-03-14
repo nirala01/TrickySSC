@@ -390,6 +390,19 @@ window.submitGoogleExtra = async (uid) => {
   const msgEl = document.getElementById('gModalMsg');
   if(phone.length !== 10){ msgEl.style.display='block'; msgEl.textContent='⚠️ Enter valid 10-digit mobile number'; return; }
   if(name.length < 2){ msgEl.style.display='block'; msgEl.textContent='⚠️ Enter your full name'; return; }
+  
+  msgEl.style.display='block'; msgEl.style.color='#64748B'; msgEl.textContent='⏳ Checking...';
+  
+  // Check if phone already registered with another account
+  try {
+    const existing = await getDocs(query(collection(db,'users'), where('phone','==','+91'+phone)));
+    if(!existing.empty && existing.docs[0].id !== uid){
+      msgEl.style.display='block'; msgEl.style.color='#DC2626';
+      msgEl.textContent='⚠️ This mobile number is already registered with another account.';
+      return;
+    }
+  } catch(e) {}
+  
   const user = window._pendingGoogleUser;
   await saveUserProfile(user, '+91'+phone, name);
   document.getElementById('extraInfoModal').remove();
@@ -465,6 +478,11 @@ window.mobileLogin = async () => {
     if (!existing.empty) {
       // Returning user — load their data
       userData = existing.docs[0].data();
+      // Update name if changed
+      if(userData.name !== name) {
+        await setDoc(doc(db,'users',userData.uid), {name}, {merge:true});
+        userData.name = name;
+      }
       showM('success', '✅ Welcome back, ' + userData.name + '!');
     } else {
       // New user — create account
