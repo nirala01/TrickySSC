@@ -205,6 +205,16 @@ select:focus{border-color:var(--orange);}
   <div style="font-size:1rem;color:#fff;margin-top:0.5rem;" id="initMsg">Checking login...</div>
 </div>
 
+<!-- ERROR DISPLAY -->
+<div id="errorBox" style="display:none;position:fixed;inset:0;background:#fff;z-index:88888;padding:2rem;font-family:Arial,sans-serif;overflow:auto;">
+  <h2 style="color:#DC2626;margin-bottom:1rem;">⚠️ Error Details</h2>
+  <pre id="errorText" style="background:#FEF2F2;padding:1rem;border-radius:8px;font-size:0.85rem;white-space:pre-wrap;color:#7F1D1D;"></pre>
+  <br>
+  <a href="login.html" style="background:#FF6B00;color:#fff;padding:0.75rem 1.5rem;border-radius:8px;text-decoration:none;font-weight:700;">Go to Login</a>
+  &nbsp;
+  <a href="javascript:location.reload()" style="background:#1A202C;color:#fff;padding:0.75rem 1.5rem;border-radius:8px;text-decoration:none;font-weight:700;">Retry</a>
+</div>
+
 <!-- LOGIN FULL PAGE -->
 <div id="loginScreen">
   <div class="login-card">
@@ -388,6 +398,33 @@ select:focus{border-color:var(--orange);}
 import{initializeApp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import{getFirestore,collection,query,where,getDocs,addDoc,doc,setDoc,deleteDoc,getDoc,serverTimestamp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import{getAuth,signInWithPopup,GoogleAuthProvider,signOut,onAuthStateChanged}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+// Global error catcher
+window.onerror = function(msg, src, line, col, err) {
+  const box = document.getElementById('errorBox');
+  const txt = document.getElementById('errorText');
+  if(box && txt) {
+    txt.textContent = 'Error: ' + msg + '\nFile: ' + src + '\nLine: ' + line + '\n\n' + (err ? err.stack : '');
+    box.style.display = 'block';
+    const loader = document.getElementById('initLoader');
+    if(loader) loader.style.display = 'none';
+    const ls = document.getElementById('loadingScreen');
+    if(ls) ls.style.display = 'none';
+  }
+  return false;
+};
+window.addEventListener('unhandledrejection', function(e) {
+  const box = document.getElementById('errorBox');
+  const txt = document.getElementById('errorText');
+  if(box && txt) {
+    txt.textContent = 'Unhandled Promise Error:\n' + (e.reason ? (e.reason.stack || e.reason.message || e.reason) : 'Unknown');
+    box.style.display = 'block';
+    const loader = document.getElementById('initLoader');
+    if(loader) loader.style.display = 'none';
+    const ls = document.getElementById('loadingScreen');
+    if(ls) ls.style.display = 'none';
+  }
+});
 
 const app=initializeApp({apiKey:"AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",authDomain:"trickyssc-17bb3.firebaseapp.com",projectId:"trickyssc-17bb3",storageBucket:"trickyssc-17bb3.firebasestorage.app",messagingSenderId:"450627057220",appId:"1:450627057220:web:366267bf437d94f20c6e11"});
 const db=getFirestore(app),auth=getAuth(app),prov=new GoogleAuthProvider();
