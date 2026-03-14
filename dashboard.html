@@ -440,10 +440,16 @@ async function loadDashboard(user) {
       const scores = attempts.map(a => parseFloat(a.percentage)||0);
       const avg = (scores.reduce((a,b)=>a+b,0)/scores.length).toFixed(1);
       const best = Math.max(...scores).toFixed(1);
+      const totalCorrect = attempts.reduce((s,a)=>s+(parseInt(a.correct)||0),0);
+      const totalWrong = attempts.reduce((s,a)=>s+(parseInt(a.wrong)||0),0);
+      const totalMarks = attempts.reduce((s,a)=>s+(parseFloat(a.marks)||0),0).toFixed(1);
       document.getElementById('statTests').textContent = attempts.length;
       document.getElementById('statAvg').textContent = avg + '%';
       document.getElementById('statBest').textContent = best + '%';
-      document.getElementById('wSub').textContent = `You've taken ${attempts.length} test${attempts.length>1?'s':''} — keep going! 💪`;
+      // Update streak based on unique days
+      const days = new Set(attempts.map(a => a.timestamp?.toDate ? a.timestamp.toDate().toDateString() : null).filter(Boolean));
+      document.getElementById('statStreak').textContent = days.size;
+      document.getElementById('wSub').textContent = `${attempts.length} test${attempts.length>1?'s':''} attempted · ${totalCorrect} correct · Avg ${avg}% 💪`;
     }
 
     // Render attempts table
@@ -500,9 +506,13 @@ async function loadDashboardMobile(mUser) {
     snap.forEach(d => attempts.push({id:d.id,...d.data()}));
     if(attempts.length > 0){
       const scores = attempts.map(a=>parseFloat(a.percentage)||0);
+      const totalCorrect = attempts.reduce((s,a)=>s+(parseInt(a.correct)||0),0);
       document.getElementById('statTests').textContent = attempts.length;
       document.getElementById('statAvg').textContent = (scores.reduce((a,b)=>a+b,0)/scores.length).toFixed(1)+'%';
       document.getElementById('statBest').textContent = Math.max(...scores).toFixed(1)+'%';
+      const days = new Set(attempts.map(a => a.timestamp?.toDate ? a.timestamp.toDate().toDateString() : null).filter(Boolean));
+      document.getElementById('statStreak').textContent = days.size;
+      document.getElementById('wSub').textContent = `${attempts.length} test${attempts.length>1?'s':''} attempted · ${totalCorrect} correct · Avg ${scores.length>0?((scores.reduce((a,b)=>a+b,0)/scores.length).toFixed(1)):'0'}% 💪`;
     }
     renderAttempts(attempts);
   } catch(e) { renderAttempts([]); }
@@ -606,7 +616,8 @@ function renderAttempts(attempts) {
     const date = a.timestamp?.toDate
       ? a.timestamp.toDate().toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})
       : '—';
-    const examName = EXAM_NAMES[a.exam]||a.exam||'—';
+    const examName = (EXAM_NAMES[a.exam]||a.exam||'—') + (a.year?' '+a.year:'');
+    const retryUrl = 'test.html?exam='+a.exam+(a.year?'&year='+a.year:'');
     return `<tr>
       <td><b>${examName}</b></td>
       <td>${a.total||'—'} Qs</td>
@@ -614,7 +625,7 @@ function renderAttempts(attempts) {
       <td style="color:var(--green);font-weight:600;">✅ ${a.correct||0}</td>
       <td style="color:#DC2626;font-weight:600;">❌ ${a.wrong||0}</td>
       <td style="color:var(--gray);font-size:0.82rem;">${date}</td>
-      <td><a href="test.html?exam=${a.exam}" style="color:var(--orange);font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.85rem;text-decoration:none;">Retry →</a></td>
+      <td><a href="${retryUrl}" style="color:var(--orange);font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.85rem;text-decoration:none;">Retry →</a></td>
     </tr>`;
   }).join('');
 
