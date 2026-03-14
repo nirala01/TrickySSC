@@ -153,7 +153,7 @@ select{background:#fff;border:1.5px solid #D1D5DB;border-radius:8px;padding:0.6r
 .rev-trick{font-size:0.8rem;color:#92400E;padding:0.6rem 0.75rem;background:#FFFBEB;border-radius:6px;border-left:3px solid #F59E0B;margin-top:0.3rem;}
 /* PAUSE OVERLAY */
 #pauseOverlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,0.92);z-index:9999;flex-direction:column;align-items:center;justify-content:center;font-family:'Rajdhani',sans-serif;text-align:center;}
-#resumeDialog{display:none;position:fixed;inset:0;background:rgba(15,23,42,0.85);z-index:9998;align-items:center;justify-content:center;}
+#resumeDialog{display:none;position:fixed;inset:0;background:rgba(15,23,42,0.85);z-index:999999;align-items:center;justify-content:center;}
 #loadingScreen{display:none;position:fixed;inset:0;background:#F8FAFC;z-index:8888;flex-direction:column;align-items:center;justify-content:center;font-family:'Rajdhani',sans-serif;text-align:center;padding:2rem;}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
 @keyframes loadbar{0%{width:0%;margin-left:0}50%{width:60%;margin-left:20%}100%{width:0%;margin-left:100%}}
@@ -174,7 +174,18 @@ select{background:#fff;border:1.5px solid #D1D5DB;border-radius:8px;padding:0.6r
   <div style="font-size:3rem;margin-bottom:1rem;">⚡</div>
   <div style="font-size:1.5rem;font-weight:700;color:#fff;">TrickySSC</div>
   <div style="font-size:1rem;color:#fff;margin-top:0.5rem;" id="initMsg">Checking login...</div>
-</div>
+<div id="resumeDialog">
+    <div style="background:#fff;border-radius:20px;padding:2.5rem;max-width:420px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+      <div style="font-size:2.5rem;margin-bottom:0.75rem;">⏸️</div>
+      <h2 style="font-family:'Rajdhani',sans-serif;font-size:1.5rem;font-weight:800;color:#1A202C;margin-bottom:0.5rem;">Test In Progress!</h2>
+      <p id="resumeDialogMsg" style="font-size:0.9rem;color:#64748B;margin-bottom:1.5rem;">You have a paused attempt.</p>
+      <div style="display:flex;flex-direction:column;gap:0.75rem;">
+        <button onclick="resumeFromSaved()" style="background:linear-gradient(135deg,#FF6B00,#FF8C38);color:#fff;border:none;border-radius:12px;padding:0.9rem;font-family:'Rajdhani',sans-serif;font-size:1rem;font-weight:700;cursor:pointer;">▶ Resume Where I Left Off</button>
+        <button onclick="startFresh()" style="background:#F1F5F9;color:#1A202C;border:1px solid #E2E8F0;border-radius:12px;padding:0.9rem;font-family:'Rajdhani',sans-serif;font-size:1rem;font-weight:700;cursor:pointer;">🔄 Start Fresh</button>
+        <button onclick="document.getElementById('resumeDialog').style.display='none';history.back();" style="background:transparent;color:#94A3B8;border:none;font-family:'Rajdhani',sans-serif;font-size:0.9rem;cursor:pointer;padding:0.5rem;">✕ Cancel</button>
+      </div>
+    </div>
+  </div>
 
 <!-- LOGIN -->
 <div id="loginScreen">
@@ -240,18 +251,7 @@ select{background:#fff;border:1.5px solid #D1D5DB;border-radius:8px;padding:0.6r
   </div>
 
   <!-- RESUME DIALOG -->
-  <div id="resumeDialog">
-    <div style="background:#fff;border-radius:20px;padding:2.5rem;max-width:420px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
-      <div style="font-size:2.5rem;margin-bottom:0.75rem;">⏸️</div>
-      <h2 style="font-family:'Rajdhani',sans-serif;font-size:1.5rem;font-weight:800;color:#1A202C;margin-bottom:0.5rem;">Test In Progress!</h2>
-      <p id="resumeDialogMsg" style="font-size:0.9rem;color:#64748B;margin-bottom:1.5rem;">You have a paused attempt.</p>
-      <div style="display:flex;flex-direction:column;gap:0.75rem;">
-        <button onclick="resumeFromSaved()" style="background:linear-gradient(135deg,#FF6B00,#FF8C38);color:#fff;border:none;border-radius:12px;padding:0.9rem;font-family:'Rajdhani',sans-serif;font-size:1rem;font-weight:700;cursor:pointer;">▶ Resume Where I Left Off</button>
-        <button onclick="startFresh()" style="background:#F1F5F9;color:#1A202C;border:1px solid #E2E8F0;border-radius:12px;padding:0.9rem;font-family:'Rajdhani',sans-serif;font-size:1rem;font-weight:700;cursor:pointer;">🔄 Start Fresh</button>
-        <button onclick="document.getElementById('resumeDialog').style.display='none';history.back();" style="background:transparent;color:#94A3B8;border:none;font-family:'Rajdhani',sans-serif;font-size:0.9rem;cursor:pointer;padding:0.5rem;">✕ Cancel</button>
-      </div>
-    </div>
-  </div>
+  
 
   <div class="test-topbar">
     <div>
@@ -436,8 +436,11 @@ async function launchTestDirectly(){
       const msgEl=document.getElementById('resumeDialogMsg');
       if(msgEl)msgEl.textContent=qDone+' questions answered · '+mins+'m '+secs+'s remaining';
       console.log('✅ Showing resume dialog');
+      // Aggressively remove initLoader from DOM entirely
+      const ilEl=document.getElementById('initLoader');
+      if(ilEl && ilEl.parentNode) ilEl.parentNode.removeChild(ilEl);
       const rd=document.getElementById('resumeDialog');
-      if(rd){rd.style.display='flex';rd.style.zIndex='999999';}
+      if(rd){rd.style.cssText='display:flex !important;position:fixed;inset:0;background:rgba(15,23,42,0.85);z-index:999999;align-items:center;justify-content:center;';}
       return;
     }
     console.log('ℹ️ No paused test found, launching fresh');
