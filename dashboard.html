@@ -253,16 +253,10 @@
       <h2>Welcome back, <span id="wName">Student</span>! 👋</h2>
       <p id="wSub">Ready to practice? Your SSC journey continues here.</p>
     </div>
-    <a href="test.html" class="welcome-cta">🚀 Start a Test</a>
+    
   </div>
 
-  <!-- Paused Tests (shown only if exists) -->
-  <div id="pausedSection" style="display:none;margin-bottom:1.5rem;">
-    <div class="section-head">
-      <div class="section-title">⏸️ Paused Tests — Resume Now</div>
-    </div>
-    <div id="pausedList" style="display:flex;flex-direction:column;gap:0.75rem;"></div>
-  </div>
+
 
   <!-- Stats -->
   <div class="stats-row">
@@ -294,6 +288,30 @@
   </div>
   <div class="attempts-card">
     <div id="attemptsBody"></div>
+  </div>
+
+  <!-- Performance Analysis -->
+  <div class="section-head" style="margin-top:1.5rem;">
+    <div class="section-title">📈 Performance Analysis</div>
+  </div>
+  <div id="performanceSection" style="display:none;">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
+      <div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:14px;padding:1.25rem;">
+        <div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1rem;color:#15803D;margin-bottom:0.75rem;">💪 Strong Areas</div>
+        <div id="strongAreas" style="font-size:0.85rem;color:#166534;line-height:1.8;">—</div>
+      </div>
+      <div style="background:#FFF7ED;border:1px solid #FED7AA;border-radius:14px;padding:1.25rem;">
+        <div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1rem;color:#C2410C;margin-bottom:0.75rem;">📚 Areas to Improve</div>
+        <div id="weakAreas" style="font-size:0.85rem;color:#9A3412;line-height:1.8;">—</div>
+      </div>
+    </div>
+    <div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:14px;padding:1.25rem;">
+      <div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1rem;color:#1D4ED8;margin-bottom:0.5rem;">📊 Score Trend</div>
+      <div id="scoreTrend" style="font-size:0.85rem;color:#1E40AF;">—</div>
+    </div>
+  </div>
+  <div id="performanceEmpty" style="background:#F8FAFC;border-radius:14px;padding:2rem;text-align:center;color:#94A3B8;font-size:0.9rem;">
+    Attempt at least 3 tests to see your performance analysis.
   </div>
 
   <!-- Profile -->
@@ -430,6 +448,9 @@ async function loadDashboard(user) {
 
     // Render attempts table
     renderAttempts(attempts);
+
+    // Performance Analysis
+    renderPerformance(attempts);
   } catch(e) {
     renderAttempts([]);
     console.error('Failed to load attempts:', e);
@@ -500,11 +521,11 @@ function renderPausedTests(paused) {
     const tLeft = p.timeLeft || 0;
     const mins = Math.floor(tLeft/60), secs = tLeft%60;
     const qDone = Object.keys(p.answers||{}).length;
-    const total = (p.questionIds||p.questions||[]).length;
+    const total = (p.questions||[]).length;
     const examName = (p.examName||p.exam||'').split(' — ')[0];
     const year = p.year ? ' ' + p.year : '';
     // Build resume URL
-    let url = 'https://trickyssc.com/test.html?exam=' + (p.exam||'');
+    let url = 'test.html?exam=' + (p.exam||'');
     if(p.year) url += '&year=' + p.year;
     return `
       <div style="background:#fff;border:2px solid #FF6B00;border-radius:16px;padding:1.25rem 1.5rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;">
@@ -515,6 +536,56 @@ function renderPausedTests(paused) {
         <a href="${url}" style="background:linear-gradient(135deg,#FF6B00,#FF8C38);color:#fff;padding:0.6rem 1.5rem;border-radius:10px;font-family:'Rajdhani',sans-serif;font-size:0.95rem;font-weight:700;text-decoration:none;white-space:nowrap;box-shadow:0 4px 15px rgba(255,107,0,0.3);">▶ Resume Test</a>
       </div>`;
   }).join('');
+}
+
+function renderPerformance(attempts) {
+  if (!attempts || attempts.length < 3) {
+    document.getElementById('performanceSection').style.display = 'none';
+    document.getElementById('performanceEmpty').style.display = 'block';
+    return;
+  }
+  document.getElementById('performanceSection').style.display = 'block';
+  document.getElementById('performanceEmpty').style.display = 'none';
+
+  // Score trend
+  const recent = attempts.slice(0, 5).reverse();
+  const trend = recent.map((a,i) => {
+    const pct = parseFloat(a.percentage)||0;
+    const examName = (a.examName||a.exam||'Test').split('—')[0].trim();
+    return `${examName}: ${pct}%`;
+  }).join(' → ');
+  const first = parseFloat(recent[0]?.percentage)||0;
+  const last = parseFloat(recent[recent.length-1]?.percentage)||0;
+  const trendMsg = last > first ? '📈 Your scores are improving!' : last < first ? '📉 Scores have dipped — revise weak areas.' : '➡️ Scores are consistent.';
+  document.getElementById('scoreTrend').innerHTML = `<div style="margin-bottom:6px;">${trend}</div><div style="font-weight:600;">${trendMsg}</div>`;
+
+  // Strong vs weak based on correct/wrong ratios per exam
+  const examStats = {};
+  attempts.forEach(a => {
+    const exam = (a.examName||a.exam||'Unknown').split('—')[0].trim().split(' ').slice(0,2).join(' ');
+    if (!examStats[exam]) examStats[exam] = {correct:0, wrong:0, skip:0, count:0};
+    examStats[exam].correct += parseInt(a.correct)||0;
+    examStats[exam].wrong += parseInt(a.wrong)||0;
+    examStats[exam].skip += parseInt(a.skip)||0;
+    examStats[exam].count++;
+  });
+
+  const examList = Object.entries(examStats).map(([name, s]) => {
+    const total = s.correct + s.wrong + s.skip;
+    const accuracy = total > 0 ? Math.round((s.correct/total)*100) : 0;
+    return {name, accuracy, count: s.count};
+  }).sort((a,b) => b.accuracy - a.accuracy);
+
+  const strong = examList.filter(e => e.accuracy >= 60);
+  const weak = examList.filter(e => e.accuracy < 60);
+
+  document.getElementById('strongAreas').innerHTML = strong.length > 0
+    ? strong.map(e => `✅ ${e.name} (${e.accuracy}% accuracy)`).join('<br>')
+    : 'Keep attempting more tests to identify strong areas.';
+
+  document.getElementById('weakAreas').innerHTML = weak.length > 0
+    ? weak.map(e => `⚠️ ${e.name} (${e.accuracy}% accuracy) — needs practice`).join('<br>')
+    : '🎉 No weak areas found! Great performance.';
 }
 
 function renderAttempts(attempts) {
