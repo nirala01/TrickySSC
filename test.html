@@ -472,7 +472,7 @@ function showLoginPopup(){
 
 // ── Direct launch: skip selector, start test immediately ──
 // ── Paused test key helper ──
-function _pauseKey(){ return currentUser.uid+'_'+_autoExam+((_autoYear)?'_'+_autoYear:''); }
+function _pauseKey(exam,year){ return currentUser.uid+'_'+(exam||_autoExam)+((year||_autoYear)?'_'+(year||_autoYear):''); }
 
 // ── Resume from Firestore saved state ──
 window.resumeFromSaved=async()=>{
@@ -480,24 +480,51 @@ window.resumeFromSaved=async()=>{
   document.getElementById('loadingScreen').style.display='flex';
   document.getElementById('loadingMsg').textContent='';
   try{
-    const snap=await getDoc(doc(db,'paused_tests',_pauseKey()));
+    const snap=await getDoc(doc(db,'paused_tests',_pauseKey(_autoExam,_autoYear)));
     if(!snap.exists()){_doLaunchFresh();return;}
     const d=snap.data();
-    questions=d.questions; answers=d.answers||{}; marked=d.marked||{};
-    currentQ=d.currentQ||0; timeLeft=d.timeLeft||3600;
-    selectedExam=_autoExam;
-    const examName=d.examName||(_autoExam.toUpperCase());
+
+    // Re-fetch questions from Firestore using saved IDs (in original order)
+    let fetchedQs=[];
+    if(d.questionIds && d.questionIds.length>0){
+      // Fetch all questions for this exam+year, then sort by saved ID order
+      let q=query(collection(db,'questions'),where('exam','==',d.exam||_autoExam));
+      if(d.year) q=query(collection(db,'questions'),where('exam','==',d.exam||_autoExam),where('year','==',d.year));
+      const qSnap=await getDocs(q);
+      const qMap={};
+      qSnap.forEach(doc=>qMap[doc.id]={id:doc.id,...doc.data()});
+      // Restore original order using saved IDs
+      fetchedQs=d.questionIds.map(id=>qMap[id]).filter(Boolean);
+    }
+
+    if(fetchedQs.length===0){_doLaunchFresh();return;}
+
+    // Restore full state
+    questions=fetchedQs;
+    answers=d.answers||{};
+    marked=d.marked||{};
+    currentQ=parseInt(d.currentQ)||0;
+    timeLeft=parseInt(d.timeLeft)||3600;
+    selectedExam=d.exam||_autoExam;
+
+    const examName=d.examName||selectedExam.toUpperCase();
     document.getElementById('topExamName').textContent=examName;
     document.getElementById('sbName').textContent=currentUser?.displayName||'Student';
     document.getElementById('sbAvatar').textContent=(currentUser?.displayName||'S')[0].toUpperCase();
     document.getElementById('sbExam').textContent=examName.split(' — ')[0];
-    buildSectionTabs(); buildSidebarGrid(); renderQuestion(); startTimer();
+
+    buildSectionTabs();
+    buildSidebarGrid();
+    renderQuestion(); // renders at saved currentQ
+    startTimer();
+
     document.getElementById('loadingScreen').style.display='none';
     const ts=document.getElementById('testScreen');
     ts.style.display='flex'; ts.style.flexDirection='column'; ts.style.height='100vh';
     document.documentElement.requestFullscreen?.().catch(()=>{});
+    console.log('Resumed at Q:'+currentQ+' T:'+timeLeft+' A:'+Object.keys(answers).length);
   }catch(e){
-    document.getElementById('loadingMsg').textContent='Error: '+e.message;
+    document.getElementById('loadingMsg').textContent='Error resuming: '+e.message;
   }
 };
 
@@ -505,7 +532,7 @@ window.resumeFromSaved=async()=>{
 window.startFresh=async()=>{
   document.getElementById('resumeDialog').style.display='none';
   if(currentUser){
-    try{await deleteDoc(doc(db,'paused_tests',_pauseKey()));}catch(e){}
+    try{await deleteDoc(doc(db,'paused_tests',_pauseKey(_autoExam,_autoYear)));}catch(e){}
   }
   _doLaunchFresh();
 };
@@ -543,57 +570,39 @@ async function _doLaunchFresh(){
 }
 
 async function launchTestDirectly(){
-  // Show loading overlay
+  // Hide all screens, show loader
   ['loginScreen','loginPopupOverlay','selectorScreen','testScreen','resultScreen'].forEach(id=>{
     const el=document.getElementById(id);
     if(el) el.style.display='none';
   });
   document.getElementById('loadingScreen').style.display='flex';
-  // Show what exam is loading
   const EXAM_LABELS={'ssc-cgl':'SSC CGL','ssc-chsl':'SSC CHSL','ssc-mts':'SSC MTS','ssc-gd':'SSC GD','ssc-cpo':'SSC CPO','ssc-jht':'SSC JHT','ssc-je':'SSC JE'};
   document.getElementById('loadingSubtitle').textContent=(EXAM_LABELS[_autoExam]||_autoExam)+(_autoYear?' – '+_autoYear+' Paper':' Paper');
 
-  try{
-    let q=query(collection(db,'questions'),where('exam','==',_autoExam));
-    if(_autoYear) q=query(collection(db,'questions'),where('exam','==',_autoExam),where('year','==',_autoYear)); // year stored as string
-    const snap=await getDocs(q);
-    let all=[];
-    snap.forEach(d=>all.push({id:d.id,...d.data()}));
-
-    if(all.length===0){
-      document.getElementById('loadingMsg').innerHTML='<b>No questions uploaded yet</b> for this paper.<br><br><a href="javascript:history.back()" style="color:#FF6B00;font-weight:700;">← Go Back</a>';
-      return;
-    }
-
-    // Sort by question number
-    all=all.sort((a,b)=>(a.qNum||0)-(b.qNum||0));
-    questions=all; answers={}; marked={}; currentQ=0;
-    selectedExam=_autoExam;
-    timeLeft=3600;
-
-    const EXAM_NAMES={'ssc-cgl':'SSC CGL','ssc-chsl':'SSC CHSL','ssc-mts':'SSC MTS','ssc-gd':'SSC GD','ssc-cpo':'SSC CPO','ssc-jht':'SSC JHT','ssc-je':'SSC JE'};
-    const examName=EXAM_NAMES[_autoExam]||_autoExam.toUpperCase();
-    document.getElementById('topExamName').textContent=examName+' — '+all.length+' Questions'+(_autoYear?' ('+_autoYear+')':'');
-    document.getElementById('sbName').textContent=currentUser?.displayName||'Student';
-    document.getElementById('sbAvatar').textContent=(currentUser?.displayName||'S')[0].toUpperCase();
-    document.getElementById('sbExam').textContent=examName;
-
-    buildSectionTabs();
-    buildSidebarGrid();
-    renderQuestion();
-    startTimer();
-
-    document.getElementById('loadingScreen').style.display='none';
-    const ts=document.getElementById('testScreen');
-    ts.style.display='flex';
-    ts.style.flexDirection='column';
-    ts.style.height='100vh';
-    document.documentElement.requestFullscreen?.().catch(()=>{});
-
-  }catch(err){
-    document.getElementById('loadingMsg').textContent='Error loading test: '+err.message+'. Please go back and try again.';
+  // Check for paused test FIRST
+  if(currentUser && currentUser.uid){
+    try{
+      const pauseKey=currentUser.uid+'_'+_autoExam+((_autoYear)?'_'+_autoYear:'');
+      const pausedSnap=await getDoc(doc(db,'paused_tests',pauseKey));
+      if(pausedSnap.exists()){
+        const pd=pausedSnap.data();
+        const qDone=Object.keys(pd.answers||{}).length;
+        const tLeft=parseInt(pd.timeLeft)||0;
+        const mins=Math.floor(tLeft/60), secs=tLeft%60;
+        // Show resume dialog
+        document.getElementById('loadingScreen').style.display='none';
+        document.getElementById('resumeDialogMsg').textContent=
+          qDone+' questions answered · '+mins+'m '+secs+'s remaining';
+        document.getElementById('resumeDialog').style.display='flex';
+        return;
+      }
+    }catch(e){ console.log('Paused check error:',e); }
   }
+
+  // No paused test — launch fresh
+  _doLaunchFresh();
 }
+
 
 async function showSelector(user){
   show('selectorScreen');
@@ -749,14 +758,15 @@ window.goToQ=(i)=>{currentQ=i;renderQuestion();};
 
 window.pauseTest=async()=>{
   clearInterval(timerInterval);
-  // Save paused state to Firestore
+  // Save paused state — only save IDs + progress, NOT full questions array
   if(currentUser){
     try{
+      const questionIds=questions.map(q=>q.id); // just IDs, small size
       const pauseData={
         uid:currentUser.uid,
         exam:selectedExam,
         year:_autoYear||'',
-        questions:questions,
+        questionIds:questionIds,
         answers:answers,
         marked:marked,
         currentQ:currentQ,
@@ -764,7 +774,8 @@ window.pauseTest=async()=>{
         pausedAt:serverTimestamp(),
         examName:document.getElementById('topExamName').textContent,
       };
-      await setDoc(doc(db,'paused_tests',currentUser.uid+'_'+selectedExam+((_autoYear)?'_'+_autoYear:'')),pauseData);
+      await setDoc(doc(db,'paused_tests',_pauseKey(selectedExam,_autoYear)),pauseData);
+      console.log('Paused saved ✓ Q:'+currentQ+' T:'+timeLeft+' A:'+Object.keys(answers).length);
     }catch(e){console.log('Pause save error:',e);}
   }
   document.getElementById('pauseOverlay').style.display='flex';
@@ -803,7 +814,7 @@ async function submitTest(){
   // Delete paused state from Firestore
   if(currentUser){
     try{
-      await deleteDoc(doc(db,'paused_tests',currentUser.uid+'_'+selectedExam+((_autoYear)?'_'+_autoYear:'')));
+      await deleteDoc(doc(db,'paused_tests',_pauseKey(selectedExam,_autoYear)));
     }catch(e){}
   }
   let correct=0,wrong=0,skip=0;
