@@ -136,6 +136,7 @@ textarea{resize:vertical;min-height:60px;}
 
   <div class="tabs">
     <button class="tab active" onclick="switchTab('create')">➕ Create Mock Test</button>
+    <button class="tab" onclick="switchTab('import')">📥 Import CSV</button>
     <button class="tab" onclick="switchTab('manage')">📋 Manage Tests</button>
   </div>
 
@@ -243,10 +244,9 @@ textarea{resize:vertical;min-height:60px;}
       <h3 id="step3Title">Step 2 — Add Questions</h3>
 
       <!-- Mode selector -->
-      <div style="display:flex;gap:0.5rem;margin-bottom:1.25rem;flex-wrap:wrap;">
-        <button class="btn" id="modeManualBtn" onclick="setQMode('manual')" style="background:#7C3AED;color:#fff;flex:1;">✋ Pick from Bank</button>
-        <button class="btn btn-secondary" id="modeWriteBtn" onclick="setQMode('write')" style="flex:1;">✏️ Write New Questions</button>
-        <button class="btn btn-secondary" id="modeAutoBtn" onclick="setQMode('auto')" style="flex:1;">⚡ Auto-Generate</button>
+      <div style="display:flex;gap:0.5rem;margin-bottom:1.25rem;">
+        <button class="btn" id="modeManualBtn" onclick="setQMode('manual')" style="background:#7C3AED;color:#fff;flex:1;">✋ Pick Questions Manually</button>
+        <button class="btn btn-secondary" id="modeAutoBtn" onclick="setQMode('auto')" style="flex:1;">⚡ Auto-Generate from Bank</button>
       </div>
 
       <!-- MANUAL MODE -->
@@ -277,95 +277,6 @@ textarea{resize:vertical;min-height:60px;}
         <div id="questionPicker" style="max-height:400px;overflow-y:auto;"></div>
       </div>
 
-      <!-- WRITE MODE — Full question entry form like PYQ admin -->
-      <div id="writeMode" style="display:none;">
-        <div style="background:#0F172A;border:1px solid #334155;border-radius:12px;padding:1.25rem;margin-bottom:1rem;">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
-            <div style="font-size:0.85rem;font-weight:700;color:#A78BFA;">Write questions directly — they'll be saved to the question bank AND added to this mock test.</div>
-            <span style="font-size:0.8rem;color:#00A86B;font-weight:600;" id="writeCount">0 written</span>
-          </div>
-
-          <div class="form-row three">
-            <div>
-              <label>Subject</label>
-              <select id="wSubject" onchange="updateWriteChapters()"></select>
-            </div>
-            <div>
-              <label>Chapter / Topic</label>
-              <select id="wChapter"></select>
-            </div>
-            <div>
-              <label>Difficulty</label>
-              <select id="wDifficulty">
-                <option value="easy">Easy</option>
-                <option value="medium" selected>Medium</option>
-                <option value="hard">Hard</option>
-              </select>
-            </div>
-          </div>
-
-          <div style="margin-bottom:1rem;">
-            <label>Question Text</label>
-            <textarea id="wText" placeholder="Type the question here..." style="min-height:80px;"></textarea>
-          </div>
-
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:1rem;">
-            <div style="display:flex;align-items:center;gap:0.5rem;">
-              <span class="wlbl" id="wlbl-A" style="background:#334155;color:#94A3B8;padding:0.4rem 0.6rem;border-radius:6px;font-weight:700;font-size:0.8rem;min-width:28px;text-align:center;">A</span>
-              <input type="text" id="wOptA" placeholder="Option A">
-            </div>
-            <div style="display:flex;align-items:center;gap:0.5rem;">
-              <span class="wlbl" id="wlbl-B" style="background:#334155;color:#94A3B8;padding:0.4rem 0.6rem;border-radius:6px;font-weight:700;font-size:0.8rem;min-width:28px;text-align:center;">B</span>
-              <input type="text" id="wOptB" placeholder="Option B">
-            </div>
-            <div style="display:flex;align-items:center;gap:0.5rem;">
-              <span class="wlbl" id="wlbl-C" style="background:#334155;color:#94A3B8;padding:0.4rem 0.6rem;border-radius:6px;font-weight:700;font-size:0.8rem;min-width:28px;text-align:center;">C</span>
-              <input type="text" id="wOptC" placeholder="Option C">
-            </div>
-            <div style="display:flex;align-items:center;gap:0.5rem;">
-              <span class="wlbl" id="wlbl-D" style="background:#334155;color:#94A3B8;padding:0.4rem 0.6rem;border-radius:6px;font-weight:700;font-size:0.8rem;min-width:28px;text-align:center;">D</span>
-              <input type="text" id="wOptD" placeholder="Option D">
-            </div>
-          </div>
-
-          <div style="margin-bottom:1rem;">
-            <label>Correct Answer</label>
-            <div style="display:flex;gap:0.75rem;">
-              <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;font-size:0.85rem;color:#94A3B8;font-weight:500;text-transform:none;letter-spacing:0;">
-                <input type="radio" name="wCorrect" value="A" onchange="wHighlight('A')" style="accent-color:#00A86B;"> A
-              </label>
-              <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;font-size:0.85rem;color:#94A3B8;font-weight:500;text-transform:none;letter-spacing:0;">
-                <input type="radio" name="wCorrect" value="B" onchange="wHighlight('B')" style="accent-color:#00A86B;"> B
-              </label>
-              <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;font-size:0.85rem;color:#94A3B8;font-weight:500;text-transform:none;letter-spacing:0;">
-                <input type="radio" name="wCorrect" value="C" onchange="wHighlight('C')" style="accent-color:#00A86B;"> C
-              </label>
-              <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;font-size:0.85rem;color:#94A3B8;font-weight:500;text-transform:none;letter-spacing:0;">
-                <input type="radio" name="wCorrect" value="D" onchange="wHighlight('D')" style="accent-color:#00A86B;"> D
-              </label>
-            </div>
-          </div>
-
-          <div style="margin-bottom:1rem;">
-            <label>📝 Step-by-Step Solution (optional)</label>
-            <textarea id="wExplanation" placeholder="Write the full solution here..."></textarea>
-          </div>
-
-          <div style="margin-bottom:1rem;">
-            <label>⚡ Tricky Shortcut (optional)</label>
-            <textarea id="wTrick" placeholder="Write the quick trick or shortcut..."></textarea>
-          </div>
-
-          <button class="btn btn-success" onclick="addWrittenQuestion()" style="width:100%;">+ Add Question to Mock Test</button>
-        </div>
-
-        <!-- Written questions list -->
-        <div id="writtenList" style="display:none;">
-          <div style="font-size:0.8rem;font-weight:700;color:#64748B;margin-bottom:0.5rem;text-transform:uppercase;letter-spacing:0.05em;">Added Questions</div>
-          <div id="writtenItems"></div>
-        </div>
-      </div>
-
       <!-- AUTO MODE -->
       <div id="autoMode" style="display:none;">
         <p style="color:#94A3B8;font-size:0.85rem;margin-bottom:1rem;">Specify how many questions to auto-pick per subject/chapter from your question bank. Questions are selected randomly.</p>
@@ -391,6 +302,46 @@ textarea{resize:vertical;min-height:60px;}
           <button class="btn btn-secondary" onclick="resetForm()">🔄 Reset</button>
           <button class="btn btn-primary" onclick="saveMockTest()" id="saveBtn">💾 Save Mock Test</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- IMPORT CSV TAB -->
+  <div class="panel" id="panel-import">
+    <div class="card">
+      <h3>📥 Import Questions from CSV</h3>
+      <p style="color:#94A3B8;font-size:0.9rem;margin-bottom:1.5rem;">Bulk-import questions directly into the question bank from a CSV file. These questions can then be used when creating mock tests. Required columns: <code style="color:#A78BFA;">text, option_A, option_B, option_C, option_D, correct, exam, subject</code>. Optional: <code style="color:#A78BFA;">explanation, trick, difficulty, chapter, tier, year, qNum, type</code>.</p>
+      <div onclick="document.getElementById('mCsvFileInput').click()" style="border:2px dashed #334155;border-radius:12px;padding:2rem;text-align:center;cursor:pointer;transition:all 0.2s;margin-bottom:1rem;">
+        <input type="file" id="mCsvFileInput" accept=".csv" onchange="handleCSVUpload(event)" style="display:none;">
+        <div style="font-size:2.5rem;margin-bottom:0.5rem;">📄</div>
+        <p style="color:#94A3B8;font-size:0.9rem;">Click to select CSV file</p>
+        <p style="color:#7C3AED;font-size:0.85rem;font-weight:600;margin-top:0.3rem;">Only .csv files</p>
+      </div>
+      <div id="csvPreview" style="display:none;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem;flex-wrap:wrap;gap:0.5rem;">
+          <div>
+            <span id="csvFileName" style="font-weight:600;color:#E2E8F0;"></span>
+            <span id="csvRowCount" style="color:#94A3B8;font-size:0.85rem;margin-left:0.75rem;"></span>
+          </div>
+          <div style="display:flex;gap:0.5rem;">
+            <button class="btn btn-secondary" onclick="clearCSV()">✕ Clear</button>
+            <button class="btn btn-primary" id="csvImportBtn" onclick="importCSV()">⬆️ Import All</button>
+          </div>
+        </div>
+        <div id="csvValidation" style="margin-bottom:0.75rem;"></div>
+        <div style="overflow-x:auto;border:1px solid #334155;border-radius:8px;">
+          <table style="width:100%;border-collapse:collapse;">
+            <thead id="csvPreviewHead" style="background:#0F172A;"></thead>
+            <tbody id="csvPreviewBody"></tbody>
+          </table>
+        </div>
+        <p style="color:#64748B;font-size:0.78rem;margin-top:0.5rem;">Showing first 10 rows for preview.</p>
+      </div>
+      <div id="csvProgress" style="display:none;margin-top:1.25rem;">
+        <div style="background:#1E293B;border-radius:6px;height:8px;overflow:hidden;margin-bottom:0.5rem;">
+          <div id="csvBar" style="height:100%;background:linear-gradient(135deg,#7C3AED,#A78BFA);width:0%;transition:width 0.3s;"></div>
+        </div>
+        <div id="csvStatus" style="font-size:0.85rem;color:#94A3B8;"></div>
       </div>
     </div>
   </div>
@@ -540,7 +491,6 @@ window.onExamChange = () => {
   updatePickSubjects();
   updateSectionsList();
   updateAutoGenSections();
-  updateWriteSubjects();
   updateSaveSummary();
 };
 
@@ -620,119 +570,13 @@ window.recalcSections = () => {
 };
 
 // ── Question picker ──
-let writtenQIds = []; // IDs of questions written directly in write mode
-
 window.setQMode = (mode) => {
   currentMode = mode;
-  document.getElementById('manualMode').style.display  = mode==='manual'?'block':'none';
-  document.getElementById('writeMode').style.display   = mode==='write'?'block':'none';
-  document.getElementById('autoMode').style.display    = mode==='auto'?'block':'none';
-  const active = 'background:#7C3AED;color:#fff;flex:1;';
-  const inactive = 'flex:1;';
-  document.getElementById('modeManualBtn').style.cssText = mode==='manual'?active:inactive;
-  document.getElementById('modeWriteBtn').style.cssText  = mode==='write'?active:inactive;
-  document.getElementById('modeAutoBtn').style.cssText   = mode==='auto'?active:inactive;
+  document.getElementById('manualMode').style.display = mode==='manual'?'block':'none';
+  document.getElementById('autoMode').style.display = mode==='auto'?'block':'none';
+  document.getElementById('modeManualBtn').style.cssText = mode==='manual'?'background:#7C3AED;color:#fff;flex:1;':'flex:1;';
+  document.getElementById('modeAutoBtn').style.cssText = mode==='auto'?'background:#7C3AED;color:#fff;flex:1;':'flex:1;';
   if (mode==='manual' && !allBankQuestions.length) loadPickQuestions();
-  if (mode==='write') updateWriteSubjects();
-};
-
-// ── Write mode: populate subjects from current exam ──
-window.updateWriteSubjects = () => {
-  const exam = document.getElementById('mExam').value;
-  const subjs = EXAM_SUBJECTS[exam] || [];
-  document.getElementById('wSubject').innerHTML = subjs.map(s=>`<option value="${s.v}">${s.l}</option>`).join('');
-  updateWriteChapters();
-};
-
-window.updateWriteChapters = () => {
-  const subj = document.getElementById('wSubject').value;
-  const labels = CHAPTERS[subj] || ['Other'];
-  const vals   = CHAPTER_VALS[subj] || ['other'];
-  document.getElementById('wChapter').innerHTML = labels.map((l,i)=>`<option value="${vals[i]}">${l}</option>`).join('');
-};
-
-window.wHighlight = (letter) => {
-  ['A','B','C','D'].forEach(l => {
-    const el = document.getElementById('wlbl-'+l);
-    if (el) el.style.cssText = l===letter
-      ? 'background:#00A86B;color:#fff;padding:0.4rem 0.6rem;border-radius:6px;font-weight:700;font-size:0.8rem;min-width:28px;text-align:center;'
-      : 'background:#334155;color:#94A3B8;padding:0.4rem 0.6rem;border-radius:6px;font-weight:700;font-size:0.8rem;min-width:28px;text-align:center;';
-  });
-};
-
-window.addWrittenQuestion = async () => {
-  const exam    = document.getElementById('mExam').value;
-  const text    = document.getElementById('wText').value.trim();
-  const optA    = document.getElementById('wOptA').value.trim();
-  const optB    = document.getElementById('wOptB').value.trim();
-  const optC    = document.getElementById('wOptC').value.trim();
-  const optD    = document.getElementById('wOptD').value.trim();
-  const correct = document.querySelector('input[name="wCorrect"]:checked');
-  const subject = document.getElementById('wSubject').value;
-  const chapter = document.getElementById('wChapter').value;
-  const diff    = document.getElementById('wDifficulty').value;
-
-  if (!text||!optA||!optB||!optC||!optD||!correct) {
-    showToast('Please fill all fields and select the correct answer','error'); return;
-  }
-
-  try {
-    // Save to questions collection (same bank as PYQ/chapterwise)
-    const ref = await addDoc(collection(db,'questions'), {
-      type: 'mock',
-      exam, subject, chapter,
-      difficulty: diff,
-      tier: document.getElementById('mTier').value,
-      text,
-      options: {A:optA, B:optB, C:optC, D:optD},
-      correct: correct.value,
-      explanation: document.getElementById('wExplanation').value.trim(),
-      trick: document.getElementById('wTrick').value.trim(),
-      qNum: writtenQIds.length + 1,
-      year: null, shift: null,
-      createdAt: serverTimestamp(),
-    });
-
-    writtenQIds.push(ref.id);
-    updateSaveSummary();
-
-    // Show in written list
-    const listEl = document.getElementById('writtenItems');
-    const item = document.createElement('div');
-    item.style.cssText='background:#0F172A;border:1px solid #334155;border-radius:8px;padding:0.75rem;margin-bottom:0.4rem;display:flex;justify-content:space-between;align-items:flex-start;gap:0.75rem;';
-    item.innerHTML=`
-      <div>
-        <div style="font-size:0.85rem;color:#CBD5E1;margin-bottom:0.25rem;">${writtenQIds.length}. ${text.substring(0,100)}${text.length>100?'…':''}</div>
-        <div style="font-size:0.7rem;color:#64748B;">${subject} · ${chapter} · ${diff} · Ans: ${correct.value}</div>
-      </div>
-      <button class="btn btn-danger" style="padding:0.25rem 0.5rem;font-size:0.75rem;flex-shrink:0;" onclick="removeWritten('${ref.id}',this)">✕</button>`;
-    listEl.appendChild(item);
-    document.getElementById('writtenList').style.display='block';
-    document.getElementById('writeCount').textContent = writtenQIds.length + ' written';
-
-    // Clear form for next question
-    ['wText','wOptA','wOptB','wOptC','wOptD','wExplanation','wTrick'].forEach(id=>document.getElementById(id).value='');
-    document.querySelectorAll('input[name="wCorrect"]').forEach(r=>r.checked=false);
-    ['A','B','C','D'].forEach(l=>{
-      const el=document.getElementById('wlbl-'+l);
-      if(el) el.style.cssText='background:#334155;color:#94A3B8;padding:0.4rem 0.6rem;border-radius:6px;font-weight:700;font-size:0.8rem;min-width:28px;text-align:center;';
-    });
-
-    showToast('✅ Question added! Write the next one.','success');
-  } catch(e) { showToast('Error: '+e.message,'error'); }
-};
-
-window.removeWritten = async (id, btn) => {
-  if (!confirm('Remove this question? It will also be deleted from the database.')) return;
-  try {
-    await deleteDoc(doc(db,'questions',id));
-    writtenQIds = writtenQIds.filter(q=>q!==id);
-    btn.closest('div[style]').remove();
-    document.getElementById('writeCount').textContent = writtenQIds.length + ' written';
-    if (!writtenQIds.length) document.getElementById('writtenList').style.display='none';
-    updateSaveSummary();
-    showToast('Removed','success');
-  } catch(e) { showToast('Error: '+e.message,'error'); }
 };
 
 window.loadPickQuestions = async () => {
@@ -840,9 +684,7 @@ window.updateSaveSummary = () => {
   const title = document.getElementById('mTitle').value || 'Untitled';
   const dur = document.getElementById('mDuration').value;
   const marks = document.getElementById('mTotalMarks').value;
-  const sel = currentMode==='manual' ? selectedQIds.size
-            : currentMode==='write'  ? writtenQIds.length
-            : '(auto)';
+  const sel = currentMode==='manual' ? selectedQIds.size : '(auto)';
   document.getElementById('saveSummary').textContent = title;
   document.getElementById('saveSummary2').textContent = `${dur} mins · ${marks} marks · ${sel} questions selected`;
 };
@@ -872,9 +714,6 @@ window.saveMockTest = async () => {
   if (currentMode === 'manual') {
     questionIds = [...selectedQIds];
     if (!questionIds.length) { showToast('Please select at least one question','error'); return; }
-  } else if (currentMode === 'write') {
-    questionIds = [...writtenQIds];
-    if (!questionIds.length) { showToast('Please write at least one question','error'); return; }
   } else {
     // Auto-generate
     try {
@@ -945,13 +784,7 @@ window.resetForm = () => {
   document.getElementById('mIsPaid').checked=false;
   document.getElementById('mPublish').checked=true;
   selectedQIds.clear();
-  writtenQIds = [];
   document.getElementById('selectedCount').textContent='0 selected';
-  document.getElementById('writeCount').textContent='0 written';
-  document.getElementById('writtenItems').innerHTML='';
-  document.getElementById('writtenList').style.display='none';
-  ['wText','wOptA','wOptB','wOptC','wOptD','wExplanation','wTrick'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-  document.querySelectorAll('input[name="wCorrect"]').forEach(r=>r.checked=false);
   document.getElementById('sectionsList').innerHTML='';
   sectionCount=0;
   document.getElementById('autoGenSections').innerHTML='';
@@ -1028,6 +861,57 @@ window.switchTab = (tab) => {
   event.target.classList.add('active');
   document.getElementById('panel-'+tab).classList.add('active');
   if (tab==='manage') loadTests();
+};
+
+// ── CSV Import (into questions bank) ──
+let csvParsedRows = [];
+window.handleCSVUpload = (event) => {
+  const file = event.target.files[0]; if(!file) return;
+  const r = new FileReader(); r.onload = (e) => parseAndPreviewCSV(e.target.result, file.name); r.readAsText(file,'UTF-8');
+};
+function parseCSVLine(line){const result=[];let cur='';let inQ=false;for(let i=0;i<line.length;i++){const c=line[i];if(c==='"'){if(inQ&&line[i+1]==='"'){cur+='"';i++;}else{inQ=!inQ;}}else if(c===','&&!inQ){result.push(cur);cur='';}else cur+=c;}result.push(cur);return result;}
+function parseAndPreviewCSV(text,filename){
+  const lines=text.replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n').filter(l=>l.trim());
+  if(lines.length<2){showToast('Need header + rows','error');return;}
+  const headers=parseCSVLine(lines[0]).map(h=>h.trim().replace(/^\uFEFF/,''));
+  const required=['text','option_A','option_B','option_C','option_D','correct','exam','subject'];
+  const missing=required.filter(r=>!headers.includes(r));
+  const validEl=document.getElementById('csvValidation');
+  if(missing.length){validEl.innerHTML=`<div style="background:#EF444422;border:1px solid #EF444444;border-radius:8px;padding:0.75rem;color:#EF4444;font-size:0.85rem;">❌ Missing columns: <strong>${missing.join(', ')}</strong></div>`;}
+  else{validEl.innerHTML=`<div style="background:#00A86B22;border:1px solid #00A86B44;border-radius:8px;padding:0.75rem;color:#00A86B;font-size:0.85rem;">✅ All required columns found. Ready to import.</div>`;}
+  csvParsedRows=lines.slice(1).map(l=>{const vals=parseCSVLine(l);const obj={};headers.forEach((h,i)=>obj[h]=vals[i]||'');return obj;});
+  document.getElementById('csvFileName').textContent='📄 '+filename;
+  document.getElementById('csvRowCount').textContent=csvParsedRows.length+' rows';
+  const visH=['text','option_A','option_B','option_C','option_D','correct','exam','subject','difficulty'].filter(h=>headers.includes(h));
+  document.getElementById('csvPreviewHead').innerHTML='<tr>'+visH.map(h=>`<th style="background:#0F172A;padding:0.5rem 0.75rem;text-align:left;font-size:0.75rem;font-weight:700;color:#94A3B8;text-transform:uppercase;">${h}</th>`).join('')+'</tr>';
+  document.getElementById('csvPreviewBody').innerHTML=csvParsedRows.slice(0,10).map(row=>'<tr>'+visH.map(h=>`<td style="padding:0.5rem 0.75rem;border-bottom:1px solid #1E293B;font-size:0.82rem;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${row[h]||''}</td>`).join('')+'</tr>').join('');
+  document.getElementById('csvPreview').style.display='block';
+  document.getElementById('csvImportBtn').disabled=missing.length>0;
+}
+window.clearCSV=()=>{csvParsedRows=[];document.getElementById('mCsvFileInput').value='';document.getElementById('csvPreview').style.display='none';document.getElementById('csvProgress').style.display='none';};
+window.importCSV=async()=>{
+  if(!csvParsedRows.length)return;
+  const prog=document.getElementById('csvProgress'),bar=document.getElementById('csvBar'),status=document.getElementById('csvStatus');
+  prog.style.display='block';bar.style.width='0%';document.getElementById('csvImportBtn').disabled=true;
+  let saved=0,errors=0;
+  for(let i=0;i<csvParsedRows.length;i++){
+    const r=csvParsedRows[i];if(!r.text||!r.correct||!r.exam)continue;
+    try{
+      await addDoc(collection(db,'questions'),{
+        text:r.text,exam:r.exam,type:r.type||'mock',tier:r.tier||'tier1',subject:r.subject||'',
+        chapter:r.chapter||'',difficulty:r.difficulty||'medium',qNum:parseInt(r.qNum)||0,year:r.year||null,
+        options:{A:r.option_A||'',B:r.option_B||'',C:r.option_C||'',D:r.option_D||''},
+        correct:r.correct,explanation:r.explanation||'',trick:r.trick||'',
+        createdAt:serverTimestamp()
+      });
+      saved++;
+    }catch(e){errors++;}
+    bar.style.width=((i+1)/csvParsedRows.length*100)+'%';
+    status.textContent=`Importing ${i+1}/${csvParsedRows.length}...`;
+  }
+  status.textContent=`✅ Imported ${saved} questions${errors?' ('+errors+' errors)':''}.`;
+  showToast(`✅ ${saved} questions imported to bank!`,'success');
+  document.getElementById('csvImportBtn').disabled=false;
 };
 
 function showToast(msg, type='') {
