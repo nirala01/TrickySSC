@@ -1445,6 +1445,116 @@
     </div>
 
     <div style="max-width:1000px;margin:0 auto;padding:2rem;">
+      <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1rem;">
+        <div style="width:48px;height:48px;background:linear-gradient(135deg,#0EA5E9,#6366F1);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.5rem;">🎯</div>
+        <div>
+          <h1 style="font-family:'Rajdhani',sans-serif;font-size:1.8rem;font-weight:800;color:#1A202C;margin:0;">SSC CGL Mock Test Series 2026</h1>
+          <p style="color:#718096;font-size:0.88rem;margin:0;">Latest pattern · Full length · Score and review instantly</p>
+        </div>
+      </div>
+
+      <div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:10px;padding:0.75rem 1rem;display:flex;align-items:center;gap:0.6rem;margin-bottom:1.5rem;">
+        <span style="font-size:1rem;">🎁</span>
+        <span style="font-size:0.85rem;color:#0EA5E9;font-weight:600;">Free mock tests are available! Paid tests require a subscription.</span>
+      </div>
+
+      <!-- Dynamic mock list loaded from Firestore -->
+      <div id="mockListLoader" style="text-align:center;padding:3rem;color:#718096;">
+        <div style="font-size:2rem;margin-bottom:0.5rem;">⏳</div>
+        Loading mock tests...
+      </div>
+      <div id="mockListContent" style="display:none;"></div>
+    </div>
+  </div>
+
+  <script type="module">
+    import{initializeApp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import{getFirestore,collection,query,where,orderBy,getDocs}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+    const _app=initializeApp({apiKey:"AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",authDomain:"trickyssc-17bb3.firebaseapp.com",projectId:"trickyssc-17bb3",storageBucket:"trickyssc-17bb3.firebasestorage.app",messagingSenderId:"450627057220",appId:"1:450627057220:web:366267bf437d94f20c6e11"});
+    const _db=getFirestore(_app);
+
+    async function loadMocks(){
+      try{
+        const snap=await getDocs(query(collection(_db,'mock_tests'),where('exam','==','ssc-cgl'),where('isPublished','==',true)));
+        const tests=snap.docs.map(d=>({id:d.id,...d.data()}));
+        tests.sort((a,b)=>(a.seriesNum||99)-(b.seriesNum||99));
+
+        const loader=document.getElementById('mockListLoader');
+        const content=document.getElementById('mockListContent');
+        loader.style.display='none';
+        content.style.display='block';
+
+        if(!tests.length){
+          content.innerHTML='<div style="text-align:center;padding:3rem;color:#718096;background:white;border-radius:16px;border:1px solid #E2E8F0;"><div style="font-size:2rem;margin-bottom:0.5rem;">🚀</div><div style="font-weight:700;margin-bottom:0.25rem;">Coming Soon!</div><div style="font-size:0.85rem;">Mock tests are being prepared. Check back soon.</div></div>';
+          return;
+        }
+
+        // Group by tier
+        const byTier={};
+        tests.forEach(t=>{
+          const tier=t.tier||'Tier I';
+          if(!byTier[tier])byTier[tier]=[];
+          byTier[tier].push(t);
+        });
+
+        let html='';
+        Object.entries(byTier).forEach(([tier,list])=>{
+          html+=`<div style="margin-bottom:2rem;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+              <h2 style="font-family:'Rajdhani',sans-serif;font-size:1.2rem;font-weight:800;color:#1A202C;margin:0;">🎯 SSC CGL ${tier} — Mock Tests</h2>
+              <span style="font-size:0.78rem;color:#718096;">${list.length} Test${list.length>1?'s':''}</span>
+            </div>`;
+          list.forEach((t,i)=>{
+            const isFree=!t.isPaid;
+            const btnStyle=isFree
+              ?'background:linear-gradient(135deg,#0EA5E9,#6366F1);color:white;border:none;cursor:pointer;padding:0.5rem 1.2rem;border-radius:8px;font-family:\'Rajdhani\',sans-serif;font-weight:700;font-size:0.85rem;'
+              :'background:#F1F5F9;color:#94A3B8;border:1px solid #E2E8F0;cursor:not-allowed;padding:0.5rem 1.2rem;border-radius:8px;font-family:\'Rajdhani\',sans-serif;font-weight:700;font-size:0.85rem;';
+            const btnAction=isFree
+              ?`window.location='test.html?mockId=${t.id}'`
+              :'alert(\'This test requires a subscription.\')';
+            const freeBadge=isFree?'<span style="background:#E8F5E9;color:#00A86B;font-size:0.7rem;font-weight:700;padding:0.2rem 0.5rem;border-radius:100px;font-family:\'Rajdhani\',sans-serif;margin-left:0.5rem;">FREE</span>':'';
+            const lockIcon=!isFree?'<span style="color:#94A3B8;font-size:1rem;margin-right:0.5rem;">🔒</span>':'';
+            html+=`<div style="display:flex;align-items:center;justify-content:space-between;padding:1rem 1.25rem;background:#fff;border:1px solid #E2E8F0;border-radius:12px;margin-bottom:0.6rem;box-shadow:0 1px 4px rgba(0,0,0,0.04);transition:all 0.2s;" onmouseenter="if(${isFree})this.style.borderColor='#0EA5E9'" onmouseleave="this.style.borderColor='#E2E8F0'">
+              <div style="display:flex;align-items:center;gap:0.75rem;">
+                ${lockIcon}
+                <div>
+                  <div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1rem;color:#1A202C;">${t.title}${freeBadge}</div>
+                  <div style="font-size:0.75rem;color:#718096;margin-top:0.1rem;">📝 ${t.totalQuestions||0} Questions · ${t.duration||60} Min · ${t.totalMarks||200} Marks</div>
+                </div>
+              </div>
+              <button onclick="${btnAction}" style="${btnStyle}">${isFree?'Attempt Test →':'Locked'}</button>
+            </div>`;
+          });
+          html+='</div>';
+        });
+        content.innerHTML=html;
+      }catch(e){
+        document.getElementById('mockListLoader').innerHTML='<div style="color:#EF4444;text-align:center;padding:2rem;">Error loading tests: '+e.message+'</div>';
+      }
+    }
+
+    // Load when section becomes visible
+    const mockSection=document.getElementById('cgl-mock-page');
+    const obs=new MutationObserver(()=>{
+      if(mockSection.style.display!=='none'&&!mockSection.dataset.loaded){
+        mockSection.dataset.loaded='1';
+        loadMocks();
+      }
+    });
+    obs.observe(mockSection,{attributes:true,attributeFilter:['style']});
+    // Also load if already visible on page load
+    if(mockSection.style.display!=='none') loadMocks();
+  </script>
+</section>
+
+
+<section id="cgl-chapter-page" style="padding:0;">
+  <div style="background:#F5F7FA;min-height:100vh;padding-top:80px;">
+        <span style="color:#1A202C;font-weight:600;">Mock Test Series 2026</span>
+      </div>
+    </div>
+
+    <div style="max-width:1000px;margin:0 auto;padding:2rem;">
 
       <!-- Header -->
       <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1rem;">
