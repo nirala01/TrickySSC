@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TrickySSC — Chapterwise Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Inter',sans-serif;background:#0F172A;color:#E2E8F0;min-height:100vh;}
+.topbar{background:linear-gradient(135deg,#0EA5E9,#38BDF8);padding:1rem 2rem;display:flex;align-items:center;justify-content:space-between;}
+.topbar h1{font-family:'Rajdhani',sans-serif;font-size:1.5rem;font-weight:700;color:#fff;}
+.nav-links{display:flex;gap:0.5rem;}
+.nav-link{background:rgba(255,255,255,0.15);color:#fff;padding:0.3rem 0.85rem;border-radius:100px;font-size:0.75rem;font-weight:600;text-decoration:none;transition:background 0.2s;}
+.nav-link:hover{background:rgba(255,255,255,0.28);}
+.nav-link.active{background:rgba(255,255,255,0.35);}
+.badge{background:rgba(255,255,255,0.2);color:#fff;padding:0.25rem 0.75rem;border-radius:100px;font-size:0.75rem;font-weight:600;}
+#loginScreen{display:flex;align-items:center;justify-content:center;min-height:calc(100vh - 60px);padding:2rem;}
+.login-card{background:#1E293B;border:1px solid #334155;border-radius:16px;padding:2.5rem;width:100%;max-width:400px;text-align:center;}
+.login-card h2{font-family:'Rajdhani',sans-serif;font-size:1.75rem;font-weight:700;color:#0EA5E9;margin-bottom:0.5rem;}
+.login-card p{color:#94A3B8;font-size:0.9rem;margin-bottom:2rem;}
+.google-btn{display:flex;align-items:center;justify-content:center;gap:0.75rem;background:#fff;color:#1A202C;border:none;padding:0.85rem 1.5rem;border-radius:10px;font-family:'Inter',sans-serif;font-weight:600;font-size:0.95rem;cursor:pointer;width:100%;transition:all 0.2s;}
+.google-btn:hover{background:#F1F5F9;transform:translateY(-1px);}
+#adminScreen{display:none;padding:2rem;max-width:1200px;margin:0 auto;}
+.tabs{display:flex;gap:0.5rem;margin-bottom:2rem;background:#1E293B;padding:0.5rem;border-radius:12px;width:fit-content;flex-wrap:wrap;}
+.tab{padding:0.6rem 1.25rem;border-radius:8px;cursor:pointer;font-weight:600;font-size:0.9rem;color:#94A3B8;border:none;background:transparent;transition:all 0.2s;}
+.tab.active{background:#0EA5E9;color:#fff;}
+.panel{display:none;}.panel.active{display:block;}
+.card{background:#1E293B;border:1px solid #334155;border-radius:16px;padding:1.5rem;margin-bottom:1.5rem;}
+.card h3{font-family:'Rajdhani',sans-serif;font-size:1.2rem;font-weight:700;color:#F1F5F9;margin-bottom:1rem;}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;}
+.form-row.three{grid-template-columns:1fr 1fr 1fr;}
+.form-row.four{grid-template-columns:1fr 1fr 1fr 1fr;}
+label{display:block;font-size:0.8rem;font-weight:600;color:#94A3B8;margin-bottom:0.4rem;text-transform:uppercase;letter-spacing:0.05em;}
+select,input,textarea{width:100%;background:#0F172A;border:1px solid #334155;border-radius:8px;padding:0.65rem 0.9rem;color:#E2E8F0;font-family:'Inter',sans-serif;font-size:0.9rem;outline:none;transition:border 0.2s;}
+select:focus,input:focus,textarea:focus{border-color:#0EA5E9;}
+textarea{resize:vertical;min-height:80px;}
+.options-grid{display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:1rem;}
+.option-row{display:flex;align-items:center;gap:0.5rem;}
+.option-label{background:#334155;color:#94A3B8;padding:0.4rem 0.6rem;border-radius:6px;font-weight:700;font-size:0.8rem;min-width:28px;text-align:center;}
+.option-label.correct{background:#00A86B;color:#fff;}
+.btn{padding:0.65rem 1.25rem;border-radius:8px;font-family:'Inter',sans-serif;font-weight:600;font-size:0.9rem;cursor:pointer;border:none;transition:all 0.2s;}
+.btn-primary{background:linear-gradient(135deg,#0EA5E9,#38BDF8);color:#fff;}
+.btn-primary:hover{opacity:0.9;transform:translateY(-1px);}
+.btn-secondary{background:#334155;color:#E2E8F0;}
+.btn-secondary:hover{background:#475569;}
+.btn-danger{background:#EF4444;color:#fff;}
+.correct-selector{display:flex;gap:0.5rem;margin-bottom:1rem;}
+.correct-selector label{display:flex;align-items:center;gap:0.4rem;cursor:pointer;font-size:0.85rem;color:#94A3B8;font-weight:500;text-transform:none;letter-spacing:0;}
+.correct-selector input[type=radio]{accent-color:#00A86B;}
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.5rem;}
+.stat-card{background:#1E293B;border:1px solid #334155;border-radius:12px;padding:1.25rem;text-align:center;}
+.stat-card .num{font-family:'Rajdhani',sans-serif;font-size:2rem;font-weight:700;color:#38BDF8;}
+.stat-card .lbl{font-size:0.75rem;color:#94A3B8;font-weight:600;text-transform:uppercase;}
+.spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin 0.7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.toast{position:fixed;bottom:2rem;right:2rem;background:#1E293B;border:1px solid #334155;border-radius:10px;padding:1rem 1.5rem;color:#E2E8F0;font-size:0.9rem;font-weight:500;z-index:9999;transform:translateY(100px);transition:transform 0.3s;}
+.toast.show{transform:translateY(0);}
+.toast.success{border-color:#00A86B;color:#00A86B;}
+.toast.error{border-color:#EF4444;color:#EF4444;}
+.filter-row{display:flex;gap:0.75rem;margin-bottom:1.5rem;flex-wrap:wrap;align-items:flex-end;}
+.filter-row select{width:auto;}
+.questions-list{display:flex;flex-direction:column;gap:0.75rem;}
+.question-item{background:#0F172A;border:1px solid #334155;border-radius:10px;padding:1rem;}
+.question-item .q-header{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;margin-bottom:0.75rem;}
+.question-item .q-text{font-size:0.9rem;color:#E2E8F0;flex:1;}
+.question-item .q-options{display:grid;grid-template-columns:1fr 1fr;gap:0.4rem;}
+.question-item .q-option{font-size:0.8rem;padding:0.35rem 0.6rem;border-radius:6px;background:#1E293B;}
+.question-item .q-option.correct{background:#00A86B22;color:#00A86B;border:1px solid #00A86B44;}
+.question-item .q-meta{display:flex;gap:0.5rem;margin-top:0.5rem;flex-wrap:wrap;}
+.meta-tag{background:#334155;color:#94A3B8;padding:0.2rem 0.5rem;border-radius:100px;font-size:0.7rem;font-weight:600;}
+/* Tag existing info box */
+.info-box{background:#0EA5E911;border:1px solid #0EA5E944;border-radius:10px;padding:1rem;margin-bottom:1rem;font-size:0.85rem;color:#7DD3FC;}
+/* Chapter tree */
+.chapter-tree{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:0.75rem;margin-top:0.5rem;}
+.chapter-card{background:#0F172A;border:1px solid #334155;border-radius:10px;padding:1rem;cursor:pointer;transition:border 0.15s;}
+.chapter-card:hover{border-color:#0EA5E9;}
+.chapter-card .ch-name{font-weight:700;font-size:0.9rem;color:#E2E8F0;margin-bottom:0.25rem;}
+.chapter-card .ch-count{font-size:0.8rem;color:#64748B;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>📚 Chapterwise Admin</h1>
+  <div style="display:flex;align-items:center;gap:1rem;">
+    <div class="nav-links">
+      <a href="admin.html" class="nav-link">📄 PYQs</a>
+      <a href="admin-mock.html" class="nav-link">🧪 Mocks</a>
+      <a href="admin-chapterwise.html" class="nav-link active">📚 Chapterwise</a>
+      <a href="admin-sectionwise.html" class="nav-link">📑 Sectionwise</a>
+    </div>
+    <span class="badge" id="adminName">Loading...</span>
+    <button class="btn btn-secondary" onclick="logout()" style="padding:0.4rem 0.9rem;font-size:0.8rem;">Logout</button>
+  </div>
+</div>
+
+<!-- LOGIN -->
+<div id="loginScreen">
+  <div class="login-card">
+    <h2>Chapterwise Admin</h2>
+    <p>Sign in with your Google account to manage chapterwise questions.</p>
+    <button class="google-btn" onclick="googleLogin()">
+      <svg viewBox="0 0 24 24" width="20" height="20"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+      Sign in with Google
+    </button>
+  </div>
+</div>
+
+<!-- ADMIN SCREEN -->
+<div id="adminScreen">
+  <div class="stats-grid">
+    <div class="stat-card"><div class="num" id="statTotal">0</div><div class="lbl">Total Questions</div></div>
+    <div class="stat-card"><div class="num" id="statExams">0</div><div class="lbl">Exams Covered</div></div>
+    <div class="stat-card"><div class="num" id="statChapters">0</div><div class="lbl">Chapters</div></div>
+    <div class="stat-card"><div class="num" id="statToday">0</div><div class="lbl">Added Today</div></div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('add')">➕ Add Question</button>
+    <button class="tab" onclick="switchTab('tag')">🏷️ Tag Existing PYQs</button>
+    <button class="tab" onclick="switchTab('browse')">🗂️ Browse by Chapter</button>
+    <button class="tab" onclick="switchTab('manage')">📋 Manage</button>
+  </div>
+
+  <!-- ADD TAB -->
+  <div class="panel active" id="panel-add">
+    <div class="card">
+      <h3>Add Chapterwise Question</h3>
+      <div class="info-box">
+        💡 Chapterwise questions are linked to a specific chapter and used for chapter-level practice tests. <strong>Chapter is mandatory.</strong> Year is optional (leave blank for evergreen content).
+      </div>
+      <div class="form-row three">
+        <div>
+          <label>Exam</label>
+          <select id="cExam" onchange="onExamChange()">
+            <option value="ssc-cgl">SSC CGL</option>
+            <option value="ssc-chsl">SSC CHSL</option>
+            <option value="ssc-mts">SSC MTS</option>
+            <option value="ssc-gd">SSC GD</option>
+            <option value="ssc-cpo">SSC CPO</option>
+            <option value="ssc-jht">SSC JHT</option>
+            <option value="ssc-je">SSC JE</option>
+          </select>
+        </div>
+        <div>
+          <label>Subject</label>
+          <select id="cSubject" onchange="updateChapters()"></select>
+        </div>
+        <div>
+          <label>Chapter ⭐</label>
+          <select id="cChapter"></select>
+        </div>
+      </div>
+      <div class="form-row three">
+        <div>
+          <label>Difficulty</label>
+          <select id="cDifficulty">
+            <option value="easy">Easy</option>
+            <option value="medium" selected>Medium</option>
+            <option value="hard">Hard</option>
+          </select>
+        </div>
+        <div>
+          <label>Year (optional)</label>
+          <select id="cYear">
+            <option value="">Not specified</option>
+            <option value="2025">2025</option>
+            <option value="2024">2024</option>
+            <option value="2023">2023</option>
+            <option value="2022">2022</option>
+            <option value="2021">2021</option>
+            <option value="2020">2020</option>
+            <option value="2019">2019</option>
+            <option value="2018">2018</option>
+          </select>
+        </div>
+        <div>
+          <label>Question Number</label>
+          <input type="number" id="cNum" placeholder="e.g. 1" min="1">
+        </div>
+      </div>
+      <div style="margin-bottom:1rem;">
+        <label>Question Text</label>
+        <textarea id="cText" placeholder="Type the question here..."></textarea>
+      </div>
+      <div class="options-grid">
+        <div class="option-row"><span class="option-label" id="clbl-A">A</span><input type="text" id="cOptA" placeholder="Option A"></div>
+        <div class="option-row"><span class="option-label" id="clbl-B">B</span><input type="text" id="cOptB" placeholder="Option B"></div>
+        <div class="option-row"><span class="option-label" id="clbl-C">C</span><input type="text" id="cOptC" placeholder="Option C"></div>
+        <div class="option-row"><span class="option-label" id="clbl-D">D</span><input type="text" id="cOptD" placeholder="Option D"></div>
+      </div>
+      <div style="margin-bottom:1rem;">
+        <label>Correct Answer</label>
+        <div class="correct-selector">
+          <label><input type="radio" name="cCorrect" value="A" onchange="highlightCorrect('A','c')"> A</label>
+          <label><input type="radio" name="cCorrect" value="B" onchange="highlightCorrect('B','c')"> B</label>
+          <label><input type="radio" name="cCorrect" value="C" onchange="highlightCorrect('C','c')"> C</label>
+          <label><input type="radio" name="cCorrect" value="D" onchange="highlightCorrect('D','c')"> D</label>
+        </div>
+      </div>
+      <div style="margin-bottom:1rem;">
+        <label>📝 Step-by-Step Solution (optional)</label>
+        <textarea id="cExplanation" placeholder="Write the full solution here..."></textarea>
+      </div>
+      <div style="margin-bottom:1rem;">
+        <label>⚡ Tricky Shortcut (optional)</label>
+        <textarea id="cTrick" placeholder="Write the quick trick or shortcut..."></textarea>
+      </div>
+      <button class="btn btn-primary" onclick="saveQuestion()">💾 Save Question</button>
+    </div>
+  </div>
+
+  <!-- TAG EXISTING TAB -->
+  <div class="panel" id="panel-tag">
+    <div class="card">
+      <h3>🏷️ Tag Existing PYQ Questions as Chapterwise</h3>
+      <div class="info-box">
+        Your PYQ questions already have chapter info. Use this tool to <strong>bulk-mark</strong> them as <code>type: chapterwise</code> so the frontend can serve them in chapter practice sets — without duplicating any data.
+      </div>
+      <div class="form-row three">
+        <div>
+          <label>Exam</label>
+          <select id="tagExam" onchange="updateTagSubjects()">
+            <option value="">Select Exam</option>
+            <option value="ssc-cgl">SSC CGL</option>
+            <option value="ssc-chsl">SSC CHSL</option>
+            <option value="ssc-mts">SSC MTS</option>
+            <option value="ssc-gd">SSC GD</option>
+            <option value="ssc-cpo">SSC CPO</option>
+            <option value="ssc-jht">SSC JHT</option>
+            <option value="ssc-je">SSC JE</option>
+          </select>
+        </div>
+        <div>
+          <label>Subject</label>
+          <select id="tagSubject" onchange="updateTagChapters()">
+            <option value="">All Subjects</option>
+          </select>
+        </div>
+        <div>
+          <label>Chapter</label>
+          <select id="tagChapter">
+            <option value="">All Chapters</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div>
+          <label>Current Type (source)</label>
+          <select id="tagFromType">
+            <option value="pyq">PYQ only</option>
+            <option value="">Any type</option>
+          </select>
+        </div>
+        <div style="display:flex;align-items:flex-end;gap:0.75rem;">
+          <button class="btn btn-secondary" onclick="previewTag()">🔍 Preview Count</button>
+        </div>
+      </div>
+      <div id="tagPreview" style="display:none;background:#0F172A;border-radius:8px;padding:1rem;margin-bottom:1rem;">
+        <div id="tagPreviewText" style="color:#38BDF8;font-weight:600;margin-bottom:0.75rem;"></div>
+        <div id="tagPreviewList" style="max-height:200px;overflow-y:auto;font-size:0.8rem;color:#64748B;"></div>
+      </div>
+      <button class="btn btn-primary" id="tagBtn" onclick="bulkTag()" style="display:none;">🏷️ Tag as Chapterwise</button>
+      <div id="tagProgress" style="display:none;margin-top:1rem;">
+        <div style="background:#1E293B;border-radius:6px;height:8px;overflow:hidden;margin-bottom:0.5rem;">
+          <div id="tagBar" style="height:100%;background:linear-gradient(135deg,#0EA5E9,#38BDF8);width:0%;transition:width 0.3s;"></div>
+        </div>
+        <div id="tagStatus" style="font-size:0.85rem;color:#94A3B8;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BROWSE TAB -->
+  <div class="panel" id="panel-browse">
+    <div class="card">
+      <h3>Browse by Chapter</h3>
+      <div class="filter-row">
+        <div><label>Exam</label>
+          <select id="browseExam" onchange="updateBrowseSubjects()" style="width:180px;">
+            <option value="ssc-cgl">SSC CGL</option>
+            <option value="ssc-chsl">SSC CHSL</option>
+            <option value="ssc-mts">SSC MTS</option>
+            <option value="ssc-gd">SSC GD</option>
+            <option value="ssc-cpo">SSC CPO</option>
+            <option value="ssc-jht">SSC JHT</option>
+            <option value="ssc-je">SSC JE</option>
+          </select></div>
+        <div><label>Subject</label>
+          <select id="browseSubject" onchange="loadChapterTree()" style="width:220px;">
+            <option value="">All Subjects</option>
+          </select></div>
+        <div style="display:flex;align-items:flex-end;">
+          <button class="btn btn-secondary" onclick="loadChapterTree()">🔍 Load</button>
+        </div>
+      </div>
+      <div id="chapterTree" class="chapter-tree"></div>
+    </div>
+  </div>
+
+  <!-- MANAGE TAB -->
+  <div class="panel" id="panel-manage">
+    <div class="card">
+      <h3>All Chapterwise Questions</h3>
+      <div class="filter-row">
+        <select id="mgrExam" onchange="updateMgrSubjects();loadManage()" style="width:170px;">
+          <option value="">All Exams</option>
+          <option value="ssc-cgl">SSC CGL</option>
+          <option value="ssc-chsl">SSC CHSL</option>
+          <option value="ssc-mts">SSC MTS</option>
+          <option value="ssc-gd">SSC GD</option>
+          <option value="ssc-cpo">SSC CPO</option>
+          <option value="ssc-jht">SSC JHT</option>
+          <option value="ssc-je">SSC JE</option>
+        </select>
+        <select id="mgrSubject" onchange="loadManage()" style="width:220px;">
+          <option value="">All Subjects</option>
+        </select>
+        <select id="mgrChapter" onchange="loadManage()" style="width:200px;">
+          <option value="">All Chapters</option>
+        </select>
+        <select id="mgrDiff" onchange="loadManage()" style="width:140px;">
+          <option value="">Any Difficulty</option>
+          <option value="easy">Easy</option>
+          <option value="medium">Medium</option>
+          <option value="hard">Hard</option>
+        </select>
+      </div>
+      <div id="manageList" class="questions-list"></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
+import { getFirestore, collection, addDoc, getDocs, deleteDoc, updateDoc, doc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",
+  authDomain: "trickyssc-17bb3.firebaseapp.com",
+  projectId: "trickyssc-17bb3",
+  storageBucket: "trickyssc-17bb3.firebasestorage.app",
+  messagingSenderId: "450627057220",
+  appId: "1:450627057220:web:366267bf437d94f20c6e11"
+};
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const provider = new GoogleAuthProvider();
+const ADMIN_EMAILS = ['nirala01@gmail.com', 'ashish@trickyssc.com'];
+
+const EXAM_SUBJECTS = {
+  'ssc-cgl':  [{v:'reasoning',l:'General Intelligence & Reasoning'},{v:'english',l:'English Language'},{v:'quant',l:'Quantitative Aptitude'},{v:'gk',l:'General Awareness'},{v:'statistics',l:'Statistics'},{v:'finance',l:'Finance & Economics'}],
+  'ssc-chsl': [{v:'reasoning',l:'General Intelligence & Reasoning'},{v:'english',l:'English Language'},{v:'quant',l:'Quantitative Aptitude'},{v:'gk',l:'General Awareness'}],
+  'ssc-mts':  [{v:'reasoning',l:'General Intelligence & Reasoning'},{v:'english',l:'English Language'},{v:'quant',l:'Numerical Ability'},{v:'gk',l:'General Awareness'}],
+  'ssc-gd':   [{v:'reasoning',l:'General Intelligence & Reasoning'},{v:'english',l:'English / Hindi'},{v:'quant',l:'Elementary Mathematics'},{v:'gk',l:'General Knowledge'}],
+  'ssc-cpo':  [{v:'reasoning',l:'General Intelligence & Reasoning'},{v:'english',l:'English Comprehension'},{v:'quant',l:'Quantitative Aptitude'},{v:'gk',l:'General Awareness'}],
+  'ssc-jht':  [{v:'translation',l:'Translation'},{v:'essay',l:'Essay & Letter Writing'},{v:'precis',l:'Précis Writing'},{v:'terminology',l:'Terminology'}],
+  'ssc-je':   [{v:'reasoning',l:'General Intelligence & Reasoning'},{v:'gk',l:'General Awareness'},{v:'civil',l:'Civil Engineering'},{v:'electrical',l:'Electrical Engineering'},{v:'mechanical',l:'Mechanical Engineering'}],
+};
+const CHAPTERS = {
+  reasoning:['Analogies','Number/Letter Series','Coding-Decoding','Blood Relations','Direction & Distance','Syllogism','Matrix','Venn Diagram','Missing Number','Ranking & Order','Non-Verbal Reasoning','Other'],
+  english:  ['Synonyms','Antonyms','Fill in the Blanks','Error Spotting','Sentence Improvement','One Word Substitution','Idioms & Phrases','Reading Comprehension','Cloze Test','Para Jumbles','Other'],
+  quant:    ['Number System','Percentage','Ratio & Proportion','SI & CI','Profit & Loss','Time & Work','Time & Distance','Geometry','Mensuration','Trigonometry','Algebra','Statistics','Data Interpretation','Other'],
+  gk:       ['History','Geography','Polity','Science & Technology','Economy','Current Affairs','Sports','Art & Culture','Environment','Other'],
+  statistics:['Data Collection','Central Tendency','Dispersion','Correlation & Regression','Probability','Index Numbers','Time Series','Other'],
+  finance:  ['Indian Economy','Finance & Accounts','Economic Theory','Budget & Fiscal Policy','Other'],
+  civil:    ['Structural Engineering','Concrete Technology','Soil Mechanics','Fluid Mechanics','Transportation','Environmental Engg','Surveying','RCC & Steel','Other'],
+  electrical:['Basic Electrical','Circuit Theory','Machines','Power Systems','Control Systems','Measurement','Electronics','Other'],
+  mechanical:['Thermodynamics','Fluid Mechanics','Manufacturing','Strength of Materials','Theory of Machines','Heat Transfer','Other'],
+  translation:['Hindi to English','English to Hindi'],
+  essay:    ['General Topics','Social Issues','Current Affairs'],
+  precis:   ['Précis Writing Practice'],
+  terminology:['Technical Terms','Legal Terms','Administrative Terms','Scientific Terms'],
+};
+const CHAPTER_VALS = {
+  reasoning:['analogies','series','coding-decoding','blood-relations','direction','syllogism','matrix','venn-diagram','missing-number','ranking','non-verbal','other'],
+  english:  ['synonyms','antonyms','fill-blanks','error-spotting','sentence-improvement','one-word','idioms','comprehension','cloze-test','para-jumbles','other'],
+  quant:    ['number-system','percentage','ratio','si-ci','profit-loss','time-work','time-distance','geometry','mensuration','trigonometry','algebra','statistics','data-interpretation','other'],
+  gk:       ['history','geography','polity','science','economy','current-affairs','sports','art-culture','environment','other'],
+  statistics:['data-collection','central-tendency','dispersion','correlation','probability','index-numbers','time-series','other'],
+  finance:  ['indian-economy','finance-accounts','economic-theory','budget','other'],
+  civil:    ['structural','concrete','soil-mechanics','fluid-mechanics','transportation','environmental','surveying','rcc-steel','other'],
+  electrical:['basic-electrical','circuit-theory','machines','power-systems','control-systems','measurement','electronics','other'],
+  mechanical:['thermodynamics','fluid-mechanics','manufacturing','strength-materials','theory-machines','heat-transfer','other'],
+  translation:['hindi-to-english','english-to-hindi'],
+  essay:    ['general','social','current-affairs'],
+  precis:   ['precis-practice'],
+  terminology:['technical','legal','administrative','scientific'],
+};
+
+// Auth
+window.googleLogin = async () => { try { await signInWithPopup(auth, provider); } catch(e) { showToast('Login failed: '+e.message,'error'); }};
+window.logout = async () => { await signOut(auth); };
+onAuthStateChanged(auth, async (user) => {
+  if (user) {
+    if (!ADMIN_EMAILS.includes(user.email) && !user.email.endsWith('@trickyssc.com')) {
+      showToast('Access denied.','error'); await signOut(auth); return;
+    }
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('adminScreen').style.display = 'block';
+    document.getElementById('adminName').textContent = user.displayName || user.email;
+    onExamChange();
+    loadStats();
+  } else {
+    document.getElementById('loginScreen').style.display = 'flex';
+    document.getElementById('adminScreen').style.display = 'none';
+  }
+});
+
+async function loadStats() {
+  try {
+    const snap = await getDocs(collection(db,'questions'));
+    const all = snap.docs.map(d=>d.data());
+    const cw = all.filter(d=>d.type==='chapterwise');
+    document.getElementById('statTotal').textContent = cw.length;
+    document.getElementById('statExams').textContent = [...new Set(cw.map(d=>d.exam))].length;
+    document.getElementById('statChapters').textContent = [...new Set(cw.map(d=>d.chapter))].length;
+    const today = new Date(); today.setHours(0,0,0,0);
+    document.getElementById('statToday').textContent = cw.filter(d=>{
+      const ts = d.createdAt?.toDate?.(); return ts && ts >= today;
+    }).length;
+  } catch(e){}
+}
+
+// ── Add Question ──
+window.onExamChange = () => {
+  const exam = document.getElementById('cExam').value;
+  const subjs = EXAM_SUBJECTS[exam] || [];
+  document.getElementById('cSubject').innerHTML = subjs.map(s=>`<option value="${s.v}">${s.l}</option>`).join('');
+  updateChapters();
+};
+
+window.updateChapters = () => {
+  const subj = document.getElementById('cSubject').value;
+  const labels = CHAPTERS[subj] || ['Other'];
+  const vals = CHAPTER_VALS[subj] || ['other'];
+  document.getElementById('cChapter').innerHTML = labels.map((l,i)=>`<option value="${vals[i]}">${l}</option>`).join('');
+};
+
+window.highlightCorrect = (letter, prefix) => {
+  ['A','B','C','D'].forEach(l => {
+    const el = document.getElementById(prefix+'lbl-'+l);
+    if (el) el.className = 'option-label' + (l===letter?' correct':'');
+  });
+};
+
+window.saveQuestion = async () => {
+  const text = document.getElementById('cText').value.trim();
+  const optA = document.getElementById('cOptA').value.trim();
+  const optB = document.getElementById('cOptB').value.trim();
+  const optC = document.getElementById('cOptC').value.trim();
+  const optD = document.getElementById('cOptD').value.trim();
+  const correct = document.querySelector('input[name="cCorrect"]:checked');
+  const chapter = document.getElementById('cChapter').value;
+  if (!text||!optA||!optB||!optC||!optD||!correct) { showToast('Please fill all required fields','error'); return; }
+  if (!chapter) { showToast('Chapter is required for chapterwise questions','error'); return; }
+  try {
+    await addDoc(collection(db,'questions'),{
+      type: 'chapterwise',
+      exam: document.getElementById('cExam').value,
+      subject: document.getElementById('cSubject').value,
+      chapter: chapter,
+      difficulty: document.getElementById('cDifficulty').value,
+      year: document.getElementById('cYear').value || null,
+      qNum: parseInt(document.getElementById('cNum').value)||0,
+      text, options:{A:optA,B:optB,C:optC,D:optD},
+      correct: correct.value,
+      explanation: document.getElementById('cExplanation').value.trim(),
+      trick: document.getElementById('cTrick').value.trim(),
+      tier: null, shift: null,
+      createdAt: serverTimestamp(),
+    });
+    showToast('✅ Question saved!','success');
+    ['cText','cOptA','cOptB','cOptC','cOptD','cExplanation','cTrick','cNum'].forEach(id=>document.getElementById(id).value='');
+    document.querySelectorAll('input[name="cCorrect"]').forEach(r=>r.checked=false);
+    ['A','B','C','D'].forEach(l=>{const el=document.getElementById('clbl-'+l);if(el)el.className='option-label';});
+    loadStats();
+  } catch(e) { showToast('Error: '+e.message,'error'); }
+};
+
+// ── Tag Existing ──
+function subjectOptsFor(exam) {
+  return (EXAM_SUBJECTS[exam]||[]).map(s=>`<option value="${s.v}">${s.l}</option>`).join('');
+}
+function chapterOptsFor(subj) {
+  const labs = CHAPTERS[subj]||['Other'], vals = CHAPTER_VALS[subj]||['other'];
+  return labs.map((l,i)=>`<option value="${vals[i]}">${l}</option>`).join('');
+}
+window.updateTagSubjects = () => {
+  const exam = document.getElementById('tagExam').value;
+  document.getElementById('tagSubject').innerHTML = '<option value="">All Subjects</option>' + subjectOptsFor(exam);
+  document.getElementById('tagChapter').innerHTML = '<option value="">All Chapters</option>';
+  document.getElementById('tagPreview').style.display='none';
+  document.getElementById('tagBtn').style.display='none';
+};
+window.updateTagChapters = () => {
+  const subj = document.getElementById('tagSubject').value;
+  document.getElementById('tagChapter').innerHTML = '<option value="">All Chapters</option>' + chapterOptsFor(subj);
+};
+
+window.previewTag = async () => {
+  const exam = document.getElementById('tagExam').value;
+  if (!exam) { showToast('Select an exam first','error'); return; }
+  const subj = document.getElementById('tagSubject').value;
+  const chap = document.getElementById('tagChapter').value;
+  const fromType = document.getElementById('tagFromType').value;
+  const snap = await getDocs(collection(db,'questions'));
+  let docs = snap.docs.map(d=>({id:d.id,...d.data()}));
+  docs = docs.filter(d=>d.exam===exam);
+  if (subj) docs = docs.filter(d=>d.subject===subj);
+  if (chap) docs = docs.filter(d=>d.chapter===chap);
+  if (fromType) docs = docs.filter(d=>d.type===fromType);
+  docs = docs.filter(d=>d.type!=='chapterwise'); // only un-tagged
+  const prev = document.getElementById('tagPreview');
+  document.getElementById('tagPreviewText').textContent = `${docs.length} questions will be tagged as chapterwise`;
+  document.getElementById('tagPreviewList').innerHTML = docs.slice(0,10).map(d=>
+    `<div style="margin-bottom:0.2rem;">• ${d.text?.substring(0,80)}… <span style="color:#475569;">[${d.subject} / ${d.chapter}]</span></div>`
+  ).join('') + (docs.length>10?`<div style="color:#475569;margin-top:0.25rem;">...and ${docs.length-10} more</div>`:'');
+  prev.style.display = 'block';
+  const btn = document.getElementById('tagBtn');
+  btn.style.display = docs.length ? 'inline-flex' : 'none';
+  btn.dataset.ids = JSON.stringify(docs.map(d=>d.id));
+};
+
+window.bulkTag = async () => {
+  const ids = JSON.parse(document.getElementById('tagBtn').dataset.ids || '[]');
+  if (!ids.length) return;
+  document.getElementById('tagProgress').style.display='block';
+  document.getElementById('tagBar').style.width='0%';
+  let done=0;
+  for (const id of ids) {
+    await updateDoc(doc(db,'questions',id),{type:'chapterwise'});
+    done++;
+    document.getElementById('tagBar').style.width = (done/ids.length*100)+'%';
+    document.getElementById('tagStatus').textContent = `Tagged ${done}/${ids.length}...`;
+  }
+  document.getElementById('tagStatus').textContent = `✅ Done! ${done} questions tagged.`;
+  document.getElementById('tagBtn').style.display='none';
+  document.getElementById('tagPreview').style.display='none';
+  showToast(`✅ ${done} questions tagged as chapterwise`,'success');
+  loadStats();
+};
+
+// ── Browse ──
+window.updateBrowseSubjects = () => {
+  const exam = document.getElementById('browseExam').value;
+  document.getElementById('browseSubject').innerHTML = '<option value="">All Subjects</option>' + subjectOptsFor(exam);
+};
+window.loadChapterTree = async () => {
+  const exam = document.getElementById('browseExam').value;
+  const subj = document.getElementById('browseSubject').value;
+  const tree = document.getElementById('chapterTree');
+  tree.innerHTML = '<div style="color:#64748B;padding:1rem;">Loading...</div>';
+  try {
+    const snap = await getDocs(collection(db,'questions'));
+    let docs = snap.docs.map(d=>d.data()).filter(d=>d.type==='chapterwise'&&d.exam===exam);
+    if (subj) docs = docs.filter(d=>d.subject===subj);
+    const map = {};
+    docs.forEach(d=>{ map[d.chapter] = (map[d.chapter]||0)+1; });
+    if (!Object.keys(map).length) { tree.innerHTML='<div style="color:#64748B;padding:1rem;">No chapterwise questions found for this exam. Add some or tag PYQs above.</div>'; return; }
+    tree.innerHTML = Object.entries(map).sort((a,b)=>b[1]-a[1]).map(([ch,cnt])=>`
+      <div class="chapter-card">
+        <div class="ch-name">${ch}</div>
+        <div class="ch-count">${cnt} question${cnt!==1?'s':''}</div>
+      </div>`).join('');
+  } catch(e) { tree.innerHTML='<div style="color:#EF4444;">Error: '+e.message+'</div>'; }
+};
+
+// ── Manage ──
+window.updateMgrSubjects = () => {
+  const exam = document.getElementById('mgrExam').value;
+  document.getElementById('mgrSubject').innerHTML = '<option value="">All Subjects</option>' + subjectOptsFor(exam);
+  document.getElementById('mgrChapter').innerHTML = '<option value="">All Chapters</option>';
+};
+document.getElementById('mgrSubject').addEventListener('change', () => {
+  const subj = document.getElementById('mgrSubject').value;
+  document.getElementById('mgrChapter').innerHTML = '<option value="">All Chapters</option>' + chapterOptsFor(subj);
+  loadManage();
+});
+
+window.loadManage = async () => {
+  const list = document.getElementById('manageList');
+  list.innerHTML='<div style="color:#64748B;text-align:center;padding:2rem;">Loading...</div>';
+  try {
+    const snap = await getDocs(collection(db,'questions'));
+    let docs = snap.docs.map(d=>({id:d.id,...d.data()})).filter(d=>d.type==='chapterwise');
+    const exam = document.getElementById('mgrExam').value;
+    const subj = document.getElementById('mgrSubject').value;
+    const chap = document.getElementById('mgrChapter').value;
+    const diff = document.getElementById('mgrDiff').value;
+    if (exam) docs = docs.filter(d=>d.exam===exam);
+    if (subj) docs = docs.filter(d=>d.subject===subj);
+    if (chap) docs = docs.filter(d=>d.chapter===chap);
+    if (diff) docs = docs.filter(d=>d.difficulty===diff);
+    docs = docs.slice(0,60);
+    if (!docs.length) { list.innerHTML='<div style="color:#64748B;text-align:center;padding:2rem;">No questions found.</div>'; return; }
+    list.innerHTML = docs.map(q=>`
+      <div class="question-item">
+        <div class="q-header">
+          <div class="q-text"><strong>Q${q.qNum||'—'}.</strong> ${q.text}</div>
+          <button class="btn btn-danger" style="padding:0.3rem 0.6rem;font-size:0.75rem;flex-shrink:0;" onclick="deleteQ('${q.id}')">🗑</button>
+        </div>
+        <div class="q-options">
+          ${['A','B','C','D'].map(l=>`<div class="q-option ${q.correct===l?'correct':''}">${l}) ${q.options?.[l]||''}</div>`).join('')}
+        </div>
+        <div class="q-meta">
+          <span class="meta-tag">${q.exam}</span>
+          <span class="meta-tag">${q.subject}</span>
+          <span class="meta-tag">${q.chapter}</span>
+          <span class="meta-tag">${q.difficulty}</span>
+          ${q.year?`<span class="meta-tag">${q.year}</span>`:''}
+        </div>
+      </div>`).join('');
+  } catch(e) { list.innerHTML='<div style="color:#EF4444;text-align:center;padding:2rem;">Error: '+e.message+'</div>'; }
+};
+
+window.deleteQ = async (id) => {
+  if (!confirm('Delete this question?')) return;
+  try { await deleteDoc(doc(db,'questions',id)); showToast('Deleted!','success'); loadManage(); loadStats(); }
+  catch(e) { showToast('Error: '+e.message,'error'); }
+};
+
+window.switchTab = (tab) => {
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('panel-'+tab).classList.add('active');
+  if (tab==='manage') loadManage();
+  if (tab==='browse') { updateBrowseSubjects(); loadChapterTree(); }
+};
+
+function showToast(msg,type=''){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.className='toast show '+type;
+  setTimeout(()=>t.className='toast',3500);
+}
+</script>
+</body>
+</html>

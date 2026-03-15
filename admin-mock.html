@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TrickySSC — Mock Test Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Inter',sans-serif;background:#0F172A;color:#E2E8F0;min-height:100vh;}
+.topbar{background:linear-gradient(135deg,#7C3AED,#A855F7);padding:1rem 2rem;display:flex;align-items:center;justify-content:space-between;}
+.topbar h1{font-family:'Rajdhani',sans-serif;font-size:1.5rem;font-weight:700;color:#fff;}
+.topbar .nav-links{display:flex;gap:0.5rem;}
+.topbar .nav-link{background:rgba(255,255,255,0.15);color:#fff;padding:0.3rem 0.85rem;border-radius:100px;font-size:0.75rem;font-weight:600;text-decoration:none;transition:background 0.2s;}
+.topbar .nav-link:hover{background:rgba(255,255,255,0.28);}
+.topbar .nav-link.active{background:rgba(255,255,255,0.35);}
+.topbar .badge{background:rgba(255,255,255,0.2);color:#fff;padding:0.25rem 0.75rem;border-radius:100px;font-size:0.75rem;font-weight:600;}
+#loginScreen{display:flex;align-items:center;justify-content:center;min-height:calc(100vh - 60px);padding:2rem;}
+.login-card{background:#1E293B;border:1px solid #334155;border-radius:16px;padding:2.5rem;width:100%;max-width:400px;text-align:center;}
+.login-card h2{font-family:'Rajdhani',sans-serif;font-size:1.75rem;font-weight:700;color:#7C3AED;margin-bottom:0.5rem;}
+.login-card p{color:#94A3B8;font-size:0.9rem;margin-bottom:2rem;}
+.google-btn{display:flex;align-items:center;justify-content:center;gap:0.75rem;background:#fff;color:#1A202C;border:none;padding:0.85rem 1.5rem;border-radius:10px;font-family:'Inter',sans-serif;font-weight:600;font-size:0.95rem;cursor:pointer;width:100%;transition:all 0.2s;}
+.google-btn:hover{background:#F1F5F9;transform:translateY(-1px);}
+#adminScreen{display:none;padding:2rem;max-width:1200px;margin:0 auto;}
+.tabs{display:flex;gap:0.5rem;margin-bottom:2rem;background:#1E293B;padding:0.5rem;border-radius:12px;width:fit-content;flex-wrap:wrap;}
+.tab{padding:0.6rem 1.25rem;border-radius:8px;cursor:pointer;font-weight:600;font-size:0.9rem;color:#94A3B8;border:none;background:transparent;transition:all 0.2s;}
+.tab.active{background:#7C3AED;color:#fff;}
+.panel{display:none;}.panel.active{display:block;}
+.card{background:#1E293B;border:1px solid #334155;border-radius:16px;padding:1.5rem;margin-bottom:1.5rem;}
+.card h3{font-family:'Rajdhani',sans-serif;font-size:1.2rem;font-weight:700;color:#F1F5F9;margin-bottom:1rem;}
+.card h4{font-size:0.95rem;font-weight:700;color:#CBD5E1;margin-bottom:0.75rem;}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;}
+.form-row.three{grid-template-columns:1fr 1fr 1fr;}
+.form-row.four{grid-template-columns:1fr 1fr 1fr 1fr;}
+label{display:block;font-size:0.8rem;font-weight:600;color:#94A3B8;margin-bottom:0.4rem;text-transform:uppercase;letter-spacing:0.05em;}
+select,input,textarea{width:100%;background:#0F172A;border:1px solid #334155;border-radius:8px;padding:0.65rem 0.9rem;color:#E2E8F0;font-family:'Inter',sans-serif;font-size:0.9rem;outline:none;transition:border 0.2s;}
+select:focus,input:focus,textarea:focus{border-color:#7C3AED;}
+textarea{resize:vertical;min-height:60px;}
+.btn{padding:0.65rem 1.25rem;border-radius:8px;font-family:'Inter',sans-serif;font-weight:600;font-size:0.9rem;cursor:pointer;border:none;transition:all 0.2s;}
+.btn-primary{background:linear-gradient(135deg,#7C3AED,#A855F7);color:#fff;}
+.btn-primary:hover{opacity:0.9;transform:translateY(-1px);}
+.btn-secondary{background:#334155;color:#E2E8F0;}
+.btn-secondary:hover{background:#475569;}
+.btn-success{background:#00A86B;color:#fff;}
+.btn-success:hover{opacity:0.9;}
+.btn-danger{background:#EF4444;color:#fff;}
+.btn-warn{background:#F59E0B;color:#fff;}
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.5rem;}
+.stat-card{background:#1E293B;border:1px solid #334155;border-radius:12px;padding:1.25rem;text-align:center;}
+.stat-card .num{font-family:'Rajdhani',sans-serif;font-size:2rem;font-weight:700;color:#A855F7;}
+.stat-card .lbl{font-size:0.75rem;color:#94A3B8;font-weight:600;text-transform:uppercase;}
+.spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin 0.7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.toast{position:fixed;bottom:2rem;right:2rem;background:#1E293B;border:1px solid #334155;border-radius:10px;padding:1rem 1.5rem;color:#E2E8F0;font-size:0.9rem;font-weight:500;z-index:9999;transform:translateY(100px);transition:transform 0.3s;}
+.toast.show{transform:translateY(0);}
+.toast.success{border-color:#00A86B;color:#00A86B;}
+.toast.error{border-color:#EF4444;color:#EF4444;}
+.filter-row{display:flex;gap:0.75rem;margin-bottom:1.5rem;flex-wrap:wrap;align-items:flex-end;}
+.filter-row select{width:auto;}
+/* Section builder */
+.section-row{display:grid;grid-template-columns:2fr 1fr 1fr 1fr auto;gap:0.75rem;align-items:end;background:#0F172A;border:1px solid #334155;border-radius:10px;padding:0.75rem 1rem;margin-bottom:0.5rem;}
+.section-row label{margin-bottom:0.3rem;}
+.section-summary{background:#0F172A;border-radius:8px;padding:0.75rem 1rem;font-size:0.85rem;color:#94A3B8;margin-top:0.5rem;display:flex;gap:1.5rem;flex-wrap:wrap;}
+.section-summary span{color:#E2E8F0;font-weight:600;}
+/* Question picker */
+.qpick-item{background:#0F172A;border:1px solid #334155;border-radius:8px;padding:0.75rem 1rem;display:flex;align-items:flex-start;gap:0.75rem;margin-bottom:0.4rem;cursor:pointer;transition:border 0.15s;}
+.qpick-item:hover{border-color:#7C3AED;}
+.qpick-item.selected{border-color:#00A86B;background:#00A86B0A;}
+.qpick-item input[type=checkbox]{accent-color:#00A86B;width:16px;height:16px;flex-shrink:0;margin-top:2px;}
+.qpick-text{font-size:0.85rem;color:#CBD5E1;flex:1;}
+.qpick-meta{font-size:0.7rem;color:#64748B;margin-top:0.25rem;}
+/* Tests list */
+.test-card{background:#0F172A;border:1px solid #334155;border-radius:12px;padding:1.25rem;margin-bottom:0.75rem;}
+.test-card-header{display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;margin-bottom:0.75rem;}
+.test-card-title{font-family:'Rajdhani',sans-serif;font-size:1.05rem;font-weight:700;color:#F1F5F9;}
+.test-card-meta{display:flex;gap:0.5rem;flex-wrap:wrap;}
+.meta-tag{background:#1E293B;color:#94A3B8;padding:0.2rem 0.5rem;border-radius:100px;font-size:0.7rem;font-weight:600;}
+.meta-tag.purple{background:#7C3AED22;color:#A78BFA;}
+.meta-tag.green{background:#00A86B22;color:#00A86B;}
+.meta-tag.orange{background:#FF6B0022;color:#FF8C38;}
+.badge-published{background:#00A86B22;color:#00A86B;padding:0.2rem 0.6rem;border-radius:100px;font-size:0.7rem;font-weight:700;}
+.badge-draft{background:#F59E0B22;color:#F59E0B;padding:0.2rem 0.6rem;border-radius:100px;font-size:0.7rem;font-weight:700;}
+.badge-free{background:#00A86B22;color:#00A86B;padding:0.15rem 0.5rem;border-radius:100px;font-size:0.7rem;font-weight:700;}
+.badge-paid{background:#7C3AED22;color:#A78BFA;padding:0.15rem 0.5rem;border-radius:100px;font-size:0.7rem;font-weight:700;}
+/* Toggle */
+.toggle-wrap{display:flex;align-items:center;gap:0.75rem;margin-bottom:0.25rem;}
+.toggle{position:relative;width:40px;height:22px;flex-shrink:0;}
+.toggle input{opacity:0;width:0;height:0;}
+.slider{position:absolute;cursor:pointer;inset:0;background:#334155;border-radius:100px;transition:0.3s;}
+.slider:before{content:'';position:absolute;width:16px;height:16px;left:3px;top:3px;background:#fff;border-radius:50%;transition:0.3s;}
+.toggle input:checked + .slider{background:#7C3AED;}
+.toggle input:checked + .slider:before{transform:translateX(18px);}
+.toggle-label{font-size:0.85rem;color:#94A3B8;}
+/* auto-gen */
+.autogen-section{background:#0F172A;border:1px dashed #334155;border-radius:10px;padding:1rem;margin-bottom:0.75rem;}
+.autogen-section h5{font-size:0.85rem;font-weight:700;color:#A78BFA;margin-bottom:0.75rem;}
+.autogen-row{display:grid;grid-template-columns:2fr 1fr 1fr;gap:0.5rem;align-items:end;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>🧪 Mock Test Admin</h1>
+  <div style="display:flex;align-items:center;gap:1rem;">
+    <div class="nav-links">
+      <a href="admin.html" class="nav-link">📄 PYQs</a>
+      <a href="admin-mock.html" class="nav-link active">🧪 Mocks</a>
+      <a href="admin-chapterwise.html" class="nav-link">📚 Chapterwise</a>
+      <a href="admin-sectionwise.html" class="nav-link">📑 Sectionwise</a>
+    </div>
+    <span class="badge" id="adminName">Loading...</span>
+    <button class="btn btn-secondary" onclick="logout()" style="padding:0.4rem 0.9rem;font-size:0.8rem;">Logout</button>
+  </div>
+</div>
+
+<!-- LOGIN -->
+<div id="loginScreen">
+  <div class="login-card">
+    <h2>Mock Test Admin</h2>
+    <p>Sign in with your Google account to manage mock tests.</p>
+    <button class="google-btn" onclick="googleLogin()">
+      <svg viewBox="0 0 24 24" width="20" height="20"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+      Sign in with Google
+    </button>
+  </div>
+</div>
+
+<!-- ADMIN SCREEN -->
+<div id="adminScreen">
+  <div class="stats-grid">
+    <div class="stat-card"><div class="num" id="statMock">0</div><div class="lbl">Total Mocks</div></div>
+    <div class="stat-card"><div class="num" id="statPublished">0</div><div class="lbl">Published</div></div>
+    <div class="stat-card"><div class="num" id="statDraft">0</div><div class="lbl">Drafts</div></div>
+    <div class="stat-card"><div class="num" id="statAttempts">0</div><div class="lbl">Attempts</div></div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('create')">➕ Create Mock Test</button>
+    <button class="tab" onclick="switchTab('manage')">📋 Manage Tests</button>
+  </div>
+
+  <!-- CREATE TAB -->
+  <div class="panel active" id="panel-create">
+
+    <!-- Step 1: Test Info -->
+    <div class="card">
+      <h3>Step 1 — Test Details</h3>
+      <div class="form-row three">
+        <div>
+          <label>Exam</label>
+          <select id="mExam" onchange="onExamChange()">
+            <option value="ssc-cgl">SSC CGL</option>
+            <option value="ssc-chsl">SSC CHSL</option>
+            <option value="ssc-mts">SSC MTS</option>
+            <option value="ssc-gd">SSC GD</option>
+            <option value="ssc-cpo">SSC CPO</option>
+            <option value="ssc-jht">SSC JHT</option>
+            <option value="ssc-je">SSC JE</option>
+          </select>
+        </div>
+        <div>
+          <label>Tier / Paper</label>
+          <select id="mTier"></select>
+        </div>
+        <div>
+          <label>Test Series Number</label>
+          <input type="number" id="mSeriesNum" placeholder="e.g. 1" min="1" value="1">
+        </div>
+      </div>
+      <div class="form-row">
+        <div>
+          <label>Test Title</label>
+          <input type="text" id="mTitle" placeholder="e.g. SSC CGL Tier I Full Mock Test #1">
+        </div>
+        <div>
+          <label>Description (optional)</label>
+          <input type="text" id="mDesc" placeholder="e.g. Based on latest exam pattern 2024">
+        </div>
+      </div>
+      <div class="form-row four">
+        <div>
+          <label>Total Duration (mins)</label>
+          <input type="number" id="mDuration" placeholder="60" value="60" min="1">
+        </div>
+        <div>
+          <label>Total Marks</label>
+          <input type="number" id="mTotalMarks" placeholder="200" value="200" min="1">
+        </div>
+        <div>
+          <label>Negative Marking</label>
+          <select id="mNegative">
+            <option value="0">No Negative Marking</option>
+            <option value="0.25">−0.25 per wrong</option>
+            <option value="0.5" selected>−0.5 per wrong</option>
+            <option value="1">−1 per wrong</option>
+          </select>
+        </div>
+        <div>
+          <label>Difficulty Level</label>
+          <select id="mDifficulty">
+            <option value="easy">Easy</option>
+            <option value="medium" selected>Medium</option>
+            <option value="hard">Hard</option>
+            <option value="mixed">Mixed</option>
+          </select>
+        </div>
+      </div>
+      <div style="display:flex;gap:2rem;margin-top:0.5rem;">
+        <div>
+          <label style="text-transform:none;font-size:0.85rem;margin-bottom:0;">
+            <div class="toggle-wrap">
+              <label class="toggle"><input type="checkbox" id="mHasSections" onchange="toggleSections()"><span class="slider"></span></label>
+              <span class="toggle-label">This exam has separate sections (per-subject timing)</span>
+            </div>
+          </label>
+        </div>
+        <div>
+          <div class="toggle-wrap">
+            <label class="toggle"><input type="checkbox" id="mIsPaid"><span class="slider"></span></label>
+            <span class="toggle-label">Paid / Pro test</span>
+          </div>
+        </div>
+        <div>
+          <div class="toggle-wrap">
+            <label class="toggle"><input type="checkbox" id="mPublish" checked><span class="slider"></span></label>
+            <span class="toggle-label">Publish immediately</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 2: Sections (conditional) -->
+    <div class="card" id="sectionsCard" style="display:none;">
+      <h3>Step 2 — Sections</h3>
+      <p style="color:#94A3B8;font-size:0.85rem;margin-bottom:1rem;">Define each section of the test. Each section has its own subject, question count, marks, and optional time limit.</p>
+      <div id="sectionsList"></div>
+      <button class="btn btn-secondary" onclick="addSection()" style="margin-top:0.25rem;">+ Add Section</button>
+      <div class="section-summary" id="sectionSummary" style="display:none;margin-top:1rem;"></div>
+    </div>
+
+    <!-- Step 3: Questions -->
+    <div class="card">
+      <h3 id="step3Title">Step 2 — Add Questions</h3>
+
+      <!-- Mode selector -->
+      <div style="display:flex;gap:0.5rem;margin-bottom:1.25rem;">
+        <button class="btn" id="modeManualBtn" onclick="setQMode('manual')" style="background:#7C3AED;color:#fff;flex:1;">✋ Pick Questions Manually</button>
+        <button class="btn btn-secondary" id="modeAutoBtn" onclick="setQMode('auto')" style="flex:1;">⚡ Auto-Generate from Bank</button>
+      </div>
+
+      <!-- MANUAL MODE -->
+      <div id="manualMode">
+        <div class="filter-row" style="margin-bottom:0.75rem;">
+          <div><label>Filter by Subject</label>
+            <select id="pickSubject" onchange="loadPickQuestions()" style="width:220px;"></select>
+          </div>
+          <div><label>Filter by Chapter</label>
+            <select id="pickChapter" onchange="loadPickQuestions()" style="width:200px;"></select>
+          </div>
+          <div><label>Difficulty</label>
+            <select id="pickDiff" onchange="loadPickQuestions()" style="width:140px;">
+              <option value="">Any</option>
+              <option value="easy">Easy</option>
+              <option value="medium">Medium</option>
+              <option value="hard">Hard</option>
+            </select>
+          </div>
+          <div style="display:flex;align-items:flex-end;">
+            <button class="btn btn-secondary" onclick="loadPickQuestions()">🔍 Search</button>
+          </div>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
+          <span style="font-size:0.8rem;color:#64748B;" id="pickCount">0 questions found</span>
+          <span style="font-size:0.8rem;color:#00A86B;font-weight:600;" id="selectedCount">0 selected</span>
+        </div>
+        <div id="questionPicker" style="max-height:400px;overflow-y:auto;"></div>
+      </div>
+
+      <!-- AUTO MODE -->
+      <div id="autoMode" style="display:none;">
+        <p style="color:#94A3B8;font-size:0.85rem;margin-bottom:1rem;">Specify how many questions to auto-pick per subject/chapter from your question bank. Questions are selected randomly.</p>
+        <div id="autoGenSections"></div>
+        <button class="btn btn-secondary" onclick="addAutoSection()" style="margin-top:0.5rem;">+ Add Subject Rule</button>
+        <div style="margin-top:1rem;padding:1rem;background:#0F172A;border-radius:8px;display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
+          <span style="font-size:0.85rem;color:#94A3B8;">Total from rules:</span>
+          <span style="font-size:1rem;font-weight:700;color:#A855F7;" id="autoTotal">0 questions</span>
+          <button class="btn btn-warn" onclick="previewAutoGen()">🔍 Preview Available</button>
+        </div>
+        <div id="autoPreview" style="display:none;margin-top:0.75rem;background:#0F172A;border-radius:8px;padding:0.75rem;font-size:0.85rem;color:#94A3B8;"></div>
+      </div>
+    </div>
+
+    <!-- Save -->
+    <div class="card" style="border-color:#7C3AED44;">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;">
+        <div>
+          <div style="font-family:'Rajdhani',sans-serif;font-size:1.1rem;font-weight:700;color:#F1F5F9;" id="saveSummary">Fill in test details to see summary</div>
+          <div style="font-size:0.8rem;color:#64748B;margin-top:0.25rem;" id="saveSummary2"></div>
+        </div>
+        <div style="display:flex;gap:0.75rem;">
+          <button class="btn btn-secondary" onclick="resetForm()">🔄 Reset</button>
+          <button class="btn btn-primary" onclick="saveMockTest()" id="saveBtn">💾 Save Mock Test</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MANAGE TAB -->
+  <div class="panel" id="panel-manage">
+    <div class="card">
+      <h3>All Mock Tests</h3>
+      <div class="filter-row">
+        <select id="fExam" onchange="loadTests()" style="width:180px;">
+          <option value="">All Exams</option>
+          <option value="ssc-cgl">SSC CGL</option>
+          <option value="ssc-chsl">SSC CHSL</option>
+          <option value="ssc-mts">SSC MTS</option>
+          <option value="ssc-gd">SSC GD</option>
+          <option value="ssc-cpo">SSC CPO</option>
+          <option value="ssc-jht">SSC JHT</option>
+          <option value="ssc-je">SSC JE</option>
+        </select>
+        <select id="fStatus" onchange="loadTests()" style="width:150px;">
+          <option value="">All Status</option>
+          <option value="published">Published</option>
+          <option value="draft">Draft</option>
+        </select>
+        <select id="fPaid" onchange="loadTests()" style="width:140px;">
+          <option value="">Free + Paid</option>
+          <option value="false">Free Only</option>
+          <option value="true">Paid Only</option>
+        </select>
+      </div>
+      <div id="testsList"></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
+import { getFirestore, collection, addDoc, getDocs, deleteDoc, updateDoc, doc, query, where, getCountFromServer, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",
+  authDomain: "trickyssc-17bb3.firebaseapp.com",
+  projectId: "trickyssc-17bb3",
+  storageBucket: "trickyssc-17bb3.firebasestorage.app",
+  messagingSenderId: "450627057220",
+  appId: "1:450627057220:web:366267bf437d94f20c6e11"
+};
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const provider = new GoogleAuthProvider();
+const ADMIN_EMAILS = ['nirala01@gmail.com', 'ashish@trickyssc.com'];
+
+// ── Shared data ──
+const EXAM_TIERS = {
+  'ssc-cgl':  [{v:'tier1',l:'Tier I (CBT)'},{v:'tier2',l:'Tier II (CBT)'}],
+  'ssc-chsl': [{v:'tier1',l:'Tier I (CBT)'},{v:'tier2',l:'Tier II (Descriptive)'}],
+  'ssc-mts':  [{v:'session1',l:'Session I'},{v:'session2',l:'Session II'}],
+  'ssc-gd':   [{v:'cbt',l:'CBT'}],
+  'ssc-cpo':  [{v:'paper1',l:'Paper I (CBT)'},{v:'paper2',l:'Paper II (CBT)'}],
+  'ssc-jht':  [{v:'paper1',l:'Paper I'},{v:'paper2',l:'Paper II'}],
+  'ssc-je':   [{v:'paper1',l:'Paper I (CBT)'},{v:'paper2',l:'Paper II (Descriptive)'}],
+};
+const EXAM_SUBJECTS = {
+  'ssc-cgl':  [{v:'reasoning',l:'General Intelligence & Reasoning'},{v:'english',l:'English Language'},{v:'quant',l:'Quantitative Aptitude'},{v:'gk',l:'General Awareness'},{v:'statistics',l:'Statistics'},{v:'finance',l:'Finance & Economics'}],
+  'ssc-chsl': [{v:'reasoning',l:'General Intelligence & Reasoning'},{v:'english',l:'English Language'},{v:'quant',l:'Quantitative Aptitude'},{v:'gk',l:'General Awareness'}],
+  'ssc-mts':  [{v:'reasoning',l:'General Intelligence & Reasoning'},{v:'english',l:'English Language'},{v:'quant',l:'Numerical Ability'},{v:'gk',l:'General Awareness'}],
+  'ssc-gd':   [{v:'reasoning',l:'General Intelligence & Reasoning'},{v:'english',l:'English / Hindi'},{v:'quant',l:'Elementary Mathematics'},{v:'gk',l:'General Knowledge'}],
+  'ssc-cpo':  [{v:'reasoning',l:'General Intelligence & Reasoning'},{v:'english',l:'English Comprehension'},{v:'quant',l:'Quantitative Aptitude'},{v:'gk',l:'General Awareness'}],
+  'ssc-jht':  [{v:'translation',l:'Translation'},{v:'essay',l:'Essay & Letter Writing'},{v:'precis',l:'Précis Writing'},{v:'terminology',l:'Terminology'}],
+  'ssc-je':   [{v:'reasoning',l:'General Intelligence & Reasoning'},{v:'gk',l:'General Awareness'},{v:'civil',l:'Civil Engineering'},{v:'electrical',l:'Electrical Engineering'},{v:'mechanical',l:'Mechanical Engineering'}],
+};
+// Exams that always have sections in mock tests
+const SECTIONED_EXAMS = ['ssc-cgl','ssc-chsl','ssc-cpo','ssc-je'];
+const CHAPTERS = {
+  reasoning:['Analogies','Number/Letter Series','Coding-Decoding','Blood Relations','Direction & Distance','Syllogism','Matrix','Venn Diagram','Missing Number','Ranking & Order','Other'],
+  english:  ['Synonyms','Antonyms','Fill in the Blanks','Error Spotting','Sentence Improvement','One Word Substitution','Idioms & Phrases','Reading Comprehension','Cloze Test','Para Jumbles','Other'],
+  quant:    ['Number System','Percentage','Ratio & Proportion','SI & CI','Profit & Loss','Time & Work','Time & Distance','Geometry','Mensuration','Trigonometry','Algebra','Statistics','Other'],
+  gk:       ['History','Geography','Polity','Science & Technology','Economy','Current Affairs','Sports','Art & Culture','Other'],
+  civil:    ['Structural Engineering','Concrete Technology','Soil Mechanics','Fluid Mechanics','Transportation','Environmental Engg','Surveying','RCC & Steel','Other'],
+  electrical:['Basic Electrical','Circuit Theory','Machines','Power Systems','Control Systems','Measurement','Electronics','Other'],
+  mechanical:['Thermodynamics','Fluid Mechanics','Manufacturing','Strength of Materials','Theory of Machines','Heat Transfer','Other'],
+};
+const CHAPTER_VALS = {
+  reasoning:['analogies','series','coding-decoding','blood-relations','direction','syllogism','matrix','venn-diagram','missing-number','ranking','other'],
+  english:  ['synonyms','antonyms','fill-blanks','error-spotting','sentence-improvement','one-word','idioms','comprehension','cloze-test','para-jumbles','other'],
+  quant:    ['number-system','percentage','ratio','si-ci','profit-loss','time-work','time-distance','geometry','mensuration','trigonometry','algebra','statistics','other'],
+  gk:       ['history','geography','polity','science','economy','current-affairs','sports','art-culture','other'],
+  civil:    ['structural','concrete','soil-mechanics','fluid-mechanics','transportation','environmental','surveying','rcc-steel','other'],
+  electrical:['basic-electrical','circuit-theory','machines','power-systems','control-systems','measurement','electronics','other'],
+  mechanical:['thermodynamics','fluid-mechanics','manufacturing','strength-materials','theory-machines','heat-transfer','other'],
+};
+
+let selectedQIds = new Set();
+let currentMode = 'manual';
+let autoSectionCount = 0;
+let allBankQuestions = [];
+
+// ── Auth ──
+window.googleLogin = async () => { try { await signInWithPopup(auth, provider); } catch(e) { showToast('Login failed: '+e.message,'error'); }};
+window.logout = async () => { await signOut(auth); };
+
+onAuthStateChanged(auth, async (user) => {
+  if (user) {
+    if (!ADMIN_EMAILS.includes(user.email) && !user.email.endsWith('@trickyssc.com')) {
+      showToast('Access denied.','error'); await signOut(auth); return;
+    }
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('adminScreen').style.display = 'block';
+    document.getElementById('adminName').textContent = user.displayName || user.email;
+    onExamChange();
+    loadStats();
+    loadTests();
+  } else {
+    document.getElementById('loginScreen').style.display = 'flex';
+    document.getElementById('adminScreen').style.display = 'none';
+  }
+});
+
+// ── Stats ──
+async function loadStats() {
+  try {
+    const snap = await getDocs(collection(db,'mock_tests'));
+    const all = snap.docs.map(d=>d.data());
+    document.getElementById('statMock').textContent = all.length;
+    document.getElementById('statPublished').textContent = all.filter(d=>d.isPublished).length;
+    document.getElementById('statDraft').textContent = all.filter(d=>!d.isPublished).length;
+    const aSnap = await getCountFromServer(collection(db,'attempts'));
+    document.getElementById('statAttempts').textContent = aSnap.data().count;
+  } catch(e){}
+}
+
+// ── Exam change ──
+window.onExamChange = () => {
+  const exam = document.getElementById('mExam').value;
+  // Tiers
+  const tiers = EXAM_TIERS[exam] || [];
+  document.getElementById('mTier').innerHTML = tiers.map(t=>`<option value="${t.v}">${t.l}</option>`).join('');
+  // Auto-suggest sections toggle
+  const hasSec = SECTIONED_EXAMS.includes(exam);
+  document.getElementById('mHasSections').checked = hasSec;
+  toggleSections();
+  // Populate subject filters
+  updatePickSubjects();
+  updateSectionsList();
+  updateAutoGenSections();
+  updateSaveSummary();
+};
+
+function updatePickSubjects() {
+  const exam = document.getElementById('mExam').value;
+  const subjs = EXAM_SUBJECTS[exam] || [];
+  document.getElementById('pickSubject').innerHTML =
+    '<option value="">All Subjects</option>' + subjs.map(s=>`<option value="${s.v}">${s.l}</option>`).join('');
+  updatePickChapters();
+}
+function updatePickChapters() {
+  const subj = document.getElementById('pickSubject').value;
+  const labels = CHAPTERS[subj] || [];
+  const vals = CHAPTER_VALS[subj] || [];
+  document.getElementById('pickChapter').innerHTML =
+    '<option value="">All Chapters</option>' + labels.map((l,i)=>`<option value="${vals[i]}">${l}</option>`).join('');
+}
+document.getElementById('pickSubject').addEventListener('change', updatePickChapters);
+
+// ── Sections ──
+window.toggleSections = () => {
+  const on = document.getElementById('mHasSections').checked;
+  document.getElementById('sectionsCard').style.display = on ? 'block' : 'none';
+  document.getElementById('step3Title').textContent = on ? 'Step 3 — Add Questions' : 'Step 2 — Add Questions';
+  if (on) updateSectionsList();
+};
+
+function updateSectionsList() {
+  const exam = document.getElementById('mExam').value;
+  const subjs = EXAM_SUBJECTS[exam] || [];
+  const container = document.getElementById('sectionsList');
+  if (!container.children.length) {
+    subjs.forEach(s => addSection(s.v, s.l));
+  }
+}
+
+let sectionCount = 0;
+window.addSection = (subjectVal='', subjectLabel='') => {
+  const exam = document.getElementById('mExam').value;
+  const subjs = EXAM_SUBJECTS[exam] || [];
+  const id = ++sectionCount;
+  const div = document.createElement('div');
+  div.className = 'section-row'; div.id = 'sec-'+id;
+  div.innerHTML = `
+    <div><label>Subject</label>
+      <select id="secSubj-${id}" onchange="recalcSections()">
+        ${subjs.map(s=>`<option value="${s.v}" ${s.v===subjectVal?'selected':''}>${s.l}</option>`).join('')}
+      </select></div>
+    <div><label>Questions</label><input type="number" id="secQ-${id}" value="25" min="1" onchange="recalcSections()"></div>
+    <div><label>Marks Each</label><input type="number" id="secM-${id}" value="2" min="1" step="0.5" onchange="recalcSections()"></div>
+    <div><label>Time (mins)</label><input type="number" id="secT-${id}" placeholder="No limit" min="0" onchange="recalcSections()"></div>
+    <div style="display:flex;align-items:flex-end;padding-bottom:2px;">
+      <button class="btn btn-danger" style="padding:0.4rem 0.6rem;font-size:0.8rem;" onclick="removeSection(${id})">✕</button>
+    </div>`;
+  document.getElementById('sectionsList').appendChild(div);
+  recalcSections();
+};
+
+window.removeSection = (id) => {
+  document.getElementById('sec-'+id)?.remove();
+  recalcSections();
+};
+
+window.recalcSections = () => {
+  const rows = [...document.getElementById('sectionsList').children];
+  let totalQ=0, totalM=0;
+  rows.forEach(r => {
+    const id = r.id.replace('sec-','');
+    totalQ += parseInt(document.getElementById('secQ-'+id)?.value||0);
+    totalM += (parseInt(document.getElementById('secQ-'+id)?.value||0)) * parseFloat(document.getElementById('secM-'+id)?.value||0);
+  });
+  const sum = document.getElementById('sectionSummary');
+  sum.style.display = rows.length ? 'flex' : 'none';
+  sum.innerHTML = `<div>Total Questions: <span>${totalQ}</span></div><div>Total Marks: <span>${totalM}</span></div><div>Sections: <span>${rows.length}</span></div>`;
+  if (rows.length) { document.getElementById('mTotalMarks').value = totalM; }
+  updateSaveSummary();
+};
+
+// ── Question picker ──
+window.setQMode = (mode) => {
+  currentMode = mode;
+  document.getElementById('manualMode').style.display = mode==='manual'?'block':'none';
+  document.getElementById('autoMode').style.display = mode==='auto'?'block':'none';
+  document.getElementById('modeManualBtn').style.cssText = mode==='manual'?'background:#7C3AED;color:#fff;flex:1;':'flex:1;';
+  document.getElementById('modeAutoBtn').style.cssText = mode==='auto'?'background:#7C3AED;color:#fff;flex:1;':'flex:1;';
+  if (mode==='manual' && !allBankQuestions.length) loadPickQuestions();
+};
+
+window.loadPickQuestions = async () => {
+  const exam = document.getElementById('mExam').value;
+  const subj = document.getElementById('pickSubject').value;
+  const chap = document.getElementById('pickChapter').value;
+  const diff = document.getElementById('pickDiff').value;
+  const picker = document.getElementById('questionPicker');
+  picker.innerHTML = '<div style="color:#64748B;padding:1rem;text-align:center;">Loading...</div>';
+  try {
+    const snap = await getDocs(collection(db,'questions'));
+    let docs = snap.docs.map(d=>({id:d.id,...d.data()}));
+    docs = docs.filter(d=>d.exam===exam);
+    if (subj) docs = docs.filter(d=>d.subject===subj);
+    if (chap) docs = docs.filter(d=>d.chapter===chap);
+    if (diff) docs = docs.filter(d=>d.difficulty===diff);
+    allBankQuestions = docs;
+    document.getElementById('pickCount').textContent = `${docs.length} questions found`;
+    if (!docs.length) { picker.innerHTML='<div style="color:#64748B;padding:1rem;text-align:center;">No questions found. Adjust filters or add questions in PYQ/Chapterwise admin.</div>'; return; }
+    picker.innerHTML = docs.map(q=>`
+      <div class="qpick-item ${selectedQIds.has(q.id)?'selected':''}" id="qp-${q.id}" onclick="toggleQ('${q.id}')">
+        <input type="checkbox" ${selectedQIds.has(q.id)?'checked':''} onclick="event.stopPropagation();toggleQ('${q.id}')">
+        <div>
+          <div class="qpick-text">${q.text?.substring(0,120)}${q.text?.length>120?'…':''}</div>
+          <div class="qpick-meta">${q.subject||''} · ${q.chapter||''} · ${q.difficulty||''} · ${q.type||''}</div>
+        </div>
+      </div>`).join('');
+  } catch(e) { picker.innerHTML='<div style="color:#EF4444;padding:1rem;">Error: '+e.message+'</div>'; }
+};
+
+window.toggleQ = (id) => {
+  if (selectedQIds.has(id)) selectedQIds.delete(id);
+  else selectedQIds.add(id);
+  const el = document.getElementById('qp-'+id);
+  if (el) { el.classList.toggle('selected', selectedQIds.has(id)); el.querySelector('input').checked = selectedQIds.has(id); }
+  document.getElementById('selectedCount').textContent = selectedQIds.size + ' selected';
+  updateSaveSummary();
+};
+
+// ── Auto-gen ──
+window.addAutoSection = () => {
+  const exam = document.getElementById('mExam').value;
+  const subjs = EXAM_SUBJECTS[exam] || [];
+  const id = ++autoSectionCount;
+  const div = document.createElement('div');
+  div.className = 'autogen-section'; div.id = 'autosec-'+id;
+  div.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
+      <span style="font-size:0.8rem;font-weight:700;color:#A78BFA;">Rule #${id}</span>
+      <button class="btn btn-danger" style="padding:0.25rem 0.5rem;font-size:0.75rem;" onclick="document.getElementById('autosec-${id}').remove();calcAutoTotal()">✕</button>
+    </div>
+    <div class="autogen-row">
+      <div><label>Subject</label>
+        <select id="asSubj-${id}" onchange="calcAutoTotal()">
+          ${subjs.map(s=>`<option value="${s.v}">${s.l}</option>`).join('')}
+        </select></div>
+      <div><label>Pick (count)</label><input type="number" id="asCount-${id}" value="25" min="1" onchange="calcAutoTotal()"></div>
+      <div><label>Difficulty</label>
+        <select id="asDiff-${id}" onchange="calcAutoTotal()">
+          <option value="">Any</option><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option>
+        </select></div>
+    </div>`;
+  document.getElementById('autoGenSections').appendChild(div);
+  calcAutoTotal();
+};
+
+window.updateAutoGenSections = () => {
+  document.getElementById('autoGenSections').innerHTML = '';
+  autoSectionCount = 0;
+};
+
+window.calcAutoTotal = () => {
+  let total = 0;
+  document.querySelectorAll('[id^="asCount-"]').forEach(el => total += parseInt(el.value||0));
+  document.getElementById('autoTotal').textContent = total + ' questions';
+};
+
+window.previewAutoGen = async () => {
+  const exam = document.getElementById('mExam').value;
+  const prev = document.getElementById('autoPreview');
+  prev.style.display='block'; prev.textContent='Checking question bank...';
+  try {
+    const snap = await getDocs(collection(db,'questions'));
+    const allQ = snap.docs.map(d=>({id:d.id,...d.data()})).filter(d=>d.exam===exam);
+    let html = '';
+    document.querySelectorAll('[id^="autosec-"]').forEach(sec => {
+      const id = sec.id.replace('autosec-','');
+      const subj = document.getElementById('asSubj-'+id)?.value;
+      const count = parseInt(document.getElementById('asCount-'+id)?.value||0);
+      const diff  = document.getElementById('asDiff-'+id)?.value;
+      let pool = allQ.filter(q=>q.subject===subj);
+      if (diff) pool = pool.filter(q=>q.difficulty===diff);
+      const label = EXAM_SUBJECTS[exam]?.find(s=>s.v===subj)?.l || subj;
+      const ok = pool.length >= count;
+      html += `<div style="color:${ok?'#00A86B':'#F59E0B'};margin-bottom:0.3rem;">
+        ${ok?'✅':'⚠️'} ${label}: need ${count}, available ${pool.length} ${!ok?'(not enough!)':''}
+      </div>`;
+    });
+    prev.innerHTML = html || 'No rules defined.';
+  } catch(e) { prev.textContent='Error: '+e.message; }
+};
+
+// ── Save ──
+window.updateSaveSummary = () => {
+  const title = document.getElementById('mTitle').value || 'Untitled';
+  const dur = document.getElementById('mDuration').value;
+  const marks = document.getElementById('mTotalMarks').value;
+  const sel = currentMode==='manual' ? selectedQIds.size : '(auto)';
+  document.getElementById('saveSummary').textContent = title;
+  document.getElementById('saveSummary2').textContent = `${dur} mins · ${marks} marks · ${sel} questions selected`;
+};
+document.getElementById('mTitle').addEventListener('input', updateSaveSummary);
+document.getElementById('mDuration').addEventListener('input', updateSaveSummary);
+document.getElementById('mTotalMarks').addEventListener('input', updateSaveSummary);
+
+window.saveMockTest = async () => {
+  const exam   = document.getElementById('mExam').value;
+  const tier   = document.getElementById('mTier').value;
+  const title  = document.getElementById('mTitle').value.trim();
+  const desc   = document.getElementById('mDesc').value.trim();
+  const dur    = parseInt(document.getElementById('mDuration').value)||60;
+  const marks  = parseInt(document.getElementById('mTotalMarks').value)||200;
+  const neg    = parseFloat(document.getElementById('mNegative').value)||0;
+  const diff   = document.getElementById('mDifficulty').value;
+  const num    = parseInt(document.getElementById('mSeriesNum').value)||1;
+  const isPaid = document.getElementById('mIsPaid').checked;
+  const isPublished = document.getElementById('mPublish').checked;
+  const hasSections = document.getElementById('mHasSections').checked;
+
+  if (!title) { showToast('Please enter a test title','error'); return; }
+
+  let questionIds = [];
+  let sections = [];
+
+  if (currentMode === 'manual') {
+    questionIds = [...selectedQIds];
+    if (!questionIds.length) { showToast('Please select at least one question','error'); return; }
+  } else {
+    // Auto-generate
+    try {
+      const snap = await getDocs(collection(db,'questions'));
+      const allQ = snap.docs.map(d=>({id:d.id,...d.data()})).filter(d=>d.exam===exam);
+      const rules = [...document.querySelectorAll('[id^="autosec-"]')];
+      if (!rules.length) { showToast('Please add at least one auto-generate rule','error'); return; }
+      for (const sec of rules) {
+        const id   = sec.id.replace('autosec-','');
+        const subj = document.getElementById('asSubj-'+id)?.value;
+        const cnt  = parseInt(document.getElementById('asCount-'+id)?.value||0);
+        const dif  = document.getElementById('asDiff-'+id)?.value;
+        let pool   = allQ.filter(q=>q.subject===subj);
+        if (dif) pool = pool.filter(q=>q.difficulty===dif);
+        pool = pool.sort(()=>Math.random()-0.5).slice(0, cnt);
+        questionIds.push(...pool.map(q=>q.id));
+      }
+      if (!questionIds.length) { showToast('No questions found in bank for the given rules','error'); return; }
+    } catch(e) { showToast('Error building question set: '+e.message,'error'); return; }
+  }
+
+  // Build sections config
+  if (hasSections) {
+    [...document.getElementById('sectionsList').children].forEach(row => {
+      const id = row.id.replace('sec-','');
+      sections.push({
+        subject: document.getElementById('secSubj-'+id)?.value,
+        questionCount: parseInt(document.getElementById('secQ-'+id)?.value||0),
+        marksPerQ: parseFloat(document.getElementById('secM-'+id)?.value||2),
+        timeLimit: parseInt(document.getElementById('secT-'+id)?.value)||null,
+      });
+    });
+  }
+
+  const btn = document.getElementById('saveBtn');
+  btn.innerHTML = '<span class="spinner"></span> Saving...'; btn.disabled = true;
+  try {
+    await addDoc(collection(db,'mock_tests'), {
+      exam, tier, title, description: desc,
+      seriesNum: num,
+      duration: dur,
+      totalMarks: marks,
+      negativeMarking: neg,
+      difficulty: diff,
+      hasSections,
+      sections,
+      questionIds,
+      totalQuestions: questionIds.length,
+      isPaid,
+      isPublished,
+      type: 'mock',
+      createdAt: serverTimestamp(),
+    });
+    showToast(`✅ "${title}" saved! (${questionIds.length} questions)`,'success');
+    resetForm();
+    loadStats();
+    loadTests();
+  } catch(e) { showToast('Error: '+e.message,'error'); }
+  btn.innerHTML = '💾 Save Mock Test'; btn.disabled = false;
+};
+
+window.resetForm = () => {
+  document.getElementById('mTitle').value='';
+  document.getElementById('mDesc').value='';
+  document.getElementById('mDuration').value='60';
+  document.getElementById('mTotalMarks').value='200';
+  document.getElementById('mSeriesNum').value='1';
+  document.getElementById('mIsPaid').checked=false;
+  document.getElementById('mPublish').checked=true;
+  selectedQIds.clear();
+  document.getElementById('selectedCount').textContent='0 selected';
+  document.getElementById('sectionsList').innerHTML='';
+  sectionCount=0;
+  document.getElementById('autoGenSections').innerHTML='';
+  autoSectionCount=0;
+  document.getElementById('autoTotal').textContent='0 questions';
+  document.getElementById('autoPreview').style.display='none';
+  document.getElementById('questionPicker').innerHTML='';
+  allBankQuestions=[];
+  onExamChange();
+};
+
+// ── Load Tests ──
+window.loadTests = async () => {
+  const list = document.getElementById('testsList');
+  list.innerHTML='<div style="color:#64748B;text-align:center;padding:2rem;">Loading...</div>';
+  try {
+    const snap = await getDocs(collection(db,'mock_tests'));
+    let tests = snap.docs.map(d=>({id:d.id,...d.data()}));
+    const fExam   = document.getElementById('fExam').value;
+    const fStatus = document.getElementById('fStatus').value;
+    const fPaid   = document.getElementById('fPaid').value;
+    if (fExam)   tests = tests.filter(t=>t.exam===fExam);
+    if (fStatus) tests = tests.filter(t=> fStatus==='published'?t.isPublished:!t.isPublished);
+    if (fPaid)   tests = tests.filter(t=> String(t.isPaid)===fPaid);
+    tests.sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0));
+    if (!tests.length) { list.innerHTML='<div style="color:#64748B;text-align:center;padding:2rem;">No tests found.</div>'; return; }
+    list.innerHTML = tests.map(t=>`
+      <div class="test-card">
+        <div class="test-card-header">
+          <div>
+            <div class="test-card-title">${t.title}</div>
+            <div class="test-card-meta" style="margin-top:0.4rem;">
+              <span class="meta-tag purple">${t.exam?.toUpperCase()}</span>
+              <span class="meta-tag">${t.tier}</span>
+              <span class="meta-tag">${t.totalQuestions} Qs</span>
+              <span class="meta-tag">${t.totalMarks} marks</span>
+              <span class="meta-tag">${t.duration} mins</span>
+              <span class="${t.isPublished?'badge-published':'badge-draft'}">${t.isPublished?'Published':'Draft'}</span>
+              <span class="${t.isPaid?'badge-paid':'badge-free'}">${t.isPaid?'Paid':'Free'}</span>
+            </div>
+          </div>
+          <div style="display:flex;gap:0.5rem;flex-shrink:0;">
+            <button class="btn btn-warn" style="padding:0.35rem 0.7rem;font-size:0.8rem;" onclick="togglePublish('${t.id}',${t.isPublished})">${t.isPublished?'Unpublish':'Publish'}</button>
+            <button class="btn btn-danger" style="padding:0.35rem 0.7rem;font-size:0.8rem;" onclick="deleteTest('${t.id}')">🗑</button>
+          </div>
+        </div>
+        ${t.hasSections && t.sections?.length ? `<div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.25rem;">
+          ${t.sections.map(s=>`<span style="background:#1E293B;color:#94A3B8;padding:0.15rem 0.5rem;border-radius:6px;font-size:0.72rem;">${s.subject} · ${s.questionCount}Q</span>`).join('')}
+        </div>` : ''}
+      </div>`).join('');
+  } catch(e) { list.innerHTML='<div style="color:#EF4444;text-align:center;padding:2rem;">Error: '+e.message+'</div>'; }
+};
+
+window.togglePublish = async (id, current) => {
+  try {
+    await updateDoc(doc(db,'mock_tests',id),{isPublished:!current});
+    showToast(current?'Test unpublished':'Test published!','success');
+    loadTests(); loadStats();
+  } catch(e) { showToast('Error: '+e.message,'error'); }
+};
+
+window.deleteTest = async (id) => {
+  if (!confirm('Delete this mock test? This cannot be undone.')) return;
+  try {
+    await deleteDoc(doc(db,'mock_tests',id));
+    showToast('Test deleted','success');
+    loadTests(); loadStats();
+  } catch(e) { showToast('Error: '+e.message,'error'); }
+};
+
+window.switchTab = (tab) => {
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('panel-'+tab).classList.add('active');
+  if (tab==='manage') loadTests();
+};
+
+function showToast(msg, type='') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast show '+type;
+  setTimeout(()=>t.className='toast',3500);
+}
+</script>
+</body>
+</html>
