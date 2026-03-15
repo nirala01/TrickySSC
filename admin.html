@@ -125,6 +125,7 @@ textarea{resize:vertical;min-height:80px;}
     <button class="tab" onclick="switchTab('ai')">🤖 AI Extract</button>
     <button class="tab" onclick="switchTab('manage')">📋 Manage Questions</button>
     <button class="tab" onclick="switchTab('users')">👥 Users</button>
+    <button class="tab" onclick="switchTab('export')">📤 Export CSV</button>
   </div>
 
   <!-- TAB: Add Questions Manually -->
@@ -134,7 +135,7 @@ textarea{resize:vertical;min-height:80px;}
       <div class="form-row three">
         <div>
           <label>Exam</label>
-          <select id="qExam">
+          <select id="qExam" onchange="updateTiersAndSubjects('q')">
             <option value="ssc-cgl">SSC CGL</option>
             <option value="ssc-chsl">SSC CHSL</option>
             <option value="ssc-mts">SSC MTS</option>
@@ -147,8 +148,8 @@ textarea{resize:vertical;min-height:80px;}
         <div>
           <label>Tier / Session</label>
           <select id="qTier">
-            <option value="tier1">Tier I</option>
-            <option value="tier2">Tier II</option>
+            <option value="tier1">Tier I (CBT)</option>
+            <option value="tier2">Tier II (CBT)</option>
           </select>
         </div>
         <div>
@@ -186,8 +187,9 @@ textarea{resize:vertical;min-height:80px;}
         <div>
           <label>Subject</label>
           <select id="qSubject" onchange="updateChapters()">
-            <option value="reasoning">Reasoning</option>
-            <option value="english">English</option>
+            <option value="all">All</option>
+            <option value="reasoning">General Intelligence &amp; Reasoning</option>
+            <option value="english">English Language</option>
             <option value="quant">Quantitative Aptitude</option>
             <option value="gk">General Awareness</option>
           </select>
@@ -262,7 +264,7 @@ textarea{resize:vertical;min-height:80px;}
       <div class="form-row three">
         <div>
           <label>Exam</label>
-          <select id="aiExam">
+          <select id="aiExam" onchange="updateTiersAndSubjects('ai')">
             <option value="ssc-cgl">SSC CGL</option>
             <option value="ssc-chsl">SSC CHSL</option>
             <option value="ssc-mts">SSC MTS</option>
@@ -275,8 +277,8 @@ textarea{resize:vertical;min-height:80px;}
         <div>
           <label>Tier</label>
           <select id="aiTier">
-            <option value="tier1">Tier I</option>
-            <option value="tier2">Tier II</option>
+            <option value="tier1">Tier I (CBT)</option>
+            <option value="tier2">Tier II (CBT)</option>
           </select>
         </div>
         <div>
@@ -408,13 +410,15 @@ textarea{resize:vertical;min-height:80px;}
     <div class="card">
       <h3>All Questions</h3>
       <div class="filter-row">
-        <select id="filterExam" onchange="loadQuestions()">
+        <select id="filterExam" onchange="updateFilterSubjects(); loadQuestions()">
           <option value="">All Exams</option>
           <option value="ssc-cgl">SSC CGL</option>
           <option value="ssc-chsl">SSC CHSL</option>
           <option value="ssc-mts">SSC MTS</option>
           <option value="ssc-gd">SSC GD</option>
           <option value="ssc-cpo">SSC CPO</option>
+          <option value="ssc-jht">SSC JHT</option>
+          <option value="ssc-je">SSC JE</option>
         </select>
         <select id="filterYear" onchange="loadQuestions()">
           <option value="">All Years</option>
@@ -425,10 +429,10 @@ textarea{resize:vertical;min-height:80px;}
         </select>
         <select id="filterSubject" onchange="loadQuestions()">
           <option value="">All Subjects</option>
-          <option value="reasoning">Reasoning</option>
-          <option value="english">English</option>
-          <option value="quant">Quant</option>
-          <option value="gk">GK</option>
+          <option value="reasoning">General Intelligence &amp; Reasoning</option>
+          <option value="english">English Language</option>
+          <option value="quant">Quantitative Aptitude</option>
+          <option value="gk">General Awareness</option>
         </select>
       </div>
       <div id="questionsList" class="questions-list">
@@ -444,7 +448,122 @@ textarea{resize:vertical;min-height:80px;}
       <div id="usersTable"><p style="color:#94A3B8;text-align:center;padding:2rem;">Loading users...</p></div>
     </div>
   </div>
-</div>
+
+  <!-- TAB: Export CSV -->
+  <div class="panel" id="panel-export">
+    <div class="card">
+      <h3>📤 Export Questions to CSV</h3>
+      <p style="color:#94A3B8;font-size:0.9rem;margin-bottom:1.5rem;">Filter questions by exam, tier, year, and subject — then download as a CSV file you can open in Excel or Google Sheets.</p>
+
+      <div class="form-row three">
+        <div>
+          <label>Exam</label>
+          <select id="expExam" onchange="updateExportTiersAndSubjects()">
+            <option value="">All Exams</option>
+            <option value="ssc-cgl">SSC CGL</option>
+            <option value="ssc-chsl">SSC CHSL</option>
+            <option value="ssc-mts">SSC MTS</option>
+            <option value="ssc-gd">SSC GD</option>
+            <option value="ssc-cpo">SSC CPO</option>
+            <option value="ssc-jht">SSC JHT</option>
+            <option value="ssc-je">SSC JE</option>
+          </select>
+        </div>
+        <div>
+          <label>Tier / Session</label>
+          <select id="expTier">
+            <option value="">All Tiers</option>
+          </select>
+        </div>
+        <div>
+          <label>Year</label>
+          <select id="expYear">
+            <option value="">All Years</option>
+            <option value="2025">2025</option>
+            <option value="2024">2024</option>
+            <option value="2023">2023</option>
+            <option value="2022">2022</option>
+            <option value="2021">2021</option>
+            <option value="2020">2020</option>
+            <option value="2019">2019</option>
+            <option value="2018">2018</option>
+            <option value="2017">2017</option>
+            <option value="2016">2016</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div>
+          <label>Subject</label>
+          <select id="expSubject">
+            <option value="">All Subjects</option>
+          </select>
+        </div>
+        <div>
+          <label>Difficulty</label>
+          <select id="expDifficulty">
+            <option value="">All Difficulties</option>
+            <option value="easy">Easy</option>
+            <option value="medium">Medium</option>
+            <option value="hard">Hard</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Preview count -->
+      <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1.5rem;flex-wrap:wrap;">
+        <button class="btn btn-secondary" onclick="previewExport()">🔍 Preview Count</button>
+        <div id="expPreview" style="display:none;background:#0F172A;border-radius:8px;padding:0.6rem 1rem;">
+          <span id="expPreviewText" style="color:#FF6B00;font-weight:600;font-size:0.9rem;"></span>
+        </div>
+      </div>
+
+      <!-- Export buttons -->
+      <div style="display:flex;gap:0.75rem;flex-wrap:wrap;">
+        <button class="btn btn-primary" id="expBtn" onclick="exportCSV()" style="display:flex;align-items:center;gap:0.5rem;">
+          <span>⬇️ Download CSV</span>
+        </button>
+        <button class="btn" onclick="exportCSV(true)" style="background:linear-gradient(135deg,#0EA5E9,#38BDF8);color:#fff;display:flex;align-items:center;gap:0.5rem;">
+          <span>📋 Copy to Clipboard</span>
+        </button>
+      </div>
+
+      <!-- Progress bar -->
+      <div id="expProgress" style="display:none;margin-top:1.25rem;">
+        <div style="background:#1E293B;border-radius:6px;height:8px;overflow:hidden;margin-bottom:0.5rem;">
+          <div id="expBar" style="height:100%;background:linear-gradient(135deg,#FF6B00,#FF8C38);width:0%;transition:width 0.3s;"></div>
+        </div>
+        <div id="expStatus" style="font-size:0.85rem;color:#94A3B8;"></div>
+      </div>
+    </div>
+
+    <!-- CSV columns info -->
+    <div class="card" style="border-color:#33415544;">
+      <h3 style="font-size:1rem;margin-bottom:0.75rem;">📄 Exported CSV Columns</h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:0.5rem;">
+        <div style="background:#0F172A;border:1px solid #334155;border-radius:6px;padding:0.4rem 0.75rem;font-size:0.78rem;font-family:monospace;color:#A78BFA;">id</div>
+        <div style="background:#0F172A;border:1px solid #334155;border-radius:6px;padding:0.4rem 0.75rem;font-size:0.78rem;font-family:monospace;color:#A78BFA;">exam</div>
+        <div style="background:#0F172A;border:1px solid #334155;border-radius:6px;padding:0.4rem 0.75rem;font-size:0.78rem;font-family:monospace;color:#A78BFA;">tier</div>
+        <div style="background:#0F172A;border:1px solid #334155;border-radius:6px;padding:0.4rem 0.75rem;font-size:0.78rem;font-family:monospace;color:#A78BFA;">year</div>
+        <div style="background:#0F172A;border:1px solid #334155;border-radius:6px;padding:0.4rem 0.75rem;font-size:0.78rem;font-family:monospace;color:#A78BFA;">type</div>
+        <div style="background:#0F172A;border:1px solid #334155;border-radius:6px;padding:0.4rem 0.75rem;font-size:0.78rem;font-family:monospace;color:#A78BFA;">subject</div>
+        <div style="background:#0F172A;border:1px solid #334155;border-radius:6px;padding:0.4rem 0.75rem;font-size:0.78rem;font-family:monospace;color:#A78BFA;">chapter</div>
+        <div style="background:#0F172A;border:1px solid #334155;border-radius:6px;padding:0.4rem 0.75rem;font-size:0.78rem;font-family:monospace;color:#A78BFA;">difficulty</div>
+        <div style="background:#0F172A;border:1px solid #334155;border-radius:6px;padding:0.4rem 0.75rem;font-size:0.78rem;font-family:monospace;color:#A78BFA;">qNum</div>
+        <div style="background:#0F172A;border:1px solid #334155;border-radius:6px;padding:0.4rem 0.75rem;font-size:0.78rem;font-family:monospace;color:#A78BFA;">text</div>
+        <div style="background:#0F172A;border:1px solid #334155;border-radius:6px;padding:0.4rem 0.75rem;font-size:0.78rem;font-family:monospace;color:#A78BFA;">option_A</div>
+        <div style="background:#0F172A;border:1px solid #334155;border-radius:6px;padding:0.4rem 0.75rem;font-size:0.78rem;font-family:monospace;color:#A78BFA;">option_B</div>
+        <div style="background:#0F172A;border:1px solid #334155;border-radius:6px;padding:0.4rem 0.75rem;font-size:0.78rem;font-family:monospace;color:#A78BFA;">option_C</div>
+        <div style="background:#0F172A;border:1px solid #334155;border-radius:6px;padding:0.4rem 0.75rem;font-size:0.78rem;font-family:monospace;color:#A78BFA;">option_D</div>
+        <div style="background:#0F172A;border:1px solid #334155;border-radius:6px;padding:0.4rem 0.75rem;font-size:0.78rem;font-family:monospace;color:#A78BFA;">correct</div>
+        <div style="background:#0F172A;border:1px solid #334155;border-radius:6px;padding:0.4rem 0.75rem;font-size:0.78rem;font-family:monospace;color:#A78BFA;">explanation</div>
+        <div style="background:#0F172A;border:1px solid #334155;border-radius:6px;padding:0.4rem 0.75rem;font-size:0.78rem;font-family:monospace;color:#A78BFA;">trick</div>
+        <div style="background:#0F172A;border:1px solid #334155;border-radius:6px;padding:0.4rem 0.75rem;font-size:0.78rem;font-family:monospace;color:#A78BFA;">createdAt</div>
+      </div>
+    </div>
+  </div>
+</div><!-- /adminScreen -->
 
 <!-- Toast -->
 <div class="toast" id="toast"></div>
@@ -475,23 +594,137 @@ const ADMIN_EMAILS = ['nirala01@gmail.com', 'ashish@trickyssc.com'];
 
 let extractedQuestions = [];
 
-// Dynamic chapter list per subject
+// ── Exam → Tiers ──
+const EXAM_TIERS = {
+  'ssc-cgl':  [{v:'tier1',l:'Tier I (CBT)'},{v:'tier2',l:'Tier II (CBT)'}],
+  'ssc-chsl': [{v:'tier1',l:'Tier I (CBT)'},{v:'tier2',l:'Tier II (Descriptive)'}],
+  'ssc-mts':  [{v:'session1',l:'Session I'},{v:'session2',l:'Session II'}],
+  'ssc-gd':   [{v:'cbt',l:'CBT (Computer Based Test)'}],
+  'ssc-cpo':  [{v:'paper1',l:'Paper I (CBT)'},{v:'paper2',l:'Paper II (CBT)'}],
+  'ssc-jht':  [{v:'paper1',l:'Paper I (Translation)'},{v:'paper2',l:'Paper II (Essay & Précis)'}],
+  'ssc-je':   [{v:'paper1',l:'Paper I (CBT)'},{v:'paper2',l:'Paper II (Descriptive)'}],
+};
+
+// ── Exam → Subjects ──
+const EXAM_SUBJECTS = {
+  'ssc-cgl':  [
+    {v:'reasoning',l:'General Intelligence & Reasoning'},
+    {v:'english',l:'English Language & Comprehension'},
+    {v:'quant',l:'Quantitative Aptitude'},
+    {v:'gk',l:'General Awareness'},
+    {v:'statistics',l:'Statistics'},
+    {v:'finance',l:'General Studies (Finance & Economics)'},
+  ],
+  'ssc-chsl': [
+    {v:'reasoning',l:'General Intelligence & Reasoning'},
+    {v:'english',l:'English Language & Comprehension'},
+    {v:'quant',l:'Quantitative Aptitude (Basic Arithmetic)'},
+    {v:'gk',l:'General Awareness'},
+  ],
+  'ssc-mts':  [
+    {v:'reasoning',l:'General Intelligence & Reasoning'},
+    {v:'english',l:'English Language & Comprehension'},
+    {v:'quant',l:'Numerical & Mathematical Ability'},
+    {v:'gk',l:'General Awareness & Current Affairs'},
+  ],
+  'ssc-gd':   [
+    {v:'reasoning',l:'General Intelligence & Reasoning'},
+    {v:'english',l:'English / Hindi'},
+    {v:'quant',l:'Elementary Mathematics'},
+    {v:'gk',l:'General Knowledge & General Awareness'},
+  ],
+  'ssc-cpo':  [
+    {v:'reasoning',l:'General Intelligence & Reasoning'},
+    {v:'english',l:'English Comprehension'},
+    {v:'quant',l:'Quantitative Aptitude'},
+    {v:'gk',l:'General Awareness & General Knowledge'},
+  ],
+  'ssc-jht':  [
+    {v:'translation',l:'Translation (Hindi to English & English to Hindi)'},
+    {v:'essay',l:'Essay & Letter Writing'},
+    {v:'precis',l:'Précis Writing'},
+    {v:'terminology',l:'Terminology & Glossary'},
+  ],
+  'ssc-je':   [
+    {v:'reasoning',l:'General Intelligence & Reasoning'},
+    {v:'gk',l:'General Awareness'},
+    {v:'civil',l:'Civil Engineering'},
+    {v:'electrical',l:'Electrical Engineering'},
+    {v:'mechanical',l:'Mechanical Engineering'},
+    {v:'quant',l:'Engineering Maths & Aptitude'},
+  ],
+};
+
+// ── Subject → Chapters ──
 const CHAPTERS = {
-  reasoning: ['Analogies','Number/Letter Series','Coding-Decoding','Blood Relations','Direction & Distance','Syllogism','Matrix','Venn Diagram','Missing Number','Ranking & Order','Other'],
-  english: ['Synonyms','Antonyms','Fill in the Blanks','Error Spotting','Sentence Improvement','One Word Substitution','Idioms & Phrases','Reading Comprehension','Cloze Test','Other'],
-  quant: ['Number System','Percentage','Ratio & Proportion','SI & CI','Profit & Loss','Time & Work','Time & Distance','Geometry','Mensuration','Trigonometry','Algebra','Statistics','Other'],
-  gk: ['History','Geography','Polity','Science & Technology','Economy','Current Affairs','Sports','Art & Culture','Other']
+  reasoning:   ['Analogies','Number/Letter Series','Coding-Decoding','Blood Relations','Direction & Distance','Syllogism','Matrix','Venn Diagram','Missing Number','Ranking & Order','Non-Verbal Reasoning','Other'],
+  english:     ['Synonyms','Antonyms','Fill in the Blanks','Error Spotting','Sentence Improvement','One Word Substitution','Idioms & Phrases','Reading Comprehension','Cloze Test','Para Jumbles','Other'],
+  quant:       ['Number System','Percentage','Ratio & Proportion','SI & CI','Profit & Loss','Time & Work','Time & Distance','Geometry','Mensuration','Trigonometry','Algebra','Statistics','Data Interpretation','Other'],
+  gk:          ['History','Geography','Polity','Science & Technology','Economy','Current Affairs','Sports','Art & Culture','Environment','Other'],
+  statistics:  ['Data Collection','Classification & Tabulation','Measures of Central Tendency','Measures of Dispersion','Correlation & Regression','Probability','Index Numbers','Time Series','Other'],
+  finance:     ['Indian Economy','Finance & Accounts','Economic Theory','Budget & Fiscal Policy','Other'],
+  civil:       ['Structural Engineering','Concrete Technology','Soil Mechanics','Fluid Mechanics','Transportation Engineering','Environmental Engineering','Surveying','RCC & Steel','Other'],
+  electrical:  ['Basic Electrical','Circuit Theory','Electrical Machines','Power Systems','Control Systems','Measurement & Instrumentation','Electronics','Other'],
+  mechanical:  ['Thermodynamics','Fluid Mechanics','Manufacturing Technology','Strength of Materials','Theory of Machines','Heat Transfer','Industrial Engineering','Other'],
+  translation: ['Hindi to English','English to Hindi'],
+  essay:       ['General Topics','Social Issues','Current Affairs'],
+  precis:      ['Precis Writing Practice'],
+  terminology: ['Technical Terms','Legal Terms','Administrative Terms','Scientific Terms'],
 };
 const CHAPTER_VALS = {
-  reasoning: ['analogies','series','coding-decoding','blood-relations','direction','syllogism','matrix','venn-diagram','missing-number','ranking','other-reasoning'],
-  english: ['synonyms','antonyms','fill-blanks','error-spotting','sentence-improvement','one-word','idioms','comprehension','cloze-test','other-english'],
-  quant: ['number-system','percentage','ratio','si-ci','profit-loss','time-work','time-distance','geometry','mensuration','trigonometry','algebra','statistics','other-quant'],
-  gk: ['history','geography','polity','science','economy','current-affairs','sports','art-culture','other-gk']
+  reasoning:   ['analogies','series','coding-decoding','blood-relations','direction','syllogism','matrix','venn-diagram','missing-number','ranking','non-verbal','other-reasoning'],
+  english:     ['synonyms','antonyms','fill-blanks','error-spotting','sentence-improvement','one-word','idioms','comprehension','cloze-test','para-jumbles','other-english'],
+  quant:       ['number-system','percentage','ratio','si-ci','profit-loss','time-work','time-distance','geometry','mensuration','trigonometry','algebra','statistics','data-interpretation','other-quant'],
+  gk:          ['history','geography','polity','science','economy','current-affairs','sports','art-culture','environment','other-gk'],
+  statistics:  ['data-collection','classification','central-tendency','dispersion','correlation','probability','index-numbers','time-series','other-stats'],
+  finance:     ['indian-economy','finance-accounts','economic-theory','budget','other-finance'],
+  civil:       ['structural','concrete','soil-mechanics','fluid-mechanics','transportation','environmental','surveying','rcc-steel','other-civil'],
+  electrical:  ['basic-electrical','circuit-theory','machines','power-systems','control-systems','measurement','electronics','other-electrical'],
+  mechanical:  ['thermodynamics','fluid-mechanics','manufacturing','strength-materials','theory-machines','heat-transfer','industrial','other-mechanical'],
+  translation: ['hindi-to-english','english-to-hindi'],
+  essay:       ['general','social','current-affairs'],
+  precis:      ['precis-practice'],
+  terminology: ['technical','legal','administrative','scientific'],
+};
+
+// ── Update Tiers + Subjects when exam changes ──
+window.updateTiersAndSubjects = (prefix) => {
+  const exam = document.getElementById(prefix+'Exam').value;
+  // Update tiers
+  const tierSel = document.getElementById(prefix+'Tier');
+  const tiers = EXAM_TIERS[exam] || [{v:'tier1',l:'Tier I'},{v:'tier2',l:'Tier II'}];
+  tierSel.innerHTML = tiers.map(t => `<option value="${t.v}">${t.l}</option>`).join('');
+  // Update subjects (only for manual add tab, not AI tab)
+  if (prefix === 'q') {
+    const subjSel = document.getElementById('qSubject');
+    const subjs = EXAM_SUBJECTS[exam] || EXAM_SUBJECTS['ssc-cgl'];
+    subjSel.innerHTML = '<option value="all">All</option>' +
+      subjs.map(s => `<option value="${s.v}">${s.l}</option>`).join('');
+    updateChapters();
+  }
+};
+
+// ── Update filter subjects in Manage tab ──
+window.updateFilterSubjects = () => {
+  const exam = document.getElementById('filterExam').value;
+  const sel = document.getElementById('filterSubject');
+  if (!exam) {
+    sel.innerHTML = `<option value="">All Subjects</option>
+      <option value="reasoning">General Intelligence & Reasoning</option>
+      <option value="english">English Language</option>
+      <option value="quant">Quantitative Aptitude</option>
+      <option value="gk">General Awareness</option>`;
+    return;
+  }
+  const subjs = EXAM_SUBJECTS[exam] || EXAM_SUBJECTS['ssc-cgl'];
+  sel.innerHTML = '<option value="">All Subjects</option>' +
+    subjs.map(s => `<option value="${s.v}">${s.l}</option>`).join('');
 };
 
 window.updateChapters = () => {
   const subj = document.getElementById('qSubject').value;
   const sel = document.getElementById('qChapter');
+  if (subj === 'all') { sel.innerHTML = '<option value="all">All</option>'; return; }
   const labels = CHAPTERS[subj] || ['Other'];
   const vals = CHAPTER_VALS[subj] || ['other'];
   sel.innerHTML = labels.map((l,i) => `<option value="${vals[i]}">${l}</option>`).join('');
@@ -517,6 +750,9 @@ onAuthStateChanged(auth, async (user) => {
     document.getElementById('loginScreen').style.display = 'none';
     document.getElementById('adminScreen').style.display = 'block';
     document.getElementById('adminName').textContent = user.displayName || user.email;
+    // Initialise dynamic dropdowns
+    updateTiersAndSubjects('q');
+    updateTiersAndSubjects('ai');
     loadStats();
     loadQuestions();
     loadUsers();
@@ -900,6 +1136,7 @@ window.switchTab = (tab) => {
   document.getElementById('panel-'+tab).classList.add('active');
   if (tab === 'manage') loadQuestions();
   if (tab === 'users') loadUsers();
+  if (tab === 'export') updateExportTiersAndSubjects();
 };
 
 window.highlightCorrect = (letter) => {
@@ -915,6 +1152,114 @@ function showToast(msg, type='') {
   t.className = 'toast show ' + type;
   setTimeout(() => t.className = 'toast', 3000);
 }
+
+// ── Export CSV ──
+window.updateExportTiersAndSubjects = () => {
+  const exam = document.getElementById('expExam').value;
+  // Tiers
+  const tierSel = document.getElementById('expTier');
+  const tiers = exam ? (EXAM_TIERS[exam] || []) : [];
+  tierSel.innerHTML = '<option value="">All Tiers</option>' +
+    tiers.map(t => `<option value="${t.v}">${t.l}</option>`).join('');
+  // Subjects
+  const subjSel = document.getElementById('expSubject');
+  const subjs = exam ? (EXAM_SUBJECTS[exam] || []) : [];
+  subjSel.innerHTML = '<option value="">All Subjects</option>' +
+    subjs.map(s => `<option value="${s.v}">${s.l}</option>`).join('');
+  document.getElementById('expPreview').style.display = 'none';
+};
+
+async function fetchExportDocs() {
+  const exam    = document.getElementById('expExam').value;
+  const tier    = document.getElementById('expTier').value;
+  const year    = document.getElementById('expYear').value;
+  const subject = document.getElementById('expSubject').value;
+  const diff    = document.getElementById('expDifficulty').value;
+
+  const snap = await getDocs(collection(db, 'questions'));
+  let docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  if (exam)    docs = docs.filter(d => d.exam    === exam);
+  if (tier)    docs = docs.filter(d => d.tier    === tier);
+  if (year)    docs = docs.filter(d => d.year    === year);
+  if (subject) docs = docs.filter(d => d.subject === subject);
+  if (diff)    docs = docs.filter(d => d.difficulty === diff);
+  return docs;
+}
+
+window.previewExport = async () => {
+  document.getElementById('expPreview').style.display = 'none';
+  try {
+    const docs = await fetchExportDocs();
+    document.getElementById('expPreviewText').textContent =
+      `Found ${docs.length} question${docs.length !== 1 ? 's' : ''} matching your filters`;
+    document.getElementById('expPreview').style.display = 'block';
+  } catch(e) { showToast('Error: ' + e.message, 'error'); }
+};
+
+function escapeCSV(val) {
+  if (val === null || val === undefined) return '';
+  const s = String(val).replace(/"/g, '""');
+  return /[",\n\r]/.test(s) ? `"${s}"` : s;
+}
+
+function docsToCSV(docs) {
+  const headers = ['id','exam','tier','year','type','subject','chapter','difficulty','qNum',
+    'text','option_A','option_B','option_C','option_D','correct','explanation','trick','createdAt'];
+  const rows = docs.map(d => [
+    d.id, d.exam, d.tier, d.year, d.type, d.subject, d.chapter, d.difficulty, d.qNum,
+    d.text,
+    d.options?.A || '', d.options?.B || '', d.options?.C || '', d.options?.D || '',
+    d.correct, d.explanation, d.trick,
+    d.createdAt?.toDate ? d.createdAt.toDate().toISOString() : (d.createdAt || '')
+  ].map(escapeCSV).join(','));
+  return [headers.join(','), ...rows].join('\n');
+}
+
+window.exportCSV = async (toClipboard = false) => {
+  const prog = document.getElementById('expProgress');
+  const bar  = document.getElementById('expBar');
+  const status = document.getElementById('expStatus');
+  prog.style.display = 'block';
+  bar.style.width = '20%';
+  status.textContent = 'Fetching questions from database...';
+
+  try {
+    const docs = await fetchExportDocs();
+    if (!docs.length) { showToast('No questions found for selected filters', 'error'); prog.style.display='none'; return; }
+
+    bar.style.width = '70%';
+    status.textContent = `Building CSV for ${docs.length} questions...`;
+    const csv = docsToCSV(docs);
+    bar.style.width = '100%';
+
+    if (toClipboard) {
+      await navigator.clipboard.writeText(csv);
+      status.textContent = `✅ ${docs.length} questions copied to clipboard!`;
+      showToast(`✅ ${docs.length} questions copied!`, 'success');
+    } else {
+      // Build filename from filters
+      const exam = document.getElementById('expExam').value || 'all-exams';
+      const year = document.getElementById('expYear').value || 'all-years';
+      const tier = document.getElementById('expTier').value || 'all-tiers';
+      const filename = `trickyssc_${exam}_${tier}_${year}_${docs.length}q.csv`;
+
+      const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href = url; a.download = filename; a.click();
+      URL.revokeObjectURL(url);
+
+      status.textContent = `✅ Downloaded ${docs.length} questions as "${filename}"`;
+      showToast(`✅ ${docs.length} questions exported!`, 'success');
+    }
+
+    setTimeout(() => { prog.style.display = 'none'; bar.style.width = '0%'; }, 4000);
+  } catch(e) {
+    showToast('Export failed: ' + e.message, 'error');
+    status.textContent = '❌ ' + e.message;
+    bar.style.width = '0%';
+  }
+};
 </script>
 </body>
 </html>
