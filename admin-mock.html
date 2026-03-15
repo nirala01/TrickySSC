@@ -243,9 +243,10 @@ textarea{resize:vertical;min-height:60px;}
       <h3 id="step3Title">Step 2 — Add Questions</h3>
 
       <!-- Mode selector -->
-      <div style="display:flex;gap:0.5rem;margin-bottom:1.25rem;">
-        <button class="btn" id="modeManualBtn" onclick="setQMode('manual')" style="background:#7C3AED;color:#fff;flex:1;">✋ Pick Questions Manually</button>
-        <button class="btn btn-secondary" id="modeAutoBtn" onclick="setQMode('auto')" style="flex:1;">⚡ Auto-Generate from Bank</button>
+      <div style="display:flex;gap:0.5rem;margin-bottom:1.25rem;flex-wrap:wrap;">
+        <button class="btn" id="modeManualBtn" onclick="setQMode('manual')" style="background:#7C3AED;color:#fff;flex:1;">✋ Pick from Bank</button>
+        <button class="btn btn-secondary" id="modeWriteBtn" onclick="setQMode('write')" style="flex:1;">✏️ Write New Questions</button>
+        <button class="btn btn-secondary" id="modeAutoBtn" onclick="setQMode('auto')" style="flex:1;">⚡ Auto-Generate</button>
       </div>
 
       <!-- MANUAL MODE -->
@@ -274,6 +275,95 @@ textarea{resize:vertical;min-height:60px;}
           <span style="font-size:0.8rem;color:#00A86B;font-weight:600;" id="selectedCount">0 selected</span>
         </div>
         <div id="questionPicker" style="max-height:400px;overflow-y:auto;"></div>
+      </div>
+
+      <!-- WRITE MODE — Full question entry form like PYQ admin -->
+      <div id="writeMode" style="display:none;">
+        <div style="background:#0F172A;border:1px solid #334155;border-radius:12px;padding:1.25rem;margin-bottom:1rem;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+            <div style="font-size:0.85rem;font-weight:700;color:#A78BFA;">Write questions directly — they'll be saved to the question bank AND added to this mock test.</div>
+            <span style="font-size:0.8rem;color:#00A86B;font-weight:600;" id="writeCount">0 written</span>
+          </div>
+
+          <div class="form-row three">
+            <div>
+              <label>Subject</label>
+              <select id="wSubject" onchange="updateWriteChapters()"></select>
+            </div>
+            <div>
+              <label>Chapter / Topic</label>
+              <select id="wChapter"></select>
+            </div>
+            <div>
+              <label>Difficulty</label>
+              <select id="wDifficulty">
+                <option value="easy">Easy</option>
+                <option value="medium" selected>Medium</option>
+                <option value="hard">Hard</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="margin-bottom:1rem;">
+            <label>Question Text</label>
+            <textarea id="wText" placeholder="Type the question here..." style="min-height:80px;"></textarea>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:1rem;">
+            <div style="display:flex;align-items:center;gap:0.5rem;">
+              <span class="wlbl" id="wlbl-A" style="background:#334155;color:#94A3B8;padding:0.4rem 0.6rem;border-radius:6px;font-weight:700;font-size:0.8rem;min-width:28px;text-align:center;">A</span>
+              <input type="text" id="wOptA" placeholder="Option A">
+            </div>
+            <div style="display:flex;align-items:center;gap:0.5rem;">
+              <span class="wlbl" id="wlbl-B" style="background:#334155;color:#94A3B8;padding:0.4rem 0.6rem;border-radius:6px;font-weight:700;font-size:0.8rem;min-width:28px;text-align:center;">B</span>
+              <input type="text" id="wOptB" placeholder="Option B">
+            </div>
+            <div style="display:flex;align-items:center;gap:0.5rem;">
+              <span class="wlbl" id="wlbl-C" style="background:#334155;color:#94A3B8;padding:0.4rem 0.6rem;border-radius:6px;font-weight:700;font-size:0.8rem;min-width:28px;text-align:center;">C</span>
+              <input type="text" id="wOptC" placeholder="Option C">
+            </div>
+            <div style="display:flex;align-items:center;gap:0.5rem;">
+              <span class="wlbl" id="wlbl-D" style="background:#334155;color:#94A3B8;padding:0.4rem 0.6rem;border-radius:6px;font-weight:700;font-size:0.8rem;min-width:28px;text-align:center;">D</span>
+              <input type="text" id="wOptD" placeholder="Option D">
+            </div>
+          </div>
+
+          <div style="margin-bottom:1rem;">
+            <label>Correct Answer</label>
+            <div style="display:flex;gap:0.75rem;">
+              <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;font-size:0.85rem;color:#94A3B8;font-weight:500;text-transform:none;letter-spacing:0;">
+                <input type="radio" name="wCorrect" value="A" onchange="wHighlight('A')" style="accent-color:#00A86B;"> A
+              </label>
+              <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;font-size:0.85rem;color:#94A3B8;font-weight:500;text-transform:none;letter-spacing:0;">
+                <input type="radio" name="wCorrect" value="B" onchange="wHighlight('B')" style="accent-color:#00A86B;"> B
+              </label>
+              <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;font-size:0.85rem;color:#94A3B8;font-weight:500;text-transform:none;letter-spacing:0;">
+                <input type="radio" name="wCorrect" value="C" onchange="wHighlight('C')" style="accent-color:#00A86B;"> C
+              </label>
+              <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;font-size:0.85rem;color:#94A3B8;font-weight:500;text-transform:none;letter-spacing:0;">
+                <input type="radio" name="wCorrect" value="D" onchange="wHighlight('D')" style="accent-color:#00A86B;"> D
+              </label>
+            </div>
+          </div>
+
+          <div style="margin-bottom:1rem;">
+            <label>📝 Step-by-Step Solution (optional)</label>
+            <textarea id="wExplanation" placeholder="Write the full solution here..."></textarea>
+          </div>
+
+          <div style="margin-bottom:1rem;">
+            <label>⚡ Tricky Shortcut (optional)</label>
+            <textarea id="wTrick" placeholder="Write the quick trick or shortcut..."></textarea>
+          </div>
+
+          <button class="btn btn-success" onclick="addWrittenQuestion()" style="width:100%;">+ Add Question to Mock Test</button>
+        </div>
+
+        <!-- Written questions list -->
+        <div id="writtenList" style="display:none;">
+          <div style="font-size:0.8rem;font-weight:700;color:#64748B;margin-bottom:0.5rem;text-transform:uppercase;letter-spacing:0.05em;">Added Questions</div>
+          <div id="writtenItems"></div>
+        </div>
       </div>
 
       <!-- AUTO MODE -->
@@ -450,6 +540,7 @@ window.onExamChange = () => {
   updatePickSubjects();
   updateSectionsList();
   updateAutoGenSections();
+  updateWriteSubjects();
   updateSaveSummary();
 };
 
@@ -529,13 +620,119 @@ window.recalcSections = () => {
 };
 
 // ── Question picker ──
+let writtenQIds = []; // IDs of questions written directly in write mode
+
 window.setQMode = (mode) => {
   currentMode = mode;
-  document.getElementById('manualMode').style.display = mode==='manual'?'block':'none';
-  document.getElementById('autoMode').style.display = mode==='auto'?'block':'none';
-  document.getElementById('modeManualBtn').style.cssText = mode==='manual'?'background:#7C3AED;color:#fff;flex:1;':'flex:1;';
-  document.getElementById('modeAutoBtn').style.cssText = mode==='auto'?'background:#7C3AED;color:#fff;flex:1;':'flex:1;';
+  document.getElementById('manualMode').style.display  = mode==='manual'?'block':'none';
+  document.getElementById('writeMode').style.display   = mode==='write'?'block':'none';
+  document.getElementById('autoMode').style.display    = mode==='auto'?'block':'none';
+  const active = 'background:#7C3AED;color:#fff;flex:1;';
+  const inactive = 'flex:1;';
+  document.getElementById('modeManualBtn').style.cssText = mode==='manual'?active:inactive;
+  document.getElementById('modeWriteBtn').style.cssText  = mode==='write'?active:inactive;
+  document.getElementById('modeAutoBtn').style.cssText   = mode==='auto'?active:inactive;
   if (mode==='manual' && !allBankQuestions.length) loadPickQuestions();
+  if (mode==='write') updateWriteSubjects();
+};
+
+// ── Write mode: populate subjects from current exam ──
+window.updateWriteSubjects = () => {
+  const exam = document.getElementById('mExam').value;
+  const subjs = EXAM_SUBJECTS[exam] || [];
+  document.getElementById('wSubject').innerHTML = subjs.map(s=>`<option value="${s.v}">${s.l}</option>`).join('');
+  updateWriteChapters();
+};
+
+window.updateWriteChapters = () => {
+  const subj = document.getElementById('wSubject').value;
+  const labels = CHAPTERS[subj] || ['Other'];
+  const vals   = CHAPTER_VALS[subj] || ['other'];
+  document.getElementById('wChapter').innerHTML = labels.map((l,i)=>`<option value="${vals[i]}">${l}</option>`).join('');
+};
+
+window.wHighlight = (letter) => {
+  ['A','B','C','D'].forEach(l => {
+    const el = document.getElementById('wlbl-'+l);
+    if (el) el.style.cssText = l===letter
+      ? 'background:#00A86B;color:#fff;padding:0.4rem 0.6rem;border-radius:6px;font-weight:700;font-size:0.8rem;min-width:28px;text-align:center;'
+      : 'background:#334155;color:#94A3B8;padding:0.4rem 0.6rem;border-radius:6px;font-weight:700;font-size:0.8rem;min-width:28px;text-align:center;';
+  });
+};
+
+window.addWrittenQuestion = async () => {
+  const exam    = document.getElementById('mExam').value;
+  const text    = document.getElementById('wText').value.trim();
+  const optA    = document.getElementById('wOptA').value.trim();
+  const optB    = document.getElementById('wOptB').value.trim();
+  const optC    = document.getElementById('wOptC').value.trim();
+  const optD    = document.getElementById('wOptD').value.trim();
+  const correct = document.querySelector('input[name="wCorrect"]:checked');
+  const subject = document.getElementById('wSubject').value;
+  const chapter = document.getElementById('wChapter').value;
+  const diff    = document.getElementById('wDifficulty').value;
+
+  if (!text||!optA||!optB||!optC||!optD||!correct) {
+    showToast('Please fill all fields and select the correct answer','error'); return;
+  }
+
+  try {
+    // Save to questions collection (same bank as PYQ/chapterwise)
+    const ref = await addDoc(collection(db,'questions'), {
+      type: 'mock',
+      exam, subject, chapter,
+      difficulty: diff,
+      tier: document.getElementById('mTier').value,
+      text,
+      options: {A:optA, B:optB, C:optC, D:optD},
+      correct: correct.value,
+      explanation: document.getElementById('wExplanation').value.trim(),
+      trick: document.getElementById('wTrick').value.trim(),
+      qNum: writtenQIds.length + 1,
+      year: null, shift: null,
+      createdAt: serverTimestamp(),
+    });
+
+    writtenQIds.push(ref.id);
+    updateSaveSummary();
+
+    // Show in written list
+    const listEl = document.getElementById('writtenItems');
+    const item = document.createElement('div');
+    item.style.cssText='background:#0F172A;border:1px solid #334155;border-radius:8px;padding:0.75rem;margin-bottom:0.4rem;display:flex;justify-content:space-between;align-items:flex-start;gap:0.75rem;';
+    item.innerHTML=`
+      <div>
+        <div style="font-size:0.85rem;color:#CBD5E1;margin-bottom:0.25rem;">${writtenQIds.length}. ${text.substring(0,100)}${text.length>100?'…':''}</div>
+        <div style="font-size:0.7rem;color:#64748B;">${subject} · ${chapter} · ${diff} · Ans: ${correct.value}</div>
+      </div>
+      <button class="btn btn-danger" style="padding:0.25rem 0.5rem;font-size:0.75rem;flex-shrink:0;" onclick="removeWritten('${ref.id}',this)">✕</button>`;
+    listEl.appendChild(item);
+    document.getElementById('writtenList').style.display='block';
+    document.getElementById('writeCount').textContent = writtenQIds.length + ' written';
+
+    // Clear form for next question
+    ['wText','wOptA','wOptB','wOptC','wOptD','wExplanation','wTrick'].forEach(id=>document.getElementById(id).value='');
+    document.querySelectorAll('input[name="wCorrect"]').forEach(r=>r.checked=false);
+    ['A','B','C','D'].forEach(l=>{
+      const el=document.getElementById('wlbl-'+l);
+      if(el) el.style.cssText='background:#334155;color:#94A3B8;padding:0.4rem 0.6rem;border-radius:6px;font-weight:700;font-size:0.8rem;min-width:28px;text-align:center;';
+    });
+
+    showToast('✅ Question added! Write the next one.','success');
+  } catch(e) { showToast('Error: '+e.message,'error'); }
+};
+
+window.removeWritten = async (id, btn) => {
+  if (!confirm('Remove this question? It will also be deleted from the database.')) return;
+  try {
+    await deleteDoc(doc(db,'questions',id));
+    writtenQIds = writtenQIds.filter(q=>q!==id);
+    btn.closest('div[style]').remove();
+    document.getElementById('writeCount').textContent = writtenQIds.length + ' written';
+    if (!writtenQIds.length) document.getElementById('writtenList').style.display='none';
+    updateSaveSummary();
+    showToast('Removed','success');
+  } catch(e) { showToast('Error: '+e.message,'error'); }
 };
 
 window.loadPickQuestions = async () => {
@@ -643,7 +840,9 @@ window.updateSaveSummary = () => {
   const title = document.getElementById('mTitle').value || 'Untitled';
   const dur = document.getElementById('mDuration').value;
   const marks = document.getElementById('mTotalMarks').value;
-  const sel = currentMode==='manual' ? selectedQIds.size : '(auto)';
+  const sel = currentMode==='manual' ? selectedQIds.size
+            : currentMode==='write'  ? writtenQIds.length
+            : '(auto)';
   document.getElementById('saveSummary').textContent = title;
   document.getElementById('saveSummary2').textContent = `${dur} mins · ${marks} marks · ${sel} questions selected`;
 };
@@ -673,6 +872,9 @@ window.saveMockTest = async () => {
   if (currentMode === 'manual') {
     questionIds = [...selectedQIds];
     if (!questionIds.length) { showToast('Please select at least one question','error'); return; }
+  } else if (currentMode === 'write') {
+    questionIds = [...writtenQIds];
+    if (!questionIds.length) { showToast('Please write at least one question','error'); return; }
   } else {
     // Auto-generate
     try {
@@ -743,7 +945,13 @@ window.resetForm = () => {
   document.getElementById('mIsPaid').checked=false;
   document.getElementById('mPublish').checked=true;
   selectedQIds.clear();
+  writtenQIds = [];
   document.getElementById('selectedCount').textContent='0 selected';
+  document.getElementById('writeCount').textContent='0 written';
+  document.getElementById('writtenItems').innerHTML='';
+  document.getElementById('writtenList').style.display='none';
+  ['wText','wOptA','wOptB','wOptC','wOptD','wExplanation','wTrick'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  document.querySelectorAll('input[name="wCorrect"]').forEach(r=>r.checked=false);
   document.getElementById('sectionsList').innerHTML='';
   sectionCount=0;
   document.getElementById('autoGenSections').innerHTML='';
