@@ -136,7 +136,6 @@ textarea{resize:vertical;min-height:60px;}
 
   <div class="tabs">
     <button class="tab active" onclick="switchTab('create')">➕ Create Mock Test</button>
-    <button class="tab" onclick="switchTab('import')">📥 Import CSV</button>
     <button class="tab" onclick="switchTab('manage')">📋 Manage Tests</button>
   </div>
 
@@ -306,46 +305,6 @@ textarea{resize:vertical;min-height:60px;}
     </div>
   </div>
 
-  <!-- IMPORT CSV TAB -->
-  <div class="panel" id="panel-import">
-    <div class="card">
-      <h3>📥 Import Questions from CSV</h3>
-      <p style="color:#94A3B8;font-size:0.9rem;margin-bottom:1.5rem;">Bulk-import questions directly into the question bank from a CSV file. These questions can then be used when creating mock tests. Required columns: <code style="color:#A78BFA;">text, option_A, option_B, option_C, option_D, correct, exam, subject</code>. Optional: <code style="color:#A78BFA;">explanation, trick, difficulty, chapter, tier, year, qNum, type</code>.</p>
-      <div onclick="document.getElementById('mCsvFileInput').click()" style="border:2px dashed #334155;border-radius:12px;padding:2rem;text-align:center;cursor:pointer;transition:all 0.2s;margin-bottom:1rem;">
-        <input type="file" id="mCsvFileInput" accept=".csv" onchange="handleCSVUpload(event)" style="display:none;">
-        <div style="font-size:2.5rem;margin-bottom:0.5rem;">📄</div>
-        <p style="color:#94A3B8;font-size:0.9rem;">Click to select CSV file</p>
-        <p style="color:#7C3AED;font-size:0.85rem;font-weight:600;margin-top:0.3rem;">Only .csv files</p>
-      </div>
-      <div id="csvPreview" style="display:none;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem;flex-wrap:wrap;gap:0.5rem;">
-          <div>
-            <span id="csvFileName" style="font-weight:600;color:#E2E8F0;"></span>
-            <span id="csvRowCount" style="color:#94A3B8;font-size:0.85rem;margin-left:0.75rem;"></span>
-          </div>
-          <div style="display:flex;gap:0.5rem;">
-            <button class="btn btn-secondary" onclick="clearCSV()">✕ Clear</button>
-            <button class="btn btn-primary" id="csvImportBtn" onclick="importCSV()">⬆️ Import All</button>
-          </div>
-        </div>
-        <div id="csvValidation" style="margin-bottom:0.75rem;"></div>
-        <div style="overflow-x:auto;border:1px solid #334155;border-radius:8px;">
-          <table style="width:100%;border-collapse:collapse;">
-            <thead id="csvPreviewHead" style="background:#0F172A;"></thead>
-            <tbody id="csvPreviewBody"></tbody>
-          </table>
-        </div>
-        <p style="color:#64748B;font-size:0.78rem;margin-top:0.5rem;">Showing first 10 rows for preview.</p>
-      </div>
-      <div id="csvProgress" style="display:none;margin-top:1.25rem;">
-        <div style="background:#1E293B;border-radius:6px;height:8px;overflow:hidden;margin-bottom:0.5rem;">
-          <div id="csvBar" style="height:100%;background:linear-gradient(135deg,#7C3AED,#A78BFA);width:0%;transition:width 0.3s;"></div>
-        </div>
-        <div id="csvStatus" style="font-size:0.85rem;color:#94A3B8;"></div>
-      </div>
-    </div>
-  </div>
-
   <!-- MANAGE TAB -->
   <div class="panel" id="panel-manage">
     <div class="card">
@@ -383,6 +342,7 @@ textarea{resize:vertical;min-height:60px;}
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
 import { getFirestore, collection, addDoc, getDocs, deleteDoc, updateDoc, doc, query, where, getCountFromServer, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-storage.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",
@@ -395,6 +355,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const storage = getStorage(app);
 const provider = new GoogleAuthProvider();
 const ADMIN_EMAILS = ['nirala01@gmail.com', 'ashish@trickyssc.com'];
 
@@ -861,57 +822,6 @@ window.switchTab = (tab) => {
   event.target.classList.add('active');
   document.getElementById('panel-'+tab).classList.add('active');
   if (tab==='manage') loadTests();
-};
-
-// ── CSV Import (into questions bank) ──
-let csvParsedRows = [];
-window.handleCSVUpload = (event) => {
-  const file = event.target.files[0]; if(!file) return;
-  const r = new FileReader(); r.onload = (e) => parseAndPreviewCSV(e.target.result, file.name); r.readAsText(file,'UTF-8');
-};
-function parseCSVLine(line){const result=[];let cur='';let inQ=false;for(let i=0;i<line.length;i++){const c=line[i];if(c==='"'){if(inQ&&line[i+1]==='"'){cur+='"';i++;}else{inQ=!inQ;}}else if(c===','&&!inQ){result.push(cur);cur='';}else cur+=c;}result.push(cur);return result;}
-function parseAndPreviewCSV(text,filename){
-  const lines=text.replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n').filter(l=>l.trim());
-  if(lines.length<2){showToast('Need header + rows','error');return;}
-  const headers=parseCSVLine(lines[0]).map(h=>h.trim().replace(/^\uFEFF/,''));
-  const required=['text','option_A','option_B','option_C','option_D','correct','exam','subject'];
-  const missing=required.filter(r=>!headers.includes(r));
-  const validEl=document.getElementById('csvValidation');
-  if(missing.length){validEl.innerHTML=`<div style="background:#EF444422;border:1px solid #EF444444;border-radius:8px;padding:0.75rem;color:#EF4444;font-size:0.85rem;">❌ Missing columns: <strong>${missing.join(', ')}</strong></div>`;}
-  else{validEl.innerHTML=`<div style="background:#00A86B22;border:1px solid #00A86B44;border-radius:8px;padding:0.75rem;color:#00A86B;font-size:0.85rem;">✅ All required columns found. Ready to import.</div>`;}
-  csvParsedRows=lines.slice(1).map(l=>{const vals=parseCSVLine(l);const obj={};headers.forEach((h,i)=>obj[h]=vals[i]||'');return obj;});
-  document.getElementById('csvFileName').textContent='📄 '+filename;
-  document.getElementById('csvRowCount').textContent=csvParsedRows.length+' rows';
-  const visH=['text','option_A','option_B','option_C','option_D','correct','exam','subject','difficulty'].filter(h=>headers.includes(h));
-  document.getElementById('csvPreviewHead').innerHTML='<tr>'+visH.map(h=>`<th style="background:#0F172A;padding:0.5rem 0.75rem;text-align:left;font-size:0.75rem;font-weight:700;color:#94A3B8;text-transform:uppercase;">${h}</th>`).join('')+'</tr>';
-  document.getElementById('csvPreviewBody').innerHTML=csvParsedRows.slice(0,10).map(row=>'<tr>'+visH.map(h=>`<td style="padding:0.5rem 0.75rem;border-bottom:1px solid #1E293B;font-size:0.82rem;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${row[h]||''}</td>`).join('')+'</tr>').join('');
-  document.getElementById('csvPreview').style.display='block';
-  document.getElementById('csvImportBtn').disabled=missing.length>0;
-}
-window.clearCSV=()=>{csvParsedRows=[];document.getElementById('mCsvFileInput').value='';document.getElementById('csvPreview').style.display='none';document.getElementById('csvProgress').style.display='none';};
-window.importCSV=async()=>{
-  if(!csvParsedRows.length)return;
-  const prog=document.getElementById('csvProgress'),bar=document.getElementById('csvBar'),status=document.getElementById('csvStatus');
-  prog.style.display='block';bar.style.width='0%';document.getElementById('csvImportBtn').disabled=true;
-  let saved=0,errors=0;
-  for(let i=0;i<csvParsedRows.length;i++){
-    const r=csvParsedRows[i];if(!r.text||!r.correct||!r.exam)continue;
-    try{
-      await addDoc(collection(db,'questions'),{
-        text:r.text,exam:r.exam,type:r.type||'mock',tier:r.tier||'tier1',subject:r.subject||'',
-        chapter:r.chapter||'',difficulty:r.difficulty||'medium',qNum:parseInt(r.qNum)||0,year:r.year||null,
-        options:{A:r.option_A||'',B:r.option_B||'',C:r.option_C||'',D:r.option_D||''},
-        correct:r.correct,explanation:r.explanation||'',trick:r.trick||'',
-        createdAt:serverTimestamp()
-      });
-      saved++;
-    }catch(e){errors++;}
-    bar.style.width=((i+1)/csvParsedRows.length*100)+'%';
-    status.textContent=`Importing ${i+1}/${csvParsedRows.length}...`;
-  }
-  status.textContent=`✅ Imported ${saved} questions${errors?' ('+errors+' errors)':''}.`;
-  showToast(`✅ ${saved} questions imported to bank!`,'success');
-  document.getElementById('csvImportBtn').disabled=false;
 };
 
 function showToast(msg, type='') {

@@ -8,17 +8,12 @@
 <style>
 body{margin:0;font-family:'Noto Sans',sans-serif;background:#F1F5F9;}
 #loader{position:fixed;inset:0;background:#FF6B00;color:white;display:flex;flex-direction:column;justify-content:center;align-items:center;font-weight:700;font-size:22px;z-index:1000;}
-#loader .sub{font-size:13px;font-weight:400;margin-top:8px;opacity:0.85;}
 #testScreen{display:none;height:100vh;flex-direction:column;}
 .topbar{background:#1F2937;color:white;display:flex;justify-content:space-between;align-items:center;padding:10px 20px;gap:10px;flex-wrap:wrap;}
 .topbar-left{display:flex;flex-direction:column;}
 .exam-title{font-family:'Rajdhani';font-size:16px;font-weight:700;color:#FF6B00;}
-.exam-subtitle{font-size:11px;color:#9CA3AF;margin-top:1px;}
 .user-name{font-size:12px;color:#9CA3AF;}
 .timer{font-family:'Rajdhani';font-size:24px;font-weight:700;color:#FF6B00;}
-.timer.warning{color:#F59E0B;}
-.timer.danger{color:#EF4444;animation:pulse 1s ease-in-out infinite;}
-@keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.5;}}
 .topbar-right{display:flex;align-items:center;gap:10px;}
 .main{flex:1;display:flex;overflow:hidden;}
 .questionPanel{flex:1;padding:24px;overflow:auto;}
@@ -34,23 +29,12 @@ body{margin:0;font-family:'Noto Sans',sans-serif;background:#F1F5F9;}
 .btn-prev{background:#E5E7EB;color:#374151;}
 .btn-next{background:#FF6B00;color:white;}
 .btn-submit{background:#1F2937;color:white;}
-.btn-mark{background:#F59E0B;color:white;}
-.btn-marked{background:#7C3AED;color:white;}
 .sidebar{width:200px;border-left:1px solid #E5E7EB;padding:12px;overflow:auto;background:white;}
 .sidebar h4{font-family:'Rajdhani';font-size:14px;color:#6B7280;margin-bottom:10px;}
-.sidebar-info{font-size:11px;color:#9CA3AF;margin-bottom:10px;line-height:1.5;}
 .grid{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;}
 .dot{padding:6px;text-align:center;border:1px solid #E5E7EB;background:white;cursor:pointer;font-size:12px;border-radius:4px;}
 .dot.answered{background:#16A34A;color:white;border-color:#16A34A;}
-.dot.marked{background:#F59E0B;color:white;border-color:#F59E0B;}
-.dot.marked.answered{background:#A855F7;color:white;border-color:#A855F7;}
 .dot.current{border-color:#FF6B00;font-weight:700;}
-.legend{margin-top:14px;font-size:10px;color:#9CA3AF;}
-.legend-row{display:flex;align-items:center;gap:5px;margin-bottom:3px;}
-.legend-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0;}
-.section-tabs{display:flex;gap:0;border-bottom:2px solid #E5E7EB;margin-bottom:0;overflow-x:auto;}
-.section-tab{padding:8px 14px;border:none;background:transparent;font-family:'Rajdhani';font-size:13px;font-weight:700;color:#9CA3AF;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;white-space:nowrap;}
-.section-tab.active{color:#FF6B00;border-bottom-color:#FF6B00;}
 #resultScreen{display:none;padding:30px;max-width:700px;margin:auto;}
 .result-card{background:white;border-radius:16px;padding:30px;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,0.08);margin-bottom:20px;}
 .score-big{font-family:'Rajdhani';font-size:64px;font-weight:700;color:#FF6B00;}
@@ -65,27 +49,17 @@ body{margin:0;font-family:'Noto Sans',sans-serif;background:#F1F5F9;}
 .review-item.skip{border-left-color:#F59E0B;}
 .review-q{font-size:14px;font-weight:500;color:#1F2937;margin-bottom:8px;}
 .review-ans{font-size:13px;color:#6B7280;}
-.review-trick{font-size:12px;color:#FF6B00;margin-top:6px;padding:6px;background:#FFF3E8;border-radius:4px;}
 .logout-btn{background:transparent;border:1px solid #6B7280;color:#9CA3AF;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;}
-.mode-badge{display:inline-block;padding:2px 8px;border-radius:100px;font-size:10px;font-weight:700;font-family:'Rajdhani';letter-spacing:0.5px;}
-.mode-pyq{background:#FF6B0022;color:#FF6B00;}
-.mode-mock{background:#7C3AED22;color:#7C3AED;}
-.mode-chapter{background:#0EA5E922;color:#0EA5E9;}
-.mode-section{background:#00A86B22;color:#00A86B;}
 </style>
 </head>
 <body>
 
-<div id="loader">
-  ⚡ TrickySSC
-  <span class="sub" id="loaderMsg">Loading your test...</span>
-</div>
+<div id="loader">⚡ TrickySSC<br><span style="font-size:14px;font-weight:400;margin-top:8px;">Loading...</span></div>
 
 <div id="testScreen">
   <div class="topbar">
     <div class="topbar-left">
       <div class="exam-title" id="examTitle">SSC Test</div>
-      <div class="exam-subtitle" id="examSubtitle"></div>
       <div class="user-name" id="userName"></div>
     </div>
     <div class="timer" id="timer">60:00</div>
@@ -93,34 +67,23 @@ body{margin:0;font-family:'Noto Sans',sans-serif;background:#F1F5F9;}
       <button class="logout-btn" onclick="doLogout()">Logout</button>
     </div>
   </div>
-
-  <!-- Section tabs — only shown for sectioned mock tests -->
-  <div id="sectionTabsBar" style="display:none;background:white;padding:0 20px;border-bottom:1px solid #E5E7EB;">
-    <div class="section-tabs" id="sectionTabs"></div>
-  </div>
-
   <div class="main">
     <div class="questionPanel">
       <div class="qNum" id="qNum"></div>
+      <div id="qImgWrap" style="display:none;margin-bottom:14px;text-align:center;">
+        <img id="qImg" style="max-width:100%;max-height:260px;border-radius:10px;border:1px solid #E5E7EB;object-fit:contain;background:#F9FAFB;" alt="Question figure">
+      </div>
       <div class="qText" id="qText"></div>
       <div id="options"></div>
       <div class="nav-btns">
-        <button class="btn btn-prev" onclick="prevQ()">&#8592; Prev</button>
-        <button class="btn btn-next" onclick="nextQ()">Next &#8594;</button>
-        <button class="btn btn-mark" id="markBtn" onclick="toggleMark()">&#128278; Mark</button>
+        <button class="btn btn-prev" onclick="prevQ()">← Prev</button>
+        <button class="btn btn-next" onclick="nextQ()">Next →</button>
         <button class="btn btn-submit" onclick="confirmSubmit()">Submit Test</button>
       </div>
     </div>
     <div class="sidebar">
       <h4>Questions</h4>
-      <div class="sidebar-info" id="sidebarInfo"></div>
       <div class="grid" id="grid"></div>
-      <div class="legend">
-        <div class="legend-row"><div class="legend-dot" style="background:#16A34A;"></div> Answered</div>
-        <div class="legend-row"><div class="legend-dot" style="background:#F59E0B;"></div> Marked</div>
-        <div class="legend-row"><div class="legend-dot" style="background:#A855F7;"></div> Marked+Ans</div>
-        <div class="legend-row"><div class="legend-dot" style="background:#E5E7EB;border:1px solid #D1D5DB;"></div> Not visited</div>
-      </div>
     </div>
   </div>
 </div>
@@ -137,7 +100,7 @@ body{margin:0;font-family:'Noto Sans',sans-serif;background:#F1F5F9;}
       <div class="stat"><div class="stat-val" id="statMarks">0</div><div class="stat-lbl">Marks</div></div>
     </div>
     <button class="btn btn-next" id="goDashboardBtn" style="margin-top:20px;" onclick="window.location='https://trickyssc.com/dashboard.html'" disabled>Saving result...</button>
-    <div id="saveStatus" style="margin-top:10px;font-size:12px;color:#6B7280;">&#9203; Saving your result...</div>
+    <div id="saveStatus" style="margin-top:10px;font-size:12px;color:#6B7280;">⏳ Saving your result...</div>
     <button class="btn btn-submit" id="retrySaveBtn" style="margin-top:10px;display:none;" onclick="retrySaveResult()">Retry Save</button>
   </div>
   <div id="review"></div>
@@ -152,195 +115,99 @@ const app=initializeApp({apiKey:"AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",authDo
 const db=getFirestore(app);
 const auth=getAuth(app);
 
-// ── URL PARAMS ──────────────────────────────────────────────────────────────
-const params=new URLSearchParams(window.location.search);
-const exam    =params.get('exam');      // all modes
-const year    =params.get('year');      // PYQ
-const mockId  =params.get('mockId');    // Mock
-const subject =params.get('subject');   // Chapterwise / Sectionwise
-const chapter =params.get('chapter');   // Chapterwise
-const shift   =params.get('shift');     // PYQ optional
-
-// Detect mode
-let MODE='pyq';
-if(mockId)                        MODE='mock';
-else if(exam&&subject&&chapter)   MODE='chapterwise';
-else if(exam&&subject&&!year)     MODE='sectionwise';
-
-// ── STATE ───────────────────────────────────────────────────────────────────
-let questions=[],answers={},marked={},currentQ=0;
-let timeLeft=3600,timerInterval,currentUser=null;
+let questions=[],answers={},currentQ=0,timeLeft=3600,timerInterval,currentUser=null;
 let isSubmitting=false,lastResultPayload=null;
-let mockMeta=null;
+const params=new URLSearchParams(window.location.search);
+const exam=params.get('exam');
+const year=params.get('year');
 
-// ── AUTH ─────────────────────────────────────────────────────────────────────
-let authResolved=false;
-const authTimeout=setTimeout(async()=>{
-  if(authResolved)return;
-  const stored=localStorage.getItem('tssc_user');
-  if(stored){try{const mu=JSON.parse(stored);if(mu.uid){currentUser={uid:mu.uid,displayName:mu.name||'Student'};await loadTest();return;}}catch(e){}}
+// Wait for Firebase auth to restore session before deciding to redirect
+let authResolved = false;
+const authTimeout = setTimeout(async()=>{
+  if(authResolved) return;
+  // Firebase took too long — use localStorage fallback
+  const stored = localStorage.getItem('tssc_user');
+  if(stored){
+    try{
+      const mu=JSON.parse(stored);
+      if(mu.uid){currentUser={uid:mu.uid,displayName:mu.name||'Student'};await loadTest();return;}
+    }catch(e){}
+  }
   localStorage.setItem('loginReturnTo',window.location.href);
   window.location.href='login.html';
-},3000);
+}, 3000); // wait 3 seconds for Firebase
 
 onAuthStateChanged(auth,async user=>{
-  authResolved=true;clearTimeout(authTimeout);
+  authResolved = true;
+  clearTimeout(authTimeout);
   if(!user){
     const stored=localStorage.getItem('tssc_user');
-    if(stored){try{const mu=JSON.parse(stored);if(mu.uid){currentUser={uid:mu.uid,displayName:mu.name||'Student'};await loadTest();return;}}catch(e){}}
+    if(stored){
+      try{
+        const mu=JSON.parse(stored);
+        if(mu.uid){currentUser={uid:mu.uid,displayName:mu.name||'Student'};await loadTest();return;}
+      }catch(e){}
+    }
     localStorage.setItem('loginReturnTo',window.location.href);
-    window.location.href='login.html';return;
+    window.location.href='login.html';
+    return;
   }
   currentUser=user;
-  const existing=localStorage.getItem('tssc_user');
-  const ed=existing?JSON.parse(existing):{};
-  localStorage.setItem('tssc_user',JSON.stringify({...ed,uid:user.uid,name:user.displayName||ed.name||'Student'}));
+  // Always sync Firebase uid to localStorage so dashboard matches
+  const existingStored = localStorage.getItem('tssc_user');
+  const existingData = existingStored ? JSON.parse(existingStored) : {};
+  localStorage.setItem('tssc_user',JSON.stringify({
+    ...existingData,
+    uid:user.uid,
+    name:user.displayName||existingData.name||'Student'
+  }));
   await loadTest();
 });
 
-// ── LOAD TEST ─────────────────────────────────────────────────────────────────
 async function loadTest(){
-  setLoaderMsg('Fetching questions...');
   try{
-    if     (MODE==='mock')        await loadMockTest();
-    else if(MODE==='chapterwise') await loadChapterwiseTest();
-    else if(MODE==='sectionwise') await loadSectionwiseTest();
-    else                          await loadPYQTest();
-  }catch(e){ showLoaderError('Error loading: '+e.message); }
-}
-
-// ── MODE 1: PYQ ───────────────────────────────────────────────────────────────
-async function loadPYQTest(){
-  setLoaderMsg('Loading PYQ paper...');
-  let q=query(collection(db,'questions'),where('exam','==',exam));
-  if(year) q=query(collection(db,'questions'),where('exam','==',exam),where('year','==',year));
-  const snap=await getDocs(q);
-  let docs=snap.docs.map(d=>({id:d.id,...d.data()}));
-  if(shift) docs=docs.filter(d=>d.shift===shift);
-  docs.sort((a,b)=>(a.qNum||0)-(b.qNum||0));
-  questions=docs;
-  if(!questions.length){showComingSoon();return;}
-  timeLeft=questions.length>100?7200:3600;
-  const label=(exam||'').toUpperCase().replace(/-/g,' ')+(year?' '+year:'')+(shift?' '+shift:'');
-  document.getElementById('examTitle').textContent=label;
-  document.getElementById('examSubtitle').innerHTML='<span class="mode-badge mode-pyq">Previous Year Paper</span>';
-  startTest();
-}
-
-// ── MODE 2: MOCK ──────────────────────────────────────────────────────────────
-async function loadMockTest(){
-  setLoaderMsg('Loading mock test...');
-  const mockSnap=await getDoc(doc(db,'mock_tests',mockId));
-  if(!mockSnap.exists()){showLoaderError('Mock test not found.');return;}
-  mockMeta={id:mockSnap.id,...mockSnap.data()};
-  if(!mockMeta.questionIds||!mockMeta.questionIds.length){showLoaderError('This mock test has no questions yet.');return;}
-
-  setLoaderMsg('Loading '+mockMeta.questionIds.length+' questions...');
-  const ids=mockMeta.questionIds;
-  let allDocs=[];
-  // Fetch in batches of 10 (Firestore 'in' query limit)
-  for(let i=0;i<ids.length;i+=10){
-    const batch=ids.slice(i,i+10);
-    const snaps=await Promise.all(batch.map(id=>getDoc(doc(db,'questions',id))));
-    snaps.forEach(s=>{if(s.exists())allDocs.push({id:s.id,...s.data()});});
+    let q=query(collection(db,'questions'),where('exam','==',exam));
+    if(year) q=query(collection(db,'questions'),where('exam','==',exam),where('year','==',year));
+    const snap=await getDocs(q);
+    snap.forEach(d=>questions.push({id:d.id,...d.data()}));
+    questions.sort((a,b)=>(a.qNum||0)-(b.qNum||0));
+    if(questions.length===0){
+      document.getElementById('loader').innerHTML=`
+  <div style="text-align:center;padding:2rem;">
+    <div style="font-size:3rem;margin-bottom:1rem;">🚀</div>
+    <div style="font-size:1.5rem;font-weight:700;margin-bottom:0.5rem;">Coming Soon!</div>
+    <div style="font-size:1rem;font-weight:400;opacity:0.9;margin-bottom:1.5rem;">We're adding questions for this paper.<br>Check back soon!</div>
+    <a href="javascript:history.back()" style="background:white;color:#FF6B00;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1rem;padding:0.6rem 1.5rem;border-radius:10px;text-decoration:none;">← Go Back</a>
+  </div>
+`;
+      return;
+    }
+    document.getElementById('examTitle').textContent=(exam||'').toUpperCase().replace('-',' ')+(year?' '+year:'');
+    document.getElementById('userName').textContent=currentUser.displayName||'Student';
+    document.getElementById('loader').style.display='none';
+    document.getElementById('testScreen').style.display='flex';
+    buildGrid();renderQ();startTimer();
+  }catch(e){
+    document.getElementById('loader').innerHTML='❌ Error loading: '+e.message+'<br><a href="javascript:history.back()" style="color:white;font-size:14px;">← Go Back</a>';
   }
-  // Preserve admin ordering
-  const idOrder=Object.fromEntries(ids.map((id,i)=>[id,i]));
-  allDocs.sort((a,b)=>(idOrder[a.id]||0)-(idOrder[b.id]||0));
-  questions=allDocs;
-  if(!questions.length){showLoaderError('Questions could not be loaded.');return;}
-
-  timeLeft=(mockMeta.duration||60)*60;
-  document.getElementById('examTitle').textContent=mockMeta.title||'Mock Test';
-  document.getElementById('examSubtitle').innerHTML='<span class="mode-badge mode-mock">Mock Test</span>';
-
-  // Build section tabs if needed
-  if(mockMeta.hasSections&&mockMeta.sections&&mockMeta.sections.length) buildSectionTabs();
-  startTest();
 }
 
-// ── MODE 3: CHAPTERWISE ───────────────────────────────────────────────────────
-async function loadChapterwiseTest(){
-  setLoaderMsg('Loading chapter practice...');
-  const snap=await getDocs(query(
-    collection(db,'questions'),
-    where('exam','==',exam),
-    where('subject','==',subject),
-    where('chapter','==',chapter)
-  ));
-  questions=snap.docs.map(d=>({id:d.id,...d.data()}));
-  questions.sort((a,b)=>(a.qNum||0)-(b.qNum||0));
-  if(!questions.length){showComingSoon();return;}
-  timeLeft=2400; // 40 min
-  const examLabel=(exam||'').toUpperCase().replace(/-/g,' ');
-  const chapterLabel=chapter.replace(/-/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
-  document.getElementById('examTitle').textContent=examLabel+' — '+chapterLabel;
-  document.getElementById('examSubtitle').innerHTML='<span class="mode-badge mode-chapter">Chapter Practice · '+subject+'</span>';
-  startTest();
-}
-
-// ── MODE 4: SECTIONWISE ───────────────────────────────────────────────────────
-async function loadSectionwiseTest(){
-  setLoaderMsg('Loading section practice...');
-  const snap=await getDocs(query(
-    collection(db,'questions'),
-    where('exam','==',exam),
-    where('subject','==',subject)
-  ));
-  questions=snap.docs.map(d=>({id:d.id,...d.data()}));
-  questions.sort((a,b)=>(a.qNum||0)-(b.qNum||0));
-  if(!questions.length){showComingSoon();return;}
-  timeLeft=2700; // 45 min
-  const examLabel=(exam||'').toUpperCase().replace(/-/g,' ');
-  const subjectLabel=subject.replace(/-/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
-  document.getElementById('examTitle').textContent=examLabel+' — '+subjectLabel;
-  document.getElementById('examSubtitle').innerHTML='<span class="mode-badge mode-section">Section Practice</span>';
-  startTest();
-}
-
-// ── START TEST ────────────────────────────────────────────────────────────────
-function startTest(){
-  document.getElementById('userName').textContent=currentUser.displayName||'Student';
-  document.getElementById('loader').style.display='none';
-  document.getElementById('testScreen').style.display='flex';
-  document.getElementById('sidebarInfo').textContent=questions.length+' Questions';
-  buildGrid();renderQ();startTimer();
-}
-
-// ── SECTION TABS ──────────────────────────────────────────────────────────────
-function buildSectionTabs(){
-  document.getElementById('sectionTabsBar').style.display='block';
-  document.getElementById('sectionTabs').innerHTML=mockMeta.sections.map((s,i)=>
-    '<button class="section-tab '+(i===0?'active':'')+'" onclick="goToSection('+i+')">'
-    +s.subject+' ('+s.questionCount+'Q)</button>'
-  ).join('');
-}
-
-function sectionStart(idx){
-  let start=0;
-  for(let i=0;i<idx;i++) start+=(mockMeta.sections[i]?.questionCount||0);
-  return Math.min(start,questions.length-1);
-}
-
-window.goToSection=(idx)=>{
-  document.querySelectorAll('.section-tab').forEach((t,i)=>t.classList.toggle('active',i===idx));
-  currentQ=sectionStart(idx);
-  renderQ();
-};
-
-// ── RENDER ────────────────────────────────────────────────────────────────────
 function renderQ(){
   const q=questions[currentQ];
   document.getElementById('qNum').textContent='Question '+(currentQ+1)+' of '+questions.length;
   document.getElementById('qText').textContent=q.text||q.question||'';
+  // Show/hide question image
+  const imgWrap=document.getElementById('qImgWrap');
+  const imgEl=document.getElementById('qImg');
+  if(q.imageUrl){
+    imgEl.src=q.imageUrl;
+    imgWrap.style.display='block';
+  } else {
+    imgWrap.style.display='none';
+    imgEl.src='';
+  }
   const opts=['A','B','C','D'];
-  document.getElementById('options').innerHTML=opts.map(o=>
-    '<div class="option '+(answers[currentQ]===o?'selected':'')+'" onclick="selectOpt(\''+o+'\')">'
-    +o+') '+(q.options?q.options[o]:q['option'+o]||'')+'</div>'
-  ).join('');
-  const markBtn=document.getElementById('markBtn');
-  if(marked[currentQ]){markBtn.className='btn btn-marked';markBtn.textContent='Unmark';}
-  else{markBtn.className='btn btn-mark';markBtn.textContent='Mark';}
+  document.getElementById('options').innerHTML=opts.map(o=>`<div class="option ${answers[currentQ]===o?'selected':''}" onclick="selectOpt('${o}')">${o}) ${q.options?q.options[o]:q['option'+o]||''}</div>`).join('');
   updateGrid();
 }
 
@@ -348,195 +215,177 @@ window.selectOpt=o=>{answers[currentQ]=o;renderQ();};
 window.nextQ=()=>{if(currentQ<questions.length-1){currentQ++;renderQ();}};
 window.prevQ=()=>{if(currentQ>0){currentQ--;renderQ();}};
 window.goQ=i=>{currentQ=i;renderQ();};
-window.toggleMark=()=>{marked[currentQ]=!marked[currentQ];renderQ();};
 
-// ── GRID ──────────────────────────────────────────────────────────────────────
 function buildGrid(){
-  document.getElementById('grid').innerHTML=questions.map((_,i)=>
-    '<div class="dot" id="dot'+i+'" onclick="goQ('+i+')">'+(i+1)+'</div>'
-  ).join('');
+  document.getElementById('grid').innerHTML=questions.map((_,i)=>`<div class="dot" id="dot${i}" onclick="goQ(${i})">${i+1}</div>`).join('');
 }
 
 function updateGrid(){
   questions.forEach((_,i)=>{
-    const el=document.getElementById('dot'+i);if(!el)return;
-    const ans=!!answers[i],mrk=!!marked[i];
-    let cls='dot';
-    if(mrk&&ans)cls+=' marked answered';
-    else if(mrk)cls+=' marked';
-    else if(ans)cls+=' answered';
-    if(i===currentQ)cls+=' current';
-    el.className=cls;
+    const el=document.getElementById('dot'+i);
+    if(!el)return;
+    el.className='dot'+(answers[i]?' answered':'')+(i===currentQ?' current':'');
   });
 }
 
-// ── TIMER ─────────────────────────────────────────────────────────────────────
 function startTimer(){
-  const el=document.getElementById('timer');
   timerInterval=setInterval(()=>{
     timeLeft--;
     const m=Math.floor(timeLeft/60),s=timeLeft%60;
-    el.textContent=String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
-    el.className='timer'+(timeLeft<=60?' danger':timeLeft<=300?' warning':'');
+    document.getElementById('timer').textContent=String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
     if(timeLeft<=0){clearInterval(timerInterval);submitTest();}
   },1000);
 }
 
-// ── SUBMIT ────────────────────────────────────────────────────────────────────
-window.confirmSubmit=()=>{
-  const unanswered=questions.length-Object.keys(answers).length;
-  const msg=unanswered>0
-    ?'You have '+unanswered+' unanswered question'+(unanswered>1?'s':'')+'. Submit anyway?'
-    :'Submit test? You cannot change answers after submission.';
-  if(confirm(msg))submitTest();
-};
 
-window.submitTest=async()=>{
-  if(isSubmitting)return;
-  isSubmitting=true;
-  clearInterval(timerInterval);
-  setSaveUi('saving','Saving your result...');
-
-  // Scoring
-  const marksPerQ=mockMeta?.totalMarks?(mockMeta.totalMarks/questions.length):2;
-  const negMark=mockMeta?.negativeMarking!=null?mockMeta.negativeMarking:0.5;
-
-  let correct=0,wrong=0,skip=0;
-  questions.forEach((q,i)=>{
-    const a=answers[i];
-    if(!a)skip++;
-    else if(a===q.correct)correct++;
-    else wrong++;
-  });
-  const marks=(correct*marksPerQ-wrong*negMark).toFixed(1);
-  const pct=Math.round((correct/questions.length)*100);
-
-  document.getElementById('testScreen').style.display='none';
-  document.getElementById('resultScreen').style.display='block';
-  document.getElementById('resultExamName').textContent=buildResultTitle();
-  document.getElementById('scorePct').textContent=pct+'%';
-  document.getElementById('statCorrect').textContent=correct;
-  document.getElementById('statWrong').textContent=wrong;
-  document.getElementById('statSkip').textContent=skip;
-  document.getElementById('statMarks').textContent=marks;
-
-  // Review
-  document.getElementById('review').innerHTML=questions.map((q,i)=>{
-    const a=answers[i];
-    const status=!a?'skip':a===q.correct?'correct':'wrong';
-    return '<div class="review-item '+status+'">'
-      +'<div class="review-q">'+(i+1)+'. '+(q.text||q.question||'')+'</div>'
-      +'<div class="review-ans">Your answer: <b>'+(a||'Skipped')+'</b> &nbsp;|&nbsp; Correct: <b>'+(q.correct||'?')+'</b></div>'
-      +(q.explanation?'<div style="font-size:12px;color:#374151;margin-top:6px;padding:6px;background:#F8FAFC;border-radius:4px;">'+q.explanation+'</div>':'')
-      +(q.trick?'<div class="review-trick">Trick: '+q.trick+'</div>':'')
-      +'</div>';
-  }).join('');
-
-  if(!currentUser?.uid){setSaveUi('error','Not logged in. Result cannot be saved.');isSubmitting=false;return;}
-
-  const attemptId=currentUser.uid+'_'+MODE+'_'+(exam||mockId||'test')+'_'+Date.now();
-  const payload={
-    uid:currentUser.uid, mode:MODE,
-    exam:exam||null, year:year||null, shift:shift||null,
-    mockId:mockId||null, mockTitle:mockMeta?.title||null,
-    subject:subject||null, chapter:chapter||null,
-    total:questions.length, correct, wrong, skip,
-    marks:parseFloat(marks), percentage:pct, marksPerQ, negMark,
-    answers, timestamp:serverTimestamp(), clientSubmittedAt:new Date().toISOString()
-  };
-  lastResultPayload={attemptId,payload};
-
-  try{
-    await persistWithRetry(payload,attemptId,3);
-    localStorage.removeItem('pending_attempt_'+attemptId);
-    setSaveUi('saved','Result saved successfully.');
-  }catch(e){
-    console.warn('Save failed:',e);
-    localStorage.setItem('pending_attempt_'+attemptId,JSON.stringify(lastResultPayload));
-    setSaveUi('error','Could not save. Check internet and tap Retry Save.');
-  }
-  isSubmitting=false;
-};
-
-function buildResultTitle(){
-  if(MODE==='mock')        return mockMeta?.title||'Mock Test';
-  if(MODE==='chapterwise') return (exam||'').toUpperCase().replace(/-/g,' ')+' — '+(chapter||'').replace(/-/g,' ');
-  if(MODE==='sectionwise') return (exam||'').toUpperCase().replace(/-/g,' ')+' — '+subject;
-  return (exam||'').toUpperCase().replace(/-/g,' ')+(year?' '+year:'')+(shift?' '+shift:'');
-}
-
-// ── PERSIST ───────────────────────────────────────────────────────────────────
-async function persistAttempt(payload,attemptId){
-  await setDoc(doc(db,'attempts',attemptId),payload,{merge:true});
-  const userRef=doc(db,'users',payload.uid);
-  const userSnap=await getDoc(userRef);
-  if(userSnap.exists()){
-    const ud=userSnap.data();
-    const prevTotal=parseInt(ud.totalTests)||0;
-    const prevAvg=parseFloat(ud.avgScore)||0;
-    const prevBest=parseFloat(ud.bestScore)||0;
-    const newTotal=prevTotal+1;
-    const newAvg=parseFloat(((prevAvg*prevTotal+payload.percentage)/newTotal).toFixed(1));
-    const newBest=Math.max(prevBest,payload.percentage);
-    await setDoc(userRef,{totalTests:newTotal,avgScore:newAvg,bestScore:newBest,lastActive:serverTimestamp()},{merge:true});
-  }else{
-    await setDoc(userRef,{uid:payload.uid,totalTests:1,avgScore:payload.percentage,bestScore:payload.percentage,lastActive:serverTimestamp()},{merge:true});
-  }
-}
-
-async function persistWithRetry(payload,attemptId,retries=3){
-  let lastErr;
-  for(let i=1;i<=retries;i++){
-    try{await persistAttempt(payload,attemptId);return;}
-    catch(e){lastErr=e;await new Promise(r=>setTimeout(r,600*i));}
-  }
-  throw lastErr;
-}
-
-window.retrySaveResult=async()=>{
-  if(!lastResultPayload){setSaveUi('error','Nothing to retry.');return;}
-  setSaveUi('saving','Retrying...');
-  try{
-    await persistWithRetry(lastResultPayload.payload,lastResultPayload.attemptId,3);
-    localStorage.removeItem('pending_attempt_'+lastResultPayload.attemptId);
-    setSaveUi('saved','Result saved successfully.');
-  }catch(e){
-    localStorage.setItem('pending_attempt_'+lastResultPayload.attemptId,JSON.stringify(lastResultPayload));
-    setSaveUi('error','Save failed again. Check internet and retry.');
-  }
-};
-
-// ── UI HELPERS ────────────────────────────────────────────────────────────────
 function setSaveUi(state,msg){
   const goBtn=document.getElementById('goDashboardBtn');
   const saveStatus=document.getElementById('saveStatus');
   const retryBtn=document.getElementById('retrySaveBtn');
   if(!goBtn||!saveStatus||!retryBtn)return;
   saveStatus.textContent=msg||'';
-  if(state==='saving'){goBtn.disabled=true;goBtn.textContent='Saving result...';retryBtn.style.display='none';saveStatus.style.color='#6B7280';}
-  else if(state==='saved'){goBtn.disabled=false;goBtn.textContent='Go to Dashboard';retryBtn.style.display='none';saveStatus.style.color='#16A34A';}
-  else if(state==='error'){goBtn.disabled=true;goBtn.textContent='Save required before dashboard';retryBtn.style.display='inline-block';saveStatus.style.color='#DC2626';}
+  if(state==='saving'){
+    goBtn.disabled=true;
+    goBtn.textContent='Saving result...';
+    retryBtn.style.display='none';
+    saveStatus.style.color='#6B7280';
+  }else if(state==='saved'){
+    goBtn.disabled=false;
+    goBtn.textContent='Go to Dashboard';
+    retryBtn.style.display='none';
+    saveStatus.style.color='#16A34A';
+  }else if(state==='error'){
+    goBtn.disabled=true;
+    goBtn.textContent='Save required before dashboard';
+    retryBtn.style.display='inline-block';
+    saveStatus.style.color='#DC2626';
+  }
 }
 
-function setLoaderMsg(msg){const el=document.getElementById('loaderMsg');if(el)el.textContent=msg;}
+async function persistAttempt(payload, attemptId){
+  await setDoc(doc(db,'attempts',attemptId),payload,{merge:true});
 
-function showLoaderError(msg){
-  document.getElementById('loader').innerHTML='<div style="text-align:center;padding:2rem;">'
-    +'<div style="font-size:2rem;margin-bottom:1rem;">&#10060;</div>'
-    +'<div style="font-size:1.2rem;font-weight:700;margin-bottom:0.5rem;">Error</div>'
-    +'<div style="font-size:0.9rem;font-weight:400;opacity:0.9;margin-bottom:1.5rem;">'+msg+'</div>'
-    +'<a href="javascript:history.back()" style="background:white;color:#FF6B00;font-family:\'Rajdhani\',sans-serif;font-weight:700;font-size:1rem;padding:0.6rem 1.5rem;border-radius:10px;text-decoration:none;">&#8592; Go Back</a>'
-    +'</div>';
+  const userRef = doc(db,'users',payload.uid);
+  const userSnap = await getDoc(userRef);
+  if(userSnap.exists()){
+    const ud = userSnap.data();
+    const prevTotal = parseInt(ud.totalTests)||0;
+    const prevAvg = parseFloat(ud.avgScore)||0;
+    const prevBest = parseFloat(ud.bestScore)||0;
+    const newTotal = prevTotal + 1;
+    const newAvg = parseFloat(((prevAvg * prevTotal + payload.percentage) / newTotal).toFixed(1));
+    const newBest = Math.max(prevBest, payload.percentage);
+    await setDoc(userRef,{totalTests:newTotal, avgScore:newAvg, bestScore:newBest, lastActive:serverTimestamp()},{merge:true});
+  } else {
+    await setDoc(userRef,{uid:payload.uid, totalTests:1, avgScore:payload.percentage, bestScore:payload.percentage, lastActive:serverTimestamp()},{merge:true});
+  }
 }
 
-function showComingSoon(){
-  document.getElementById('loader').innerHTML='<div style="text-align:center;padding:2rem;">'
-    +'<div style="font-size:3rem;margin-bottom:1rem;">&#128640;</div>'
-    +'<div style="font-size:1.5rem;font-weight:700;margin-bottom:0.5rem;">Coming Soon!</div>'
-    +'<div style="font-size:1rem;font-weight:400;opacity:0.9;margin-bottom:1.5rem;">We\'re adding questions for this section.<br>Check back soon!</div>'
-    +'<a href="javascript:history.back()" style="background:white;color:#FF6B00;font-family:\'Rajdhani\',sans-serif;font-weight:700;font-size:1rem;padding:0.6rem 1.5rem;border-radius:10px;text-decoration:none;">&#8592; Go Back</a>'
-    +'</div>';
+async function persistWithRetry(payload, attemptId, retries=3){
+  let lastErr;
+  for(let i=1;i<=retries;i++){
+    try{
+      await persistAttempt(payload,attemptId);
+      return;
+    }catch(e){
+      lastErr=e;
+      await new Promise(r=>setTimeout(r,600*i));
+    }
+  }
+  throw lastErr;
 }
+
+window.retrySaveResult=async()=>{
+  if(!lastResultPayload){
+    setSaveUi('error','⚠️ Nothing to retry. Please submit the test again.');
+    return;
+  }
+  setSaveUi('saving','⏳ Retrying save...');
+  try{
+    await persistWithRetry(lastResultPayload.payload,lastResultPayload.attemptId,3);
+    localStorage.removeItem('pending_attempt_'+lastResultPayload.attemptId);
+    setSaveUi('saved','✅ Result saved successfully.');
+  }catch(e){
+    console.warn('Retry save failed:',e);
+    localStorage.setItem('pending_attempt_'+lastResultPayload.attemptId,JSON.stringify(lastResultPayload));
+    setSaveUi('error','⚠️ Save failed again. Check your internet and tap Retry Save.');
+  }
+};
+window.confirmSubmit=()=>{
+  if(confirm('Submit test? You cannot change answers after submission.')) submitTest();
+};
+
+window.submitTest=async()=>{
+  if(isSubmitting)return;
+  isSubmitting=true;
+  clearInterval(timerInterval);
+  setSaveUi('saving','⏳ Saving your result...');
+
+  let correct=0,wrong=0,skip=0;
+  questions.forEach((q,i)=>{
+    const a=answers[i];
+    if(!a) skip++;
+    else if(a===q.correct) correct++;
+    else wrong++;
+  });
+  const marks=(correct*2 - wrong*0.5).toFixed(1);
+  const pct=Math.round((correct/questions.length)*100);
+  document.getElementById('testScreen').style.display='none';
+  document.getElementById('resultScreen').style.display='block';
+  document.getElementById('resultExamName').textContent=(exam||'').toUpperCase().replace('-',' ')+(year?' '+year:'');
+  document.getElementById('scorePct').textContent=pct+'%';
+  document.getElementById('statCorrect').textContent=correct;
+  document.getElementById('statWrong').textContent=wrong;
+  document.getElementById('statSkip').textContent=skip;
+  document.getElementById('statMarks').textContent=marks;
+  // Review
+  document.getElementById('review').innerHTML=questions.map((q,i)=>{
+    const a=answers[i];
+    const status=!a?'skip':a===q.correct?'correct':'wrong';
+    return`<div class="review-item ${status}">
+      <div class="review-q">${i+1}. ${q.text||q.question||''}</div>
+      ${q.imageUrl?`<div style="margin:6px 0;"><img src="${q.imageUrl}" style="max-width:100%;max-height:200px;border-radius:8px;border:1px solid #E5E7EB;object-fit:contain;background:#F9FAFB;" onerror="this.style.display='none'" alt="Question figure"></div>`:''}
+      <div class="review-ans">Your answer: <b>${a||'Skipped'}</b> &nbsp;|&nbsp; Correct: <b>${q.correct||'?'}</b></div>
+      ${q.explanation?`<div style="font-size:12px;color:#374151;margin-top:6px;padding:8px 10px;background:#F0FDF4;border-left:3px solid #16A34A;border-radius:4px;">💡 <b>Solution:</b> ${q.explanation}</div>`:''}
+      ${q.trick?`<div style="font-size:12px;color:#1D4ED8;margin-top:5px;padding:8px 10px;background:#EFF6FF;border-left:3px solid #3B82F6;border-radius:4px;">⚡ <b>Trick:</b> ${q.trick}</div>`:''}
+    </div>`;
+  }).join('');
+
+  if(!currentUser||!currentUser.uid){
+    setSaveUi('error','⚠️ Not logged in. Result cannot be saved. Please login and retry.');
+    isSubmitting=false;
+    return;
+  }
+
+  const attemptId=`${currentUser.uid}_${exam||'exam'}_${year||'na'}_${Date.now()}`;
+  const payload={
+    uid:currentUser.uid,
+    exam,
+    year:year||'',
+    total:questions.length,
+    correct,
+    wrong,
+    skip,
+    marks:parseFloat(marks),
+    percentage:pct,
+    answers,
+    timestamp:serverTimestamp(),
+    clientSubmittedAt:new Date().toISOString()
+  };
+  lastResultPayload={attemptId,payload};
+
+  try{
+    await persistWithRetry(payload,attemptId,3);
+    localStorage.removeItem('pending_attempt_'+attemptId);
+    setSaveUi('saved','✅ Result saved successfully.');
+  }catch(e){
+    console.warn('Save attempt failed:',e);
+    localStorage.setItem('pending_attempt_'+attemptId,JSON.stringify(lastResultPayload));
+    setSaveUi('error','⚠️ Could not save your result. Check internet and tap Retry Save.');
+  }
+
+  isSubmitting=false;
+};
 
 window.doLogout=()=>{
   localStorage.removeItem('tssc_user');

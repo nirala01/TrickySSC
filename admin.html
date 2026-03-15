@@ -131,7 +131,6 @@ textarea{resize:vertical;min-height:80px;}
     <button class="tab" onclick="switchTab('ai')">🤖 AI Extract</button>
     <button class="tab" onclick="switchTab('manage')">📋 Manage Questions</button>
     <button class="tab" onclick="switchTab('users')">👥 Users</button>
-    <button class="tab" onclick="switchTab('import')">📥 Import CSV</button>
     <button class="tab" onclick="switchTab('export')">📤 Export CSV</button>
   </div>
 
@@ -258,6 +257,21 @@ textarea{resize:vertical;min-height:80px;}
       <div style="margin-bottom:1rem;">
         <label>⚡ Tricky Shortcut Method (optional)</label>
         <textarea id="qTrick" placeholder="Write the quick trick or shortcut to solve this faster..."></textarea>
+      </div>
+      <div style="margin-bottom:1rem;">
+        <label>🖼️ Question Image (optional — for figure/diagram based questions)</label>
+        <div id="qImgUploadArea" onclick="document.getElementById('qImgFile').click()" style="border:2px dashed #334155;border-radius:10px;padding:1.25rem;text-align:center;cursor:pointer;transition:all 0.2s;margin-bottom:0.5rem;">
+          <input type="file" id="qImgFile" accept="image/*" style="display:none;" onchange="previewQImg(event)">
+          <div id="qImgPreviewWrap" style="display:none;margin-bottom:0.5rem;">
+            <img id="qImgPreview" style="max-width:100%;max-height:200px;border-radius:8px;">
+          </div>
+          <div id="qImgPlaceholder" style="color:#64748B;font-size:0.85rem;">📷 Click to upload image (JPG, PNG, GIF) — max 5MB</div>
+        </div>
+        <div style="display:flex;gap:0.5rem;align-items:center;">
+          <input type="text" id="qImgUrl" placeholder="Or paste image URL directly..." style="flex:1;">
+          <button type="button" class="btn btn-secondary" onclick="clearQImg()" style="padding:0.4rem 0.75rem;font-size:0.8rem;white-space:nowrap;">✕ Clear</button>
+        </div>
+        <div id="qImgUploadStatus" style="font-size:0.8rem;color:#94A3B8;margin-top:0.4rem;display:none;"></div>
       </div>
       <button class="btn btn-primary" onclick="saveQuestion()">💾 Save Question</button>
     </div>
@@ -442,68 +456,8 @@ textarea{resize:vertical;min-height:80px;}
           <option value="gk">General Awareness</option>
         </select>
       </div>
-      <!-- Bulk action toolbar -->
-      <div id="bulkToolbar" style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1rem;flex-wrap:wrap;">
-        <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;text-transform:none;letter-spacing:0;font-size:0.85rem;color:#94A3B8;font-weight:500;">
-          <input type="checkbox" id="selectAllChk" onchange="toggleSelectAll()" style="accent-color:#FF6B00;width:16px;height:16px;">
-          Select All
-        </label>
-        <span id="selectedCountBadge" style="background:#334155;color:#94A3B8;padding:0.2rem 0.6rem;border-radius:100px;font-size:0.78rem;font-weight:600;display:none;">0 selected</span>
-        <button class="btn btn-danger" id="deleteSelectedBtn" onclick="deleteSelected()" style="display:none;padding:0.4rem 0.9rem;font-size:0.82rem;">🗑 Delete Selected</button>
-        <button class="btn btn-danger" onclick="deleteAllVisible()" style="background:#7F1D1D;padding:0.4rem 0.9rem;font-size:0.82rem;">🗑 Delete All Shown</button>
-      </div>
       <div id="questionsList" class="questions-list">
         <p style="color:#94A3B8;text-align:center;padding:2rem;">Loading questions...</p>
-      </div>
-    </div>
-  </div>
-
-  <!-- EDIT MODAL -->
-  <div id="editModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1000;overflow-y:auto;padding:2rem;">
-    <div style="background:#1E293B;border:1px solid #334155;border-radius:16px;padding:2rem;max-width:700px;margin:0 auto;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;">
-        <h3 style="font-family:'Rajdhani',sans-serif;font-size:1.2rem;font-weight:700;color:#F1F5F9;">✏️ Edit Question</h3>
-        <button onclick="closeEditModal()" style="background:#334155;border:none;color:#94A3B8;padding:0.4rem 0.75rem;border-radius:6px;cursor:pointer;font-size:0.85rem;">✕ Close</button>
-      </div>
-      <input type="hidden" id="editId">
-      <div style="margin-bottom:1rem;">
-        <label>Question Text</label>
-        <textarea id="editText" style="min-height:80px;"></textarea>
-      </div>
-      <div class="options-grid">
-        <div class="option-row"><span class="option-label" id="elbl-A">A</span><input type="text" id="eOptA" placeholder="Option A"></div>
-        <div class="option-row"><span class="option-label" id="elbl-B">B</span><input type="text" id="eOptB" placeholder="Option B"></div>
-        <div class="option-row"><span class="option-label" id="elbl-C">C</span><input type="text" id="eOptC" placeholder="Option C"></div>
-        <div class="option-row"><span class="option-label" id="elbl-D">D</span><input type="text" id="eOptD" placeholder="Option D"></div>
-      </div>
-      <div style="margin-bottom:1rem;">
-        <label>Correct Answer</label>
-        <div class="correct-selector">
-          <label><input type="radio" name="eCorrect" value="A" onchange="highlightEditCorrect('A')"> A</label>
-          <label><input type="radio" name="eCorrect" value="B" onchange="highlightEditCorrect('B')"> B</label>
-          <label><input type="radio" name="eCorrect" value="C" onchange="highlightEditCorrect('C')"> C</label>
-          <label><input type="radio" name="eCorrect" value="D" onchange="highlightEditCorrect('D')"> D</label>
-        </div>
-      </div>
-      <div style="margin-bottom:1rem;">
-        <label>📝 Step-by-Step Solution</label>
-        <textarea id="editExplanation" style="min-height:70px;"></textarea>
-      </div>
-      <div style="margin-bottom:1.5rem;">
-        <label>⚡ Tricky Shortcut</label>
-        <textarea id="editTrick" style="min-height:70px;"></textarea>
-      </div>
-      <div style="margin-bottom:1rem;">
-        <label>Difficulty</label>
-        <select id="editDifficulty">
-          <option value="easy">Easy</option>
-          <option value="medium">Medium</option>
-          <option value="hard">Hard</option>
-        </select>
-      </div>
-      <div style="display:flex;gap:0.75rem;">
-        <button class="btn btn-primary" onclick="saveEdit()" style="flex:1;">💾 Save Changes</button>
-        <button class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
       </div>
     </div>
   </div>
@@ -513,73 +467,6 @@ textarea{resize:vertical;min-height:80px;}
     <div class="card">
       <h3>Registered Users</h3>
       <div id="usersTable"><p style="color:#94A3B8;text-align:center;padding:2rem;">Loading users...</p></div>
-    </div>
-  </div>
-
-  <!-- TAB: Import CSV -->
-  <div class="panel" id="panel-import">
-    <div class="card">
-      <h3>📥 Import Questions from CSV</h3>
-      <p style="color:#94A3B8;font-size:0.9rem;margin-bottom:1.5rem;">Upload a CSV file to bulk-import questions. The CSV must match the exported format. Required columns: <code style="color:#A78BFA;">text, option_A, option_B, option_C, option_D, correct, exam, tier, year, type, subject, chapter, difficulty</code>. Optional: <code style="color:#A78BFA;">explanation, trick, qNum</code>.</p>
-
-      <div class="upload-area" onclick="document.getElementById('csvFileInput').click()">
-        <input type="file" id="csvFileInput" accept=".csv" onchange="handleCSVUpload(event)" style="display:none;">
-        <div class="upload-icon">📄</div>
-        <p>Click to select CSV file or drag &amp; drop here</p>
-        <p style="margin-top:0.4rem;font-size:0.8rem;"><strong>Only .csv files</strong> — max 5MB</p>
-      </div>
-
-      <div id="csvPreview" style="display:none;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem;flex-wrap:wrap;gap:0.5rem;">
-          <div>
-            <span id="csvFileName" style="font-weight:600;color:#E2E8F0;"></span>
-            <span id="csvRowCount" style="color:#94A3B8;font-size:0.85rem;margin-left:0.75rem;"></span>
-          </div>
-          <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
-            <button class="btn btn-secondary" onclick="clearCSV()">✕ Clear</button>
-            <button class="btn btn-primary" id="csvImportBtn" onclick="importCSV()">⬆️ Import All Questions</button>
-          </div>
-        </div>
-        <div id="csvValidation" style="margin-bottom:0.75rem;"></div>
-        <div style="overflow-x:auto;border:1px solid #334155;border-radius:8px;">
-          <table class="users-table" id="csvPreviewTable" style="min-width:600px;">
-            <thead id="csvPreviewHead"></thead>
-            <tbody id="csvPreviewBody"></tbody>
-          </table>
-        </div>
-        <p style="color:#64748B;font-size:0.78rem;margin-top:0.5rem;">Showing first 10 rows for preview. All rows will be imported.</p>
-      </div>
-
-      <div id="csvProgress" style="display:none;margin-top:1.25rem;">
-        <div style="background:#1E293B;border-radius:6px;height:8px;overflow:hidden;margin-bottom:0.5rem;">
-          <div id="csvBar" style="height:100%;background:linear-gradient(135deg,#FF6B00,#FF8C38);width:0%;transition:width 0.3s;"></div>
-        </div>
-        <div id="csvStatus" style="font-size:0.85rem;color:#94A3B8;"></div>
-      </div>
-    </div>
-
-    <div class="card" style="border-color:#33415544;">
-      <h3 style="font-size:1rem;margin-bottom:0.75rem;">📌 CSV Format Guide</h3>
-      <p style="font-size:0.85rem;color:#94A3B8;margin-bottom:0.75rem;">Your CSV file must have a header row. Columns can be in any order. You can use an exported CSV as a template — just remove the <code style="color:#A78BFA;">id</code> and <code style="color:#A78BFA;">createdAt</code> columns before importing.</p>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:0.5rem;">
-        <div style="background:#0F172A;border:1px solid #00A86B44;border-radius:6px;padding:0.4rem 0.75rem;font-size:0.78rem;font-family:monospace;color:#00A86B;">text ⭐</div>
-        <div style="background:#0F172A;border:1px solid #00A86B44;border-radius:6px;padding:0.4rem 0.75rem;font-size:0.78rem;font-family:monospace;color:#00A86B;">option_A ⭐</div>
-        <div style="background:#0F172A;border:1px solid #00A86B44;border-radius:6px;padding:0.4rem 0.75rem;font-size:0.78rem;font-family:monospace;color:#00A86B;">option_B ⭐</div>
-        <div style="background:#0F172A;border:1px solid #00A86B44;border-radius:6px;padding:0.4rem 0.75rem;font-size:0.78rem;font-family:monospace;color:#00A86B;">option_C ⭐</div>
-        <div style="background:#0F172A;border:1px solid #00A86B44;border-radius:6px;padding:0.4rem 0.75rem;font-size:0.78rem;font-family:monospace;color:#00A86B;">option_D ⭐</div>
-        <div style="background:#0F172A;border:1px solid #00A86B44;border-radius:6px;padding:0.4rem 0.75rem;font-size:0.78rem;font-family:monospace;color:#00A86B;">correct ⭐</div>
-        <div style="background:#0F172A;border:1px solid #00A86B44;border-radius:6px;padding:0.4rem 0.75rem;font-size:0.78rem;font-family:monospace;color:#00A86B;">exam ⭐</div>
-        <div style="background:#0F172A;border:1px solid #00A86B44;border-radius:6px;padding:0.4rem 0.75rem;font-size:0.78rem;font-family:monospace;color:#00A86B;">subject ⭐</div>
-        <div style="background:#0F172A;border:1px solid #334155;border-radius:6px;padding:0.4rem 0.75rem;font-size:0.78rem;font-family:monospace;color:#A78BFA;">tier</div>
-        <div style="background:#0F172A;border:1px solid #334155;border-radius:6px;padding:0.4rem 0.75rem;font-size:0.78rem;font-family:monospace;color:#A78BFA;">year</div>
-        <div style="background:#0F172A;border:1px solid #334155;border-radius:6px;padding:0.4rem 0.75rem;font-size:0.78rem;font-family:monospace;color:#A78BFA;">type</div>
-        <div style="background:#0F172A;border:1px solid #334155;border-radius:6px;padding:0.4rem 0.75rem;font-size:0.78rem;font-family:monospace;color:#A78BFA;">chapter</div>
-        <div style="background:#0F172A;border:1px solid #334155;border-radius:6px;padding:0.4rem 0.75rem;font-size:0.78rem;font-family:monospace;color:#A78BFA;">difficulty</div>
-        <div style="background:#0F172A;border:1px solid #334155;border-radius:6px;padding:0.4rem 0.75rem;font-size:0.78rem;font-family:monospace;color:#A78BFA;">qNum</div>
-        <div style="background:#0F172A;border:1px solid #334155;border-radius:6px;padding:0.4rem 0.75rem;font-size:0.78rem;font-family:monospace;color:#A78BFA;">explanation</div>
-        <div style="background:#0F172A;border:1px solid #334155;border-radius:6px;padding:0.4rem 0.75rem;font-size:0.78rem;font-family:monospace;color:#A78BFA;">trick</div>
-      </div>
-      <p style="font-size:0.78rem;color:#475569;margin-top:0.6rem;">⭐ = Required &nbsp;|&nbsp; Purple = Optional</p>
     </div>
   </div>
 
@@ -693,11 +580,63 @@ textarea{resize:vertical;min-height:80px;}
         <div style="background:#0F172A;border:1px solid #334155;border-radius:6px;padding:0.4rem 0.75rem;font-size:0.78rem;font-family:monospace;color:#A78BFA;">correct</div>
         <div style="background:#0F172A;border:1px solid #334155;border-radius:6px;padding:0.4rem 0.75rem;font-size:0.78rem;font-family:monospace;color:#A78BFA;">explanation</div>
         <div style="background:#0F172A;border:1px solid #334155;border-radius:6px;padding:0.4rem 0.75rem;font-size:0.78rem;font-family:monospace;color:#A78BFA;">trick</div>
+        <div style="background:#0F172A;border:1px solid #334155;border-radius:6px;padding:0.4rem 0.75rem;font-size:0.78rem;font-family:monospace;color:#A78BFA;">imageUrl</div>
         <div style="background:#0F172A;border:1px solid #334155;border-radius:6px;padding:0.4rem 0.75rem;font-size:0.78rem;font-family:monospace;color:#A78BFA;">createdAt</div>
       </div>
     </div>
   </div>
 </div><!-- /adminScreen -->
+
+<!-- Edit Modal -->
+<div id="editModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:1000;overflow-y:auto;padding:2rem;">
+  <div style="background:#1E293B;border:1px solid #334155;border-radius:16px;padding:2rem;max-width:700px;margin:0 auto;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;">
+      <h3 style="font-family:'Rajdhani',sans-serif;font-size:1.2rem;font-weight:700;color:#F1F5F9;">✏️ Edit Question</h3>
+      <button onclick="closeEditModal()" style="background:#334155;border:none;color:#94A3B8;padding:0.4rem 0.75rem;border-radius:6px;cursor:pointer;font-size:0.85rem;">✕ Close</button>
+    </div>
+    <input type="hidden" id="editId">
+    <div style="margin-bottom:1rem;"><label>Question Text</label><textarea id="editText" style="width:100%;min-height:80px;background:#0F172A;border:1px solid #334155;border-radius:8px;padding:0.65rem 0.9rem;color:#E2E8F0;font-family:'Inter',sans-serif;font-size:0.9rem;outline:none;resize:vertical;"></textarea></div>
+    <div class="options-grid">
+      <div class="option-row"><span class="option-label" id="elbl-A">A</span><input type="text" id="eOptA" placeholder="Option A"></div>
+      <div class="option-row"><span class="option-label" id="elbl-B">B</span><input type="text" id="eOptB" placeholder="Option B"></div>
+      <div class="option-row"><span class="option-label" id="elbl-C">C</span><input type="text" id="eOptC" placeholder="Option C"></div>
+      <div class="option-row"><span class="option-label" id="elbl-D">D</span><input type="text" id="eOptD" placeholder="Option D"></div>
+    </div>
+    <div style="margin-bottom:1rem;"><label>Correct Answer</label>
+      <div class="correct-selector">
+        <label><input type="radio" name="eCorrect" value="A" onchange="hlEditCorrect('A')"> A</label>
+        <label><input type="radio" name="eCorrect" value="B" onchange="hlEditCorrect('B')"> B</label>
+        <label><input type="radio" name="eCorrect" value="C" onchange="hlEditCorrect('C')"> C</label>
+        <label><input type="radio" name="eCorrect" value="D" onchange="hlEditCorrect('D')"> D</label>
+      </div>
+    </div>
+    <div style="margin-bottom:1rem;"><label>📝 Explanation</label><textarea id="editExplanation" style="width:100%;min-height:70px;background:#0F172A;border:1px solid #334155;border-radius:8px;padding:0.65rem 0.9rem;color:#E2E8F0;font-family:'Inter',sans-serif;font-size:0.9rem;outline:none;resize:vertical;"></textarea></div>
+    <div style="margin-bottom:1rem;"><label>⚡ Trick</label><textarea id="editTrick" style="width:100%;min-height:70px;background:#0F172A;border:1px solid #334155;border-radius:8px;padding:0.65rem 0.9rem;color:#E2E8F0;font-family:'Inter',sans-serif;font-size:0.9rem;outline:none;resize:vertical;"></textarea></div>
+    <div style="margin-bottom:1rem;"><label>Difficulty</label>
+      <select id="editDifficulty" style="width:100%;background:#0F172A;border:1px solid #334155;border-radius:8px;padding:0.65rem 0.9rem;color:#E2E8F0;font-family:'Inter',sans-serif;font-size:0.9rem;outline:none;">
+        <option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option>
+      </select>
+    </div>
+    <div style="margin-bottom:1.5rem;">
+      <label>🖼️ Question Image</label>
+      <div id="editImgCurrentWrap" style="margin-bottom:0.5rem;display:none;">
+        <img id="editImgCurrent" style="max-width:100%;max-height:180px;border-radius:8px;border:1px solid #334155;object-fit:contain;background:#0F172A;">
+        <button type="button" onclick="clearEditImg()" style="display:block;margin-top:0.4rem;background:#EF4444;border:none;color:#fff;padding:0.3rem 0.75rem;border-radius:6px;cursor:pointer;font-size:0.8rem;">🗑 Remove Image</button>
+      </div>
+      <div onclick="document.getElementById('editImgFile').click()" style="border:2px dashed #334155;border-radius:8px;padding:1rem;text-align:center;cursor:pointer;margin-bottom:0.5rem;">
+        <input type="file" id="editImgFile" accept="image/*" style="display:none;" onchange="previewEditImg(event)">
+        <div id="editImgNewPreviewWrap" style="display:none;margin-bottom:0.4rem;"><img id="editImgNewPreview" style="max-width:100%;max-height:150px;border-radius:6px;"></div>
+        <div id="editImgPlaceholder" style="color:#64748B;font-size:0.85rem;">📷 Upload new image to replace</div>
+      </div>
+      <input type="text" id="editImgUrl" placeholder="Or paste image URL directly..." style="width:100%;background:#0F172A;border:1px solid #334155;border-radius:8px;padding:0.65rem 0.9rem;color:#E2E8F0;font-family:'Inter',sans-serif;font-size:0.9rem;outline:none;">
+      <div id="editImgStatus" style="font-size:0.8rem;color:#94A3B8;margin-top:0.4rem;display:none;"></div>
+    </div>
+    <div style="display:flex;gap:0.75rem;">
+      <button class="btn btn-primary" onclick="saveEdit()" style="flex:1;">💾 Save Changes</button>
+      <button class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
+    </div>
+  </div>
+</div>
 
 <!-- Toast -->
 <div class="toast" id="toast"></div>
@@ -707,6 +646,7 @@ textarea{resize:vertical;min-height:80px;}
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
 import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, query, where, orderBy, limit, getCountFromServer } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-storage.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",
@@ -721,6 +661,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const storage = getStorage(app);
 const provider = new GoogleAuthProvider();
 
 // Admin emails - add yours here
@@ -919,6 +860,19 @@ window.saveQuestion = async () => {
   if (!text || !optA || !optB || !optC || !optD || !correct) {
     showToast('Please fill all fields and select correct answer', 'error'); return;
   }
+  // Handle image upload
+  let imageUrl = document.getElementById('qImgUrl').value.trim();
+  const imgFile = document.getElementById('qImgFile').files[0];
+  if (imgFile && !imageUrl) {
+    const status = document.getElementById('qImgUploadStatus');
+    status.style.display = 'block'; status.textContent = '⏳ Uploading image...';
+    try {
+      const imgRef = ref(storage, `question-images/${Date.now()}_${imgFile.name}`);
+      await uploadBytes(imgRef, imgFile);
+      imageUrl = await getDownloadURL(imgRef);
+      status.textContent = '✅ Image uploaded!';
+    } catch(e) { status.textContent = '⚠ Image upload failed: ' + e.message; }
+  }
   try {
     await addDoc(collection(db, 'questions'), {
       exam: document.getElementById('qExam').value,
@@ -934,13 +888,17 @@ window.saveQuestion = async () => {
       correct: correct.value,
       explanation: document.getElementById('qExplanation').value.trim(),
       trick: document.getElementById('qTrick').value.trim(),
+      imageUrl: imageUrl || '',
       createdAt: new Date()
     });
     showToast('✅ Question saved!', 'success');
-    // Clear form
-    ['qText','optA','optB','optC','optD','qExplanation','qTrick'].forEach(id => document.getElementById(id).value = '');
+    ['qText','optA','optB','optC','optD','qExplanation','qTrick','qImgUrl'].forEach(id => document.getElementById(id).value = '');
     document.querySelectorAll('input[name="correct"]').forEach(r => r.checked = false);
     ['A','B','C','D'].forEach(l => { document.getElementById('lbl-'+l).className = 'option-label'; });
+    document.getElementById('qImgFile').value = '';
+    document.getElementById('qImgPreviewWrap').style.display = 'none';
+    document.getElementById('qImgPlaceholder').style.display = 'block';
+    document.getElementById('qImgUploadStatus').style.display = 'none';
     loadStats();
   } catch(e) { showToast('Error: ' + e.message, 'error'); }
 };
@@ -1065,6 +1023,7 @@ async function saveQuestion_db(q, meta) {
     correct: q.correct,
     explanation: q.explanation || '',
     trick: q.trick || '',
+    imageUrl: q.imageUrl || '',
     createdAt: new Date()
   });
 }
@@ -1146,19 +1105,18 @@ window.loadQuestions = async () => {
     if (filterExam) docs = docs.filter(d => d.exam === filterExam);
     if (filterYear) docs = docs.filter(d => d.year === filterYear);
     if (filterSubj) docs = docs.filter(d => d.subject === filterSubj);
-    window._visibleQuestions = docs; // store for bulk ops
     docs = docs.slice(0, 50);
     if (!docs.length) { listEl.innerHTML = '<p style="color:#94A3B8;text-align:center;padding:2rem;">No questions found.</p>'; return; }
     listEl.innerHTML = docs.map(q => `
-      <div class="question-item" id="qi-${q.id}">
+      <div class="question-item">
         <div class="q-header">
-          <label style="display:flex;align-items:flex-start;gap:0.6rem;flex:1;cursor:pointer;text-transform:none;letter-spacing:0;">
-            <input type="checkbox" class="q-chk" data-id="${q.id}" onchange="updateSelectionUI()" style="accent-color:#FF6B00;margin-top:3px;flex-shrink:0;">
-            <div class="q-text"><strong>Q${q.qNum}.</strong> ${q.text}</div>
-          </label>
-          <div class="q-actions">
-            <button class="btn btn-secondary" style="padding:0.3rem 0.6rem;font-size:0.75rem;flex-shrink:0;" onclick="openEditModal('${q.id}')">✏️</button>
-            <button class="btn btn-danger" style="padding:0.3rem 0.6rem;font-size:0.75rem;flex-shrink:0;" onclick="deleteQuestion('${q.id}')">🗑</button>
+          <div class="q-text" style="flex:1;">
+            <strong>Q${q.qNum}.</strong> ${q.text}
+            ${q.imageUrl ? `<div style="margin-top:0.5rem;"><img src="${q.imageUrl}" style="max-width:220px;max-height:120px;border-radius:6px;border:1px solid #334155;object-fit:contain;background:#0F172A;" alt="Question figure" onerror="this.style.display='none'"></div>` : ''}
+          </div>
+          <div style="display:flex;gap:0.4rem;flex-shrink:0;">
+            <button class="btn btn-secondary" style="padding:0.3rem 0.6rem;font-size:0.75rem;" onclick="openEditModal('${q.id}')">✏️</button>
+            <button class="btn btn-danger" style="padding:0.3rem 0.6rem;font-size:0.75rem;" onclick="deleteQuestion('${q.id}')">🗑</button>
           </div>
         </div>
         <div class="q-options">
@@ -1171,12 +1129,11 @@ window.loadQuestions = async () => {
           <span class="meta-tag">${q.subject}</span>
           <span class="meta-tag">${q.chapter||''}</span>
           <span class="meta-tag">${q.difficulty||''}</span>
+          ${q.imageUrl ? `<span class="meta-tag" style="background:#7C3AED22;color:#A78BFA;border:1px solid #7C3AED44;">🖼 has image</span>` : ''}
         </div>
       </div>
     `).join('');
-    // store full docs for edit
     window._loadedQDocs = docs;
-    updateSelectionUI();
   } catch(e) { listEl.innerHTML = '<p style="color:#EF4444;text-align:center;padding:2rem;">Error loading: '+e.message+'</p>'; }
 };
 
@@ -1281,60 +1238,6 @@ window.switchTab = (tab) => {
   if (tab === 'manage') loadQuestions();
   if (tab === 'users') loadUsers();
   if (tab === 'export') updateExportTiersAndSubjects();
-  if (tab === 'import') { /* ready */ }
-};
-
-// ── Selection helpers ──
-window.updateSelectionUI = () => {
-  const chks = document.querySelectorAll('.q-chk');
-  const checked = document.querySelectorAll('.q-chk:checked');
-  const badge = document.getElementById('selectedCountBadge');
-  const delBtn = document.getElementById('deleteSelectedBtn');
-  const selAll = document.getElementById('selectAllChk');
-  if (!badge) return;
-  if (checked.length > 0) {
-    badge.style.display = 'inline-block';
-    badge.textContent = checked.length + ' selected';
-    delBtn.style.display = 'inline-block';
-    delBtn.textContent = '🗑 Delete Selected (' + checked.length + ')';
-  } else {
-    badge.style.display = 'none';
-    delBtn.style.display = 'none';
-  }
-  if (selAll) selAll.indeterminate = checked.length > 0 && checked.length < chks.length;
-  if (selAll) selAll.checked = chks.length > 0 && checked.length === chks.length;
-};
-
-window.toggleSelectAll = () => {
-  const checked = document.getElementById('selectAllChk').checked;
-  document.querySelectorAll('.q-chk').forEach(c => c.checked = checked);
-  updateSelectionUI();
-};
-
-window.deleteSelected = async () => {
-  const checked = [...document.querySelectorAll('.q-chk:checked')];
-  if (!checked.length) return;
-  if (!confirm(`Delete ${checked.length} selected question${checked.length>1?'s':''}? This cannot be undone.`)) return;
-  let done = 0;
-  for (const c of checked) {
-    await deleteDoc(doc(db, 'questions', c.dataset.id));
-    done++;
-  }
-  showToast(`✅ Deleted ${done} questions!`, 'success');
-  loadStats(); loadQuestions();
-};
-
-window.deleteAllVisible = async () => {
-  const all = document.querySelectorAll('.q-chk');
-  if (!all.length) { showToast('No questions shown', 'error'); return; }
-  if (!confirm(`Delete ALL ${all.length} currently shown questions? This cannot be undone!`)) return;
-  let done = 0;
-  for (const c of all) {
-    await deleteDoc(doc(db, 'questions', c.dataset.id));
-    done++;
-  }
-  showToast(`✅ Deleted ${done} questions!`, 'success');
-  loadStats(); loadQuestions();
 };
 
 // ── Edit Modal ──
@@ -1352,38 +1255,65 @@ window.openEditModal = (id) => {
   document.getElementById('editDifficulty').value = q.difficulty||'medium';
   document.querySelectorAll('input[name="eCorrect"]').forEach(r=>{r.checked=r.value===q.correct;});
   ['A','B','C','D'].forEach(l=>{document.getElementById('elbl-'+l).className='option-label'+(l===q.correct?' correct':'');});
-  document.getElementById('editModal').style.display='block';
-  document.body.style.overflow='hidden';
+  // Image
+  document.getElementById('editImgUrl').value = q.imageUrl||'';
+  document.getElementById('editImgFile').value = '';
+  document.getElementById('editImgNewPreviewWrap').style.display = 'none';
+  document.getElementById('editImgPlaceholder').style.display = 'block';
+  document.getElementById('editImgStatus').style.display = 'none';
+  if (q.imageUrl) {
+    document.getElementById('editImgCurrent').src = q.imageUrl;
+    document.getElementById('editImgCurrentWrap').style.display = 'block';
+  } else {
+    document.getElementById('editImgCurrentWrap').style.display = 'none';
+  }
+  document.getElementById('editModal').style.display = 'block';
+  document.body.style.overflow = 'hidden';
 };
-
-window.closeEditModal = () => {
-  document.getElementById('editModal').style.display='none';
-  document.body.style.overflow='';
+window.closeEditModal = () => { document.getElementById('editModal').style.display='none'; document.body.style.overflow=''; };
+window.hlEditCorrect = (letter) => { ['A','B','C','D'].forEach(l=>{document.getElementById('elbl-'+l).className='option-label'+(l===letter?' correct':'');}); };
+window.previewEditImg = (event) => {
+  const file = event.target.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    document.getElementById('editImgNewPreview').src = e.target.result;
+    document.getElementById('editImgNewPreviewWrap').style.display = 'block';
+    document.getElementById('editImgPlaceholder').style.display = 'none';
+  };
+  reader.readAsDataURL(file);
 };
-
-window.highlightEditCorrect = (letter) => {
-  ['A','B','C','D'].forEach(l=>{
-    document.getElementById('elbl-'+l).className='option-label'+(l===letter?' correct':'');
-  });
+window.clearEditImg = () => {
+  document.getElementById('editImgUrl').value = '';
+  document.getElementById('editImgCurrentWrap').style.display = 'none';
+  document.getElementById('editImgFile').value = '';
+  document.getElementById('editImgNewPreviewWrap').style.display = 'none';
+  document.getElementById('editImgPlaceholder').style.display = 'block';
 };
-
 window.saveEdit = async () => {
   const id = document.getElementById('editId').value;
   const correct = document.querySelector('input[name="eCorrect"]:checked');
   if (!correct) { showToast('Select correct answer','error'); return; }
+  let imageUrl = document.getElementById('editImgUrl').value.trim();
+  const imgFile = document.getElementById('editImgFile').files[0];
+  if (imgFile) {
+    const status = document.getElementById('editImgStatus');
+    status.style.display = 'block'; status.textContent = '⏳ Uploading image...';
+    try {
+      const imgRef = ref(storage, `question-images/${Date.now()}_${imgFile.name}`);
+      await uploadBytes(imgRef, imgFile);
+      imageUrl = await getDownloadURL(imgRef);
+      status.textContent = '✅ Image uploaded!';
+    } catch(e) { status.textContent = '⚠ Upload failed: '+e.message; }
+  }
   try {
-    await updateDoc(doc(db,'questions',id),{
+    await updateDoc(doc(db,'questions',id), {
       text: document.getElementById('editText').value.trim(),
-      options: {
-        A: document.getElementById('eOptA').value.trim(),
-        B: document.getElementById('eOptB').value.trim(),
-        C: document.getElementById('eOptC').value.trim(),
-        D: document.getElementById('eOptD').value.trim()
-      },
+      options: { A:document.getElementById('eOptA').value.trim(), B:document.getElementById('eOptB').value.trim(), C:document.getElementById('eOptC').value.trim(), D:document.getElementById('eOptD').value.trim() },
       correct: correct.value,
       explanation: document.getElementById('editExplanation').value.trim(),
       trick: document.getElementById('editTrick').value.trim(),
-      difficulty: document.getElementById('editDifficulty').value
+      difficulty: document.getElementById('editDifficulty').value,
+      imageUrl: imageUrl
     });
     showToast('✅ Question updated!','success');
     closeEditModal();
@@ -1391,92 +1321,23 @@ window.saveEdit = async () => {
   } catch(e) { showToast('Error: '+e.message,'error'); }
 };
 
-// ── CSV Import ──
-let csvParsedRows = [];
-
-window.handleCSVUpload = (event) => {
-  const file = event.target.files[0];
-  if (!file) return;
+window.highlightCorrect = (letter) => {
+  const file = event.target.files[0]; if (!file) return;
   const reader = new FileReader();
   reader.onload = (e) => {
-    const text = e.target.result;
-    parseAndPreviewCSV(text, file.name);
+    document.getElementById('qImgPreview').src = e.target.result;
+    document.getElementById('qImgPreviewWrap').style.display = 'block';
+    document.getElementById('qImgPlaceholder').style.display = 'none';
   };
-  reader.readAsText(file, 'UTF-8');
+  reader.readAsDataURL(file);
 };
-
-function parseCSVLine(line) {
-  const result = []; let cur = ''; let inQ = false;
-  for (let i=0;i<line.length;i++){
-    const c=line[i];
-    if (c==='"'){if(inQ&&line[i+1]==='"'){cur+='"';i++;}else{inQ=!inQ;}}
-    else if(c===','&&!inQ){result.push(cur);cur='';}
-    else cur+=c;
-  }
-  result.push(cur);
-  return result;
-}
-
-function parseAndPreviewCSV(text, filename) {
-  const lines = text.replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n').filter(l=>l.trim());
-  if (lines.length < 2) { showToast('CSV must have header + at least 1 row','error'); return; }
-  const headers = parseCSVLine(lines[0]).map(h=>h.trim().replace(/^\uFEFF/,''));
-  const required = ['text','option_A','option_B','option_C','option_D','correct','exam','subject'];
-  const missing = required.filter(r=>!headers.includes(r));
-  const validEl = document.getElementById('csvValidation');
-  if (missing.length) {
-    validEl.innerHTML=`<div style="background:#EF444422;border:1px solid #EF444444;border-radius:8px;padding:0.75rem;color:#EF4444;font-size:0.85rem;">❌ Missing required columns: <strong>${missing.join(', ')}</strong></div>`;
-  } else {
-    validEl.innerHTML=`<div style="background:#00A86B22;border:1px solid #00A86B44;border-radius:8px;padding:0.75rem;color:#00A86B;font-size:0.85rem;">✅ All required columns found. Ready to import.</div>`;
-  }
-  csvParsedRows = lines.slice(1).map(l=>{ const vals=parseCSVLine(l); const obj={}; headers.forEach((h,i)=>obj[h]=vals[i]||''); return obj; });
-  document.getElementById('csvFileName').textContent = '📄 '+filename;
-  document.getElementById('csvRowCount').textContent = `${csvParsedRows.length} rows`;
-  // Preview table
-  const showHeaders = ['text','option_A','option_B','option_C','option_D','correct','exam','subject','chapter','difficulty'];
-  const visibleH = showHeaders.filter(h=>headers.includes(h));
-  document.getElementById('csvPreviewHead').innerHTML='<tr>'+visibleH.map(h=>`<th>${h}</th>`).join('')+'</tr>';
-  document.getElementById('csvPreviewBody').innerHTML=csvParsedRows.slice(0,10).map(row=>'<tr>'+visibleH.map(h=>`<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${row[h]||''}</td>`).join('')+'</tr>').join('');
-  document.getElementById('csvPreview').style.display='block';
-  document.getElementById('csvImportBtn').disabled = missing.length > 0;
-}
-
-window.clearCSV = () => {
-  csvParsedRows=[];
-  document.getElementById('csvFileInput').value='';
-  document.getElementById('csvPreview').style.display='none';
-  document.getElementById('csvProgress').style.display='none';
-};
-
-window.importCSV = async () => {
-  if (!csvParsedRows.length) return;
-  const prog=document.getElementById('csvProgress');
-  const bar=document.getElementById('csvBar');
-  const status=document.getElementById('csvStatus');
-  prog.style.display='block'; bar.style.width='0%';
-  document.getElementById('csvImportBtn').disabled=true;
-  let saved=0, errors=0;
-  for (let i=0;i<csvParsedRows.length;i++){
-    const r=csvParsedRows[i];
-    if(!r.text||!r.correct||!r.exam) {errors++;continue;}
-    try {
-      await addDoc(collection(db,'questions'),{
-        text:r.text, exam:r.exam, tier:r.tier||'tier1', year:r.year||'',
-        type:r.type||'pyq', subject:r.subject||'', chapter:r.chapter||'',
-        difficulty:r.difficulty||'medium', qNum:parseInt(r.qNum)||0,
-        options:{A:r.option_A||'',B:r.option_B||'',C:r.option_C||'',D:r.option_D||''},
-        correct:r.correct, explanation:r.explanation||'', trick:r.trick||'',
-        createdAt:new Date()
-      });
-      saved++;
-    } catch(e){errors++;}
-    bar.style.width=((i+1)/csvParsedRows.length*100)+'%';
-    status.textContent=`Importing ${i+1}/${csvParsedRows.length}...`;
-  }
-  status.textContent=`✅ Imported ${saved} questions${errors?' ('+errors+' errors)':''}.`;
-  showToast(`✅ ${saved} questions imported!`,'success');
-  document.getElementById('csvImportBtn').disabled=false;
-  loadStats();
+window.clearQImg = () => {
+  document.getElementById('qImgFile').value = '';
+  document.getElementById('qImgUrl').value = '';
+  document.getElementById('qImgPreview').src = '';
+  document.getElementById('qImgPreviewWrap').style.display = 'none';
+  document.getElementById('qImgPlaceholder').style.display = 'block';
+  document.getElementById('qImgUploadStatus').style.display = 'none';
 };
 
 window.highlightCorrect = (letter) => {
@@ -1544,12 +1405,12 @@ function escapeCSV(val) {
 
 function docsToCSV(docs) {
   const headers = ['id','exam','tier','year','type','subject','chapter','difficulty','qNum',
-    'text','option_A','option_B','option_C','option_D','correct','explanation','trick','createdAt'];
+    'text','option_A','option_B','option_C','option_D','correct','explanation','trick','imageUrl','createdAt'];
   const rows = docs.map(d => [
     d.id, d.exam, d.tier, d.year, d.type, d.subject, d.chapter, d.difficulty, d.qNum,
     d.text,
     d.options?.A || '', d.options?.B || '', d.options?.C || '', d.options?.D || '',
-    d.correct, d.explanation, d.trick,
+    d.correct, d.explanation, d.trick, d.imageUrl || '',
     d.createdAt?.toDate ? d.createdAt.toDate().toISOString() : (d.createdAt || '')
   ].map(escapeCSV).join(','));
   return [headers.join(','), ...rows].join('\n');
