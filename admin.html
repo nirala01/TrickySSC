@@ -314,6 +314,18 @@ textarea{resize:vertical;min-height:80px;}
       <div style="margin-bottom:1rem;">
         <label>📝 Step-by-Step Solution (optional)</label>
         <textarea id="qExplanation" placeholder="Write the full solution here..."></textarea>
+        <div style="margin-top:0.5rem;">
+          <label style="cursor:pointer;display:flex;align-items:center;gap:0.5rem;background:#1E293B;border:1px dashed #334155;border-radius:7px;padding:0.5rem 0.75rem;">
+            <input type="file" id="solImgFile" accept="image/*" onchange="handleSolImg(this)" style="display:none;">
+            <span style="font-size:0.8rem;color:#64748B;">🖼️ Solution image (optional)</span>
+            <span id="solImgStatus" style="font-size:0.75rem;color:#94A3B8;margin-left:auto;display:none;"></span>
+            <button type="button" onclick="clearSolImg()" style="background:#334155;border:none;color:#64748B;padding:0.2rem 0.5rem;border-radius:5px;cursor:pointer;font-size:0.75rem;">✕</button>
+          </label>
+          <div id="solImgPreview" style="display:none;margin-top:0.5rem;text-align:center;">
+            <img id="solImgImg" style="max-width:100%;max-height:140px;border-radius:8px;object-fit:contain;border:1px solid #334155;">
+          </div>
+          <input type="hidden" id="solImgUrl">
+        </div>
       </div>
       <div style="margin-bottom:1rem;">
         <label>⚡ Tricky Shortcut Method (optional)</label>
@@ -806,7 +818,20 @@ textarea{resize:vertical;min-height:80px;}
         <label><input type="radio" name="eCorrect" value="D" onchange="hlEditCorrect('D')"> D</label>
       </div>
     </div>
-    <div style="margin-bottom:1rem;"><label>📝 Explanation</label><textarea id="editExplanation" style="width:100%;min-height:70px;background:#0F172A;border:1px solid #334155;border-radius:8px;padding:0.65rem 0.9rem;color:#E2E8F0;font-family:'Inter',sans-serif;font-size:0.9rem;outline:none;resize:vertical;"></textarea></div>
+    <div style="margin-bottom:1rem;"><label>📝 Explanation</label><textarea id="editExplanation" style="width:100%;min-height:70px;background:#0F172A;border:1px solid #334155;border-radius:8px;padding:0.65rem 0.9rem;color:#E2E8F0;font-family:'Inter',sans-serif;font-size:0.9rem;outline:none;resize:vertical;"></textarea>
+  <div style="margin-top:0.5rem;">
+    <label style="cursor:pointer;display:flex;align-items:center;gap:0.5rem;background:#0F172A;border:1px dashed #334155;border-radius:7px;padding:0.4rem 0.75rem;">
+      <input type="file" id="editSolImgFile" accept="image/*" onchange="handleEditSolImg(this)" style="display:none;">
+      <span style="font-size:0.78rem;color:#64748B;">🖼️ Solution image</span>
+      <span id="editSolImgStatus" style="font-size:0.72rem;color:#94A3B8;margin-left:auto;display:none;"></span>
+      <button type="button" onclick="clearEditSolImg()" style="background:#334155;border:none;color:#64748B;padding:0.2rem 0.5rem;border-radius:5px;cursor:pointer;font-size:0.72rem;">✕</button>
+    </label>
+    <div id="editSolImgCurrentWrap" style="display:none;margin-top:0.4rem;text-align:center;">
+      <img id="editSolImgCurrent" style="max-width:100%;max-height:120px;border-radius:7px;object-fit:contain;border:1px solid #334155;background:#0F172A;">
+    </div>
+    <input type="hidden" id="editSolImgUrl">
+  </div>
+</div>
     <div style="margin-bottom:1rem;"><label>⚡ Trick</label><textarea id="editTrick" style="width:100%;min-height:70px;background:#0F172A;border:1px solid #334155;border-radius:8px;padding:0.65rem 0.9rem;color:#E2E8F0;font-family:'Inter',sans-serif;font-size:0.9rem;outline:none;resize:vertical;"></textarea></div>
     <div style="margin-bottom:1rem;"><label>Difficulty</label>
       <select id="editDifficulty" style="width:100%;background:#0F172A;border:1px solid #334155;border-radius:8px;padding:0.65rem 0.9rem;color:#E2E8F0;font-family:'Inter',sans-serif;font-size:0.9rem;outline:none;">
@@ -1082,6 +1107,7 @@ window.saveQuestion = async () => {
       optionImages:{A:document.getElementById('optAImgUrl')?.value||'',B:document.getElementById('optBImgUrl')?.value||'',C:document.getElementById('optCImgUrl')?.value||'',D:document.getElementById('optDImgUrl')?.value||''},
       correct: correct.value,
       explanation: document.getElementById('qExplanation').value.trim(),
+      solutionImage: document.getElementById('solImgUrl')?.value.trim()||'',
       trick: document.getElementById('qTrick').value.trim(),
       imageUrl: imageUrl || '',
       createdAt: new Date()
@@ -1095,6 +1121,7 @@ window.saveQuestion = async () => {
     document.getElementById('qImgPreviewWrap').style.display = 'none';
     document.getElementById('qImgPlaceholder').style.display = 'block';
     document.getElementById('qImgUploadStatus').style.display = 'none';
+    if(typeof clearSolImg==='function') clearSolImg();
     loadStats();
   } catch(e) { showToast('Error: ' + e.message, 'error'); }
 };
@@ -1616,6 +1643,53 @@ window.clearMiniImg=(fieldId)=>{
   const u=document.getElementById(fieldId+'Url'); if(u) u.value='';
   const f=document.getElementById(fieldId+'File'); if(f) f.value='';
 };
+// ── Solution image helpers ────────────────────────────────────────────────────
+window.handleSolImg = async (input) => {
+  const file = input.files[0]; if(!file) return;
+  const status  = document.getElementById('solImgStatus');
+  const preview = document.getElementById('solImgPreview');
+  const pImg    = document.getElementById('solImgImg');
+  const reader  = new FileReader();
+  reader.onload = e => { pImg.src=e.target.result; preview.style.display='block'; };
+  reader.readAsDataURL(file);
+  if(status){ status.style.display='inline'; status.textContent='⏳ Uploading...'; }
+  try {
+    const url = await uploadToImgBB(file);
+    document.getElementById('solImgUrl').value = url;
+    if(status){ status.textContent='✅'; setTimeout(()=>status.style.display='none',2000); }
+  } catch(e) { if(status){ status.textContent='⚠ Failed: '+e.message; } }
+  input.value='';
+};
+window.handleEditSolImg = async (input) => {
+  const file = input.files[0]; if(!file) return;
+  const status  = document.getElementById('editSolImgStatus');
+  const wrap    = document.getElementById('editSolImgCurrentWrap');
+  const pImg    = document.getElementById('editSolImgCurrent');
+  const reader  = new FileReader();
+  reader.onload = e => { pImg.src=e.target.result; wrap.style.display='block'; };
+  reader.readAsDataURL(file);
+  if(status){ status.style.display='inline'; status.textContent='⏳ Uploading...'; }
+  try {
+    const url = await uploadToImgBB(file);
+    document.getElementById('editSolImgUrl').value = url;
+    if(status){ status.textContent='✅'; setTimeout(()=>status.style.display='none',2000); }
+  } catch(e) { if(status){ status.textContent='⚠ '+e.message; } }
+  input.value='';
+};
+window.clearEditSolImg = () => {
+  const f=document.getElementById('editSolImgFile'); if(f) f.value='';
+  const u=document.getElementById('editSolImgUrl'); if(u) u.value='';
+  const i=document.getElementById('editSolImgCurrent'); if(i) i.src='';
+  const w=document.getElementById('editSolImgCurrentWrap'); if(w) w.style.display='none';
+  const s=document.getElementById('editSolImgStatus'); if(s) s.style.display='none';
+};
+window.clearSolImg = () => {
+  const f=document.getElementById('solImgFile'); if(f) f.value='';
+  const u=document.getElementById('solImgUrl'); if(u) u.value='';
+  const i=document.getElementById('solImgImg'); if(i) i.src='';
+  const p=document.getElementById('solImgPreview'); if(p) p.style.display='none';
+  const s=document.getElementById('solImgStatus'); if(s) s.style.display='none';
+};
 
 window.switchTab = (tab) => {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -1640,6 +1714,12 @@ window.openEditModal = (id) => {
   document.getElementById('eOptC').value = q.options?.C||'';
   document.getElementById('eOptD').value = q.options?.D||'';
   document.getElementById('editExplanation').value = q.explanation||'';
+  // solution image
+  document.getElementById('editSolImgUrl').value = q.solutionImage||'';
+  document.getElementById('editSolImgFile').value = '';
+  document.getElementById('editSolImgStatus').style.display = 'none';
+  if(q.solutionImage){ document.getElementById('editSolImgCurrent').src=q.solutionImage; document.getElementById('editSolImgCurrentWrap').style.display='block'; }
+  else { document.getElementById('editSolImgCurrentWrap').style.display='none'; }
   document.getElementById('editTrick').value = q.trick||'';
   document.getElementById('editDifficulty').value = q.difficulty||'medium';
   document.querySelectorAll('input[name="eCorrect"]').forEach(r=>{r.checked=r.value===q.correct;});
@@ -1700,6 +1780,7 @@ window.saveEdit = async () => {
       options: { A:document.getElementById('eOptA').value.trim(), B:document.getElementById('eOptB').value.trim(), C:document.getElementById('eOptC').value.trim(), D:document.getElementById('eOptD').value.trim() },
       correct: correct.value,
       explanation: document.getElementById('editExplanation').value.trim(),
+      solutionImage: document.getElementById('editSolImgUrl')?.value.trim()||'',
       trick: document.getElementById('editTrick').value.trim(),
       difficulty: document.getElementById('editDifficulty').value,
       imageUrl: imageUrl
@@ -1710,7 +1791,7 @@ window.saveEdit = async () => {
   } catch(e) { showToast('Error: '+e.message,'error'); }
 };
 
-window.highlightCorrect = (letter) => {
+window.previewQImg = (event) => {
   const file = event.target.files[0]; if (!file) return;
   const reader = new FileReader();
   reader.onload = (e) => {
@@ -1720,6 +1801,13 @@ window.highlightCorrect = (letter) => {
   };
   reader.readAsDataURL(file);
 };
+
+window.highlightCorrect = (letter) => {
+  ['A','B','C','D'].forEach(l => {
+    const el = document.getElementById('lbl-'+l);
+    el.className = 'option-label' + (l===letter ? ' correct' : '');
+  });
+};
 window.clearQImg = () => {
   document.getElementById('qImgFile').value = '';
   document.getElementById('qImgUrl').value = '';
@@ -1727,13 +1815,6 @@ window.clearQImg = () => {
   document.getElementById('qImgPreviewWrap').style.display = 'none';
   document.getElementById('qImgPlaceholder').style.display = 'block';
   document.getElementById('qImgUploadStatus').style.display = 'none';
-};
-
-window.highlightCorrect = (letter) => {
-  ['A','B','C','D'].forEach(l => {
-    const el = document.getElementById('lbl-'+l);
-    el.className = 'option-label' + (l===letter ? ' correct' : '');
-  });
 };
 
 function showToast(msg, type='') {

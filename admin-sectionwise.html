@@ -253,6 +253,18 @@ textarea{resize:vertical;min-height:80px;}
       <div style="margin-bottom:1rem;">
         <label>📝 Step-by-Step Solution (optional)</label>
         <textarea id="sExplanation" placeholder="Write the full solution here..."></textarea>
+        <div style="margin-top:0.5rem;">
+          <label style="cursor:pointer;display:flex;align-items:center;gap:0.5rem;background:#1E293B;border:1px dashed #334155;border-radius:7px;padding:0.5rem 0.75rem;">
+            <input type="file" id="sSolImgFile" accept="image/*" onchange="handleSsolImg(this)" style="display:none;">
+            <span style="font-size:0.8rem;color:#64748B;">🖼️ Solution image (optional)</span>
+            <span id="sSolImgStatus" style="font-size:0.75rem;color:#94A3B8;margin-left:auto;display:none;"></span>
+            <button type="button" onclick="clearSsolImg()" style="background:#334155;border:none;color:#64748B;padding:0.2rem 0.5rem;border-radius:5px;cursor:pointer;font-size:0.75rem;">✕</button>
+          </label>
+          <div id="sSolImgPreview" style="display:none;margin-top:0.5rem;text-align:center;">
+            <img id="sSolImgImg" style="max-width:100%;max-height:140px;border-radius:8px;object-fit:contain;border:1px solid #334155;">
+          </div>
+          <input type="hidden" id="sSolImgUrl">
+        </div>
       </div>
       <div style="margin-bottom:1rem;">
         <label>⚡ Tricky Shortcut (optional)</label>
@@ -682,6 +694,7 @@ window.saveQuestion = async () => {
       optionImages:{A:document.getElementById('sOptAImgUrl')?.value||'',B:document.getElementById('sOptBImgUrl')?.value||'',C:document.getElementById('sOptCImgUrl')?.value||'',D:document.getElementById('sOptDImgUrl')?.value||''},
       correct: correct.value,
       explanation: document.getElementById('sExplanation').value.trim(),
+      solutionImage: document.getElementById('sSolImgUrl')?.value.trim()||'',
       trick: document.getElementById('sTrick').value.trim(),
       imageUrl: await upload_s_img(),
       year: null, shift: null,
@@ -690,6 +703,7 @@ window.saveQuestion = async () => {
     showToast('✅ Question saved!','success');
         ['sOptOptAImg','sOptOptBImg','sOptOptCImg','sOptOptDImg'].forEach(id=>{if(typeof clearOptImg==='function')clearOptImg(id);});
     ['sText','sOptA','sOptB','sOptC','sOptD','sExplanation','sTrick','sImgUrl','sNum'].forEach(id=>document.getElementById(id).value='');
+    if(typeof clearSsolImg==='function') clearSsolImg();
     document.querySelectorAll('input[name="sCorrect"]').forEach(r=>r.checked=false);
     ['A','B','C','D'].forEach(l=>{const el=document.getElementById('slbl-'+l);if(el)el.className='option-label';});
     loadStats();
@@ -1054,6 +1068,30 @@ window.saveEdit=async()=>{
   }catch(e){showToast('Error: '+e.message,'error');}
 };
 
+
+// ── Sectionwise solution image helpers ───────────────────────────────────────
+window.handleSsolImg = async (input) => {
+  const file = input.files[0]; if(!file) return;
+  const status  = document.getElementById('sSolImgStatus');
+  const preview = document.getElementById('sSolImgPreview');
+  const pImg    = document.getElementById('sSolImgImg');
+  const reader  = new FileReader();
+  reader.onload = e => { pImg.src=e.target.result; preview.style.display='block'; };
+  reader.readAsDataURL(file);
+  if(status){ status.style.display='inline'; status.textContent='⏳ Uploading...'; }
+  try {
+    const url = await uploadToImgBB(file);
+    document.getElementById('sSolImgUrl').value = url;
+    if(status){ status.textContent='✅'; setTimeout(()=>status.style.display='none',2000); }
+  } catch(e) { if(status){ status.textContent='⚠ '+e.message; } }
+  input.value='';
+};
+window.clearSsolImg = () => {
+  ['sSolImgFile','sSolImgUrl'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+  const i=document.getElementById('sSolImgImg'); if(i) i.src='';
+  const p=document.getElementById('sSolImgPreview'); if(p) p.style.display='none';
+  const s=document.getElementById('sSolImgStatus'); if(s) s.style.display='none';
+};
 </script>
 </body>
 </html>
