@@ -940,6 +940,25 @@ async function uploadToImgBB(file) {
   throw new Error('ImgBB upload failed: ' + (data.error?.message || 'Unknown error'));
 }
 
+
+// ── Mini image upload for options/solution images ───────────────────────────
+window.uploadMiniImg = async (input, fieldId) => {
+  const file = input.files[0]; if (!file) return;
+  const status = document.getElementById(fieldId + 'Status');
+  status.style.display = 'inline'; status.textContent = '⏳';
+  try {
+    const url = await uploadToImgBB(file);
+    document.getElementById(fieldId + 'Url').value = url;
+    status.textContent = '✅';
+    setTimeout(() => { status.style.display = 'none'; }, 2000);
+  } catch(e) { status.textContent = '⚠'; status.title = e.message; }
+  input.value = '';
+};
+window.clearMiniImg = (fieldId) => {
+  document.getElementById(fieldId + 'Url').value = '';
+  document.getElementById(fieldId + 'File').value = '';
+};
+
 window.switchTab = (tab) => {
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
