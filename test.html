@@ -43,12 +43,26 @@ body{margin:0;font-family:'Noto Sans',sans-serif;background:#F1F5F9;}
 .stat{background:#F8FAFC;border-radius:10px;padding:12px 20px;text-align:center;}
 .stat-val{font-family:'Rajdhani';font-size:28px;font-weight:700;}
 .stat-lbl{font-size:12px;color:#6B7280;}
-.review-item{background:white;border-radius:10px;padding:16px;margin-bottom:12px;border-left:4px solid #E5E7EB;}
+.review-item{background:white;border-radius:12px;padding:20px;margin-bottom:16px;border-left:4px solid #E5E7EB;box-shadow:0 1px 4px rgba(0,0,0,0.06);}
 .review-item.correct{border-left-color:#16A34A;}
 .review-item.wrong{border-left-color:#DC2626;}
 .review-item.skip{border-left-color:#F59E0B;}
-.review-q{font-size:14px;font-weight:500;color:#1F2937;margin-bottom:8px;}
+.review-q{font-size:15px;font-weight:600;color:#1F2937;margin-bottom:10px;line-height:1.5;}
 .review-ans{font-size:13px;color:#6B7280;}
+.review-opts{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:10px 0;}
+.review-opt{padding:8px 12px;border-radius:7px;font-size:13px;border:1.5px solid #E5E7EB;color:#374151;display:flex;align-items:center;gap:8px;}
+.review-opt.opt-correct{border-color:#16A34A;background:#F0FDF4;color:#15803D;font-weight:600;}
+.review-opt.opt-wrong{border-color:#DC2626;background:#FEF2F2;color:#DC2626;}
+.review-opt.opt-selected{border-color:#FF6B00;background:#FFF3E8;}
+.review-opt img{max-width:100%;max-height:80px;border-radius:5px;margin-top:4px;}
+.review-verdict{display:flex;align-items:center;gap:8px;margin:10px 0;padding:8px 12px;border-radius:8px;font-size:13px;font-weight:600;}
+.review-verdict.v-correct{background:#F0FDF4;color:#15803D;}
+.review-verdict.v-wrong{background:#FEF2F2;color:#DC2626;}
+.review-verdict.v-skip{background:#FFFBEB;color:#B45309;}
+.review-solution{margin-top:10px;border-radius:8px;overflow:hidden;}
+.review-solution-header{padding:8px 14px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;}
+.review-solution-body{padding:12px 14px;font-size:13px;line-height:1.7;color:#374151;}
+.review-solution-body img{max-width:100%;border-radius:6px;margin-top:8px;display:block;}
 .logout-btn{background:transparent;border:1px solid #6B7280;color:#9CA3AF;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;}
 </style>
 </head>
@@ -196,18 +210,22 @@ function renderQ(){
   const q=questions[currentQ];
   document.getElementById('qNum').textContent='Question '+(currentQ+1)+' of '+questions.length;
   document.getElementById('qText').textContent=q.text||q.question||'';
-  // Show/hide question image
+  // Question image
   const imgWrap=document.getElementById('qImgWrap');
   const imgEl=document.getElementById('qImg');
-  if(q.imageUrl){
-    imgEl.src=q.imageUrl;
-    imgWrap.style.display='block';
-  } else {
-    imgWrap.style.display='none';
-    imgEl.src='';
-  }
+  if(q.imageUrl){ imgEl.src=q.imageUrl; imgWrap.style.display='block'; }
+  else { imgWrap.style.display='none'; imgEl.src=''; }
+  // Options — with option images if present
   const opts=['A','B','C','D'];
-  document.getElementById('options').innerHTML=opts.map(o=>`<div class="option ${answers[currentQ]===o?'selected':''}" onclick="selectOpt('${o}')">${o}) ${q.options?q.options[o]:q['option'+o]||''}</div>`).join('');
+  document.getElementById('options').innerHTML=opts.map(o=>{
+    const txt=q.options?q.options[o]:q['option'+o]||'';
+    const optImg=q.optionImages?.[o]||'';
+    const sel=answers[currentQ]===o?'selected':'';
+    return `<div class="option ${sel}" onclick="selectOpt('${o}')">
+      <span style="font-weight:600;margin-right:8px;">${o})</span>${txt}
+      ${optImg?`<div style="margin-top:8px;"><img src="${optImg}" style="max-width:100%;max-height:120px;border-radius:6px;object-fit:contain;" onerror="this.style.display='none'"></div>`:''}
+    </div>`;
+  }).join('');
   updateGrid();
 }
 
@@ -342,12 +360,70 @@ window.submitTest=async()=>{
   document.getElementById('review').innerHTML=questions.map((q,i)=>{
     const a=answers[i];
     const status=!a?'skip':a===q.correct?'correct':'wrong';
-    return`<div class="review-item ${status}">
-      <div class="review-q">${i+1}. ${q.text||q.question||''}</div>
-      ${q.imageUrl?`<div style="margin:6px 0;"><img src="${q.imageUrl}" style="max-width:100%;max-height:200px;border-radius:8px;border:1px solid #E5E7EB;object-fit:contain;background:#F9FAFB;" onerror="this.style.display='none'" alt="Question figure"></div>`:''}
-      <div class="review-ans">Your answer: <b>${a||'Skipped'}</b> &nbsp;|&nbsp; Correct: <b>${q.correct||'?'}</b></div>
-      ${q.explanation?`<div style="font-size:12px;color:#374151;margin-top:6px;padding:8px 10px;background:#F0FDF4;border-left:3px solid #16A34A;border-radius:4px;">💡 <b>Solution:</b> ${q.explanation}</div>`:''}
-      ${q.trick?`<div style="font-size:12px;color:#1D4ED8;margin-top:5px;padding:8px 10px;background:#EFF6FF;border-left:3px solid #3B82F6;border-radius:4px;">⚡ <b>Trick:</b> ${q.trick}</div>`:''}
+    const opts=['A','B','C','D'];
+
+    // Verdict label
+    const verdictClass = status==='correct'?'v-correct':status==='wrong'?'v-wrong':'v-skip';
+    const verdictIcon  = status==='correct'?'✅':status==='wrong'?'❌':'⏭';
+    const verdictText  = status==='correct'?'Correct!':status==='wrong'?`Wrong — you chose ${a}, correct is ${q.correct}`:'Skipped';
+
+    // Options HTML — show all 4 with correct highlighted, user answer marked
+    const optsHtml = opts.map(o=>{
+      const txt = q.options?q.options[o]:q['option'+o]||'';
+      const optImg = q.optionImages?.[o]||'';
+      let cls = 'review-opt';
+      if(o===q.correct) cls+=' opt-correct';
+      else if(o===a && a!==q.correct) cls+=' opt-wrong';
+      const marker = o===q.correct?' ✅':(o===a&&a!==q.correct)?' ✗':'';
+      return `<div class="${cls}">
+        <span style="font-weight:700;min-width:20px;">${o})</span>
+        <span style="flex:1;">${txt}${marker}</span>
+        ${optImg?`<img src="${optImg}" onerror="this.style.display='none'">`:'' }
+      </div>`;
+    }).join('');
+
+    // Solution block
+    const solImg = q.solutionImage||'';
+    const solHtml = (q.explanation||solImg) ? `
+      <div class="review-solution" style="background:#F0FDF4;margin-top:6px;">
+        <div class="review-solution-header" style="background:#DCFCE7;color:#15803D;">💡 Step-by-Step Solution</div>
+        <div class="review-solution-body">
+          ${q.explanation||''}
+          ${solImg?`<img src="${solImg}" onerror="this.style.display='none'" alt="Solution figure">`:'' }
+        </div>
+      </div>` : '';
+
+    // Trick block
+    const trickHtml = q.trick ? `
+      <div class="review-solution" style="background:#EFF6FF;margin-top:6px;">
+        <div class="review-solution-header" style="background:#DBEAFE;color:#1D4ED8;">⚡ Quick Trick / Shortcut</div>
+        <div class="review-solution-body">${q.trick}</div>
+      </div>` : '';
+
+    // Concept block
+    const conceptHtml = q.concept ? `
+      <div class="review-solution" style="background:#FFF7ED;margin-top:6px;">
+        <div class="review-solution-header" style="background:#FED7AA;color:#C2410C;">🧠 Concept</div>
+        <div class="review-solution-body">${q.concept}</div>
+      </div>` : '';
+
+    return `<div class="review-item ${status}">
+      <!-- Question number + text -->
+      <div class="review-q">Q${i+1}. ${q.text||q.question||''}</div>
+      ${q.imageUrl?`<div style="margin:8px 0;text-align:center;"><img src="${q.imageUrl}" style="max-width:100%;max-height:220px;border-radius:8px;border:1px solid #E5E7EB;object-fit:contain;background:#F9FAFB;" onerror="this.style.display='none'" alt="Question figure"></div>`:''}
+
+      <!-- All 4 options -->
+      <div class="review-opts">${optsHtml}</div>
+
+      <!-- Verdict -->
+      <div class="review-verdict ${verdictClass}">${verdictIcon} ${verdictText}</div>
+
+      <!-- Solution -->
+      ${solHtml}
+      <!-- Trick -->
+      ${trickHtml}
+      <!-- Concept -->
+      ${conceptHtml}
     </div>`;
   }).join('');
 
