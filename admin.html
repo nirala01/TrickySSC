@@ -1086,9 +1086,7 @@ window.saveQuestion = async () => {
     const status = document.getElementById('qImgUploadStatus');
     status.style.display = 'block'; status.textContent = '⏳ Uploading image...';
     try {
-      const imgRef = ref(storage, `question-images/${Date.now()}_${imgFile.name}`);
-      await uploadBytes(imgRef, imgFile);
-      imageUrl = await getDownloadURL(imgRef);
+      imageUrl = await uploadToImgBB(imgFile);
       status.textContent = '✅ Image uploaded!';
     } catch(e) { status.textContent = '⚠ Image upload failed: ' + e.message; }
   }
@@ -1643,53 +1641,6 @@ window.clearMiniImg=(fieldId)=>{
   const u=document.getElementById(fieldId+'Url'); if(u) u.value='';
   const f=document.getElementById(fieldId+'File'); if(f) f.value='';
 };
-// ── Solution image helpers ────────────────────────────────────────────────────
-window.handleSolImg = async (input) => {
-  const file = input.files[0]; if(!file) return;
-  const status  = document.getElementById('solImgStatus');
-  const preview = document.getElementById('solImgPreview');
-  const pImg    = document.getElementById('solImgImg');
-  const reader  = new FileReader();
-  reader.onload = e => { pImg.src=e.target.result; preview.style.display='block'; };
-  reader.readAsDataURL(file);
-  if(status){ status.style.display='inline'; status.textContent='⏳ Uploading...'; }
-  try {
-    const url = await uploadToImgBB(file);
-    document.getElementById('solImgUrl').value = url;
-    if(status){ status.textContent='✅'; setTimeout(()=>status.style.display='none',2000); }
-  } catch(e) { if(status){ status.textContent='⚠ Failed: '+e.message; } }
-  input.value='';
-};
-window.handleEditSolImg = async (input) => {
-  const file = input.files[0]; if(!file) return;
-  const status  = document.getElementById('editSolImgStatus');
-  const wrap    = document.getElementById('editSolImgCurrentWrap');
-  const pImg    = document.getElementById('editSolImgCurrent');
-  const reader  = new FileReader();
-  reader.onload = e => { pImg.src=e.target.result; wrap.style.display='block'; };
-  reader.readAsDataURL(file);
-  if(status){ status.style.display='inline'; status.textContent='⏳ Uploading...'; }
-  try {
-    const url = await uploadToImgBB(file);
-    document.getElementById('editSolImgUrl').value = url;
-    if(status){ status.textContent='✅'; setTimeout(()=>status.style.display='none',2000); }
-  } catch(e) { if(status){ status.textContent='⚠ '+e.message; } }
-  input.value='';
-};
-window.clearEditSolImg = () => {
-  const f=document.getElementById('editSolImgFile'); if(f) f.value='';
-  const u=document.getElementById('editSolImgUrl'); if(u) u.value='';
-  const i=document.getElementById('editSolImgCurrent'); if(i) i.src='';
-  const w=document.getElementById('editSolImgCurrentWrap'); if(w) w.style.display='none';
-  const s=document.getElementById('editSolImgStatus'); if(s) s.style.display='none';
-};
-window.clearSolImg = () => {
-  const f=document.getElementById('solImgFile'); if(f) f.value='';
-  const u=document.getElementById('solImgUrl'); if(u) u.value='';
-  const i=document.getElementById('solImgImg'); if(i) i.src='';
-  const p=document.getElementById('solImgPreview'); if(p) p.style.display='none';
-  const s=document.getElementById('solImgStatus'); if(s) s.style.display='none';
-};
 
 window.switchTab = (tab) => {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -1714,12 +1665,6 @@ window.openEditModal = (id) => {
   document.getElementById('eOptC').value = q.options?.C||'';
   document.getElementById('eOptD').value = q.options?.D||'';
   document.getElementById('editExplanation').value = q.explanation||'';
-  // solution image
-  document.getElementById('editSolImgUrl').value = q.solutionImage||'';
-  document.getElementById('editSolImgFile').value = '';
-  document.getElementById('editSolImgStatus').style.display = 'none';
-  if(q.solutionImage){ document.getElementById('editSolImgCurrent').src=q.solutionImage; document.getElementById('editSolImgCurrentWrap').style.display='block'; }
-  else { document.getElementById('editSolImgCurrentWrap').style.display='none'; }
   document.getElementById('editTrick').value = q.trick||'';
   document.getElementById('editDifficulty').value = q.difficulty||'medium';
   document.querySelectorAll('input[name="eCorrect"]').forEach(r=>{r.checked=r.value===q.correct;});
@@ -1768,9 +1713,7 @@ window.saveEdit = async () => {
     const status = document.getElementById('editImgStatus');
     status.style.display = 'block'; status.textContent = '⏳ Uploading image...';
     try {
-      const imgRef = ref(storage, `question-images/${Date.now()}_${imgFile.name}`);
-      await uploadBytes(imgRef, imgFile);
-      imageUrl = await getDownloadURL(imgRef);
+      imageUrl = await uploadToImgBB(imgFile);
       status.textContent = '✅ Image uploaded!';
     } catch(e) { status.textContent = '⚠ Upload failed: '+e.message; }
   }
@@ -1930,6 +1873,53 @@ window.exportCSV = async (toClipboard = false) => {
     status.textContent = '❌ ' + e.message;
     bar.style.width = '0%';
   }
+};
+
+// ── Solution image helpers ────────────────────────────────────────────────────
+window.handleSolImg = async (input) => {
+  const file = input.files[0]; if(!file) return;
+  const status  = document.getElementById('solImgStatus');
+  const preview = document.getElementById('solImgPreview');
+  const pImg    = document.getElementById('solImgImg');
+  const reader  = new FileReader();
+  reader.onload = e => { pImg.src=e.target.result; preview.style.display='block'; };
+  reader.readAsDataURL(file);
+  if(status){ status.style.display='inline'; status.textContent='⏳ Uploading...'; }
+  try {
+    const url = await uploadToImgBB(file);
+    document.getElementById('solImgUrl').value = url;
+    if(status){ status.textContent='✅'; setTimeout(()=>status.style.display='none',2000); }
+  } catch(e) { if(status){ status.textContent='⚠ Failed: '+e.message; } }
+  input.value='';
+};
+window.clearSolImg = () => {
+  ['solImgFile','solImgUrl'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+  const i=document.getElementById('solImgImg'); if(i) i.src='';
+  const p=document.getElementById('solImgPreview'); if(p) p.style.display='none';
+  const s=document.getElementById('solImgStatus'); if(s) s.style.display='none';
+};
+// ── Edit modal solution image helpers ─────────────────────────────────────────
+window.handleEditSolImg = async (input) => {
+  const file = input.files[0]; if(!file) return;
+  const status  = document.getElementById('editSolImgStatus');
+  const wrap    = document.getElementById('editSolImgCurrentWrap');
+  const pImg    = document.getElementById('editSolImgCurrent');
+  const reader  = new FileReader();
+  reader.onload = e => { pImg.src=e.target.result; wrap.style.display='block'; };
+  reader.readAsDataURL(file);
+  if(status){ status.style.display='inline'; status.textContent='⏳ Uploading...'; }
+  try {
+    const url = await uploadToImgBB(file);
+    document.getElementById('editSolImgUrl').value = url;
+    if(status){ status.textContent='✅'; setTimeout(()=>status.style.display='none',2000); }
+  } catch(e) { if(status){ status.textContent='⚠ '+e.message; } }
+  input.value='';
+};
+window.clearEditSolImg = () => {
+  ['editSolImgFile','editSolImgUrl'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+  const i=document.getElementById('editSolImgCurrent'); if(i) i.src='';
+  const w=document.getElementById('editSolImgCurrentWrap'); if(w) w.style.display='none';
+  const s=document.getElementById('editSolImgStatus'); if(s) s.style.display='none';
 };
 </script>
 </body>
