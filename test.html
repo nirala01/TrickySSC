@@ -6,114 +6,271 @@
 <title>TrickySSC Test Engine</title>
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&family=Noto+Sans:wght@400;500&display=swap" rel="stylesheet">
 <style>
-/* ── Base ── */
-*{box-sizing:border-box;}
-body{margin:0;font-family:'Noto Sans',sans-serif;background:#F1F5F9;}
-#loader{position:fixed;inset:0;background:#FF6B00;color:white;display:flex;flex-direction:column;justify-content:center;align-items:center;font-weight:700;font-size:22px;z-index:1000;}
+/* ══════════════════════════════════════════════════
+   BASE — shared by desktop and mobile
+══════════════════════════════════════════════════ */
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Noto Sans',sans-serif;background:#F1F5F9;}
 
-/* ── Test screen ── */
-#testScreen{display:none;height:100dvh;flex-direction:column;}
+#loader{
+  position:fixed;inset:0;background:#FF6B00;color:white;
+  display:flex;flex-direction:column;justify-content:center;
+  align-items:center;font-weight:700;font-size:22px;z-index:1000;
+}
+
+/* ── Test Screen ── */
+#testScreen{display:none;height:100vh;flex-direction:column;overflow:hidden;}
 
 /* ── Topbar ── */
-.topbar{background:#1F2937;color:white;display:flex;justify-content:space-between;align-items:center;padding:8px 14px;gap:8px;flex-shrink:0;}
+.topbar{
+  background:#1F2937;color:white;
+  display:flex;justify-content:space-between;align-items:center;
+  padding:10px 20px;gap:12px;flex-shrink:0;
+}
 .topbar-left{display:flex;flex-direction:column;min-width:0;}
-.exam-title{font-family:'Rajdhani';font-size:15px;font-weight:700;color:#FF6B00;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.user-name{font-size:11px;color:#9CA3AF;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.timer{font-family:'Rajdhani';font-size:22px;font-weight:700;color:#FF6B00;flex-shrink:0;}
-.topbar-right{display:flex;align-items:center;gap:6px;flex-shrink:0;}
-.logout-btn{background:transparent;border:1px solid #6B7280;color:#9CA3AF;padding:5px 10px;border-radius:6px;cursor:pointer;font-size:11px;}
+.exam-title{font-family:'Rajdhani';font-size:16px;font-weight:700;color:#FF6B00;}
+.user-name{font-size:12px;color:#9CA3AF;}
+.timer{font-family:'Rajdhani';font-size:26px;font-weight:700;color:#FF6B00;flex-shrink:0;}
+.topbar-right{display:flex;align-items:center;gap:10px;flex-shrink:0;}
+.logout-btn{
+  background:transparent;border:1px solid #6B7280;color:#9CA3AF;
+  padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px;
+}
+.logout-btn:hover{border-color:#9CA3AF;color:#E5E7EB;}
 
 /* ── Main layout ── */
 .main{flex:1;display:flex;overflow:hidden;min-height:0;}
-.questionPanel{flex:1;padding:14px 16px;overflow-y:auto;-webkit-overflow-scrolling:touch;}
-.qNum{font-size:12px;color:#6B7280;margin-bottom:6px;font-weight:600;}
-.qText{font-size:15px;font-weight:500;color:#1F2937;line-height:1.6;margin-bottom:14px;}
+
+/* ── Question Panel ── */
+.questionPanel{
+  flex:1;padding:24px 28px;overflow-y:auto;
+  -webkit-overflow-scrolling:touch;background:#F1F5F9;
+}
+.qNum{
+  font-size:13px;color:#6B7280;margin-bottom:10px;font-weight:600;
+  letter-spacing:0.02em;
+}
+.qText{
+  font-size:16px;font-weight:500;color:#1F2937;
+  line-height:1.7;margin-bottom:22px;
+}
 
 /* ── Options ── */
-.option{border:2px solid #E5E7EB;padding:11px 14px;border-radius:10px;margin-bottom:8px;cursor:pointer;font-size:14px;transition:all 0.15s;display:flex;align-items:flex-start;gap:8px;background:white;}
-.option:active{transform:scale(0.99);}
+.option{
+  border:2px solid #E5E7EB;padding:13px 18px;
+  border-radius:8px;margin-bottom:10px;cursor:pointer;
+  font-size:14px;transition:all 0.15s;
+  display:flex;align-items:flex-start;gap:10px;
+  background:white;
+}
+.option:hover{border-color:#FF6B00;background:#FFFBF7;}
 .option.selected{border-color:#FF6B00;background:#FFF3E8;}
 .option.correct{border-color:#16A34A;background:#F0FDF4;color:#15803D;}
 .option.wrong{border-color:#DC2626;background:#FEF2F2;color:#DC2626;}
-.opt-label{font-weight:700;color:#6B7280;min-width:20px;flex-shrink:0;}
+.opt-label{font-weight:700;color:#6B7280;min-width:22px;flex-shrink:0;padding-top:1px;}
+.opt-body{flex:1;min-width:0;}
 .option.selected .opt-label{color:#FF6B00;}
 .option.correct .opt-label{color:#15803D;}
 .option.wrong .opt-label{color:#DC2626;}
 
-/* ── Nav buttons ── */
-.nav-btns{display:flex;gap:8px;margin-top:14px;padding-bottom:4px;}
-.btn{padding:10px 0;border:none;border-radius:10px;cursor:pointer;font-family:'Rajdhani';font-size:15px;font-weight:700;flex:1;text-align:center;}
+/* ── Nav buttons — desktop ── */
+.nav-btns{display:flex;gap:10px;margin-top:24px;}
+.btn{
+  padding:11px 28px;border:none;border-radius:8px;
+  cursor:pointer;font-family:'Rajdhani';font-size:16px;
+  font-weight:700;transition:all 0.15s;
+}
+.btn:hover{opacity:0.9;transform:translateY(-1px);}
 .btn-prev{background:#E5E7EB;color:#374151;}
 .btn-next{background:#FF6B00;color:white;}
 .btn-submit{background:#1F2937;color:white;}
 
-/* ── Sidebar — desktop visible, mobile hidden ── */
-.sidebar{width:210px;border-left:1px solid #E5E7EB;padding:12px;overflow-y:auto;background:white;flex-shrink:0;}
-.sidebar h4{font-family:'Rajdhani';font-size:13px;color:#6B7280;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.05em;}
-.grid{display:grid;grid-template-columns:repeat(5,1fr);gap:3px;}
-.dot{padding:5px 2px;text-align:center;border:1px solid #E5E7EB;background:white;cursor:pointer;font-size:11px;border-radius:4px;transition:all 0.1s;}
+/* ── Desktop Sidebar ── */
+.sidebar{
+  width:220px;border-left:1px solid #E5E7EB;
+  padding:14px 12px;overflow-y:auto;background:white;flex-shrink:0;
+}
+.sidebar-title{
+  font-family:'Rajdhani';font-size:13px;font-weight:700;
+  color:#6B7280;text-transform:uppercase;letter-spacing:0.06em;
+  margin-bottom:10px;
+}
+.legend{display:flex;flex-direction:column;gap:6px;margin-bottom:14px;}
+.legend-item{display:flex;align-items:center;gap:6px;font-size:11px;color:#6B7280;}
+.legend-dot{width:13px;height:13px;border-radius:3px;flex-shrink:0;}
+.grid{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;}
+.dot{
+  padding:6px 2px;text-align:center;
+  border:1px solid #E5E7EB;background:white;
+  cursor:pointer;font-size:12px;border-radius:4px;
+  transition:all 0.1s;color:#374151;
+}
+.dot:hover{border-color:#FF6B00;color:#FF6B00;}
 .dot.answered{background:#16A34A;color:white;border-color:#16A34A;}
-.dot.current{border-color:#FF6B00;font-weight:700;color:#FF6B00;}
-.dot.skipped{background:#F59E0B22;border-color:#F59E0B;}
+.dot.answered:hover{background:#15803D;}
+.dot.current{border-color:#FF6B00;font-weight:700;color:#FF6B00;background:#FFF3E8;}
+.dot.skipped{background:#FEF3C7;border-color:#F59E0B;color:#92400E;}
 
-/* ── Mobile question grid toggle button ── */
-#gridToggleBtn{display:none;background:#1F2937;color:white;border:none;border-radius:8px;padding:7px 12px;font-family:'Rajdhani';font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;}
+/* ── Mobile toggle btn — HIDDEN on desktop ── */
+#gridToggleBtn{display:none;}
 
-/* ── Mobile sidebar overlay ── */
-#sidebarOverlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:100;}
-#sidebarDrawer{display:none;position:fixed;right:0;top:0;bottom:0;width:220px;background:white;z-index:101;padding:16px;overflow-y:auto;box-shadow:-4px 0 20px rgba(0,0,0,0.15);}
-#sidebarDrawer h4{font-family:'Rajdhani';font-size:14px;color:#6B7280;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.05em;display:flex;justify-content:space-between;align-items:center;}
-#sidebarDrawer h4 button{background:#E5E7EB;border:none;border-radius:6px;padding:3px 8px;cursor:pointer;font-size:13px;color:#374151;}
-#drawerGrid{display:grid;grid-template-columns:repeat(5,1fr);gap:3px;}
+/* ── Mobile drawer — HIDDEN on desktop ── */
+#sidebarOverlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:200;}
+#sidebarDrawer{
+  display:none;position:fixed;right:0;top:0;bottom:0;width:240px;
+  background:white;z-index:201;overflow-y:auto;
+  box-shadow:-6px 0 24px rgba(0,0,0,0.15);
+}
+.drawer-header{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:14px 16px;border-bottom:1px solid #E5E7EB;
+  font-family:'Rajdhani';font-size:15px;font-weight:700;color:#1F2937;
+  background:#F9FAFB;position:sticky;top:0;
+}
+.drawer-close-btn{
+  background:#E5E7EB;border:none;border-radius:6px;
+  padding:4px 10px;cursor:pointer;font-size:13px;color:#374151;
+}
+.drawer-body{padding:14px 12px;}
+#drawerGrid{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;}
 
-/* ── Legend ── */
-.legend{display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap;}
-.legend-item{display:flex;align-items:center;gap:4px;font-size:11px;color:#6B7280;}
-.legend-dot{width:12px;height:12px;border-radius:3px;flex-shrink:0;}
-
-/* ── Result screen ── */
-#resultScreen{display:none;padding:16px;max-width:700px;margin:0 auto;}
-.result-card{background:white;border-radius:16px;padding:20px 16px;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,0.08);margin-bottom:16px;}
-.score-big{font-family:'Rajdhani';font-size:56px;font-weight:700;color:#FF6B00;}
-.score-label{font-size:13px;color:#6B7280;margin-top:-8px;}
-.stats{display:flex;gap:10px;justify-content:center;margin-top:16px;flex-wrap:wrap;}
-.stat{background:#F8FAFC;border-radius:10px;padding:10px 14px;text-align:center;flex:1;min-width:70px;}
-.stat-val{font-family:'Rajdhani';font-size:26px;font-weight:700;}
-.stat-lbl{font-size:11px;color:#6B7280;}
-.review-item{background:white;border-radius:10px;padding:14px;margin-bottom:10px;border-left:4px solid #E5E7EB;}
+/* ── Result Screen ── */
+#resultScreen{display:none;padding:28px;max-width:720px;margin:0 auto;}
+.result-card{
+  background:white;border-radius:16px;padding:32px;
+  text-align:center;box-shadow:0 4px 24px rgba(0,0,0,0.08);
+  margin-bottom:20px;
+}
+.score-big{font-family:'Rajdhani';font-size:68px;font-weight:700;color:#FF6B00;}
+.score-label{font-size:14px;color:#6B7280;margin-top:-8px;}
+.stats{display:flex;gap:16px;justify-content:center;margin-top:20px;flex-wrap:wrap;}
+.stat{background:#F8FAFC;border-radius:12px;padding:14px 22px;text-align:center;}
+.stat-val{font-family:'Rajdhani';font-size:30px;font-weight:700;}
+.stat-lbl{font-size:12px;color:#6B7280;margin-top:2px;}
+.review-item{background:white;border-radius:10px;padding:16px;margin-bottom:12px;border-left:4px solid #E5E7EB;}
 .review-item.correct{border-left-color:#16A34A;}
 .review-item.wrong{border-left-color:#DC2626;}
 .review-item.skip{border-left-color:#F59E0B;}
-.review-q{font-size:14px;font-weight:500;color:#1F2937;margin-bottom:8px;}
-.review-ans{font-size:13px;color:#6B7280;}
 
 /* ══════════════════════════════════════════════
-   MOBILE BREAKPOINT  ≤ 640px
+   MOBILE  ≤ 640px  —  Completely redesigned
+   Light background, card-based, thumb-friendly
 ══════════════════════════════════════════════ */
 @media(max-width:640px){
-  /* Topbar compact */
-  .topbar{padding:7px 12px;}
-  .exam-title{font-size:13px;}
-  .timer{font-size:20px;}
 
-  /* Hide desktop sidebar, show toggle button */
+  /* Body: clean white on mobile */
+  body{background:#FFFFFF;}
+
+  /* Test screen fills viewport */
+  #testScreen{height:100dvh;}
+
+  /* ── Topbar: lighter on mobile ── */
+  .topbar{
+    background:#FFFFFF;border-bottom:1px solid #E5E7EB;
+    padding:10px 14px;
+    box-shadow:0 1px 4px rgba(0,0,0,0.06);
+  }
+  .exam-title{color:#FF6B00;font-size:14px;}
+  .user-name{color:#9CA3AF;font-size:11px;}
+  .timer{
+    font-size:22px;color:#1F2937;
+    background:#FFF3E8;border-radius:8px;
+    padding:4px 10px;
+  }
+  .logout-btn{
+    border-color:#E5E7EB;color:#9CA3AF;
+    padding:5px 10px;font-size:11px;
+  }
+
+  /* Hide desktop sidebar */
   .sidebar{display:none;}
-  #gridToggleBtn{display:flex;align-items:center;gap:5px;}
 
-  /* Question panel full width */
-  .questionPanel{padding:12px 14px;}
-  .qText{font-size:14px;margin-bottom:12px;}
+  /* Show mobile toggle button */
+  #gridToggleBtn{
+    display:flex;align-items:center;gap:5px;
+    background:#1F2937;color:white;border:none;
+    border-radius:8px;padding:6px 11px;
+    font-family:'Rajdhani';font-size:13px;font-weight:700;
+    cursor:pointer;
+  }
 
-  /* Options slightly more compact */
-  .option{padding:10px 12px;font-size:13px;margin-bottom:7px;}
+  /* ── Question panel: white card feel ── */
+  .main{background:#F3F4F6;}
+  .questionPanel{
+    padding:0;background:transparent;
+    display:flex;flex-direction:column;
+  }
 
-  /* Nav buttons row */
-  .nav-btns{gap:6px;margin-top:12px;}
-  .btn{padding:9px 0;font-size:14px;}
+  /* Question number bar */
+  .qNum{
+    background:#FF6B00;color:white;
+    padding:8px 16px;margin-bottom:0;
+    font-size:12px;font-weight:700;
+    letter-spacing:0.04em;
+  }
 
-  /* Result screen */
-  #resultScreen{padding:12px;}
-  .score-big{font-size:48px;}
+  /* Question text card */
+  .qText{
+    background:white;padding:16px;
+    font-size:15px;line-height:1.7;
+    margin-bottom:0;color:#1F2937;
+    border-bottom:1px solid #F3F4F6;
+  }
+
+  /* Options area */
+  #options{
+    padding:12px 12px 0;
+    flex:1;overflow-y:auto;
+  }
+
+  /* Option pills */
+  .option{
+    background:white;border:1.5px solid #E5E7EB;
+    border-radius:12px;padding:12px 14px;
+    margin-bottom:8px;font-size:14px;gap:10px;
+    box-shadow:0 1px 3px rgba(0,0,0,0.04);
+  }
+  .option:active{transform:scale(0.98);}
+  .option.selected{
+    border-color:#FF6B00;background:#FFF3E8;
+    box-shadow:0 2px 8px rgba(255,107,0,0.15);
+  }
+  .option.correct{border-color:#16A34A;background:#F0FDF4;}
+  .option.wrong{border-color:#DC2626;background:#FEF2F2;}
+  .opt-label{
+    width:28px;height:28px;border-radius:50%;
+    background:#F3F4F6;display:flex;align-items:center;
+    justify-content:center;font-size:13px;font-weight:700;
+    flex-shrink:0;color:#6B7280;
+  }
+  .option.selected .opt-label{background:#FF6B00;color:white;}
+  .option.correct .opt-label{background:#16A34A;color:white;}
+  .option.wrong .opt-label{background:#DC2626;color:white;}
+
+  /* ── Bottom nav bar — fixed, sticky ── */
+  .nav-btns{
+    position:sticky;bottom:0;
+    background:white;border-top:1px solid #E5E7EB;
+    padding:10px 12px;margin-top:12px;gap:8px;
+    box-shadow:0 -2px 10px rgba(0,0,0,0.06);
+  }
+  .btn{
+    padding:11px 0;font-size:15px;border-radius:10px;
+    flex:1;text-align:center;
+  }
+  .btn-prev{background:#F3F4F6;color:#374151;}
+  .btn-next{background:#FF6B00;color:white;}
+  .btn-submit{background:#1F2937;color:white;font-size:14px;}
+
+  /* ── Result screen mobile ── */
+  #resultScreen{padding:14px;}
+  .result-card{padding:20px 16px;border-radius:12px;}
+  .score-big{font-size:52px;}
+  .stats{gap:8px;}
+  .stat{padding:10px 12px;border-radius:10px;flex:1;min-width:60px;}
+  .stat-val{font-size:24px;}
+  .stat-lbl{font-size:11px;}
+  .review-item{padding:12px;margin-bottom:8px;}
 }
 </style>
 </head>
@@ -141,26 +298,35 @@ body{margin:0;font-family:'Noto Sans',sans-serif;background:#F1F5F9;}
     <!-- Question panel -->
     <div class="questionPanel">
       <div class="qNum" id="qNum"></div>
-      <div id="qImgWrap" style="display:none;margin-bottom:12px;text-align:center;">
-        <img id="qImg" style="max-width:100%;max-height:260px;border-radius:10px;border:1px solid #E5E7EB;object-fit:contain;background:#F9FAFB;" alt="Question figure">
+      <div id="qImgWrap" style="display:none;margin-bottom:14px;text-align:center;">
+        <img id="qImg" style="max-width:100%;max-height:280px;border-radius:10px;border:1px solid #E5E7EB;object-fit:contain;background:#F9FAFB;" alt="Question figure">
       </div>
       <div class="qText" id="qText"></div>
       <div id="options"></div>
       <div class="nav-btns">
         <button class="btn btn-prev" onclick="prevQ()">← Prev</button>
         <button class="btn btn-next" onclick="nextQ()">Next →</button>
-        <button class="btn btn-submit" onclick="confirmSubmit()">Submit</button>
+        <button class="btn btn-submit" onclick="confirmSubmit()">Submit Test</button>
       </div>
     </div>
 
     <!-- Desktop sidebar -->
     <div class="sidebar">
+      <div class="sidebar-title">Questions</div>
       <div class="legend">
-        <div class="legend-item"><div class="legend-dot" style="background:#16A34A;"></div>Answered</div>
-        <div class="legend-item"><div class="legend-dot" style="background:#E5E7EB;border:1px solid #d1d5db;"></div>Not visited</div>
-        <div class="legend-item"><div class="legend-dot" style="border:2px solid #FF6B00;"></div>Current</div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background:#16A34A;"></div>Answered
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background:#E5E7EB;border:1px solid #D1D5DB;"></div>Not Visited
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background:#FFF3E8;border:2px solid #FF6B00;"></div>Current
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background:#FEF3C7;border:1px solid #F59E0B;"></div>Skipped
+        </div>
       </div>
-      <h4>Questions</h4>
       <div class="grid" id="grid"></div>
     </div>
   </div>
@@ -169,16 +335,27 @@ body{margin:0;font-family:'Noto Sans',sans-serif;background:#F1F5F9;}
 <!-- Mobile sidebar overlay -->
 <div id="sidebarOverlay" onclick="closeDrawer()"></div>
 <div id="sidebarDrawer">
-  <h4>
-    Questions
-    <button onclick="closeDrawer()">✕ Close</button>
-  </h4>
-  <div class="legend" style="margin-bottom:10px;">
-    <div class="legend-item"><div class="legend-dot" style="background:#16A34A;"></div>Answered</div>
-    <div class="legend-item"><div class="legend-dot" style="background:#E5E7EB;border:1px solid #d1d5db;"></div>Not visited</div>
-    <div class="legend-item"><div class="legend-dot" style="border:2px solid #FF6B00;"></div>Current</div>
+  <div class="drawer-header">
+    <span>📋 Questions</span>
+    <button class="drawer-close-btn" onclick="closeDrawer()">✕ Close</button>
   </div>
-  <div id="drawerGrid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;"></div>
+  <div class="drawer-body">
+    <div class="legend" style="margin-bottom:14px;">
+      <div class="legend-item">
+        <div class="legend-dot" style="background:#16A34A;"></div>Answered
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background:#E5E7EB;border:1px solid #D1D5DB;"></div>Not Visited
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background:#FFF3E8;border:2px solid #FF6B00;"></div>Current
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background:#FEF3C7;border:1px solid #F59E0B;"></div>Skipped
+      </div>
+    </div>
+    <div id="drawerGrid"></div>
+  </div>
 </div>
 
 <div id="resultScreen">
@@ -306,7 +483,7 @@ function renderQ(){
     const hasText = txt !== '';
     return `<div class="option ${sel}" onclick="selectOpt('${o}')">
       <span class="opt-label">${o})</span>
-      <div style="flex:1;min-width:0;">
+      <div class="opt-body">
         ${hasText ? `<span>${txt}</span>` : ''}
         ${hasImg ? `<img src="${optImg}"
           style="max-width:100%;max-height:${hasText?'90px':'150px'};border-radius:6px;
