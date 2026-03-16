@@ -504,7 +504,7 @@ textarea{resize:vertical;min-height:80px;}
     <div class="card">
       <h3>All Questions</h3>
       <div class="filter-row">
-        <select id="filterExam" onchange="updateFilterSubjects(); loadQuestions()">
+        <select id="filterExam" onchange="updateFilterTiersAndSubjects(); loadQuestions()">
           <option value="">All Exams</option>
           <option value="ssc-cgl">SSC CGL</option>
           <option value="ssc-chsl">SSC CHSL</option>
@@ -514,12 +514,27 @@ textarea{resize:vertical;min-height:80px;}
           <option value="ssc-jht">SSC JHT</option>
           <option value="ssc-je">SSC JE</option>
         </select>
+        <select id="filterTier" onchange="loadQuestions()">
+          <option value="">All Tiers/Sessions</option>
+        </select>
         <select id="filterYear" onchange="loadQuestions()">
           <option value="">All Years</option>
           <option value="2025">2025</option>
           <option value="2024">2024</option>
           <option value="2023">2023</option>
           <option value="2022">2022</option>
+          <option value="2021">2021</option>
+          <option value="2020">2020</option>
+          <option value="2019">2019</option>
+          <option value="2018">2018</option>
+          <option value="2017">2017</option>
+          <option value="2016">2016</option>
+          <option value="2015">2015</option>
+          <option value="2014">2014</option>
+          <option value="2013">2013</option>
+          <option value="2012">2012</option>
+          <option value="2011">2011</option>
+          <option value="2010">2010</option>
         </select>
         <select id="filterSubject" onchange="loadQuestions()">
           <option value="">All Subjects</option>
@@ -559,6 +574,55 @@ textarea{resize:vertical;min-height:80px;}
     <div class="card">
       <h3>📥 Import Questions from CSV</h3>
       <p style="color:#94A3B8;font-size:0.9rem;margin-bottom:1.5rem;">Upload a CSV file to bulk-import questions. Required columns: <code style="color:#A78BFA;">text, option_A, option_B, option_C, option_D, correct, exam, subject</code>. Optional: <code style="color:#A78BFA;">explanation, trick, imageUrl, difficulty, chapter, tier, year, qNum, type</code>.</p>
+      <div style="background:#0F172A;border:1px solid #334155;border-radius:10px;padding:1rem;margin-bottom:1.25rem;">
+        <p style="font-size:0.82rem;color:#94A3B8;margin-bottom:0.75rem;">
+          <strong style="color:#FF6B00;">Override defaults</strong> — if your CSV rows are missing <code style="color:#A78BFA;">exam</code>, <code style="color:#A78BFA;">tier</code>, or <code style="color:#A78BFA;">year</code> columns, set them here and every imported row will use these values.
+          CSV column values always take priority if present.
+        </p>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.75rem;">
+          <div>
+            <label>Exam (override)</label>
+            <select id="csvExam" onchange="updateCsvTiers()">
+              <option value="">From CSV / keep as-is</option>
+              <option value="ssc-cgl">SSC CGL</option>
+              <option value="ssc-chsl">SSC CHSL</option>
+              <option value="ssc-mts">SSC MTS</option>
+              <option value="ssc-gd">SSC GD</option>
+              <option value="ssc-cpo">SSC CPO</option>
+              <option value="ssc-jht">SSC JHT</option>
+              <option value="ssc-je">SSC JE</option>
+            </select>
+          </div>
+          <div>
+            <label>Tier / Session (override)</label>
+            <select id="csvTier">
+              <option value="">From CSV / keep as-is</option>
+            </select>
+          </div>
+          <div>
+            <label>Year (override)</label>
+            <select id="csvYear">
+              <option value="">From CSV / keep as-is</option>
+            <option value="2025">2025</option>
+            <option value="2024">2024</option>
+            <option value="2023">2023</option>
+            <option value="2022">2022</option>
+            <option value="2021">2021</option>
+            <option value="2020">2020</option>
+            <option value="2019">2019</option>
+            <option value="2018">2018</option>
+            <option value="2017">2017</option>
+            <option value="2016">2016</option>
+            <option value="2015">2015</option>
+            <option value="2014">2014</option>
+            <option value="2013">2013</option>
+            <option value="2012">2012</option>
+            <option value="2011">2011</option>
+            <option value="2010">2010</option>
+            </select>
+          </div>
+        </div>
+      </div>
       <div class="upload-area" onclick="document.getElementById('csvFileInput').click()">
         <input type="file" id="csvFileInput" accept=".csv" onchange="handleCSVUpload(event)" style="display:none;">
         <div class="upload-icon">📄</div>
@@ -1009,12 +1073,23 @@ window.updateTiersAndSubjects = (prefix) => {
   }
 };
 
-// ── Update filter subjects in Manage tab ──
-window.updateFilterSubjects = () => {
+// ── Update filter tiers + subjects in Manage tab ──
+window.updateFilterSubjects = () => updateFilterTiersAndSubjects();
+window.updateFilterTiersAndSubjects = () => {
   const exam = document.getElementById('filterExam').value;
-  const sel = document.getElementById('filterSubject');
+  // Update tiers
+  const tierSel = document.getElementById('filterTier');
   if (!exam) {
-    sel.innerHTML = `<option value="">All Subjects</option>
+    tierSel.innerHTML = '<option value="">All Tiers/Sessions</option>';
+  } else {
+    const tiers = EXAM_TIERS[exam] || [];
+    tierSel.innerHTML = '<option value="">All Tiers/Sessions</option>' +
+      tiers.map(t => `<option value="${t.v}">${t.l}</option>`).join('');
+  }
+  // Update subjects
+  const subjSel = document.getElementById('filterSubject');
+  if (!exam) {
+    subjSel.innerHTML = `<option value="">All Subjects</option>
       <option value="reasoning">General Intelligence & Reasoning</option>
       <option value="english">English Language</option>
       <option value="quant">Quantitative Aptitude</option>
@@ -1022,7 +1097,7 @@ window.updateFilterSubjects = () => {
     return;
   }
   const subjs = EXAM_SUBJECTS[exam] || EXAM_SUBJECTS['ssc-cgl'];
-  sel.innerHTML = '<option value="">All Subjects</option>' +
+  subjSel.innerHTML = '<option value="">All Subjects</option>' +
     subjs.map(s => `<option value="${s.v}">${s.l}</option>`).join('');
 };
 
@@ -1330,10 +1405,12 @@ window.loadQuestions = async () => {
     let q = collection(db, 'questions');
     const snap = await getDocs(q);
     const filterExam = document.getElementById('filterExam')?.value;
+    const filterTier = document.getElementById('filterTier')?.value;
     const filterYear = document.getElementById('filterYear')?.value;
     const filterSubj = document.getElementById('filterSubject')?.value;
     let docs = snap.docs.map(d => ({id:d.id,...d.data()}));
     if (filterExam) docs = docs.filter(d => d.exam === filterExam);
+    if (filterTier) docs = docs.filter(d => d.tier === filterTier);
     if (filterYear) docs = docs.filter(d => d.year === filterYear);
     if (filterSubj) docs = docs.filter(d => d.subject === filterSubj);
     docs.sort((a,b) => (parseInt(a.qNum)||0) - (parseInt(b.qNum)||0));
@@ -1531,14 +1608,21 @@ window.importCSV = async () => {
   const status = document.getElementById('csvStatus');
   prog.style.display = 'block'; bar.style.width = '0%';
   document.getElementById('csvImportBtn').disabled = true;
+  // Read override dropdowns (empty string = use CSV value)
+  const ovExam = document.getElementById('csvExam')?.value || '';
+  const ovTier = document.getElementById('csvTier')?.value || '';
+  const ovYear = document.getElementById('csvYear')?.value || '';
   let saved = 0, errors = 0;
   for (let i = 0; i < csvParsedRows.length; i++) {
     const r = csvParsedRows[i];
-    if (!r.text || !r.correct || !r.exam) { errors++; continue; }
+    const exam = ovExam || r.exam || '';
+    const tier = ovTier || r.tier || 'tier1';
+    const year = ovYear || r.year || '';
+    if (!r.text || !r.correct || !exam) { errors++; continue; }
     try {
       await addDoc(collection(db, 'questions'), {
-        text: r.text, exam: r.exam, tier: r.tier || 'tier1',
-        year: r.year || '', type: r.type || 'pyq',
+        text: r.text, exam, tier, year,
+        type: r.type || 'pyq',
         subject: r.subject || '', chapter: r.chapter || '',
         difficulty: r.difficulty || 'medium', qNum: parseInt(r.qNum) || 0,
         options: { A: r.option_A||'', B: r.option_B||'', C: r.option_C||'', D: r.option_D||'' },
@@ -1959,6 +2043,20 @@ window.clearEditSolImg = () => {
   const i=document.getElementById('editSolImgCurrent'); if(i) i.src='';
   const w=document.getElementById('editSolImgCurrentWrap'); if(w) w.style.display='none';
   const s=document.getElementById('editSolImgStatus'); if(s) s.style.display='none';
+};
+
+// ── CSV Import tier updater ───────────────────────────────────────────────────
+window.updateCsvTiers = () => {
+  const exam = document.getElementById('csvExam')?.value;
+  const tierSel = document.getElementById('csvTier');
+  if (!tierSel) return;
+  if (!exam) {
+    tierSel.innerHTML = '<option value="">From CSV / keep as-is</option>';
+    return;
+  }
+  const tiers = EXAM_TIERS[exam] || [];
+  tierSel.innerHTML = '<option value="">From CSV / keep as-is</option>' +
+    tiers.map(t => `<option value="${t.v}">${t.l}</option>`).join('');
 };
 </script>
 </body>
