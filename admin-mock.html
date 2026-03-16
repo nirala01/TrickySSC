@@ -384,7 +384,6 @@ textarea{resize:vertical;min-height:60px;}
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
 import { getFirestore, collection, addDoc, getDocs, deleteDoc, updateDoc, doc, query, where, getCountFromServer, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
-import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-storage.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",
@@ -397,7 +396,6 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const storage = getStorage(app);
 const provider = new GoogleAuthProvider();
 const ADMIN_EMAILS = ['nirala01@gmail.com', 'ashish@trickyssc.com'];
 
@@ -922,6 +920,63 @@ window.importCSV=async()=>{
   showToast(`✅ ${saved} questions imported!`,'success');
   document.getElementById('csvImportBtn').disabled=false;
   loadStats();
+};
+
+
+// ── ImgBB Upload ─────────────────────────────────────────────────────────────
+const IMGBB_API_KEY = '2d19f5c584081a80d383c682a9974d05';
+async function uploadToImgBB(file) {
+  const fd = new FormData();
+  fd.append('image', file);
+  fd.append('key', IMGBB_API_KEY);
+  const r = await fetch('https://api.imgbb.com/1/upload', {method:'POST',body:fd});
+  const d = await r.json();
+  if(d.success) return d.data.url;
+  throw new Error('ImgBB: '+(d.error?.message||'failed'));
+}
+
+// ── Option image helpers ──────────────────────────────────────────────────────
+window.handleOptImg = async (input, fieldId) => {
+  const file = input.files[0]; if(!file) return;
+  const status  = document.getElementById(fieldId+'Status');
+  const preview = document.getElementById(fieldId+'Preview');
+  const pImg    = document.getElementById(fieldId+'Img');
+  const reader  = new FileReader();
+  reader.onload = e => { pImg.src=e.target.result; preview.style.display='block'; };
+  reader.readAsDataURL(file);
+  if(status){ status.style.display='inline'; status.textContent='⏳'; }
+  try {
+    const url = await uploadToImgBB(file);
+    document.getElementById(fieldId+'Url').value = url;
+    if(status){ status.textContent='✅'; setTimeout(()=>status.style.display='none',2000); }
+  } catch(e) { if(status){ status.textContent='⚠'; status.title=e.message; } }
+  input.value='';
+};
+window.clearOptImg = (fieldId) => {
+  ['File','Url','Img'].forEach(s=>{ const el=document.getElementById(fieldId+s); if(el){ if(s==='Img') el.src=''; else el.value=''; }});
+  const p=document.getElementById(fieldId+'Preview'); if(p) p.style.display='none';
+  const st=document.getElementById(fieldId+'Status'); if(st) st.style.display='none';
+};
+window.loadOptImgPreview = (fieldId, url) => {
+  if(!url) return;
+  const u=document.getElementById(fieldId+'Url'); if(u) u.value=url;
+  const i=document.getElementById(fieldId+'Img'); if(i) i.src=url;
+  const p=document.getElementById(fieldId+'Preview'); if(p) p.style.display='block';
+};
+window.uploadMiniImg = async (input, fieldId) => {
+  const file=input.files[0]; if(!file) return;
+  const st=document.getElementById(fieldId+'Status');
+  if(st){st.style.display='inline';st.textContent='⏳';}
+  try {
+    const url=await uploadToImgBB(file);
+    document.getElementById(fieldId+'Url').value=url;
+    if(st){st.textContent='✅';setTimeout(()=>st.style.display='none',2000);}
+  } catch(e){if(st){st.textContent='⚠';st.title=e.message;}}
+  input.value='';
+};
+window.clearMiniImg=(fieldId)=>{
+  const u=document.getElementById(fieldId+'Url'); if(u) u.value='';
+  const f=document.getElementById(fieldId+'File'); if(f) f.value='';
 };
 
 window.switchTab = (tab) => {
