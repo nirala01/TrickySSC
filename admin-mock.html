@@ -384,6 +384,7 @@ textarea{resize:vertical;min-height:60px;}
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
 import { getFirestore, collection, addDoc, getDocs, deleteDoc, updateDoc, doc, query, where, getCountFromServer, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-storage.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",
@@ -396,6 +397,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const storage = getStorage(app);
 const provider = new GoogleAuthProvider();
 const ADMIN_EMAILS = ['nirala01@gmail.com', 'ashish@trickyssc.com'];
 
@@ -920,43 +922,6 @@ window.importCSV=async()=>{
   showToast(`✅ ${saved} questions imported!`,'success');
   document.getElementById('csvImportBtn').disabled=false;
   loadStats();
-};
-
-
-// ── ImgBB Image Upload (instant, free) ──────────────────────────────────────
-// Get your free API key at: https://api.imgbb.com
-const IMGBB_API_KEY = '2d19f5c584081a80d383c682a9974d05'; // ← Replace with your key from api.imgbb.com
-
-async function uploadToImgBB(file) {
-  const formData = new FormData();
-  formData.append('image', file);
-  formData.append('key', IMGBB_API_KEY);
-  const resp = await fetch('https://api.imgbb.com/1/upload', {
-    method: 'POST',
-    body: formData
-  });
-  const data = await resp.json();
-  if (data.success) return data.data.url;
-  throw new Error('ImgBB upload failed: ' + (data.error?.message || 'Unknown error'));
-}
-
-
-// ── Mini image upload for options/solution images ───────────────────────────
-window.uploadMiniImg = async (input, fieldId) => {
-  const file = input.files[0]; if (!file) return;
-  const status = document.getElementById(fieldId + 'Status');
-  status.style.display = 'inline'; status.textContent = '⏳';
-  try {
-    const url = await uploadToImgBB(file);
-    document.getElementById(fieldId + 'Url').value = url;
-    status.textContent = '✅';
-    setTimeout(() => { status.style.display = 'none'; }, 2000);
-  } catch(e) { status.textContent = '⚠'; status.title = e.message; }
-  input.value = '';
-};
-window.clearMiniImg = (fieldId) => {
-  document.getElementById(fieldId + 'Url').value = '';
-  document.getElementById(fieldId + 'File').value = '';
 };
 
 window.switchTab = (tab) => {
