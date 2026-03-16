@@ -444,7 +444,6 @@ textarea{resize:vertical;min-height:80px;}
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
 import { getFirestore, collection, addDoc, getDocs, deleteDoc, updateDoc, doc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
-import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-storage.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",
@@ -457,7 +456,6 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const storage = getStorage(app);
 const provider = new GoogleAuthProvider();
 const ADMIN_EMAILS = ['nirala01@gmail.com', 'ashish@trickyssc.com'];
 
@@ -822,17 +820,33 @@ function showToast(msg,type=''){
 }
 
 // ── Image upload helpers ──
+
+// ── ImgBB Image Upload (instant, free) ──────────────────────────────────────
+// Get your free API key at: https://api.imgbb.com
+const IMGBB_API_KEY = '2d19f5c584081a80d383c682a9974d05'; // ← Replace with your key from api.imgbb.com
+
+async function uploadToImgBB(file) {
+  const formData = new FormData();
+  formData.append('image', file);
+  formData.append('key', IMGBB_API_KEY);
+  const resp = await fetch('https://api.imgbb.com/1/upload', {
+    method: 'POST',
+    body: formData
+  });
+  const data = await resp.json();
+  if (data.success) return data.data.url;
+  throw new Error('ImgBB upload failed: ' + (data.error?.message || 'Unknown error'));
+}
+
 async function upload_c_img() {
   const file = document.getElementById('cImgFile').files[0];
   const url  = document.getElementById('cImgUrl').value.trim();
   if (url) return url;
   if (!file) return '';
   const st = document.getElementById('cImgStatus');
-  st.style.display='block'; st.textContent='⏳ Uploading...';
+  st.style.display='block'; st.textContent='⏳ Uploading to ImgBB...';
   try {
-    const r2 = ref(storage, 'question-images/'+Date.now()+'_'+file.name);
-    await uploadBytes(r2, file);
-    const u = await getDownloadURL(r2);
+    const u = await uploadToImgBB(file);
     st.textContent='✅ Uploaded!'; return u;
   } catch(e) { st.textContent='⚠ '+e.message; return ''; }
 }
@@ -883,7 +897,7 @@ window.saveEdit=async()=>{
   const imgFile=document.getElementById('editImgFile').files[0];
   if(imgFile){
     const st=document.getElementById('editImgStatus');st.style.display='block';st.textContent='⏳ Uploading...';
-    try{const r2=ref(storage,'question-images/'+Date.now()+'_'+imgFile.name);await uploadBytes(r2,imgFile);imageUrl=await getDownloadURL(r2);st.textContent='✅ Done!';}
+    try{imageUrl=await uploadToImgBB(imgFile);st.textContent='✅ Done!';}
     catch(e){st.textContent='⚠ '+e.message;}
   }
   try{
