@@ -1009,7 +1009,15 @@ window.submitTest=async()=>{
     </div></div>`:'';
     const trickHtml=q.trick?`<div style="border-radius:8px;overflow:hidden;margin-top:6px;"><div style="background:#DBEAFE;color:#1D4ED8;padding:7px 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;">⚡ Quick Trick</div><div style="background:#EFF6FF;padding:10px 12px;font-size:13px;color:#1E40AF;line-height:1.7;">${q.trick}</div></div>`:'';
     const conceptHtml=q.concept?`<div style="border-radius:8px;overflow:hidden;margin-top:6px;"><div style="background:#FED7AA;color:#C2410C;padding:7px 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;">🧠 Concept</div><div style="background:#FFF7ED;padding:10px 12px;font-size:13px;color:#7C2D12;line-height:1.7;">${q.concept}</div></div>`:'';
-    return `<div class="review-item ${status}"><div style="font-size:15px;font-weight:600;color:#1F2937;margin-bottom:8px;line-height:1.5;">Q${i+1}. ${q.text||q.question||''}</div>${q.imageUrl?`<div style="text-align:center;margin:8px 0;"><img src="${q.imageUrl}" style="max-width:100%;max-height:220px;border-radius:8px;border:1px solid #E2E8F0;object-fit:contain;background:#F9FAFB;" onerror="this.style.display='none'"></div>`:''}${optsHtml}<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;background:${vBg};color:${vClr};font-size:13px;font-weight:600;margin-bottom:4px;">${vIcon} ${vText}</div>${solHtml}${trickHtml}${conceptHtml}</div>`;
+    const rawRT=q.text||q.question||'';
+    let reviewQHtml='';
+    if(rawRT.includes('||')){
+      const rp=rawRT.split('||');
+      reviewQHtml=`<div style="font-size:13px;font-weight:500;color:#64748B;margin-bottom:8px;line-height:1.6;">Q${i+1}. ${rp[0].trim()}</div><div style="font-size:14px;font-weight:600;color:#1E293B;padding:10px 14px;background:#F8FAFC;border-left:3px solid #FF6B00;border-radius:0 8px 8px 0;margin-bottom:10px;line-height:1.7;">${rp.slice(1).join('').trim()}</div>`;
+    }else{
+      reviewQHtml=`<div style="font-size:15px;font-weight:600;color:#1F2937;margin-bottom:8px;line-height:1.5;">Q${i+1}. ${rawRT}</div>`;
+    }
+    return `<div class="review-item ${status}">${reviewQHtml}${q.imageUrl?`<div style="text-align:center;margin:8px 0;"><img src="${q.imageUrl}" style="max-width:100%;max-height:220px;border-radius:8px;border:1px solid #E2E8F0;object-fit:contain;background:#F9FAFB;" onerror="this.style.display='none'"></div>`:''}${optsHtml}<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;background:${vBg};color:${vClr};font-size:13px;font-weight:600;margin-bottom:4px;">${vIcon} ${vText}</div>${solHtml}${trickHtml}${conceptHtml}</div>`;
   }).join('');
 
   if(!currentUser||!currentUser.uid){setSaveUi('error','⚠️ Not logged in. Result cannot be saved.');isSubmitting=false;return;}
