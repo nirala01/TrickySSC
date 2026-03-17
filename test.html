@@ -4,456 +4,646 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>TrickySSC Test Engine</title>
-<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&family=Noto+Sans:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-/* ═══════════════════════════════════════════════════════
-   RESET
-═══════════════════════════════════════════════════════ */
+/* ═══════ RESET ═══════ */
 *{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:'Noto Sans',sans-serif;background:#EEF2F7;min-height:100vh;}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:100vh;}
 
 /* ─── Loader ─── */
 #loader{
-  position:fixed;inset:0;background:#FF6B00;color:#fff;
-  display:flex;flex-direction:column;justify-content:center;
-  align-items:center;font-weight:700;font-size:22px;z-index:1000;
-  gap:10px;
+  position:fixed;inset:0;
+  background:linear-gradient(135deg,#FF6B00 0%,#FF9240 100%);
+  color:#fff;display:flex;flex-direction:column;
+  justify-content:center;align-items:center;
+  font-weight:700;font-size:22px;z-index:1000;gap:12px;
 }
+#loader span{font-size:14px;font-weight:400;opacity:0.85;margin-top:4px;}
 
-/* ═══════════════════════════════════════════════════════
-   TEST SCREEN  (desktop-first)
-═══════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════
+   TEST SCREEN
+═══════════════════════════════════ */
 #testScreen{
-  display:none;             /* JS sets to flex */
+  display:none;
   height:100vh;
   flex-direction:column;
   overflow:hidden;
+  background:#F0F4F8;
 }
 
 /* ─── Topbar ─── */
 .topbar{
-  background:#1F2937;
+  background:#ffffff;
   display:flex;justify-content:space-between;align-items:center;
-  padding:0 24px;height:54px;gap:16px;flex-shrink:0;
-  box-shadow:0 2px 8px rgba(0,0,0,0.25);
-  z-index:10;
+  padding:0 28px;height:58px;gap:16px;flex-shrink:0;
+  box-shadow:0 1px 0 #E2E8F0, 0 2px 12px rgba(0,0,0,0.06);
+  z-index:10;position:relative;
 }
-.topbar-left{display:flex;flex-direction:column;justify-content:center;min-width:0;}
+.topbar-left{display:flex;align-items:center;gap:14px;min-width:0;}
+.brand-dot{
+  width:34px;height:34px;border-radius:10px;
+  background:linear-gradient(135deg,#FF6B00,#FF9240);
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Rajdhani';font-size:16px;font-weight:700;color:#fff;
+  flex-shrink:0;
+}
 .exam-title{
-  font-family:'Rajdhani';font-size:16px;font-weight:700;
-  color:#FF6B00;line-height:1.2;
+  font-family:'Rajdhani';font-size:17px;font-weight:700;
+  color:#1E293B;line-height:1.2;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
-.user-name{font-size:11px;color:#9CA3AF;line-height:1.2;}
+.user-name{font-size:11.5px;color:#94A3B8;line-height:1.2;font-weight:500;}
+
+.topbar-center{
+  flex:1;display:flex;justify-content:center;align-items:center;
+}
+.timer-wrap{
+  display:flex;align-items:center;gap:8px;
+  background:#FFF7F0;border:1.5px solid #FFD4AD;
+  border-radius:10px;padding:5px 16px;
+}
+.timer-icon{font-size:14px;}
 .timer{
-  font-family:'Rajdhani';font-size:28px;font-weight:700;
-  color:#FF6B00;flex-shrink:0;letter-spacing:1px;
+  font-family:'Rajdhani';font-size:26px;font-weight:700;
+  color:#FF6B00;letter-spacing:1.5px;
 }
 .topbar-right{display:flex;align-items:center;gap:8px;flex-shrink:0;}
 .logout-btn{
-  background:transparent;border:1px solid #4B5563;color:#9CA3AF;
-  padding:5px 14px;border-radius:6px;cursor:pointer;font-size:12px;
+  background:transparent;border:1.5px solid #E2E8F0;color:#64748B;
+  padding:6px 16px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;
+  font-family:'Plus Jakarta Sans';
   transition:all 0.15s;
 }
-.logout-btn:hover{border-color:#9CA3AF;color:#E5E7EB;}
-
-/* ─── #gridToggleBtn — desktop: hidden, mobile: shown ─── */
+.logout-btn:hover{border-color:#CBD5E1;color:#334155;background:#F8FAFC;}
 #gridToggleBtn{display:none;}
 
-/* ─── Main area ─── */
+/* ═══════════════════════════════════
+   SUBJECT TABS BAR  (Desktop — above Q panel)
+═══════════════════════════════════ */
+#subjectBar{
+  background:#ffffff;
+  border-bottom:1px solid #E2E8F0;
+  padding:0 28px;
+  display:flex;align-items:center;gap:4px;
+  overflow-x:auto;scrollbar-width:none;
+  flex-shrink:0;
+  min-height:46px;
+}
+#subjectBar::-webkit-scrollbar{display:none;}
+.subj-tab{
+  white-space:nowrap;
+  font-family:'Rajdhani';font-size:13px;font-weight:700;
+  letter-spacing:0.03em;text-transform:uppercase;
+  padding:10px 16px;border-radius:8px;
+  cursor:pointer;border:none;background:transparent;
+  color:#64748B;transition:all 0.15s;
+  display:flex;align-items:center;gap:6px;
+  position:relative;
+}
+.subj-tab:hover{background:#F1F5F9;color:#334155;}
+.subj-tab.active{
+  background:#FFF3E8;color:#FF6B00;
+}
+.subj-tab.active::after{
+  content:'';position:absolute;bottom:0;left:16px;right:16px;
+  height:3px;background:#FF6B00;border-radius:3px 3px 0 0;
+}
+.subj-tab .subj-badge{
+  background:#E2E8F0;color:#475569;
+  font-size:10px;font-weight:700;font-family:'Plus Jakarta Sans';
+  padding:1px 6px;border-radius:20px;min-width:20px;text-align:center;
+}
+.subj-tab.active .subj-badge{background:#FFD4AD;color:#C2410C;}
+.subj-tab .subj-done{
+  font-size:10px;background:#DCFCE7;color:#15803D;
+  padding:1px 6px;border-radius:20px;font-family:'Plus Jakarta Sans';font-weight:700;
+}
+
+/* ═══════════════════════════════════
+   MAIN AREA
+═══════════════════════════════════ */
 .main{flex:1;display:flex;overflow:hidden;min-height:0;}
 
 /* ─── Question Panel ─── */
 .questionPanel{
   flex:1;overflow-y:auto;
-  padding:28px 32px;
-  background:#EEF2F7;
-  /* Constrain content width so options don't stretch too wide */
-  display:flex;
-  flex-direction:column;
-  align-items:stretch;
+  padding:28px 36px;
+  background:#F0F4F8;
+  display:flex;flex-direction:column;align-items:stretch;
 }
+/* Scrollbar */
+.questionPanel::-webkit-scrollbar{width:5px;}
+.questionPanel::-webkit-scrollbar-track{background:transparent;}
+.questionPanel::-webkit-scrollbar-thumb{background:#CBD5E1;border-radius:4px;}
 
-/* Inner content wrapper — caps width on large screens */
 .q-inner{
-  width:100%;
-  max-width:780px;       /* options never wider than this */
-  margin:0 auto;         /* centred in whatever space is left */
+  width:100%;max-width:800px;
+  margin:0 auto;
 }
 
-.qNum{
-  font-size:12px;font-weight:700;color:#6B7280;
-  letter-spacing:0.06em;text-transform:uppercase;
-  margin-bottom:12px;
+/* Q-number badge */
+.qNum-row{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:16px;
+}
+.qNum-badge{
+  display:inline-flex;align-items:center;gap:8px;
+  background:#fff;border:1px solid #E2E8F0;
+  border-radius:8px;padding:5px 14px;
+  font-size:12px;font-weight:700;color:#475569;letter-spacing:0.04em;
+  text-transform:uppercase;
+}
+.qNum-badge .qNum-accent{color:#FF6B00;}
+.subj-chip{
+  font-size:11px;font-weight:700;background:#EFF6FF;
+  color:#3B82F6;border:1px solid #BFDBFE;
+  border-radius:20px;padding:3px 10px;letter-spacing:0.02em;
+  text-transform:uppercase;
+}
+
+/* Question text card */
+.q-card{
+  background:#ffffff;border-radius:14px;
+  padding:22px 24px;
+  border:1px solid #E2E8F0;
+  box-shadow:0 1px 4px rgba(0,0,0,0.04);
+  margin-bottom:18px;
 }
 .qText{
-  font-size:16px;font-weight:500;color:#111827;
-  line-height:1.75;margin-bottom:24px;
+  font-size:16px;font-weight:500;color:#1E293B;
+  line-height:1.8;
 }
-
-/* ─── Question image ─── */
-#qImgWrap{margin-bottom:18px;text-align:center;}
+#qImgWrap{margin-top:14px;text-align:center;}
 #qImg{
   max-width:100%;max-height:280px;border-radius:10px;
-  border:1px solid #E5E7EB;object-fit:contain;background:#F9FAFB;
+  border:1px solid #E2E8F0;object-fit:contain;background:#F8FAFC;
 }
 
 /* ─── Options ─── */
 .options-wrap{display:flex;flex-direction:column;gap:10px;}
 .option{
-  display:flex;align-items:flex-start;gap:12px;
-  padding:13px 18px;border-radius:8px;
-  border:2px solid #E5E7EB;background:#FFFFFF;
+  display:flex;align-items:flex-start;gap:14px;
+  padding:14px 20px;border-radius:12px;
+  border:1.5px solid #E2E8F0;background:#FFFFFF;
   cursor:pointer;font-size:15px;
-  transition:border-color 0.15s,background 0.15s,box-shadow 0.15s;
+  transition:border-color 0.15s,background 0.15s,box-shadow 0.15s,transform 0.1s;
+  box-shadow:0 1px 3px rgba(0,0,0,0.04);
 }
-.option:hover{border-color:#FF6B00;background:#FFFBF7;}
-.option.selected{border-color:#FF6B00;background:#FFF3E8;box-shadow:0 0 0 3px rgba(255,107,0,0.08);}
-.option.correct {border-color:#16A34A;background:#F0FDF4;}
-.option.wrong   {border-color:#DC2626;background:#FEF2F2;}
+.option:hover{border-color:#FF9240;background:#FFFBF7;transform:translateY(-1px);box-shadow:0 3px 10px rgba(255,107,0,0.1);}
+.option.selected{border-color:#FF6B00;background:#FFF7F0;box-shadow:0 0 0 3px rgba(255,107,0,0.08);}
+.option.correct{border-color:#22C55E;background:#F0FDF4;box-shadow:0 0 0 3px rgba(34,197,94,0.08);}
+.option.wrong  {border-color:#EF4444;background:#FEF2F2;box-shadow:0 0 0 3px rgba(239,68,68,0.06);}
 
 .opt-label{
-  font-family:'Rajdhani';font-size:15px;font-weight:700;
-  color:#9CA3AF;flex-shrink:0;min-width:24px;line-height:1.5;
+  width:30px;height:30px;min-width:30px;
+  border-radius:8px;background:#F1F5F9;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Rajdhani';font-size:14px;font-weight:700;
+  color:#64748B;transition:all 0.15s;
 }
-.option.selected .opt-label{color:#FF6B00;}
-.option.correct  .opt-label{color:#16A34A;}
-.option.wrong    .opt-label{color:#DC2626;}
-.opt-body{flex:1;min-width:0;line-height:1.55;color:#1F2937;}
-.option.correct .opt-body{color:#15803D;font-weight:500;}
+.option:hover    .opt-label{background:#FFE8D6;color:#FF6B00;}
+.option.selected .opt-label{background:#FF6B00;color:#fff;}
+.option.correct  .opt-label{background:#22C55E;color:#fff;}
+.option.wrong    .opt-label{background:#EF4444;color:#fff;}
+.opt-body{flex:1;min-width:0;line-height:1.6;color:#334155;font-size:15px;}
+.option.correct .opt-body{color:#15803D;font-weight:600;}
 .option.wrong   .opt-body{color:#DC2626;}
 
-/* ─── Nav buttons (desktop) ─── */
+/* ─── Nav buttons ─── */
 .nav-btns{
   display:flex;align-items:center;gap:12px;
-  margin-top:28px;
+  margin-top:28px;padding-bottom:16px;
 }
 .btn{
-  padding:10px 30px;border:none;border-radius:8px;
-  cursor:pointer;font-family:'Rajdhani';font-size:16px;font-weight:700;
-  transition:all 0.15s;white-space:nowrap;
+  padding:11px 28px;border:none;border-radius:10px;
+  cursor:pointer;font-family:'Plus Jakarta Sans';font-size:14px;font-weight:700;
+  transition:all 0.15s;white-space:nowrap;letter-spacing:0.01em;
 }
-.btn:hover{opacity:0.9;transform:translateY(-1px);}
-.btn-prev  {background:#E5E7EB;color:#374151;}
-.btn-next  {background:#FF6B00;color:#fff;}
-.btn-submit{background:#1F2937;color:#fff;}
+.btn:hover{opacity:0.92;transform:translateY(-1px);}
+.btn-prev  {background:#EFF6FF;color:#3B82F6;border:1.5px solid #BFDBFE;}
+.btn-prev:hover{background:#DBEAFE;}
+.btn-next  {background:linear-gradient(135deg,#FF6B00,#FF9240);color:#fff;box-shadow:0 3px 12px rgba(255,107,0,0.25);}
+.btn-submit{background:#1E293B;color:#fff;box-shadow:0 3px 12px rgba(30,41,59,0.2);}
+.btn-mark{
+  background:#FFFBEB;color:#D97706;
+  border:1.5px solid #FDE68A;padding:11px 18px;
+}
+.btn-mark:hover{background:#FEF3C7;}
+.skip-btn-row{flex:1;display:flex;justify-content:flex-end;}
 
-/* ─── Desktop Sidebar ─── */
+/* ═══════════════════════════════════
+   DESKTOP SIDEBAR
+═══════════════════════════════════ */
 .sidebar{
-  width:230px;flex-shrink:0;
-  border-left:1px solid #E5E7EB;
+  width:270px;flex-shrink:0;
+  border-left:1px solid #E2E8F0;
   background:#FFFFFF;
-  padding:16px 14px;
   overflow-y:auto;
-  display:flex;flex-direction:column;gap:0;
+  display:flex;flex-direction:column;
 }
-.sidebar-title{
-  font-family:'Rajdhani';font-size:13px;font-weight:700;
-  color:#374151;text-transform:uppercase;letter-spacing:0.08em;
-  margin-bottom:12px;padding-bottom:8px;
-  border-bottom:1px solid #F3F4F6;
+.sidebar::-webkit-scrollbar{width:4px;}
+.sidebar::-webkit-scrollbar-thumb{background:#E2E8F0;border-radius:4px;}
+
+/* Sidebar subject tabs */
+.sb-subject-tabs{
+  display:flex;flex-wrap:wrap;gap:6px;
+  padding:14px 16px 10px;
+  border-bottom:1px solid #F1F5F9;
 }
+.sb-subj-btn{
+  font-family:'Rajdhani';font-size:12px;font-weight:700;
+  text-transform:uppercase;letter-spacing:0.04em;
+  padding:5px 10px;border-radius:6px;border:1.5px solid #E2E8F0;
+  background:#F8FAFC;color:#475569;cursor:pointer;
+  transition:all 0.15s;
+}
+.sb-subj-btn:hover{border-color:#FF9240;color:#FF6B00;background:#FFF7F0;}
+.sb-subj-btn.active{background:#FF6B00;color:#fff;border-color:#FF6B00;}
 
-/* Legend */
-.legend{display:flex;flex-direction:column;gap:7px;margin-bottom:14px;}
-.legend-item{display:flex;align-items:center;gap:7px;font-size:11.5px;color:#6B7280;}
-.legend-dot{width:14px;height:14px;border-radius:3px;flex-shrink:0;}
+/* Sidebar legend + grid */
+.sb-section{padding:12px 16px;}
+.sb-label{
+  font-family:'Rajdhani';font-size:11px;font-weight:700;
+  color:#94A3B8;text-transform:uppercase;letter-spacing:0.08em;
+  margin-bottom:8px;
+}
+.legend{display:flex;flex-direction:column;gap:6px;margin-bottom:14px;}
+.legend-item{display:flex;align-items:center;gap:8px;font-size:11.5px;color:#64748B;font-weight:500;}
+.legend-dot{width:13px;height:13px;border-radius:4px;flex-shrink:0;}
 
-/* Question number grid */
+/* Q-number grid */
 .grid{
   display:grid;grid-template-columns:repeat(5,1fr);gap:5px;
 }
 .dot{
   aspect-ratio:1;display:flex;align-items:center;justify-content:center;
-  border:1.5px solid #E5E7EB;background:#FFFFFF;
-  cursor:pointer;font-size:12px;font-weight:500;border-radius:5px;
-  transition:all 0.1s;color:#374151;
+  border:1.5px solid #E2E8F0;background:#FFFFFF;
+  cursor:pointer;font-size:11.5px;font-weight:600;border-radius:7px;
+  transition:all 0.12s;color:#475569;
+  font-family:'Plus Jakarta Sans';
 }
-.dot:hover           {border-color:#FF6B00;color:#FF6B00;}
-.dot.answered        {background:#16A34A;color:#fff;border-color:#16A34A;}
-.dot.answered:hover  {background:#15803D;}
-.dot.current         {border-color:#FF6B00;font-weight:700;color:#FF6B00;background:#FFF3E8;}
-.dot.skipped         {background:#FEF3C7;border-color:#F59E0B;color:#78350F;}
+.dot:hover           {border-color:#FF6B00;color:#FF6B00;background:#FFF7F0;}
+.dot.answered        {background:#22C55E;color:#fff;border-color:#22C55E;}
+.dot.answered:hover  {background:#16A34A;}
+.dot.current         {border-color:#FF6B00;font-weight:700;color:#FF6B00;background:#FFF3E8;box-shadow:0 0 0 2px rgba(255,107,0,0.2);}
+.dot.skipped         {background:#FEF9C3;border-color:#EAB308;color:#713F12;}
+.dot.marked          {background:#EEF2FF;border-color:#6366F1;color:#4338CA;}
 
-/* ─── Mobile drawer (hidden on desktop) ─── */
+/* Progress bar */
+.progress-wrap{padding:0 16px 14px;}
+.progress-label{display:flex;justify-content:space-between;font-size:11px;color:#94A3B8;font-weight:600;margin-bottom:6px;}
+.progress-bar{height:5px;background:#F1F5F9;border-radius:4px;overflow:hidden;}
+.progress-fill{height:100%;background:linear-gradient(90deg,#FF6B00,#FF9240);border-radius:4px;transition:width 0.4s ease;}
+
+/* Submit section in sidebar */
+.sb-submit{padding:0 16px 16px;}
+.sidebar-submit-btn{
+  width:100%;padding:12px;border:none;border-radius:10px;
+  background:linear-gradient(135deg,#1E293B,#334155);
+  color:#fff;font-family:'Plus Jakarta Sans';font-size:14px;font-weight:700;
+  cursor:pointer;transition:all 0.15s;letter-spacing:0.01em;
+}
+.sidebar-submit-btn:hover{opacity:0.9;transform:translateY(-1px);}
+
+/* ═══════════════════════════════════
+   MOBILE DRAWER
+═══════════════════════════════════ */
 #sidebarOverlay{
   display:none;position:fixed;inset:0;
-  background:rgba(0,0,0,0.45);z-index:200;
+  background:rgba(15,23,42,0.5);z-index:200;
+  backdrop-filter:blur(2px);
 }
 #sidebarDrawer{
-  display:none;position:fixed;right:0;top:0;bottom:0;width:250px;
+  display:none;position:fixed;right:0;top:0;bottom:0;width:280px;
   background:#fff;z-index:201;overflow-y:auto;
-  box-shadow:-6px 0 24px rgba(0,0,0,0.14);
+  box-shadow:-8px 0 32px rgba(0,0,0,0.12);
 }
 .drawer-header{
   display:flex;justify-content:space-between;align-items:center;
-  padding:13px 16px;border-bottom:1px solid #E5E7EB;
-  font-family:'Rajdhani';font-size:15px;font-weight:700;color:#1F2937;
-  background:#F9FAFB;position:sticky;top:0;z-index:1;
+  padding:14px 16px;border-bottom:1px solid #F1F5F9;
+  font-family:'Rajdhani';font-size:16px;font-weight:700;color:#1E293B;
+  background:#FFFFFF;position:sticky;top:0;z-index:1;
 }
 .drawer-close-btn{
-  background:#E5E7EB;border:none;border-radius:6px;
-  padding:4px 10px;cursor:pointer;font-size:13px;color:#374151;
+  background:#F1F5F9;border:none;border-radius:8px;
+  width:30px;height:30px;cursor:pointer;font-size:16px;color:#64748B;
+  display:flex;align-items:center;justify-content:center;
 }
-.drawer-body{padding:14px;}
+.drawer-body{padding:14px 14px 20px;}
+
+/* Subject buttons in drawer */
+.drawer-subj-row{
+  display:flex;flex-wrap:wrap;gap:6px;
+  margin-bottom:14px;padding-bottom:14px;
+  border-bottom:1px solid #F1F5F9;
+}
+.drawer-subj-btn{
+  font-family:'Rajdhani';font-size:11.5px;font-weight:700;
+  text-transform:uppercase;letter-spacing:0.04em;
+  padding:5px 10px;border-radius:6px;border:1.5px solid #E2E8F0;
+  background:#F8FAFC;color:#475569;cursor:pointer;
+  transition:all 0.15s;
+}
+.drawer-subj-btn:hover{border-color:#FF9240;color:#FF6B00;}
+.drawer-subj-btn.active{background:#FF6B00;color:#fff;border-color:#FF6B00;}
+
 #drawerGrid{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;}
 
-/* ─── Result screen ─── */
+/* ═══════════════════════════════════
+   RESULT SCREEN
+═══════════════════════════════════ */
 #resultScreen{
   display:none;padding:32px 20px;
-  max-width:740px;margin:0 auto;
+  max-width:820px;margin:0 auto;
 }
 .result-card{
-  background:#fff;border-radius:16px;padding:36px 32px;
-  text-align:center;box-shadow:0 4px 24px rgba(0,0,0,0.08);
-  margin-bottom:24px;
+  background:#fff;border-radius:20px;padding:36px 32px;
+  text-align:center;box-shadow:0 4px 24px rgba(0,0,0,0.07);
+  margin-bottom:24px;border:1px solid #F1F5F9;
 }
-.score-big{font-family:'Rajdhani';font-size:72px;font-weight:700;color:#FF6B00;}
-.score-label{font-size:14px;color:#6B7280;margin-top:-6px;}
-.stats{display:flex;gap:14px;justify-content:center;margin-top:22px;flex-wrap:wrap;}
-.stat{background:#F8FAFC;border-radius:12px;padding:14px 20px;text-align:center;}
+.score-big{font-family:'Rajdhani';font-size:72px;font-weight:700;color:#FF6B00;line-height:1;}
+.score-label{font-size:13px;color:#94A3B8;margin-top:4px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;}
+.stats{display:flex;gap:12px;justify-content:center;margin-top:24px;flex-wrap:wrap;}
+.stat{background:#F8FAFC;border-radius:14px;padding:16px 20px;text-align:center;border:1px solid #F1F5F9;min-width:80px;}
 .stat-val{font-family:'Rajdhani';font-size:32px;font-weight:700;}
-.stat-lbl{font-size:12px;color:#6B7280;margin-top:2px;}
+.stat-lbl{font-size:11px;color:#94A3B8;margin-top:2px;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;}
 .review-item{
-  background:#fff;border-radius:10px;padding:18px;margin-bottom:12px;
-  border-left:4px solid #E5E7EB;
-  box-shadow:0 1px 4px rgba(0,0,0,0.04);
+  background:#fff;border-radius:12px;padding:18px;margin-bottom:12px;
+  border-left:4px solid #E2E8F0;
+  box-shadow:0 1px 4px rgba(0,0,0,0.04);border:1px solid #F1F5F9;
 }
-.review-item.correct{border-left-color:#16A34A;}
-.review-item.wrong  {border-left-color:#DC2626;}
-.review-item.skip   {border-left-color:#F59E0B;}
+.review-item.correct{border-left-color:#22C55E;}
+.review-item.wrong  {border-left-color:#EF4444;}
+.review-item.skip   {border-left-color:#EAB308;}
 
 
-/* ═══════════════════════════════════════════════════════
+/* ═══════════════════════════════════
    MOBILE  ≤ 640px
-   Light / white theme, card-feel, thumb-friendly
-═══════════════════════════════════════════════════════ */
+═══════════════════════════════════ */
 @media(max-width:640px){
-
-  body{background:#F3F4F6;}
+  body{background:#F0F4F8;}
   #testScreen{height:100dvh;}
 
-  /* Topbar — white on mobile */
   .topbar{
-    background:#fff;height:52px;padding:0 14px;
-    border-bottom:1px solid #E5E7EB;
-    box-shadow:0 1px 4px rgba(0,0,0,0.06);
+    background:#fff;height:52px;padding:0 12px;
+    box-shadow:0 1px 0 #E2E8F0;
   }
-  .exam-title{color:#FF6B00;font-size:13px;}
-  .user-name{color:#9CA3AF;font-size:10px;}
-  .timer{
-    font-size:21px;color:#1F2937;
-    background:#FFF3E8;border-radius:8px;
-    padding:3px 10px;letter-spacing:0;
-  }
-  .logout-btn{
-    padding:4px 10px;font-size:11px;
-    border-color:#E5E7EB;color:#9CA3AF;
-  }
+  .topbar-center{flex:0 0 auto;}
+  .brand-dot{width:28px;height:28px;font-size:13px;border-radius:8px;}
+  .exam-title{font-size:13px;}
+  .user-name{display:none;}
+  .timer-wrap{padding:4px 10px;gap:5px;}
+  .timer{font-size:20px;}
+  .timer-icon{display:none;}
+  .logout-btn{padding:5px 10px;font-size:11px;}
 
-  /* Grid toggle button — visible on mobile */
   #gridToggleBtn{
     display:flex;align-items:center;gap:5px;
-    background:#1F2937;color:#fff;border:none;
+    background:#1E293B;color:#fff;border:none;
     border-radius:8px;padding:5px 10px;
     font-family:'Rajdhani';font-size:12px;font-weight:700;
     cursor:pointer;white-space:nowrap;
   }
 
-  /* Hide desktop sidebar */
+  /* Subject bar: horizontal scroll on mobile too */
+  #subjectBar{
+    padding:0 10px;min-height:40px;gap:3px;
+    background:#fff;border-bottom:1px solid #E2E8F0;
+  }
+  .subj-tab{font-size:11px;padding:8px 12px;}
+  .subj-tab .subj-badge{font-size:9px;padding:1px 5px;}
+
   .sidebar{display:none;}
+  .main{background:#F0F4F8;flex-direction:column;}
 
-  /* Main: grey bg for contrast */
-  .main{background:#F3F4F6;flex-direction:column;}
-
-  /* Question panel: no padding — children handle their own */
   .questionPanel{
     padding:0;background:transparent;
     flex-direction:column;align-items:stretch;
   }
-
-  /* Inner wrapper: full width on mobile */
   .q-inner{max-width:100%;padding:0;}
 
-  /* Question number — orange strip */
-  .qNum{
-    background:#FF6B00;color:#fff;
-    padding:7px 16px;margin-bottom:0;
-    font-size:11px;font-weight:700;letter-spacing:0.06em;
-    border-radius:0;
+  .qNum-row{
+    padding:10px 14px 0;
+    margin-bottom:8px;
   }
+  .qNum-badge{font-size:11px;padding:4px 12px;}
+  .subj-chip{font-size:10px;}
 
-  /* Question text — white card */
-  .qText{
-    background:#fff;padding:14px 16px;
-    font-size:15px;line-height:1.7;
-    margin-bottom:0;color:#111827;
-    border-bottom:1px solid #F3F4F6;
+  .q-card{
+    margin:0 12px 10px;
+    padding:16px;border-radius:12px;
   }
+  .qText{font-size:15px;line-height:1.7;}
 
-  /* Options area */
   .options-wrap{
-    padding:10px 12px 0;gap:8px;
+    padding:0 12px 0;gap:8px;
   }
-
-  /* Option — card style */
   .option{
-    background:#fff;border:1.5px solid #E5E7EB;
-    border-radius:12px;padding:11px 14px;
+    background:#fff;border:1.5px solid #E2E8F0;
+    border-radius:12px;padding:12px 14px;
     font-size:14px;gap:10px;
     box-shadow:0 1px 3px rgba(0,0,0,0.04);
   }
+  .option:hover{transform:none;}
   .option:active{transform:scale(0.985);}
-  .option.selected{
-    border-color:#FF6B00;background:#FFF3E8;
-    box-shadow:0 2px 8px rgba(255,107,0,0.14);
-  }
-  .option.correct{border-color:#16A34A;background:#F0FDF4;box-shadow:none;}
-  .option.wrong  {border-color:#DC2626;background:#FEF2F2;box-shadow:none;}
-
-  /* Circular letter badge */
   .opt-label{
-    width:28px;height:28px;min-width:28px;
-    border-radius:50%;
-    background:#F3F4F6;
-    display:flex;align-items:center;justify-content:center;
-    font-size:13px;font-weight:700;
-    color:#6B7280;padding:0;line-height:1;
+    width:30px;height:30px;min-width:30px;
+    border-radius:8px;font-size:13px;
   }
-  .option.selected .opt-label{background:#FF6B00;color:#fff;}
-  .option.correct  .opt-label{background:#16A34A;color:#fff;}
-  .option.wrong    .opt-label{background:#DC2626;color:#fff;}
-  .opt-body{font-size:14px;color:#1F2937;line-height:1.5;}
-  .option.correct .opt-body{color:#15803D;}
-  .option.wrong   .opt-body{color:#DC2626;}
+  .opt-body{font-size:14px;}
 
-  /* Nav buttons — sticky bottom bar */
   .nav-btns{
     position:sticky;bottom:0;z-index:10;
-    background:#fff;border-top:1px solid #E5E7EB;
+    background:#fff;border-top:1px solid #E2E8F0;
     padding:10px 12px;margin-top:10px;
     gap:8px;
-    box-shadow:0 -2px 10px rgba(0,0,0,0.06);
+    box-shadow:0 -2px 12px rgba(0,0,0,0.06);
   }
   .btn{
-    padding:10px 0;font-size:15px;border-radius:10px;
+    padding:11px 0;font-size:14px;border-radius:10px;
     flex:1;text-align:center;
   }
-  .btn-prev  {background:#F3F4F6;color:#374151;}
-  .btn-next  {background:#FF6B00;color:#fff;}
-  .btn-submit{background:#1F2937;color:#fff;font-size:14px;}
+  .btn-prev {background:#EFF6FF;color:#3B82F6;border:1.5px solid #BFDBFE;}
+  .btn-next {background:linear-gradient(135deg,#FF6B00,#FF9240);color:#fff;box-shadow:none;}
+  .btn-submit{background:#1E293B;color:#fff;box-shadow:none;font-size:13px;}
+  .btn-mark{display:none;}
+  .skip-btn-row{display:none;}
 
-  /* Result screen */
-  #resultScreen{padding:14px;}
-  .result-card{padding:20px 16px;border-radius:12px;}
+  #resultScreen{padding:12px;}
+  .result-card{padding:22px 16px;border-radius:16px;}
   .score-big{font-size:54px;}
   .stats{gap:8px;}
-  .stat{padding:10px 12px;border-radius:10px;flex:1;min-width:60px;}
+  .stat{padding:12px;flex:1;min-width:60px;border-radius:12px;}
   .stat-val{font-size:26px;}
-  .stat-lbl{font-size:10px;}
+  .stat-lbl{font-size:9px;}
   .review-item{padding:12px;margin-bottom:8px;}
 }
 </style>
 </head>
 <body>
 
-<div id="loader">⚡ TrickySSC<br><span style="font-size:14px;font-weight:400;margin-top:8px;">Loading...</span></div>
+<div id="loader">
+  ⚡ TrickySSC
+  <span>Loading your test...</span>
+</div>
 
 <div id="testScreen">
-  <!-- Topbar -->
+
+  <!-- ── Topbar ── -->
   <div class="topbar">
     <div class="topbar-left">
-      <div class="exam-title" id="examTitle">SSC Test</div>
-      <div class="user-name" id="userName"></div>
+      <div class="brand-dot">T</div>
+      <div>
+        <div class="exam-title" id="examTitle">SSC Test</div>
+        <div class="user-name" id="userName"></div>
+      </div>
     </div>
-    <div class="timer" id="timer">60:00</div>
+    <div class="topbar-center">
+      <div class="timer-wrap">
+        <span class="timer-icon">⏱</span>
+        <div class="timer" id="timer">60:00</div>
+      </div>
+    </div>
     <div class="topbar-right">
-      <!-- Mobile: question grid toggle -->
       <button id="gridToggleBtn" onclick="openDrawer()">☰ Questions</button>
       <button class="logout-btn" onclick="doLogout()">Logout</button>
     </div>
   </div>
 
-  <!-- Main -->
+  <!-- ── Subject Tabs Bar ── -->
+  <div id="subjectBar">
+    <!-- Populated by JS -->
+  </div>
+
+  <!-- ── Main ── -->
   <div class="main">
-    <!-- Question panel -->
+
+    <!-- Question Panel -->
     <div class="questionPanel">
       <div class="q-inner">
-        <div class="qNum" id="qNum"></div>
-        <div id="qImgWrap" style="display:none;margin-bottom:16px;text-align:center;">
-          <img id="qImg" style="max-width:100%;max-height:280px;border-radius:10px;border:1px solid #E5E7EB;object-fit:contain;background:#F9FAFB;" alt="Question figure">
+
+        <div class="qNum-row">
+          <div class="qNum-badge" id="qNum">
+            Question <span class="qNum-accent" id="qNumCurrent">1</span>&nbsp;of&nbsp;<span id="qNumTotal">0</span>
+          </div>
+          <span class="subj-chip" id="qSubjectChip"></span>
         </div>
-        <div class="qText" id="qText"></div>
+
+        <!-- Q card -->
+        <div class="q-card">
+          <div class="qText" id="qText"></div>
+          <div id="qImgWrap" style="display:none;">
+            <img id="qImg" alt="Question figure">
+          </div>
+        </div>
+
+        <!-- Options -->
         <div id="options" class="options-wrap"></div>
+
+        <!-- Nav buttons -->
         <div class="nav-btns">
           <button class="btn btn-prev" onclick="prevQ()">← Prev</button>
           <button class="btn btn-next" onclick="nextQ()">Next →</button>
+          <div class="skip-btn-row">
+            <button class="btn btn-mark" onclick="markForReview()" id="markBtn">🔖 Mark</button>
+          </div>
           <button class="btn btn-submit" onclick="confirmSubmit()">Submit Test</button>
         </div>
+
       </div>
     </div>
 
-    <!-- Desktop sidebar -->
+    <!-- Desktop Sidebar -->
     <div class="sidebar">
-      <div class="sidebar-title">Questions</div>
-      <div class="legend">
-        <div class="legend-item">
-          <div class="legend-dot" style="background:#16A34A;"></div>Answered
-        </div>
-        <div class="legend-item">
-          <div class="legend-dot" style="background:#E5E7EB;border:1px solid #D1D5DB;"></div>Not Visited
-        </div>
-        <div class="legend-item">
-          <div class="legend-dot" style="background:#FFF3E8;border:2px solid #FF6B00;"></div>Current
-        </div>
-        <div class="legend-item">
-          <div class="legend-dot" style="background:#FEF3C7;border:1px solid #F59E0B;"></div>Skipped
-        </div>
+      <!-- Subject buttons -->
+      <div class="sb-subject-tabs" id="sbSubjectTabs">
+        <!-- Populated by JS -->
       </div>
-      <div class="grid" id="grid"></div>
-    </div>
-  </div>
-</div>
 
-<!-- Mobile sidebar overlay -->
+      <!-- Progress -->
+      <div class="progress-wrap">
+        <div class="progress-label">
+          <span>Progress</span>
+          <span id="progressText">0 / 0</span>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+      </div>
+
+      <!-- Legend -->
+      <div class="sb-section">
+        <div class="sb-label">Legend</div>
+        <div class="legend">
+          <div class="legend-item">
+            <div class="legend-dot" style="background:#22C55E;"></div>Answered
+          </div>
+          <div class="legend-item">
+            <div class="legend-dot" style="background:#fff;border:1.5px solid #E2E8F0;"></div>Not Visited
+          </div>
+          <div class="legend-item">
+            <div class="legend-dot" style="background:#FFF3E8;border:2px solid #FF6B00;"></div>Current
+          </div>
+          <div class="legend-item">
+            <div class="legend-dot" style="background:#FEF9C3;border:1.5px solid #EAB308;"></div>Skipped
+          </div>
+          <div class="legend-item">
+            <div class="legend-dot" style="background:#EEF2FF;border:1.5px solid #6366F1;"></div>Marked for Review
+          </div>
+        </div>
+        <div class="sb-label">Questions</div>
+        <div class="grid" id="grid"></div>
+      </div>
+
+      <div class="sb-submit">
+        <button class="sidebar-submit-btn" onclick="confirmSubmit()">Submit Test</button>
+      </div>
+    </div>
+
+  </div><!-- end .main -->
+</div><!-- end #testScreen -->
+
+<!-- Mobile overlay + drawer -->
 <div id="sidebarOverlay" onclick="closeDrawer()"></div>
 <div id="sidebarDrawer">
   <div class="drawer-header">
     <span>📋 Questions</span>
-    <button class="drawer-close-btn" onclick="closeDrawer()">✕ Close</button>
+    <button class="drawer-close-btn" onclick="closeDrawer()">✕</button>
   </div>
   <div class="drawer-body">
-    <div class="legend" style="margin-bottom:14px;">
-      <div class="legend-item">
-        <div class="legend-dot" style="background:#16A34A;"></div>Answered
-      </div>
-      <div class="legend-item">
-        <div class="legend-dot" style="background:#E5E7EB;border:1px solid #D1D5DB;"></div>Not Visited
-      </div>
-      <div class="legend-item">
-        <div class="legend-dot" style="background:#FFF3E8;border:2px solid #FF6B00;"></div>Current
-      </div>
-      <div class="legend-item">
-        <div class="legend-dot" style="background:#FEF3C7;border:1px solid #F59E0B;"></div>Skipped
-      </div>
+
+    <!-- Subject jump buttons in drawer -->
+    <div class="sb-label" style="margin-bottom:8px;">Jump to Subject</div>
+    <div class="drawer-subj-row" id="drawerSubjectRow">
+      <!-- Populated by JS -->
     </div>
+
+    <!-- Legend -->
+    <div class="legend" style="margin-bottom:12px;">
+      <div class="legend-item"><div class="legend-dot" style="background:#22C55E;"></div>Answered</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#fff;border:1.5px solid #E2E8F0;"></div>Not Visited</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#FFF3E8;border:2px solid #FF6B00;"></div>Current</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#FEF9C3;border:1.5px solid #EAB308;"></div>Skipped</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#EEF2FF;border:1.5px solid #6366F1;"></div>Marked</div>
+    </div>
+
+    <div class="sb-label" style="margin-bottom:8px;">All Questions</div>
     <div id="drawerGrid"></div>
   </div>
 </div>
 
+<!-- Result Screen -->
 <div id="resultScreen">
   <div class="result-card">
-    <div style="font-family:'Rajdhani';font-size:20px;font-weight:700;color:#1F2937;margin-bottom:10px;" id="resultExamName"></div>
+    <div style="font-family:'Rajdhani';font-size:22px;font-weight:700;color:#1E293B;margin-bottom:14px;" id="resultExamName"></div>
     <div class="score-big" id="scorePct"></div>
     <div class="score-label">Score</div>
     <div class="stats">
-      <div class="stat"><div class="stat-val" style="color:#16A34A" id="statCorrect">0</div><div class="stat-lbl">Correct</div></div>
-      <div class="stat"><div class="stat-val" style="color:#DC2626" id="statWrong">0</div><div class="stat-lbl">Wrong</div></div>
-      <div class="stat"><div class="stat-val" style="color:#F59E0B" id="statSkip">0</div><div class="stat-lbl">Skipped</div></div>
+      <div class="stat"><div class="stat-val" style="color:#22C55E" id="statCorrect">0</div><div class="stat-lbl">Correct</div></div>
+      <div class="stat"><div class="stat-val" style="color:#EF4444" id="statWrong">0</div><div class="stat-lbl">Wrong</div></div>
+      <div class="stat"><div class="stat-val" style="color:#EAB308" id="statSkip">0</div><div class="stat-lbl">Skipped</div></div>
       <div class="stat"><div class="stat-val" id="statMarks">0</div><div class="stat-lbl">Marks</div></div>
     </div>
-    <button class="btn btn-next" id="goDashboardBtn" style="margin-top:20px;" onclick="window.location='https://trickyssc.com/dashboard.html'" disabled>Saving result...</button>
-    <div id="saveStatus" style="margin-top:10px;font-size:12px;color:#6B7280;">⏳ Saving your result...</div>
+    <button class="btn btn-next" id="goDashboardBtn" style="margin-top:24px;padding:12px 32px;" onclick="window.location='https://trickyssc.com/dashboard.html'" disabled>Saving result...</button>
+    <div id="saveStatus" style="margin-top:10px;font-size:12px;color:#94A3B8;">⏳ Saving your result...</div>
     <button class="btn btn-submit" id="retrySaveBtn" style="margin-top:10px;display:none;" onclick="retrySaveResult()">Retry Save</button>
   </div>
   <div id="review"></div>
@@ -468,133 +658,235 @@ const app=initializeApp({apiKey:"AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",authDo
 const db=getFirestore(app);
 const auth=getAuth(app);
 
-let questions=[],answers={},currentQ=0,timeLeft=3600,timerInterval,currentUser=null;
+let questions=[],answers={},markedForReview={},currentQ=0,timeLeft=3600,timerInterval,currentUser=null;
 let isSubmitting=false,lastResultPayload=null;
+let subjects=[]; // [{name,start,end}]
 const params=new URLSearchParams(window.location.search);
 const exam=params.get('exam');
 const year=params.get('year');
 
-// Wait for Firebase auth to restore session before deciding to redirect
-let authResolved = false;
-const authTimeout = setTimeout(async()=>{
-  if(authResolved) return;
-  // Firebase took too long — use localStorage fallback
-  const stored = localStorage.getItem('tssc_user');
-  if(stored){
-    try{
-      const mu=JSON.parse(stored);
-      if(mu.uid){currentUser={uid:mu.uid,displayName:mu.name||'Student'};await loadTest();return;}
-    }catch(e){}
-  }
+/* ── Auth ── */
+let authResolved=false;
+const authTimeout=setTimeout(async()=>{
+  if(authResolved)return;
+  const stored=localStorage.getItem('tssc_user');
+  if(stored){try{const mu=JSON.parse(stored);if(mu.uid){currentUser={uid:mu.uid,displayName:mu.name||'Student'};await loadTest();return;}}catch(e){}}
   localStorage.setItem('loginReturnTo',window.location.href);
   window.location.href='login.html';
-}, 3000); // wait 3 seconds for Firebase
+},3000);
 
 onAuthStateChanged(auth,async user=>{
-  authResolved = true;
-  clearTimeout(authTimeout);
+  authResolved=true;clearTimeout(authTimeout);
   if(!user){
     const stored=localStorage.getItem('tssc_user');
-    if(stored){
-      try{
-        const mu=JSON.parse(stored);
-        if(mu.uid){currentUser={uid:mu.uid,displayName:mu.name||'Student'};await loadTest();return;}
-      }catch(e){}
-    }
+    if(stored){try{const mu=JSON.parse(stored);if(mu.uid){currentUser={uid:mu.uid,displayName:mu.name||'Student'};await loadTest();return;}}catch(e){}}
     localStorage.setItem('loginReturnTo',window.location.href);
-    window.location.href='login.html';
-    return;
+    window.location.href='login.html';return;
   }
   currentUser=user;
-  // Always sync Firebase uid to localStorage so dashboard matches
-  const existingStored = localStorage.getItem('tssc_user');
-  const existingData = existingStored ? JSON.parse(existingStored) : {};
-  localStorage.setItem('tssc_user',JSON.stringify({
-    ...existingData,
-    uid:user.uid,
-    name:user.displayName||existingData.name||'Student'
-  }));
+  const existingStored=localStorage.getItem('tssc_user');
+  const existingData=existingStored?JSON.parse(existingStored):{};
+  localStorage.setItem('tssc_user',JSON.stringify({...existingData,uid:user.uid,name:user.displayName||existingData.name||'Student'}));
   await loadTest();
 });
 
+/* ── Load questions ── */
 async function loadTest(){
   try{
     let q=query(collection(db,'questions'),where('exam','==',exam));
-    if(year) q=query(collection(db,'questions'),where('exam','==',exam),where('year','==',year));
+    if(year)q=query(collection(db,'questions'),where('exam','==',exam),where('year','==',year));
     const snap=await getDocs(q);
     snap.forEach(d=>questions.push({id:d.id,...d.data()}));
     questions.sort((a,b)=>(a.qNum||0)-(b.qNum||0));
     if(questions.length===0){
-      document.getElementById('loader').innerHTML=`
-  <div style="text-align:center;padding:2rem;">
-    <div style="font-size:3rem;margin-bottom:1rem;">🚀</div>
-    <div style="font-size:1.5rem;font-weight:700;margin-bottom:0.5rem;">Coming Soon!</div>
-    <div style="font-size:1rem;font-weight:400;opacity:0.9;margin-bottom:1.5rem;">We're adding questions for this paper.<br>Check back soon!</div>
-    <a href="javascript:history.back()" style="background:white;color:#FF6B00;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1rem;padding:0.6rem 1.5rem;border-radius:10px;text-decoration:none;">← Go Back</a>
-  </div>
-`;
+      document.getElementById('loader').innerHTML=`<div style="text-align:center;padding:2rem;"><div style="font-size:3rem;margin-bottom:1rem;">🚀</div><div style="font-size:1.5rem;font-weight:700;margin-bottom:0.5rem;">Coming Soon!</div><div style="font-size:1rem;font-weight:400;opacity:0.9;margin-bottom:1.5rem;">We're adding questions for this paper.<br>Check back soon!</div><a href="javascript:history.back()" style="background:white;color:#FF6B00;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1rem;padding:0.6rem 1.5rem;border-radius:10px;text-decoration:none;">← Go Back</a></div>`;
       return;
     }
     document.getElementById('examTitle').textContent=(exam||'').toUpperCase().replace('-',' ')+(year?' '+year:'');
     document.getElementById('userName').textContent=currentUser.displayName||'Student';
     document.getElementById('loader').style.display='none';
     document.getElementById('testScreen').style.display='flex';
-    buildGrid();renderQ();startTimer();
+    buildSubjects();buildGrid();renderQ();startTimer();
   }catch(e){
     document.getElementById('loader').innerHTML='❌ Error loading: '+e.message+'<br><a href="javascript:history.back()" style="color:white;font-size:14px;">← Go Back</a>';
   }
 }
 
+/* ── Build subject groups ── */
+function buildSubjects(){
+  // Detect subject groupings from question data
+  const seen=new Map(); // subject -> first index
+  questions.forEach((q,i)=>{
+    const subj = q.subject || q.section || inferSubject(q,i);
+    if(!seen.has(subj)) seen.set(subj,i);
+  });
+
+  // Build subjects array
+  subjects=[];
+  const subjNames=[...seen.keys()];
+  subjNames.forEach((name,idx)=>{
+    const start=seen.get(name);
+    const end=(idx<subjNames.length-1)?seen.get(subjNames[idx+1])-1:questions.length-1;
+    subjects.push({name,start,end});
+  });
+
+  // Mark each question with its subject
+  questions.forEach((q,i)=>{
+    if(!q.subject&&!q.section){
+      const s=subjects.find(s=>i>=s.start&&i<=s.end);
+      if(s) q._subject=s.name;
+    } else {
+      q._subject=q.subject||q.section;
+    }
+  });
+
+  renderSubjectBar();
+  renderSidebarSubjectTabs();
+  renderDrawerSubjectBtns();
+}
+
+function inferSubject(q, i){
+  // Fallback: group by qNum ranges if no subject field
+  const total=questions.length;
+  if(total<=25){
+    if(i<5)return'General Intelligence';
+    if(i<10)return'General Awareness';
+    if(i<18)return'Quantitative Aptitude';
+    return'English Language';
+  }
+  if(total<=100){
+    if(i<25)return'General Intelligence';
+    if(i<50)return'General Awareness';
+    if(i<75)return'Quantitative Aptitude';
+    return'English Language';
+  }
+  // For larger sets divide evenly into 4
+  const chunk=Math.ceil(total/4);
+  const labels=['General Intelligence','General Awareness','Quantitative Aptitude','English Language'];
+  return labels[Math.min(Math.floor(i/chunk),3)];
+}
+
+function renderSubjectBar(){
+  const bar=document.getElementById('subjectBar');
+  if(subjects.length<=1){bar.style.display='none';return;}
+  bar.innerHTML=subjects.map((s,idx)=>{
+    const count=s.end-s.start+1;
+    return `<button class="subj-tab${idx===0?' active':''}" data-idx="${idx}" onclick="jumpToSubject(${idx})" id="subjTab${idx}">
+      ${s.name}
+      <span class="subj-badge" id="subjBadge${idx}">${count}</span>
+    </button>`;
+  }).join('');
+}
+
+function renderSidebarSubjectTabs(){
+  const el=document.getElementById('sbSubjectTabs');
+  if(subjects.length<=1){el.style.display='none';return;}
+  el.innerHTML=`<div class="sb-label" style="width:100%;margin-bottom:6px;">Jump to Subject</div>`+
+    subjects.map((s,idx)=>`<button class="sb-subj-btn${idx===0?' active':''}" data-idx="${idx}" onclick="jumpToSubject(${idx})" id="sbSubj${idx}">${s.name}</button>`).join('');
+}
+
+function renderDrawerSubjectBtns(){
+  const el=document.getElementById('drawerSubjectRow');
+  if(subjects.length<=1){el.parentElement.style.display='none';return;}
+  el.innerHTML=subjects.map((s,idx)=>`<button class="drawer-subj-btn${idx===0?' active':''}" data-idx="${idx}" onclick="jumpToSubject(${idx});closeDrawer()" id="drawerSubj${idx}">${s.name}</button>`).join('');
+}
+
+window.jumpToSubject=(idx)=>{
+  currentQ=subjects[idx].start;
+  renderQ();
+  closeDrawer();
+};
+
+function updateSubjectHighlights(){
+  const curSubjIdx=subjects.findIndex(s=>currentQ>=s.start&&currentQ<=s.end);
+  subjects.forEach((_,idx)=>{
+    const active=idx===curSubjIdx;
+    const t=document.getElementById('subjTab'+idx);
+    const sb=document.getElementById('sbSubj'+idx);
+    const dr=document.getElementById('drawerSubj'+idx);
+    if(t){t.className='subj-tab'+(active?' active':'');}
+    if(sb){sb.className='sb-subj-btn'+(active?' active':'');}
+    if(dr){dr.className='drawer-subj-btn'+(active?' active':'');}
+  });
+}
+
+/* ── Render question ── */
 function renderQ(){
   const q=questions[currentQ];
-  document.getElementById('qNum').textContent='Question '+(currentQ+1)+' of '+questions.length;
+  document.getElementById('qNumCurrent').textContent=currentQ+1;
+  document.getElementById('qNumTotal').textContent=questions.length;
   document.getElementById('qText').textContent=q.text||q.question||'';
 
-  // Question image
+  // Subject chip
+  const chip=document.getElementById('qSubjectChip');
+  const subj=q._subject||q.subject||q.section||'';
+  chip.textContent=subj;chip.style.display=subj?'':'none';
+
+  // Image
   const imgWrap=document.getElementById('qImgWrap');
   const imgEl=document.getElementById('qImg');
-  if(q.imageUrl){ imgEl.src=q.imageUrl; imgWrap.style.display='block'; }
-  else { imgWrap.style.display='none'; imgEl.src=''; }
+  if(q.imageUrl){imgEl.src=q.imageUrl;imgWrap.style.display='block';}
+  else{imgWrap.style.display='none';imgEl.src='';}
 
-  // Options — mobile-optimised layout
+  // Options
   const opts=['A','B','C','D'];
   document.getElementById('options').innerHTML=opts.map(o=>{
-    const txt = q.options?q.options[o]:q['option'+o]||'';
-    const optImg = q.optionImages?.[o]||'';
-    const sel = answers[currentQ]===o ? 'selected' : '';
-    const hasImg = optImg !== '';
-    const hasText = txt !== '';
+    const txt=q.options?q.options[o]:q['option'+o]||'';
+    const optImg=q.optionImages?.[o]||'';
+    const sel=answers[currentQ]===o?'selected':'';
     return `<div class="option ${sel}" onclick="selectOpt('${o}')">
       <span class="opt-label">${o}</span>
       <div class="opt-body">
-        ${hasText ? txt : ''}
-        ${hasImg ? `<img src="${optImg}" style="max-width:100%;max-height:${hasText?'90px':'160px'};border-radius:6px;object-fit:contain;display:block;margin-top:${hasText?'7px':'0'};" onerror="this.style.display='none'">` : ''}
+        ${txt}
+        ${optImg?`<img src="${optImg}" style="max-width:100%;max-height:${txt?'90px':'160px'};border-radius:6px;object-fit:contain;display:block;margin-top:${txt?'7px':'0'};" onerror="this.style.display='none'">`:''}
       </div>
     </div>`;
   }).join('');
+
+  // Mark btn
+  const markBtn=document.getElementById('markBtn');
+  if(markBtn) markBtn.style.background=markedForReview[currentQ]?'#EEF2FF':'';
+
   updateGrid();
+  updateProgress();
+  updateSubjectHighlights();
 }
 
 window.selectOpt=o=>{answers[currentQ]=o;renderQ();};
 window.nextQ=()=>{if(currentQ<questions.length-1){currentQ++;renderQ();}};
 window.prevQ=()=>{if(currentQ>0){currentQ--;renderQ();}};
 window.goQ=i=>{currentQ=i;renderQ();};
+window.markForReview=()=>{markedForReview[currentQ]=!markedForReview[currentQ];renderQ();};
 
 function buildGrid(){
   const html=questions.map((_,i)=>`<div class="dot" id="dot${i}" onclick="goQ(${i})">${i+1}</div>`).join('');
   document.getElementById('grid').innerHTML=html;
-  document.getElementById('drawerGrid').innerHTML=html;
 }
 
 function updateGrid(){
   questions.forEach((_,i)=>{
-    const cls='dot'+(answers[i]?' answered':'')+(i===currentQ?' current':'');
-    const d=document.getElementById('dot'+i); if(d) d.className=cls;
-    // Also update drawer dots (different elements, same ID pattern won't work — use data)
+    let cls='dot';
+    if(markedForReview[i]) cls+=' marked';
+    else if(answers[i]) cls+=' answered';
+    if(i===currentQ) cls+=' current';
+    const d=document.getElementById('dot'+i);if(d)d.className=cls;
   });
-  // Sync drawer grid
+  // Drawer
   const dg=document.getElementById('drawerGrid');
-  if(dg) dg.innerHTML=questions.map((_,i)=>`<div class="dot ${answers[i]?'answered':''}${i===currentQ?' current':''}" onclick="goQ(${i});closeDrawer()">${i+1}</div>`).join('');
+  if(dg) dg.innerHTML=questions.map((_,i)=>{
+    let cls='dot';
+    if(markedForReview[i]) cls+=' marked';
+    else if(answers[i]) cls+=' answered';
+    if(i===currentQ) cls+=' current';
+    return `<div class="${cls}" onclick="goQ(${i});closeDrawer()">${i+1}</div>`;
+  }).join('');
+}
+
+function updateProgress(){
+  const answered=Object.keys(answers).length;
+  const total=questions.length;
+  document.getElementById('progressText').textContent=`${answered} / ${total}`;
+  document.getElementById('progressFill').style.width=`${Math.round((answered/total)*100)}%`;
 }
 
 function startTimer(){
@@ -602,102 +894,60 @@ function startTimer(){
     timeLeft--;
     const m=Math.floor(timeLeft/60),s=timeLeft%60;
     document.getElementById('timer').textContent=String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+    if(timeLeft<=300){document.querySelector('.timer-wrap').style.borderColor='#FCA5A5';document.getElementById('timer').style.color='#DC2626';}
     if(timeLeft<=0){clearInterval(timerInterval);submitTest();}
   },1000);
 }
 
-
+/* ── Save helpers ── */
 function setSaveUi(state,msg){
   const goBtn=document.getElementById('goDashboardBtn');
   const saveStatus=document.getElementById('saveStatus');
   const retryBtn=document.getElementById('retrySaveBtn');
   if(!goBtn||!saveStatus||!retryBtn)return;
   saveStatus.textContent=msg||'';
-  if(state==='saving'){
-    goBtn.disabled=true;
-    goBtn.textContent='Saving result...';
-    retryBtn.style.display='none';
-    saveStatus.style.color='#6B7280';
-  }else if(state==='saved'){
-    goBtn.disabled=false;
-    goBtn.textContent='Go to Dashboard';
-    retryBtn.style.display='none';
-    saveStatus.style.color='#16A34A';
-  }else if(state==='error'){
-    goBtn.disabled=true;
-    goBtn.textContent='Save required before dashboard';
-    retryBtn.style.display='inline-block';
-    saveStatus.style.color='#DC2626';
-  }
+  if(state==='saving'){goBtn.disabled=true;goBtn.textContent='Saving result...';retryBtn.style.display='none';saveStatus.style.color='#94A3B8';}
+  else if(state==='saved'){goBtn.disabled=false;goBtn.textContent='Go to Dashboard';retryBtn.style.display='none';saveStatus.style.color='#22C55E';}
+  else if(state==='error'){goBtn.disabled=true;goBtn.textContent='Save required before dashboard';retryBtn.style.display='inline-block';saveStatus.style.color='#EF4444';}
 }
 
-async function persistAttempt(payload, attemptId){
+async function persistAttempt(payload,attemptId){
   await setDoc(doc(db,'attempts',attemptId),payload,{merge:true});
-
-  const userRef = doc(db,'users',payload.uid);
-  const userSnap = await getDoc(userRef);
+  const userRef=doc(db,'users',payload.uid);
+  const userSnap=await getDoc(userRef);
   if(userSnap.exists()){
-    const ud = userSnap.data();
-    const prevTotal = parseInt(ud.totalTests)||0;
-    const prevAvg = parseFloat(ud.avgScore)||0;
-    const prevBest = parseFloat(ud.bestScore)||0;
-    const newTotal = prevTotal + 1;
-    const newAvg = parseFloat(((prevAvg * prevTotal + payload.percentage) / newTotal).toFixed(1));
-    const newBest = Math.max(prevBest, payload.percentage);
-    await setDoc(userRef,{totalTests:newTotal, avgScore:newAvg, bestScore:newBest, lastActive:serverTimestamp()},{merge:true});
-  } else {
-    await setDoc(userRef,{uid:payload.uid, totalTests:1, avgScore:payload.percentage, bestScore:payload.percentage, lastActive:serverTimestamp()},{merge:true});
+    const ud=userSnap.data();
+    const prevTotal=parseInt(ud.totalTests)||0;const prevAvg=parseFloat(ud.avgScore)||0;const prevBest=parseFloat(ud.bestScore)||0;
+    const newTotal=prevTotal+1;const newAvg=parseFloat(((prevAvg*prevTotal+payload.percentage)/newTotal).toFixed(1));const newBest=Math.max(prevBest,payload.percentage);
+    await setDoc(userRef,{totalTests:newTotal,avgScore:newAvg,bestScore:newBest,lastActive:serverTimestamp()},{merge:true});
+  }else{
+    await setDoc(userRef,{uid:payload.uid,totalTests:1,avgScore:payload.percentage,bestScore:payload.percentage,lastActive:serverTimestamp()},{merge:true});
   }
 }
 
-async function persistWithRetry(payload, attemptId, retries=3){
+async function persistWithRetry(payload,attemptId,retries=3){
   let lastErr;
-  for(let i=1;i<=retries;i++){
-    try{
-      await persistAttempt(payload,attemptId);
-      return;
-    }catch(e){
-      lastErr=e;
-      await new Promise(r=>setTimeout(r,600*i));
-    }
-  }
+  for(let i=1;i<=retries;i++){try{await persistAttempt(payload,attemptId);return;}catch(e){lastErr=e;await new Promise(r=>setTimeout(r,600*i));}}
   throw lastErr;
 }
 
 window.retrySaveResult=async()=>{
-  if(!lastResultPayload){
-    setSaveUi('error','⚠️ Nothing to retry. Please submit the test again.');
-    return;
-  }
+  if(!lastResultPayload){setSaveUi('error','⚠️ Nothing to retry.');return;}
   setSaveUi('saving','⏳ Retrying save...');
-  try{
-    await persistWithRetry(lastResultPayload.payload,lastResultPayload.attemptId,3);
-    localStorage.removeItem('pending_attempt_'+lastResultPayload.attemptId);
-    setSaveUi('saved','✅ Result saved successfully.');
-  }catch(e){
-    console.warn('Retry save failed:',e);
-    localStorage.setItem('pending_attempt_'+lastResultPayload.attemptId,JSON.stringify(lastResultPayload));
-    setSaveUi('error','⚠️ Save failed again. Check your internet and tap Retry Save.');
-  }
+  try{await persistWithRetry(lastResultPayload.payload,lastResultPayload.attemptId,3);localStorage.removeItem('pending_attempt_'+lastResultPayload.attemptId);setSaveUi('saved','✅ Result saved successfully.');}
+  catch(e){console.warn('Retry failed:',e);localStorage.setItem('pending_attempt_'+lastResultPayload.attemptId,JSON.stringify(lastResultPayload));setSaveUi('error','⚠️ Save failed. Check internet and tap Retry.');}
 };
+
 window.confirmSubmit=()=>{
-  if(confirm('Submit test? You cannot change answers after submission.')) submitTest();
+  if(confirm('Submit test? You cannot change answers after submission.'))submitTest();
 };
 
 window.submitTest=async()=>{
   if(isSubmitting)return;
-  isSubmitting=true;
-  clearInterval(timerInterval);
-  setSaveUi('saving','⏳ Saving your result...');
-
+  isSubmitting=true;clearInterval(timerInterval);setSaveUi('saving','⏳ Saving your result...');
   let correct=0,wrong=0,skip=0;
-  questions.forEach((q,i)=>{
-    const a=answers[i];
-    if(!a) skip++;
-    else if(a===q.correct) correct++;
-    else wrong++;
-  });
-  const marks=(correct*2 - wrong*0.5).toFixed(1);
+  questions.forEach((q,i)=>{const a=answers[i];if(!a)skip++;else if(a===q.correct)correct++;else wrong++;});
+  const marks=(correct*2-wrong*0.5).toFixed(1);
   const pct=Math.round((correct/questions.length)*100);
   document.getElementById('testScreen').style.display='none';
   document.getElementById('resultScreen').style.display='block';
@@ -707,143 +957,43 @@ window.submitTest=async()=>{
   document.getElementById('statWrong').textContent=wrong;
   document.getElementById('statSkip').textContent=skip;
   document.getElementById('statMarks').textContent=marks;
-  // Review — full detailed layout
+
   document.getElementById('review').innerHTML=questions.map((q,i)=>{
-    const a = answers[i];
-    const status = !a ? 'skip' : a===q.correct ? 'correct' : 'wrong';
-    const opts = ['A','B','C','D'];
-
-    // ── Verdict ──
-    const vIcon = status==='correct'?'✅':status==='wrong'?'❌':'⏭️';
-    const vText = status==='correct'?'Correct!'
-      : status==='wrong'?`Wrong — you answered <b>${a}</b>, correct is <b>${q.correct}</b>`
-      : 'Skipped';
-    const vBg   = status==='correct'?'#F0FDF4':status==='wrong'?'#FEF2F2':'#FFFBEB';
-    const vClr  = status==='correct'?'#15803D':status==='wrong'?'#DC2626':'#B45309';
-
-    // ── All 4 options with images ──
-    const optsHtml = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:10px 0;">
-      ${opts.map(o=>{
-        const txt    = q.options?.[o] || q['option'+o] || '';
-        const optImg = q.optionImages?.[o] || '';
-        const isCorrect = o === q.correct;
-        const isWrong   = o === a && a !== q.correct;
-        const isSelected = o === a;
-        let bg='#F9FAFB', border='#E5E7EB', clr='#374151', fw='400';
-        if(isCorrect){ bg='#F0FDF4'; border='#16A34A'; clr='#15803D'; fw='600'; }
-        else if(isWrong){ bg='#FEF2F2'; border='#DC2626'; clr='#DC2626'; }
-        else if(isSelected){ bg='#FFF3E8'; border='#FF6B00'; }
-        const marker = isCorrect?' ✅' : isWrong?' ✗' : '';
-        return `<div style="padding:8px 10px;border-radius:7px;font-size:13px;
-                            border:1.5px solid ${border};background:${bg};color:${clr};font-weight:${fw};">
-          <span style="font-weight:700;margin-right:6px;">${o})</span>${txt}${marker}
-          ${optImg?`<div style="margin-top:6px;"><img src="${optImg}"
-            style="max-width:100%;max-height:100px;border-radius:5px;object-fit:contain;"
-            onerror="this.style.display='none'"></div>`:''}
-        </div>`;
-      }).join('')}
-    </div>`;
-
-    // ── Solution image ──
-    const solImg = q.solutionImage || '';
-    const solHtml = (q.explanation || solImg) ? `
-      <div style="border-radius:8px;overflow:hidden;margin-top:8px;">
-        <div style="background:#DCFCE7;color:#15803D;padding:7px 12px;
-                    font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;">
-          💡 Step-by-Step Solution
-        </div>
-        <div style="background:#F0FDF4;padding:10px 12px;font-size:13px;
-                    color:#374151;line-height:1.7;">
-          ${q.explanation||''}
-          ${solImg?`<img src="${solImg}" style="max-width:100%;border-radius:6px;
-                       margin-top:8px;display:block;object-fit:contain;"
-                       onerror="this.style.display='none'" alt="Solution figure">`:''}
-        </div>
-      </div>` : '';
-
-    // ── Trick ──
-    const trickHtml = q.trick ? `
-      <div style="border-radius:8px;overflow:hidden;margin-top:6px;">
-        <div style="background:#DBEAFE;color:#1D4ED8;padding:7px 12px;
-                    font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;">
-          ⚡ Quick Trick / Shortcut
-        </div>
-        <div style="background:#EFF6FF;padding:10px 12px;font-size:13px;color:#1E40AF;line-height:1.7;">
-          ${q.trick}
-        </div>
-      </div>` : '';
-
-    // ── Concept ──
-    const conceptHtml = q.concept ? `
-      <div style="border-radius:8px;overflow:hidden;margin-top:6px;">
-        <div style="background:#FED7AA;color:#C2410C;padding:7px 12px;
-                    font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;">
-          🧠 Concept
-        </div>
-        <div style="background:#FFF7ED;padding:10px 12px;font-size:13px;color:#7C2D12;line-height:1.7;">
-          ${q.concept}
-        </div>
-      </div>` : '';
-
-    return `<div class="review-item ${status}">
-      <!-- Q number + text -->
-      <div style="font-size:15px;font-weight:600;color:#1F2937;margin-bottom:8px;line-height:1.5;">
-        Q${i+1}. ${q.text||q.question||''}
-      </div>
-      <!-- Question figure -->
-      ${q.imageUrl?`<div style="text-align:center;margin:8px 0;">
-        <img src="${q.imageUrl}" style="max-width:100%;max-height:220px;border-radius:8px;
-             border:1px solid #E5E7EB;object-fit:contain;background:#F9FAFB;"
-             onerror="this.style.display='none'" alt="Question figure">
-      </div>`:''}
-      <!-- All 4 options -->
-      ${optsHtml}
-      <!-- Verdict -->
-      <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;
-                  background:${vBg};color:${vClr};font-size:13px;font-weight:600;margin-bottom:4px;">
-        ${vIcon} ${vText}
-      </div>
-      <!-- Solution / Trick / Concept -->
-      ${solHtml}${trickHtml}${conceptHtml}
-    </div>`;
+    const a=answers[i];
+    const status=!a?'skip':a===q.correct?'correct':'wrong';
+    const opts=['A','B','C','D'];
+    const vIcon=status==='correct'?'✅':status==='wrong'?'❌':'⏭️';
+    const vText=status==='correct'?'Correct!':status==='wrong'?`Wrong — you answered <b>${a}</b>, correct is <b>${q.correct}</b>`:'Skipped';
+    const vBg=status==='correct'?'#F0FDF4':status==='wrong'?'#FEF2F2':'#FFFBEB';
+    const vClr=status==='correct'?'#15803D':status==='wrong'?'#DC2626':'#B45309';
+    const optsHtml=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:10px 0;">${opts.map(o=>{
+      const txt=q.options?.[o]||q['option'+o]||'';const optImg=q.optionImages?.[o]||'';
+      const isCorrect=o===q.correct;const isWrong=o===a&&a!==q.correct;
+      let bg='#F9FAFB',border='#E2E8F0',clr='#374151',fw='400';
+      if(isCorrect){bg='#F0FDF4';border='#22C55E';clr='#15803D';fw='600';}
+      else if(isWrong){bg='#FEF2F2';border='#EF4444';clr='#DC2626';}
+      const marker=isCorrect?' ✅':isWrong?' ✗':'';
+      return `<div style="padding:8px 10px;border-radius:8px;font-size:13px;border:1.5px solid ${border};background:${bg};color:${clr};font-weight:${fw};">
+        <span style="font-weight:700;margin-right:5px;">${o})</span>${txt}${marker}
+        ${optImg?`<div style="margin-top:6px;"><img src="${optImg}" style="max-width:100%;max-height:100px;border-radius:5px;object-fit:contain;" onerror="this.style.display='none'"></div>`:''}
+      </div>`;
+    }).join('')}</div>`;
+    const solImg=q.solutionImage||'';
+    const solHtml=(q.explanation||solImg)?`<div style="border-radius:8px;overflow:hidden;margin-top:8px;"><div style="background:#DCFCE7;color:#15803D;padding:7px 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;">💡 Step-by-Step Solution</div><div style="background:#F0FDF4;padding:10px 12px;font-size:13px;color:#374151;line-height:1.7;">${q.explanation||''}${solImg?`<img src="${solImg}" style="max-width:100%;border-radius:6px;margin-top:8px;display:block;object-fit:contain;" onerror="this.style.display='none'" alt="Solution">`:''}
+    </div></div>`:'';
+    const trickHtml=q.trick?`<div style="border-radius:8px;overflow:hidden;margin-top:6px;"><div style="background:#DBEAFE;color:#1D4ED8;padding:7px 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;">⚡ Quick Trick</div><div style="background:#EFF6FF;padding:10px 12px;font-size:13px;color:#1E40AF;line-height:1.7;">${q.trick}</div></div>`:'';
+    const conceptHtml=q.concept?`<div style="border-radius:8px;overflow:hidden;margin-top:6px;"><div style="background:#FED7AA;color:#C2410C;padding:7px 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;">🧠 Concept</div><div style="background:#FFF7ED;padding:10px 12px;font-size:13px;color:#7C2D12;line-height:1.7;">${q.concept}</div></div>`:'';
+    return `<div class="review-item ${status}"><div style="font-size:15px;font-weight:600;color:#1F2937;margin-bottom:8px;line-height:1.5;">Q${i+1}. ${q.text||q.question||''}</div>${q.imageUrl?`<div style="text-align:center;margin:8px 0;"><img src="${q.imageUrl}" style="max-width:100%;max-height:220px;border-radius:8px;border:1px solid #E2E8F0;object-fit:contain;background:#F9FAFB;" onerror="this.style.display='none'"></div>`:''}${optsHtml}<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;background:${vBg};color:${vClr};font-size:13px;font-weight:600;margin-bottom:4px;">${vIcon} ${vText}</div>${solHtml}${trickHtml}${conceptHtml}</div>`;
   }).join('');
 
-  if(!currentUser||!currentUser.uid){
-    setSaveUi('error','⚠️ Not logged in. Result cannot be saved. Please login and retry.');
-    isSubmitting=false;
-    return;
-  }
-
+  if(!currentUser||!currentUser.uid){setSaveUi('error','⚠️ Not logged in. Result cannot be saved.');isSubmitting=false;return;}
   const attemptId=`${currentUser.uid}_${exam||'exam'}_${year||'na'}_${Date.now()}`;
-  const payload={
-    uid:currentUser.uid,
-    exam,
-    year:year||'',
-    total:questions.length,
-    correct,
-    wrong,
-    skip,
-    marks:parseFloat(marks),
-    percentage:pct,
-    answers,
-    timestamp:serverTimestamp(),
-    clientSubmittedAt:new Date().toISOString()
-  };
+  const payload={uid:currentUser.uid,exam,year:year||'',total:questions.length,correct,wrong,skip,marks:parseFloat(marks),percentage:pct,answers,timestamp:serverTimestamp(),clientSubmittedAt:new Date().toISOString()};
   lastResultPayload={attemptId,payload};
-
-  try{
-    await persistWithRetry(payload,attemptId,3);
-    localStorage.removeItem('pending_attempt_'+attemptId);
-    setSaveUi('saved','✅ Result saved successfully.');
-  }catch(e){
-    console.warn('Save attempt failed:',e);
-    localStorage.setItem('pending_attempt_'+attemptId,JSON.stringify(lastResultPayload));
-    setSaveUi('error','⚠️ Could not save your result. Check internet and tap Retry Save.');
-  }
-
+  try{await persistWithRetry(payload,attemptId,3);localStorage.removeItem('pending_attempt_'+attemptId);setSaveUi('saved','✅ Result saved successfully.');}
+  catch(e){console.warn('Save failed:',e);localStorage.setItem('pending_attempt_'+attemptId,JSON.stringify(lastResultPayload));setSaveUi('error','⚠️ Could not save. Check internet and tap Retry Save.');}
   isSubmitting=false;
 };
-
 
 window.openDrawer=()=>{
   document.getElementById('sidebarOverlay').style.display='block';
