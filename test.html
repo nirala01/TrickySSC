@@ -691,57 +691,27 @@ const year=params.get('year');
 
 /* ── Auth ── */
 let authResolved=false;
-let testLoaded=false;
-
-async function tryLoadFromStorage(){
-  if(testLoaded) return;
+const authTimeout=setTimeout(async()=>{
+  if(authResolved)return;
   const stored=localStorage.getItem('tssc_user');
-  if(stored){
-    try{
-      const mu=JSON.parse(stored);
-      if(mu.uid){
-        testLoaded=true;
-        currentUser={uid:mu.uid,displayName:mu.name||'Student'};
-        await loadTest();
-        return true;
-      }
-    }catch(e){}
-  }
-  return false;
-}
+  if(stored){try{const mu=JSON.parse(stored);if(mu.uid){currentUser={uid:mu.uid,displayName:mu.name||'Student'};await loadTest();return;}}catch(e){}}
+  localStorage.setItem('loginReturnTo',window.location.href);
+  window.location.href='login.html';
+},3000);
 
-// Try localStorage immediately — no waiting for Firebase
-tryLoadFromStorage().then(loaded=>{
-  if(!loaded){
-    // Fall back to Firebase auth
-    const authTimeout=setTimeout(async()=>{
-      if(authResolved||testLoaded) return;
-      const ok=await tryLoadFromStorage();
-      if(!ok){
-        localStorage.setItem('loginReturnTo',window.location.href);
-        window.location.href='login.html';
-      }
-    },2000);
-
-    onAuthStateChanged(auth,async user=>{
-      authResolved=true;
-      if(testLoaded) return;
-      if(!user){
-        const ok=await tryLoadFromStorage();
-        if(!ok){
-          localStorage.setItem('loginReturnTo',window.location.href);
-          window.location.href='login.html';
-        }
-        return;
-      }
-      testLoaded=true;
-      currentUser=user;
-      const existingStored=localStorage.getItem('tssc_user');
-      const existingData=existingStored?JSON.parse(existingStored):{};
-      localStorage.setItem('tssc_user',JSON.stringify({...existingData,uid:user.uid,name:user.displayName||existingData.name||'Student'}));
-      await loadTest();
-    });
+onAuthStateChanged(auth,async user=>{
+  authResolved=true;clearTimeout(authTimeout);
+  if(!user){
+    const stored=localStorage.getItem('tssc_user');
+    if(stored){try{const mu=JSON.parse(stored);if(mu.uid){currentUser={uid:mu.uid,displayName:mu.name||'Student'};await loadTest();return;}}catch(e){}}
+    localStorage.setItem('loginReturnTo',window.location.href);
+    window.location.href='login.html';return;
   }
+  currentUser=user;
+  const existingStored=localStorage.getItem('tssc_user');
+  const existingData=existingStored?JSON.parse(existingStored):{};
+  localStorage.setItem('tssc_user',JSON.stringify({...existingData,uid:user.uid,name:user.displayName||existingData.name||'Student'}));
+  await loadTest();
 });
 
 /* ── Load questions ── */
