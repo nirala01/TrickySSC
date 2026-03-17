@@ -675,13 +675,12 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:10
 
 <script type="module">
 import{initializeApp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import{getFirestore,enableIndexedDbPersistence,collection,query,where,getDocs,doc,getDoc,setDoc,serverTimestamp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import{getFirestore,collection,query,where,getDocs,doc,getDoc,setDoc,serverTimestamp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import{getAuth,onAuthStateChanged,signOut}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 const app=initializeApp({apiKey:"AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",authDomain:"trickyssc-17bb3.firebaseapp.com",projectId:"trickyssc-17bb3",storageBucket:"trickyssc-17bb3.firebasestorage.app",messagingSenderId:"450627057220",appId:"1:450627057220:web:366267bf437d94f20c6e11"});
 const db=getFirestore(app);
 const auth=getAuth(app);
-enableIndexedDbPersistence(db).catch(()=>{});
 
 let questions=[],answers={},markedForReview={},currentQ=0,timeLeft=3600,timerInterval,currentUser=null;
 let isSubmitting=false,lastResultPayload=null;
@@ -692,27 +691,57 @@ const year=params.get('year');
 
 /* ── Auth ── */
 let authResolved=false;
-const authTimeout=setTimeout(async()=>{
-  if(authResolved)return;
-  const stored=localStorage.getItem('tssc_user');
-  if(stored){try{const mu=JSON.parse(stored);if(mu.uid){currentUser={uid:mu.uid,displayName:mu.name||'Student'};await loadTest();return;}}catch(e){}}
-  localStorage.setItem('loginReturnTo',window.location.href);
-  window.location.href='login.html';
-},3000);
+let testLoaded=false;
 
-onAuthStateChanged(auth,async user=>{
-  authResolved=true;clearTimeout(authTimeout);
-  if(!user){
-    const stored=localStorage.getItem('tssc_user');
-    if(stored){try{const mu=JSON.parse(stored);if(mu.uid){currentUser={uid:mu.uid,displayName:mu.name||'Student'};await loadTest();return;}}catch(e){}}
-    localStorage.setItem('loginReturnTo',window.location.href);
-    window.location.href='login.html';return;
+async function tryLoadFromStorage(){
+  if(testLoaded) return;
+  const stored=localStorage.getItem('tssc_user');
+  if(stored){
+    try{
+      const mu=JSON.parse(stored);
+      if(mu.uid){
+        testLoaded=true;
+        currentUser={uid:mu.uid,displayName:mu.name||'Student'};
+        await loadTest();
+        return true;
+      }
+    }catch(e){}
   }
-  currentUser=user;
-  const existingStored=localStorage.getItem('tssc_user');
-  const existingData=existingStored?JSON.parse(existingStored):{};
-  localStorage.setItem('tssc_user',JSON.stringify({...existingData,uid:user.uid,name:user.displayName||existingData.name||'Student'}));
-  await loadTest();
+  return false;
+}
+
+// Try localStorage immediately — no waiting for Firebase
+tryLoadFromStorage().then(loaded=>{
+  if(!loaded){
+    // Fall back to Firebase auth
+    const authTimeout=setTimeout(async()=>{
+      if(authResolved||testLoaded) return;
+      const ok=await tryLoadFromStorage();
+      if(!ok){
+        localStorage.setItem('loginReturnTo',window.location.href);
+        window.location.href='login.html';
+      }
+    },2000);
+
+    onAuthStateChanged(auth,async user=>{
+      authResolved=true;
+      if(testLoaded) return;
+      if(!user){
+        const ok=await tryLoadFromStorage();
+        if(!ok){
+          localStorage.setItem('loginReturnTo',window.location.href);
+          window.location.href='login.html';
+        }
+        return;
+      }
+      testLoaded=true;
+      currentUser=user;
+      const existingStored=localStorage.getItem('tssc_user');
+      const existingData=existingStored?JSON.parse(existingStored):{};
+      localStorage.setItem('tssc_user',JSON.stringify({...existingData,uid:user.uid,name:user.displayName||existingData.name||'Student'}));
+      await loadTest();
+    });
+  }
 });
 
 /* ── Load questions ── */
