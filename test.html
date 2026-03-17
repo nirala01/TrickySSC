@@ -1018,74 +1018,34 @@ window.submitTest=async()=>{
 
 
 /* ── Smart question text formatter ── */
+function applyBR(text){
+  // Split on literal [BR] and rejoin with <br> — no regex needed
+  return text.split('[BR]').join('<br>');
+}
+
 function formatQText(raw){
   if(!raw) return '';
-  // Step 1: handle [BR] tokens
-  let text = raw.replace(/\[BR\]/g, '<br>');
-  // Step 2: handle || split (explicit instruction || sentence)
-  if(text.includes('||')){
-    const parts = text.split('||');
-    const instr = parts[0].trim();
-    const body  = parts.slice(1).join('').trim();
-    return `<span class="q-instruction">${instr}</span><span class="q-sentence">${body}</span>`;
-  }
-  // Step 3: auto-detect — if text starts with known instruction patterns,
-  // split at the sentence (first quoted text, or text after ". " that looks like a sentence)
-  const instrPatterns = [
-    /^(Select the (?:most appropriate|correct|option|nearest|word|set|figure|synonym|antonym|homonym|option that)[^.]+\.) (.+)/i,
-    /^(The following sentence[^.]+\.) (.+)/i,
-    /^(Sentences of a paragraph[^.]+\.) (.+)/i,
-    /^(Three (?:statements|of the following)[^.]+\.) (.+)/i,
-    /^(In a certain code[^.]+\.) (.+)/i,
-    /^(Pointing to[^.]+\.) (.+)/i,
-    /^(Study the given[^.]+\.) (.+)/i,
-    /^(Two different positions[^.]+\.) (.+)/i,
-    /^(Azad[^.]+\.) (.+)/i,
-    /^(Which two signs[^.]+\.) (.+)/i,
-    /^(Which of the following (?:numbers|terms)[^.]+\?) (.+)/i,
-    /^(If ['"<][^.]+[.?]) (.+)/i,
-  ];
-  for(const pat of instrPatterns){
-    const m = text.match(pat);
-    if(m){
-      return `<span class="q-instruction">${m[1].trim()}</span><span class="q-sentence">${m[2].trim()}</span>`;
-    }
+  var text = applyBR(raw);
+  if(text.indexOf('||') !== -1){
+    var parts = text.split('||');
+    var instr = parts[0].trim();
+    var body  = parts.slice(1).join('').trim();
+    return '<span class="q-instruction">'+instr+'</span><span class="q-sentence">'+body+'</span>';
   }
   return text;
 }
 
 function formatQTextReview(raw, qNum){
   if(!raw) return '';
-  let text = raw.replace(/\[BR\]/g, '<br>');
-  if(text.includes('||')){
-    const parts = text.split('||');
-    const instr = parts[0].trim();
-    const body  = parts.slice(1).join('').trim();
-    return `<div style="font-size:13px;font-weight:500;color:#64748B;margin-bottom:8px;line-height:1.6;">Q${qNum}. ${instr}</div>`+
-           `<div style="font-size:14px;font-weight:600;color:#1E293B;padding:10px 14px;background:#F8FAFC;border-left:3px solid #FF6B00;border-radius:0 8px 8px 0;margin-bottom:10px;line-height:1.9;">${body}</div>`;
+  var text = applyBR(raw);
+  if(text.indexOf('||') !== -1){
+    var parts = text.split('||');
+    var instr = parts[0].trim();
+    var body  = parts.slice(1).join('').trim();
+    return '<div style="font-size:13px;font-weight:500;color:#64748B;margin-bottom:8px;line-height:1.6;">Q'+qNum+'. '+instr+'</div>'+
+           '<div style="font-size:14px;font-weight:600;color:#1E293B;padding:10px 14px;background:#F8FAFC;border-left:3px solid #FF6B00;border-radius:0 8px 8px 0;margin-bottom:10px;line-height:1.9;">'+body+'</div>';
   }
-  // Auto-detect same patterns for review page
-  const instrPatterns = [
-    /^(Select the (?:most appropriate|correct|option|nearest|word|set|figure|synonym|antonym|homonym|option that)[^.]+\.) (.+)/i,
-    /^(The following sentence[^.]+\.) (.+)/i,
-    /^(Sentences of a paragraph[^.]+\.) (.+)/i,
-    /^(Three (?:statements|of the following)[^.]+\.) (.+)/i,
-    /^(In a certain code[^.]+\.) (.+)/i,
-    /^(Pointing to[^.]+\.) (.+)/i,
-    /^(Study the given[^.]+\.) (.+)/i,
-    /^(Two different positions[^.]+\.) (.+)/i,
-    /^(Which two signs[^.]+\.) (.+)/i,
-    /^(Which of the following (?:numbers|terms)[^.]+\?) (.+)/i,
-    /^(If ['"<][^.]+[.?]) (.+)/i,
-  ];
-  for(const pat of instrPatterns){
-    const m = text.replace(/<br>/g,' ').match(pat);
-    if(m){
-      return `<div style="font-size:13px;font-weight:500;color:#64748B;margin-bottom:8px;line-height:1.6;">Q${qNum}. ${m[1].trim()}</div>`+
-             `<div style="font-size:14px;font-weight:600;color:#1E293B;padding:10px 14px;background:#F8FAFC;border-left:3px solid #FF6B00;border-radius:0 8px 8px 0;margin-bottom:10px;line-height:1.9;">${m[2].trim()}</div>`;
-    }
-  }
-  return `<div style="font-size:15px;font-weight:600;color:#1F2937;margin-bottom:8px;line-height:1.5;">Q${qNum}. ${text}</div>`;
+  return '<div style="font-size:15px;font-weight:600;color:#1F2937;margin-bottom:8px;line-height:1.5;">Q'+qNum+'. '+text+'</div>';
 }
 
 window.openDrawer=()=>{
