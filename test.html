@@ -691,34 +691,69 @@ const year=params.get('year');
 
 /* ── Auth ── */
 let authResolved=false;
-const authTimeout=setTimeout(async()=>{
-  if(authResolved)return;
-  const stored=localStorage.getItem('tssc_user');
-  if(stored){try{const mu=JSON.parse(stored);if(mu.uid){currentUser={uid:mu.uid,displayName:mu.name||'Student'};await loadTest();return;}}catch(e){}}
-  localStorage.setItem('loginReturnTo',window.location.href);
-  window.location.href='login.html';
-},3000);
+let testStarted=false;
 
-onAuthStateChanged(auth,async user=>{
-  authResolved=true;clearTimeout(authTimeout);
-  if(!user){
-    const stored=localStorage.getItem('tssc_user');
-    if(stored){try{const mu=JSON.parse(stored);if(mu.uid){currentUser={uid:mu.uid,displayName:mu.name||'Student'};await loadTest();return;}}catch(e){}}
-    localStorage.setItem('loginReturnTo',window.location.href);
-    window.location.href='login.html';return;
-  }
-  currentUser=user;
-  const existingStored=localStorage.getItem('tssc_user');
-  const existingData=existingStored?JSON.parse(existingStored):{};
-  localStorage.setItem('tssc_user',JSON.stringify({...existingData,uid:user.uid,name:user.displayName||existingData.name||'Student'}));
-  await loadTest();
-});
-
-/* ── Load questions ── */
 function setLoaderMsg(msg){
   const el=document.getElementById('loader-msg');
   if(el) el.textContent=msg;
 }
+
+function getStoredUser(){
+  try{
+    const s=localStorage.getItem('tssc_user');
+    if(s){const u=JSON.parse(s);if(u&&u.uid)return u;}
+  }catch(e){}
+  return null;
+}
+
+async function startTest(user){
+  if(testStarted)return;
+  testStarted=true;
+  currentUser=user;
+  await loadTest();
+}
+
+// STEP 1: Try localStorage immediately — fastest path, no network needed
+setLoaderMsg('Checking session...');
+const storedUser=getStoredUser();
+if(storedUser){
+  setLoaderMsg('Loading questions...');
+  startTest({uid:storedUser.uid,displayName:storedUser.name||'Student'});
+}
+
+// STEP 2: Also try Firebase Auth in parallel
+onAuthStateChanged(auth,async user=>{
+  authResolved=true;
+  if(testStarted)return; // already loading via localStorage
+  if(user){
+    // Save to localStorage for next time
+    const ex=getStoredUser()||{};
+    localStorage.setItem('tssc_user',JSON.stringify({...ex,uid:user.uid,name:user.displayName||ex.name||'Student'}));
+    setLoaderMsg('Loading questions...');
+    startTest({uid:user.uid,displayName:user.displayName||'Student'});
+  } else {
+    // Firebase says not logged in
+    if(!storedUser){
+      localStorage.setItem('loginReturnTo',window.location.href);
+      window.location.href='login.html';
+    }
+    // If storedUser exists, step 1 already handled it
+  }
+});
+
+// STEP 3: Hard timeout — if nothing worked in 5s, redirect to login
+setTimeout(()=>{
+  if(testStarted)return;
+  if(!authResolved&&!storedUser){
+    setLoaderMsg('Connection timeout. Redirecting...');
+    setTimeout(()=>{
+      localStorage.setItem('loginReturnTo',window.location.href);
+      window.location.href='login.html';
+    },1000);
+  }
+},5000);
+
+/* ── Load questions ── */
 async function loadTest(){
   try{
     setLoaderMsg('Fetching questions...');
