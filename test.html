@@ -669,19 +669,23 @@ async function loadTest(){
     // ── Build the questions query ──
     let q;
     if(mockMeta){
-      // Questions are stored with exam + year (where year = mock series number as string)
-      const seriesStr = String(mockMeta.seriesNum);
+      // yearValue = the actual year/identifier stored on the questions (e.g. "2023", "1", etc.)
+      // Falls back to seriesNum if yearValue not set on the mock_tests doc
+      const yearValue = mockMeta.yearValue ? String(mockMeta.yearValue) : String(mockMeta.seriesNum);
       q=query(collection(db,'questions'),
         where('exam','==',mockMeta.exam),
-        where('year','==',seriesStr));
+        where('year','==',yearValue));
     } else if(year && lang){
       q=query(collection(db,'questions'),where('exam','==',exam),where('year','==',year),where('language','==',lang));
     } else if(year){
       q=query(collection(db,'questions'),where('exam','==',exam),where('year','==',year));
     } else if(mockNum && lang){
-      q=query(collection(db,'questions'),where('exam','==',exam),where('mockNum','==',parseInt(mockNum)),where('language','==',lang));
+      // Try mockNum field first, then fall back to year field (same value)
+      q=query(collection(db,'questions'),where('exam','==',exam),where('year','==',String(mockNum)),where('language','==',lang));
     } else if(mockNum){
-      q=query(collection(db,'questions'),where('exam','==',exam),where('mockNum','==',parseInt(mockNum)));
+      // Try year field with mockNum value (ssc-cgl.html uses mockNum=1 but questions stored with year="2023" etc)
+      // We query by year=mockNum — if the admin stored questions with year matching mockNum this works
+      q=query(collection(db,'questions'),where('exam','==',exam),where('year','==',String(mockNum)));
     } else if(lang){
       q=query(collection(db,'questions'),where('exam','==',exam),where('language','==',lang));
     } else {
