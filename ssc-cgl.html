@@ -1127,7 +1127,7 @@
       </div>
     </li>
       <li><a href="#" onclick="window.location='https://trickyssc.com/index.html#pyq'">PYQ Bank</a></li>
-      <li><a href="#" onclick="window.location='https://trickyssc.com/index.html#mock';return false;">Mock Tests</a></li>
+      <li><a href="#" onclick="showSection('cgl-mock-page');return false;">Mock Tests</a></li>
       <li><a href="#" onclick="window.location='https://trickyssc.com/index.html#tricks'">Tricks</a></li>
       <li><a href="#" onclick="window.location='https://trickyssc.com/index.html#ai'">AI Practice</a></li>
       <li><a href="#" onclick="window.location='https://trickyssc.com/index.html#ca'">Current Affairs</a></li>
@@ -1160,7 +1160,7 @@
     </div>
   </div>
   <a href="#" onclick="window.location='https://trickyssc.com/index.html#pyq';toggleMenu()">📚 PYQ Bank</a>
-  <a href="#" onclick="window.location='https://trickyssc.com/index.html#mock';toggleMenu()">🎯 Mock Tests</a>
+  <a href="#" onclick="showSection('cgl-mock-page');toggleMenu()">🎯 Mock Tests</a>
   <a href="#" onclick="window.location='https://trickyssc.com/index.html#tricks';toggleMenu()">⚡ Tricks</a>
   <a href="#" onclick="window.location='https://trickyssc.com/index.html#ai';toggleMenu()">🤖 AI Practice</a>
   <a href="#" onclick="window.location='https://trickyssc.com/index.html#ca';toggleMenu()">📰 Current Affairs</a>
@@ -1506,14 +1506,28 @@
             </div>`;
           list.forEach((t,i)=>{
             const isFree=!t.isPaid;
-            const btnStyle=isFree
-              ?'background:linear-gradient(135deg,#0EA5E9,#6366F1);color:white;border:none;cursor:pointer;padding:0.5rem 1.2rem;border-radius:8px;font-family:\'Rajdhani\',sans-serif;font-weight:700;font-size:0.85rem;'
-              :'background:#F1F5F9;color:#94A3B8;border:1px solid #E2E8F0;cursor:not-allowed;padding:0.5rem 1.2rem;border-radius:8px;font-family:\'Rajdhani\',sans-serif;font-weight:700;font-size:0.85rem;';
-            const btnAction=isFree
-              ?`window.location='test.html?mockId=${t.id}'`
-              :'alert(\'This test requires a subscription.\')';
             const freeBadge=isFree?'<span style="background:#E8F5E9;color:#00A86B;font-size:0.7rem;font-weight:700;padding:0.2rem 0.5rem;border-radius:100px;font-family:\'Rajdhani\',sans-serif;margin-left:0.5rem;">FREE</span>':'';
             const lockIcon=!isFree?'<span style="color:#94A3B8;font-size:1rem;margin-right:0.5rem;">🔒</span>':'';
+
+            // Buttons: English + Hindi for free, Locked for paid
+            const btns = isFree
+              ? `<div style="display:flex;gap:0.5rem;">
+                  <button onclick="window.location='test.html?mockId=${t.id}&lang=en'"
+                    style="background:linear-gradient(135deg,#0EA5E9,#6366F1);color:white;border:none;cursor:pointer;padding:0.45rem 0.9rem;border-radius:8px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.82rem;display:flex;align-items:center;gap:0.3rem;"
+                    onmouseenter="this.style.opacity='0.85'" onmouseleave="this.style.opacity='1'">
+                    🇬🇧 English
+                  </button>
+                  <button onclick="window.location='test.html?mockId=${t.id}&lang=hi'"
+                    style="background:linear-gradient(135deg,#FF6B00,#FF8C38);color:white;border:none;cursor:pointer;padding:0.45rem 0.9rem;border-radius:8px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.82rem;display:flex;align-items:center;gap:0.3rem;"
+                    onmouseenter="this.style.opacity='0.85'" onmouseleave="this.style.opacity='1'">
+                    🇮🇳 Hindi
+                  </button>
+                </div>`
+              : `<button onclick="alert('This test requires a subscription.')"
+                  style="background:#F1F5F9;color:#94A3B8;border:1px solid #E2E8F0;cursor:not-allowed;padding:0.5rem 1.2rem;border-radius:8px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.85rem;">
+                  Locked
+                </button>`;
+
             html+=`<div style="display:flex;align-items:center;justify-content:space-between;padding:1rem 1.25rem;background:#fff;border:1px solid #E2E8F0;border-radius:12px;margin-bottom:0.6rem;box-shadow:0 1px 4px rgba(0,0,0,0.04);transition:all 0.2s;" onmouseenter="if(${isFree})this.style.borderColor='#0EA5E9'" onmouseleave="this.style.borderColor='#E2E8F0'">
               <div style="display:flex;align-items:center;gap:0.75rem;">
                 ${lockIcon}
@@ -1522,7 +1536,7 @@
                   <div style="font-size:0.75rem;color:#718096;margin-top:0.1rem;">📝 ${t.totalQuestions||0} Questions · ${t.duration||60} Min · ${t.totalMarks||200} Marks</div>
                 </div>
               </div>
-              <button onclick="${btnAction}" style="${btnStyle}">${isFree?'Attempt Test →':'Locked'}</button>
+              ${btns}
             </div>`;
           });
           html+='</div>';
@@ -1705,7 +1719,7 @@
         <h4>Practice</h4>
         <a href="#" onclick="window.location='https://trickyssc.com/index.html#pyq'">PYQ Bank</a>
         <a href="#" onclick="window.location='https://trickyssc.com/index.html#courses';showSection&&showSection('courses')">Chapter-wise Tests</a>
-        <a href="#" onclick="window.location='https://trickyssc.com/index.html#mock';return false;">Mock Tests</a>
+        <a href="#" onclick="showSection('cgl-mock-page');return false;">Mock Tests</a>
         <a href="#" onclick="window.location='https://trickyssc.com/index.html#ai'">AI Generator</a>
       </div>
       <div class="footer-col">
