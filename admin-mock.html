@@ -133,6 +133,7 @@ textarea{resize:vertical;min-height:80px;}
     <button class="tab" onclick="switchTab('users')">👥 Users</button>
     <button class="tab" onclick="switchTab('import')">📥 Import CSV</button>
     <button class="tab" onclick="switchTab('export')">📤 Export CSV</button>
+    <button class="tab" onclick="switchTab('publish')" style="background:linear-gradient(135deg,#00A86B,#0EA5E9);color:#fff;font-weight:700;">🚀 Publish Mocks</button>
   </div>
 
   <!-- TAB: Add Questions Manually -->
@@ -1466,6 +1467,115 @@ textarea{resize:vertical;min-height:80px;}
   </div>
 </div>
 
+<!-- PANEL: Publish Mocks -->
+<div class="panel" id="panel-publish">
+  <div class="card">
+    <h3>🚀 Publish Mock Tests</h3>
+    <p style="color:#94A3B8;font-size:0.9rem;margin-bottom:1.5rem;">
+      This creates a <strong style="color:#00A86B;">mock_tests</strong> document in Firestore so questions you've uploaded appear on the exam pages (instead of "Coming Soon"). Fill in the details below and click <strong>Publish</strong>.
+    </p>
+
+    <!-- How it works banner -->
+    <div style="background:#0F172A;border:1px solid #00A86B44;border-radius:10px;padding:1rem 1.25rem;margin-bottom:1.5rem;font-size:0.82rem;color:#94A3B8;line-height:1.7;">
+      <strong style="color:#00A86B;">How it works:</strong> You upload questions to the <code style="color:#A78BFA;">questions</code> collection (via Add/AI/CSV tabs). 
+      Then here you create a <code style="color:#A78BFA;">mock_tests</code> entry that tells the exam page "Mock #1 is ready — load it". 
+      The exam page uses <code style="color:#A78BFA;">exam</code> + <code style="color:#A78BFA;">isPublished: true</code> to find and show the test.
+    </div>
+
+    <div class="form-row three">
+      <div>
+        <label>Exam</label>
+        <select id="pubExam" onchange="pubUpdateTier()">
+          <option value="ssc-cgl">SSC CGL</option>
+          <option value="ssc-chsl">SSC CHSL</option>
+          <option value="ssc-mts">SSC MTS</option>
+          <option value="ssc-gd">SSC GD</option>
+          <option value="ssc-cpo">SSC CPO</option>
+          <option value="ssc-jht">SSC JHT</option>
+          <option value="ssc-je">SSC JE</option>
+        </select>
+      </div>
+      <div>
+        <label>Tier / Paper</label>
+        <select id="pubTier">
+          <option value="Tier I">Tier I</option>
+          <option value="Tier II">Tier II</option>
+        </select>
+      </div>
+      <div>
+        <label>Mock Number (seriesNum)</label>
+        <select id="pubSeriesNum">
+          <option value="1">Mock #1</option>
+          <option value="2">Mock #2</option>
+          <option value="3">Mock #3</option>
+          <option value="4">Mock #4</option>
+          <option value="5">Mock #5</option>
+          <option value="6">Mock #6</option>
+          <option value="7">Mock #7</option>
+          <option value="8">Mock #8</option>
+          <option value="9">Mock #9</option>
+          <option value="10">Mock #10</option>
+          <option value="11">Mock #11</option>
+          <option value="12">Mock #12</option>
+          <option value="13">Mock #13</option>
+          <option value="14">Mock #14</option>
+          <option value="15">Mock #15</option>
+          <option value="20">Mock #20</option>
+          <option value="25">Mock #25</option>
+          <option value="30">Mock #30</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row three">
+      <div>
+        <label>Title (shown on exam page)</label>
+        <input type="text" id="pubTitle" placeholder="e.g. SSC CGL Tier I — Mock Test 1">
+      </div>
+      <div>
+        <label>Total Questions</label>
+        <input type="number" id="pubTotalQ" value="100" min="1">
+      </div>
+      <div>
+        <label>Duration (minutes)</label>
+        <input type="number" id="pubDuration" value="60" min="1">
+      </div>
+    </div>
+    <div class="form-row three">
+      <div>
+        <label>Total Marks</label>
+        <input type="number" id="pubMarks" value="200" min="1">
+      </div>
+      <div>
+        <label>Free or Paid?</label>
+        <select id="pubIsPaid">
+          <option value="false">Free (anyone can attempt)</option>
+          <option value="true">Paid (subscription required)</option>
+        </select>
+      </div>
+      <div style="display:flex;align-items:flex-end;">
+        <div style="background:#1E293B;border:1px solid #334155;border-radius:8px;padding:0.65rem 1rem;font-size:0.82rem;color:#94A3B8;width:100%;">
+          ✅ <code>isPublished</code> is always set to <strong style="color:#00A86B;">true</strong> when you click Publish.
+        </div>
+      </div>
+    </div>
+
+    <button class="btn btn-primary" onclick="publishMock()" style="margin-top:0.5rem;background:linear-gradient(135deg,#00A86B,#0EA5E9);min-width:200px;">
+      🚀 Publish Mock Test
+    </button>
+  </div>
+
+  <!-- Published mocks list -->
+  <div class="card" style="margin-top:1.5rem;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+      <h3 style="margin:0;">📋 Published Mock Tests</h3>
+      <button class="btn btn-secondary" onclick="loadPublishedMocks()" style="padding:0.4rem 1rem;font-size:0.82rem;">🔄 Refresh</button>
+    </div>
+    <div id="pubMocksList">
+      <div style="color:#94A3B8;font-size:0.85rem;padding:1rem 0;">Click Refresh to load published mocks.</div>
+    </div>
+  </div>
+</div>
+
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
@@ -1473,7 +1583,7 @@ textarea{resize:vertical;min-height:80px;}
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
-import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, query, where, orderBy, limit, getCountFromServer } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, setDoc, query, where, orderBy, limit, getCountFromServer } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",
@@ -2284,6 +2394,7 @@ window.switchTab = (tab) => {
   if (tab === 'users') loadUsers();
   if (tab === 'export') updateExportTiersAndSubjects();
   if (tab === 'import') { /* ready */ }
+  if (tab === 'publish') { loadPublishedMocks(); pubAutoTitle(); }
 };
 
 // ── Edit Modal ──
@@ -2596,6 +2707,166 @@ window.updateCsvTiers = () => {
   const tiers = EXAM_TIERS[exam] || [];
   tierSel.innerHTML = '<option value="">From CSV / keep as-is</option>' +
     tiers.map(t => `<option value="${t.v}">${t.l}</option>`).join('');
+};
+
+// ── Publish Mocks ─────────────────────────────────────────────────────────────
+const EXAM_LABELS = {
+  'ssc-cgl':'SSC CGL','ssc-chsl':'SSC CHSL','ssc-mts':'SSC MTS',
+  'ssc-gd':'SSC GD','ssc-cpo':'SSC CPO','ssc-jht':'SSC JHT','ssc-je':'SSC JE'
+};
+const PUB_TIERS = {
+  'ssc-cgl': ['Tier I','Tier II'],
+  'ssc-chsl': ['Tier I','Tier II'],
+  'ssc-mts': ['Session I','Session II'],
+  'ssc-gd': ['CBT'],
+  'ssc-cpo': ['Paper I','Paper II'],
+  'ssc-jht': ['Paper I','Paper II'],
+  'ssc-je': ['Paper I','Paper II'],
+};
+
+window.pubUpdateTier = () => {
+  const exam = document.getElementById('pubExam').value;
+  const tierSel = document.getElementById('pubTier');
+  const tiers = PUB_TIERS[exam] || ['Tier I','Tier II'];
+  tierSel.innerHTML = tiers.map(t=>`<option value="${t}">${t}</option>`).join('');
+  pubAutoTitle();
+};
+
+window.pubAutoTitle = () => {
+  const exam = document.getElementById('pubExam')?.value;
+  const tier = document.getElementById('pubTier')?.value;
+  const num  = document.getElementById('pubSeriesNum')?.value;
+  const titleEl = document.getElementById('pubTitle');
+  if (titleEl && exam && tier && num) {
+    titleEl.value = `${EXAM_LABELS[exam]||exam} ${tier} — Mock Test ${num}`;
+  }
+};
+
+// Auto-update title when dropdowns change
+['pubSeriesNum','pubTier'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('change', pubAutoTitle);
+});
+
+window.publishMock = async () => {
+  const exam      = document.getElementById('pubExam').value;
+  const tier      = document.getElementById('pubTier').value;
+  const seriesNum = parseInt(document.getElementById('pubSeriesNum').value);
+  const title     = document.getElementById('pubTitle').value.trim();
+  const totalQ    = parseInt(document.getElementById('pubTotalQ').value) || 100;
+  const duration  = parseInt(document.getElementById('pubDuration').value) || 60;
+  const marks     = parseInt(document.getElementById('pubMarks').value) || 200;
+  const isPaid    = document.getElementById('pubIsPaid').value === 'true';
+
+  if (!title) { showToast('Please enter a title', 'error'); return; }
+
+  try {
+    // Check if this exact mock already exists
+    const existing = await getDocs(query(
+      collection(db, 'mock_tests'),
+      where('exam','==',exam),
+      where('seriesNum','==',seriesNum),
+      where('tier','==',tier)
+    ));
+
+    if (!existing.empty) {
+      // Update existing doc
+      const docId = existing.docs[0].id;
+      await updateDoc(doc(db,'mock_tests',docId), {
+        title, totalQuestions:totalQ, duration, totalMarks:marks,
+        isPaid, isPublished:true, updatedAt:new Date()
+      });
+      showToast('✅ Mock updated & published!','success');
+    } else {
+      // Create new doc
+      await addDoc(collection(db,'mock_tests'), {
+        exam, tier, seriesNum, title,
+        totalQuestions: totalQ,
+        duration, totalMarks: marks,
+        isPaid, isPublished: true,
+        createdAt: new Date()
+      });
+      showToast('✅ Mock test published! It will now appear on the exam page.','success');
+    }
+    loadPublishedMocks();
+  } catch(e) { showToast('Error: '+e.message,'error'); }
+};
+
+window.loadPublishedMocks = async () => {
+  const list = document.getElementById('pubMocksList');
+  list.innerHTML = '<div style="color:#94A3B8;padding:1rem 0;font-size:0.85rem;">⏳ Loading...</div>';
+  try {
+    const snap = await getDocs(collection(db,'mock_tests'));
+    const docs = snap.docs.map(d=>({id:d.id,...d.data()}));
+    docs.sort((a,b)=>{
+      if(a.exam!==b.exam) return a.exam.localeCompare(b.exam);
+      return (a.seriesNum||99)-(b.seriesNum||99);
+    });
+
+    if(!docs.length){
+      list.innerHTML='<div style="color:#94A3B8;padding:1rem 0;font-size:0.85rem;">No mock tests published yet. Use the form above to publish your first one.</div>';
+      return;
+    }
+
+    const statusColor = p => p ? '#F59E0B' : '#00A86B';
+    const statusLabel = p => p ? '🔒 Paid' : '🆓 Free';
+    const pubLabel = p => p ? '<span style="color:#00A86B;font-weight:700;">✅ Live</span>' : '<span style="color:#EF4444;font-weight:700;">❌ Unpublished</span>';
+
+    list.innerHTML = `
+      <table style="width:100%;border-collapse:collapse;font-size:0.83rem;">
+        <thead>
+          <tr style="border-bottom:1px solid #334155;color:#94A3B8;">
+            <th style="text-align:left;padding:0.5rem 0.75rem;">Title</th>
+            <th style="text-align:left;padding:0.5rem 0.75rem;">Exam</th>
+            <th style="text-align:center;padding:0.5rem 0.75rem;">Tier</th>
+            <th style="text-align:center;padding:0.5rem 0.75rem;">#</th>
+            <th style="text-align:center;padding:0.5rem 0.75rem;">Qs</th>
+            <th style="text-align:center;padding:0.5rem 0.75rem;">Status</th>
+            <th style="text-align:center;padding:0.5rem 0.75rem;">Access</th>
+            <th style="text-align:center;padding:0.5rem 0.75rem;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${docs.map(d=>`
+            <tr style="border-bottom:1px solid #1E293B;">
+              <td style="padding:0.6rem 0.75rem;color:#E2E8F0;">${d.title||'—'}</td>
+              <td style="padding:0.6rem 0.75rem;color:#A78BFA;">${d.exam||'—'}</td>
+              <td style="padding:0.6rem 0.75rem;text-align:center;color:#94A3B8;">${d.tier||'—'}</td>
+              <td style="padding:0.6rem 0.75rem;text-align:center;color:#94A3B8;">${d.seriesNum||'—'}</td>
+              <td style="padding:0.6rem 0.75rem;text-align:center;color:#94A3B8;">${d.totalQuestions||0}</td>
+              <td style="padding:0.6rem 0.75rem;text-align:center;">${pubLabel(d.isPublished)}</td>
+              <td style="padding:0.6rem 0.75rem;text-align:center;color:${statusColor(d.isPaid)};">${statusLabel(d.isPaid)}</td>
+              <td style="padding:0.6rem 0.75rem;text-align:center;">
+                <button onclick="togglePublish('${d.id}',${!d.isPublished})"
+                  style="background:${d.isPublished?'#EF4444':'#00A86B'};border:none;color:#fff;padding:0.25rem 0.6rem;border-radius:6px;font-size:0.75rem;cursor:pointer;margin-right:0.3rem;">
+                  ${d.isPublished?'Unpublish':'Publish'}
+                </button>
+                <button onclick="deleteMockEntry('${d.id}')"
+                  style="background:#334155;border:none;color:#94A3B8;padding:0.25rem 0.6rem;border-radius:6px;font-size:0.75rem;cursor:pointer;">
+                  🗑
+                </button>
+              </td>
+            </tr>`).join('')}
+        </tbody>
+      </table>`;
+  } catch(e) { list.innerHTML = '<div style="color:#EF4444;font-size:0.85rem;">Error loading: '+e.message+'</div>'; }
+};
+
+window.togglePublish = async (id, newState) => {
+  try {
+    await updateDoc(doc(db,'mock_tests',id), { isPublished: newState });
+    showToast(newState ? '✅ Mock is now Live!' : '⏸ Mock unpublished', newState?'success':'');
+    loadPublishedMocks();
+  } catch(e){ showToast('Error: '+e.message,'error'); }
+};
+
+window.deleteMockEntry = async (id) => {
+  if(!confirm('Delete this mock_tests entry? (Questions in the questions collection are NOT deleted.)')) return;
+  try {
+    await deleteDoc(doc(db,'mock_tests',id));
+    showToast('🗑 Mock entry deleted','');
+    loadPublishedMocks();
+  } catch(e){ showToast('Error: '+e.message,'error'); }
 };
 </script>
 </body>
