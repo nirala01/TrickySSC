@@ -592,8 +592,12 @@ const auth=getAuth(app);
 let questions=[],answers={},markedForReview={},currentQ=0,timeLeft=3600,timerInterval,currentUser=null;
 let isSubmitting=false,lastResultPayload=null;
 const params=new URLSearchParams(window.location.search);
-const exam=params.get('exam');
+// Support both ?mockId=<firestoreId>  AND  legacy ?exam=ssc-cgl&year=1
+const mockId=params.get('mockId');
+let exam=params.get('exam');
 const year=params.get('year');
+// mockMeta is populated when mockId is present
+let mockMeta=null;
 
 /* ── Auth ── */
 let testStarted=false;
@@ -646,12 +650,43 @@ async function loadTest(){
     setLoaderMsg('Fetching questions...');
     const lang=new URLSearchParams(window.location.search).get('lang')||'';
     const mockNum=new URLSearchParams(window.location.search).get('mockNum')||'';
-    let q=query(collection(db,'questions'),where('exam','==',exam));
-    if(year && lang)q=query(collection(db,'questions'),where('exam','==',exam),where('year','==',year),where('language','==',lang));
-    else if(year)q=query(collection(db,'questions'),where('exam','==',exam),where('year','==',year));
-    else if(mockNum && lang)q=query(collection(db,'questions'),where('exam','==',exam),where('mockNum','==',parseInt(mockNum)),where('language','==',lang));
-    else if(mockNum)q=query(collection(db,'questions'),where('exam','==',exam),where('mockNum','==',parseInt(mockNum)));
-    else if(lang)q=query(collection(db,'questions'),where('exam','==',exam),where('language','==',lang));
+
+    // ── NEW: if mockId is in the URL, resolve the mock_tests doc first ──
+    if(mockId){
+      try{
+        const mockSnap=await getDoc(doc(db,'mock_tests',mockId));
+        if(mockSnap.exists()){
+          mockMeta=mockSnap.data();
+          exam=mockMeta.exam;           // e.g. "ssc-cgl"
+          // seriesNum is stored as the mock number; admin saves it in `year` field on questions
+        } else {
+          document.getElementById('loader').innerHTML=`<div style="text-align:center;padding:2rem;"><div style="font-size:3rem;margin-bottom:1rem;">❌</div><div style="font-size:1.5rem;font-weight:700;margin-bottom:0.5rem;">Mock Not Found</div><div style="font-size:1rem;font-weight:400;opacity:0.9;margin-bottom:1.5rem;">This mock test no longer exists.</div><a href="javascript:history.back()" style="background:white;color:#FF6B00;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1rem;padding:0.6rem 1.5rem;border-radius:10px;text-decoration:none;">← Go Back</a></div>`;
+          return;
+        }
+      } catch(e){ console.warn('mock_tests lookup failed',e); }
+    }
+
+    // ── Build the questions query ──
+    let q;
+    if(mockMeta){
+      // Questions are stored with exam + year (where year = mock series number as string)
+      const seriesStr = String(mockMeta.seriesNum);
+      q=query(collection(db,'questions'),
+        where('exam','==',mockMeta.exam),
+        where('year','==',seriesStr));
+    } else if(year && lang){
+      q=query(collection(db,'questions'),where('exam','==',exam),where('year','==',year),where('language','==',lang));
+    } else if(year){
+      q=query(collection(db,'questions'),where('exam','==',exam),where('year','==',year));
+    } else if(mockNum && lang){
+      q=query(collection(db,'questions'),where('exam','==',exam),where('mockNum','==',parseInt(mockNum)),where('language','==',lang));
+    } else if(mockNum){
+      q=query(collection(db,'questions'),where('exam','==',exam),where('mockNum','==',parseInt(mockNum)));
+    } else if(lang){
+      q=query(collection(db,'questions'),where('exam','==',exam),where('language','==',lang));
+    } else {
+      q=query(collection(db,'questions'),where('exam','==',exam));
+    }
     const snap=await getDocs(q);
     setLoaderMsg('Preparing test...');
     snap.forEach(d=>questions.push({id:d.id,...d.data()}));
@@ -666,7 +701,9 @@ async function loadTest(){
       document.getElementById('loader').innerHTML=`<div style="text-align:center;padding:2rem;"><div style="font-size:3rem;margin-bottom:1rem;">📭</div><div style="font-size:1.5rem;font-weight:700;margin-bottom:0.5rem;">Questions Not Yet Uploaded</div><div style="font-size:1rem;font-weight:400;opacity:0.9;margin-bottom:1.5rem;">Questions for this test haven't been added yet.<br>Check back soon — we're uploading regularly!</div><a href="javascript:history.back()" style="background:white;color:#FF6B00;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1rem;padding:0.6rem 1.5rem;border-radius:10px;text-decoration:none;">← Go Back</a></div>`;
       return;
     }
-    document.getElementById('examTitle').textContent=(exam||'').toUpperCase().replace('-',' ')+(year?' '+year:'');
+    // Set exam title — use mock title if available, else fallback
+    const displayTitle = mockMeta?.title || ((exam||'').toUpperCase().replace(/-/g,' ')+(year?' — Mock '+year:''));
+    document.getElementById('examTitle').textContent=displayTitle;
     document.getElementById('userName').textContent=currentUser.displayName||'Student';
     document.getElementById('loader').style.display='none';
     document.getElementById('testScreen').style.display='flex';
@@ -812,7 +849,7 @@ window.submitTest=async()=>{
   const pct=Math.round((correct/questions.length)*100);
   document.getElementById('testScreen').style.display='none';
   document.getElementById('resultScreen').style.display='block';
-  document.getElementById('resultExamName').textContent=(exam||'').toUpperCase().replace('-',' ')+(year?' '+year:'');
+  document.getElementById('resultExamName').textContent=mockMeta?.title||((exam||'').toUpperCase().replace('-',' ')+(year?' '+year:''));
   document.getElementById('scorePct').textContent=pct+'%';
   document.getElementById('statCorrect').textContent=correct;
   document.getElementById('statWrong').textContent=wrong;
