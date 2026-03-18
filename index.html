@@ -2303,9 +2303,14 @@
       el.classList.add('active');
       el.style.display = 'block';
       window.scrollTo({ top: 0, behavior: 'smooth' });
+      // Always sync hash so returning from external pages lands here correctly
+      try { window.history.pushState({section: id}, '', '#' + id); } catch(e) {}
+    } else {
+      // Section not found — stale hash from a course sub-page; fall back to home
+      var home = document.getElementById('home');
+      if (home) { home.classList.add('active'); home.style.display = 'block'; }
+      try { window.history.replaceState({section: 'home'}, '', '#home'); } catch(e) {}
     }
-    // Update browser history so back button works
-    try { window.history.pushState({section: id}, '', '#' + id); } catch(e) {}
   }
   window.addEventListener('popstate', function(e) {
     if (e.state && e.state.section) {
@@ -2827,7 +2832,25 @@
     if (menu) menu.style.display = 'none';
   }
 </script>
-<script>document.addEventListener("DOMContentLoaded",function(){var h=window.location.hash.replace("#","");if(h&&document.getElementById(h)){showSection(h);}else{showSection("home");}});</script>
+<script>document.addEventListener("DOMContentLoaded",function(){
+  var h=window.location.hash.replace("#","");
+  // If hash matches a known section on this page, show it
+  if(h&&document.getElementById(h)){
+    showSection(h);
+  }
+  // If hash looks like it came from a course sub-page (e.g. cgl-mock-page, chsl-pyq-page),
+  // map it back to the appropriate index.html section instead of showing a blank page
+  else if(h){
+    var mockHashes=['cgl-mock-page','chsl-mock-page','mts-mock-page','gd-mock-page','cpo-mock-page','jht-mock-page','je-mock-page'];
+    var pyqHashes=['cgl-pyq-page','chsl-pyq-page','mts-pyq-page','gd-pyq-page','cpo-pyq-page','jht-pyq-page','je-pyq-page'];
+    var courseHashes=['ssc-cgl','ssc-chsl','ssc-mts','ssc-gd','ssc-cpo','ssc-jht','ssc-je'];
+    if(mockHashes.indexOf(h)!==-1){showSection('mock');}
+    else if(pyqHashes.indexOf(h)!==-1){showSection('pyq');}
+    else if(courseHashes.indexOf(h)!==-1){showSection('courses');}
+    else{showSection('home');}
+  }
+  else{showSection('home');}
+});</script>
 
 <script type="module">
 import{initializeApp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
