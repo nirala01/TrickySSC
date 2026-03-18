@@ -740,12 +740,11 @@ textarea{resize:vertical;min-height:80px;}
           </select>
         </div>
         <div>
-          <label>Shift</label>
-          <select id="delShift">
-            <option value="">All Shifts</option>
-            <option value="Shift-1">Shift 1</option>
-            <option value="Shift-2">Shift 2</option>
-            <option value="Shift-3">Shift 3</option>
+          <label>Language</label>
+          <select id="delLang">
+            <option value="">All Languages</option>
+            <option value="en">English</option>
+            <option value="hi">Hindi</option>
           </select>
         </div>
         <div style="display:flex;align-items:flex-end;">
@@ -892,6 +891,11 @@ textarea{resize:vertical;min-height:80px;}
           <option value="english">English Language</option>
           <option value="quant">Quantitative Aptitude</option>
           <option value="gk">General Awareness</option>
+        </select>
+        <select id="filterLang" onchange="loadQuestions()">
+          <option value="">All Languages</option>
+          <option value="en">English</option>
+          <option value="hi">Hindi</option>
         </select>
       </div>
       <!-- Bulk action toolbar -->
@@ -1937,11 +1941,13 @@ window.loadQuestions = async () => {
     const filterTier = document.getElementById('filterTier')?.value;
     const filterYear = document.getElementById('filterYear')?.value;
     const filterSubj = document.getElementById('filterSubject')?.value;
+    const filterLang = document.getElementById('filterLang')?.value;
     let docs = snap.docs.map(d => ({id:d.id,...d.data()}));
     if (filterExam) docs = docs.filter(d => d.exam === filterExam);
     if (filterTier) docs = docs.filter(d => d.tier === filterTier);
     if (filterYear) docs = docs.filter(d => d.year === filterYear);
     if (filterSubj) docs = docs.filter(d => d.subject === filterSubj);
+    if (filterLang) docs = docs.filter(d => d.language === filterLang);
     docs.sort((a,b) => (parseInt(a.qNum)||0) - (parseInt(b.qNum)||0));
     docs = docs.slice(0, 200);
     if (!docs.length) { listEl.innerHTML = '<p style="color:#94A3B8;text-align:center;padding:2rem;">No questions found.</p>'; return; }
@@ -1983,22 +1989,22 @@ window.loadQuestions = async () => {
 window.previewDelete = async () => {
   const exam = document.getElementById('delExam').value;
   const year = document.getElementById('delYear').value;
-  const shift = document.getElementById('delShift').value;
+  const lang = document.getElementById('delLang')?.value || '';
   let q = query(collection(db,'questions'), where('exam','==',exam));
   if (year) q = query(collection(db,'questions'), where('exam','==',exam), where('year','==',year));
   const snap = await getDocs(q);
   let docs = snap.docs;
-  if (shift) docs = docs.filter(d => d.data().shift === shift);
+  if (lang) docs = docs.filter(d => d.data().language === lang);
   const count = docs.length;
   document.getElementById('delPreview').style.display = 'block';
-  document.getElementById('delPreviewText').textContent = `Found ${count} questions matching: ${exam.toUpperCase()} ${year||'All Years'} ${shift||'All Shifts'}`;
+  document.getElementById('delPreviewText').textContent = `Found ${count} matching: ${exam.toUpperCase()} Mock#${year||'All'} ${lang||'All Languages'}`;
   const delBtn = document.getElementById('delBtn');
   if (count > 0) {
     delBtn.style.display = 'block';
     delBtn.textContent = `🗑️ Delete ${count} Questions`;
     delBtn.dataset.exam = exam;
     delBtn.dataset.year = year;
-    delBtn.dataset.shift = shift;
+    delBtn.dataset.lang = lang;
   } else {
     delBtn.style.display = 'none';
   }
@@ -2008,8 +2014,8 @@ window.bulkDelete = async () => {
   const btn = document.getElementById('delBtn');
   const exam = btn.dataset.exam;
   const year = btn.dataset.year;
-  const shift = btn.dataset.shift;
-  const label = `${exam.toUpperCase()} ${year||'All Years'} ${shift||'All Shifts'}`;
+  const lang = btn.dataset.lang || '';
+  const label = `${exam.toUpperCase()} Mock#${year||'All'} ${lang||'All Languages'}`;
   if (!confirm(`DELETE ALL ${label} questions? This cannot be undone!`)) return;
 
   btn.disabled = true;
@@ -2019,7 +2025,7 @@ window.bulkDelete = async () => {
   if (year) q = query(collection(db,'questions'), where('exam','==',exam), where('year','==',year));
   const snap = await getDocs(q);
   let docs = snap.docs;
-  if (shift) docs = docs.filter(d => d.data().shift === shift);
+  if (lang) docs = docs.filter(d => d.data().language === lang);
   const total = docs.length;
   let deleted = 0;
 

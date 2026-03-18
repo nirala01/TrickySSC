@@ -292,7 +292,47 @@ textarea{resize:vertical;min-height:80px;}
   <div class="panel" id="panel-import">
     <div class="card">
       <h3>📥 Import Questions from CSV</h3>
-      <p style="color:#94A3B8;font-size:0.9rem;margin-bottom:1.5rem;">Upload a CSV to bulk-import questions. Required: <code style="color:#A78BFA;">text, option_A, option_B, option_C, option_D, correct, exam, subject</code>. Optional: <code style="color:#A78BFA;">explanation, trick, imageUrl, difficulty, chapter, year, qNum</code>.</p>
+      <p style="color:#94A3B8;font-size:0.9rem;margin-bottom:1.5rem;">Upload a CSV to bulk-import questions. Required: <code style="color:#A78BFA;">text, option_A, option_B, option_C, option_D, correct</code>. Optional: <code style="color:#A78BFA;">exam, subject, chapter, language, explanation, trick, imageUrl, difficulty, year, qNum</code>.</p>
+      <div style="background:#0F172A;border:1px solid #334155;border-radius:10px;padding:1rem;margin-bottom:1.25rem;">
+        <p style="font-size:0.82rem;color:#94A3B8;margin-bottom:0.75rem;"><strong style="color:#10B981;">Override defaults</strong> — set values here if your CSV rows are missing these columns. CSV column values always take priority if present.</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:0.75rem;">
+          <div>
+            <label>Exam (override)</label>
+            <select id="swCsvExam">
+              <option value="">From CSV</option>
+              <option value="ssc-cgl">SSC CGL</option>
+              <option value="ssc-chsl">SSC CHSL</option>
+              <option value="ssc-mts">SSC MTS</option>
+              <option value="ssc-gd">SSC GD</option>
+              <option value="ssc-cpo">SSC CPO</option>
+              <option value="ssc-jht">SSC JHT</option>
+              <option value="ssc-je">SSC JE</option>
+            </select>
+          </div>
+          <div>
+            <label>Subject (override)</label>
+            <select id="swCsvSubject">
+              <option value="">From CSV</option>
+              <option value="reasoning">General Intelligence &amp; Reasoning</option>
+              <option value="english">English Language</option>
+              <option value="quant">Quantitative Aptitude</option>
+              <option value="gk">General Awareness</option>
+            </select>
+          </div>
+          <div>
+            <label>Chapter (override)</label>
+            <input type="text" id="swCsvChapter" placeholder="e.g. Percentage">
+          </div>
+          <div>
+            <label>Language (override)</label>
+            <select id="swCsvLang">
+              <option value="">From CSV</option>
+              <option value="en">English</option>
+              <option value="hi">Hindi</option>
+            </select>
+          </div>
+        </div>
+      </div>
       <div onclick="document.getElementById('swCsvFileInput').click()" style="border:2px dashed #334155;border-radius:12px;padding:2rem;text-align:center;cursor:pointer;margin-bottom:1rem;transition:all 0.2s;">
         <input type="file" id="swCsvFileInput" accept=".csv" onchange="handleCSVUpload(event)" style="display:none;">
         <div style="font-size:2.5rem;margin-bottom:0.5rem;">📄</div>
@@ -414,10 +454,65 @@ textarea{resize:vertical;min-height:80px;}
 
   <!-- MANAGE TAB -->
   <div class="panel" id="panel-manage">
+
+    <!-- BULK DELETE CARD -->
+    <div class="card" style="border-color:#EF444444;">
+      <h3>🗑️ Bulk Delete Questions</h3>
+      <p style="color:#94A3B8;font-size:0.85rem;margin-bottom:1rem;">Select filters to delete all matching sectionwise questions at once.</p>
+      <div class="filter-row" style="margin-bottom:1rem;">
+        <div>
+          <label>Exam</label>
+          <select id="delExam">
+            <option value="ssc-cgl">SSC CGL</option>
+            <option value="ssc-chsl">SSC CHSL</option>
+            <option value="ssc-mts">SSC MTS</option>
+            <option value="ssc-gd">SSC GD</option>
+            <option value="ssc-cpo">SSC CPO</option>
+            <option value="ssc-jht">SSC JHT</option>
+            <option value="ssc-je">SSC JE</option>
+          </select>
+        </div>
+        <div>
+          <label>Subject</label>
+          <select id="delSubject">
+            <option value="">All Subjects</option>
+            <option value="reasoning">General Intelligence &amp; Reasoning</option>
+            <option value="english">English Language</option>
+            <option value="quant">Quantitative Aptitude</option>
+            <option value="gk">General Awareness</option>
+          </select>
+        </div>
+        <div>
+          <label>Language</label>
+          <select id="delLang">
+            <option value="">All Languages</option>
+            <option value="en">English</option>
+            <option value="hi">Hindi</option>
+          </select>
+        </div>
+        <div style="display:flex;align-items:flex-end;">
+          <button class="btn" onclick="previewDelete()" style="background:#F59E0B;color:#fff;white-space:nowrap;">🔍 Preview Count</button>
+        </div>
+      </div>
+      <div id="delPreview" style="display:none;background:#0F172A;border-radius:8px;padding:1rem;margin-bottom:1rem;">
+        <span id="delPreviewText" style="color:#F59E0B;font-weight:600;"></span>
+      </div>
+      <button class="btn btn-danger" id="delBtn" onclick="bulkDelete()" style="display:none;width:100%;padding:0.75rem;font-size:1rem;">
+        🗑️ Delete All Matching Questions
+      </button>
+      <div id="delProgress" style="display:none;margin-top:1rem;">
+        <div style="background:#1E293B;border-radius:6px;height:8px;overflow:hidden;margin-bottom:0.5rem;">
+          <div id="delBar" style="height:100%;background:#EF4444;width:0%;transition:width 0.3s;"></div>
+        </div>
+        <div id="delStatus" style="font-size:0.85rem;color:#94A3B8;"></div>
+      </div>
+    </div>
+
+    <!-- ALL QUESTIONS CARD -->
     <div class="card">
       <h3>All Sectionwise Questions</h3>
       <div class="filter-row">
-        <select id="mgrExam" onchange="updateMgrSubjects();loadManage()" style="width:170px;">
+        <select id="mgrExam" onchange="updateMgrSubjects();loadManage()" style="width:165px;">
           <option value="">All Exams</option>
           <option value="ssc-cgl">SSC CGL</option>
           <option value="ssc-chsl">SSC CHSL</option>
@@ -427,15 +522,29 @@ textarea{resize:vertical;min-height:80px;}
           <option value="ssc-jht">SSC JHT</option>
           <option value="ssc-je">SSC JE</option>
         </select>
-        <select id="mgrSubject" onchange="loadManage()" style="width:220px;">
+        <select id="mgrSubject" onchange="loadManage()" style="width:210px;">
           <option value="">All Subjects</option>
         </select>
-        <select id="mgrDiff" onchange="loadManage()" style="width:140px;">
+        <select id="mgrLang" onchange="loadManage()" style="width:140px;">
+          <option value="">All Languages</option>
+          <option value="en">English</option>
+          <option value="hi">Hindi</option>
+        </select>
+        <select id="mgrDiff" onchange="loadManage()" style="width:135px;">
           <option value="">Any Difficulty</option>
           <option value="easy">Easy</option>
           <option value="medium">Medium</option>
           <option value="hard">Hard</option>
         </select>
+      </div>
+      <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1rem;flex-wrap:wrap;">
+        <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;text-transform:none;letter-spacing:0;font-size:0.85rem;color:#94A3B8;font-weight:500;">
+          <input type="checkbox" id="mgrSelectAllChk" onchange="mgrToggleSelectAll()" style="accent-color:#10B981;width:16px;height:16px;">
+          Select All
+        </label>
+        <span id="mgrSelectedBadge" style="background:#334155;color:#94A3B8;padding:0.2rem 0.6rem;border-radius:100px;font-size:0.78rem;font-weight:600;display:none;">0 selected</span>
+        <button class="btn btn-danger" id="mgrDeleteSelectedBtn" onclick="mgrDeleteSelected()" style="display:none;padding:0.4rem 0.9rem;font-size:0.82rem;">🗑 Delete Selected</button>
+        <button class="btn btn-danger" onclick="mgrDeleteAllVisible()" style="background:#7F1D1D;padding:0.4rem 0.9rem;font-size:0.82rem;">🗑 Delete All Shown</button>
       </div>
       <div id="manageList" class="questions-list"></div>
     </div>
@@ -798,6 +907,78 @@ window.loadCoverage = async () => {
 };
 
 // ── Manage ──
+window.previewDelete = async () => {
+  const exam = document.getElementById('delExam').value;
+  const subj = document.getElementById('delSubject')?.value || '';
+  const lang = document.getElementById('delLang')?.value || '';
+  const snap = await getDocs(collection(db,'questions'));
+  let docs = snap.docs.filter(d => d.data().exam === exam && d.data().type === 'sectionwise');
+  if (subj) docs = docs.filter(d => d.data().subject === subj);
+  if (lang) docs = docs.filter(d => d.data().language === lang);
+  const count = docs.length;
+  document.getElementById('delPreview').style.display = 'block';
+  document.getElementById('delPreviewText').textContent = `Found ${count} matching: ${exam.toUpperCase()} ${subj||'All Subjects'} ${lang||'All Languages'}`;
+  const delBtn = document.getElementById('delBtn');
+  if (count > 0) {
+    delBtn.style.display = 'block';
+    delBtn.textContent = `🗑️ Delete ${count} Questions`;
+    delBtn.dataset.exam = exam; delBtn.dataset.subj = subj; delBtn.dataset.lang = lang;
+  } else { delBtn.style.display = 'none'; }
+};
+window.bulkDelete = async () => {
+  const btn = document.getElementById('delBtn');
+  const exam = btn.dataset.exam; const subj = btn.dataset.subj; const lang = btn.dataset.lang;
+  if (!confirm(`DELETE ALL ${exam.toUpperCase()} ${subj||'All Subjects'} ${lang||'All Languages'} sectionwise questions?`)) return;
+  btn.disabled = true;
+  document.getElementById('delProgress').style.display = 'block';
+  const snap = await getDocs(collection(db,'questions'));
+  let docs = snap.docs.filter(d => d.data().exam === exam && d.data().type === 'sectionwise');
+  if (subj) docs = docs.filter(d => d.data().subject === subj);
+  if (lang) docs = docs.filter(d => d.data().language === lang);
+  const total = docs.length; let deleted = 0;
+  for (const d of docs) {
+    await deleteDoc(doc(db,'questions',d.id));
+    deleted++;
+    document.getElementById('delBar').style.width = Math.round(deleted/total*100)+'%';
+    document.getElementById('delStatus').textContent = `Deleted ${deleted}/${total}...`;
+  }
+  document.getElementById('delStatus').textContent = `✅ Done! Deleted ${deleted} questions.`;
+  document.getElementById('delPreview').style.display = 'none';
+  btn.style.display = 'none'; btn.disabled = false;
+  showToast(`✅ Deleted ${deleted} questions!`, 'success');
+  loadStats(); loadManage();
+};
+window.mgrToggleSelectAll = () => {
+  const chk = document.getElementById('mgrSelectAllChk');
+  document.querySelectorAll('.mgr-chk').forEach(c => c.checked = chk.checked);
+  mgrUpdateSelUI();
+};
+window.mgrUpdateSelUI = () => {
+  const checked = document.querySelectorAll('.mgr-chk:checked');
+  const badge = document.getElementById('mgrSelectedBadge');
+  const btn = document.getElementById('mgrDeleteSelectedBtn');
+  if (!badge) return;
+  if (checked.length > 0) {
+    badge.style.display = 'inline-block'; badge.textContent = checked.length + ' selected';
+    btn.style.display = 'inline-block'; btn.textContent = '🗑 Delete Selected (' + checked.length + ')';
+  } else { badge.style.display = 'none'; btn.style.display = 'none'; }
+};
+window.mgrDeleteSelected = async () => {
+  const ids = [...document.querySelectorAll('.mgr-chk:checked')].map(c => c.dataset.id);
+  if (!ids.length) return;
+  if (!confirm(`Delete ${ids.length} selected questions?`)) return;
+  for (const id of ids) await deleteDoc(doc(db,'questions',id));
+  showToast(`✅ Deleted ${ids.length} questions!`, 'success');
+  loadStats(); loadManage();
+};
+window.mgrDeleteAllVisible = async () => {
+  const ids = [...document.querySelectorAll('.mgr-chk')].map(c => c.dataset.id);
+  if (!ids.length) return;
+  if (!confirm(`Delete all ${ids.length} visible questions?`)) return;
+  for (const id of ids) await deleteDoc(doc(db,'questions',id));
+  showToast(`✅ Deleted ${ids.length} questions!`, 'success');
+  loadStats(); loadManage();
+};
 window.updateMgrSubjects = () => {
   const exam = document.getElementById('mgrExam').value;
   document.getElementById('mgrSubject').innerHTML = '<option value="">All Subjects</option>' + subjOptsFor(exam);
@@ -810,9 +991,11 @@ window.loadManage = async () => {
     let docs = snap.docs.map(d=>({id:d.id,...d.data()})).filter(d=>d.type==='sectionwise');
     const exam = document.getElementById('mgrExam').value;
     const subj = document.getElementById('mgrSubject').value;
+    const lang = document.getElementById('mgrLang')?.value || '';
     const diff = document.getElementById('mgrDiff').value;
     if (exam) docs = docs.filter(d=>d.exam===exam);
     if (subj) docs = docs.filter(d=>d.subject===subj);
+    if (lang) docs = docs.filter(d=>d.language===lang);
     if (diff) docs = docs.filter(d=>d.difficulty===diff);
     docs.sort((a,b) => (parseInt(a.qNum)||0) - (parseInt(b.qNum)||0));
     docs = docs.slice(0,200);
@@ -820,12 +1003,16 @@ window.loadManage = async () => {
     list.innerHTML = docs.map(q=>`
       <div class="question-item">
         <div class="q-header">
-          <div class="q-text" style="flex:1;"><strong>Q${q.qNum||'—'}.</strong> ${q.text}
-            ${q.imageUrl?`<div style="margin-top:0.5rem;"><img src="${q.imageUrl}" style="max-width:200px;max-height:110px;border-radius:6px;border:1px solid #334155;object-fit:contain;background:#0F172A;" onerror="this.style.display='none'"></div>`:''}
-          </div>
+          <label style="display:flex;align-items:flex-start;gap:0.5rem;flex:1;cursor:pointer;">
+            <input type="checkbox" class="mgr-chk" data-id="${q.id}" onchange="mgrUpdateSelUI()" style="accent-color:#10B981;width:15px;height:15px;margin-top:3px;flex-shrink:0;">
+            <div class="q-text"><strong>Q${q.qNum||'—'}.</strong> ${q.text}
+              ${q.imageUrl?`<div style="margin-top:0.5rem;"><img src="${q.imageUrl}" style="max-width:200px;max-height:110px;border-radius:6px;border:1px solid #334155;object-fit:contain;background:#0F172A;" onerror="this.style.display='none'"></div>`:''}
+            </div>
+          </label>
           <div style="display:flex;gap:0.4rem;flex-shrink:0;">
             <button class="btn btn-secondary" style="padding:0.3rem 0.6rem;font-size:0.75rem;" onclick="openEditModal('${q.id}')">✏️</button>
-            <button class="btn btn-danger" style="padding:0.3rem 0.6rem;font-size:0.75rem;" onclick="deleteQ('${q.id}'')">🗑</button>
+            <button class="btn btn-danger" style="padding:0.3rem 0.6rem;font-size:0.75rem;" onclick="deleteQ('${q.id}')">🗑</button>
+          </div>
         </div>
         <div class="q-options">
           ${['A','B','C','D'].map(l=>{
@@ -840,6 +1027,7 @@ window.loadManage = async () => {
           ${q.chapter?`<span class="meta-tag">${q.chapter}</span>`:''}
           <span class="meta-tag">${q.difficulty}</span>
           <span class="meta-tag">${q.tier||''}</span>
+          ${q.language?`<span class="meta-tag" style="background:#10B98122;color:#34D399;border:1px solid #10B98144;">${q.language==='hi'?'🇮🇳 Hindi':'🇬🇧 English'}</span>`:''}
         </div>
       </div>`).join('');
   } catch(e) { list.innerHTML='<div style="color:#EF4444;text-align:center;padding:2rem;">Error: '+e.message+'</div>'; }
@@ -893,13 +1081,22 @@ window.importCSV=async()=>{
   if(!csvParsedRows.length)return;
   const prog=document.getElementById('csvProgress'),bar=document.getElementById('csvBar'),status=document.getElementById('csvStatus');
   prog.style.display='block';bar.style.width='0%';document.getElementById('csvImportBtn').disabled=true;
+  const ovExam=document.getElementById('swCsvExam')?.value||'';
+  const ovSubject=document.getElementById('swCsvSubject')?.value||'';
+  const ovChapter=document.getElementById('swCsvChapter')?.value||'';
+  const ovLang=document.getElementById('swCsvLang')?.value||'';
   let saved=0,errors=0;
   for(let i=0;i<csvParsedRows.length;i++){
-    const r=csvParsedRows[i];if(!r.text||!r.correct||!r.exam){errors++;continue;}
+    const r=csvParsedRows[i];
+    const exam=ovExam||r.exam||'';
+    const subject=ovSubject||r.subject||'';
+    const chapter=ovChapter||r.chapter||'';
+    const language=ovLang||r.language||'en';
+    if(!r.text||!r.correct||!exam){errors++;continue;}
     try{
       await addDoc(collection(db,'questions'),{
-        text:r.text,exam:r.exam,tier:r.tier||'tier1',year:r.year||'',
-        type:r.type||'sectionwise',subject:r.subject||'',chapter:r.chapter||'',
+        text:r.text,exam,tier:r.tier||'tier1',year:r.year||'',
+        type:r.type||'sectionwise',subject,chapter,language,
         difficulty:r.difficulty||'medium',qNum:parseInt(r.qNum)||0,
         options:{A:r.option_A||'',B:r.option_B||'',C:r.option_C||'',D:r.option_D||''},
         correct:r.correct,explanation:r.explanation||'',trick:r.trick||'',

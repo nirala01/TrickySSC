@@ -474,12 +474,28 @@ textarea{resize:vertical;min-height:80px;}
           </select>
         </div>
         <div>
+          <label>Tier / Session</label>
+          <select id="delTier">
+            <option value="">All Tiers</option>
+            <option value="tier1">Tier I</option>
+            <option value="tier2">Tier II</option>
+          </select>
+        </div>
+        <div>
           <label>Shift</label>
           <select id="delShift">
             <option value="">All Shifts</option>
             <option value="Shift-1">Shift 1</option>
             <option value="Shift-2">Shift 2</option>
             <option value="Shift-3">Shift 3</option>
+          </select>
+        </div>
+        <div>
+          <label>Language</label>
+          <select id="delLang">
+            <option value="">All Languages</option>
+            <option value="en">English</option>
+            <option value="hi">Hindi</option>
           </select>
         </div>
         <div style="display:flex;align-items:flex-end;">
@@ -543,6 +559,11 @@ textarea{resize:vertical;min-height:80px;}
           <option value="quant">Quantitative Aptitude</option>
           <option value="gk">General Awareness</option>
         </select>
+        <select id="filterLang" onchange="loadQuestions()">
+          <option value="">All Languages</option>
+          <option value="en">English</option>
+          <option value="hi">Hindi</option>
+        </select>
       </div>
       <!-- Bulk action toolbar -->
       <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1rem;flex-wrap:wrap;">
@@ -579,7 +600,7 @@ textarea{resize:vertical;min-height:80px;}
           <strong style="color:#FF6B00;">Override defaults</strong> — if your CSV rows are missing <code style="color:#A78BFA;">exam</code>, <code style="color:#A78BFA;">tier</code>, or <code style="color:#A78BFA;">year</code> columns, set them here and every imported row will use these values.
           CSV column values always take priority if present.
         </p>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.75rem;">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:0.75rem;">
           <div>
             <label>Exam (override)</label>
             <select id="csvExam" onchange="updateCsvTiers()">
@@ -619,6 +640,23 @@ textarea{resize:vertical;min-height:80px;}
             <option value="2012">2012</option>
             <option value="2011">2011</option>
             <option value="2010">2010</option>
+            </select>
+          </div>
+          <div>
+            <label>Shift (override)</label>
+            <select id="csvShift">
+              <option value="">From CSV / keep as-is</option>
+              <option value="Shift-1">Shift 1</option>
+              <option value="Shift-2">Shift 2</option>
+              <option value="Shift-3">Shift 3</option>
+            </select>
+          </div>
+          <div>
+            <label>Language (override)</label>
+            <select id="csvLang">
+              <option value="">From CSV / keep as-is</option>
+              <option value="en">English</option>
+              <option value="hi">Hindi</option>
             </select>
           </div>
         </div>
@@ -1408,11 +1446,13 @@ window.loadQuestions = async () => {
     const filterTier = document.getElementById('filterTier')?.value;
     const filterYear = document.getElementById('filterYear')?.value;
     const filterSubj = document.getElementById('filterSubject')?.value;
+    const filterLang = document.getElementById('filterLang')?.value;
     let docs = snap.docs.map(d => ({id:d.id,...d.data()}));
     if (filterExam) docs = docs.filter(d => d.exam === filterExam);
     if (filterTier) docs = docs.filter(d => d.tier === filterTier);
     if (filterYear) docs = docs.filter(d => d.year === filterYear);
     if (filterSubj) docs = docs.filter(d => d.subject === filterSubj);
+    if (filterLang) docs = docs.filter(d => d.language === filterLang);
     docs.sort((a,b) => (parseInt(a.qNum)||0) - (parseInt(b.qNum)||0));
     docs = docs.slice(0, 200);
     if (!docs.length) { listEl.innerHTML = '<p style="color:#94A3B8;text-align:center;padding:2rem;">No questions found.</p>'; return; }
@@ -1454,22 +1494,28 @@ window.loadQuestions = async () => {
 window.previewDelete = async () => {
   const exam = document.getElementById('delExam').value;
   const year = document.getElementById('delYear').value;
+  const tier = document.getElementById('delTier')?.value || '';
   const shift = document.getElementById('delShift').value;
+  const lang = document.getElementById('delLang')?.value || '';
   let q = query(collection(db,'questions'), where('exam','==',exam));
   if (year) q = query(collection(db,'questions'), where('exam','==',exam), where('year','==',year));
   const snap = await getDocs(q);
   let docs = snap.docs;
+  if (tier) docs = docs.filter(d => d.data().tier === tier);
   if (shift) docs = docs.filter(d => d.data().shift === shift);
+  if (lang) docs = docs.filter(d => d.data().language === lang);
   const count = docs.length;
   document.getElementById('delPreview').style.display = 'block';
-  document.getElementById('delPreviewText').textContent = `Found ${count} questions matching: ${exam.toUpperCase()} ${year||'All Years'} ${shift||'All Shifts'}`;
+  document.getElementById('delPreviewText').textContent = `Found ${count} matching: ${exam.toUpperCase()} ${year||'All Years'} ${tier||''} ${shift||'All Shifts'} ${lang||''}`.trim();
   const delBtn = document.getElementById('delBtn');
   if (count > 0) {
     delBtn.style.display = 'block';
     delBtn.textContent = `🗑️ Delete ${count} Questions`;
     delBtn.dataset.exam = exam;
     delBtn.dataset.year = year;
+    delBtn.dataset.tier = tier;
     delBtn.dataset.shift = shift;
+    delBtn.dataset.lang = lang;
   } else {
     delBtn.style.display = 'none';
   }
@@ -1479,8 +1525,10 @@ window.bulkDelete = async () => {
   const btn = document.getElementById('delBtn');
   const exam = btn.dataset.exam;
   const year = btn.dataset.year;
+  const tier = btn.dataset.tier || '';
   const shift = btn.dataset.shift;
-  const label = `${exam.toUpperCase()} ${year||'All Years'} ${shift||'All Shifts'}`;
+  const lang = btn.dataset.lang || '';
+  const label = `${exam.toUpperCase()} ${year||'All Years'} ${tier||''} ${shift||'All Shifts'} ${lang||''}`.trim();
   if (!confirm(`DELETE ALL ${label} questions? This cannot be undone!`)) return;
 
   btn.disabled = true;
@@ -1490,7 +1538,9 @@ window.bulkDelete = async () => {
   if (year) q = query(collection(db,'questions'), where('exam','==',exam), where('year','==',year));
   const snap = await getDocs(q);
   let docs = snap.docs;
+  if (tier) docs = docs.filter(d => d.data().tier === tier);
   if (shift) docs = docs.filter(d => d.data().shift === shift);
+  if (lang) docs = docs.filter(d => d.data().language === lang);
   const total = docs.length;
   let deleted = 0;
 
@@ -1612,16 +1662,20 @@ window.importCSV = async () => {
   const ovExam = document.getElementById('csvExam')?.value || '';
   const ovTier = document.getElementById('csvTier')?.value || '';
   const ovYear = document.getElementById('csvYear')?.value || '';
+  const ovShift = document.getElementById('csvShift')?.value || '';
+  const ovLang = document.getElementById('csvLang')?.value || '';
   let saved = 0, errors = 0;
   for (let i = 0; i < csvParsedRows.length; i++) {
     const r = csvParsedRows[i];
     const exam = ovExam || r.exam || '';
     const tier = ovTier || r.tier || 'tier1';
     const year = ovYear || r.year || '';
+    const shift = ovShift || r.shift || '';
+    const language = ovLang || r.language || 'en';
     if (!r.text || !r.correct || !exam) { errors++; continue; }
     try {
       await addDoc(collection(db, 'questions'), {
-        text: r.text, exam, tier, year,
+        text: r.text, exam, tier, year, shift, language,
         type: r.type || 'pyq',
         subject: r.subject || '', chapter: r.chapter || '',
         difficulty: r.difficulty || 'medium', qNum: parseInt(r.qNum) || 0,
