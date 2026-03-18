@@ -644,8 +644,14 @@ setTimeout(()=>{
 async function loadTest(){
   try{
     setLoaderMsg('Fetching questions...');
+    const lang=new URLSearchParams(window.location.search).get('lang')||'';
+    const mockNum=new URLSearchParams(window.location.search).get('mockNum')||'';
     let q=query(collection(db,'questions'),where('exam','==',exam));
-    if(year)q=query(collection(db,'questions'),where('exam','==',exam),where('year','==',year));
+    if(year && lang)q=query(collection(db,'questions'),where('exam','==',exam),where('year','==',year),where('language','==',lang));
+    else if(year)q=query(collection(db,'questions'),where('exam','==',exam),where('year','==',year));
+    else if(mockNum && lang)q=query(collection(db,'questions'),where('exam','==',exam),where('mockNum','==',parseInt(mockNum)),where('language','==',lang));
+    else if(mockNum)q=query(collection(db,'questions'),where('exam','==',exam),where('mockNum','==',parseInt(mockNum)));
+    else if(lang)q=query(collection(db,'questions'),where('exam','==',exam),where('language','==',lang));
     const snap=await getDocs(q);
     setLoaderMsg('Preparing test...');
     snap.forEach(d=>questions.push({id:d.id,...d.data()}));
@@ -657,7 +663,7 @@ async function loadTest(){
       });
     });
     if(questions.length===0){
-      document.getElementById('loader').innerHTML=`<div style="text-align:center;padding:2rem;"><div style="font-size:3rem;margin-bottom:1rem;">📭</div><div style="font-size:1.5rem;font-weight:700;margin-bottom:0.5rem;">No Questions Found</div><div style="font-size:1rem;font-weight:400;opacity:0.9;margin-bottom:1.5rem;">Questions for this paper haven't been uploaded yet.<br>Please check back later.</div><a href="javascript:history.back()" style="background:white;color:#FF6B00;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1rem;padding:0.6rem 1.5rem;border-radius:10px;text-decoration:none;">← Go Back</a></div>`;
+      document.getElementById('loader').innerHTML=`<div style="text-align:center;padding:2rem;"><div style="font-size:3rem;margin-bottom:1rem;">📭</div><div style="font-size:1.5rem;font-weight:700;margin-bottom:0.5rem;">Questions Not Yet Uploaded</div><div style="font-size:1rem;font-weight:400;opacity:0.9;margin-bottom:1.5rem;">Questions for this test haven't been added yet.<br>Check back soon — we're uploading regularly!</div><a href="javascript:history.back()" style="background:white;color:#FF6B00;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1rem;padding:0.6rem 1.5rem;border-radius:10px;text-decoration:none;">← Go Back</a></div>`;
       return;
     }
     document.getElementById('examTitle').textContent=(exam||'').toUpperCase().replace('-',' ')+(year?' '+year:'');
