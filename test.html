@@ -2,6 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>TrickySSC Test Engine</title>
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -666,32 +669,41 @@ async function loadTest(){
       } catch(e){ console.warn('mock_tests lookup failed',e); }
     }
 
-    // ── Build the questions query ──
-    let q;
-    if(mockMeta){
-      // yearValue = the actual year/identifier stored on the questions (e.g. "2023", "1", etc.)
-      // Falls back to seriesNum if yearValue not set on the mock_tests doc
-      const yearValue = mockMeta.yearValue ? String(mockMeta.yearValue) : String(mockMeta.seriesNum);
-      q=query(collection(db,'questions'),
-        where('exam','==',mockMeta.exam),
-        where('year','==',yearValue));
-    } else if(year && lang){
-      q=query(collection(db,'questions'),where('exam','==',exam),where('year','==',year),where('language','==',lang));
-    } else if(year){
-      q=query(collection(db,'questions'),where('exam','==',exam),where('year','==',year));
-    } else if(mockNum && lang){
-      // Try mockNum field first, then fall back to year field (same value)
-      q=query(collection(db,'questions'),where('exam','==',exam),where('year','==',String(mockNum)),where('language','==',lang));
-    } else if(mockNum){
-      // Try year field with mockNum value (ssc-cgl.html uses mockNum=1 but questions stored with year="2023" etc)
-      // We query by year=mockNum — if the admin stored questions with year matching mockNum this works
-      q=query(collection(db,'questions'),where('exam','==',exam),where('year','==',String(mockNum)));
-    } else if(lang){
-      q=query(collection(db,'questions'),where('exam','==',exam),where('language','==',lang));
-    } else {
-      q=query(collection(db,'questions'),where('exam','==',exam));
+    // ── Helper: query by year as both string AND number (handles both Firestore types) ──
+    async function fetchByYear(examVal, yearVal, langVal){
+      const yStr = String(yearVal);
+      const yNum = parseInt(yearVal);
+      // Try string first
+      let qStr = langVal
+        ? query(collection(db,'questions'),where('exam','==',examVal),where('year','==',yStr),where('language','==',langVal))
+        : query(collection(db,'questions'),where('exam','==',examVal),where('year','==',yStr));
+      let s = await getDocs(qStr);
+      if(s.size > 0) return s;
+      // Try number
+      if(!isNaN(yNum)){
+        let qNum = langVal
+          ? query(collection(db,'questions'),where('exam','==',examVal),where('year','==',yNum),where('language','==',langVal))
+          : query(collection(db,'questions'),where('exam','==',examVal),where('year','==',yNum));
+        s = await getDocs(qNum);
+      }
+      return s;
     }
-    const snap=await getDocs(q);
+
+    // ── Build the questions query ──
+    let snap;
+    if(mockMeta){
+      const yearValue = mockMeta.yearValue ? String(mockMeta.yearValue) : String(mockMeta.seriesNum);
+      snap = await fetchByYear(mockMeta.exam, yearValue, '');
+    } else if(year){
+      snap = await fetchByYear(exam, year, lang);
+    } else if(mockNum){
+      snap = await fetchByYear(exam, mockNum, lang);
+    } else if(lang){
+      const s = await getDocs(query(collection(db,'questions'),where('exam','==',exam),where('language','==',lang)));
+      snap = s;
+    } else {
+      snap = await getDocs(query(collection(db,'questions'),where('exam','==',exam)));
+    }
     setLoaderMsg('Preparing test...');
     snap.forEach(d=>questions.push({id:d.id,...d.data()}));
     questions.sort((a,b)=>(a.qNum||0)-(b.qNum||0));
