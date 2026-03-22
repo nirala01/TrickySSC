@@ -181,6 +181,19 @@ textarea{resize:vertical;min-height:80px;}
           </select>
         </div>
       </div>
+      <div class="form-row" style="margin-bottom:1rem;">
+        <div>
+          <label>Held On (date)</label>
+          <select id="qHeldOnType" onchange="toggleQHeldOn()">
+            <option value="none">None</option>
+            <option value="date">Select Date</option>
+          </select>
+        </div>
+        <div id="qHeldOnDateWrap" style="display:none;">
+          <label>Exam Date</label>
+          <input type="date" id="qHeldOnDate">
+        </div>
+      </div>
       <div class="form-row three">
         <div>
           <label>Content Type</label>
@@ -498,6 +511,15 @@ textarea{resize:vertical;min-height:80px;}
             <option value="hi">Hindi</option>
           </select>
         </div>
+        <div>
+          <label>Held On</label>
+          <select id="delHeldOnType" onchange="toggleDelHeldOn()">
+            <option value="">Any</option>
+            <option value="none">None (not set)</option>
+            <option value="date">Select Date</option>
+          </select>
+          <input type="date" id="delHeldOnDate" style="display:none;margin-top:0.4rem;">
+        </div>
         <div style="display:flex;align-items:flex-end;">
           <button class="btn" onclick="previewDelete()" style="background:#F59E0B;color:#fff;white-space:nowrap;">🔍 Preview Count</button>
         </div>
@@ -564,6 +586,12 @@ textarea{resize:vertical;min-height:80px;}
           <option value="en">English</option>
           <option value="hi">Hindi</option>
         </select>
+        <select id="filterHeldOnType" onchange="toggleFilterHeldOn(); loadQuestions()">
+          <option value="">Any Held On</option>
+          <option value="none">None (not set)</option>
+          <option value="date">Specific Date</option>
+        </select>
+        <input type="date" id="filterHeldOnDate" style="display:none;background:#0F172A;border:1px solid #334155;border-radius:8px;padding:0.65rem 0.9rem;color:#E2E8F0;font-family:'Inter',sans-serif;font-size:0.9rem;outline:none;" onchange="loadQuestions()">
       </div>
       <!-- Bulk action toolbar -->
       <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1rem;flex-wrap:wrap;">
@@ -600,7 +628,7 @@ textarea{resize:vertical;min-height:80px;}
           <strong style="color:#FF6B00;">Override defaults</strong> — if your CSV rows are missing <code style="color:#A78BFA;">exam</code>, <code style="color:#A78BFA;">tier</code>, or <code style="color:#A78BFA;">year</code> columns, set them here and every imported row will use these values.
           CSV column values always take priority if present.
         </p>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:0.75rem;">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr 1fr;gap:0.75rem;">
           <div>
             <label>Exam (override)</label>
             <select id="csvExam" onchange="updateCsvTiers()">
@@ -659,6 +687,15 @@ textarea{resize:vertical;min-height:80px;}
               <option value="hi">Hindi</option>
             </select>
           </div>
+          <div>
+            <label>Held On (override)</label>
+            <select id="csvHeldOnType" onchange="toggleCsvHeldOn()">
+              <option value="">From CSV / keep as-is</option>
+              <option value="none">None</option>
+              <option value="date">Select Date</option>
+            </select>
+            <input type="date" id="csvHeldOnDate" style="display:none;margin-top:0.4rem;">
+          </div>
         </div>
       </div>
       <div class="upload-area" onclick="document.getElementById('csvFileInput').click()">
@@ -714,9 +751,10 @@ textarea{resize:vertical;min-height:80px;}
         <div style="background:#0F172A;border:1px solid #334155;border-radius:6px;padding:0.4rem 0.75rem;font-size:0.78rem;font-family:monospace;color:#A78BFA;">qNum</div>
         <div style="background:#0F172A;border:1px solid #334155;border-radius:6px;padding:0.4rem 0.75rem;font-size:0.78rem;font-family:monospace;color:#A78BFA;">explanation</div>
         <div style="background:#0F172A;border:1px solid #334155;border-radius:6px;padding:0.4rem 0.75rem;font-size:0.78rem;font-family:monospace;color:#A78BFA;">trick</div>
+        <div style="background:#0F172A;border:1px solid #334155;border-radius:6px;padding:0.4rem 0.75rem;font-size:0.78rem;font-family:monospace;color:#38BDF8;">heldOn 📅</div>
         <div style="background:#0F172A;border:1px solid #7C3AED44;border-radius:6px;padding:0.4rem 0.75rem;font-size:0.78rem;font-family:monospace;color:#A78BFA;">imageUrl 🖼</div>
       </div>
-      <p style="font-size:0.78rem;color:#475569;margin-top:0.6rem;">⭐ = Required &nbsp;|&nbsp; Purple = Optional &nbsp;|&nbsp; 🖼 = Supports base64 or URL</p>
+      <p style="font-size:0.78rem;color:#475569;margin-top:0.6rem;">⭐ = Required &nbsp;|&nbsp; Purple = Optional &nbsp;|&nbsp; 🖼 = Supports base64 or URL &nbsp;|&nbsp; 📅 = Date (YYYY-MM-DD)</p>
     </div>
   </div>
 
@@ -831,6 +869,7 @@ textarea{resize:vertical;min-height:80px;}
         <div style="background:#0F172A;border:1px solid #334155;border-radius:6px;padding:0.4rem 0.75rem;font-size:0.78rem;font-family:monospace;color:#A78BFA;">explanation</div>
         <div style="background:#0F172A;border:1px solid #334155;border-radius:6px;padding:0.4rem 0.75rem;font-size:0.78rem;font-family:monospace;color:#A78BFA;">trick</div>
         <div style="background:#0F172A;border:1px solid #334155;border-radius:6px;padding:0.4rem 0.75rem;font-size:0.78rem;font-family:monospace;color:#A78BFA;">imageUrl</div>
+        <div style="background:#0F172A;border:1px solid #334155;border-radius:6px;padding:0.4rem 0.75rem;font-size:0.78rem;font-family:monospace;color:#38BDF8;">heldOn</div>
         <div style="background:#0F172A;border:1px solid #334155;border-radius:6px;padding:0.4rem 0.75rem;font-size:0.78rem;font-family:monospace;color:#A78BFA;">createdAt</div>
       </div>
     </div>
@@ -1219,6 +1258,7 @@ window.saveQuestion = async () => {
       exam: document.getElementById('qExam').value,
       tier: document.getElementById('qTier').value,
       year: document.getElementById('qYear').value,
+      heldOn: document.getElementById('qHeldOnType').value === 'date' ? (document.getElementById('qHeldOnDate').value || '') : '',
       type: document.getElementById('qType').value,
       subject: document.getElementById('qSubject').value,
       chapter: document.getElementById('qChapter').value,
@@ -1447,12 +1487,16 @@ window.loadQuestions = async () => {
     const filterYear = document.getElementById('filterYear')?.value;
     const filterSubj = document.getElementById('filterSubject')?.value;
     const filterLang = document.getElementById('filterLang')?.value;
+    const filterHeldOnType = document.getElementById('filterHeldOnType')?.value;
+    const filterHeldOnDate = document.getElementById('filterHeldOnDate')?.value;
     let docs = snap.docs.map(d => ({id:d.id,...d.data()}));
     if (filterExam) docs = docs.filter(d => d.exam === filterExam);
     if (filterTier) docs = docs.filter(d => d.tier === filterTier);
     if (filterYear) docs = docs.filter(d => d.year === filterYear);
     if (filterSubj) docs = docs.filter(d => d.subject === filterSubj);
     if (filterLang) docs = docs.filter(d => d.language === filterLang);
+    if (filterHeldOnType === 'none') docs = docs.filter(d => !d.heldOn);
+    else if (filterHeldOnType === 'date' && filterHeldOnDate) docs = docs.filter(d => d.heldOn === filterHeldOnDate);
     docs.sort((a,b) => (parseInt(a.qNum)||0) - (parseInt(b.qNum)||0));
     docs = docs.slice(0, 200);
     if (!docs.length) { listEl.innerHTML = '<p style="color:#94A3B8;text-align:center;padding:2rem;">No questions found.</p>'; return; }
@@ -1482,6 +1526,7 @@ window.loadQuestions = async () => {
           <span class="meta-tag">${q.subject}</span>
           <span class="meta-tag">${q.chapter||''}</span>
           <span class="meta-tag">${q.difficulty||''}</span>
+          ${q.heldOn ? `<span class="meta-tag" style="background:#0EA5E922;color:#38BDF8;border:1px solid #0EA5E944;">📅 ${q.heldOn}</span>` : ''}
           ${q.imageUrl ? `<span class="meta-tag" style="background:#7C3AED22;color:#A78BFA;border:1px solid #7C3AED44;">🖼 has image</span>` : ''}
         </div>
       </div>
@@ -1497,6 +1542,8 @@ window.previewDelete = async () => {
   const tier = document.getElementById('delTier')?.value || '';
   const shift = document.getElementById('delShift').value;
   const lang = document.getElementById('delLang')?.value || '';
+  const heldOnType = document.getElementById('delHeldOnType')?.value || '';
+  const heldOnDate = document.getElementById('delHeldOnDate')?.value || '';
   let q = query(collection(db,'questions'), where('exam','==',exam));
   if (year) q = query(collection(db,'questions'), where('exam','==',exam), where('year','==',year));
   const snap = await getDocs(q);
@@ -1504,9 +1551,11 @@ window.previewDelete = async () => {
   if (tier) docs = docs.filter(d => d.data().tier === tier);
   if (shift) docs = docs.filter(d => d.data().shift === shift);
   if (lang) docs = docs.filter(d => d.data().language === lang);
+  if (heldOnType === 'none') docs = docs.filter(d => !d.data().heldOn);
+  else if (heldOnType === 'date' && heldOnDate) docs = docs.filter(d => d.data().heldOn === heldOnDate);
   const count = docs.length;
   document.getElementById('delPreview').style.display = 'block';
-  document.getElementById('delPreviewText').textContent = `Found ${count} matching: ${exam.toUpperCase()} ${year||'All Years'} ${tier||''} ${shift||'All Shifts'} ${lang||''}`.trim();
+  document.getElementById('delPreviewText').textContent = `Found ${count} matching: ${exam.toUpperCase()} ${year||'All Years'} ${tier||''} ${shift||'All Shifts'} ${lang||''} ${heldOnType==='date'&&heldOnDate?'📅'+heldOnDate:heldOnType==='none'?'(no date)':''}`.trim();
   const delBtn = document.getElementById('delBtn');
   if (count > 0) {
     delBtn.style.display = 'block';
@@ -1516,6 +1565,8 @@ window.previewDelete = async () => {
     delBtn.dataset.tier = tier;
     delBtn.dataset.shift = shift;
     delBtn.dataset.lang = lang;
+    delBtn.dataset.heldOnType = heldOnType;
+    delBtn.dataset.heldOnDate = heldOnDate;
   } else {
     delBtn.style.display = 'none';
   }
@@ -1528,6 +1579,8 @@ window.bulkDelete = async () => {
   const tier = btn.dataset.tier || '';
   const shift = btn.dataset.shift;
   const lang = btn.dataset.lang || '';
+  const heldOnType = btn.dataset.heldOnType || '';
+  const heldOnDate = btn.dataset.heldOnDate || '';
   const label = `${exam.toUpperCase()} ${year||'All Years'} ${tier||''} ${shift||'All Shifts'} ${lang||''}`.trim();
   if (!confirm(`DELETE ALL ${label} questions? This cannot be undone!`)) return;
 
@@ -1541,6 +1594,8 @@ window.bulkDelete = async () => {
   if (tier) docs = docs.filter(d => d.data().tier === tier);
   if (shift) docs = docs.filter(d => d.data().shift === shift);
   if (lang) docs = docs.filter(d => d.data().language === lang);
+  if (heldOnType === 'none') docs = docs.filter(d => !d.data().heldOn);
+  else if (heldOnType === 'date' && heldOnDate) docs = docs.filter(d => d.data().heldOn === heldOnDate);
   const total = docs.length;
   let deleted = 0;
 
@@ -1664,6 +1719,8 @@ window.importCSV = async () => {
   const ovYear = document.getElementById('csvYear')?.value || '';
   const ovShift = document.getElementById('csvShift')?.value || '';
   const ovLang = document.getElementById('csvLang')?.value || '';
+  const ovHeldOnType = document.getElementById('csvHeldOnType')?.value || '';
+  const ovHeldOnDate = document.getElementById('csvHeldOnDate')?.value || '';
   let saved = 0, errors = 0;
   for (let i = 0; i < csvParsedRows.length; i++) {
     const r = csvParsedRows[i];
@@ -1672,10 +1729,13 @@ window.importCSV = async () => {
     const year = ovYear || r.year || '';
     const shift = ovShift || r.shift || '';
     const language = ovLang || r.language || 'en';
+    let heldOn = r.heldOn || '';
+    if (ovHeldOnType === 'none') heldOn = '';
+    else if (ovHeldOnType === 'date') heldOn = ovHeldOnDate;
     if (!r.text || !r.correct || !exam) { errors++; continue; }
     try {
       await addDoc(collection(db, 'questions'), {
-        text: r.text, exam, tier, year, shift, language,
+        text: r.text, exam, tier, year, shift, language, heldOn,
         type: r.type || 'pyq',
         subject: r.subject || '', chapter: r.chapter || '',
         difficulty: r.difficulty || 'medium', qNum: parseInt(r.qNum) || 0,
@@ -1994,10 +2054,10 @@ function escapeCSV(val) {
 }
 
 function docsToCSV(docs) {
-  const headers = ['id','exam','tier','year','type','subject','chapter','difficulty','qNum',
+  const headers = ['id','exam','tier','year','heldOn','type','subject','chapter','difficulty','qNum',
     'text','option_A','option_B','option_C','option_D','correct','explanation','trick','imageUrl','createdAt'];
   const rows = docs.map(d => [
-    d.id, d.exam, d.tier, d.year, d.type, d.subject, d.chapter, d.difficulty, d.qNum,
+    d.id, d.exam, d.tier, d.year, d.heldOn || '', d.type, d.subject, d.chapter, d.difficulty, d.qNum,
     d.text,
     d.options?.A || '', d.options?.B || '', d.options?.C || '', d.options?.D || '',
     d.correct, d.explanation, d.trick, d.imageUrl || '',
@@ -2097,6 +2157,28 @@ window.clearEditSolImg = () => {
   const i=document.getElementById('editSolImgCurrent'); if(i) i.src='';
   const w=document.getElementById('editSolImgCurrentWrap'); if(w) w.style.display='none';
   const s=document.getElementById('editSolImgStatus'); if(s) s.style.display='none';
+};
+
+// ── Held On toggle helpers ────────────────────────────────────────────────────
+window.toggleQHeldOn = () => {
+  const type = document.getElementById('qHeldOnType').value;
+  const wrap = document.getElementById('qHeldOnDateWrap');
+  wrap.style.display = type === 'date' ? 'block' : 'none';
+};
+window.toggleCsvHeldOn = () => {
+  const type = document.getElementById('csvHeldOnType').value;
+  const dateEl = document.getElementById('csvHeldOnDate');
+  dateEl.style.display = type === 'date' ? 'block' : 'none';
+};
+window.toggleDelHeldOn = () => {
+  const type = document.getElementById('delHeldOnType').value;
+  const dateEl = document.getElementById('delHeldOnDate');
+  dateEl.style.display = type === 'date' ? 'block' : 'none';
+};
+window.toggleFilterHeldOn = () => {
+  const type = document.getElementById('filterHeldOnType').value;
+  const dateEl = document.getElementById('filterHeldOnDate');
+  dateEl.style.display = type === 'date' ? 'block' : 'none';
 };
 
 // ── CSV Import tier updater ───────────────────────────────────────────────────
