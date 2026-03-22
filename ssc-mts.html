@@ -2101,79 +2101,109 @@ GE -->
       return d;
     }
 
-    function renderTier(tierId, docs, tierLabel) {
+        function renderTier(tierId, papers, tierLabel) {
       const container = document.getElementById(EXAM+'-pyq-'+tierId+'-content');
       const countEl = document.getElementById(EXAM+'-'+tierId+'-count');
-      if(!docs.length) {
+      if(!papers.length) {
         container.innerHTML = '<div style="text-align:center;padding:3rem;background:white;border-radius:16px;border:1px solid #E2E8F0;color:#718096;"><div style="font-size:2rem;margin-bottom:0.5rem;">📭</div><div style="font-weight:700;margin-bottom:0.25rem;">No Papers Yet</div><div style="font-size:0.85rem;">Papers will appear here as they are uploaded to the database.</div></div>';
         if(countEl) countEl.textContent = '0 Papers';
         return;
       }
-
-      // Group by year desc, then by shift
-      const byYear = {};
-      docs.forEach(d => {
-        const yr = d.year || 'Unknown';
-        if(!byYear[yr]) byYear[yr] = {};
-        const shift = d.shift || 'All Shifts';
-        if(!byYear[yr][shift]) byYear[yr][shift] = d; // one representative per shift (for heldOn date)
-      });
-
-      // Count total unique year+shift combos
-      let totalPapers = 0;
-      Object.values(byYear).forEach(shifts => { totalPapers += Object.keys(shifts).length; });
-      if(countEl) countEl.textContent = totalPapers + ' Paper' + (totalPapers!==1?'s':'');
-
-      // Sort years desc
-      const sortedYears = Object.keys(byYear).sort((a,b) => parseInt(b)||0 - parseInt(a)||0);
-
+      if(countEl) countEl.textContent = papers.length + ' Paper' + (papers.length!==1?'s':'');
+      papers.sort((a,b) => (parseInt(b.year)||0)-(parseInt(a.year)||0) || (a.shift||'').localeCompare(b.shift||''));
       let html = '';
-      sortedYears.forEach(year => {
-        const shifts = byYear[year];
-        const sortedShifts = Object.keys(shifts).sort();
-        sortedShifts.forEach(shift => {
-          const rep = shifts[shift];
-          const dateStr = rep.heldOn ? '📅 Held on: '+fmtDate(rep.heldOn)+'  · ' : '';
-          const qCount = docs.filter(d=>(d.year||'')==year && (d.shift||'All Shifts')==shift).length;
-          const shiftLabel = shift === 'All Shifts' ? '' : ' · '+shift;
-          const testUrl = 'test.html?exam='+EXAM+'&year='+encodeURIComponent(year)+'&tier='+encodeURIComponent(rep.tier||'')+'&shift='+encodeURIComponent(shift==='All Shifts'?'':shift);
-
-          html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:1rem 1.25rem;background:#fff;border:1px solid #E2E8F0;border-radius:12px;margin-bottom:0.6rem;box-shadow:0 1px 4px rgba(0,0,0,0.04);transition:all 0.2s;" onmouseenter="this.style.borderColor='#FF6B00';this.style.boxShadow='0 2px 12px rgba(255,107,0,0.1)'" onmouseleave="this.style.borderColor='#E2E8F0';this.style.boxShadow='0 1px 4px rgba(0,0,0,0.04)'">
-            <div style="display:flex;align-items:center;gap:0.75rem;">
-              <div>
+      papers.forEach(p => {
+        const year = p.year || 'Unknown';
+        const shift = p.shift || '';
+        const dateStr = p.heldOn ? '📅 Held on: '+fmtDate(p.heldOn)+'  · ' : '';
+        const qCount = p.langs && p.langs.size > 1 ? Math.round(p.count / p.langs.size) : p.count;
+        const shiftLabel = shift ? ' · '+shift : '';
+        const testUrl = 'test.html?exam='+EXAM+'&year='+encodeURIComponent(year)+'&tier='+encodeURIComponent(p.tier||'')+'&shift='+encodeURIComponent(shift);
+        html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:1rem 1.25rem;background:#fff;border:1px solid #E2E8F0;border-radius:12px;margin-bottom:0.6rem;box-shadow:0 1px 4px rgba(0,0,0,0.04);transition:all 0.2s;" onmouseenter="this.style.borderColor='#FF6B00';this.style.boxShadow='0 2px 12px rgba(255,107,0,0.1)'" onmouseleave="this.style.borderColor='#E2E8F0';this.style.boxShadow='0 1px 4px rgba(0,0,0,0.04)'">
+            <div style="display:flex;align-items:center;gap:0.75rem;"><div>
                 <div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1rem;color:#1A202C;">${EXAM.toUpperCase().replace('-',' ')} ${tierLabel} ${year}${shiftLabel}</div>
                 <div style="font-size:0.75rem;color:#718096;margin-top:0.1rem;">${dateStr}📝 ${qCount} Question${qCount!==1?'s':''}</div>
-              </div>
-            </div>
+              </div></div>
             <div style="display:flex;gap:0.5rem;">
-              <button onclick="window.location='${testUrl}&lang=en'"
-                style="background:linear-gradient(135deg,#0EA5E9,#6366F1);color:white;border:none;cursor:pointer;padding:0.45rem 0.9rem;border-radius:8px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.82rem;display:flex;align-items:center;gap:0.3rem;"
-                onmouseenter="this.style.opacity='0.85'" onmouseleave="this.style.opacity='1'">
-                🇬🇧 English
-              </button>
-              <button onclick="window.location='${testUrl}&lang=hi'"
-                style="background:linear-gradient(135deg,#FF6B00,#FF8C38);color:white;border:none;cursor:pointer;padding:0.45rem 0.9rem;border-radius:8px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.82rem;display:flex;align-items:center;gap:0.3rem;"
-                onmouseenter="this.style.opacity='0.85'" onmouseleave="this.style.opacity='1'">
-                🇮🇳 Hindi
-              </button>
-            </div>
-          </div>`;
-        });
+              <button onclick="window.location='${testUrl}&lang=en'" style="background:linear-gradient(135deg,#0EA5E9,#6366F1);color:white;border:none;cursor:pointer;padding:0.45rem 0.9rem;border-radius:8px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.82rem;" onmouseenter="this.style.opacity='0.85'" onmouseleave="this.style.opacity='1'">🇬🇧 English</button>
+              <button onclick="window.location='${testUrl}&lang=hi'" style="background:linear-gradient(135deg,#FF6B00,#FF8C38);color:white;border:none;cursor:pointer;padding:0.45rem 0.9rem;border-radius:8px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.82rem;" onmouseenter="this.style.opacity='0.85'" onmouseleave="this.style.opacity='1'">🇮🇳 Hindi</button>
+            </div></div>`;
       });
-
       container.innerHTML = html || '<div style="text-align:center;padding:2rem;color:#718096;">No papers found.</div>';
+    }
+
+    // ── Lightweight REST query: fetch only metadata fields ──
+    const PROJECT = 'trickyssc-17bb3';
+    const API_KEY = 'AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA';
+    const CACHE_KEY = 'pyq_index_ssc-mts';
+    const CACHE_TTL = 5 * 60 * 1000;
+
+    async function fetchPYQMetadata() {
+      try {
+        const cached = sessionStorage.getItem(CACHE_KEY);
+        if(cached) {
+          const {ts, data} = JSON.parse(cached);
+          if(Date.now() - ts < CACHE_TTL) return data;
+        }
+      } catch(e) {}
+
+      const url = `https://firestore.googleapis.com/v1/projects/${PROJECT}/databases/(default)/documents:runQuery?key=${API_KEY}`;
+      const body = {
+        structuredQuery: {
+          from: [{collectionId: 'questions'}],
+          where: {
+            compositeFilter: {
+              op: 'AND',
+              filters: [
+                {fieldFilter: {field:{fieldPath:'exam'}, op:'EQUAL', value:{stringValue: EXAM}}},
+                {fieldFilter: {field:{fieldPath:'type'}, op:'EQUAL', value:{stringValue:'pyq'}}}
+              ]
+            }
+          },
+          select: {
+            fields: [
+              {fieldPath:'year'},
+              {fieldPath:'shift'},
+              {fieldPath:'tier'},
+              {fieldPath:'heldOn'},
+              {fieldPath:'language'}
+            ]
+          }
+        }
+      };
+
+      const res = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+      const json = await res.json();
+      const docs = (json||[])
+        .filter(r => r.document && r.document.fields)
+        .map(r => {
+          const f = r.document.fields;
+          return {
+            year:    f.year    ? (f.year.stringValue    || f.year.integerValue    || '') : '',
+            shift:   f.shift   ? (f.shift.stringValue   || '') : '',
+            tier:    f.tier    ? (f.tier.stringValue    || '') : '',
+            heldOn:  f.heldOn  ? (f.heldOn.stringValue  || '') : '',
+            language:f.language? (f.language.stringValue|| '') : ''
+          };
+        });
+
+      try { sessionStorage.setItem(CACHE_KEY, JSON.stringify({ts: Date.now(), data: docs})); } catch(e) {}
+      return docs;
     }
 
     async function loadPYQs() {
       try {
-        const snap = await getDocs(query(collection(_db,'questions'), where('exam','==',EXAM), where('type','==','pyq')));
-        const all = snap.docs.map(d => ({...d.data(), id:d.id}));
-
-        const t1docs = all.filter(d => tierKey(d.tier)==='t1');
-        const t2docs = all.filter(d => tierKey(d.tier)==='t2');
-
-        renderTier('t1', t1docs, TIER1_LABEL);
-        renderTier('t2', t2docs, TIER2_LABEL);
+        const all = await fetchPYQMetadata();
+        const paperMap = {};
+        all.forEach(d => {
+          const key = (d.year||'')+'|'+(d.shift||'');
+          if(!paperMap[key]) paperMap[key] = {year:d.year, shift:d.shift, tier:d.tier, heldOn:d.heldOn, count:0, langs:new Set()};
+          paperMap[key].count++;
+          if(d.language) paperMap[key].langs.add(d.language);
+        });
+        const papers = Object.values(paperMap);
+        renderTier('t1', papers.filter(p => tierKey(p.tier)==='t1'), TIER1_LABEL);
+        renderTier('t2', papers.filter(p => tierKey(p.tier)==='t2'), TIER2_LABEL);
       } catch(e) {
         ['t1','t2'].forEach(t => {
           const el = document.getElementById(EXAM+'-pyq-'+t+'-content');
@@ -2181,6 +2211,8 @@ GE -->
         });
       }
     }
+
+    
 
     // Load when section becomes visible (visibility observer)
     const section = document.getElementById('mts-pyq-page');
