@@ -1504,7 +1504,7 @@
         const shift = p.shift || '';
         const dateStr = p.heldOn ? '📅 Held on: '+fmtDate(p.heldOn)+'  · ' : '';
         // Question count: divide by 2 if both languages present, else use full count
-        const qCount = p.langs && p.langs.size > 1 ? Math.round(p.count / p.langs.size) : p.count;
+        const qCount = (p.langs && p.langs.size > 1) ? Math.round(p.count / p.langs.size) : p.count;
         const shiftLabel = shift ? ' · '+shift : '';
         const testUrl = 'test.html?exam='+EXAM+'&year='+encodeURIComponent(year)+'&tier='+encodeURIComponent(p.tier||'')+'&shift='+encodeURIComponent(shift);
 
@@ -1539,7 +1539,7 @@
     const PROJECT = 'trickyssc-17bb3';
     const API_KEY = 'AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA';
     const CACHE_KEY = 'pyq_index_'+EXAM;
-    const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+    const CACHE_TTL = 0; // 0 = always fetch fresh (cache disabled — avoids stale data after re-import)
 
     async function fetchPYQMetadata() {
       // 1. Try sessionStorage cache first — instant load on revisit
@@ -1609,7 +1609,7 @@
         // Count questions per year+shift using language as proxy (en + hi = 2 langs = still same paper)
         const paperMap = {}; // key: year+'|'+shift
         all.forEach(d => {
-          const key = (d.year||'')+'|'+(d.shift||'');
+          const key = (d.year||'')+'|'+(d.shift||'')+'|'+(d.heldOn||'')+'|'+(d.tier||'');
           if(!paperMap[key]) paperMap[key] = {year:d.year, shift:d.shift, tier:d.tier, heldOn:d.heldOn, count:0, langs:new Set()};
           paperMap[key].count++;
           if(d.language) paperMap[key].langs.add(d.language);
