@@ -688,13 +688,16 @@ textarea{resize:vertical;min-height:80px;}
             </select>
           </div>
           <div>
-            <label>Held On (override)</label>
+            <label>Held On (override) <span style="color:#F59E0B;font-size:0.75rem;font-weight:700;" title="Strongly recommended for PYQs — prevents papers with same shift merging">⚠️ Recommended for PYQs</span></label>
             <select id="csvHeldOnType" onchange="toggleCsvHeldOn()">
               <option value="">From CSV / keep as-is</option>
               <option value="none">None</option>
               <option value="date">Select Date</option>
             </select>
             <input type="date" id="csvHeldOnDate" style="display:none;margin-top:0.4rem;">
+            <div id="csvHeldOnHint" style="display:none;font-size:0.72rem;color:#F59E0B;margin-top:0.3rem;">
+              📌 Always set this for PYQs. Two papers with the same Shift but different dates will merge into one card if this is empty.
+            </div>
           </div>
         </div>
       </div>
@@ -1708,6 +1711,48 @@ window.clearCSV = () => {
 
 window.importCSV = async () => {
   if (!csvParsedRows.length) return;
+
+  // ── Pre-import validation ──
+  const _ovExam  = document.getElementById('csvExam')?.value || '';
+  const _ovTier  = document.getElementById('csvTier')?.value || '';
+  const _ovYear  = document.getElementById('csvYear')?.value || '';
+  const _ovShift = document.getElementById('csvShift')?.value || '';
+  const _ovHeldOnType = document.getElementById('csvHeldOnType')?.value || '';
+  const _ovHeldOnDate = document.getElementById('csvHeldOnDate')?.value || '';
+
+  // Determine effective shift and heldOn for this import
+  const _effectiveShift  = _ovShift  || csvParsedRows[0]?.shift  || '';
+  const _effectiveHeldOn = (_ovHeldOnType === 'date') ? _ovHeldOnDate :
+                            (_ovHeldOnType === 'none') ? '' :
+                            (csvParsedRows[0]?.heldOn || '');
+  const _effectiveYear   = _ovYear  || csvParsedRows[0]?.year  || '';
+  const _effectiveExam   = _ovExam  || csvParsedRows[0]?.exam  || '';
+
+  // ⚠️ WARN if same exam+year+shift already exists and heldOn is empty
+  if (_effectiveExam && _effectiveYear && _effectiveShift && !_effectiveHeldOn) {
+    const proceed = confirm(
+      '⚠️ No exam date (Held On) is set for this import.\n\n' +
+      'If another paper with the same Exam + Year + Shift already exists in the database ' +
+      '(e.g. two different dates both labelled Shift-1 for 2024), they will be ' +
+      'merged into a single card and show double the questions.\n\n' +
+      'It is strongly recommended to set a "Held On" date before importing.\n\n' +
+      'Click OK to import anyway, or Cancel to go back and set the date.'
+    );
+    if (!proceed) {
+      document.getElementById('csvImportBtn').disabled = false;
+      document.getElementById('csvProgress').style.display = 'none';
+      return;
+    }
+  }
+
+  // ⚠️ WARN if heldOn type is 'date' but no date picked
+  if (_ovHeldOnType === 'date' && !_ovHeldOnDate) {
+    alert('❌ You selected "Held On: Select Date" but did not pick a date. Please pick a date before importing.');
+    document.getElementById('csvImportBtn').disabled = false;
+    document.getElementById('csvProgress').style.display = 'none';
+    return;
+  }
+
   const prog = document.getElementById('csvProgress');
   const bar  = document.getElementById('csvBar');
   const status = document.getElementById('csvStatus');
@@ -2168,7 +2213,10 @@ window.toggleQHeldOn = () => {
 window.toggleCsvHeldOn = () => {
   const type = document.getElementById('csvHeldOnType').value;
   const dateEl = document.getElementById('csvHeldOnDate');
+  const hintEl = document.getElementById('csvHeldOnHint');
   dateEl.style.display = type === 'date' ? 'block' : 'none';
+  // Show warning hint when no date is being set
+  if(hintEl) hintEl.style.display = (type === '' || type === 'none') ? 'block' : 'none';
 };
 window.toggleDelHeldOn = () => {
   const type = document.getElementById('delHeldOnType').value;
