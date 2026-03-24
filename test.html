@@ -713,46 +713,46 @@ async function loadTest(){
     // ── Helper: fetch by year (string OR number) — NEVER filter by language in Firestore
     //    Firestore composite index (exam+year+language) is not guaranteed to exist.
     //    Instead we fetch all docs for exam+year and filter by language in JS. ──
-    // ── Helper: fetch docs, always filter language in JS to avoid composite index requirement ──
-    function filterDocs(snapshot, langVal, shiftVal, heldOnVal){
+    // ── Fetch questions: use exact fields from URL to get precise results ──
+    // Strategy: query by exam+year (2 fields, always works), then JS-filter by lang+shift+heldOn
+    async function fetchQuestions(examVal, yearVal, langVal, shiftVal, heldOnVal){
+      const yStr = String(yearVal);
+      const yNum = parseInt(yearVal);
+
+      // Try string year first
+      let snap = await getDocs(query(collection(db,'questions'),where('exam','==',examVal),where('year','==',yStr)));
+      if(snap.size === 0 && !isNaN(yNum)){
+        snap = await getDocs(query(collection(db,'questions'),where('exam','==',examVal),where('year','==',yNum)));
+      }
+
+      // JS filter: apply lang / shift / heldOn precisely
       const out = [];
-      snapshot.forEach(d => {
+      snap.forEach(d => {
         const data = d.data();
-        if(langVal   && data.language !== langVal)   return;
-        if(shiftVal  && data.shift    && data.shift !== shiftVal)  return;
-        if(heldOnVal && data.heldOn   && data.heldOn !== heldOnVal) return;
+        if(langVal  && data.language !== langVal)  return;
+        if(shiftVal && data.shift && data.shift !== shiftVal) return;
+        if(heldOnVal && data.heldOn && data.heldOn !== heldOnVal) return;
         out.push(d);
       });
       return { forEach:(fn)=>out.forEach(fn), size:out.length };
     }
 
-    async function fetchByYear(examVal, yearVal, langVal, shiftVal, heldOnVal){
-      const yStr = String(yearVal);
-      const yNum = parseInt(yearVal);
-      let s = await getDocs(query(collection(db,'questions'),where('exam','==',examVal),where('year','==',yStr)));
-      if(s.size === 0 && !isNaN(yNum)){
-        s = await getDocs(query(collection(db,'questions'),where('exam','==',examVal),where('year','==',yNum)));
-      }
-      return filterDocs(s, langVal, shiftVal, heldOnVal);
-    }
-
     // ── Build the questions query ──
-    // Read all relevant URL params here
-    const shiftParam2 = params.get('shift') || '';
+    const shiftParam2  = params.get('shift')  || '';
     const heldOnParam2 = params.get('heldOn') || '';
 
     let snap;
     if(mockMeta){
       const yearValue = mockMeta.yearValue ? String(mockMeta.yearValue) : String(mockMeta.seriesNum);
-      // Mocks: fetch all for exam+year, no lang/shift filter
-      snap = await fetchByYear(mockMeta.exam, yearValue, '', '', '');
+      snap = await fetchQuestions(mockMeta.exam, yearValue, '', '', '');
     } else if(year){
-      snap = await fetchByYear(exam, year, lang, shiftParam2, heldOnParam2);
+      snap = await fetchQuestions(exam, year, lang, shiftParam2, heldOnParam2);
     } else if(mockNum){
-      snap = await fetchByYear(exam, mockNum, lang, '', '');
+      snap = await fetchQuestions(exam, mockNum, lang, '', '');
     } else if(lang){
       const s = await getDocs(query(collection(db,'questions'),where('exam','==',exam)));
-      snap = filterDocs(s, lang, '', '');
+      const out = []; s.forEach(d=>{ if(!lang||d.data().language===lang) out.push(d); });
+      snap = { forEach:(fn)=>out.forEach(fn), size:out.length };
     } else {
       snap = await getDocs(query(collection(db,'questions'),where('exam','==',exam)));
     }

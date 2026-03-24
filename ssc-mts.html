@@ -2116,18 +2116,17 @@ GE -->
         const year = p.year || 'Unknown';
         const shift = p.shift || '';
         const dateStr = p.heldOn ? '📅 Held on: '+fmtDate(p.heldOn)+'  · ' : '';
-        const qCount = (p.langs && p.langs.size > 1) ? Math.round(p.count / p.langs.size) : p.count;
+        const qCount = p.count;
         const shiftLabel = shift ? ' · '+shift : '';
-        const testUrl = 'test.html?exam='+EXAM+'&year='+encodeURIComponent(year)+'&tier='+encodeURIComponent(p.tier||'')+'&shift='+encodeURIComponent(shift)+'&heldOn='+encodeURIComponent(p.heldOn||'');
+        const testUrl = 'test.html?exam='+EXAM+'&year='+encodeURIComponent(year)+'&tier='+encodeURIComponent(p.tier||'')+'&shift='+encodeURIComponent(shift)+'&heldOn='+encodeURIComponent(p.heldOn||'')+'&lang='+encodeURIComponent(p.language||'');
+        const lang = p.language||'';
+        const langLabel = lang==='hi' ? '🇮🇳 Hindi' : lang==='en' ? '🇬🇧 English' : lang;
         html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:1rem 1.25rem;background:#fff;border:1px solid #E2E8F0;border-radius:12px;margin-bottom:0.6rem;box-shadow:0 1px 4px rgba(0,0,0,0.04);transition:all 0.2s;" onmouseenter="this.style.borderColor='#FF6B00';this.style.boxShadow='0 2px 12px rgba(255,107,0,0.1)'" onmouseleave="this.style.borderColor='#E2E8F0';this.style.boxShadow='0 1px 4px rgba(0,0,0,0.04)'">
             <div style="display:flex;align-items:center;gap:0.75rem;"><div>
                 <div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1rem;color:#1A202C;">${EXAM.toUpperCase().replace('-',' ')} ${tierLabel} ${year}${shiftLabel}</div>
                 <div style="font-size:0.75rem;color:#718096;margin-top:0.1rem;">${dateStr}📝 ${qCount} Question${qCount!==1?'s':''}</div>
               </div></div>
-            <div style="display:flex;gap:0.5rem;">
-              <button onclick="window.location='${testUrl}&lang=en'" style="background:linear-gradient(135deg,#0EA5E9,#6366F1);color:white;border:none;cursor:pointer;padding:0.45rem 0.9rem;border-radius:8px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.82rem;" onmouseenter="this.style.opacity='0.85'" onmouseleave="this.style.opacity='1'">🇬🇧 English</button>
-              <button onclick="window.location='${testUrl}&lang=hi'" style="background:linear-gradient(135deg,#FF6B00,#FF8C38);color:white;border:none;cursor:pointer;padding:0.45rem 0.9rem;border-radius:8px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.82rem;" onmouseenter="this.style.opacity='0.85'" onmouseleave="this.style.opacity='1'">🇮🇳 Hindi</button>
-            </div></div>`;
+            <button onclick="window.location='${testUrl}'" style="background:${lang==='hi'?'linear-gradient(135deg,#FF6B00,#FF8C38)':'linear-gradient(135deg,#0EA5E9,#6366F1)'};color:white;border:none;cursor:pointer;padding:0.45rem 1rem;border-radius:8px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.82rem;" onmouseenter="this.style.opacity='0.85'" onmouseleave="this.style.opacity='1'">${langLabel||'▶ Start'}</button></div>`;
       });
       container.innerHTML = html || '<div style="text-align:center;padding:2rem;color:#718096;">No papers found.</div>';
     }
@@ -2196,10 +2195,9 @@ GE -->
         const all = await fetchPYQMetadata();
         const paperMap = {};
         all.forEach(d => {
-          const key = (d.year||'')+'|'+(d.shift||'')+'|'+(d.heldOn||'')+'|'+(d.tier||'');
-          if(!paperMap[key]) paperMap[key] = {year:d.year, shift:d.shift, tier:d.tier, heldOn:d.heldOn, count:0, langs:new Set()};
+          const key = (d.year||'')+'|'+(d.shift||'')+'|'+(d.heldOn||'')+'|'+(d.tier||'')+'|'+(d.language||'');
+          if(!paperMap[key]) paperMap[key] = {year:d.year, shift:d.shift, tier:d.tier, heldOn:d.heldOn, language:d.language||'', count:0};
           paperMap[key].count++;
-          if(d.language) paperMap[key].langs.add(d.language);
         });
         const papers = Object.values(paperMap);
         renderTier('t1', papers.filter(p => tierKey(p.tier)==='t1'), TIER1_LABEL);
