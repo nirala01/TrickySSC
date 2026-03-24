@@ -693,6 +693,7 @@ async function loadTest(){
   try{
     setLoaderMsg('Fetching questions...');
     const lang=new URLSearchParams(window.location.search).get('lang')||'';
+    const noCache=new URLSearchParams(window.location.search).get('nocache')==='1';
     const mockNum=new URLSearchParams(window.location.search).get('mockNum')||'';
 
     // ── NEW: if mockId is in the URL, resolve the mock_tests doc first ──
@@ -713,51 +714,100 @@ async function loadTest(){
     // ── Helper: fetch by year (string OR number) — NEVER filter by language in Firestore
     //    Firestore composite index (exam+year+language) is not guaranteed to exist.
     //    Instead we fetch all docs for exam+year and filter by language in JS. ──
-    // ── Fetch questions: use exact fields from URL to get precise results ──
-    // Strategy: query by exam+year (2 fields, always works), then JS-filter by lang+shift+heldOn
-    async function fetchQuestions(examVal, yearVal, langVal, shiftVal, heldOnVal){
+    // ── Cache helpers ──
+    // Cache key = all URL params that define a unique test
+    const shiftParam2  = params.get('shift')  || '';
+    const heldOnParam2 = params.get('heldOn') || '';
+    const CACHE_VERSION = 'v2';
+    const cacheKey = 'tssc_q__' + CACHE_VERSION + '__' + [
+      exam||'', year||'', lang||'', shiftParam2, heldOnParam2,
+      mockId||'', mockNum||''
+    ].join('|');
+    const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+    function loadFromCache(){
+      try {
+        const raw = localStorage.getItem(cacheKey);
+        if(!raw) return null;
+        const {ts, data} = JSON.parse(raw);
+        if(Date.now() - ts > CACHE_TTL_MS){ localStorage.removeItem(cacheKey); return null; }
+        return data; // array of plain question objects
+      } catch(e){ return null; }
+    }
+
+    function saveToCache(qArr){
+      try {
+        // Only cache PYQ/mock questions, not dynamic admin-uploaded ones that change often
+        const payload = JSON.stringify({ts: Date.now(), data: qArr});
+        // Stay within 5MB localStorage limit — skip cache if too large
+        if(payload.length < 3 * 1024 * 1024){
+          localStorage.setItem(cacheKey, payload);
+        }
+      } catch(e){ /* quota exceeded — silently skip */ }
+    }
+
+    async function fetchFromFirestore(examVal, yearVal, langVal, shiftVal, heldOnVal){
       const yStr = String(yearVal);
       const yNum = parseInt(yearVal);
-
-      // Try string year first
-      let snap = await getDocs(query(collection(db,'questions'),where('exam','==',examVal),where('year','==',yStr)));
-      if(snap.size === 0 && !isNaN(yNum)){
-        snap = await getDocs(query(collection(db,'questions'),where('exam','==',examVal),where('year','==',yNum)));
+      let snap = null;
+      for(let attempt = 1; attempt <= 3; attempt++){
+        try {
+          snap = await getDocs(query(collection(db,'questions'),where('exam','==',examVal),where('year','==',yStr)));
+          if(snap.size === 0 && !isNaN(yNum)){
+            snap = await getDocs(query(collection(db,'questions'),where('exam','==',examVal),where('year','==',yNum)));
+          }
+          if(snap.size > 0) break;
+        } catch(e){
+          if(attempt === 3) throw e;
+          setLoaderMsg('Retrying... (' + attempt + '/3)');
+          await new Promise(r => setTimeout(r, 800 * attempt));
+        }
       }
-
-      // JS filter: apply lang / shift / heldOn precisely
       const out = [];
       snap.forEach(d => {
         const data = d.data();
-        if(langVal  && data.language !== langVal)  return;
-        if(shiftVal && data.shift && data.shift !== shiftVal) return;
+        if(langVal   && data.language !== langVal)  return;
+        if(shiftVal  && data.shift && data.shift !== shiftVal)  return;
         if(heldOnVal && data.heldOn && data.heldOn !== heldOnVal) return;
-        out.push(d);
+        out.push({id: d.id, ...data});
       });
-      return { forEach:(fn)=>out.forEach(fn), size:out.length };
+      return out;
     }
 
-    // ── Build the questions query ──
-    const shiftParam2  = params.get('shift')  || '';
-    const heldOnParam2 = params.get('heldOn') || '';
-
-    let snap;
-    if(mockMeta){
-      const yearValue = mockMeta.yearValue ? String(mockMeta.yearValue) : String(mockMeta.seriesNum);
-      snap = await fetchQuestions(mockMeta.exam, yearValue, '', '', '');
-    } else if(year){
-      snap = await fetchQuestions(exam, year, lang, shiftParam2, heldOnParam2);
-    } else if(mockNum){
-      snap = await fetchQuestions(exam, mockNum, lang, '', '');
-    } else if(lang){
-      const s = await getDocs(query(collection(db,'questions'),where('exam','==',exam)));
-      const out = []; s.forEach(d=>{ if(!lang||d.data().language===lang) out.push(d); });
-      snap = { forEach:(fn)=>out.forEach(fn), size:out.length };
+    // ── Try cache FIRST (instant load) ──
+    const cached = noCache ? null : loadFromCache();
+    if(noCache) localStorage.removeItem(cacheKey); // clear stale cache when forced
+    if(cached && cached.length > 0){
+      setLoaderMsg('Loading from cache...');
+      cached.forEach(q => questions.push(q));
     } else {
-      snap = await getDocs(query(collection(db,'questions'),where('exam','==',exam)));
+      // ── Fetch from Firestore with retry ──
+      setLoaderMsg('Fetching questions...');
+
+      let fetchedArr = [];
+      if(mockMeta){
+        const yearValue = mockMeta.yearValue ? String(mockMeta.yearValue) : String(mockMeta.seriesNum);
+        fetchedArr = await fetchFromFirestore(mockMeta.exam, yearValue, '', '', '');
+      } else if(year){
+        fetchedArr = await fetchFromFirestore(exam, year, lang, shiftParam2, heldOnParam2);
+      } else if(mockNum){
+        fetchedArr = await fetchFromFirestore(exam, mockNum, lang, '', '');
+      } else if(lang){
+        const s = await getDocs(query(collection(db,'questions'),where('exam','==',exam)));
+        s.forEach(d=>{ if(!lang||d.data().language===lang) fetchedArr.push({id:d.id,...d.data()}); });
+      } else {
+        const s = await getDocs(query(collection(db,'questions'),where('exam','==',exam)));
+        s.forEach(d=> fetchedArr.push({id:d.id,...d.data()}));
+      }
+
+      fetchedArr.forEach(q => questions.push(q));
+      // Save to cache for instant load next time
+      if(!mockId) saveToCache(fetchedArr); // don't cache mockId tests (they may change)
     }
+
     setLoaderMsg('Preparing test...');
-    snap.forEach(d=>questions.push({id:d.id,...d.data()}));
+    // Note: questions are already plain objects (not Firestore docs) from cache or fetchFromFirestore
+    // So skip the d.data() call — just sort directly
     questions.sort((a,b)=>(a.qNum||0)-(b.qNum||0));
     // Ensure [BR] tokens are pre-converted in all text fields
     questions.forEach(q=>{
@@ -765,6 +815,19 @@ async function loadTest(){
         if(q[f] && typeof q[f]==='string') q[f]=q[f].split('[BR]').join('<br>');
       });
     });
+    // If cache returned 0 questions (stale/corrupt), retry from Firestore once
+    if(questions.length===0 && cached){
+      setLoaderMsg('Cache empty, fetching...');
+      localStorage.removeItem(cacheKey);
+      let retryArr = [];
+      try {
+        if(year) retryArr = await fetchFromFirestore(exam, year, lang, shiftParam2, heldOnParam2);
+        else if(mockNum) retryArr = await fetchFromFirestore(exam, mockNum, lang, '', '');
+      } catch(e){}
+      retryArr.forEach(q=>questions.push(q));
+      if(retryArr.length > 0 && !mockId) saveToCache(retryArr);
+    }
+
     if(questions.length===0){
       document.getElementById('loader').innerHTML=`<div style="text-align:center;padding:2rem;"><div style="font-size:3rem;margin-bottom:1rem;">📭</div><div style="font-size:1.5rem;font-weight:700;margin-bottom:0.5rem;">Questions Not Yet Uploaded</div><div style="font-size:1rem;font-weight:400;opacity:0.9;margin-bottom:1.5rem;">Questions for this test haven't been added yet.<br>Check back soon — we're uploading regularly!</div><a href="javascript:history.back()" style="background:white;color:#FF6B00;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1rem;padding:0.6rem 1.5rem;border-radius:10px;text-decoration:none;">← Go Back</a></div>`;
       return;
