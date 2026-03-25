@@ -969,6 +969,13 @@ async function loadTest(){
     document.getElementById('loader').style.display='none';
     document.getElementById('testScreen').style.display='flex';
     buildSections();buildSectionBar();buildGrid();renderQ();startTimer();
+    // Auto next→prev to fix blank first question render on some devices
+    setTimeout(()=>{
+      if(questions.length>0){
+        currentQ=1; renderQ();
+        setTimeout(()=>{ currentQ=0; renderQ(); }, 50);
+      }
+    }, 120);
   }catch(e){
     document.getElementById('loader').innerHTML='❌ Error loading: '+e.message+'<br><a href="javascript:history.back()" style="color:white;font-size:14px;">← Go Back</a>';
   }
