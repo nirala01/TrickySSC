@@ -626,7 +626,7 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:10
 
 <script type="module">
 import{initializeApp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import{getFirestore,collection,query,where,getDocs,doc,getDoc,setDoc,serverTimestamp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import{getFirestore,doc,getDoc,setDoc,serverTimestamp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import{getAuth,onAuthStateChanged,signOut}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 const app=initializeApp({apiKey:"AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",authDomain:"trickyssc-17bb3.firebaseapp.com",projectId:"trickyssc-17bb3",storageBucket:"trickyssc-17bb3.firebasestorage.app",messagingSenderId:"450627057220",appId:"1:450627057220:web:366267bf437d94f20c6e11"});
@@ -724,163 +724,180 @@ async function loadTest(){
     //    Firestore composite index (exam+year+language) is not guaranteed to exist.
     //    Instead we fetch all docs for exam+year and filter by language in JS. ──
     // ────────────────────────────────────────────────────────────
-    // CACHE  — keyed at exam+year level (not per-shift/lang/heldOn)
-    // so one Firestore fetch serves ALL language/shift variants.
-    // We filter in JS after loading from cache.
-    // ────────────────────────────────────────────────────────────
+    // ── Fetch questions via Firestore REST API (no SDK needed, faster & reliable) ──
+    const _PROJECT = 'trickyssc-17bb3';
+    const _APIKEY  = 'AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA';
     const shiftParam2  = params.get('shift')  || '';
     const heldOnParam2 = params.get('heldOn') || '';
 
-    // Cache key: exam + year only (broader = reusable across lang/shift)
-    // mockId tests are never cached (they change)
-    const CACHE_VERSION = 'v3';
-    const cacheKeyBase = mockId
-      ? null
-      : ('tssc_q__' + CACHE_VERSION + '__' + (exam||'') + '|' + (year||mockNum||''));
-    const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+    // Cache key: exam+year (broad) so one fetch covers all lang/shift variants
+    const _CACHE_VER = 'v4';
+    const _cacheKey  = mockId ? null
+      : ('tssc__' + _CACHE_VER + '__' + (exam||'') + '|' + (year || mockNum || ''));
+    const _CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days
 
-    function loadFromCache() {
-      if(!cacheKeyBase) return null;
+    function _readCache() {
+      if(!_cacheKey) return null;
       try {
-        const raw = localStorage.getItem(cacheKeyBase);
+        const raw = localStorage.getItem(_cacheKey);
         if(!raw) return null;
-        const {ts, data} = JSON.parse(raw);
-        if(Date.now() - ts > CACHE_TTL_MS) { localStorage.removeItem(cacheKeyBase); return null; }
-        return data; // array of ALL question objects for this exam+year
+        const obj = JSON.parse(raw);
+        if(Date.now() - obj.ts > _CACHE_TTL) { localStorage.removeItem(_cacheKey); return null; }
+        return obj.data;
       } catch(e) { return null; }
     }
-
-    function saveToCache(qArr) {
-      if(!cacheKeyBase || !qArr.length) return;
+    function _writeCache(arr) {
+      if(!_cacheKey || !arr.length) return;
       try {
-        const payload = JSON.stringify({ts: Date.now(), data: qArr});
-        if(payload.length < 4 * 1024 * 1024) {  // 4MB limit
-          localStorage.setItem(cacheKeyBase, payload);
-        }
-      } catch(e) { /* storage full — skip */ }
+        const s = JSON.stringify({ts: Date.now(), data: arr});
+        if(s.length < 4 * 1024 * 1024) localStorage.setItem(_cacheKey, s);
+      } catch(e) {}
     }
 
-    // JS-side filter: apply lang / shift / heldOn after fetching the broad set
-    function filterQuestions(allDocs, langVal, shiftVal, heldOnVal) {
-      let out = allDocs.filter(data => {
-        if(langVal && data.language !== langVal) return false;
-        // Shift: only filter if BOTH URL param and doc field are non-empty strings
-        if(shiftVal  && shiftVal.trim()  && data.shift  && data.shift.trim()  && data.shift  !== shiftVal)  return false;
-        // HeldOn: same rule
-        if(heldOnVal && heldOnVal.trim() && data.heldOn && data.heldOn.trim() && data.heldOn !== heldOnVal) return false;
+    // Parse a single Firestore REST field value (handles string/integer/boolean)
+    function _fval(f) {
+      if(!f) return '';
+      return f.stringValue ?? f.integerValue ?? f.booleanValue ?? '';
+    }
+
+    // Fetch ALL questions for exam+year via REST (no Firebase SDK, no auth required)
+    async function _restFetch(examVal, yearVal) {
+      const url = `https://firestore.googleapis.com/v1/projects/${_PROJECT}/databases/(default)/documents:runQuery?key=${_APIKEY}`;
+      const yStr = String(yearVal);
+
+      // Build query: exam == examVal AND year == yStr
+      const body = {
+        structuredQuery: {
+          from: [{collectionId: 'questions'}],
+          where: {
+            compositeFilter: {
+              op: 'AND',
+              filters: [
+                {fieldFilter: {field:{fieldPath:'exam'}, op:'EQUAL', value:{stringValue: examVal}}},
+                {fieldFilter: {field:{fieldPath:'year'}, op:'EQUAL', value:{stringValue: yStr}}}
+              ]
+            }
+          }
+        }
+      };
+
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify(body)
+      });
+      if(!res.ok) throw new Error('Firestore REST ' + res.status);
+      const json = await res.json();
+
+      // Parse REST response into plain objects
+      const docs = (json || [])
+        .filter(r => r.document && r.document.fields)
+        .map(r => {
+          const f = r.document.fields;
+          const obj = { id: r.document.name.split('/').pop() };
+          // Map every field in the document
+          for(const key of Object.keys(f)) {
+            const v = f[key];
+            if(v.stringValue  !== undefined) obj[key] = v.stringValue;
+            else if(v.integerValue !== undefined) obj[key] = v.integerValue;
+            else if(v.booleanValue !== undefined) obj[key] = v.booleanValue;
+            else if(v.doubleValue  !== undefined) obj[key] = v.doubleValue;
+            else if(v.arrayValue   !== undefined) {
+              obj[key] = (v.arrayValue.values || []).map(i =>
+                i.stringValue ?? i.integerValue ?? i.booleanValue ?? ''
+              );
+            }
+            else obj[key] = '';
+          }
+          return obj;
+        });
+
+      return docs;
+    }
+
+    // JS filter: lang + shift + heldOn with 3-level fallback
+    function _filter(all, langVal, shiftVal, heldOnVal) {
+      // Level 1: strict (all three filters)
+      let out = all.filter(q => {
+        if(langVal   && q.language !== langVal)   return false;
+        if(shiftVal  && shiftVal.trim()  && q.shift  && q.shift.trim()  && q.shift  !== shiftVal)  return false;
+        if(heldOnVal && heldOnVal.trim() && q.heldOn && q.heldOn.trim() && q.heldOn !== heldOnVal) return false;
         return true;
       });
+      if(out.length > 0) return out;
 
-      // Safety fallback: if strict filter emptied results but there IS data, relax to lang-only
-      if(out.length === 0 && allDocs.length > 0) {
-        console.warn('[TrickySSC] shift/heldOn filter → 0. Falling back to lang-only.', {shiftVal, heldOnVal});
-        out = allDocs.filter(data => !langVal || data.language === langVal);
-      }
+      // Level 2: lang only (drop shift/heldOn — maybe they aren't stored in doc)
+      console.warn('[TrickySSC] strict filter→0, trying lang-only. shift=', shiftVal, 'heldOn=', heldOnVal);
+      out = all.filter(q => !langVal || q.language === langVal);
+      if(out.length > 0) return out;
 
-      // Last resort: if lang-only also empty, return everything
-      if(out.length === 0 && allDocs.length > 0) {
-        console.warn('[TrickySSC] lang filter → 0. Returning all docs for exam+year.');
-        out = allDocs;
-      }
-
-      return out;
-    }
-
-    // Firestore fetch — exam+year only, NO additional filtering in query
-    async function fetchFromFirestore(examVal, yearVal) {
-      const yStr = String(yearVal);
-      const yNum = parseInt(yearVal);
-      let snap = null;
-
-      for(let attempt = 1; attempt <= 3; attempt++) {
-        try {
-          snap = await getDocs(query(
-            collection(db, 'questions'),
-            where('exam', '==', examVal),
-            where('year', '==', yStr)
-          ));
-          // Try numeric year if string returned nothing
-          if(snap.size === 0 && !isNaN(yNum)) {
-            snap = await getDocs(query(
-              collection(db, 'questions'),
-              where('exam', '==', examVal),
-              where('year', '==', yNum)
-            ));
-          }
-          if(snap.size > 0) break;
-        } catch(e) {
-          if(attempt === 3) throw e;
-          setLoaderMsg('Slow connection — retrying (' + attempt + '/3)...');
-          await new Promise(r => setTimeout(r, 1000 * attempt));
-        }
-      }
-
-      if(!snap || snap.size === 0) return [];
-      const all = [];
-      snap.forEach(d => all.push({id: d.id, ...d.data()}));
+      // Level 3: return everything (no filter)
+      console.warn('[TrickySSC] lang filter→0, returning all', all.length, 'docs');
       return all;
     }
 
-    // ── Step 1: Get all docs for this exam+year (from cache or Firestore) ──
-    const noCache = params.get('nocache') === '1';
-    if(noCache && cacheKeyBase) localStorage.removeItem(cacheKeyBase);
+    // ── Main load: cache → REST → filter ──
+    const _noCache = params.get('nocache') === '1';
+    if(_noCache && _cacheKey) localStorage.removeItem(_cacheKey);
 
-    let allDocsForYear = [];
-    const cached = loadFromCache();
+    let _allDocs = _noCache ? [] : (_readCache() || []);
 
-    if(cached && cached.length > 0) {
+    if(_allDocs.length > 0) {
       setLoaderMsg('Loading from cache...');
-      allDocsForYear = cached;
     } else {
       setLoaderMsg('Loading questions...');
       try {
         if(mockMeta) {
           const yv = mockMeta.yearValue ? String(mockMeta.yearValue) : String(mockMeta.seriesNum);
-          allDocsForYear = await fetchFromFirestore(mockMeta.exam, yv);
+          _allDocs = await _restFetch(mockMeta.exam, yv);
         } else if(year) {
-          allDocsForYear = await fetchFromFirestore(exam, year);
+          _allDocs = await _restFetch(exam, year);
         } else if(mockNum) {
-          allDocsForYear = await fetchFromFirestore(exam, mockNum);
+          _allDocs = await _restFetch(exam, mockNum);
         } else {
-          // No year — fetch all for exam (rare fallback)
-          const s = await getDocs(query(collection(db,'questions'), where('exam','==',exam)));
-          s.forEach(d => allDocsForYear.push({id:d.id,...d.data()}));
+          // No year — fetch all for exam via REST
+          const url = `https://firestore.googleapis.com/v1/projects/${_PROJECT}/databases/(default)/documents:runQuery?key=${_APIKEY}`;
+          const body = {structuredQuery:{from:[{collectionId:'questions'}],where:{fieldFilter:{field:{fieldPath:'exam'},op:'EQUAL',value:{stringValue:exam}}}}};
+          const res = await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+          const json = await res.json();
+          _allDocs = (json||[]).filter(r=>r.document&&r.document.fields).map(r=>{const f=r.document.fields;const obj={id:r.document.name.split('/').pop()};for(const k of Object.keys(f)){const v=f[k];obj[k]=v.stringValue??v.integerValue??v.booleanValue??v.doubleValue??'';}return obj;});
         }
-        // Save broad set to cache
-        if(!mockId) saveToCache(allDocsForYear);
+        if(!mockId) _writeCache(_allDocs);
       } catch(e) {
-        throw new Error('Failed to load questions: ' + e.message);
+        throw new Error('Failed to load: ' + e.message);
       }
     }
 
-    // ── Step 2: Apply JS filters (lang, shift, heldOn) ──
     setLoaderMsg('Preparing test...');
-    const filtered = filterQuestions(allDocsForYear, lang, shiftParam2, heldOnParam2);
-    filtered.forEach(q => questions.push(q));
 
-    // [BR] token → <br>
+    // Apply filters
+    const _filtered = _filter(_allDocs, lang, shiftParam2, heldOnParam2);
+    _filtered.forEach(q => questions.push(q));
+
+    // [BR] → <br>
     questions.forEach(q => {
-      ['text','question','explanation','trick','concept'].forEach(f => {
+      ['text','question','explanation','trick','concept','option_A','option_B','option_C','option_D'].forEach(f => {
         if(q[f] && typeof q[f] === 'string') q[f] = q[f].split('[BR]').join('<br>');
       });
     });
 
-    questions.sort((a,b) => (a.qNum||0) - (b.qNum||0));
+    questions.sort((a,b) => (parseInt(a.qNum)||0) - (parseInt(b.qNum)||0));
 
     if(questions.length === 0) {
-      console.error('[TrickySSC] 0 questions. Params:', {exam, year, lang, shiftParam2, heldOnParam2, mockId, mockNum, allDocsForYear: allDocsForYear.length});
+      console.error('[TrickySSC] 0 questions. allDocs=', _allDocs.length,
+        'params:', {exam, year, lang, shiftParam2, heldOnParam2, mockId, mockNum});
       document.getElementById('loader').innerHTML = `<div style="text-align:center;padding:2rem;">
         <div style="font-size:3rem;margin-bottom:1rem;">📭</div>
         <div style="font-size:1.5rem;font-weight:700;margin-bottom:0.5rem;">Questions Not Yet Uploaded</div>
-        <div style="font-size:1rem;font-weight:400;opacity:0.9;margin-bottom:1.5rem;">
-          Questions for this test haven't been added yet.<br>Check back soon — we're uploading regularly!
+        <div style="font-size:1rem;opacity:0.9;margin-bottom:1.5rem;">
+          No questions found for this paper yet.<br>Check back soon!
         </div>
-        <a href="javascript:history.back()" style="background:white;color:#FF6B00;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1rem;padding:0.6rem 1.5rem;border-radius:10px;text-decoration:none;">← Go Back</a>
-        <br><br>
-        <a href="javascript:location.reload()" style="font-size:0.78rem;color:white;opacity:0.7;">↺ Retry</a>
+        <a href="javascript:history.back()" style="background:white;color:#FF6B00;font-family:'Rajdhani',sans-serif;font-weight:700;padding:0.6rem 1.5rem;border-radius:10px;text-decoration:none;display:inline-block;margin-bottom:0.75rem;">← Go Back</a><br>
+        <a href="javascript:location.reload()" style="font-size:0.8rem;color:white;opacity:0.7;">↺ Retry</a>
       </div>`;
       return;
     }
+
     // Set exam title — use mock title if available, else fallback
     // ── Smart exam title builder ──
     const tierParam  = params.get('tier')  || '';
