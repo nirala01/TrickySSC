@@ -1473,8 +1473,10 @@
   <script type="module">
     import{initializeApp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
     import{getFirestore,collection,query,where,getDocs}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+    import{getAuth,onAuthStateChanged}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
     const _app=initializeApp({apiKey:"AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",authDomain:"trickyssc-17bb3.firebaseapp.com",projectId:"trickyssc-17bb3",storageBucket:"trickyssc-17bb3.firebasestorage.app",messagingSenderId:"450627057220",appId:"1:450627057220:web:366267bf437d94f20c6e11"});
     const _db=getFirestore(_app);
+    const _auth=getAuth(_app);
 
     const EXAM = 'ssc-cgl';
     const TIER1_LABEL = 'Tier I';
@@ -1670,17 +1672,26 @@
     }
 
     // Load when section becomes visible (visibility observer)
-    const section = document.getElementById('cgl-pyq-page');
-    if(section) {
-      const obs = new MutationObserver(() => {
-        if(section.style.display !== 'none' && !section.dataset.pyqLoaded) {
-          section.dataset.pyqLoaded = '1';
-          loadPYQs();
-        }
-      });
-      obs.observe(section, {attributes:true, attributeFilter:['style']});
-      // Also trigger immediately if already visible
-      if(section.style.display !== 'none') { section.dataset.pyqLoaded='1'; loadPYQs(); }
+    // Wait for auth before fetching — Firestore rules require authenticated reads
+    function _triggerWhenVisible() {
+      const section = document.getElementById('cgl-pyq-page');
+      if(section) {
+        const obs = new MutationObserver(() => {
+          if(section.style.display !== 'none' && !section.dataset.pyqLoaded) {
+            section.dataset.pyqLoaded = '1';
+            loadPYQs();
+          }
+        });
+        obs.observe(section, {attributes:true, attributeFilter:['style']});
+        if(section.style.display !== 'none') { section.dataset.pyqLoaded='1'; loadPYQs(); }
+      }
+    }
+    // Fire after auth resolves (or use stored user immediately)
+    const _storedUid = (() => { try { const u=JSON.parse(localStorage.getItem('tssc_user')||'{}'); return u.uid||null; } catch(e){ return null; } })();
+    if(_storedUid) {
+      _triggerWhenVisible(); // user already known — load immediately
+    } else {
+      onAuthStateChanged(_auth, user => { if(user) _triggerWhenVisible(); });
     }
   </script>
 </section>
