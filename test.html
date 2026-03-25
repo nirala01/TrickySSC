@@ -693,6 +693,15 @@ async function loadTest(){
   try{
     setLoaderMsg('Fetching questions...');
     const lang=new URLSearchParams(window.location.search).get('lang')||'';
+    // Debug: log all URL params on load
+    console.log('[TrickySSC] loadTest params:', {
+      exam, year,
+      lang: new URLSearchParams(window.location.search).get('lang'),
+      shift: new URLSearchParams(window.location.search).get('shift'),
+      heldOn: new URLSearchParams(window.location.search).get('heldOn'),
+      tier: new URLSearchParams(window.location.search).get('tier'),
+      mockId, mockNum: new URLSearchParams(window.location.search).get('mockNum')
+    });
     const noCache=new URLSearchParams(window.location.search).get('nocache')==='1';
     const mockNum=new URLSearchParams(window.location.search).get('mockNum')||'';
 
@@ -750,41 +759,63 @@ async function loadTest(){
       const yStr = String(yearVal);
       const yNum = parseInt(yearVal);
       let snap = null;
+
       for(let attempt = 1; attempt <= 3; attempt++){
         try {
+          // Query by exam+year (string). Firestore only needs these 2 fields indexed.
           snap = await getDocs(query(collection(db,'questions'),where('exam','==',examVal),where('year','==',yStr)));
+          // If nothing found with string year, try numeric year
           if(snap.size === 0 && !isNaN(yNum)){
             snap = await getDocs(query(collection(db,'questions'),where('exam','==',examVal),where('year','==',yNum)));
           }
-          if(snap.size > 0) break;
+          if(snap.size > 0) break; // got data, stop retrying
         } catch(e){
           if(attempt === 3) throw e;
           setLoaderMsg('Retrying... (' + attempt + '/3)');
           await new Promise(r => setTimeout(r, 800 * attempt));
         }
       }
+
+      if(!snap || snap.size === 0) return []; // nothing in Firestore for this exam+year
+
       const out = [];
       snap.forEach(d => {
         const data = d.data();
-        if(langVal   && data.language !== langVal)  return;
-        if(shiftVal  && data.shift && data.shift !== shiftVal)  return;
-        if(heldOnVal && data.heldOn && data.heldOn !== heldOnVal) return;
+        // Language filter (strict — must match if specified)
+        if(langVal && data.language !== langVal) return;
+        // Shift filter — only filter if BOTH param and field exist and are non-empty
+        if(shiftVal && shiftVal.trim() && data.shift && data.shift.trim() && data.shift !== shiftVal) return;
+        // HeldOn filter — only filter if BOTH param and field exist and are non-empty
+        if(heldOnVal && heldOnVal.trim() && data.heldOn && data.heldOn.trim() && data.heldOn !== heldOnVal) return;
         out.push({id: d.id, ...data});
       });
+
+      // SAFETY: if JS-filter eliminated everything (shift/heldOn mismatch), 
+      // fall back to lang-only filter so test isn't blank
+      if(out.length === 0 && snap.size > 0){
+        console.warn('[TrickySSC] shift/heldOn filter returned 0 — falling back to lang-only filter');
+        snap.forEach(d => {
+          const data = d.data();
+          if(langVal && data.language !== langVal) return;
+          out.push({id: d.id, ...data});
+        });
+      }
+
       return out;
     }
 
     // ── Try cache FIRST (instant load) ──
     const cached = noCache ? null : loadFromCache();
-    if(noCache) localStorage.removeItem(cacheKey); // clear stale cache when forced
+    if(noCache) localStorage.removeItem(cacheKey); // force fresh when ?nocache=1
+
     if(cached && cached.length > 0){
       setLoaderMsg('Loading from cache...');
       cached.forEach(q => questions.push(q));
     } else {
-      // ── Fetch from Firestore with retry ──
+      // ── Fetch from Firestore ──
       setLoaderMsg('Fetching questions...');
-
       let fetchedArr = [];
+
       if(mockMeta){
         const yearValue = mockMeta.yearValue ? String(mockMeta.yearValue) : String(mockMeta.seriesNum);
         fetchedArr = await fetchFromFirestore(mockMeta.exam, yearValue, '', '', '');
@@ -794,42 +825,44 @@ async function loadTest(){
         fetchedArr = await fetchFromFirestore(exam, mockNum, lang, '', '');
       } else if(lang){
         const s = await getDocs(query(collection(db,'questions'),where('exam','==',exam)));
-        s.forEach(d=>{ if(!lang||d.data().language===lang) fetchedArr.push({id:d.id,...d.data()}); });
+        s.forEach(d=>{ const data=d.data(); if(!lang||data.language===lang) fetchedArr.push({id:d.id,...data}); });
       } else {
         const s = await getDocs(query(collection(db,'questions'),where('exam','==',exam)));
         s.forEach(d=> fetchedArr.push({id:d.id,...d.data()}));
       }
 
       fetchedArr.forEach(q => questions.push(q));
-      // Save to cache for instant load next time
-      if(!mockId) saveToCache(fetchedArr); // don't cache mockId tests (they may change)
+      // Cache for instant load next time (skip mocks — they may be updated)
+      if(!mockId && fetchedArr.length > 0) saveToCache(fetchedArr);
     }
 
-    setLoaderMsg('Preparing test...');
-    // Note: questions are already plain objects (not Firestore docs) from cache or fetchFromFirestore
-    // So skip the d.data() call — just sort directly
-    questions.sort((a,b)=>(a.qNum||0)-(b.qNum||0));
-    // Ensure [BR] tokens are pre-converted in all text fields
+    // [BR] → <br> conversion
     questions.forEach(q=>{
       ['text','question','explanation','trick','concept'].forEach(f=>{
         if(q[f] && typeof q[f]==='string') q[f]=q[f].split('[BR]').join('<br>');
       });
     });
-    // If cache returned 0 questions (stale/corrupt), retry from Firestore once
-    if(questions.length===0 && cached){
-      setLoaderMsg('Cache empty, fetching...');
+
+    // Stale cache safety: if cache gave 0, try Firestore once more
+    if(questions.length === 0 && cached){
+      setLoaderMsg('Cache empty — refetching...');
       localStorage.removeItem(cacheKey);
       let retryArr = [];
       try {
-        if(year) retryArr = await fetchFromFirestore(exam, year, lang, shiftParam2, heldOnParam2);
+        if(year)    retryArr = await fetchFromFirestore(exam, year, lang, shiftParam2, heldOnParam2);
         else if(mockNum) retryArr = await fetchFromFirestore(exam, mockNum, lang, '', '');
-      } catch(e){}
-      retryArr.forEach(q=>questions.push(q));
+      } catch(e){ console.warn('Stale cache retry failed', e); }
+      retryArr.forEach(q => questions.push(q));
       if(retryArr.length > 0 && !mockId) saveToCache(retryArr);
     }
 
-    if(questions.length===0){
-      document.getElementById('loader').innerHTML=`<div style="text-align:center;padding:2rem;"><div style="font-size:3rem;margin-bottom:1rem;">📭</div><div style="font-size:1.5rem;font-weight:700;margin-bottom:0.5rem;">Questions Not Yet Uploaded</div><div style="font-size:1rem;font-weight:400;opacity:0.9;margin-bottom:1.5rem;">Questions for this test haven't been added yet.<br>Check back soon — we're uploading regularly!</div><a href="javascript:history.back()" style="background:white;color:#FF6B00;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1rem;padding:0.6rem 1.5rem;border-radius:10px;text-decoration:none;">← Go Back</a></div>`;
+    setLoaderMsg('Preparing test...');
+    questions.sort((a,b)=>(a.qNum||0)-(b.qNum||0));
+
+    if(questions.length === 0){
+      // Show "not uploaded yet" — but also show debug info in console
+      console.error('[TrickySSC] 0 questions after all fetches. Params:', {exam, year, lang, shiftParam2, heldOnParam2, mockId, mockNum});
+      document.getElementById('loader').innerHTML=`<div style="text-align:center;padding:2rem;"><div style="font-size:3rem;margin-bottom:1rem;">📭</div><div style="font-size:1.5rem;font-weight:700;margin-bottom:0.5rem;">Questions Not Yet Uploaded</div><div style="font-size:1rem;font-weight:400;opacity:0.9;margin-bottom:1.5rem;">Questions for this test haven't been added yet.<br>Check back soon — we're uploading regularly!</div><a href="javascript:history.back()" style="background:white;color:#FF6B00;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1rem;padding:0.6rem 1.5rem;border-radius:10px;text-decoration:none;">← Go Back</a><br><br><a href="javascript:location.href=location.href.split('?')[0]+'?'+location.search.replace('nocache=1','')+'&nocache=1'" style="font-size:0.78rem;color:#FF6B00;opacity:0.7;">↺ Force reload without cache</a></div>`;
       return;
     }
     // Set exam title — use mock title if available, else fallback
