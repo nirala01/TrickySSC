@@ -2032,34 +2032,40 @@ GE -->
 
 
   async function fetchPYQMetadata() {
-      // Use Firebase SDK (authenticated) — works with Firestore security rules
-      // No type filter — CSV-imported questions don't have a type field
       try {
-        const snap = await getDocs(query(
-          collection(_db, 'questions'),
-          where('exam', '==', EXAM)
-        ));
-        const docs = [];
-        snap.forEach(d => {
-          const f = d.data();
-          docs.push({
-            year:     String(f.year     || ''),
-            shift:    String(f.shift    || ''),
-            tier:     String(f.tier     || ''),
-            heldOn:   String(f.heldOn   || ''),
-            language: String(f.language || '')
-          });
+        const cached = sessionStorage.getItem(CACHE_KEY);
+        if(cached) { const obj=JSON.parse(cached); if(obj.data&&obj.data.length>0) return obj.data; }
+      } catch(e) {}
+      const _P='trickyssc-17bb3', _K='AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA';
+      const url=`https://firestore.googleapis.com/v1/projects/${_P}/databases/(default)/documents:runQuery?key=${_K}`;
+      const body={structuredQuery:{from:[{collectionId:'questions'}],
+        where:{fieldFilter:{field:{fieldPath:'exam'},op:'EQUAL',value:{stringValue:EXAM}}},
+        select:{fields:[{fieldPath:'year'},{fieldPath:'shift'},{fieldPath:'tier'},{fieldPath:'heldOn'},{fieldPath:'language'}]}
+      }};
+      try {
+        const res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+        const json=await res.json();
+        const docs=(json||[]).filter(r=>r.document&&r.document.fields).map(r=>{
+          const f=r.document.fields;
+          return {
+            year:    String(f.year    ?(f.year.stringValue    ||f.year.integerValue    ||''):''),
+            shift:   String(f.shift   ?(f.shift.stringValue   ||''):''),
+            tier:    String(f.tier    ?(f.tier.stringValue    ||''):''),
+            heldOn:  String(f.heldOn  ?(f.heldOn.stringValue  ||''):''),
+            language:String(f.language?(f.language.stringValue||''):'')
+          };
         });
-        console.log('[TrickySSC] PYQ metadata:', docs.length, 'docs for', EXAM);
-        try { sessionStorage.setItem(CACHE_KEY, JSON.stringify({ts: Date.now(), data: docs})); } catch(e) {}
+        console.log('[TrickySSC] PYQ metadata:',docs.length,'docs for',EXAM);
+        try{sessionStorage.setItem(CACHE_KEY,JSON.stringify({ts:Date.now(),data:docs}));}catch(e){}
         return docs;
       } catch(e) {
-        console.error('[TrickySSC] fetchPYQMetadata failed:', e.message);
+        console.error('[TrickySSC] metadata fetch failed:',e.message);
         try {
-          const cached = sessionStorage.getItem(CACHE_KEY);
-          if(cached) { const obj = JSON.parse(cached); if(obj.data) return obj.data; }
-        } catch(e2) {}
-        return [];
+          const snap=await getDocs(query(collection(_db,'questions'),where('exam','==',EXAM)));
+          const docs=[]; snap.forEach(d=>{const f=d.data();docs.push({year:String(f.year||''),shift:String(f.shift||''),tier:String(f.tier||''),heldOn:String(f.heldOn||''),language:String(f.language||'')});});
+          try{sessionStorage.setItem(CACHE_KEY,JSON.stringify({ts:Date.now(),data:docs}));}catch(e2){}
+          return docs;
+        } catch(e2){ return []; }
       }
     }
 

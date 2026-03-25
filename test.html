@@ -840,22 +840,29 @@ async function loadTest(){
 
     // JS filter: lang + shift + heldOn with 3-level fallback
     function _filter(all, langVal, shiftVal, heldOnVal) {
-      // Level 1: strict (all three filters)
+      // Level 1: strict — but treat empty/missing language as "matches any"
       let out = all.filter(q => {
-        if(langVal   && q.language !== langVal)   return false;
+        // Language: only filter if BOTH URL param AND doc field are non-empty
+        const docLang = (q.language || '').trim();
+        if(langVal && docLang && docLang !== langVal) return false;
+        // Shift: only filter if both non-empty
         if(shiftVal  && shiftVal.trim()  && q.shift  && q.shift.trim()  && q.shift  !== shiftVal)  return false;
+        // HeldOn: only filter if both non-empty
         if(heldOnVal && heldOnVal.trim() && q.heldOn && q.heldOn.trim() && q.heldOn !== heldOnVal) return false;
         return true;
       });
       if(out.length > 0) return out;
 
-      // Level 2: lang only (drop shift/heldOn — maybe they aren't stored in doc)
-      console.warn('[TrickySSC] strict filter→0, trying lang-only. shift=', shiftVal, 'heldOn=', heldOnVal);
-      out = all.filter(q => !langVal || q.language === langVal);
+      // Level 2: drop shift/heldOn filters only
+      console.warn('[TrickySSC] strict filter→0, dropping shift/heldOn. lang='+langVal+' shift='+shiftVal+' heldOn='+heldOnVal);
+      out = all.filter(q => {
+        const docLang = (q.language || '').trim();
+        return !langVal || !docLang || docLang === langVal;
+      });
       if(out.length > 0) return out;
 
-      // Level 3: return everything (no filter)
-      console.warn('[TrickySSC] lang filter→0, returning all', all.length, 'docs');
+      // Level 3: return everything
+      console.warn('[TrickySSC] all filters→0, returning all', all.length, 'docs');
       return all;
     }
 

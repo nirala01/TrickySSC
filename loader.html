@@ -218,22 +218,26 @@ async function fetchMockById(mId) {
 
 // ── JS-side filter: 3-level fallback ─────────────────────
 function filterDocs(all, langVal, shiftVal, heldOnVal) {
-  // Level 1: strict — all three match
+  // Level 1: strict — treat empty/missing language as matching any lang
   let out = all.filter(q => {
-    if(langVal   && q.language !== langVal)   return false;
+    const docLang = (q.language || '').trim();
+    if(langVal && docLang && docLang !== langVal) return false;
     if(shiftVal  && shiftVal.trim()  && q.shift  && q.shift.trim()  && q.shift  !== shiftVal)  return false;
     if(heldOnVal && heldOnVal.trim() && q.heldOn && q.heldOn.trim() && q.heldOn !== heldOnVal) return false;
     return true;
   });
   if(out.length > 0) return out;
 
-  // Level 2: lang only (drop shift/heldOn — they may not be stored in doc)
-  console.warn('[loader] strict→0, lang-only fallback. shift='+shiftVal+' heldOn='+heldOnVal);
-  out = all.filter(q => !langVal || q.language === langVal);
+  // Level 2: drop shift/heldOn filters only
+  console.warn('[loader] strict→0, dropping shift/heldOn. lang='+langVal+' shift='+shiftVal+' heldOn='+heldOnVal);
+  out = all.filter(q => {
+    const docLang = (q.language || '').trim();
+    return !langVal || !docLang || docLang === langVal;
+  });
   if(out.length > 0) return out;
 
   // Level 3: return all (no filter)
-  console.warn('[loader] lang→0, returning all', all.length, 'docs');
+  console.warn('[loader] all filters→0, returning all', all.length, 'docs');
   return all;
 }
 
