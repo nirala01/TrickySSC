@@ -1928,33 +1928,104 @@ GE -->
   }
   window['showGDPYQTier'] = switchTier;
 
-  function renderTier(tierId, papers, tierLabel) {
-    const container = document.getElementById(EXAM+'-pyq-'+tierId+'-content');
-    const countEl   = document.getElementById(EXAM+'-'+tierId+'-count');
-    if(!papers.length) {
-      container.innerHTML='<div style="text-align:center;padding:3rem;background:white;border-radius:16px;border:1px solid #E2E8F0;color:#718096;"><div style="font-size:2rem;margin-bottom:0.5rem;">📭</div><div style="font-weight:700;margin-bottom:0.25rem;">No Papers Yet</div><div style="font-size:0.85rem;">Papers will appear here as they are uploaded to the database.</div></div>';
-      if(countEl) countEl.textContent='0 Papers';
-      return;
+    function renderTier(tierId, papers, tierLabel) {
+      const container = document.getElementById(EXAM+'-pyq-'+tierId+'-content');
+      const countEl = document.getElementById(EXAM+'-'+tierId+'-count');
+      if(!papers.length) {
+        container.innerHTML = '<div style="text-align:center;padding:3rem;background:white;border-radius:16px;border:1px solid #E2E8F0;color:#718096;"><div style="font-size:2rem;margin-bottom:0.5rem;">📭</div><div style="font-weight:700;margin-bottom:0.25rem;">No Papers Yet</div><div style="font-size:0.85rem;">Papers will appear here as they are uploaded to the database.</div></div>';
+        if(countEl) countEl.textContent = '0 Papers';
+        return;
+      }
+
+      if(countEl) countEl.textContent = papers.length + ' Paper' + (papers.length!==1?'s':'');
+
+      // Sort by year desc, then shift asc
+      papers.sort((a,b) => (parseInt(b.year)||0)-(parseInt(a.year)||0) || (a.shift||'').localeCompare(b.shift||''));
+
+      // Group by year
+      const grouped = {};
+      papers.forEach(p => {
+        const y = p.year || 'Unknown';
+        if(!grouped[y]) grouped[y] = [];
+        grouped[y].push(p);
+      });
+
+      // Year accent colors cycling
+      const yearColors = ['#FF6B00','#6366F1','#00A86B','#0EA5E9','#E11D48','#F59E0B','#8B5CF6','#10B981'];
+      const yearKeys = Object.keys(grouped);
+
+      let html = '';
+      yearKeys.forEach((year, yi) => {
+        const accentColor = yearColors[yi % yearColors.length];
+        const yearPapers = grouped[year];
+        const totalInYear = yearPapers.reduce((s,p)=>s+(p.count||0),0);
+
+        html += `
+        <div style="margin-bottom:1.5rem;">
+          <!-- Year header -->
+          <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.6rem;padding:0 0.25rem;">
+            <div style="width:32px;height:32px;background:${accentColor};border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:'Rajdhani',sans-serif;font-weight:800;font-size:0.72rem;color:white;letter-spacing:-0.3px;flex-shrink:0;">${year}</div>
+            <div style="font-family:'Rajdhani',sans-serif;font-weight:800;font-size:1rem;color:#1A202C;">SSC CGL ${tierLabel} ${year}</div>
+            <div style="margin-left:auto;background:#F1F5F9;border-radius:20px;padding:0.2rem 0.65rem;font-size:0.72rem;font-weight:700;color:#64748B;font-family:'Rajdhani',sans-serif;">${yearPapers.length} paper${yearPapers.length!==1?'s':''}</div>
+          </div>
+          <!-- Cards for this year -->
+          <div style="background:#fff;border:1px solid #E2E8F0;border-radius:14px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.05);border-left:3px solid ${accentColor};">`;
+
+        yearPapers.forEach((p, pi) => {
+          const shift = p.shift || '';
+          const lang = p.language || '';
+          const qCount = p.count;
+          const langLabel = lang==='hi' ? '🇮🇳 Hindi' : lang==='en' ? '🇬🇧 English' : lang;
+          const langColor = lang==='hi' ? 'linear-gradient(135deg,#FF6B00,#FF8C38)' : 'linear-gradient(135deg,#0EA5E9,#6366F1)';
+          const langBg   = lang==='hi' ? 'rgba(255,107,0,0.06)'  : 'rgba(14,165,233,0.05)';
+          const testUrl = 'test.html?exam='+EXAM+'&year='+encodeURIComponent(year)+'&tier='+encodeURIComponent(p.tier||'')+'&shift='+encodeURIComponent(shift)+'&heldOn='+encodeURIComponent(p.heldOn||'')+'&lang='+encodeURIComponent(lang);
+
+          const dateLabel = p.heldOn ? fmtDate(p.heldOn) : '';
+          const isLast = pi === yearPapers.length - 1;
+          const borderBottom = isLast ? '' : 'border-bottom:1px solid #F1F5F9;';
+
+          // Shift badge
+          const shiftNum = shift.match(/Shift[- ]?(\d+)/i);
+          const shiftBadge = shiftNum
+            ? `<span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:5px;background:#F1F5F9;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.7rem;color:#475569;">S${shiftNum[1]}</span>`
+            : (shift ? `<span style="background:#F1F5F9;border-radius:5px;padding:0.1rem 0.35rem;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.7rem;color:#475569;">${shift}</span>` : '');
+
+          html += `
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:0.85rem 1.1rem;${borderBottom}background:white;transition:background 0.15s;"
+              onmouseenter="this.style.background='${langBg}'"
+              onmouseleave="this.style.background='white'">
+              <!-- Left: info -->
+              <div style="display:flex;align-items:center;gap:0.7rem;min-width:0;">
+                <div style="min-width:0;">
+                  <div style="display:flex;align-items:center;gap:0.45rem;flex-wrap:wrap;">
+                    <span style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.95rem;color:#1A202C;">${shift || 'Full Paper'}</span>
+                    ${shiftBadge}
+                    ${dateLabel ? `<span style="font-size:0.72rem;color:#94A3B8;font-weight:500;">· ${dateLabel}</span>` : ''}
+                  </div>
+                  <div style="display:flex;align-items:center;gap:0.5rem;margin-top:0.2rem;">
+                    <span style="font-size:0.72rem;color:#94A3B8;">📝 ${qCount} Qs</span>
+                    <span style="font-size:0.72rem;color:#94A3B8;">·</span>
+                    <span style="font-size:0.72rem;color:#94A3B8;">⏱ 60 min</span>
+                    <span style="font-size:0.72rem;color:#94A3B8;">·</span>
+                    <span style="font-size:0.72rem;color:#94A3B8;">200 marks</span>
+                  </div>
+                </div>
+              </div>
+              <!-- Right: language button -->
+              <button onclick="window.location='${testUrl}'"
+                style="background:${langColor};color:white;border:none;cursor:pointer;padding:0.42rem 1rem;border-radius:8px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.8rem;white-space:nowrap;flex-shrink:0;letter-spacing:0.2px;transition:opacity 0.15s;box-shadow:0 2px 6px rgba(0,0,0,0.12);"
+                onmouseenter="this.style.opacity='0.85'" onmouseleave="this.style.opacity='1'">
+                ${langLabel || '▶ Start'}
+              </button>
+            </div>`;
+        });
+
+        html += `</div></div>`;
+      });
+
+      container.innerHTML = html || '<div style="text-align:center;padding:2rem;color:#718096;">No papers found.</div>';
     }
-    if(countEl) countEl.textContent=papers.length+' Paper'+(papers.length!==1?'s':'');
-    papers.sort((a,b)=>(parseInt(b.year)||0)-(parseInt(a.year)||0)||(a.shift||'').localeCompare(b.shift||''));
-    let html='';
-    papers.forEach(p => {
-      const year=p.year||'Unknown';
-      const shift=p.shift||'';
-      const dateStr=p.heldOn?'📅 Held on: '+fmtDate(p.heldOn)+'  · ':'';
-      const qCount=p.langs&&(p.langs && p.langs.size > 1) ? Math.round(p.count / p.langs.size) : p.count;
-      const shiftLabel=shift?' · '+shift:'';
-      const testUrl='test.html?exam='+EXAM+'&year='+encodeURIComponent(year)+'&tier='+encodeURIComponent(p.tier||'')+'&shift='+encodeURIComponent(shift)+'&heldOn='+encodeURIComponent(p.heldOn||'')+'&lang='+encodeURIComponent(p.language||'');
-        const lang = p.language||'';
-        const langLabel = lang==='hi' ? '🇮🇳 Hindi' : lang==='en' ? '🇬🇧 English' : lang;
-      html+=`<div style="display:flex;align-items:center;justify-content:space-between;padding:1rem 1.25rem;background:#fff;border:1px solid #E2E8F0;border-radius:12px;margin-bottom:0.6rem;box-shadow:0 1px 4px rgba(0,0,0,0.04);transition:all 0.2s;" onmouseenter="this.style.borderColor='#EF4444';this.style.boxShadow='0 2px 12px rgba(0,0,0,0.08)'" onmouseleave="this.style.borderColor='#E2E8F0';this.style.boxShadow='0 1px 4px rgba(0,0,0,0.04)'">
-        <div><div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1rem;color:#1A202C;">${EXAM.toUpperCase().replace('-',' ')} ${tierLabel} ${year}${shiftLabel}</div>
-        <div style="font-size:0.75rem;color:#718096;margin-top:0.1rem;">${dateStr}📝 ${qCount} Question${qCount!==1?'s':''}</div></div>
-        <button onclick="window.location='${testUrl}'" style="background:${lang==='hi'?'linear-gradient(135deg,#FF6B00,#FF8C38)':'linear-gradient(135deg,#0EA5E9,#6366F1)'};color:white;border:none;cursor:pointer;padding:0.45rem 1rem;border-radius:8px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.82rem;" onmouseenter="this.style.opacity='0.85'" onmouseleave="this.style.opacity='1'">${langLabel||'▶ Start'}</button></div>`;
-    });
-    container.innerHTML=html||'<div style="text-align:center;padding:2rem;color:#718096;">No papers found.</div>';
-  }
+
 
   async function fetchPYQMetadata() {
     try {
