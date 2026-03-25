@@ -626,7 +626,7 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:10
 
 <script type="module">
 import{initializeApp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import{getFirestore,doc,getDoc,setDoc,serverTimestamp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import{getFirestore,collection,query,where,getDocs,doc,getDoc,setDoc,serverTimestamp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import{getAuth,onAuthStateChanged,signOut}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 const app=initializeApp({apiKey:"AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",authDomain:"trickyssc-17bb3.firebaseapp.com",projectId:"trickyssc-17bb3",storageBucket:"trickyssc-17bb3.firebasestorage.app",messagingSenderId:"450627057220",appId:"1:450627057220:web:366267bf437d94f20c6e11"});
@@ -761,31 +761,20 @@ async function loadTest(){
       return f.stringValue ?? f.integerValue ?? f.booleanValue ?? '';
     }
 
-    // Fetch ALL questions for exam+year via REST (no Firebase SDK, no auth required)
+    // Fetch ALL questions for exam+year — SDK first (uses auth), REST as fallback
     async function _restFetch(examVal, yearVal) {
-      const url = `https://firestore.googleapis.com/v1/projects/${_PROJECT}/databases/(default)/documents:runQuery?key=${_APIKEY}`;
       const yStr = String(yearVal);
-      const yInt = parseInt(yearVal);
+      const yNum = parseInt(yearVal);
 
-      // Helper: run a single REST query and parse docs
-      async function _runQuery(yearFieldValue) {
-        const body = {
-          structuredQuery: {
-            from: [{collectionId: 'questions'}],
-            where: {
-              compositeFilter: {
-                op: 'AND',
-                filters: [
-                  {fieldFilter: {field:{fieldPath:'exam'}, op:'EQUAL', value:{stringValue: examVal}}},
-                  {fieldFilter: {field:{fieldPath:'year'}, op:'EQUAL', value: yearFieldValue}}
-                ]
-              }
-            }
-          }
-        };
-        const res = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
-        if(!res.ok) throw new Error('Firestore REST ' + res.status);
-        const json = await res.json();
+      // Helper: parse Firestore SDK snapshot into plain objects
+      function _fromSnap(snap) {
+        const out = [];
+        snap.forEach(d => out.push({id: d.id, ...d.data()}));
+        return out;
+      }
+
+      // Helper: parse REST response into plain objects
+      function _fromRest(json) {
         return (json||[])
           .filter(r => r.document && r.document.fields)
           .map(r => {
@@ -806,18 +795,47 @@ async function loadTest(){
           });
       }
 
-      // Try string year first (most common — imported via CSV)
-      setLoaderMsg('Fetching questions...');
-      let docs = await _runQuery({stringValue: yStr});
-
-      // If nothing, try integer year (some older data may use integerValue)
-      if(docs.length === 0 && !isNaN(yInt)) {
-        setLoaderMsg('Retrying with numeric year...');
-        docs = await _runQuery({integerValue: String(yInt)});
+      // ── Try 1: Firebase SDK (authenticated — works with security rules) ──
+      try {
+        setLoaderMsg('Loading questions...');
+        let snap = await getDocs(query(collection(db,'questions'),
+          where('exam','==',examVal), where('year','==',yStr)));
+        // Try numeric year if string returned nothing
+        if(snap.size === 0 && !isNaN(yNum)) {
+          snap = await getDocs(query(collection(db,'questions'),
+            where('exam','==',examVal), where('year','==',yNum)));
+        }
+        if(snap.size > 0) {
+          const docs = _fromSnap(snap);
+          console.log('[TrickySSC] SDK fetched', docs.length, 'docs for', examVal, yearVal);
+          return docs;
+        }
+      } catch(sdkErr) {
+        console.warn('[TrickySSC] SDK fetch failed, trying REST:', sdkErr.message);
       }
 
-      console.log('[TrickySSC] REST fetched', docs.length, 'docs for', examVal, yearVal);
-      return docs;
+      // ── Try 2: Firestore REST API (fallback) ──
+      try {
+        setLoaderMsg('Retrying...');
+        const url = `https://firestore.googleapis.com/v1/projects/${_PROJECT}/databases/(default)/documents:runQuery?key=${_APIKEY}`;
+        const mkBody = (yearField) => ({structuredQuery:{from:[{collectionId:'questions'}],where:{compositeFilter:{op:'AND',filters:[
+          {fieldFilter:{field:{fieldPath:'exam'},op:'EQUAL',value:{stringValue:examVal}}},
+          {fieldFilter:{field:{fieldPath:'year'},op:'EQUAL',value:yearField}}
+        ]}}}});
+        let res = await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(mkBody({stringValue:yStr}))});
+        let json = await res.json();
+        let docs = _fromRest(json);
+        if(docs.length === 0 && !isNaN(yNum)) {
+          res = await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(mkBody({integerValue:String(yNum)}))});
+          json = await res.json();
+          docs = _fromRest(json);
+        }
+        console.log('[TrickySSC] REST fetched', docs.length, 'docs for', examVal, yearVal);
+        return docs;
+      } catch(restErr) {
+        console.warn('[TrickySSC] REST fetch also failed:', restErr.message);
+        return [];
+      }
     }
 
     // JS filter: lang + shift + heldOn with 3-level fallback
