@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Loading Test… · TrickySSC</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{
+  font-family:'Segoe UI',system-ui,sans-serif;
+  background:linear-gradient(135deg,#FF6B00 0%,#FF9240 100%);
+  min-height:100vh;display:flex;align-items:center;justify-content:center;
+  color:#fff;
+}
+.card{
+  background:rgba(255,255,255,0.12);
+  backdrop-filter:blur(12px);
+  border:1px solid rgba(255,255,255,0.2);
+  border-radius:24px;
+  padding:2.5rem 2rem;
+  width:min(92vw,380px);
+  text-align:center;
+}
+.logo{font-size:2.2rem;margin-bottom:0.5rem;}
+.brand{font-size:1.5rem;font-weight:800;letter-spacing:0.5px;margin-bottom:0.25rem;}
+.subtitle{font-size:0.82rem;opacity:0.75;margin-bottom:2rem;}
+
+/* Progress bar */
+.bar-wrap{
+  background:rgba(255,255,255,0.25);
+  border-radius:8px;height:6px;
+  overflow:hidden;margin-bottom:1rem;
+}
+.bar-fill{
+  height:100%;background:#fff;border-radius:8px;
+  width:0%;transition:width 0.35s ease;
+}
+
+.status{font-size:0.88rem;opacity:0.9;min-height:1.4em;}
+.count{font-size:0.78rem;opacity:0.65;margin-top:0.4rem;}
+
+/* Error state */
+.err{display:none;margin-top:1.5rem;}
+.err-box{
+  background:rgba(255,255,255,0.15);
+  border-radius:12px;padding:1rem;
+  font-size:0.85rem;line-height:1.5;
+}
+.btn{
+  display:inline-block;margin-top:0.9rem;
+  background:#fff;color:#FF6B00;
+  font-weight:700;font-size:0.9rem;
+  padding:0.55rem 1.4rem;border-radius:10px;
+  text-decoration:none;cursor:pointer;border:none;
+}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">⚡</div>
+  <div class="brand">TrickySSC</div>
+  <div class="subtitle">Preparing your test…</div>
+
+  <div class="bar-wrap"><div class="bar-fill" id="bar"></div></div>
+  <div class="status" id="status">Connecting…</div>
+  <div class="count"  id="count"></div>
+
+  <div class="err" id="err">
+    <div class="err-box" id="err-msg"></div>
+    <a class="btn" href="javascript:history.back()">← Go Back</a>
+    <br>
+    <a class="btn" style="margin-top:0.5rem;background:rgba(255,255,255,0.2);color:#fff;" href="javascript:location.reload()">↺ Retry</a>
+  </div>
+</div>
+
+<script>
+// ── Helpers ──────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+const params = new URLSearchParams(location.search);
+
+const exam     = params.get('exam')    || '';
+const year     = params.get('year')    || '';
+const lang     = params.get('lang')    || '';
+const shift    = params.get('shift')   || '';
+const heldOn   = params.get('heldOn')  || '';
+const tier     = params.get('tier')    || '';
+const mockId   = params.get('mockId')  || '';
+const mockNum  = params.get('mockNum') || '';
+const noCache  = params.get('nocache') === '1';
+
+// Firestore project config
+const PROJECT = 'trickyssc-17bb3';
+const APIKEY  = 'AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA';
+
+// localStorage cache (keyed by exam+year, 7-day TTL)
+const CACHE_VER = 'v4';
+const cacheKey  = (exam && (year || mockNum))
+  ? 'tssc__' + CACHE_VER + '__' + exam + '|' + (year || mockNum)
+  : null;
+const CACHE_TTL = 7 * 24 * 60 * 60 * 1000;
+
+function readCache() {
+  if(!cacheKey) return null;
+  try {
+    const raw = localStorage.getItem(cacheKey);
+    if(!raw) return null;
+    const obj = JSON.parse(raw);
+    if(Date.now() - obj.ts > CACHE_TTL) { localStorage.removeItem(cacheKey); return null; }
+    return obj.data;
+  } catch(e) { return null; }
+}
+function writeCache(arr) {
+  if(!cacheKey || !arr.length) return;
+  try {
+    const s = JSON.stringify({ts: Date.now(), data: arr});
+    if(s.length < 4 * 1024 * 1024) localStorage.setItem(cacheKey, s);
+  } catch(e) {}
+}
+
+function setBar(pct) { $('bar').style.width = pct + '%'; }
+function setStatus(msg) { $('status').textContent = msg; }
+function setCount(msg)  { $('count').textContent  = msg; }
+
+function showError(msg) {
+  $('err-msg').textContent = msg;
+  $('err').style.display = 'block';
+  setBar(100);
+  $('bar').style.background = 'rgba(255,255,255,0.4)';
+}
+
+// ── Parse Firestore REST field value ──────────────────────
+function fval(v) {
+  if(!v) return '';
+  if(v.stringValue  !== undefined) return v.stringValue;
+  if(v.integerValue !== undefined) return v.integerValue;
+  if(v.booleanValue !== undefined) return v.booleanValue;
+  if(v.doubleValue  !== undefined) return v.doubleValue;
+  if(v.arrayValue) return (v.arrayValue.values||[]).map(i=>i.stringValue??i.integerValue??'');
+  return '';
+}
+
+// ── Parse a Firestore REST response array into plain objects ──
+function parseRestDocs(json) {
+  return (json || [])
+    .filter(r => r.document && r.document.fields)
+    .map(r => {
+      const f   = r.document.fields;
+      const obj = { id: r.document.name.split('/').pop() };
+      for(const key of Object.keys(f)) obj[key] = fval(f[key]);
+      return obj;
+    });
+}
+
+// ── Firestore REST query ──────────────────────────────────
+async function restFetch(examVal, yearVal) {
+  const url = `https://firestore.googleapis.com/v1/projects/${PROJECT}/databases/(default)/documents:runQuery?key=${APIKEY}`;
+
+  // Try string year first
+  const yStr = String(yearVal);
+  const yNum = parseInt(yearVal);
+
+  async function runQuery(yearValue, isInt) {
+    const yearField = isInt
+      ? {integerValue: String(yearValue)}
+      : {stringValue:  String(yearValue)};
+
+    const body = {
+      structuredQuery: {
+        from: [{collectionId: 'questions'}],
+        where: {
+          compositeFilter: {
+            op: 'AND',
+            filters: [
+              {fieldFilter:{field:{fieldPath:'exam'}, op:'EQUAL', value:{stringValue: examVal}}},
+              {fieldFilter:{field:{fieldPath:'year'}, op:'EQUAL', value: yearField}}
+            ]
+          }
+        }
+      }
+    };
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(body)
+    });
+    if(!res.ok) throw new Error('HTTP ' + res.status + ' from Firestore');
+    return await res.json();
+  }
+
+  let json = await runQuery(yStr, false);
+  let docs = parseRestDocs(json);
+
+  // Retry with integer year if string returned nothing
+  if(docs.length === 0 && !isNaN(yNum)) {
+    setStatus('Trying alternate format…');
+    json = await runQuery(yNum, true);
+    docs = parseRestDocs(json);
+  }
+
+  return docs;
+}
+
+// ── Fetch mock questions via mockId ───────────────────────
+async function fetchMockById(mId) {
+  // 1. Get mock_tests document to find exam + yearValue
+  const docUrl = `https://firestore.googleapis.com/v1/projects/${PROJECT}/databases/(default)/documents/mock_tests/${mId}?key=${APIKEY}`;
+  const res = await fetch(docUrl);
+  if(!res.ok) throw new Error('Mock not found');
+  const data = await res.json();
+  if(!data.fields) throw new Error('Mock document empty');
+  const f = data.fields;
+  const mExam = fval(f.exam)    || exam;
+  const mYear = fval(f.yearValue) || fval(f.seriesNum) || fval(f.year) || '';
+  if(!mYear) throw new Error('Mock has no year/seriesNum field');
+  return await restFetch(mExam, mYear);
+}
+
+// ── JS-side filter: 3-level fallback ─────────────────────
+function filterDocs(all, langVal, shiftVal, heldOnVal) {
+  // Level 1: strict — all three match
+  let out = all.filter(q => {
+    if(langVal   && q.language !== langVal)   return false;
+    if(shiftVal  && shiftVal.trim()  && q.shift  && q.shift.trim()  && q.shift  !== shiftVal)  return false;
+    if(heldOnVal && heldOnVal.trim() && q.heldOn && q.heldOn.trim() && q.heldOn !== heldOnVal) return false;
+    return true;
+  });
+  if(out.length > 0) return out;
+
+  // Level 2: lang only (drop shift/heldOn — they may not be stored in doc)
+  console.warn('[loader] strict→0, lang-only fallback. shift='+shiftVal+' heldOn='+heldOnVal);
+  out = all.filter(q => !langVal || q.language === langVal);
+  if(out.length > 0) return out;
+
+  // Level 3: return all (no filter)
+  console.warn('[loader] lang→0, returning all', all.length, 'docs');
+  return all;
+}
+
+// ── [BR] token expansion ──────────────────────────────────
+function expandBR(arr) {
+  const fields = ['text','question','explanation','trick','concept','option_A','option_B','option_C','option_D'];
+  arr.forEach(q => {
+    fields.forEach(f => {
+      if(q[f] && typeof q[f] === 'string') q[f] = q[f].split('[BR]').join('<br>');
+    });
+  });
+}
+
+// ── Build the test.html redirect URL (preserving all params) ──
+function buildTestUrl(qs) {
+  // Pass the key in the URL so test.html knows which sessionStorage key to read
+  const ssKey = 'tssc_qs_' + Date.now();
+  // Store questions
+  sessionStorage.setItem(ssKey, JSON.stringify(qs));
+  // Also store metadata test.html needs
+  const meta = { exam, year, lang, shift, heldOn, tier, mockId, mockNum };
+  sessionStorage.setItem(ssKey + '_meta', JSON.stringify(meta));
+  return 'test.html?sskey=' + encodeURIComponent(ssKey)
+    + '&exam=' + encodeURIComponent(exam)
+    + '&year=' + encodeURIComponent(year)
+    + '&lang=' + encodeURIComponent(lang)
+    + '&shift=' + encodeURIComponent(shift)
+    + '&heldOn='+ encodeURIComponent(heldOn)
+    + '&tier='  + encodeURIComponent(tier)
+    + (mockId   ? '&mockId='  + encodeURIComponent(mockId)  : '')
+    + (mockNum  ? '&mockNum=' + encodeURIComponent(mockNum) : '');
+}
+
+// ── MAIN ─────────────────────────────────────────────────
+async function main() {
+  try {
+    if(!exam && !mockId) {
+      showError('No exam specified. Please go back and try again.');
+      return;
+    }
+
+    setBar(10);
+    setStatus('Connecting to database…');
+
+    // 1. Try localStorage cache first
+    if(!noCache) {
+      const cached = readCache();
+      if(cached && cached.length > 0) {
+        setBar(60);
+        setStatus('Loaded from cache…');
+        setCount(cached.length + ' questions found');
+
+        const filtered = filterDocs(cached, lang, shift, heldOn);
+        expandBR(filtered);
+        filtered.sort((a,b) => (parseInt(a.qNum)||0) - (parseInt(b.qNum)||0));
+
+        if(filtered.length > 0) {
+          setBar(100);
+          setStatus('Ready! Starting test…');
+          setTimeout(() => { location.replace(buildTestUrl(filtered)); }, 400);
+          return;
+        }
+        // Cache had docs but filter gave 0 — fall through to fresh fetch
+        console.warn('[loader] cache hit but filter returned 0, fetching fresh');
+      }
+    } else {
+      if(cacheKey) localStorage.removeItem(cacheKey);
+    }
+
+    // 2. Fetch from Firestore REST
+    setBar(20);
+    setStatus('Fetching questions…');
+
+    let allDocs = [];
+    if(mockId) {
+      setStatus('Loading mock test…');
+      allDocs = await fetchMockById(mockId);
+    } else if(year) {
+      allDocs = await restFetch(exam, year);
+    } else if(mockNum) {
+      allDocs = await restFetch(exam, mockNum);
+    }
+
+    setBar(70);
+    setCount(allDocs.length + ' questions fetched');
+
+    if(allDocs.length === 0) {
+      showError('No questions found for this paper yet.\nCheck back soon — we upload regularly!');
+      return;
+    }
+
+    // 3. Cache the raw docs (before filtering)
+    if(!mockId) writeCache(allDocs);
+
+    // 4. Filter + sort + expand
+    setStatus('Applying filters…');
+    const filtered = filterDocs(allDocs, lang, shift, heldOn);
+    expandBR(filtered);
+    filtered.sort((a,b) => (parseInt(a.qNum)||0) - (parseInt(b.qNum)||0));
+
+    setBar(90);
+    setCount(filtered.length + ' questions ready');
+
+    if(filtered.length === 0) {
+      showError('Questions found (' + allDocs.length + ') but none match this specific paper filter.\nPlease go back and retry.');
+      return;
+    }
+
+    // 5. All good — redirect to test.html
+    setBar(100);
+    setStatus('Ready! Starting test…');
+    setTimeout(() => { location.replace(buildTestUrl(filtered)); }, 400);
+
+  } catch(e) {
+    console.error('[loader] error:', e);
+    showError('Error: ' + e.message + '\n\nPlease check your internet connection and retry.');
+  }
+}
+
+main();
+</script>
+</body>
+</html>
