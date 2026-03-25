@@ -663,6 +663,7 @@ async function startTest(user){
 // Try localStorage IMMEDIATELY — no waiting
 const storedUser=getStoredUser();
 if(storedUser){
+  testStarted=true;  // prevent onAuthStateChanged race condition
   setLoaderMsg('Loading questions...');
   startTest({uid:storedUser.uid,displayName:storedUser.name||'Student'});
 }
@@ -764,54 +765,58 @@ async function loadTest(){
     async function _restFetch(examVal, yearVal) {
       const url = `https://firestore.googleapis.com/v1/projects/${_PROJECT}/databases/(default)/documents:runQuery?key=${_APIKEY}`;
       const yStr = String(yearVal);
+      const yInt = parseInt(yearVal);
 
-      // Build query: exam == examVal AND year == yStr
-      const body = {
-        structuredQuery: {
-          from: [{collectionId: 'questions'}],
-          where: {
-            compositeFilter: {
-              op: 'AND',
-              filters: [
-                {fieldFilter: {field:{fieldPath:'exam'}, op:'EQUAL', value:{stringValue: examVal}}},
-                {fieldFilter: {field:{fieldPath:'year'}, op:'EQUAL', value:{stringValue: yStr}}}
-              ]
+      // Helper: run a single REST query and parse docs
+      async function _runQuery(yearFieldValue) {
+        const body = {
+          structuredQuery: {
+            from: [{collectionId: 'questions'}],
+            where: {
+              compositeFilter: {
+                op: 'AND',
+                filters: [
+                  {fieldFilter: {field:{fieldPath:'exam'}, op:'EQUAL', value:{stringValue: examVal}}},
+                  {fieldFilter: {field:{fieldPath:'year'}, op:'EQUAL', value: yearFieldValue}}
+                ]
+              }
             }
           }
-        }
-      };
-
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify(body)
-      });
-      if(!res.ok) throw new Error('Firestore REST ' + res.status);
-      const json = await res.json();
-
-      // Parse REST response into plain objects
-      const docs = (json || [])
-        .filter(r => r.document && r.document.fields)
-        .map(r => {
-          const f = r.document.fields;
-          const obj = { id: r.document.name.split('/').pop() };
-          // Map every field in the document
-          for(const key of Object.keys(f)) {
-            const v = f[key];
-            if(v.stringValue  !== undefined) obj[key] = v.stringValue;
-            else if(v.integerValue !== undefined) obj[key] = v.integerValue;
-            else if(v.booleanValue !== undefined) obj[key] = v.booleanValue;
-            else if(v.doubleValue  !== undefined) obj[key] = v.doubleValue;
-            else if(v.arrayValue   !== undefined) {
-              obj[key] = (v.arrayValue.values || []).map(i =>
-                i.stringValue ?? i.integerValue ?? i.booleanValue ?? ''
-              );
+        };
+        const res = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+        if(!res.ok) throw new Error('Firestore REST ' + res.status);
+        const json = await res.json();
+        return (json||[])
+          .filter(r => r.document && r.document.fields)
+          .map(r => {
+            const f = r.document.fields;
+            const obj = { id: r.document.name.split('/').pop() };
+            for(const key of Object.keys(f)) {
+              const v = f[key];
+              if(v.stringValue  !== undefined) obj[key] = v.stringValue;
+              else if(v.integerValue !== undefined) obj[key] = v.integerValue;
+              else if(v.booleanValue !== undefined) obj[key] = v.booleanValue;
+              else if(v.doubleValue  !== undefined) obj[key] = v.doubleValue;
+              else if(v.arrayValue   !== undefined) {
+                obj[key] = (v.arrayValue.values||[]).map(i=>i.stringValue??i.integerValue??i.booleanValue??'');
+              }
+              else obj[key] = '';
             }
-            else obj[key] = '';
-          }
-          return obj;
-        });
+            return obj;
+          });
+      }
 
+      // Try string year first (most common — imported via CSV)
+      setLoaderMsg('Fetching questions...');
+      let docs = await _runQuery({stringValue: yStr});
+
+      // If nothing, try integer year (some older data may use integerValue)
+      if(docs.length === 0 && !isNaN(yInt)) {
+        setLoaderMsg('Retrying with numeric year...');
+        docs = await _runQuery({integerValue: String(yInt)});
+      }
+
+      console.log('[TrickySSC] REST fetched', docs.length, 'docs for', examVal, yearVal);
       return docs;
     }
 
