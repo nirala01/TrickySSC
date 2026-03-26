@@ -692,6 +692,7 @@ setTimeout(()=>{
 /* ── Load questions ── */
 async function loadTest(){
   try{
+    if(questions.length>0) return; // already loaded, prevent double-call
     setLoaderMsg('Fetching questions...');
     const lang=new URLSearchParams(window.location.search).get('lang')||'';
     // Debug: log all URL params on load
@@ -966,14 +967,9 @@ async function loadTest(){
     document.getElementById('loader').style.display='none';
     document.getElementById('testScreen').style.display='flex';
     buildSections();buildSectionBar();buildGrid();
-    // Use requestAnimationFrame to ensure testScreen is painted before renderQ + timer
-    requestAnimationFrame(()=>{
-      requestAnimationFrame(()=>{
-        currentQ=0;
-        renderQ();
-        if(!timerInterval) startTimer();
-      });
-    });
+    currentQ=0;
+    renderQ();
+    if(!timerInterval) startTimer();
   }catch(e){
     document.getElementById('loader').innerHTML='❌ Error loading: '+e.message+'<br><a href="javascript:history.back()" style="color:white;font-size:14px;">← Go Back</a>';
   }
@@ -1001,7 +997,7 @@ function renderQ(){
   // Options
   const opts=['A','B','C','D'];
   document.getElementById('options').innerHTML=opts.map(o=>{
-    const txt=q.options?q.options[o]:q['option'+o]||'';
+    const txt=(q.options&&q.options[o])||q['option'+o]||q['option_'+o]||'';
     const optImg=q.optionImages?.[o]||'';
     const sel=answers[currentQ]===o?'selected':'';
     return `<div class="option ${sel}" onclick="selectOpt('${o}')">
@@ -1148,13 +1144,14 @@ function updateProgress(){
 }
 
 function startTimer(){
-  timerInterval=setInterval(()=>{
-    timeLeft--;
+  function tick(){
     const m=Math.floor(timeLeft/60),s=timeLeft%60;
     document.getElementById('timer').textContent=String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
     if(timeLeft<=300){document.querySelector('.timer-wrap').style.borderColor='#FCA5A5';document.getElementById('timer').style.color='#DC2626';}
     if(timeLeft<=0){clearInterval(timerInterval);submitTest();}
-  },1000);
+  }
+  tick(); // update display immediately, don't wait 1s
+  timerInterval=setInterval(()=>{timeLeft--;tick();},1000);
 }
 
 /* ── Save helpers ── */
