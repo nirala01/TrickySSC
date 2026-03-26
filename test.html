@@ -806,38 +806,53 @@ async function loadTest(){
           });
       }
 
-      // ── Try 1: Firebase SDK (authenticated — works with security rules) ──
+      // ── Fetch via Firestore REST API with 10s timeout ──
+      function _fetchWithTimeout(url, options, ms=10000) {
+        return Promise.race([
+          fetch(url, options),
+          new Promise((_,rej) => setTimeout(()=>rej(new Error('Timeout after '+ms+'ms')), ms))
+        ]);
+      }
+
+      // ── Try 1: Firebase SDK with 8s timeout ──
       try {
         setLoaderMsg('Loading questions...');
-        let snap = await getDocs(query(collection(db,'questions'),
-          where('exam','==',examVal), where('year','==',yStr)));
-        // Try numeric year if string returned nothing
+        console.log('[TrickySSC] Trying SDK fetch for', examVal, yearVal);
+        const sdkTimeout = new Promise((_,rej) => setTimeout(()=>rej(new Error('SDK timeout')), 8000));
+        let snap = await Promise.race([
+          getDocs(query(collection(db,'questions'), where('exam','==',examVal), where('year','==',yStr))),
+          sdkTimeout
+        ]);
         if(snap.size === 0 && !isNaN(yNum)) {
-          snap = await getDocs(query(collection(db,'questions'),
-            where('exam','==',examVal), where('year','==',yNum)));
+          snap = await Promise.race([
+            getDocs(query(collection(db,'questions'), where('exam','==',examVal), where('year','==',yNum))),
+            new Promise((_,rej) => setTimeout(()=>rej(new Error('SDK timeout')), 8000))
+          ]);
         }
         if(snap.size > 0) {
           const docs = _fromSnap(snap);
           console.log('[TrickySSC] SDK fetched', docs.length, 'docs for', examVal, yearVal);
           return docs;
         }
+        console.warn('[TrickySSC] SDK returned 0 docs, trying REST');
       } catch(sdkErr) {
-        console.warn('[TrickySSC] SDK fetch failed, trying REST. Reason:', sdkErr.code||sdkErr.message, sdkErr);
+        console.warn('[TrickySSC] SDK failed/timed out:', sdkErr.message, '— falling back to REST');
       }
 
-      // ── Try 2: Firestore REST API (fallback) ──
+      // ── Try 2: Firestore REST API ──
       try {
-        setLoaderMsg('Retrying...');
+        setLoaderMsg('Fetching via REST...');
+        console.log('[TrickySSC] Trying REST fetch for', examVal, yearVal);
         const url = `https://firestore.googleapis.com/v1/projects/${_PROJECT}/databases/(default)/documents:runQuery?key=${_APIKEY}`;
         const mkBody = (yearField) => ({structuredQuery:{from:[{collectionId:'questions'}],where:{compositeFilter:{op:'AND',filters:[
           {fieldFilter:{field:{fieldPath:'exam'},op:'EQUAL',value:{stringValue:examVal}}},
           {fieldFilter:{field:{fieldPath:'year'},op:'EQUAL',value:yearField}}
         ]}}}});
-        let res = await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(mkBody({stringValue:yStr}))});
+        let res = await _fetchWithTimeout(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(mkBody({stringValue:yStr}))});
         let json = await res.json();
         let docs = _fromRest(json);
         if(docs.length === 0 && !isNaN(yNum)) {
-          res = await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(mkBody({integerValue:String(yNum)}))});
+          res = await _fetchWithTimeout(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(mkBody({integerValue:String(yNum)}))});
           json = await res.json();
           docs = _fromRest(json);
         }
@@ -910,9 +925,11 @@ async function loadTest(){
     }
 
     setLoaderMsg('Preparing test...');
+    console.log('[TrickySSC] _allDocs count:', _allDocs.length, '| lang:', lang, '| shift:', shiftParam2, '| heldOn:', heldOnParam2);
 
     // Apply filters
     const _filtered = _filter(_allDocs, lang, shiftParam2, heldOnParam2);
+    console.log('[TrickySSC] After filter:', _filtered.length, 'questions');
     _filtered.forEach(q => questions.push(q));
 
     // [BR] → <br>
