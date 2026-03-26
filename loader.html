@@ -261,13 +261,19 @@ function expandBR(arr) {
 
 // ── Build the test.html redirect URL (preserving all params) ──
 function buildTestUrl(qs) {
-  // Pass the key in the URL so test.html knows which sessionStorage key to read
+  // Use localStorage (not sessionStorage) — more reliable across navigation/replace
   const ssKey = 'tssc_qs_' + Date.now();
-  // Store questions
-  sessionStorage.setItem(ssKey, JSON.stringify(qs));
-  // Also store metadata test.html needs
+  // Store in BOTH localStorage and sessionStorage for maximum compatibility
+  const payload = JSON.stringify(qs);
   const meta = { exam, year, lang, shift, heldOn, tier, mockId, mockNum };
-  sessionStorage.setItem(ssKey + '_meta', JSON.stringify(meta));
+  try { sessionStorage.setItem(ssKey, payload); } catch(e) {}
+  try { sessionStorage.setItem(ssKey + '_meta', JSON.stringify(meta)); } catch(e) {}
+  try { localStorage.setItem(ssKey, payload); } catch(e) {}
+  try { localStorage.setItem(ssKey + '_meta', JSON.stringify(meta)); } catch(e) {}
+  // Auto-clean localStorage after 2 minutes
+  setTimeout(() => {
+    try { localStorage.removeItem(ssKey); localStorage.removeItem(ssKey+'_meta'); } catch(e) {}
+  }, 120000);
   return 'test.html?sskey=' + encodeURIComponent(ssKey)
     + '&exam=' + encodeURIComponent(exam)
     + '&year=' + encodeURIComponent(year)

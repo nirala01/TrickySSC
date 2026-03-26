@@ -704,20 +704,24 @@ async function loadTest(){
       return;
     }
 
-    // ── Fast path: loader.html already fetched & stored questions in sessionStorage ──
+    // ── Fast path: loader.html already fetched & stored questions in sessionStorage/localStorage ──
     if(ssKey) {
       try {
-        const raw = sessionStorage.getItem(ssKey);
+        // Try sessionStorage first, fall back to localStorage (more reliable across navigation)
+        const raw = sessionStorage.getItem(ssKey) || localStorage.getItem(ssKey);
+        console.log('[TrickySSC] ssKey lookup: key='+ssKey+' found='+(raw?'YES '+raw.length+'b':'NO'));
         if(raw) {
           const qs = JSON.parse(raw);
           if(Array.isArray(qs) && qs.length > 0) {
             console.log('[TrickySSC] Loaded', qs.length, 'questions from sessionStorage (via loader)');
-            sessionStorage.removeItem(ssKey); // clean up
+            // Clean up from both storage types
+            try{sessionStorage.removeItem(ssKey);}catch(e){}
+            try{localStorage.removeItem(ssKey);}catch(e){}
             qs.forEach(q => questions.push(q));
             questions.sort((a,b) => (parseInt(a.qNum)||0) - (parseInt(b.qNum)||0));
             // Read meta from loader
-            const metaRaw = sessionStorage.getItem(ssKey + '_meta');
-            if(metaRaw) { try { sessionStorage.removeItem(ssKey + '_meta'); } catch(e){} }
+            const metaRaw = sessionStorage.getItem(ssKey+'_meta') || localStorage.getItem(ssKey+'_meta');
+            if(metaRaw) { try{sessionStorage.removeItem(ssKey+'_meta');}catch(e){} try{localStorage.removeItem(ssKey+'_meta');}catch(e){} }
             // Show test screen immediately
             // Build display title from URL params directly
             const _tp = new URLSearchParams(window.location.search);
