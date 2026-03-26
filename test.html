@@ -916,15 +916,12 @@ async function loadTest(){
     if(questions.length === 0) {
       console.error('[TrickySSC] 0 questions. allDocs=', _allDocs.length,
         'params:', {exam, year, lang, shiftParam2, heldOnParam2, mockId, mockNum});
-      document.getElementById('loader').innerHTML = `<div style="text-align:center;padding:2rem;">
-        <div style="font-size:3rem;margin-bottom:1rem;">📭</div>
-        <div style="font-size:1.5rem;font-weight:700;margin-bottom:0.5rem;">Questions Not Yet Uploaded</div>
-        <div style="font-size:1rem;opacity:0.9;margin-bottom:1.5rem;">
-          No questions found for this paper yet.<br>Check back soon!
-        </div>
-        <a href="javascript:history.back()" style="background:white;color:#FF6B00;font-family:'Rajdhani',sans-serif;font-weight:700;padding:0.6rem 1.5rem;border-radius:10px;text-decoration:none;display:inline-block;margin-bottom:0.75rem;">← Go Back</a><br>
-        <a href="javascript:location.reload()" style="font-size:0.8rem;color:white;opacity:0.7;">↺ Retry</a>
-      </div>`;
+      document.getElementById('loader').style.display='none';
+      document.getElementById('testScreen').style.display='flex';
+      requestAnimationFrame(()=>requestAnimationFrame(()=>{ if(!timerInterval) startTimer(); }));
+      document.getElementById('qText').innerHTML='<div style="text-align:center;padding:2rem;"><div style="font-size:3rem;margin-bottom:1rem;">📭</div><div style="font-size:1.2rem;font-weight:700;margin-bottom:0.5rem;color:#1E293B;">Questions Not Yet Uploaded</div><div style="font-size:0.95rem;color:#64748B;margin-bottom:1.5rem;line-height:1.6;">No questions found for this paper.<br>Check back soon or try reloading.</div><a href="javascript:history.back()" style="display:inline-block;background:#FF6B00;color:white;font-family:Rajdhani,sans-serif;font-weight:700;padding:0.6rem 1.5rem;border-radius:10px;text-decoration:none;margin-bottom:0.5rem;">← Go Back</a><br><a href="javascript:location.reload()" style="font-size:0.8rem;color:#94A3B8;margin-top:8px;display:inline-block;">↺ Retry</a></div>';
+      document.getElementById('options').innerHTML='';
+      document.getElementById('qNumTotal').textContent='0';
       return;
     }
 
@@ -968,14 +965,15 @@ async function loadTest(){
     document.getElementById('userName').textContent=currentUser.displayName||'Student';
     document.getElementById('loader').style.display='none';
     document.getElementById('testScreen').style.display='flex';
-    buildSections();buildSectionBar();buildGrid();renderQ();startTimer();
-    // Auto next→prev to fix blank first question render on some devices
-    setTimeout(()=>{
-      if(questions.length>0){
-        currentQ=1; renderQ();
-        setTimeout(()=>{ currentQ=0; renderQ(); }, 50);
-      }
-    }, 120);
+    buildSections();buildSectionBar();buildGrid();
+    // Use requestAnimationFrame to ensure testScreen is painted before renderQ + timer
+    requestAnimationFrame(()=>{
+      requestAnimationFrame(()=>{
+        currentQ=0;
+        renderQ();
+        if(!timerInterval) startTimer();
+      });
+    });
   }catch(e){
     document.getElementById('loader').innerHTML='❌ Error loading: '+e.message+'<br><a href="javascript:history.back()" style="color:white;font-size:14px;">← Go Back</a>';
   }
@@ -983,6 +981,11 @@ async function loadTest(){
 
 /* ── Render question ── */
 function renderQ(){
+  if(!questions.length){
+    document.getElementById('qText').innerHTML='<span style="color:#94A3B8;">Loading questions...</span>';
+    document.getElementById('options').innerHTML='';
+    return;
+  }
   const q=questions[currentQ];
   document.getElementById('qNumCurrent').textContent=currentQ+1;
   document.getElementById('qNumTotal').textContent=questions.length;
