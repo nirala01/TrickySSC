@@ -739,10 +739,10 @@ async function loadTest(){
             document.getElementById('loader').style.display = 'none';
             document.getElementById('testScreen').style.display = 'flex';
             buildSections(); buildSectionBar(); buildGrid();
-            currentQ = 0; renderQ();
+            currentQ = 0;
             if(!timerInterval) startTimer();
-            // Force re-render Q1 after paint (fixes blank first question on some devices)
-            setTimeout(()=>{ if(questions.length>1){currentQ=1;renderQ();setTimeout(()=>{currentQ=0;renderQ();},60);}else{renderQ();} },150);
+            // Render Q1 after the browser has painted the test screen (fixes blank first question)
+            requestAnimationFrame(() => { requestAnimationFrame(() => { renderQ(); }); });
             return; // done — skip Firestore fetch entirely
           }
         }
