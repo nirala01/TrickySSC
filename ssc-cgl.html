@@ -1694,13 +1694,32 @@
         if(section.style.display !== 'none') { section.dataset.pyqLoaded='1'; loadPYQs(); }
       }
     }
-    // Fire after auth resolves (or use stored user immediately)
-    const _storedUid = (() => { try { const u=JSON.parse(localStorage.getItem('tssc_user')||'{}'); return u.uid||null; } catch(e){ return null; } })();
-    if(_storedUid) {
-      _triggerWhenVisible(); // user already known — load immediately
-    } else {
-      onAuthStateChanged(_auth, user => { if(user) _triggerWhenVisible(); });
+    // Fire PYQ load — REST fetch is public (no auth needed)
+    // Use requestAnimationFrame + setTimeout to ensure DOM is painted and section display is set
+    function _initPYQ() {
+      const section = document.getElementById('cgl-pyq-page');
+      if(!section) return;
+      // Set up observer for future tab switches
+      if(!section.dataset.pyqObserving) {
+        section.dataset.pyqObserving = '1';
+        const obs = new MutationObserver(() => {
+          if(section.style.display !== 'none' && !section.dataset.pyqLoaded) {
+            section.dataset.pyqLoaded = '1';
+            loadPYQs();
+          }
+        });
+        obs.observe(section, {attributes:true, attributeFilter:['style']});
+      }
+      // Fire immediately if already visible (handles direct URL / hash navigation)
+      if(section.style.display !== 'none' && !section.dataset.pyqLoaded) {
+        section.dataset.pyqLoaded = '1';
+        loadPYQs();
+      }
     }
+    // Run after a tick so DOMContentLoaded showSection() has already run
+    setTimeout(_initPYQ, 0);
+    // Also run on window load as final fallback
+    window.addEventListener('load', () => { if(!document.getElementById('cgl-pyq-page')?.dataset.pyqLoaded) _initPYQ(); });
   </script>
 </section>
 

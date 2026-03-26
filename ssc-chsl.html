@@ -2486,12 +2486,27 @@ GE -->
       if(section.style.display !== 'none') { section.dataset.pyqLoaded='1'; loadPYQs(); }
     }
     }
-    const _storedUid = (() => { try { const u=JSON.parse(localStorage.getItem('tssc_user')||'{}'); return u.uid||null; } catch(e){ return null; } })();
-    if(_storedUid) {
-      _triggerWhenVisible();
-    } else {
-      onAuthStateChanged(_auth, user => { if(user) _triggerWhenVisible(); });
+    // Fire PYQ load — REST fetch is public (no auth needed)
+    function _initPYQ() {
+      const section = document.getElementById('chsl-pyq-page');
+      if(!section) return;
+      if(!section.dataset.pyqObserving) {
+        section.dataset.pyqObserving = '1';
+        const obs = new MutationObserver(() => {
+          if(section.style.display !== 'none' && !section.dataset.pyqLoaded) {
+            section.dataset.pyqLoaded = '1';
+            loadPYQs();
+          }
+        });
+        obs.observe(section, {attributes:true, attributeFilter:['style']});
+      }
+      if(section.style.display !== 'none' && !section.dataset.pyqLoaded) {
+        section.dataset.pyqLoaded = '1';
+        loadPYQs();
+      }
     }
+    setTimeout(_initPYQ, 0);
+    window.addEventListener('load', () => { if(!document.getElementById('chsl-pyq-page')?.dataset.pyqLoaded) _initPYQ(); });
   </script>
 </section>
 
