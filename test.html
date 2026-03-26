@@ -774,6 +774,26 @@ async function loadTest(){
         return out;
       }
 
+      // Helper: parse a single Firestore REST field (recursive, handles mapValue)
+      function _parseField(v) {
+        if(!v) return '';
+        if(v.stringValue  !== undefined) return v.stringValue;
+        if(v.integerValue !== undefined) return v.integerValue;
+        if(v.booleanValue !== undefined) return v.booleanValue;
+        if(v.doubleValue  !== undefined) return v.doubleValue;
+        if(v.nullValue    !== undefined) return null;
+        if(v.arrayValue   !== undefined)
+          return (v.arrayValue.values||[]).map(_parseField);
+        if(v.mapValue     !== undefined) {
+          // Convert Firestore map to plain JS object
+          const map = {};
+          for(const k of Object.keys(v.mapValue.fields||{}))
+            map[k] = _parseField(v.mapValue.fields[k]);
+          return map;
+        }
+        return '';
+      }
+
       // Helper: parse REST response into plain objects
       function _fromRest(json) {
         return (json||[])
@@ -781,17 +801,7 @@ async function loadTest(){
           .map(r => {
             const f = r.document.fields;
             const obj = { id: r.document.name.split('/').pop() };
-            for(const key of Object.keys(f)) {
-              const v = f[key];
-              if(v.stringValue  !== undefined) obj[key] = v.stringValue;
-              else if(v.integerValue !== undefined) obj[key] = v.integerValue;
-              else if(v.booleanValue !== undefined) obj[key] = v.booleanValue;
-              else if(v.doubleValue  !== undefined) obj[key] = v.doubleValue;
-              else if(v.arrayValue   !== undefined) {
-                obj[key] = (v.arrayValue.values||[]).map(i=>i.stringValue??i.integerValue??i.booleanValue??'');
-              }
-              else obj[key] = '';
-            }
+            for(const key of Object.keys(f)) obj[key] = _parseField(f[key]);
             return obj;
           });
       }
@@ -812,7 +822,7 @@ async function loadTest(){
           return docs;
         }
       } catch(sdkErr) {
-        console.warn('[TrickySSC] SDK fetch failed, trying REST:', sdkErr.message);
+        console.warn('[TrickySSC] SDK fetch failed, trying REST. Reason:', sdkErr.code||sdkErr.message, sdkErr);
       }
 
       // ── Try 2: Firestore REST API (fallback) ──
