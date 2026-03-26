@@ -707,14 +707,21 @@ async function loadTest(){
     // ── Fast path: loader.html already fetched & stored questions in sessionStorage/localStorage ──
     if(ssKey) {
       try {
-        // Try sessionStorage first, fall back to localStorage (more reliable across navigation)
-        const raw = sessionStorage.getItem(ssKey) || localStorage.getItem(ssKey);
+        // Retry reading ssKey up to 3 times with small delays.
+        // Fixes iOS Safari / mobile race where localStorage written by loader.html
+        // hasn't flushed to disk before test.html reads it.
+        let raw = null;
+        for(let _attempt=0; _attempt<3; _attempt++){
+          raw = sessionStorage.getItem(ssKey) || localStorage.getItem(ssKey);
+          if(raw) break;
+          if(_attempt < 2) await new Promise(r => setTimeout(r, 150));
+        }
         console.log('[TrickySSC] ssKey lookup: key='+ssKey+' found='+(raw?'YES '+raw.length+'b':'NO'));
         if(raw) {
           const qs = JSON.parse(raw);
           if(Array.isArray(qs) && qs.length > 0) {
-            console.log('[TrickySSC] Loaded', qs.length, 'questions from sessionStorage (via loader)');
-            // Clean up from both storage types
+            console.log('[TrickySSC] Loaded', qs.length, 'questions from storage (via loader)');
+            // Clean up AFTER confirming questions are ready
             try{sessionStorage.removeItem(ssKey);}catch(e){}
             try{localStorage.removeItem(ssKey);}catch(e){}
             qs.forEach(q => questions.push(q));
@@ -741,8 +748,8 @@ async function loadTest(){
             buildSections(); buildSectionBar(); buildGrid();
             currentQ = 0;
             if(!timerInterval) startTimer();
-            // Render Q1 after the browser has painted the test screen (fixes blank first question)
-            requestAnimationFrame(() => { requestAnimationFrame(() => { renderQ(); }); });
+            // Render Q1 after browser paints the test screen — avoids blank first question
+            requestAnimationFrame(()=>requestAnimationFrame(()=>renderQ()));
             return; // done — skip Firestore fetch entirely
           }
         }
