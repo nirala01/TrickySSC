@@ -128,14 +128,22 @@ function showError(msg) {
   $('bar').style.background = 'rgba(255,255,255,0.4)';
 }
 
-// ── Parse Firestore REST field value ──────────────────────
+// ── Parse Firestore REST field value (recursive, handles mapValue) ──
 function fval(v) {
   if(!v) return '';
   if(v.stringValue  !== undefined) return v.stringValue;
   if(v.integerValue !== undefined) return v.integerValue;
   if(v.booleanValue !== undefined) return v.booleanValue;
   if(v.doubleValue  !== undefined) return v.doubleValue;
-  if(v.arrayValue) return (v.arrayValue.values||[]).map(i=>i.stringValue??i.integerValue??'');
+  if(v.nullValue    !== undefined) return null;
+  if(v.arrayValue   !== undefined)
+    return (v.arrayValue.values || []).map(fval);
+  if(v.mapValue     !== undefined) {
+    const map = {};
+    for(const k of Object.keys(v.mapValue.fields || {}))
+      map[k] = fval(v.mapValue.fields[k]);
+    return map;
+  }
   return '';
 }
 

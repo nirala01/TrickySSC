@@ -693,6 +693,46 @@ setTimeout(()=>{
 async function loadTest(){
   try{
     if(questions.length>0) return; // already loaded, prevent double-call
+
+    // ── Fast path: loader.html already fetched & stored questions in sessionStorage ──
+    const ssKey = new URLSearchParams(window.location.search).get('sskey');
+    if(ssKey) {
+      try {
+        const raw = sessionStorage.getItem(ssKey);
+        if(raw) {
+          const qs = JSON.parse(raw);
+          if(Array.isArray(qs) && qs.length > 0) {
+            console.log('[TrickySSC] Loaded', qs.length, 'questions from sessionStorage (via loader)');
+            sessionStorage.removeItem(ssKey); // clean up
+            qs.forEach(q => questions.push(q));
+            questions.sort((a,b) => (parseInt(a.qNum)||0) - (parseInt(b.qNum)||0));
+            // Read meta from loader
+            const metaRaw = sessionStorage.getItem(ssKey + '_meta');
+            if(metaRaw) { try { sessionStorage.removeItem(ssKey + '_meta'); } catch(e){} }
+            // Show test screen immediately
+            // Build display title from URL params directly
+            const _tp = new URLSearchParams(window.location.search);
+            const _en = {'ssc-cgl':'SSC CGL','ssc-chsl':'SSC CHSL','ssc-mts':'SSC MTS','ssc-cpo':'SSC CPO','ssc-gd':'SSC GD'};
+            const _tl = {'tier1':'Tier I','tier-1':'Tier I','tier2':'Tier II','tier-2':'Tier II'};
+            const _examName = _en[_tp.get('exam')||exam] || ((_tp.get('exam')||exam||'').toUpperCase().replace(/-/g,' '));
+            const _tierLabel = _tl[(_tp.get('tier')||'').toLowerCase()] || _tp.get('tier') || '';
+            const _langLabel = (_tp.get('lang')||'')=='hi'?'🇮🇳 Hindi':(_tp.get('lang')||'')=='en'?'🇬🇧 English':'';
+            const _yr = _tp.get('year')||'';
+            const _sh = _tp.get('shift')||'';
+            let displayTitle = _examName + (_tierLabel?' · '+_tierLabel:'') + (_yr?' · '+_yr:'') + (_sh?' · '+_sh:'') + (_langLabel?' · '+_langLabel:'');
+            document.getElementById('examTitle').textContent = displayTitle;
+            document.getElementById('userName').textContent = currentUser ? (currentUser.displayName||'Student') : 'Student';
+            document.getElementById('loader').style.display = 'none';
+            document.getElementById('testScreen').style.display = 'flex';
+            buildSections(); buildSectionBar(); buildGrid();
+            currentQ = 0; renderQ();
+            if(!timerInterval) startTimer();
+            return; // done — skip Firestore fetch entirely
+          }
+        }
+      } catch(e) { console.warn('[TrickySSC] sessionStorage read failed:', e); }
+    }
+
     setLoaderMsg('Fetching questions...');
     const lang=new URLSearchParams(window.location.search).get('lang')||'';
     // Debug: log all URL params on load
