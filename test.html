@@ -694,8 +694,17 @@ async function loadTest(){
   try{
     if(questions.length>0) return; // already loaded, prevent double-call
 
-    // ── Fast path: loader.html already fetched & stored questions in sessionStorage ──
+    // ── If no sskey: redirect to loader.html to fetch questions first ──
     const ssKey = new URLSearchParams(window.location.search).get('sskey');
+    if(!ssKey && (exam || params.get('mockId') || params.get('mockNum'))) {
+      // No sskey = came directly to test.html, not via loader.html
+      // Redirect to loader.html with all current params
+      const loaderParams = window.location.search.slice(1).split('&').filter(p=>!p.startsWith('sskey=')).join('&');
+      window.location.replace('loader.html?' + loaderParams);
+      return;
+    }
+
+    // ── Fast path: loader.html already fetched & stored questions in sessionStorage ──
     if(ssKey) {
       try {
         const raw = sessionStorage.getItem(ssKey);
@@ -721,15 +730,15 @@ async function loadTest(){
             const _sh = _tp.get('shift')||'';
             let displayTitle = _examName + (_tierLabel?' · '+_tierLabel:'') + (_yr?' · '+_yr:'') + (_sh?' · '+_sh:'') + (_langLabel?' · '+_langLabel:'');
             document.getElementById('examTitle').textContent = displayTitle;
-            const _storedU = (()=>{ try{const u=JSON.parse(localStorage.getItem('tssc_user')||'{}');return u.name||u.displayName||null;}catch(e){return null;} })();
-            document.getElementById('userName').textContent = (currentUser?.displayName) || _storedU || 'Student';
+            const _storedU=(()=>{try{const u=JSON.parse(localStorage.getItem('tssc_user')||'{}');return u.name||u.displayName||null;}catch(e){return null;}})();
+            document.getElementById('userName').textContent=(currentUser?.displayName)||_storedU||'Student';
             document.getElementById('loader').style.display = 'none';
             document.getElementById('testScreen').style.display = 'flex';
             buildSections(); buildSectionBar(); buildGrid();
             currentQ = 0; renderQ();
             if(!timerInterval) startTimer();
-            // Force re-render of Q1 after short delay (fixes blank first question)
-            setTimeout(()=>{ if(questions.length>1){currentQ=1;renderQ();setTimeout(()=>{currentQ=0;renderQ();},50);} },150);
+            // Force re-render Q1 after paint (fixes blank first question on some devices)
+            setTimeout(()=>{ if(questions.length>1){currentQ=1;renderQ();setTimeout(()=>{currentQ=0;renderQ();},60);}else{renderQ();} },150);
             return; // done — skip Firestore fetch entirely
           }
         }
