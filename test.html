@@ -714,7 +714,7 @@ async function loadTest(){
           const qs = JSON.parse(raw);
           if(Array.isArray(qs) && qs.length > 0) {
             console.log('[TrickySSC] Loaded', qs.length, 'questions from sessionStorage (via loader)');
-            // Clean up from both storage types
+            // Clean up ssKey from both storage types
             try{sessionStorage.removeItem(ssKey);}catch(e){}
             try{localStorage.removeItem(ssKey);}catch(e){}
             qs.forEach(q => questions.push(q));
@@ -722,6 +722,18 @@ async function loadTest(){
             // Read meta from loader
             const metaRaw = sessionStorage.getItem(ssKey+'_meta') || localStorage.getItem(ssKey+'_meta');
             if(metaRaw) { try{sessionStorage.removeItem(ssKey+'_meta');}catch(e){} try{localStorage.removeItem(ssKey+'_meta');}catch(e){} }
+
+            // ── Save a stable backup so page refresh still works ──
+            try {
+              const _bkKey = 'tssc_bk__' + window.location.search.replace(/[?&]sskey=[^&]*/g,'');
+              const _bkStr = JSON.stringify({ts: Date.now(), data: questions});
+              if(_bkStr.length < 5 * 1024 * 1024) {
+                localStorage.setItem(_bkKey, _bkStr);
+                // Also re-write under ssKey so a hard-refresh can re-read it
+                // (we'll check the backup on next load)
+              }
+            } catch(e) {}
+
             // Show test screen immediately
             // Build display title from URL params directly
             const _tp = new URLSearchParams(window.location.search);
@@ -736,6 +748,12 @@ async function loadTest(){
             document.getElementById('examTitle').textContent = displayTitle;
             const _storedU=(()=>{try{const u=JSON.parse(localStorage.getItem('tssc_user')||'{}');return u.name||u.displayName||null;}catch(e){return null;}})();
             document.getElementById('userName').textContent=(currentUser?.displayName)||_storedU||'Student';
+
+            // ── Set question count BEFORE showing screen to avoid "Q1 of 0" flash ──
+            document.getElementById('qNumTotal').textContent = questions.length;
+            document.getElementById('qNumCurrent').textContent = '1';
+            document.getElementById('progressText').textContent = '0 / ' + questions.length;
+
             document.getElementById('loader').style.display = 'none';
             document.getElementById('testScreen').style.display = 'flex';
             buildSections(); buildSectionBar(); buildGrid();
@@ -749,6 +767,46 @@ async function loadTest(){
           }
         }
       } catch(e) { console.warn('[TrickySSC] sessionStorage read failed:', e); }
+
+      // ── Fallback: if ssKey data was already consumed (e.g. page refresh), try stable backup ──
+      try {
+        const _bkKey = 'tssc_bk__' + window.location.search.replace(/[?&]sskey=[^&]*/g,'');
+        const _bkRaw = localStorage.getItem(_bkKey);
+        if(_bkRaw) {
+          const _bkObj = JSON.parse(_bkRaw);
+          const _BK_TTL = 2 * 60 * 60 * 1000; // 2 hours — valid for current session
+          if(_bkObj && _bkObj.data && Array.isArray(_bkObj.data) && _bkObj.data.length > 0
+             && Date.now() - _bkObj.ts < _BK_TTL) {
+            console.log('[TrickySSC] Restored', _bkObj.data.length, 'questions from backup cache (page was refreshed)');
+            _bkObj.data.forEach(q => questions.push(q));
+            questions.sort((a,b) => (parseInt(a.qNum)||0) - (parseInt(b.qNum)||0));
+            const _tp2 = new URLSearchParams(window.location.search);
+            const _en2 = {'ssc-cgl':'SSC CGL','ssc-chsl':'SSC CHSL','ssc-mts':'SSC MTS','ssc-cpo':'SSC CPO','ssc-gd':'SSC GD'};
+            const _tl2 = {'tier1':'Tier I','tier-1':'Tier I','tier2':'Tier II','tier-2':'Tier II'};
+            const _examName2 = _en2[_tp2.get('exam')||exam] || ((_tp2.get('exam')||exam||'').toUpperCase().replace(/-/g,' '));
+            const _tierLabel2 = _tl2[(_tp2.get('tier')||'').toLowerCase()] || _tp2.get('tier') || '';
+            const _langLabel2 = (_tp2.get('lang')||'')=='hi'?'🇮🇳 Hindi':(_tp2.get('lang')||'')=='en'?'🇬🇧 English':'';
+            const _yr2 = _tp2.get('year')||'';
+            const _sh2 = _tp2.get('shift')||'';
+            let _displayTitle2 = _examName2 + (_tierLabel2?' · '+_tierLabel2:'') + (_yr2?' · '+_yr2:'') + (_sh2?' · '+_sh2:'') + (_langLabel2?' · '+_langLabel2:'');
+            document.getElementById('examTitle').textContent = _displayTitle2;
+            const _storedU2=(()=>{try{const u=JSON.parse(localStorage.getItem('tssc_user')||'{}');return u.name||u.displayName||null;}catch(e){return null;}})();
+            document.getElementById('userName').textContent=(currentUser?.displayName)||_storedU2||'Student';
+            document.getElementById('qNumTotal').textContent = questions.length;
+            document.getElementById('qNumCurrent').textContent = '1';
+            document.getElementById('progressText').textContent = '0 / ' + questions.length;
+            document.getElementById('loader').style.display = 'none';
+            document.getElementById('testScreen').style.display = 'flex';
+            buildSections(); buildSectionBar(); buildGrid();
+            currentQ = 0;
+            requestAnimationFrame(() => requestAnimationFrame(() => {
+              renderQ();
+              if(!timerInterval) startTimer();
+            }));
+            return;
+          }
+        }
+      } catch(e) { console.warn('[TrickySSC] Backup cache restore failed:', e); }
     }
 
     setLoaderMsg('Fetching questions...');
@@ -1062,6 +1120,10 @@ async function loadTest(){
     document.getElementById('testScreen').style.display='flex';
     buildSections();buildSectionBar();buildGrid();
     currentQ=0;
+    // Set question count immediately to avoid "Q1 of 0" flash
+    document.getElementById('qNumTotal').textContent = questions.length;
+    document.getElementById('qNumCurrent').textContent = '1';
+    document.getElementById('progressText').textContent = '0 / ' + questions.length;
     requestAnimationFrame(() => requestAnimationFrame(() => {
       renderQ();
       if(!timerInterval) startTimer();
