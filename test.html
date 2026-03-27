@@ -633,7 +633,7 @@ const app=initializeApp({apiKey:"AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",authDo
 const db=getFirestore(app);
 const auth=getAuth(app);
 
-let questions=[],answers={},markedForReview={},currentQ=0,timeLeft=3600,timerInterval,currentUser=null;
+let questions=[],answers={},markedForReview={},visitedQ={},currentQ=0,timeLeft=3600,timerInterval,currentUser=null;
 let isSubmitting=false,lastResultPayload=null;
 const params=new URLSearchParams(window.location.search);
 // Support both ?mockId=<firestoreId>  AND  legacy ?exam=ssc-cgl&year=1
@@ -980,23 +980,16 @@ async function loadTest(){
       }
     }
 
-    // JS filter: lang + shift + heldOn with 3-level fallback + language normalization
+    // JS filter: lang + shift + heldOn with 3-level fallback
     function _filter(all, langVal, shiftVal, heldOnVal) {
-      // Normalize a language value to 'hi' or 'en'
-      function normLang(v) {
-        v = (v || '').trim().toLowerCase();
-        if(v === 'hi' || v === 'hindi' || v === 'h') return 'hi';
-        if(v === 'en' || v === 'english' || v === 'e') return 'en';
-        return v; // unknown — return as-is
-      }
-
-      const normTarget = normLang(langVal);
-
-      // Level 1: strict match with normalization
+      // Level 1: strict — but treat empty/missing language as "matches any"
       let out = all.filter(q => {
-        const docLang = normLang(q.language || '');
-        if(normTarget && docLang && docLang !== normTarget) return false;
+        // Language: only filter if BOTH URL param AND doc field are non-empty
+        const docLang = (q.language || '').trim();
+        if(langVal && docLang && docLang !== langVal) return false;
+        // Shift: only filter if both non-empty
         if(shiftVal  && shiftVal.trim()  && q.shift  && q.shift.trim()  && q.shift  !== shiftVal)  return false;
+        // HeldOn: only filter if both non-empty
         if(heldOnVal && heldOnVal.trim() && q.heldOn && q.heldOn.trim() && q.heldOn !== heldOnVal) return false;
         return true;
       });
@@ -1005,8 +998,8 @@ async function loadTest(){
       // Level 2: drop shift/heldOn filters only
       console.warn('[TrickySSC] strict filter→0, dropping shift/heldOn. lang='+langVal+' shift='+shiftVal+' heldOn='+heldOnVal);
       out = all.filter(q => {
-        const docLang = normLang(q.language || '');
-        return !normTarget || !docLang || docLang === normTarget;
+        const docLang = (q.language || '').trim();
+        return !langVal || !docLang || docLang === langVal;
       });
       if(out.length > 0) return out;
 
@@ -1168,8 +1161,20 @@ function normaliseQ(q) {
   if (q.options && typeof q.options === 'object' && q.options.mapValue) {
     q.options = _unwrap(q.options);
   }
+  // Also fix individual option keys that may still be Firestore wrappers
+  if (q.options && typeof q.options === 'object' && !q.options.mapValue) {
+    ['A','B','C','D'].forEach(function(o){
+      if (q.options[o] !== undefined && q.options[o] !== null && typeof q.options[o] === 'object') {
+        q.options[o] = _unwrap(q.options[o]);
+      }
+    });
+  }
+  // Also flatten flat-field options (option_A / optionA) if wrapped
+  ['option_A','option_B','option_C','option_D','optionA','optionB','optionC','optionD'].forEach(function(f){
+    if (q[f] && typeof q[f] === 'object') q[f] = _unwrap(q[f]);
+  });
   // Also unwrap top-level fields that may be Firestore wrappers
-  ['text','question','explanation','trick','concept','option_A','option_B','option_C','option_D','correct','subject','shift','heldOn','language','tier','year','qNum'].forEach(function(f){
+  ['text','question','explanation','trick','concept','option_A','option_B','option_C','option_D','correct','subject','shift','heldOn','language','tier','year','qNum','imageUrl','solutionImage'].forEach(function(f){
     if (q[f] && typeof q[f] === 'object' && (q[f].stringValue !== undefined || q[f].integerValue !== undefined || q[f].mapValue !== undefined)) {
       q[f] = _unwrap(q[f]);
     }
@@ -1209,10 +1214,21 @@ function renderQ(){
   if(q.imageUrl){imgEl.src=q.imageUrl;imgWrap.style.display='block';}
   else{imgWrap.style.display='none';imgEl.src='';}
 
-  // Options — support all storage formats
+  // Mark question as visited (for skipped dot state)
+  visitedQ[currentQ] = true;
+
+  // Options — support all storage formats robustly
   const opts=['A','B','C','D'];
   document.getElementById('options').innerHTML=opts.map(o=>{
-    const txt=(q.options&&q.options[o]!=null&&q.options[o]!=='')?q.options[o]:(q['option'+o]||q['option_'+o]||'');
+    // Try every possible field name format
+    let txt = '';
+    if(q.options && typeof q.options === 'object') {
+      const v = q.options[o];
+      if(v !== null && v !== undefined && v !== '') txt = String(v);
+    }
+    if(!txt) txt = String(q['option'+o] || q['option_'+o] || q['opt'+o] || '');
+    // Strip any leftover Firestore wrapper objects that slipped through
+    if(typeof txt === 'object') txt = txt.stringValue || txt.integerValue || '';
     const optImg=q.optionImages?.[o]||'';
     const sel=answers[currentQ]===o?'selected':'';
     return `<div class="option ${sel}" onclick="selectOpt('${o}')">
@@ -1321,6 +1337,7 @@ function updateGrid(){
     let cls='dot';
     if(markedForReview[i]) cls+=' marked';
     else if(answers[i]) cls+=' answered';
+    else if(visitedQ[i] && i!==currentQ) cls+=' skipped';
     if(i===currentQ) cls+=' current';
     const d=document.getElementById('dot'+i);if(d)d.className=cls;
   });
@@ -1333,6 +1350,7 @@ function updateGrid(){
           let cls='dot';
           if(markedForReview[i]) cls+=' marked';
           else if(answers[i]) cls+=' answered';
+          else if(visitedQ[i] && i!==currentQ) cls+=' skipped';
           if(i===currentQ) cls+=' current';
           return '<div class="'+cls+'" onclick="goQ('+i+');closeDrawer()">'+(i+1)+'</div>';
         }).join('');
@@ -1343,6 +1361,7 @@ function updateGrid(){
         let cls='dot';
         if(markedForReview[i]) cls+=' marked';
         else if(answers[i]) cls+=' answered';
+        else if(visitedQ[i] && i!==currentQ) cls+=' skipped';
         if(i===currentQ) cls+=' current';
         return '<div class="'+cls+'" onclick="goQ('+i+');closeDrawer()">'+(i+1)+'</div>';
       }).join('');
@@ -1437,7 +1456,10 @@ window.submitTest=async()=>{
     const vBg=status==='correct'?'#F0FDF4':status==='wrong'?'#FEF2F2':'#FFFBEB';
     const vClr=status==='correct'?'#15803D':status==='wrong'?'#DC2626':'#B45309';
     const optsHtml=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:10px 0;">${opts.map(o=>{
-      const txt=q.options?.[o]||q['option'+o]||'';const optImg=q.optionImages?.[o]||'';
+      let txt='';
+      if(q.options&&typeof q.options==='object'){const v=q.options[o];if(v!==null&&v!==undefined&&v!=='')txt=String(v);}
+      if(!txt) txt=String(q['option'+o]||q['option_'+o]||'');
+      const optImg=q.optionImages?.[o]||'';
       const isCorrect=o===q.correct;const isWrong=o===a&&a!==q.correct;
       let bg='#F9FAFB',border='#E2E8F0',clr='#374151',fw='400';
       if(isCorrect){bg='#F0FDF4';border='#22C55E';clr='#15803D';fw='600';}
