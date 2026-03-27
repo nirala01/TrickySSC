@@ -68,82 +68,71 @@ let current = 0;
 let answers = {};
 let review = {};
 
+//// ✅ FINAL FIXED LOAD FUNCTION
 async function loadQuestions(){
 
-  const url = `https://firestore.googleapis.com/v1/projects/${PROJECT}/databases/(default)/documents:runQuery?key=${APIKEY}`;
+  const url = `https://firestore.googleapis.com/v1/projects/${PROJECT}/databases/(default)/documents/questions?key=${APIKEY}`;
 
-  // Try STRING year first
-  let docs = await runQuery(year, false);
+  try{
+    const res = await fetch(url);
+    const data = await res.json();
 
-  // If empty → try INTEGER
-  if(docs.length === 0 && !isNaN(year)){
-    console.log("Retry with integer year...");
-    docs = await runQuery(parseInt(year), true);
-  }
+    console.log("FULL DATA:", data);
 
-  console.log("Fetched Docs:", docs);
+    const docs = data.documents || [];
 
-  if(docs.length === 0){
-    document.getElementById("question").innerHTML = "<span class='error'>❌ No questions found</span>";
-    return;
-  }
+    // 🔥 UNIVERSAL FILTER (NO FAIL CASE)
+    questions = docs
+      .map(d => d.fields)
+      .filter(f => {
 
-  questions = docs.slice(0,100).map(d=>{
-    const f = d.document.fields;
-    return {
-      q: f.text?.stringValue || "No Question",
-      A: f.option_A?.stringValue || "",
-      B: f.option_B?.stringValue || "",
-      C: f.option_C?.stringValue || "",
-      D: f.option_D?.stringValue || "",
-      ans: f.correct?.stringValue || ""
+        const examMatch = f.exam?.stringValue === exam;
+
+        const yearMatch =
+          f.year?.stringValue === String(year) ||
+          f.year?.integerValue === String(year);
+
+        const shiftMatch =
+          !shift || f.shift?.stringValue === shift;
+
+        return examMatch && yearMatch && shiftMatch;
+      })
+      .slice(0, 100)
+      .map(f => ({
+        q: f.text?.stringValue || "No Question",
+        A: f.option_A?.stringValue || "",
+        B: f.option_B?.stringValue || "",
+        C: f.option_C?.stringValue || "",
+        D: f.option_D?.stringValue || "",
+        ans: f.correct?.stringValue || ""
+      }));
+
+    console.log("FINAL QUESTIONS:", questions);
+
+    if(questions.length === 0){
+      document.getElementById("question").innerHTML =
+        "<span class='error'>❌ No questions found<br>Check admin data</span>";
+      return;
     }
-  });
 
-  render();
-  createGrid();
+    render();
+    createGrid();
+
+  }catch(err){
+    console.error(err);
+    document.getElementById("question").innerText = "❌ Error loading test";
+  }
 }
 
-async function runQuery(yearValue, isInt){
-
-  const yearField = isInt
-    ? {integerValue: String(yearValue)}
-    : {stringValue: String(yearValue)};
-
-  const body = {
-    structuredQuery:{
-      from:[{collectionId:"questions"}],
-      where:{
-        compositeFilter:{
-          op:"AND",
-          filters:[
-            {fieldFilter:{field:{fieldPath:"exam"},op:"EQUAL",value:{stringValue:exam}}},
-            {fieldFilter:{field:{fieldPath:"year"},op:"EQUAL",value:yearField}},
-            {fieldFilter:{field:{fieldPath:"shift"},op:"EQUAL",value:{stringValue:shift}}}
-          ]
-        }
-      },
-      limit:100
-    }
-  };
-
-  const res = await fetch(url,{
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify(body)
-  });
-
-  return await res.json();
-}
-
+//// RENDER
 function render(){
-  if(!questions.length) return;
-
   const q = questions[current];
+
   document.getElementById("qNum").innerText = `Question ${current+1}`;
   document.getElementById("question").innerText = q.q;
 
   const opts = ["A","B","C","D"];
+
   document.getElementById("options").innerHTML = opts.map(o=>`
     <div class="option ${answers[current]==o?'selected':''}" onclick="select('${o}')">
       ${o}. ${q[o]}
