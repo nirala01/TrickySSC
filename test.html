@@ -1205,10 +1205,26 @@ function renderQ(){
   }
   const q=questions[currentQ];
   normaliseQ(q); // ensure options/text are clean regardless of fetch path
+  // ── DEBUG: log question fields to console on first question ──
+  if(currentQ === 0) {
+    console.log('[TrickySSC] Q[0] keys:', Object.keys(q));
+    console.log('[TrickySSC] Q[0] text:', JSON.stringify(q.text));
+    console.log('[TrickySSC] Q[0] question:', JSON.stringify(q.question));
+    console.log('[TrickySSC] Q[0] options:', JSON.stringify(q.options));
+    console.log('[TrickySSC] Q[0] option_A:', JSON.stringify(q.option_A));
+    console.log('[TrickySSC] Q[0] correct:', JSON.stringify(q.correct));
+    console.log('[TrickySSC] Q[0] full object (first 500 chars):', JSON.stringify(q).slice(0,500));
+  }
   document.getElementById('qNumCurrent').textContent=currentQ+1;
   document.getElementById('qNumTotal').textContent=questions.length;
-  const rawText=q.text||q.question||'';
-  document.getElementById('qText').innerHTML=formatQText(rawText);
+  // Try all possible field names for question text
+  const rawText = q.text || q.question || q.questionText || q.q_text || q.qtext || q.content || '';
+  if(!rawText && currentQ === 0) {
+    console.warn('[TrickySSC] No question text found! All fields:', JSON.stringify(q));
+  }
+  document.getElementById('qText').innerHTML = rawText
+    ? formatQText(rawText)
+    : '<span style="color:#EF4444;font-size:13px;">⚠️ Question text missing (field not found). Check console for debug info.</span>';
 
   // Image
   const imgWrap=document.getElementById('qImgWrap');
