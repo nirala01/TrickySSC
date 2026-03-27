@@ -224,12 +224,22 @@ async function fetchMockById(mId) {
   return await restFetch(mExam, mYear);
 }
 
-// ── JS-side filter: 3-level fallback ─────────────────────
+// ── JS-side filter: normalize language values before comparing ──
 function filterDocs(all, langVal, shiftVal, heldOnVal) {
-  // Level 1: strict — treat empty/missing language as matching any lang
+  // Normalize a language value to 'hi' or 'en'
+  function normLang(v) {
+    v = (v || '').trim().toLowerCase();
+    if(v === 'hi' || v === 'hindi' || v === 'h') return 'hi';
+    if(v === 'en' || v === 'english' || v === 'e') return 'en';
+    return v; // unknown — return as-is
+  }
+
+  const normTarget = normLang(langVal);
+
+  // Level 1: strict match with normalization
   let out = all.filter(q => {
-    const docLang = (q.language || '').trim();
-    if(langVal && docLang && docLang !== langVal) return false;
+    const docLang = normLang(q.language || '');
+    if(normTarget && docLang && docLang !== normTarget) return false;
     if(shiftVal  && shiftVal.trim()  && q.shift  && q.shift.trim()  && q.shift  !== shiftVal)  return false;
     if(heldOnVal && heldOnVal.trim() && q.heldOn && q.heldOn.trim() && q.heldOn !== heldOnVal) return false;
     return true;
@@ -239,8 +249,8 @@ function filterDocs(all, langVal, shiftVal, heldOnVal) {
   // Level 2: drop shift/heldOn filters only
   console.warn('[loader] strict→0, dropping shift/heldOn. lang='+langVal+' shift='+shiftVal+' heldOn='+heldOnVal);
   out = all.filter(q => {
-    const docLang = (q.language || '').trim();
-    return !langVal || !docLang || docLang === langVal;
+    const docLang = normLang(q.language || '');
+    return !normTarget || !docLang || docLang === normTarget;
   });
   if(out.length > 0) return out;
 
