@@ -1133,6 +1133,55 @@ async function loadTest(){
   }
 }
 
+/* ── Normalise a single question object in-place ──
+   Handles questions that came through loader.html's REST parser
+   where options may still be raw Firestore {mapValue:{fields:{A:{stringValue:...}}}}
+   or where text fields still contain literal [BR] tokens. */
+function normaliseQ(q) {
+  // Helper: unwrap a Firestore REST field value (handles mapValue recursively)
+  function _unwrap(v) {
+    if (v === null || v === undefined) return '';
+    if (typeof v !== 'object') return v;
+    if (v.stringValue  !== undefined) return v.stringValue;
+    if (v.integerValue !== undefined) return v.integerValue;
+    if (v.booleanValue !== undefined) return v.booleanValue;
+    if (v.doubleValue  !== undefined) return v.doubleValue;
+    if (v.nullValue    !== undefined) return '';
+    if (v.arrayValue   !== undefined) return (v.arrayValue.values||[]).map(_unwrap);
+    if (v.mapValue     !== undefined) {
+      var m = {};
+      var f = v.mapValue.fields || {};
+      Object.keys(f).forEach(function(k){ m[k] = _unwrap(f[k]); });
+      return m;
+    }
+    return v; // already a plain JS value
+  }
+
+  // Fix options if still in raw Firestore mapValue format
+  if (q.options && typeof q.options === 'object' && q.options.mapValue) {
+    q.options = _unwrap(q.options);
+  }
+  // Also unwrap top-level fields that may be Firestore wrappers
+  ['text','question','explanation','trick','concept','option_A','option_B','option_C','option_D','correct','subject','shift','heldOn','language','tier','year','qNum'].forEach(function(f){
+    if (q[f] && typeof q[f] === 'object' && (q[f].stringValue !== undefined || q[f].integerValue !== undefined || q[f].mapValue !== undefined)) {
+      q[f] = _unwrap(q[f]);
+    }
+  });
+
+  // Convert [BR] tokens in text fields
+  ['text','question','explanation','trick','concept','option_A','option_B','option_C','option_D'].forEach(function(f){
+    if (q[f] && typeof q[f] === 'string') q[f] = q[f].split('[BR]').join('<br>');
+  });
+  // Also fix options map values
+  if (q.options && typeof q.options === 'object') {
+    ['A','B','C','D'].forEach(function(o){
+      if (q.options[o] && typeof q.options[o] === 'string') {
+        q.options[o] = q.options[o].split('[BR]').join('<br>');
+      }
+    });
+  }
+}
+
 /* ── Render question ── */
 function renderQ(){
   if(!questions.length){
@@ -1141,6 +1190,7 @@ function renderQ(){
     return;
   }
   const q=questions[currentQ];
+  normaliseQ(q); // ensure options/text are clean regardless of fetch path
   document.getElementById('qNumCurrent').textContent=currentQ+1;
   document.getElementById('qNumTotal').textContent=questions.length;
   const rawText=q.text||q.question||'';
@@ -1152,10 +1202,10 @@ function renderQ(){
   if(q.imageUrl){imgEl.src=q.imageUrl;imgWrap.style.display='block';}
   else{imgWrap.style.display='none';imgEl.src='';}
 
-  // Options
+  // Options — support all storage formats
   const opts=['A','B','C','D'];
   document.getElementById('options').innerHTML=opts.map(o=>{
-    const txt=(q.options&&q.options[o])||q['option'+o]||q['option_'+o]||'';
+    const txt=(q.options&&q.options[o]!=null&&q.options[o]!=='')?q.options[o]:(q['option'+o]||q['option_'+o]||'');
     const optImg=q.optionImages?.[o]||'';
     const sel=answers[currentQ]===o?'selected':'';
     return `<div class="option ${sel}" onclick="selectOpt('${o}')">
