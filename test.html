@@ -739,10 +739,12 @@ async function loadTest(){
             document.getElementById('loader').style.display = 'none';
             document.getElementById('testScreen').style.display = 'flex';
             buildSections(); buildSectionBar(); buildGrid();
-            currentQ = 0; renderQ();
-            if(!timerInterval) startTimer();
-            // Force re-render Q1 after paint (fixes blank first question on some devices)
-            setTimeout(()=>{ if(questions.length>1){currentQ=1;renderQ();setTimeout(()=>{currentQ=0;renderQ();},60);}else{renderQ();} },150);
+            currentQ = 0;
+            // Render after two animation frames to ensure DOM is painted
+            requestAnimationFrame(() => requestAnimationFrame(() => {
+              renderQ();
+              if(!timerInterval) startTimer();
+            }));
             return; // done — skip Firestore fetch entirely
           }
         }
@@ -1000,9 +1002,18 @@ async function loadTest(){
     if(questions.length === 0) {
       console.error('[TrickySSC] 0 questions. allDocs=', _allDocs.length,
         'params:', {exam, year, lang, shiftParam2, heldOnParam2, mockId, mockNum});
-      document.getElementById('loader').style.display='none';
-      document.getElementById('testScreen').style.display='flex';
-      requestAnimationFrame(()=>requestAnimationFrame(()=>{ if(!timerInterval) startTimer(); }));
+      // Show error in loader — don't open test screen or start timer
+      document.getElementById('loader').innerHTML = `
+        <div style="text-align:center;padding:2rem;">
+          <div style="font-size:3rem;margin-bottom:1rem;">📭</div>
+          <div style="font-size:1.4rem;font-weight:700;margin-bottom:0.5rem;">No Questions Found</div>
+          <div style="font-size:0.95rem;opacity:0.85;margin-bottom:1.5rem;">
+            ${_allDocs.length > 0
+              ? 'Questions exist for this paper but none match the selected language/shift. Try the English version.'
+              : 'This paper has not been uploaded yet. Check back soon!'}
+          </div>
+          <a href="javascript:history.back()" style="background:white;color:#FF6B00;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1rem;padding:0.6rem 1.5rem;border-radius:10px;text-decoration:none;display:inline-block;">← Go Back</a>
+        </div>`;
       document.getElementById('qText').innerHTML='<div style="text-align:center;padding:2rem;"><div style="font-size:3rem;margin-bottom:1rem;">📭</div><div style="font-size:1.2rem;font-weight:700;margin-bottom:0.5rem;color:#1E293B;">Questions Not Yet Uploaded</div><div style="font-size:0.95rem;color:#64748B;margin-bottom:1.5rem;line-height:1.6;">No questions found for this paper.<br>Check back soon or try reloading.</div><a href="javascript:history.back()" style="display:inline-block;background:#FF6B00;color:white;font-family:Rajdhani,sans-serif;font-weight:700;padding:0.6rem 1.5rem;border-radius:10px;text-decoration:none;margin-bottom:0.5rem;">← Go Back</a><br><a href="javascript:location.reload()" style="font-size:0.8rem;color:#94A3B8;margin-top:8px;display:inline-block;">↺ Retry</a></div>';
       document.getElementById('options').innerHTML='';
       document.getElementById('qNumTotal').textContent='0';
@@ -1051,8 +1062,10 @@ async function loadTest(){
     document.getElementById('testScreen').style.display='flex';
     buildSections();buildSectionBar();buildGrid();
     currentQ=0;
-    renderQ();
-    if(!timerInterval) startTimer();
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      renderQ();
+      if(!timerInterval) startTimer();
+    }));
   }catch(e){
     document.getElementById('loader').innerHTML='❌ Error loading: '+e.message+'<br><a href="javascript:history.back()" style="color:white;font-size:14px;">← Go Back</a>';
   }
