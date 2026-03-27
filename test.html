@@ -722,6 +722,27 @@ function hideLoader() {
 }
 
 /* ══════════════════════════════════════════
+   EXAM TITLE BUILDER
+   Declared here (before any async call) to avoid TDZ errors.
+   ES module const/let are not hoisted.
+══════════════════════════════════════════ */
+const EXAM_NAMES  = { 'ssc-cgl':'SSC CGL','ssc-chsl':'SSC CHSL','ssc-mts':'SSC MTS','ssc-cpo':'SSC CPO','ssc-gd':'SSC GD','ssc-je':'SSC JE','ssc-jht':'SSC JHT' };
+const TIER_LABELS = { 'tier1':'Tier I','tier-1':'Tier I','tier2':'Tier II','tier-2':'Tier II','paper1':'Paper I','paper2':'Paper II' };
+
+function buildTitle() {
+  const examName = EXAM_NAMES[P.exam] || P.exam.toUpperCase().replace(/-/g, ' ');
+  const tier     = P.tier ? (TIER_LABELS[P.tier.toLowerCase()] || P.tier) : '';
+  const lang     = P.lang === 'hi' ? '\u{1F1EE}\u{1F1F3} Hindi' : P.lang === 'en' ? '\u{1F1EC}\u{1F1E7} English' : '';
+  if (P.mockNum && !P.year) return examName + ' \u2014 Mock ' + P.mockNum;
+  const parts = [examName];
+  if (tier)    parts.push(tier);
+  if (P.year && parseInt(P.year) > 100) parts.push(P.year);
+  if (P.shift) parts.push(P.shift);
+  if (lang)    parts.push(lang);
+  return parts.join(' \u00B7 ');
+}
+
+/* ══════════════════════════════════════════
    AUTH — start test as soon as we know the user
 ══════════════════════════════════════════ */
 let testStarted = false;
@@ -913,25 +934,6 @@ function expandBR(arr) {
 
 function getOptText(q, l) { return (q.options && q.options[l]) || q['option'+l] || q['option_'+l] || ''; }
 function getOptImg(q, l)  { return (q.optionImages && q.optionImages[l]) || ''; }
-
-/* ══════════════════════════════════════════
-   EXAM TITLE BUILDER
-══════════════════════════════════════════ */
-const EXAM_NAMES  = { 'ssc-cgl':'SSC CGL','ssc-chsl':'SSC CHSL','ssc-mts':'SSC MTS','ssc-cpo':'SSC CPO','ssc-gd':'SSC GD','ssc-je':'SSC JE','ssc-jht':'SSC JHT' };
-const TIER_LABELS = { 'tier1':'Tier I','tier-1':'Tier I','tier2':'Tier II','tier-2':'Tier II','paper1':'Paper I','paper2':'Paper II' };
-
-function buildTitle() {
-  const exam = EXAM_NAMES[P.exam] || P.exam.toUpperCase().replace(/-/g, ' ');
-  const tier = P.tier ? (TIER_LABELS[P.tier.toLowerCase()] || P.tier) : '';
-  const lang = P.lang === 'hi' ? '🇮🇳 Hindi' : P.lang === 'en' ? '🇬🇧 English' : '';
-  if (P.mockNum && !P.year) return exam + ' — Mock ' + P.mockNum;
-  const parts = [exam];
-  if (tier)   parts.push(tier);
-  if (P.year && parseInt(P.year) > 100) parts.push(P.year);
-  if (P.shift) parts.push(P.shift);
-  if (lang)   parts.push(lang);
-  return parts.join(' · ');
-}
 
 /* ══════════════════════════════════════════
    LOAD QUESTIONS — clean flow with no hacks
