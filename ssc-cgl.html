@@ -1613,6 +1613,13 @@
     }
 
     async function fetchPYQMetadata() {
+      // Session cache — 30 min TTL, avoids repeat reads in same session
+      const _ck = 'papers_'+EXAM, _ttl = 30*60*1000;
+      try {
+        const _c = sessionStorage.getItem(_ck);
+        if(_c){ const _o=JSON.parse(_c); if(Date.now()-_o.ts<_ttl&&_o.d&&_o.d.length>0){ console.log('[TrickySSC] papers from cache:',_o.d.length); return _o.d; } }
+      } catch(e){}
+
       const P='trickyssc-17bb3', K='AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA';
       const T=10000;
       const ft=(u,o)=>Promise.race([o?fetch(u,o):fetch(u),new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),T))]);
@@ -1640,7 +1647,10 @@
       ]);
 
       for(const r of [r1,r2]){
-        if(r.status==='fulfilled') return r.value;
+        if(r.status==='fulfilled'){
+          try{sessionStorage.setItem(_ck,JSON.stringify({ts:Date.now(),d:r.value}));}catch(e){}
+          return r.value;
+        }
       }
       console.warn('[TrickySSC] Both papers methods failed — fallback to questions scan');
       [r1,r2].forEach(r=>console.warn(r.reason?.message));
