@@ -634,6 +634,15 @@ const db=getFirestore(app);
 const auth=getAuth(app);
 
 let questions=[],answers={},markedForReview={},currentQ=0,timeLeft=3600,timerInterval,currentUser=null,sections=[];
+const SUBJECT_SHORT={
+  'General Intelligence & Reasoning':'Reasoning',
+  'General Intelligence and Reasoning':'Reasoning',
+  'Quantitative Aptitude':'Quant',
+  'General Awareness':'Gen. Awareness',
+  'English Language':'English',
+  'English':'English',
+  'reasoning':'Reasoning','quant':'Quant','gk':'Gen. Awareness','english':'English',
+};
 let isSubmitting=false,lastResultPayload=null;
 const params=new URLSearchParams(window.location.search);
 
@@ -724,369 +733,196 @@ window.addEventListener('pageshow', function(e) {
 /* ── Load questions ── */
 async function loadTest(){
   try{
-    // Reset all state — handles bfcache (browser back/forward cache) restoring stale page
-    questions.length=0; answers={}; markedForReview={}; currentQ=0;
-    timeLeft=3600; if(timerInterval){clearInterval(timerInterval);timerInterval=null;}
+    // ── Read all URL params ──
+    const p     = new URLSearchParams(window.location.search);
+    const lang  = p.get('lang')   || '';
+    const shift = p.get('shift')  || '';
+    const heldOn= p.get('heldOn') || '';
+    const tier  = p.get('tier')   || '';
+    const mNum  = p.get('mockNum')|| '';
+    const noCache = p.get('nocache')==='1';
 
-    // ── sskey is optional — test.html can fetch questions directly from Firestore ──
-    const ssKey = new URLSearchParams(window.location.search).get('sskey');
+    console.log('[TrickySSC] loadTest:', {exam,year,lang,shift,heldOn,tier,mockId,mockNum:mNum});
 
-    // ssKey path removed — test.html fetches directly from Firestore
-        setLoaderMsg('Fetching questions...');
-    const lang=new URLSearchParams(window.location.search).get('lang')||'';
-    // Debug: log all URL params on load
-    console.log('[TrickySSC] loadTest params:', {
-      exam, year,
-      lang: new URLSearchParams(window.location.search).get('lang'),
-      shift: new URLSearchParams(window.location.search).get('shift'),
-      heldOn: new URLSearchParams(window.location.search).get('heldOn'),
-      tier: new URLSearchParams(window.location.search).get('tier'),
-      mockId, mockNum: new URLSearchParams(window.location.search).get('mockNum')
-    });
-    const noCache=new URLSearchParams(window.location.search).get('nocache')==='1';
-    const mockNum=new URLSearchParams(window.location.search).get('mockNum')||'';
+    // ── Cache (per-paper: exam|year|lang|shift|heldOn) ──
+    const CACHE_VER = 'v6';
+    const cacheKey  = mockId ? null
+      : ('tssc__'+CACHE_VER+'__'+(exam||'')+'|'+(year||mNum||'')+'|'+(lang||'en')+'|'+(shift||'')+'|'+(heldOn||''));
+    const CACHE_TTL = 7*24*60*60*1000;
 
-    // ── NEW: if mockId is in the URL, resolve the mock_tests doc first ──
-    if(mockId){
+    function readCache(){
+      if(!cacheKey) return null;
       try{
-        const mockSnap=await getDoc(doc(db,'mock_tests',mockId));
-        if(mockSnap.exists()){
-          mockMeta=mockSnap.data();
-          exam=mockMeta.exam;           // e.g. "ssc-cgl"
-          // seriesNum is stored as the mock number; admin saves it in `year` field on questions
-        } else {
-          document.getElementById('loader').innerHTML=`<div style="text-align:center;padding:2rem;"><div style="font-size:3rem;margin-bottom:1rem;">❌</div><div style="font-size:1.5rem;font-weight:700;margin-bottom:0.5rem;">Mock Not Found</div><div style="font-size:1rem;font-weight:400;opacity:0.9;margin-bottom:1.5rem;">This mock test no longer exists.</div><a href="javascript:history.back()" style="background:white;color:#FF6B00;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1rem;padding:0.6rem 1.5rem;border-radius:10px;text-decoration:none;">← Go Back</a></div>`;
-          return;
-        }
-      } catch(e){ console.warn('mock_tests lookup failed',e); }
-    }
-
-    // ── Helper: fetch by year (string OR number) — NEVER filter by language in Firestore
-    //    Firestore composite index (exam+year+language) is not guaranteed to exist.
-    //    Instead we fetch all docs for exam+year and filter by language in JS. ──
-    // ────────────────────────────────────────────────────────────
-    // ── Fetch questions via Firestore REST API (no SDK needed, faster & reliable) ──
-    const _PROJECT = 'trickyssc-17bb3';
-    const _APIKEY  = 'AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA';
-    const shiftParam2  = params.get('shift')  || '';
-    const heldOnParam2 = params.get('heldOn') || '';
-
-    // Cache key: exam+year (broad) so one fetch covers all lang/shift variants
-    const _CACHE_VER = 'v6'; // per-paper cache key
-    const _cacheKey  = mockId ? null
-      : ('tssc__' + _CACHE_VER + '__' + (exam||'') + '|' + (year || mockNum || '') + '|' + (lang||'en') + '|' + (shiftParam2||'') + '|' + (heldOnParam2||''));
-    const _CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days
-
-    function _readCache() {
-      if(!_cacheKey) return null;
-      try {
-        const raw = localStorage.getItem(_cacheKey);
+        const raw=localStorage.getItem(cacheKey);
         if(!raw) return null;
-        const obj = JSON.parse(raw);
-        if(Date.now() - obj.ts > _CACHE_TTL) { localStorage.removeItem(_cacheKey); return null; }
+        const obj=JSON.parse(raw);
+        if(Date.now()-obj.ts>CACHE_TTL){localStorage.removeItem(cacheKey);return null;}
         return obj.data;
-      } catch(e) { return null; }
+      }catch(e){return null;}
     }
-    function _writeCache(arr) {
-      if(!_cacheKey || !arr.length) return;
-      try {
-        const s = JSON.stringify({ts: Date.now(), data: arr});
-        if(s.length < 4 * 1024 * 1024) localStorage.setItem(_cacheKey, s);
-      } catch(e) {}
-    }
-
-    // Parse a single Firestore REST field value (handles string/integer/boolean)
-    function _fval(f) {
-      if(!f) return '';
-      return f.stringValue ?? f.integerValue ?? f.booleanValue ?? '';
+    function writeCache(arr){
+      if(!cacheKey||!arr.length) return;
+      try{
+        const s=JSON.stringify({ts:Date.now(),data:arr});
+        if(s.length<5*1024*1024) localStorage.setItem(cacheKey,s);
+      }catch(e){}
     }
 
-    // Fetch ALL questions for exam+year — SDK first (uses auth), REST as fallback
-    async function _restFetch(examVal, yearVal) {
-      const yStr = String(yearVal);
-      const yNum = parseInt(yearVal);
+    // ── Firestore helpers ──
+    const PROJECT='trickyssc-17bb3', APIKEY='AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA';
 
-      // Helper: parse Firestore SDK snapshot into plain objects
-      function _fromSnap(snap) {
-        const out = [];
-        snap.forEach(d => out.push({id: d.id, ...d.data()}));
-        return out;
+    function parseField(v){
+      if(!v) return '';
+      if(v.stringValue  !==undefined) return v.stringValue;
+      if(v.integerValue !==undefined) return v.integerValue;
+      if(v.booleanValue !==undefined) return v.booleanValue;
+      if(v.doubleValue  !==undefined) return v.doubleValue;
+      if(v.nullValue    !==undefined) return null;
+      if(v.arrayValue   !==undefined) return (v.arrayValue.values||[]).map(parseField);
+      if(v.mapValue     !==undefined){
+        const m={};
+        for(const k of Object.keys(v.mapValue.fields||{})) m[k]=parseField(v.mapValue.fields[k]);
+        return m;
       }
-
-      // Helper: parse a single Firestore REST field (recursive, handles mapValue)
-      function _parseField(v) {
-        if(!v) return '';
-        if(v.stringValue  !== undefined) return v.stringValue;
-        if(v.integerValue !== undefined) return v.integerValue;
-        if(v.booleanValue !== undefined) return v.booleanValue;
-        if(v.doubleValue  !== undefined) return v.doubleValue;
-        if(v.nullValue    !== undefined) return null;
-        if(v.arrayValue   !== undefined)
-          return (v.arrayValue.values||[]).map(_parseField);
-        if(v.mapValue     !== undefined) {
-          // Convert Firestore map to plain JS object
-          const map = {};
-          for(const k of Object.keys(v.mapValue.fields||{}))
-            map[k] = _parseField(v.mapValue.fields[k]);
-          return map;
-        }
-        return '';
-      }
-
-      // Helper: parse REST response into plain objects
-      function _fromRest(json) {
-        return (json||[])
-          .filter(r => r.document && r.document.fields)
-          .map(r => {
-            const f = r.document.fields;
-            const obj = { id: r.document.name.split('/').pop() };
-            for(const key of Object.keys(f)) obj[key] = _parseField(f[key]);
-            return obj;
-          });
-      }
-
-      // ── Fetch via Firestore REST API with 10s timeout ──
-      function _fetchWithTimeout(url, options, ms=10000) {
-        return Promise.race([
-          fetch(url, options),
-          new Promise((_,rej) => setTimeout(()=>rej(new Error('Timeout after '+ms+'ms')), ms))
-        ]);
-      }
-
-      // ── Try 1: Firebase SDK with 8s timeout ──
-      try {
-        setLoaderMsg('Loading questions...');
-        console.log('[TrickySSC] Trying SDK fetch for', examVal, yearVal);
-        const sdkTimeout = new Promise((_,rej) => setTimeout(()=>rej(new Error('SDK timeout')), 8000));
-        let snap = await Promise.race([
-          getDocs(query(collection(db,'questions'), where('exam','==',examVal), where('year','==',yStr))),
-          sdkTimeout
-        ]);
-        if(snap.size === 0 && !isNaN(yNum)) {
-          snap = await Promise.race([
-            getDocs(query(collection(db,'questions'), where('exam','==',examVal), where('year','==',yNum))),
-            new Promise((_,rej) => setTimeout(()=>rej(new Error('SDK timeout')), 8000))
-          ]);
-        }
-        if(snap.size > 0) {
-          const docs = _fromSnap(snap);
-          console.log('[TrickySSC] SDK fetched', docs.length, 'docs for', examVal, yearVal);
-          return docs;
-        }
-        console.warn('[TrickySSC] SDK returned 0 docs, trying REST');
-      } catch(sdkErr) {
-        console.warn('[TrickySSC] SDK failed/timed out:', sdkErr.message, '— falling back to REST');
-      }
-
-      // ── Try 2: Firestore REST API ──
-      try {
-        setLoaderMsg('Fetching via REST...');
-        console.log('[TrickySSC] Trying REST fetch for', examVal, yearVal);
-        const url = `https://firestore.googleapis.com/v1/projects/${_PROJECT}/databases/(default)/documents:runQuery?key=${_APIKEY}`;
-        const mkBody = (yearField) => ({structuredQuery:{from:[{collectionId:'questions'}],where:{compositeFilter:{op:'AND',filters:[
-          {fieldFilter:{field:{fieldPath:'exam'},op:'EQUAL',value:{stringValue:examVal}}},
-          {fieldFilter:{field:{fieldPath:'year'},op:'EQUAL',value:yearField}}
-        ]}}}});
-        let res = await _fetchWithTimeout(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(mkBody({stringValue:yStr}))});
-        let json = await res.json();
-        let docs = _fromRest(json);
-        if(docs.length === 0 && !isNaN(yNum)) {
-          res = await _fetchWithTimeout(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(mkBody({integerValue:String(yNum)}))});
-          json = await res.json();
-          docs = _fromRest(json);
-        }
-        console.log('[TrickySSC] REST fetched', docs.length, 'docs for', examVal, yearVal);
-        return docs;
-      } catch(restErr) {
-        console.warn('[TrickySSC] REST fetch also failed:', restErr.message);
-        return [];
-      }
+      return '';
     }
 
-    // JS filter: lang + shift + heldOn with 3-level fallback
-    function _filter(all, langVal, shiftVal, heldOnVal) {
-      // Treat empty/missing language as 'en' (English is the default upload language)
-      const normLang = q => (q.language || '').trim() || 'en';
+    function fromRest(json){
+      return (json||[]).filter(r=>r.document&&r.document.fields).map(r=>{
+        const f=r.document.fields;
+        const obj={id:r.document.name.split('/').pop()};
+        for(const k of Object.keys(f)) obj[k]=parseField(f[k]);
+        return obj;
+      });
+    }
 
-      // Level 1: strict — lang + shift + heldOn
-      let out = all.filter(q => {
-        // Language: empty docLang defaults to 'en'
-        if(langVal && normLang(q) !== langVal) return false;
-        // Shift: only filter if both non-empty
-        if(shiftVal  && shiftVal.trim()  && q.shift  && q.shift.trim()  && q.shift  !== shiftVal)  return false;
-        // HeldOn: only filter if both non-empty
-        if(heldOnVal && heldOnVal.trim() && q.heldOn && q.heldOn.trim() && q.heldOn !== heldOnVal) return false;
+    async function fetchByYearREST(examVal,yearVal){
+      const url=`https://firestore.googleapis.com/v1/projects/${PROJECT}/databases/(default)/documents:runQuery?key=${APIKEY}`;
+      const mkBody=yf=>({structuredQuery:{from:[{collectionId:'questions'}],where:{compositeFilter:{op:'AND',filters:[
+        {fieldFilter:{field:{fieldPath:'exam'},op:'EQUAL',value:{stringValue:examVal}}},
+        {fieldFilter:{field:{fieldPath:'year'},op:'EQUAL',value:yf}}
+      ]}}}});
+      const yStr=String(yearVal), yNum=parseInt(yearVal);
+      let res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(mkBody({stringValue:yStr}))});
+      let docs=fromRest(await res.json());
+      if(!docs.length&&!isNaN(yNum)){
+        res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(mkBody({integerValue:String(yNum)}))});
+        docs=fromRest(await res.json());
+      }
+      return docs;
+    }
+
+    async function fetchByYearSDK(examVal,yearVal){
+      const yStr=String(yearVal), yNum=parseInt(yearVal);
+      try{
+        let snap=await getDocs(query(collection(db,'questions'),where('exam','==',examVal),where('year','==',yStr)));
+        if(!snap.size&&!isNaN(yNum))
+          snap=await getDocs(query(collection(db,'questions'),where('exam','==',examVal),where('year','==',yNum)));
+        if(snap.size){const docs=[];snap.forEach(d=>docs.push({id:d.id,...d.data()}));return docs;}
+      }catch(e){console.warn('SDK failed:',e.message);}
+      return null; // fall through to REST
+    }
+
+    // ── JS filter with 3-level fallback ──
+    function filterDocs(all,langVal,shiftVal,heldOnVal){
+      const normLang=q=>(q.language||'').trim()||'en';
+      // L1: all filters
+      let out=all.filter(q=>{
+        if(langVal&&normLang(q)!==langVal) return false;
+        if(shiftVal&&q.shift&&q.shift.trim()&&q.shift!==shiftVal) return false;
+        if(heldOnVal&&q.heldOn&&q.heldOn.trim()&&q.heldOn!==heldOnVal) return false;
         return true;
       });
-      if(out.length > 0) { console.log('[TrickySSC] filter L1 passed:', out.length); return out; }
-
-      // Level 2: lang only (drop shift/heldOn)
-      console.warn('[TrickySSC] L1 filter→0, dropping shift/heldOn. lang='+langVal+' shift='+shiftVal+' heldOn='+heldOnVal);
-      out = all.filter(q => !langVal || normLang(q) === langVal);
-      if(out.length > 0) { console.log('[TrickySSC] filter L2 passed:', out.length); return out; }
-
-      // Level 3: return everything
-      console.warn('[TrickySSC] all filters→0, returning all', all.length, 'docs');
+      if(out.length) return out;
+      // L2: lang only
+      console.warn('[TrickySSC] L1→0, dropping shift/heldOn');
+      out=all.filter(q=>!langVal||normLang(q)===langVal);
+      if(out.length) return out;
+      // L3: all
+      console.warn('[TrickySSC] L2→0, returning all');
       return all;
     }
 
-    // ── Main load: cache → REST → filter ──
-    const _noCache = params.get('nocache') === '1';
-    if(_noCache && _cacheKey) localStorage.removeItem(_cacheKey);
+    // ── Load questions ──
+    setLoaderMsg('Loading questions...');
+    let qs=null;
 
-    // Try reading already-filtered cache first (fast path)
-    let _allDocs = _noCache ? [] : (_readCache() || []);
+    if(!noCache) qs=readCache();
 
-    if(_allDocs.length > 0) {
-      setLoaderMsg('Loading from cache...');
-      // Cache stores filtered questions directly — skip fetch
-      _allDocs.forEach(q => questions.push(q));
-      questions.sort((a,b) => (parseInt(a.qNum)||0) - (parseInt(b.qNum)||0));
-      questions.forEach(q => { normaliseQ(q); });
-      if(questions.length > 0) {
-        // Show test immediately from cache
-        const tierParam2  = params.get('tier')  || '';
-        const shiftParam3 = params.get('shift') || '';
-        const langParam2  = params.get('lang')  || lang;
-        const examNames2={'ssc-cgl':'SSC CGL','ssc-chsl':'SSC CHSL','ssc-mts':'SSC MTS','ssc-cpo':'SSC CPO','ssc-gd':'SSC GD Constable','ssc-je':'SSC JE','ssc-jht':'SSC JHT'};
-        const tierLabels2={'tier1':'Tier I','tier-1':'Tier I','tier2':'Tier II','tier-2':'Tier II'};
-        const examName2 = examNames2[exam] || (exam||'').toUpperCase().replace(/-/g,' ');
-        const tierLabel2 = tierParam2 ? (tierLabels2[tierParam2.toLowerCase()] || tierParam2) : '';
-        const langLabel2 = langParam2==='hi' ? '🇮🇳 Hindi' : langParam2==='en' ? '🇬🇧 English' : '';
-        const parts2=[examName2]; if(tierLabel2) parts2.push(tierLabel2);
-        if(year && parseInt(year)>100){ parts2.push(year); if(shiftParam3) parts2.push(shiftParam3); }
-        let title2=parts2.join(' · '); if(langLabel2) title2+=' · '+langLabel2;
-        document.getElementById('examTitle').textContent=title2;
-        document.getElementById('userName').textContent=currentUser.displayName||'Student';
-        currentQ=0; buildSections();buildSectionBar();buildGrid();
-        document.getElementById('qNumTotal').textContent=questions.length;
-        document.getElementById('qNumCurrent').textContent='1';
-        document.getElementById('progressText').textContent='0 / '+questions.length;
-        document.getElementById('loader').style.display='none';
-        document.getElementById('testScreen').style.display='flex';
-        requestAnimationFrame(()=>requestAnimationFrame(()=>{ renderQ(); if(!timerInterval) startTimer(); }));
+    if(qs&&qs.length){
+      console.log('[TrickySSC] Cache hit:',qs.length,'questions');
+    } else {
+      // Fetch fresh
+      setLoaderMsg('Fetching from database...');
+      let allDocs=[];
+      if(mockId){
+        // mock path
+        try{
+          const snap=await getDoc(doc(db,'mock_tests',mockId));
+          if(snap.exists()){
+            mockMeta=snap.data();
+            exam=mockMeta.exam;
+            const yv=String(mockMeta.yearValue||mockMeta.seriesNum||'');
+            allDocs=await fetchByYearSDK(exam,yv)||await fetchByYearREST(exam,yv);
+          }
+        }catch(e){console.warn('mock fetch failed',e);}
+      } else if(year||mNum){
+        const yv=year||mNum;
+        allDocs=await fetchByYearSDK(exam,yv)||await fetchByYearREST(exam,yv);
+      }
+      console.log('[TrickySSC] Fetched',allDocs.length,'raw docs');
+      if(!allDocs.length){
+        document.getElementById('loader').innerHTML=`<div style="text-align:center;padding:2rem;"><div style="font-size:3rem;">📭</div><div style="font-size:1.4rem;font-weight:700;margin:0.5rem 0;">No Questions Found</div><div style="opacity:0.85;margin-bottom:1.5rem;">This paper hasn't been uploaded yet.</div><a href="javascript:history.back()" style="background:white;color:#FF6B00;font-family:Rajdhani,sans-serif;font-weight:700;padding:0.6rem 1.5rem;border-radius:10px;text-decoration:none;">← Go Back</a></div>`;
         return;
       }
-      _allDocs = []; // cache was empty/stale, fall through to fetch
-    }
-    {
-      setLoaderMsg('Loading questions...');
-      try {
-        if(mockMeta) {
-          const yv = mockMeta.yearValue ? String(mockMeta.yearValue) : String(mockMeta.seriesNum);
-          _allDocs = await _restFetch(mockMeta.exam, yv);
-        } else if(year) {
-          _allDocs = await _restFetch(exam, year);
-        } else if(mockNum) {
-          _allDocs = await _restFetch(exam, mockNum);
-        } else {
-          // No year — fetch all for exam via REST
-          const url = `https://firestore.googleapis.com/v1/projects/${_PROJECT}/databases/(default)/documents:runQuery?key=${_APIKEY}`;
-          const body = {structuredQuery:{from:[{collectionId:'questions'}],where:{fieldFilter:{field:{fieldPath:'exam'},op:'EQUAL',value:{stringValue:exam}}}}};
-          const res = await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-          const json = await res.json();
-          _allDocs = (json||[]).filter(r=>r.document&&r.document.fields).map(r=>{const f=r.document.fields;const obj={id:r.document.name.split('/').pop()};for(const k of Object.keys(f)){const v=f[k];obj[k]=v.stringValue??v.integerValue??v.booleanValue??v.doubleValue??'';}return obj;});
-        }
-        // raw write removed — filtered write happens below
-      } catch(e) {
-        throw new Error('Failed to load: ' + e.message);
-      }
+      qs=filterDocs(allDocs,lang,shift,heldOn);
+      console.log('[TrickySSC] After filter:',qs.length,'questions');
+      if(!mockId) writeCache(qs);
     }
 
-    setLoaderMsg('Preparing test...');
-    console.log('[TrickySSC] _allDocs count:', _allDocs.length, '| lang:', lang, '| shift:', shiftParam2, '| heldOn:', heldOnParam2);
-
-    // Apply filters
-    const _filtered = _filter(_allDocs, lang, shiftParam2, heldOnParam2);
-    console.log('[TrickySSC] After filter:', _filtered.length, 'questions');
-    if(!mockId && _filtered.length > 0) _writeCache(_filtered); // cache filtered per-paper
-    _filtered.forEach(q => questions.push(q));
-
-    // [BR] → <br>
-    questions.forEach(q => {
-      ['text','question','explanation','trick','concept','option_A','option_B','option_C','option_D'].forEach(f => {
-        if(q[f] && typeof q[f] === 'string') q[f] = q[f].split('[BR]').join('<br>');
-      });
-    });
-
-    questions.sort((a,b) => (parseInt(a.qNum)||0) - (parseInt(b.qNum)||0));
-
-    if(questions.length === 0) {
-      console.error('[TrickySSC] 0 questions. allDocs=', _allDocs.length,
-        'params:', {exam, year, lang, shiftParam2, heldOnParam2, mockId, mockNum});
-      // Show error in loader — don't open test screen or start timer
-      document.getElementById('loader').innerHTML = `
-        <div style="text-align:center;padding:2rem;">
-          <div style="font-size:3rem;margin-bottom:1rem;">📭</div>
-          <div style="font-size:1.4rem;font-weight:700;margin-bottom:0.5rem;">No Questions Found</div>
-          <div style="font-size:0.95rem;opacity:0.85;margin-bottom:1.5rem;">
-            ${_allDocs.length > 0
-              ? 'Questions exist for this paper but none match the selected language/shift. Try the English version.'
-              : 'This paper has not been uploaded yet. Check back soon!'}
-          </div>
-          <a href="javascript:history.back()" style="background:white;color:#FF6B00;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1rem;padding:0.6rem 1.5rem;border-radius:10px;text-decoration:none;display:inline-block;">← Go Back</a>
-        </div>`;
-      document.getElementById('qText').innerHTML='<div style="text-align:center;padding:2rem;"><div style="font-size:3rem;margin-bottom:1rem;">📭</div><div style="font-size:1.2rem;font-weight:700;margin-bottom:0.5rem;color:#1E293B;">Questions Not Yet Uploaded</div><div style="font-size:0.95rem;color:#64748B;margin-bottom:1.5rem;line-height:1.6;">No questions found for this paper.<br>Check back soon or try reloading.</div><a href="javascript:history.back()" style="display:inline-block;background:#FF6B00;color:white;font-family:Rajdhani,sans-serif;font-weight:700;padding:0.6rem 1.5rem;border-radius:10px;text-decoration:none;margin-bottom:0.5rem;">← Go Back</a><br><a href="javascript:location.reload()" style="font-size:0.8rem;color:#94A3B8;margin-top:8px;display:inline-block;">↺ Retry</a></div>';
-      document.getElementById('options').innerHTML='';
-      document.getElementById('qNumTotal').textContent='0';
+    if(!qs||!qs.length){
+      document.getElementById('loader').innerHTML=`<div style="text-align:center;padding:2rem;"><div style="font-size:3rem;">🔍</div><div style="font-size:1.4rem;font-weight:700;margin:0.5rem 0;">No Matching Questions</div><div style="opacity:0.85;margin-bottom:1.5rem;">No questions match this paper filter.</div><a href="javascript:history.back()" style="background:white;color:#FF6B00;font-family:Rajdhani,sans-serif;font-weight:700;padding:0.6rem 1.5rem;border-radius:10px;text-decoration:none;">← Go Back</a></div>`;
       return;
     }
 
-    // Set exam title — use mock title if available, else fallback
-    // ── Smart exam title builder ──
-    const tierParam  = params.get('tier')  || '';
-    const shiftParam = params.get('shift') || '';
-    const langParam  = params.get('lang')  || lang;
-    const heldOnParam= params.get('heldOn')|| '';
+    // ── Populate questions array ──
+    qs.forEach(q=>questions.push(q));
+    questions.sort((a,b)=>(parseInt(a.qNum)||0)-(parseInt(b.qNum)||0));
+    questions.forEach(q=>normaliseQ(q));
 
-    function buildExamDisplayTitle(){
-      if(mockMeta?.title) return mockMeta.title;
-      const examNames={
-        'ssc-cgl':'SSC CGL','ssc-chsl':'SSC CHSL','ssc-mts':'SSC MTS',
-        'ssc-cpo':'SSC CPO','ssc-gd':'SSC GD Constable',
-        'ssc-je':'SSC JE','ssc-jht':'SSC JHT',
-      };
-      const examName = examNames[exam] || (exam||'').toUpperCase().replace(/-/g,' ');
-      const tierLabels={
-        'tier1':'Tier I','tier-1':'Tier I',
-        'tier2':'Tier II','tier-2':'Tier II',
-        'paper1':'Paper I','paper2':'Paper II','cbt':'CBT',
-      };
-      const tierLabel = tierParam ? (tierLabels[tierParam.toLowerCase()] || tierParam) : '';
-      const langLabel = langParam==='hi' ? '🇮🇳 Hindi' : langParam==='en' ? '🇬🇧 English' : '';
-      if(year && parseInt(year) > 100){
-        // Real PYQ year
-        const parts=[examName];
-        if(tierLabel) parts.push(tierLabel);
-        parts.push(year);
-        if(shiftParam) parts.push(shiftParam);
-        let title = parts.join(' · ');
-        if(langLabel) title += ' · ' + langLabel;
-        return title;
-      }
-      if(mockNum) return examName + ' — Mock ' + mockNum;
-      return examName;
-    }
-    const displayTitle = buildExamDisplayTitle();
-    document.getElementById('examTitle').textContent=displayTitle;
-    document.getElementById('userName').textContent=currentUser.displayName||'Student';
+    // ── Build title ──
+    const examNames={'ssc-cgl':'SSC CGL','ssc-chsl':'SSC CHSL','ssc-mts':'SSC MTS','ssc-cpo':'SSC CPO','ssc-gd':'SSC GD Constable','ssc-je':'SSC JE','ssc-jht':'SSC JHT'};
+    const tierLabels={'tier1':'Tier I','tier-1':'Tier I','tier2':'Tier II','tier-2':'Tier II'};
+    const eName=mockMeta?.title||(examNames[exam]||(exam||'').toUpperCase().replace(/-/g,' '));
+    const tLabel=tier?(tierLabels[tier.toLowerCase()]||tier):'';
+    const lLabel=lang==='hi'?'🇮🇳 Hindi':lang==='en'?'🇬🇧 English':'';
+    let title=eName;
+    if(tLabel) title+=' · '+tLabel;
+    if(year&&parseInt(year)>100){title+=' · '+year;if(shift)title+=' · '+shift;}
+    else if(mNum) title+=' — Mock '+mNum;
+    if(lLabel) title+=' · '+lLabel;
+
+    document.getElementById('examTitle').textContent=title;
+    document.getElementById('userName').textContent=currentUser?.displayName||'Student';
+
+    // ── Show test screen ──
     currentQ=0;
     buildSections();buildSectionBar();buildGrid();
-    // Set counts AND show screen together — prevents Q1 of 0 flash
-    document.getElementById('qNumTotal').textContent = questions.length;
-    document.getElementById('qNumCurrent').textContent = '1';
-    document.getElementById('progressText').textContent = '0 / ' + questions.length;
+    document.getElementById('qNumTotal').textContent=questions.length;
+    document.getElementById('qNumCurrent').textContent='1';
+    document.getElementById('progressText').textContent='0 / '+questions.length;
     document.getElementById('loader').style.display='none';
     document.getElementById('testScreen').style.display='flex';
-    requestAnimationFrame(() => requestAnimationFrame(() => {
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
       renderQ();
       if(!timerInterval) startTimer();
     }));
+
   }catch(e){
-    document.getElementById('loader').innerHTML='❌ Error loading: '+e.message+'<br><a href="javascript:history.back()" style="color:white;font-size:14px;">← Go Back</a>';
+    console.error('[TrickySSC] loadTest error:',e);
+    document.getElementById('loader').innerHTML='<div style="text-align:center;padding:2rem;"><div style="font-size:2rem;">❌</div><div style="margin:0.5rem 0;font-weight:700;">Error loading test</div><div style="font-size:0.85rem;opacity:0.8;margin-bottom:1rem;">'+e.message+'</div><a href="javascript:history.back()" style="background:white;color:#FF6B00;font-family:Rajdhani,sans-serif;font-weight:700;padding:0.6rem 1.5rem;border-radius:10px;text-decoration:none;">← Go Back</a><br><a href="javascript:location.reload()" style="font-size:0.8rem;opacity:0.7;color:white;margin-top:8px;display:inline-block;">↺ Retry</a></div>';
   }
 }
-
 /* ── Normalise a single question object in-place ──
    Handles questions that came through loader.html's REST parser
    where options may still be raw Firestore {mapValue:{fields:{A:{stringValue:...}}}}
@@ -1189,16 +1025,6 @@ window.goQ=i=>{currentQ=i;renderQ();};
 window.markForReview=()=>{markedForReview[currentQ]=!markedForReview[currentQ];renderQ();};
 
 // ── Section metadata ──
-const SUBJECT_SHORT={
-  'General Intelligence & Reasoning':'Reasoning',
-  'General Intelligence and Reasoning':'Reasoning',
-  'Quantitative Aptitude':'Quant',
-  'General Awareness':'Gen. Awareness',
-  'English Language':'English',
-  'English':'English',
-  'reasoning':'Reasoning','quant':'Quant','gk':'Gen. Awareness','english':'English',
-};
-
 function buildSections(){
   sections=[];
   let prev=null;
