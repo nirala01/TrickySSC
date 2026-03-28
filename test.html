@@ -742,7 +742,8 @@ async function loadTest(){
     const mNum  = p.get('mockNum')|| '';
     const noCache = p.get('nocache')==='1';
 
-    console.log('[TrickySSC] loadTest:', {exam,year,lang,shift,heldOn,tier,mockId,mockNum:mNum});
+    const paperId = p.get('paperId') || '';
+    console.log('[TrickySSC] loadTest:', {exam,year,lang,shift,heldOn,tier,mockId,mockNum:mNum,paperId});
 
     // ── Cache (per-paper: exam|year|lang|shift|heldOn) ──
     const CACHE_VER = 'v6';
@@ -781,31 +782,65 @@ async function loadTest(){
       });
     }
 
-    async function fetchByYearREST(examVal,yearVal){
+    async function fetchByYearREST(examVal,yearVal,heldOnVal){
       const url=`https://firestore.googleapis.com/v1/projects/${PROJECT}/databases/(default)/documents:runQuery?key=${APIKEY}`;
-      const mkBody=yf=>({structuredQuery:{from:[{collectionId:'questions'}],where:{compositeFilter:{op:'AND',filters:[
-        {fieldFilter:{field:{fieldPath:'exam'},op:'EQUAL',value:{stringValue:examVal}}},
-        {fieldFilter:{field:{fieldPath:'year'},op:'EQUAL',value:yf}}
-      ]}}}});
       const yStr=String(yearVal), yNum=parseInt(yearVal);
-      let res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(mkBody({stringValue:yStr}))});
+
+      // Build filters: exam+year always, heldOn only if present
+      function mkBody(yf, useHeldOn){
+        const filters=[
+          {fieldFilter:{field:{fieldPath:'exam'},op:'EQUAL',value:{stringValue:examVal}}},
+          {fieldFilter:{field:{fieldPath:'year'},op:'EQUAL',value:yf}},
+        ];
+        if(useHeldOn&&heldOnVal)
+          filters.push({fieldFilter:{field:{fieldPath:'heldOn'},op:'EQUAL',value:{stringValue:heldOnVal}}});
+        return {structuredQuery:{from:[{collectionId:'questions'}],where:{compositeFilter:{op:'AND',filters}}}};
+      }
+
+      // Try exam+year+heldOn (fast: ~100 docs)
+      if(heldOnVal){
+        let res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(mkBody({stringValue:yStr},true))});
+        let docs=fromRest(await res.json());
+        if(!docs.length&&!isNaN(yNum)){
+          res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(mkBody({integerValue:String(yNum)},true))});
+          docs=fromRest(await res.json());
+        }
+        if(docs.length){ console.log('[TrickySSC] REST heldOn-filtered:',docs.length); return docs; }
+        console.warn('[TrickySSC] heldOn filter→0, falling back to year-only');
+      }
+
+      // Fallback: exam+year only (fetches all shifts, JS will filter)
+      let res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(mkBody({stringValue:yStr},false))});
       let docs=fromRest(await res.json());
       if(!docs.length&&!isNaN(yNum)){
-        res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(mkBody({integerValue:String(yNum)}))});
+        res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(mkBody({integerValue:String(yNum)},false))});
         docs=fromRest(await res.json());
       }
+      console.log('[TrickySSC] REST year-only:',docs.length);
       return docs;
     }
 
-    async function fetchByYearSDK(examVal,yearVal){
+    async function fetchByYearSDK(examVal,yearVal,heldOnVal){
       const yStr=String(yearVal), yNum=parseInt(yearVal);
       try{
+        // Try exam+year+heldOn (fast: ~100 docs)
+        if(heldOnVal){
+          let snap=await getDocs(query(collection(db,'questions'),where('exam','==',examVal),where('year','==',yStr),where('heldOn','==',heldOnVal)));
+          if(!snap.size&&!isNaN(yNum))
+            snap=await getDocs(query(collection(db,'questions'),where('exam','==',examVal),where('year','==',yNum),where('heldOn','==',heldOnVal)));
+          if(snap.size){
+            console.log('[TrickySSC] SDK heldOn-filtered:',snap.size);
+            const docs=[];snap.forEach(d=>docs.push({id:d.id,...d.data()}));return docs;
+          }
+          console.warn('[TrickySSC] SDK heldOn→0, falling back to year-only');
+        }
+        // Fallback: year only
         let snap=await getDocs(query(collection(db,'questions'),where('exam','==',examVal),where('year','==',yStr)));
         if(!snap.size&&!isNaN(yNum))
           snap=await getDocs(query(collection(db,'questions'),where('exam','==',examVal),where('year','==',yNum)));
         if(snap.size){const docs=[];snap.forEach(d=>docs.push({id:d.id,...d.data()}));return docs;}
       }catch(e){console.warn('SDK failed:',e.message);}
-      return null; // fall through to REST
+      return null;
     }
 
     // ── JS filter with 3-level fallback ──
@@ -840,7 +875,28 @@ async function loadTest(){
       // Fetch fresh
       setLoaderMsg('Fetching from database...');
       let allDocs=[];
-      if(mockId){
+
+      // ── Fast path: fetch by paperId (single precise query) ──
+      if(paperId && !mockId){
+        try{
+          setLoaderMsg('Loading paper...');
+          // Try SDK first
+          let snap = await getDocs(query(collection(db,'questions'),where('paperId','==',paperId)));
+          if(snap.size){
+            snap.forEach(d=>allDocs.push({id:d.id,...d.data()}));
+            console.log('[TrickySSC] paperId fetch (SDK):',allDocs.length,'docs');
+          } else {
+            // Try REST
+            const url=`https://firestore.googleapis.com/v1/projects/${PROJECT}/databases/(default)/documents:runQuery?key=${APIKEY}`;
+            const body={structuredQuery:{from:[{collectionId:'questions'}],where:{fieldFilter:{field:{fieldPath:'paperId'},op:'EQUAL',value:{stringValue:paperId}}}}};
+            const res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+            allDocs=fromRest(await res.json());
+            console.log('[TrickySSC] paperId fetch (REST):',allDocs.length,'docs');
+          }
+        }catch(e){ console.warn('paperId fetch failed:',e.message); allDocs=[]; }
+      }
+
+      if(allDocs.length===0 && mockId){
         // mock path
         try{
           const snap=await getDoc(doc(db,'mock_tests',mockId));
@@ -848,12 +904,12 @@ async function loadTest(){
             mockMeta=snap.data();
             exam=mockMeta.exam;
             const yv=String(mockMeta.yearValue||mockMeta.seriesNum||'');
-            allDocs=await fetchByYearSDK(exam,yv)||await fetchByYearREST(exam,yv);
+            allDocs=await fetchByYearSDK(exam,yv,'')||await fetchByYearREST(exam,yv,'');
           }
         }catch(e){console.warn('mock fetch failed',e);}
-      } else if(year||mNum){
+      } else if(allDocs.length===0 && (year||mNum)){
         const yv=year||mNum;
-        allDocs=await fetchByYearSDK(exam,yv)||await fetchByYearREST(exam,yv);
+        allDocs=await fetchByYearSDK(exam,yv,heldOn)||await fetchByYearREST(exam,yv,heldOn);
       }
       console.log('[TrickySSC] Fetched',allDocs.length,'raw docs');
       if(!allDocs.length){

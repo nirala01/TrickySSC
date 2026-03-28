@@ -133,6 +133,7 @@ textarea{resize:vertical;min-height:80px;}
     <button class="tab" onclick="switchTab('users')">👥 Users</button>
     <button class="tab" onclick="switchTab('import')">📥 Import CSV</button>
     <button class="tab" onclick="switchTab('export')">📤 Export CSV</button>
+    <button class="tab" onclick="switchTab('migrate')">🔑 Paper IDs</button>
   </div>
 
   <!-- TAB: Add Questions Manually -->
@@ -877,6 +878,28 @@ textarea{resize:vertical;min-height:80px;}
       </div>
     </div>
   </div>
+  <div class="panel" id="panel-migrate">
+    <div class="card">
+      <h3>🔑 Assign Paper IDs</h3>
+      <p style="color:#94A3B8;font-size:0.9rem;margin-bottom:1.5rem;">
+        Groups all existing questions by <strong>exam + year + tier + shift + heldOn + language</strong>
+        and assigns a unique <code style="color:#A78BFA;">paperId</code> to each group.
+        Run this once to migrate existing data. New CSV uploads get paperId automatically.
+      </p>
+      <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:1.5rem;">
+        <button class="btn btn-primary" onclick="runMigration()" id="migrateBtn">🚀 Scan &amp; Assign Paper IDs</button>
+        <button class="btn" onclick="previewMigration()" id="previewBtn" style="background:#334155;color:#E2E8F0;border:1px solid #475569;">👁 Preview Groups First</button>
+      </div>
+      <div id="migrationProgress" style="display:none;margin-bottom:1rem;">
+        <div style="background:#0F172A;border-radius:8px;height:8px;overflow:hidden;margin-bottom:0.5rem;">
+          <div id="migBar" style="height:100%;background:linear-gradient(90deg,#A78BFA,#60A5FA);width:0%;transition:width 0.3s;"></div>
+        </div>
+        <div id="migStatus" style="font-size:0.85rem;color:#94A3B8;"></div>
+      </div>
+      <div id="migrationResult" style="font-size:0.85rem;color:#94A3B8;line-height:1.8;max-height:400px;overflow-y:auto;"></div>
+    </div>
+  </div>
+
 </div><!-- /adminScreen -->
 
 <!-- Edit Modal -->
@@ -1767,6 +1790,16 @@ window.importCSV = async () => {
   const ovHeldOnType = document.getElementById('csvHeldOnType')?.value || '';
   const ovHeldOnDate = document.getElementById('csvHeldOnDate')?.value || '';
   let saved = 0, errors = 0;
+  // Generate one paperId for this entire CSV batch
+  const _batchExam = ovExam || csvParsedRows[0]?.exam || '';
+  const _batchTier = ovTier || csvParsedRows[0]?.tier || 'tier1';
+  const _batchYear = ovYear || csvParsedRows[0]?.year || '';
+  const _batchShift = ovShift || csvParsedRows[0]?.shift || '';
+  const _batchLang  = ovLang  || csvParsedRows[0]?.language || 'en';
+  const _batchHeldOn = (ovHeldOnType==='date') ? ovHeldOnDate : (csvParsedRows[0]?.heldOn||'');
+  const _batchPaperId = makePaperId(_batchExam, _batchYear, _batchTier, _batchShift, _batchHeldOn, _batchLang);
+  console.log('[Admin] CSV batch paperId:', _batchPaperId);
+
   for (let i = 0; i < csvParsedRows.length; i++) {
     const r = csvParsedRows[i];
     const exam = ovExam || r.exam || '';
@@ -1781,6 +1814,7 @@ window.importCSV = async () => {
     try {
       await addDoc(collection(db, 'questions'), {
         text: r.text, exam, tier, year, shift, language, heldOn,
+        paperId: _batchPaperId,
         type: r.type || 'pyq',
         subject: r.subject || '', chapter: r.chapter || '',
         difficulty: r.difficulty || 'medium', qNum: parseInt(r.qNum) || 0,
@@ -1904,6 +1938,7 @@ window.switchTab = (tab) => {
   if (tab === 'users') loadUsers();
   if (tab === 'export') updateExportTiersAndSubjects();
   if (tab === 'import') { /* ready */ }
+  if (tab === 'migrate') { previewMigration(); }
 };
 
 // ── Edit Modal ──
@@ -2242,6 +2277,124 @@ window.updateCsvTiers = () => {
   tierSel.innerHTML = '<option value="">From CSV / keep as-is</option>' +
     tiers.map(t => `<option value="${t.v}">${t.l}</option>`).join('');
 };
+// ── Paper ID helpers ──────────────────────────────────────────────
+
+function makePaperId(exam, year, tier, shift, heldOn, lang) {
+  // e.g. "ssc-cgl_2024_tier1_shift-1_2024-09-09_hi"
+  const parts = [
+    (exam||'unknown').replace(/[^a-z0-9-]/gi,''),
+    (year||'xxxx').toString().replace(/[^a-z0-9]/gi,''),
+    (tier||'t1').replace(/[^a-z0-9-]/gi,''),
+    (shift||'s1').toLowerCase().replace(/[^a-z0-9-]/gi,''),
+    (heldOn||'nodate').replace(/[^a-z0-9-]/gi,''),
+    (lang||'en').replace(/[^a-z0-9]/gi,''),
+  ];
+  return parts.join('_').toLowerCase();
+}
+
+// ── Migration: preview groups ──
+window.previewMigration = async () => {
+  const result = document.getElementById('migrationResult');
+  result.innerHTML = '<span style="color:#94A3B8;">Scanning questions...</span>';
+  try {
+    const snap = await getDocs(collection(db, 'questions'));
+    const groups = {};
+    let withId = 0, withoutId = 0;
+    snap.forEach(d => {
+      const q = d.data();
+      if (q.paperId) { withId++; return; }
+      withoutId++;
+      const pid = makePaperId(q.exam, q.year, q.tier, q.shift, q.heldOn, q.language);
+      if (!groups[pid]) groups[pid] = { exam:q.exam, year:q.year, tier:q.tier, shift:q.shift, heldOn:q.heldOn, lang:q.language||'en', count:0 };
+      groups[pid].count++;
+    });
+    const gList = Object.entries(groups).sort((a,b) => a[0].localeCompare(b[0]));
+    let html = `<div style="margin-bottom:1rem;">
+      <span style="color:#22C55E;">✅ Already have paperId: <strong>${withId}</strong></span> &nbsp;|&nbsp;
+      <span style="color:#F59E0B;">⚠ Missing paperId: <strong>${withoutId}</strong> (${gList.length} groups)</span>
+    </div>`;
+    if (gList.length === 0) {
+      html += '<div style="color:#22C55E;">🎉 All questions already have a paperId!</div>';
+    } else {
+      html += '<table style="width:100%;border-collapse:collapse;font-size:0.8rem;">';
+      html += '<tr style="color:#64748B;border-bottom:1px solid #1E293B;"><th style="text-align:left;padding:4px 8px;">Paper ID</th><th style="text-align:left;padding:4px 8px;">Exam</th><th style="text-align:left;padding:4px 8px;">Year</th><th style="text-align:left;padding:4px 8px;">Tier</th><th style="text-align:left;padding:4px 8px;">Shift</th><th style="text-align:left;padding:4px 8px;">HeldOn</th><th style="text-align:left;padding:4px 8px;">Lang</th><th style="text-align:right;padding:4px 8px;">Qs</th></tr>';
+      gList.forEach(([pid, g]) => {
+        html += `<tr style="border-bottom:1px solid #1E293B22;">
+          <td style="padding:4px 8px;color:#A78BFA;font-family:monospace;">${pid}</td>
+          <td style="padding:4px 8px;">${g.exam}</td>
+          <td style="padding:4px 8px;">${g.year}</td>
+          <td style="padding:4px 8px;">${g.tier}</td>
+          <td style="padding:4px 8px;">${g.shift||'—'}</td>
+          <td style="padding:4px 8px;">${g.heldOn||'—'}</td>
+          <td style="padding:4px 8px;">${g.lang}</td>
+          <td style="padding:4px 8px;text-align:right;">${g.count}</td>
+        </tr>`;
+      });
+      html += '</table>';
+    }
+    result.innerHTML = html;
+  } catch(e) {
+    result.innerHTML = '<span style="color:#EF4444;">Error: ' + e.message + '</span>';
+  }
+};
+
+// ── Migration: assign paperIds in bulk ──
+window.runMigration = async () => {
+  const btn = document.getElementById('migrateBtn');
+  const prog = document.getElementById('migrationProgress');
+  const bar  = document.getElementById('migBar');
+  const status = document.getElementById('migStatus');
+  const result = document.getElementById('migrationResult');
+  btn.disabled = true;
+  prog.style.display = 'block';
+  result.innerHTML = '';
+
+  try {
+    status.textContent = 'Fetching all questions...';
+    const snap = await getDocs(collection(db, 'questions'));
+    const toUpdate = [];
+    snap.forEach(d => {
+      const q = d.data();
+      if (!q.paperId) {
+        const pid = makePaperId(q.exam, q.year, q.tier, q.shift, q.heldOn, q.language);
+        toUpdate.push({ id: d.id, paperId: pid });
+      }
+    });
+
+    if (toUpdate.length === 0) {
+      status.textContent = '✅ All questions already have a paperId!';
+      bar.style.width = '100%';
+      btn.disabled = false;
+      return;
+    }
+
+    status.textContent = `Assigning paperIds to ${toUpdate.length} questions...`;
+    let done = 0, errors = 0;
+
+    // Process in batches of 400 (Firestore limit)
+    for (let i = 0; i < toUpdate.length; i++) {
+      try {
+        await updateDoc(doc(db, 'questions', toUpdate[i].id), { paperId: toUpdate[i].paperId });
+        done++;
+      } catch(e) { errors++; console.error(e); }
+      if (i % 10 === 0 || i === toUpdate.length - 1) {
+        bar.style.width = ((i+1)/toUpdate.length*100) + '%';
+        status.textContent = `Updated ${done}/${toUpdate.length}...${errors?' ('+errors+' errors)':''}`;
+      }
+    }
+
+    bar.style.width = '100%';
+    status.textContent = `✅ Done! ${done} questions updated${errors?' ('+errors+' errors)':''}.`;
+    showToast('✅ Paper IDs assigned to ' + done + ' questions!', 'success');
+    // Refresh preview
+    await previewMigration();
+  } catch(e) {
+    status.textContent = 'Error: ' + e.message;
+    result.innerHTML = '<span style="color:#EF4444;">' + e.message + '</span>';
+  }
+  btn.disabled = false;
+};
+
 </script>
 </body>
 </html>
