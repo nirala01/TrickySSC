@@ -1604,97 +1604,92 @@
     const PROJECT = 'trickyssc-17bb3';
     const API_KEY = 'AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA';
 
+    function _parsePDoc(fields){
+      const s=k=>String(fields[k]?(fields[k].stringValue||fields[k].integerValue||''):'');
+      const n=k=>parseInt(fields[k]?(fields[k].integerValue||fields[k].stringValue||0)||0)||0;
+      return {exam:s('exam'),paperId:s('paperId'),year:s('year'),shift:s('shift'),
+              tier:s('tier'),heldOn:s('heldOn'),language:s('language'),
+              questionCount:n('questionCount'),count:n('questionCount')||100};
+    }
+
     async function fetchPYQMetadata() {
-      const _P='trickyssc-17bb3', _K='AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA';
+      const P='trickyssc-17bb3', K='AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA';
+      const T=10000;
+      const ft=(u,o)=>Promise.race([o?fetch(u,o):fetch(u),new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),T))]);
 
-      // Method 1: GET all papers docs then filter by exam (simpler, more reliable)
-      const listUrl=`https://firestore.googleapis.com/v1/projects/${_P}/databases/(default)/documents/papers?key=${_K}&pageSize=200`;
-      try {
-        const res=await fetch(listUrl);
-        if(res.ok){
-          const json=await res.json();
-          const allDocs=(json.documents||[]);
-          console.log('[TrickySSC] papers list fetch:',allDocs.length,'total docs');
-          const docs=allDocs
-            .filter(d=>d.fields)
-            .map(d=>{
-              const f=d.fields;
-              const sv=k=>String(f[k]?(f[k].stringValue||f[k].integerValue||''):'');
-              const iv=k=>parseInt(f[k]?(f[k].integerValue||f[k].stringValue||0)||0)||0;
-              return {
-                paperId:       sv('paperId'),
-                year:          sv('year'),
-                shift:         sv('shift'),
-                tier:          sv('tier'),
-                heldOn:        sv('heldOn'),
-                language:      sv('language'),
-                questionCount: iv('questionCount'),
-                count:         iv('questionCount')||100
-              };
-            })
-            .filter(d=>d.paperId.startsWith(EXAM.replace('ssc-','ssc')));
-          console.log('[TrickySSC] papers for',EXAM,':',docs.length);
-          if(docs.length>0) return docs;
-        }
-      } catch(e){ console.warn('[TrickySSC] papers list failed:',e.message); }
+      // Run both methods in PARALLEL — whoever responds first wins
+      const listUrl=`https://firestore.googleapis.com/v1/projects/${P}/databases/(default)/documents/papers?key=${K}&pageSize=300`;
+      const qUrl=`https://firestore.googleapis.com/v1/projects/${P}/databases/(default)/documents:runQuery?key=${K}`;
+      const qBody={structuredQuery:{from:[{collectionId:'papers'}],where:{fieldFilter:{field:{fieldPath:'exam'},op:'EQUAL',value:{stringValue:EXAM}}}}};
 
-      // Method 2: runQuery with exam filter
-      const queryUrl=`https://firestore.googleapis.com/v1/projects/${_P}/databases/(default)/documents:runQuery?key=${_K}`;
-      const body={structuredQuery:{from:[{collectionId:'papers'}],
-        where:{fieldFilter:{field:{fieldPath:'exam'},op:'EQUAL',value:{stringValue:EXAM}}}
-      }};
-      try {
-        const res=await fetch(queryUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-        const json=await res.json();
-        const docs=(json||[]).filter(r=>r.document&&r.document.fields).map(r=>{
-          const f=r.document.fields;
-          const sv=k=>String(f[k]?(f[k].stringValue||f[k].integerValue||''):'');
-          const iv=k=>parseInt(f[k]?(f[k].integerValue||f[k].stringValue||0)||0)||0;
-          return {
-            paperId:sv('paperId'), year:sv('year'), shift:sv('shift'),
-            tier:sv('tier'), heldOn:sv('heldOn'), language:sv('language'),
-            questionCount:iv('questionCount'), count:iv('questionCount')||100
-          };
-        });
-        console.log('[TrickySSC] papers runQuery:',docs.length,'for',EXAM);
-        if(docs.length>0) return docs;
-      } catch(e){ console.warn('[TrickySSC] papers runQuery failed:',e.message); }
+      const [r1,r2] = await Promise.allSettled([
+        ft(listUrl).then(async r=>{
+          const j=await r.json();
+          const docs=(j.documents||[]).filter(d=>d.fields).map(d=>_parsePDoc(d.fields)).filter(d=>d.exam===EXAM);
+          console.log('[TrickySSC] list method: exam='+EXAM+' matched:',docs.length,'of',(j.documents||[]).length);
+          if(!docs.length) throw new Error('0 docs for '+EXAM);
+          return docs;
+        }),
+        ft(qUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(qBody)}).then(async r=>{
+          const j=await r.json();
+          const docs=(j||[]).filter(x=>x.document&&x.document.fields).map(x=>_parsePDoc(x.document.fields));
+          console.log('[TrickySSC] query method: docs:',docs.length);
+          if(!docs.length) throw new Error('query 0 docs');
+          return docs;
+        })
+      ]);
 
-      // Method 3: fallback — scan questions collection
-      console.warn('[TrickySSC] All papers methods failed, falling back to questions scan');
+      for(const r of [r1,r2]){
+        if(r.status==='fulfilled') return r.value;
+      }
+      console.warn('[TrickySSC] Both papers methods failed — fallback to questions scan');
+      [r1,r2].forEach(r=>console.warn(r.reason?.message));
       return await fetchMetadataFallback();
     }
 
-    // Fallback: scan questions collection (slow, only used if papers collection not built yet)
+    // Fallback: scan questions (slow — only if papers collection not populated)
     async function fetchMetadataFallback() {
-      const _P='trickyssc-17bb3', _K='AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA';
-      const url=`https://firestore.googleapis.com/v1/projects/${_P}/databases/(default)/documents:runQuery?key=${_K}`;
+      const P='trickyssc-17bb3', K='AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA';
+      const url=`https://firestore.googleapis.com/v1/projects/${P}/databases/(default)/documents:runQuery?key=${K}`;
       const body={structuredQuery:{from:[{collectionId:'questions'}],
         where:{fieldFilter:{field:{fieldPath:'exam'},op:'EQUAL',value:{stringValue:EXAM}}},
         select:{fields:[{fieldPath:'year'},{fieldPath:'shift'},{fieldPath:'tier'},{fieldPath:'heldOn'},{fieldPath:'language'},{fieldPath:'paperId'}]}
       }};
       try {
-        const res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+        const res=await Promise.race([fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}),
+          new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),12000))]);
         const json=await res.json();
-        return (json||[]).filter(r=>r.document&&r.document.fields).map(r=>{
+        const raw=(json||[]).filter(r=>r.document&&r.document.fields).map(r=>{
           const f=r.document.fields;
-          return {
-            year:    String(f.year    ?(f.year.stringValue||f.year.integerValue||''):''),
-            shift:   String(f.shift   ?(f.shift.stringValue||''):''),
-            tier:    String(f.tier    ?(f.tier.stringValue||''):''),
-            heldOn:  String(f.heldOn  ?(f.heldOn.stringValue||''):''),
-            language:String(f.language?(f.language.stringValue||''):''),
-            paperId: String(f.paperId ?(f.paperId.stringValue||''):''),
-            count: 1
-          };
+          return {year:String(f.year?(f.year.stringValue||f.year.integerValue||''):''),
+                  shift:String(f.shift?(f.shift.stringValue||''):''),
+                  tier:String(f.tier?(f.tier.stringValue||''):''),
+                  heldOn:String(f.heldOn?(f.heldOn.stringValue||''):''),
+                  language:String(f.language?(f.language.stringValue||''):''),
+                  paperId:String(f.paperId?(f.paperId.stringValue||''):''),count:1};
         });
-      } catch(e) { return []; }
+        // Deduplicate by paperId
+        const seen={};
+        return raw.filter(d=>{const k=d.paperId||d.year+'|'+d.shift+'|'+d.heldOn+'|'+d.tier+'|'+d.language;if(seen[k])return false;seen[k]=true;return true;});
+      } catch(e){ console.error('[TrickySSC] fallback failed:',e.message); return []; }
     }
 
+
     async function loadPYQs() {
+      // Show retry button after 15s if still stuck
+      const _retryTimer = setTimeout(()=>{
+        ['t1','t2'].forEach(t=>{
+          const el=document.getElementById(EXAM+'-pyq-'+t+'-content');
+          if(el&&el.innerHTML.includes('Loading papers')){
+            el.innerHTML='<div style="text-align:center;padding:2rem;"><div style="font-size:1.5rem;margin-bottom:0.5rem;">🐌</div><div style="color:#64748B;margin-bottom:1rem;font-size:0.9rem;">Slow connection detected</div><button onclick="loadPYQs()" style="background:#FF6B00;color:white;border:none;padding:0.5rem 1.2rem;border-radius:8px;font-family:Rajdhani,sans-serif;font-weight:700;cursor:pointer;">↺ Retry</button></div>';
+          }
+        });
+      }, 15000);
+
       try {
         // papers collection returns one doc per paper — no deduplication needed
         let papers = await fetchPYQMetadata();
+        clearTimeout(_retryTimer);
 
         // Retry once on failure (handles mobile network hiccup)
         if(!papers || papers.length === 0) {
@@ -1709,9 +1704,10 @@
         renderTier('t1', t1, TIER1_LABEL);
         renderTier('t2', t2, TIER2_LABEL);
       } catch(e) {
+        clearTimeout(_retryTimer);
         ['t1','t2'].forEach(t => {
           const el = document.getElementById(EXAM+'-pyq-'+t+'-content');
-          if(el) el.innerHTML = '<div style="color:#EF4444;text-align:center;padding:2rem;">Error loading papers: '+e.message+'<br><button onclick="loadPYQs()" style="margin-top:0.5rem;background:#FF6B00;color:white;border:none;padding:0.4rem 1rem;border-radius:6px;cursor:pointer;font-family:Rajdhani,sans-serif;font-weight:700;">↺ Retry</button></div>';
+          if(el) el.innerHTML = '<div style="color:#EF4444;text-align:center;padding:2rem;"><div style="font-size:1.5rem;margin-bottom:0.5rem;">❌</div>Error loading papers<br><button onclick="loadPYQs()" style="margin-top:0.5rem;background:#FF6B00;color:white;border:none;padding:0.5rem 1.2rem;border-radius:8px;cursor:pointer;font-family:Rajdhani,sans-serif;font-weight:700;">↺ Retry</button></div>';
         });
       }
     }
