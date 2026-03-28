@@ -1605,42 +1605,64 @@
     const API_KEY = 'AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA';
 
     async function fetchPYQMetadata() {
-      // papers collection: one tiny doc per paper (~200 bytes each vs 500KB for questions)
       const _P='trickyssc-17bb3', _K='AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA';
-      const url=`https://firestore.googleapis.com/v1/projects/${_P}/databases/(default)/documents:runQuery?key=${_K}`;
+
+      // Method 1: GET all papers docs then filter by exam (simpler, more reliable)
+      const listUrl=`https://firestore.googleapis.com/v1/projects/${_P}/databases/(default)/documents/papers?key=${_K}&pageSize=200`;
+      try {
+        const res=await fetch(listUrl);
+        if(res.ok){
+          const json=await res.json();
+          const allDocs=(json.documents||[]);
+          console.log('[TrickySSC] papers list fetch:',allDocs.length,'total docs');
+          const docs=allDocs
+            .filter(d=>d.fields)
+            .map(d=>{
+              const f=d.fields;
+              const sv=k=>String(f[k]?(f[k].stringValue||f[k].integerValue||''):'');
+              const iv=k=>parseInt(f[k]?(f[k].integerValue||f[k].stringValue||0)||0)||0;
+              return {
+                paperId:       sv('paperId'),
+                year:          sv('year'),
+                shift:         sv('shift'),
+                tier:          sv('tier'),
+                heldOn:        sv('heldOn'),
+                language:      sv('language'),
+                questionCount: iv('questionCount'),
+                count:         iv('questionCount')||100
+              };
+            })
+            .filter(d=>d.paperId.startsWith(EXAM.replace('ssc-','ssc')));
+          console.log('[TrickySSC] papers for',EXAM,':',docs.length);
+          if(docs.length>0) return docs;
+        }
+      } catch(e){ console.warn('[TrickySSC] papers list failed:',e.message); }
+
+      // Method 2: runQuery with exam filter
+      const queryUrl=`https://firestore.googleapis.com/v1/projects/${_P}/databases/(default)/documents:runQuery?key=${_K}`;
       const body={structuredQuery:{from:[{collectionId:'papers'}],
         where:{fieldFilter:{field:{fieldPath:'exam'},op:'EQUAL',value:{stringValue:EXAM}}}
       }};
-
       try {
-        const res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+        const res=await fetch(queryUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
         const json=await res.json();
         const docs=(json||[]).filter(r=>r.document&&r.document.fields).map(r=>{
           const f=r.document.fields;
           const sv=k=>String(f[k]?(f[k].stringValue||f[k].integerValue||''):'');
-          const iv=k=>parseInt(f[k]?.(f[k].integerValue||f[k].stringValue||0))||0;
+          const iv=k=>parseInt(f[k]?(f[k].integerValue||f[k].stringValue||0)||0)||0;
           return {
-            paperId:       sv('paperId'),
-            year:          sv('year'),
-            shift:         sv('shift'),
-            tier:          sv('tier'),
-            heldOn:        sv('heldOn'),
-            language:      sv('language'),
-            questionCount: iv('questionCount'),
-            // papers collection has one doc per paper, so count=1 per entry
-            count: iv('questionCount') || 100
+            paperId:sv('paperId'), year:sv('year'), shift:sv('shift'),
+            tier:sv('tier'), heldOn:sv('heldOn'), language:sv('language'),
+            questionCount:iv('questionCount'), count:iv('questionCount')||100
           };
         });
-        console.log('[TrickySSC] papers fetch:',docs.length,'papers for',EXAM);
-        if(docs.length > 0) return docs;
+        console.log('[TrickySSC] papers runQuery:',docs.length,'for',EXAM);
+        if(docs.length>0) return docs;
+      } catch(e){ console.warn('[TrickySSC] papers runQuery failed:',e.message); }
 
-        // Fallback: papers collection empty → scan questions (old behaviour)
-        console.warn('[TrickySSC] papers collection empty, falling back to questions scan');
-        return await fetchMetadataFallback();
-      } catch(e) {
-        console.error('[TrickySSC] papers fetch failed:',e.message);
-        return await fetchMetadataFallback();
-      }
+      // Method 3: fallback — scan questions collection
+      console.warn('[TrickySSC] All papers methods failed, falling back to questions scan');
+      return await fetchMetadataFallback();
     }
 
     // Fallback: scan questions collection (slow, only used if papers collection not built yet)
