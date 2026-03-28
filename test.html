@@ -717,6 +717,15 @@ window.addEventListener('pageshow', function(e) {
   }
 });
 
+/* ── Hard reset on every script run — ensure clean state regardless of bfcache ── */
+(function(){
+  // Always force loader visible, testScreen hidden at JS start
+  const loader = document.getElementById('loader');
+  const screen = document.getElementById('testScreen');
+  if(loader) loader.style.display='flex';
+  if(screen) screen.style.display='none';
+})();
+
 /* ── Load questions ── */
 async function loadTest(){
   try{
@@ -1034,14 +1043,15 @@ async function loadTest(){
     const displayTitle = buildExamDisplayTitle();
     document.getElementById('examTitle').textContent=displayTitle;
     document.getElementById('userName').textContent=currentUser.displayName||'Student';
-    document.getElementById('loader').style.display='none';
-    document.getElementById('testScreen').style.display='flex';
-    buildSections();buildSectionBar();buildGrid();
-    currentQ=0;
-    // Set question count immediately to avoid "Q1 of 0" flash
+    // Set counts BEFORE showing screen — prevents Q1 of 0 flash
     document.getElementById('qNumTotal').textContent = questions.length;
     document.getElementById('qNumCurrent').textContent = '1';
     document.getElementById('progressText').textContent = '0 / ' + questions.length;
+    buildSections();buildSectionBar();buildGrid();
+    currentQ=0;
+    // Now show screen — everything is ready
+    document.getElementById('loader').style.display='none';
+    document.getElementById('testScreen').style.display='flex';
     requestAnimationFrame(() => requestAnimationFrame(() => {
       renderQ();
       if(!timerInterval) startTimer();
