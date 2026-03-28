@@ -842,7 +842,7 @@ async function loadTest(){
     const heldOnParam2 = params.get('heldOn') || '';
 
     // Cache key: exam+year (broad) so one fetch covers all lang/shift variants
-    const _CACHE_VER = 'v4';
+    const _CACHE_VER = 'v5'; // bumped: fixed language filter
     const _cacheKey  = mockId ? null
       : ('tssc__' + _CACHE_VER + '__' + (exam||'') + '|' + (year || mockNum || ''));
     const _CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -1194,10 +1194,13 @@ function renderQ(){
   if(q.imageUrl){imgEl.src=q.imageUrl;imgWrap.style.display='block';}
   else{imgWrap.style.display='none';imgEl.src='';}
 
-  // Options — support all storage formats
+  // Options — support all storage formats (A/B/C/D or a/b/c/d keys, or option_A fields)
   const opts=['A','B','C','D'];
+  if(currentQ===0) console.log('[TrickySSC] Q1 options debug:', JSON.stringify(q.options), '| option_A:', q.option_A||q.optionA||'(none)');
   document.getElementById('options').innerHTML=opts.map(o=>{
-    const txt=(q.options&&q.options[o]!=null&&q.options[o]!=='')?q.options[o]:(q['option'+o]||q['option_'+o]||'');
+    const lo=o.toLowerCase();
+    const txt=(q.options&&(q.options[o]!=null&&q.options[o]!==''?q.options[o]:(q.options[lo]!=null&&q.options[lo]!==''?q.options[lo]:'')))
+      ||(q['option'+o]||q['option_'+o]||q['option'+lo]||'');
     const optImg=q.optionImages?.[o]||'';
     const sel=answers[currentQ]===o?'selected':'';
     return `<div class="option ${sel}" onclick="selectOpt('${o}')">
