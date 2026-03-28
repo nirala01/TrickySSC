@@ -645,7 +645,7 @@ const params=new URLSearchParams(window.location.search);
       const k = localStorage.key(i);
       if(!k) continue;
       // Remove old backup keys (tssc_bk__) and old version caches (v1-v4)
-      if(k.startsWith('tssc_bk__') || /^tssc__(v[1-4])__/.test(k) || k.startsWith('tssc_qs_')) {
+      if(k.startsWith('tssc_bk__') || /^tssc__(v[1-5])__/.test(k) || k.startsWith('tssc_qs_')) {
         toDelete.push(k);
       }
     }
@@ -772,9 +772,9 @@ async function loadTest(){
     const heldOnParam2 = params.get('heldOn') || '';
 
     // Cache key: exam+year (broad) so one fetch covers all lang/shift variants
-    const _CACHE_VER = 'v5'; // bumped: fixed language filter
+    const _CACHE_VER = 'v6'; // per-paper cache key
     const _cacheKey  = mockId ? null
-      : ('tssc__' + _CACHE_VER + '__' + (exam||'') + '|' + (year || mockNum || ''));
+      : ('tssc__' + _CACHE_VER + '__' + (exam||'') + '|' + (year || mockNum || '') + '|' + (lang||'en') + '|' + (shiftParam2||'') + '|' + (heldOnParam2||''));
     const _CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days
 
     function _readCache() {
@@ -934,11 +934,42 @@ async function loadTest(){
     const _noCache = params.get('nocache') === '1';
     if(_noCache && _cacheKey) localStorage.removeItem(_cacheKey);
 
+    // Try reading already-filtered cache first (fast path)
     let _allDocs = _noCache ? [] : (_readCache() || []);
 
     if(_allDocs.length > 0) {
       setLoaderMsg('Loading from cache...');
-    } else {
+      // Cache stores filtered questions directly — skip fetch
+      _allDocs.forEach(q => questions.push(q));
+      questions.sort((a,b) => (parseInt(a.qNum)||0) - (parseInt(b.qNum)||0));
+      questions.forEach(q => { normaliseQ(q); });
+      if(questions.length > 0) {
+        // Show test immediately from cache
+        const tierParam2  = params.get('tier')  || '';
+        const shiftParam3 = params.get('shift') || '';
+        const langParam2  = params.get('lang')  || lang;
+        const examNames2={'ssc-cgl':'SSC CGL','ssc-chsl':'SSC CHSL','ssc-mts':'SSC MTS','ssc-cpo':'SSC CPO','ssc-gd':'SSC GD Constable','ssc-je':'SSC JE','ssc-jht':'SSC JHT'};
+        const tierLabels2={'tier1':'Tier I','tier-1':'Tier I','tier2':'Tier II','tier-2':'Tier II'};
+        const examName2 = examNames2[exam] || (exam||'').toUpperCase().replace(/-/g,' ');
+        const tierLabel2 = tierParam2 ? (tierLabels2[tierParam2.toLowerCase()] || tierParam2) : '';
+        const langLabel2 = langParam2==='hi' ? '🇮🇳 Hindi' : langParam2==='en' ? '🇬🇧 English' : '';
+        const parts2=[examName2]; if(tierLabel2) parts2.push(tierLabel2);
+        if(year && parseInt(year)>100){ parts2.push(year); if(shiftParam3) parts2.push(shiftParam3); }
+        let title2=parts2.join(' · '); if(langLabel2) title2+=' · '+langLabel2;
+        document.getElementById('examTitle').textContent=title2;
+        document.getElementById('userName').textContent=currentUser.displayName||'Student';
+        currentQ=0; buildSections();buildSectionBar();buildGrid();
+        document.getElementById('qNumTotal').textContent=questions.length;
+        document.getElementById('qNumCurrent').textContent='1';
+        document.getElementById('progressText').textContent='0 / '+questions.length;
+        document.getElementById('loader').style.display='none';
+        document.getElementById('testScreen').style.display='flex';
+        requestAnimationFrame(()=>requestAnimationFrame(()=>{ renderQ(); if(!timerInterval) startTimer(); }));
+        return;
+      }
+      _allDocs = []; // cache was empty/stale, fall through to fetch
+    }
+    {
       setLoaderMsg('Loading questions...');
       try {
         if(mockMeta) {
@@ -956,7 +987,7 @@ async function loadTest(){
           const json = await res.json();
           _allDocs = (json||[]).filter(r=>r.document&&r.document.fields).map(r=>{const f=r.document.fields;const obj={id:r.document.name.split('/').pop()};for(const k of Object.keys(f)){const v=f[k];obj[k]=v.stringValue??v.integerValue??v.booleanValue??v.doubleValue??'';}return obj;});
         }
-        if(!mockId) _writeCache(_allDocs);
+        // raw write removed — filtered write happens below
       } catch(e) {
         throw new Error('Failed to load: ' + e.message);
       }
@@ -968,6 +999,7 @@ async function loadTest(){
     // Apply filters
     const _filtered = _filter(_allDocs, lang, shiftParam2, heldOnParam2);
     console.log('[TrickySSC] After filter:', _filtered.length, 'questions');
+    if(!mockId && _filtered.length > 0) _writeCache(_filtered); // cache filtered per-paper
     _filtered.forEach(q => questions.push(q));
 
     // [BR] → <br>
