@@ -750,23 +750,8 @@ async function loadTest(){
       : ('tssc__'+CACHE_VER+'__'+(exam||'')+'|'+(year||mNum||'')+'|'+(lang||'en')+'|'+(shift||'')+'|'+(heldOn||''));
     const CACHE_TTL = 7*24*60*60*1000;
 
-    function readCache(){
-      if(!cacheKey) return null;
-      try{
-        const raw=localStorage.getItem(cacheKey);
-        if(!raw) return null;
-        const obj=JSON.parse(raw);
-        if(Date.now()-obj.ts>CACHE_TTL){localStorage.removeItem(cacheKey);return null;}
-        return obj.data;
-      }catch(e){return null;}
-    }
-    function writeCache(arr){
-      if(!cacheKey||!arr.length) return;
-      try{
-        const s=JSON.stringify({ts:Date.now(),data:arr});
-        if(s.length<5*1024*1024) localStorage.setItem(cacheKey,s);
-      }catch(e){}
-    }
+    function readCache(){ return null; } // cache disabled — always fetch fresh
+    function writeCache(arr){} // cache disabled
 
     // ── Firestore helpers ──
     const PROJECT='trickyssc-17bb3', APIKEY='AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA';
