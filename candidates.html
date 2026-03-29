@@ -233,7 +233,8 @@ body{font-family:'Noto Sans',sans-serif;background:var(--bg);color:var(--text);m
     </select>
     <button class="export-btn" onclick="exportCSV()">⬇ Export CSV</button>
     <button id="deleteSelectedBtn" onclick="deleteSelected()" style="background:var(--red);color:#fff;border:none;border-radius:10px;padding:0.65rem 1.25rem;font-family:'Rajdhani',sans-serif;font-size:0.9rem;font-weight:700;cursor:pointer;display:none;white-space:nowrap;">🗑 Delete Selected</button>
-    <button onclick="deleteAll()" style="background:transparent;color:var(--red);border:1px solid var(--red);border-radius:10px;padding:0.65rem 1.25rem;font-family:'Rajdhani',sans-serif;font-size:0.9rem;font-weight:700;cursor:pointer;white-space:nowrap;">⚠ Delete ALL</button>
+    <button onclick="deleteAll()" style="background:transparent;color:var(--red);border:1px solid var(--red);border-radius:10px;padding:0.65rem 1.25rem;font-family:'Rajdhani',sans-serif;font-size:0.9rem;font-weight:700;cursor:pointer;white-space:nowrap;">⚠ Delete ALL Users</button>
+    <button onclick="deleteAllAttempts()" style="background:transparent;color:#F59E0B;border:1px solid #F59E0B;border-radius:10px;padding:0.65rem 1.25rem;font-family:'Rajdhani',sans-serif;font-size:0.9rem;font-weight:700;cursor:pointer;white-space:nowrap;">🗑 Delete ALL Attempts</button>
   </div>
 
   <!-- Table -->
@@ -505,6 +506,32 @@ window.deleteAll = async () => {
       await batch.commit();
     }
     alert(`✅ Deleted all ${count} candidates.`);
+    loadData();
+  } catch(e) { alert('Error: ' + e.message); }
+};
+
+// ── Delete ALL attempts ──
+window.deleteAllAttempts = async () => {
+  const confirm1 = confirm('⚠️ This will permanently delete ALL test attempt records!\n\nCandidates will lose their history. Continue?');
+  if(!confirm1) return;
+  const typed = window.prompt('Type "DELETE ATTEMPTS" to confirm:');
+  if(typed !== 'DELETE ATTEMPTS') { alert('Cancelled — text did not match.'); return; }
+  try {
+    if(!auth.currentUser) await signInAnonymously(auth);
+    const snap = await getDocs(collection(db, 'attempts'));
+    if(snap.empty) { alert('No attempts found.'); return; }
+    const total = snap.size;
+    // Delete in batches of 400
+    const docs = [];
+    snap.forEach(d => docs.push(d.id));
+    const chunks = [];
+    for(let i=0; i<docs.length; i+=400) chunks.push(docs.slice(i,i+400));
+    for(const chunk of chunks){
+      const batch = writeBatch(db);
+      chunk.forEach(id => batch.delete(doc(db,'attempts',id)));
+      await batch.commit();
+    }
+    alert(`✅ Deleted ${total} attempt records.`);
     loadData();
   } catch(e) { alert('Error: ' + e.message); }
 };
