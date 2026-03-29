@@ -685,9 +685,11 @@ window.completeMobileLogin = async () => {
       photoURL:'', loginMethod:'phone', createdAt: serverTimestamp(),
       totalTests:0, avgScore:0, bestScore:0,
     }, {merge: true});
-    localStorage.setItem('tssc_user', JSON.stringify({
-      uid: user.uid, name, phone: window._otpPhone, email:'', photoURL:'', loginMethod:'phone'
-    }));
+    // Save to localStorage with name BEFORE going to dashboard
+    const tsscData = {uid: user.uid, name, phone: window._otpPhone, email:'', photoURL:'', loginMethod:'phone'};
+    localStorage.setItem('tssc_user', JSON.stringify(tsscData));
+    console.log('[OTP] Saved to localStorage:', tsscData);
+    _otpFlowActive = false;
     goToDashboard(user);
   } catch(e) {
     btn.disabled = false; btn.textContent = 'Start Learning →';
@@ -703,8 +705,18 @@ window.resetToPhone = () => {
   document.getElementById('sendOtpBtn').disabled = false;
   document.getElementById('sendOtpBtn').textContent = 'Send OTP →';
   document.getElementById('msg-mobile').style.display = 'none';
-  window.recaptchaVerifier = null; window._recaptchaReady = false;
-  initRecaptcha();
+  // Properly clear recaptcha widget before reinit
+  try {
+    if(window.recaptchaVerifier) {
+      window.recaptchaVerifier.clear();
+      window.recaptchaVerifier = null;
+    }
+  } catch(e) {}
+  window._recaptchaReady = false;
+  // Clear and recreate the container so Firebase doesn't complain
+  const el = document.getElementById('recaptcha-container');
+  if(el) el.innerHTML = '';
+  setTimeout(() => initRecaptcha(), 300);
 };
 
 window.doGoogleLogin = async () => {

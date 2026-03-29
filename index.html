@@ -2868,24 +2868,27 @@ function _setNavUser(name){
 }
 
 // Check Firebase Auth — for phone OTP users displayName is null, use localStorage
-onAuthStateChanged(_auth, user=>{
-  if(user){
-    // First try localStorage (has correct name for phone OTP users)
-    const stored=localStorage.getItem('tssc_user');
-    if(stored){
-      try{
-        const u=JSON.parse(stored);
-        if(u.name && u.name!=='Student'){ _setNavUser(u.name); return; }
-      }catch(e){}
-    }
-    // Fallback to Firebase Auth displayName (Google users)
-    _setNavUser(user.displayName||user.email||'Student');
-    return;
+function _refreshNavName(user) {
+  const stored = localStorage.getItem('tssc_user');
+  if(stored) {
+    try {
+      const u = JSON.parse(stored);
+      if(u.name && u.name !== 'Student') { _setNavUser(u.name); return; }
+    } catch(e) {}
   }
-  // Not logged in
-  const stored=localStorage.getItem('tssc_user');
-  if(stored){
-    try{ const u=JSON.parse(stored); _setNavUser(u.name||'Student'); }catch(e){}
+  if(user) _setNavUser(user.displayName || user.email || 'Student');
+}
+
+onAuthStateChanged(_auth, user => {
+  if(user) { _refreshNavName(user); return; }
+  const stored = localStorage.getItem('tssc_user');
+  if(stored) { try { const u=JSON.parse(stored); _setNavUser(u.name||'Student'); } catch(e) {} }
+});
+
+// Also update name if localStorage changes (e.g. after OTP login sets the name)
+window.addEventListener('storage', e => {
+  if(e.key === 'tssc_user' && e.newValue) {
+    try { const u=JSON.parse(e.newValue); if(u.name && u.name!=='Student') _setNavUser(u.name); } catch(e2) {}
   }
 });
 </script>
