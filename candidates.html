@@ -244,7 +244,7 @@ body{font-family:'Noto Sans',sans-serif;background:var(--bg);color:var(--text);m
       <span>Candidate</span>
       <span>Mobile</span>
       <span>Tests</span>
-      <span>Avg Score</span>
+      <span>Avg Marks</span>
       <span>Best</span>
       <span>Login</span>
       <span>Joined</span>
@@ -320,12 +320,14 @@ window.loadData = async () => {
     // Enrich users with live attempt data
     allUsers = allUsers.map(u => {
       const uAttempts = attemptsByUid[u.uid] || [];
+      const marks = uAttempts.map(a=>parseFloat(a.marks)||0);
       const scores = uAttempts.map(a=>parseFloat(a.percentage)||0);
       return {
         ...u,
         liveTests: uAttempts.length,
-        liveAvg: scores.length ? (scores.reduce((a,b)=>a+b,0)/scores.length).toFixed(1) : null,
-        liveBest: scores.length ? Math.max(...scores).toFixed(1) : null,
+        liveAvg: marks.some(m=>m>0) ? (marks.reduce((a,b)=>a+b,0)/marks.length).toFixed(1) : (scores.length ? (scores.reduce((a,b)=>a+b,0)/scores.length).toFixed(1) : null),
+        liveBest: marks.some(m=>m>0) ? Math.max(...marks).toFixed(1) : (scores.length ? Math.max(...scores).toFixed(1) : null),
+        usesMarks: marks.some(m=>m>0),
       };
     });
 
@@ -358,10 +360,10 @@ function renderTable(users) {
     const name = u.name || u.displayName || 'Unknown';
     const phone = u.phone || '—';
     const tests = u.liveTests || 0;
-    const avg = u.liveAvg ? u.liveAvg+'%' : '—';
-    const best = u.liveBest ? u.liveBest+'%' : '—';
+    const avg = u.liveAvg ? (u.usesMarks ? u.liveAvg+'/200' : u.liveAvg+'%') : '—';
+    const best = u.liveBest ? (u.usesMarks ? u.liveBest+'/200' : u.liveBest+'%') : '—';
     const avgNum = parseFloat(u.liveAvg)||0;
-    const scoreCls = avgNum>=70?'score-high':avgNum>=40?'score-mid':tests>0?'score-low':'';
+    const scoreCls = u.usesMarks ? (avgNum>=140?'score-high':avgNum>=80?'score-mid':tests>0?'score-low':'') : (avgNum>=70?'score-high':avgNum>=40?'score-mid':tests>0?'score-low':'');
     const loginType = u.loginMethod==='google'||u.email ? 'google' : 'mobile';
     const joined = u.createdAt?.toDate ? u.createdAt.toDate().toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'2-digit'}) : '—';
     const email = u.email || '';
@@ -422,8 +424,8 @@ window.showDetail = (uid) => {
     <div class="modal-row"><span class="modal-key">Joined</span><span class="modal-val">${joined}</span></div>
     <div class="modal-row"><span class="modal-key">Last Active</span><span class="modal-val">${lastActive}</span></div>
     <div class="modal-row"><span class="modal-key">Tests Attempted</span><span class="modal-val" style="color:var(--orange);font-weight:700;">${u.liveTests||0}</span></div>
-    <div class="modal-row"><span class="modal-key">Average Score</span><span class="modal-val">${u.liveAvg?u.liveAvg+'%':'—'}</span></div>
-    <div class="modal-row"><span class="modal-key">Best Score</span><span class="modal-val" style="color:var(--green);">${u.liveBest?u.liveBest+'%':'—'}</span></div>
+    <div class="modal-row"><span class="modal-key">Avg Marks</span><span class="modal-val">${u.liveAvg?(u.usesMarks?u.liveAvg+'/200':u.liveAvg+'%'):'—'}</span></div>
+    <div class="modal-row"><span class="modal-key">Best Marks</span><span class="modal-val" style="color:var(--green);">${u.liveBest?(u.usesMarks?u.liveBest+'/200':u.liveBest+'%'):'—'}</span></div>
     ${uAttempts.length>0?`
     <div style="margin-top:1rem;font-family:'Rajdhani',sans-serif;font-size:0.85rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:0.5rem;">Recent Attempts</div>
     ${uAttempts.slice(0,5).map(a=>{

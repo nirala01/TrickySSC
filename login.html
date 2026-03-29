@@ -225,13 +225,82 @@
 
       <div class="form-wrap">
 
-        <!-- Google Login Only -->
-        <div id="msg-google" class="msg-box"></div>
-        <button class="google-btn" onclick="doGoogleLogin()" id="googleBtn">
-          <svg width="20" height="20" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-          Continue with Google
-        </button>
-        <p style="text-align:center;font-size:0.82rem;color:#94A3B8;font-family:'Rajdhani',sans-serif;">Sign in with your Google account · Free &amp; instant</p>
+        <!-- TAB BAR -->
+        <div style="display:flex;background:#F1F5F9;border-radius:10px;padding:3px;margin-bottom:1.5rem;">
+          <button id="tab-google" onclick="switchTab('google')" style="flex:1;padding:0.55rem;border:none;border-radius:8px;font-family:'Rajdhani',sans-serif;font-size:0.9rem;font-weight:700;cursor:pointer;transition:all 0.2s;background:#fff;color:#1A202C;box-shadow:0 2px 8px rgba(0,0,0,0.1);">🔵 Google</button>
+          <button id="tab-mobile" onclick="switchTab('mobile')" style="flex:1;padding:0.55rem;border:none;border-radius:8px;font-family:'Rajdhani',sans-serif;font-size:0.9rem;font-weight:700;cursor:pointer;transition:all 0.2s;background:transparent;color:#64748B;">📱 Mobile OTP</button>
+        </div>
+
+        <!-- Google Section -->
+        <div id="section-google">
+          <div id="msg-google" class="msg-box"></div>
+          <button class="google-btn" onclick="doGoogleLogin()" id="googleBtn">
+            <svg width="20" height="20" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+            Continue with Google
+          </button>
+          <p style="text-align:center;font-size:0.82rem;color:#94A3B8;font-family:'Rajdhani',sans-serif;">Sign in with your Google account · Free &amp; instant</p>
+        </div>
+
+        <!-- Mobile OTP Section -->
+        <div id="section-mobile" style="display:none;">
+          <div id="msg-mobile" class="msg-box"></div>
+
+          <!-- Step 1: Enter phone -->
+          <div id="step-phone">
+            <div style="margin-bottom:1rem;">
+              <label style="display:block;font-family:'Rajdhani',sans-serif;font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#64748B;margin-bottom:0.5rem;">📱 Mobile Number</label>
+              <div style="display:flex;border:2px solid #E2E8F0;border-radius:12px;overflow:hidden;transition:border-color 0.2s;" id="phoneWrap">
+                <div style="padding:0 1rem;background:#F8FAFC;font-family:'Rajdhani',sans-serif;font-size:0.95rem;font-weight:700;color:#1A202C;display:flex;align-items:center;border-right:2px solid #E2E8F0;">🇮🇳 +91</div>
+                <input type="tel" id="otpPhone" maxlength="10" placeholder="10-digit mobile number"
+                  oninput="this.value=this.value.replace(/\D/g,'').slice(0,10)"
+                  onfocus="document.getElementById('phoneWrap').style.borderColor='#FF6B00'"
+                  onblur="document.getElementById('phoneWrap').style.borderColor='#E2E8F0'"
+                  onkeydown="if(event.key==='Enter')sendOTP()"
+                  style="flex:1;padding:0.85rem 1rem;border:none;outline:none;font-family:'Hind',sans-serif;font-size:1rem;color:#1A202C;background:#fff;">
+              </div>
+            </div>
+            <button onclick="sendOTP()" id="sendOtpBtn" class="cta-btn">Send OTP →</button>
+            <div id="recaptcha-container" style="margin-top:1rem;"></div>
+          </div>
+
+          <!-- Step 2: Enter OTP -->
+          <div id="step-otp" style="display:none;">
+            <div style="text-align:center;margin-bottom:1rem;">
+              <div style="font-size:1.5rem;margin-bottom:0.4rem;">📨</div>
+              <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:#1A202C;">OTP sent to <span id="otpSentTo" style="color:#FF6B00;"></span></div>
+              <div style="font-size:0.8rem;color:#94A3B8;margin-top:0.2rem;">Enter the 6-digit code</div>
+            </div>
+            <div style="margin-bottom:1rem;">
+              <input type="tel" id="otpCode" maxlength="6" placeholder="Enter 6-digit OTP"
+                oninput="this.value=this.value.replace(/\D/g,'').slice(0,6)"
+                onkeydown="if(event.key==='Enter')verifyOTP()"
+                style="width:100%;background:#F8FAFC;border:2px solid #E2E8F0;border-radius:12px;padding:0.85rem 1rem;font-family:'Hind',sans-serif;font-size:1.3rem;color:#1A202C;outline:none;text-align:center;letter-spacing:0.4em;box-sizing:border-box;"
+                onfocus="this.style.borderColor='#FF6B00'" onblur="this.style.borderColor='#E2E8F0'">
+            </div>
+            <button onclick="verifyOTP()" id="verifyOtpBtn" class="cta-btn">Verify OTP →</button>
+            <div style="text-align:center;margin-top:0.75rem;">
+              <span style="font-size:0.82rem;color:#94A3B8;">Didn't receive? </span>
+              <a onclick="resetToPhone()" style="font-size:0.82rem;color:#FF6B00;font-weight:700;cursor:pointer;">Resend OTP</a>
+            </div>
+          </div>
+
+          <!-- Step 3: Enter Name (new users only) -->
+          <div id="step-name" style="display:none;">
+            <div style="text-align:center;margin-bottom:1.25rem;">
+              <div style="font-size:1.5rem;margin-bottom:0.4rem;">✅</div>
+              <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:#1A202C;">Phone verified!</div>
+              <div style="font-size:0.8rem;color:#94A3B8;margin-top:0.2rem;">Just tell us your name</div>
+            </div>
+            <div style="margin-bottom:1rem;">
+              <label style="display:block;font-family:'Rajdhani',sans-serif;font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#64748B;margin-bottom:0.5rem;">👤 Full Name</label>
+              <input type="text" id="otpName" placeholder="Enter your full name"
+                onkeydown="if(event.key==='Enter')completeMobileLogin()"
+                style="width:100%;background:#F8FAFC;border:2px solid #E2E8F0;border-radius:12px;padding:0.85rem 1rem;font-family:'Hind',sans-serif;font-size:0.95rem;color:#1A202C;outline:none;box-sizing:border-box;"
+                onfocus="this.style.borderColor='#FF6B00'" onblur="this.style.borderColor='#E2E8F0'">
+            </div>
+            <button onclick="completeMobileLogin()" id="completeBtn" class="cta-btn">Start Learning →</button>
+          </div>
+        </div>
 
         </div><!-- /form-wrap -->
     </div><!-- /login-card -->
@@ -244,7 +313,8 @@ import { getFirestore, doc, setDoc, getDoc, getDocs, collection, query, where, s
   from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import {
   getAuth, signInWithPopup, GoogleAuthProvider,
-  signInAnonymously, onAuthStateChanged
+  signInAnonymously, onAuthStateChanged,
+  signInWithPhoneNumber, RecaptchaVerifier
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 const app = initializeApp({
@@ -476,6 +546,154 @@ window.mobileLogin = async () => {
     btn.disabled = false; btn.textContent = 'Register / Login →';
     showM('error', 'Error: ' + e.message);
   }
+};
+
+// ── TAB SWITCH ──
+window.switchTab = (tab) => {
+  document.getElementById('section-google').style.display = tab==='google' ? 'block' : 'none';
+  document.getElementById('section-mobile').style.display = tab==='mobile' ? 'block' : 'none';
+  const tg = document.getElementById('tab-google');
+  const tm = document.getElementById('tab-mobile');
+  if(tab==='google'){
+    tg.style.cssText += ';background:#fff;color:#1A202C;box-shadow:0 2px 8px rgba(0,0,0,0.1);';
+    tm.style.cssText += ';background:transparent;color:#64748B;box-shadow:none;';
+  } else {
+    tm.style.cssText += ';background:#fff;color:#1A202C;box-shadow:0 2px 8px rgba(0,0,0,0.1);';
+    tg.style.cssText += ';background:transparent;color:#64748B;box-shadow:none;';
+    // Init recaptcha when mobile tab opened
+    if(!window._recaptchaReady) initRecaptcha();
+  }
+};
+
+// ── RECAPTCHA INIT ──
+function initRecaptcha() {
+  try {
+    if(window.recaptchaVerifier) return;
+    window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+      size: 'invisible',
+      callback: () => {}
+    });
+    window._recaptchaReady = true;
+  } catch(e) { console.warn('Recaptcha init failed:', e.message); }
+}
+
+// ── SEND OTP ──
+window.sendOTP = async () => {
+  const phone = document.getElementById('otpPhone').value.trim();
+  const btn = document.getElementById('sendOtpBtn');
+  const msgEl = document.getElementById('msg-mobile');
+
+  function showM(type, text) {
+    msgEl.className = 'msg-box msg-' + type;
+    msgEl.textContent = text;
+    msgEl.style.display = 'block';
+  }
+
+  if(phone.length !== 10) { showM('error', '⚠️ Enter valid 10-digit mobile number'); return; }
+
+  btn.disabled = true; btn.textContent = '⏳ Sending OTP...';
+  msgEl.style.display = 'none';
+
+  try {
+    if(!window.recaptchaVerifier) initRecaptcha();
+    const result = await signInWithPhoneNumber(auth, '+91' + phone, window.recaptchaVerifier);
+    window._confirmationResult = result;
+    window._otpPhone = '+91' + phone;
+    document.getElementById('otpSentTo').textContent = '+91 ' + phone;
+    document.getElementById('step-phone').style.display = 'none';
+    document.getElementById('step-otp').style.display = 'block';
+    showM('success', '✅ OTP sent to +91 ' + phone);
+    setTimeout(() => document.getElementById('otpCode')?.focus(), 100);
+  } catch(e) {
+    btn.disabled = false; btn.textContent = 'Send OTP →';
+    if(e.code === 'auth/too-many-requests') showM('error', '⚠️ Too many attempts. Try after some time.');
+    else if(e.code === 'auth/invalid-phone-number') showM('error', '⚠️ Invalid phone number.');
+    else showM('error', 'Error: ' + e.message);
+    // Reset recaptcha on error
+    window.recaptchaVerifier = null; window._recaptchaReady = false;
+  }
+};
+
+// ── VERIFY OTP ──
+window.verifyOTP = async () => {
+  const code = document.getElementById('otpCode').value.trim();
+  const btn = document.getElementById('verifyOtpBtn');
+  const msgEl = document.getElementById('msg-mobile');
+
+  function showM(type, text) {
+    msgEl.className = 'msg-box msg-' + type;
+    msgEl.textContent = text;
+    msgEl.style.display = 'block';
+  }
+
+  if(code.length !== 6) { showM('error', '⚠️ Enter the 6-digit OTP'); return; }
+  btn.disabled = true; btn.textContent = '⏳ Verifying...';
+
+  try {
+    const result = await window._confirmationResult.confirm(code);
+    const user = result.user;
+    // Check if user already exists in Firestore
+    const snap = await getDoc(doc(db, 'users', user.uid));
+    if(snap.exists() && snap.data().name && snap.data().name !== 'Student') {
+      // Returning user — go directly to dashboard
+      const ud = snap.data();
+      localStorage.setItem('tssc_user', JSON.stringify({
+        uid: user.uid, name: ud.name, phone: window._otpPhone,
+        email: ud.email||'', photoURL:'', loginMethod:'phone'
+      }));
+      goToDashboard(user);
+    } else {
+      // New user — show name step
+      window._pendingPhoneUser = user;
+      document.getElementById('step-otp').style.display = 'none';
+      document.getElementById('step-name').style.display = 'block';
+      msgEl.style.display = 'none';
+      setTimeout(() => document.getElementById('otpName')?.focus(), 100);
+    }
+  } catch(e) {
+    btn.disabled = false; btn.textContent = 'Verify OTP →';
+    if(e.code === 'auth/invalid-verification-code') showM('error', '⚠️ Wrong OTP. Please check and try again.');
+    else if(e.code === 'auth/code-expired') showM('error', '⚠️ OTP expired. Please request a new one.');
+    else showM('error', 'Error: ' + e.message);
+  }
+};
+
+// ── COMPLETE MOBILE LOGIN (save name) ──
+window.completeMobileLogin = async () => {
+  const name = document.getElementById('otpName').value.trim();
+  const btn = document.getElementById('completeBtn');
+  const msgEl = document.getElementById('msg-mobile');
+  if(name.length < 2) {
+    msgEl.className='msg-box msg-error'; msgEl.textContent='⚠️ Please enter your full name'; msgEl.style.display='block'; return;
+  }
+  btn.disabled = true; btn.textContent = '⏳ Saving...';
+  const user = window._pendingPhoneUser;
+  try {
+    await setDoc(doc(db, 'users', user.uid), {
+      uid: user.uid, name, phone: window._otpPhone, email:'',
+      photoURL:'', loginMethod:'phone', createdAt: serverTimestamp(),
+      totalTests:0, avgScore:0, bestScore:0,
+    }, {merge: true});
+    localStorage.setItem('tssc_user', JSON.stringify({
+      uid: user.uid, name, phone: window._otpPhone, email:'', photoURL:'', loginMethod:'phone'
+    }));
+    goToDashboard(user);
+  } catch(e) {
+    btn.disabled = false; btn.textContent = 'Start Learning →';
+    msgEl.className='msg-box msg-error'; msgEl.textContent='Error: '+e.message; msgEl.style.display='block';
+  }
+};
+
+// ── RESET TO PHONE STEP ──
+window.resetToPhone = () => {
+  document.getElementById('step-otp').style.display = 'none';
+  document.getElementById('step-phone').style.display = 'block';
+  document.getElementById('otpCode').value = '';
+  document.getElementById('sendOtpBtn').disabled = false;
+  document.getElementById('sendOtpBtn').textContent = 'Send OTP →';
+  document.getElementById('msg-mobile').style.display = 'none';
+  window.recaptchaVerifier = null; window._recaptchaReady = false;
+  initRecaptcha();
 };
 
 window.doGoogleLogin = async () => {
