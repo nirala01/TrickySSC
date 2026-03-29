@@ -272,10 +272,10 @@ body{font-family:'Noto Sans',sans-serif;background:var(--bg);color:var(--text);m
 import{initializeApp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import{getFirestore,collection,getDocs,query,orderBy,deleteDoc,doc,writeBatch}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import{getAuth,signInAnonymously}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-const auth=getAuth(app);
 
 const app=initializeApp({apiKey:"AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",authDomain:"trickyssc-17bb3.firebaseapp.com",projectId:"trickyssc-17bb3",storageBucket:"trickyssc-17bb3.firebasestorage.app",messagingSenderId:"450627057220",appId:"1:450627057220:web:366267bf437d94f20c6e11"});
 const db=getFirestore(app);
+const auth=getAuth(app);
 
 const ADMIN_PASS = 'TrickySSC@Admin2024';
 let allUsers = [];
@@ -475,6 +475,8 @@ window.deleteSelected = async () => {
   if(!checked.length) return;
   if(!confirm(`Delete ${checked.length} selected candidate(s)? This cannot be undone.`)) return;
   try {
+    // Ensure authenticated before delete
+    if(!auth.currentUser) await signInAnonymously(auth);
     const batch = writeBatch(db);
     checked.forEach(uid => batch.delete(doc(db,'users',uid)));
     await batch.commit();
@@ -492,6 +494,8 @@ window.deleteAll = async () => {
   const typed = window.prompt(`Type "DELETE ALL" to confirm:`);
   if(typed !== 'DELETE ALL') { alert('Cancelled — text did not match.'); return; }
   try {
+    // Ensure authenticated before delete
+    if(!auth.currentUser) await signInAnonymously(auth);
     // Delete in batches of 400 (Firestore limit)
     const chunks = [];
     for(let i=0; i<allUsers.length; i+=400) chunks.push(allUsers.slice(i,i+400));
