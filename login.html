@@ -334,7 +334,7 @@ let _otpFlowActive = false; // prevents auto-redirect during OTP flow
 
 // ── If already logged in → go to dashboard ──
 onAuthStateChanged(auth, user => {
-  if (user && !_otpFlowActive) goToDashboard();
+  if (user && !_otpFlowActive && !window._googleFlowActive) goToDashboard();
 });
 
 // ── Save user profile to Firestore ──
@@ -448,7 +448,8 @@ window.submitGoogleExtra = async (uid) => {
 
 // ── Redirect after login ──
 function goToDashboard(user) {
-  // Save Google user to sessionStorage too
+  _otpFlowActive = false;
+  window._googleFlowActive = false;
   if(user) {
     localStorage.setItem('tssc_user', JSON.stringify({
       uid: user.uid,
@@ -707,6 +708,7 @@ window.resetToPhone = () => {
 };
 
 window.doGoogleLogin = async () => {
+  window._googleFlowActive = true; // prevent onAuthStateChanged from redirecting during modal
   const btn = document.getElementById('googleBtn');
   btn.disabled = true;
   btn.innerHTML = '⏳ Signing in...';

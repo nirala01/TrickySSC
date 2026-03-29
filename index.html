@@ -2867,13 +2867,22 @@ function _setNavUser(name){
   });
 }
 
-// Check Firebase (Google users)
+// Check Firebase Auth — for phone OTP users displayName is null, use localStorage
 onAuthStateChanged(_auth, user=>{
   if(user){
+    // First try localStorage (has correct name for phone OTP users)
+    const stored=localStorage.getItem('tssc_user');
+    if(stored){
+      try{
+        const u=JSON.parse(stored);
+        if(u.name && u.name!=='Student'){ _setNavUser(u.name); return; }
+      }catch(e){}
+    }
+    // Fallback to Firebase Auth displayName (Google users)
     _setNavUser(user.displayName||user.email||'Student');
     return;
   }
-  // Check sessionStorage (mobile/name users)
+  // Not logged in
   const stored=localStorage.getItem('tssc_user');
   if(stored){
     try{ const u=JSON.parse(stored); _setNavUser(u.name||'Student'); }catch(e){}
