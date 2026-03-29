@@ -271,6 +271,8 @@ body{font-family:'Noto Sans',sans-serif;background:var(--bg);color:var(--text);m
 <script type="module">
 import{initializeApp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import{getFirestore,collection,getDocs,query,orderBy,deleteDoc,doc,writeBatch}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import{getAuth,signInAnonymously}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+const auth=getAuth(app);
 
 const app=initializeApp({apiKey:"AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",authDomain:"trickyssc-17bb3.firebaseapp.com",projectId:"trickyssc-17bb3",storageBucket:"trickyssc-17bb3.firebasestorage.app",messagingSenderId:"450627057220",appId:"1:450627057220:web:366267bf437d94f20c6e11"});
 const db=getFirestore(app);
@@ -279,9 +281,11 @@ const ADMIN_PASS = 'TrickySSC@Admin2024';
 let allUsers = [];
 let allAttempts = [];
 
-window.checkAuth = () => {
+window.checkAuth = async () => {
   const pass = document.getElementById('adminPass').value;
   if(pass === ADMIN_PASS){
+    // Sign in anonymously so Firestore rules allow writes/deletes
+    try { await signInAnonymously(auth); } catch(e) { console.warn('anon auth failed:', e.message); }
     document.getElementById('authGate').style.display='none';
     document.getElementById('adminUI').style.display='flex';
     document.getElementById('adminMain').style.display='block';
