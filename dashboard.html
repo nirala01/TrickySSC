@@ -460,15 +460,21 @@ async function loadDashboard(user) {
     }
 
     // Load attempts
+    // No orderBy — avoids needing composite index; sort in JS instead
     const q = query(
       collection(db, 'attempts'),
-      where('uid', '==', effectiveUid),
-      orderBy('timestamp', 'desc'),
-      limit(20)
+      where('uid', '==', effectiveUid)
     );
     const snap = await getDocs(q);
     const attempts = [];
     snap.forEach(d => attempts.push({id:d.id,...d.data()}));
+    // Sort by timestamp desc in JS (avoids Firestore composite index requirement)
+    attempts.sort((a,b) => {
+      const ta = a.timestamp?.toDate ? a.timestamp.toDate().getTime() : (a.clientSubmittedAt ? new Date(a.clientSubmittedAt).getTime() : 0);
+      const tb = b.timestamp?.toDate ? b.timestamp.toDate().getTime() : (b.clientSubmittedAt ? new Date(b.clientSubmittedAt).getTime() : 0);
+      return tb - ta;
+    });
+    console.log('[Dashboard] Attempts found:', attempts.length);
 
     // Calculate stats from attempts
     if (attempts.length > 0) {
@@ -538,9 +544,7 @@ async function loadDashboardMobile(mUser) {
   try {
     const q = query(
       collection(db, 'attempts'),
-      where('uid', '==', mUser.uid),
-      orderBy('timestamp', 'desc'),
-      limit(10)
+      where('uid', '==', mUser.uid)
     );
     const snap = await getDocs(q);
     const attempts = [];
