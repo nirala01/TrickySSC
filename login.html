@@ -330,10 +330,11 @@ const auth = getAuth(app);
 const gProvider = new GoogleAuthProvider();
 
 let confirmationResult = null;
+let _otpFlowActive = false; // prevents auto-redirect during OTP flow
 
 // ── If already logged in → go to dashboard ──
 onAuthStateChanged(auth, user => {
-  if (user) goToDashboard();
+  if (user && !_otpFlowActive) goToDashboard();
 });
 
 // ── Save user profile to Firestore ──
@@ -579,6 +580,7 @@ function initRecaptcha() {
 
 // ── SEND OTP ──
 window.sendOTP = async () => {
+  _otpFlowActive = true; // prevent onAuthStateChanged from redirecting
   const phone = document.getElementById('otpPhone').value.trim();
   const btn = document.getElementById('sendOtpBtn');
   const msgEl = document.getElementById('msg-mobile');
@@ -632,18 +634,26 @@ window.verifyOTP = async () => {
   try {
     const result = await window._confirmationResult.confirm(code);
     const user = result.user;
-    // Check if user already exists in Firestore
-    const snap = await getDoc(doc(db, 'users', user.uid));
-    if(snap.exists() && snap.data().name && snap.data().name !== 'Student') {
-      // Returning user — go directly to dashboard
-      const ud = snap.data();
-      localStorage.setItem('tssc_user', JSON.stringify({
-        uid: user.uid, name: ud.name, phone: window._otpPhone,
-        email: ud.email||'', photoURL:'', loginMethod:'phone'
-      }));
-      goToDashboard(user);
-    } else {
-      // New user — show name step
+
+    // Check if returning user — separate try/catch so Firestore errors don't block name step
+    let isReturning = false;
+    try {
+      const snap = await getDoc(doc(db, 'users', user.uid));
+      if(snap.exists() && snap.data().name && snap.data().name !== 'Student') {
+        isReturning = true;
+        const ud = snap.data();
+        localStorage.setItem('tssc_user', JSON.stringify({
+          uid: user.uid, name: ud.name, phone: window._otpPhone,
+          email: ud.email||'', photoURL:'', loginMethod:'phone'
+        }));
+        goToDashboard(user);
+      }
+    } catch(fsErr) {
+      console.warn('[OTP] Firestore check failed:', fsErr.message, '— treating as new user');
+    }
+
+    if(!isReturning) {
+      // New user — show name step (keep _otpFlowActive = true to prevent auto-redirect)
       window._pendingPhoneUser = user;
       document.getElementById('step-otp').style.display = 'none';
       document.getElementById('step-name').style.display = 'block';
