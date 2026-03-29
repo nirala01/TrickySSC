@@ -306,26 +306,37 @@ function showGoogleInfoModal(user, existingData) {
   const modal = document.createElement('div');
   modal.id = 'extraInfoModal';
   modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:1rem;';
-  const userName = existingData?.name || user.displayName || 'Student';
+  const userName = existingData?.name || user.displayName || '';
+  const needsName = !userName || userName === 'Student';
   modal.innerHTML = `
     <div style="background:#fff;border-radius:20px;padding:2rem;max-width:400px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.2);">
-      ${user.photoURL ? `<img src="${user.photoURL}" style="width:60px;height:60px;border-radius:50%;margin-bottom:0.75rem;border:3px solid #FF6B00;">` : '<div style="font-size:2.5rem;margin-bottom:0.75rem;">📱</div>'}
-      <h2 style="font-family:'Rajdhani',sans-serif;font-size:1.4rem;font-weight:700;color:#1A202C;margin-bottom:0.25rem;">Welcome, ${userName.split(' ')[0]}! 👋</h2>
-      <p style="font-size:0.85rem;color:#64748B;margin-bottom:1.5rem;">One last step — enter your mobile number to complete your TrickySSC registration.</p>
-      <div style="display:flex;border:2px solid #E2E8F0;border-radius:12px;overflow:hidden;margin-bottom:1rem;" id="gPhoneWrap">
-        <div style="padding:0 1rem;background:#F8FAFC;font-family:'Rajdhani',sans-serif;font-size:0.95rem;font-weight:700;color:#1A202C;display:flex;align-items:center;border-right:2px solid #E2E8F0;">🇮🇳 +91</div>
-        <input id="gPhone" type="tel" maxlength="10" placeholder="10-digit mobile number"
-          oninput="this.value=this.value.replace(/\D/g,'').slice(0,10)"
-          onfocus="document.getElementById('gPhoneWrap').style.borderColor='#FF6B00'"
-          onblur="document.getElementById('gPhoneWrap').style.borderColor='#E2E8F0'"
-          style="flex:1;padding:0.85rem 1rem;border:none;outline:none;font-family:'Hind',sans-serif;font-size:1rem;color:#1A202C;background:#fff;">
+      ${user.photoURL ? `<img src="${user.photoURL}" style="width:60px;height:60px;border-radius:50%;margin-bottom:0.75rem;border:3px solid #FF6B00;">` : '<div style="font-size:2.5rem;margin-bottom:0.75rem;">👋</div>'}
+      <h2 style="font-family:'Rajdhani',sans-serif;font-size:1.4rem;font-weight:700;color:#1A202C;margin-bottom:0.25rem;">Almost there!</h2>
+      <p style="font-size:0.85rem;color:#64748B;margin-bottom:1.5rem;">Complete your TrickySSC profile to get started.</p>
+      ${needsName ? `
+      <div style="text-align:left;margin-bottom:1rem;">
+        <label style="display:block;font-family:'Rajdhani',sans-serif;font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#64748B;margin-bottom:0.4rem;">👤 Full Name</label>
+        <input id="gName" type="text" placeholder="Enter your full name"
+          onfocus="this.style.borderColor='#FF6B00'" onblur="this.style.borderColor='#E2E8F0'"
+          style="width:100%;border:2px solid #E2E8F0;border-radius:12px;padding:0.85rem 1rem;font-family:'Hind',sans-serif;font-size:1rem;color:#1A202C;outline:none;box-sizing:border-box;">
+      </div>` : `<input id="gName" type="hidden" value="${userName}">`}
+      <div style="text-align:left;margin-bottom:1rem;">
+        <label style="display:block;font-family:'Rajdhani',sans-serif;font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#64748B;margin-bottom:0.4rem;">📱 Mobile Number</label>
+        <div style="display:flex;border:2px solid #E2E8F0;border-radius:12px;overflow:hidden;" id="gPhoneWrap">
+          <div style="padding:0 1rem;background:#F8FAFC;font-family:'Rajdhani',sans-serif;font-size:0.95rem;font-weight:700;color:#1A202C;display:flex;align-items:center;border-right:2px solid #E2E8F0;">🇮🇳 +91</div>
+          <input id="gPhone" type="tel" maxlength="10" placeholder="10-digit mobile number"
+            oninput="this.value=this.value.replace(/\D/g,'').slice(0,10)"
+            onfocus="document.getElementById('gPhoneWrap').style.borderColor='#FF6B00'"
+            onblur="document.getElementById('gPhoneWrap').style.borderColor='#E2E8F0'"
+            style="flex:1;padding:0.85rem 1rem;border:none;outline:none;font-family:'Hind',sans-serif;font-size:1rem;color:#1A202C;background:#fff;">
+        </div>
       </div>
       <div id="gModalMsg" style="font-size:0.85rem;color:#DC2626;margin-bottom:0.75rem;display:none;"></div>
       <button onclick="submitGoogleExtra('${user.uid}')"
         style="width:100%;background:linear-gradient(135deg,#FF6B00,#FF8C38);color:#fff;border:none;border-radius:10px;padding:0.9rem;font-family:'Rajdhani',sans-serif;font-size:1rem;font-weight:700;cursor:pointer;box-shadow:0 4px 15px rgba(255,107,0,0.3);">
         Complete Registration →
       </button>
-      <p style="font-size:0.78rem;color:#94A3B8;margin-top:0.75rem;">This helps us personalise your experience</p>
+      <p style="font-size:0.78rem;color:#94A3B8;margin-top:0.75rem;">Free · No spam · Your data is safe</p>
     </div>`;
   document.body.appendChild(modal);
   window._pendingGoogleUser = user;
@@ -352,8 +363,11 @@ window.submitGoogleExtra = async (uid) => {
   } catch(e) {}
 
   const user = window._pendingGoogleUser;
-  // Use Google's display name — no need to ask for name
-  await saveUserProfile(user, '+91'+phone, user.displayName || 'Student');
+  // Use name from input (if shown) or Google's display name
+  const nameInput = document.getElementById('gName');
+  const finalName = (nameInput?.value?.trim()) || user.displayName || 'Student';
+  if(finalName.length < 2){ msgEl.style.display='block'; msgEl.style.color='#DC2626'; msgEl.textContent='⚠️ Please enter your full name'; return; }
+  await saveUserProfile(user, '+91'+phone, finalName);
   document.getElementById('extraInfoModal').remove();
   goToDashboard(user);
 };

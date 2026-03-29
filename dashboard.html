@@ -430,16 +430,34 @@ async function loadDashboard(user) {
 
   // ── Load user profile + attempts from Firestore ──
   try {
-    // Get stored uid (may differ from Firebase uid if phone login was used)
-    const stored = localStorage.getItem('tssc_user');
-    const storedUid = stored ? (JSON.parse(stored).uid || user.uid) : user.uid;
-    const effectiveUid = storedUid; // Use stored uid to match attempts
+    // Always use Firebase Auth uid for Google users
+    const effectiveUid = user.uid;
+    console.log('[Dashboard] Loading for uid:', effectiveUid);
 
-    // Get user profile
+    // Get user profile from Firestore
     const userRef = doc(db, 'users', effectiveUid);
     const userSnap = await getDoc(userRef);
     const userProfile = userSnap.exists() ? userSnap.data() : {};
-    console.log('Loading attempts for uid:', effectiveUid);
+
+    // Update display with Firestore profile (has phone/name from registration)
+    const profileName = userProfile.name || user.displayName || 'Student';
+    const profileFirst = profileName.split(' ')[0];
+    document.getElementById('topName').textContent = profileFirst;
+    document.getElementById('wName').textContent = profileFirst;
+    document.getElementById('profileName').textContent = profileName;
+    document.getElementById('profileDetail').textContent = userProfile.email || user.email || userProfile.phone || '';
+    document.getElementById('pfEmail').textContent = userProfile.email || user.email || '—';
+    document.getElementById('pfPhone').textContent = userProfile.phone || user.phoneNumber || '—';
+    document.getElementById('pfMethod').textContent = '🔵 Google';
+    const avatarEl = document.getElementById('topAvatar');
+    const profileAv = document.getElementById('profileAvatar');
+    if(user.photoURL){
+      avatarEl.innerHTML = `<img src="${user.photoURL}" alt="${profileName}">`;
+      profileAv.innerHTML = `<img src="${user.photoURL}" alt="${profileName}">`;
+    } else {
+      avatarEl.textContent = profileFirst[0].toUpperCase();
+      profileAv.textContent = profileFirst[0].toUpperCase();
+    }
 
     // Load attempts
     const q = query(
