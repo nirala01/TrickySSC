@@ -877,24 +877,33 @@ async function loadTest(){
       setLoaderMsg('Fetching from database...');
       let allDocs=[];
 
-      // ── Fast path: fetch by paperId (single precise query) ──
+      // ── Fast path: fetch by paperId — run SDK + REST in parallel, first wins ──
       if(paperId && !mockId){
         try{
           setLoaderMsg('Loading paper...');
-          // Try SDK first
-          let snap = await getDocs(query(collection(db,'questions'),where('paperId','==',paperId)));
-          if(snap.size){
-            snap.forEach(d=>allDocs.push({id:d.id,...d.data()}));
-            console.log('[TrickySSC] paperId fetch (SDK):',allDocs.length,'docs');
-          } else {
-            // Try REST
-            const url=`https://firestore.googleapis.com/v1/projects/${PROJECT}/databases/(default)/documents:runQuery?key=${APIKEY}`;
-            const body={structuredQuery:{from:[{collectionId:'questions'}],where:{fieldFilter:{field:{fieldPath:'paperId'},op:'EQUAL',value:{stringValue:paperId}}}}};
-            const res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-            allDocs=fromRest(await res.json());
-            console.log('[TrickySSC] paperId fetch (REST):',allDocs.length,'docs');
+          const _url=`https://firestore.googleapis.com/v1/projects/${PROJECT}/databases/(default)/documents:runQuery?key=${APIKEY}`;
+          const _body={structuredQuery:{from:[{collectionId:'questions'}],where:{fieldFilter:{field:{fieldPath:'paperId'},op:'EQUAL',value:{stringValue:paperId}}}}};
+          const TO=8000;
+          const ft=(p)=>Promise.race([p,new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),TO))]);
+
+          const [r1,r2] = await Promise.allSettled([
+            ft(getDocs(query(collection(db,'questions'),where('paperId','==',paperId)))).then(snap=>{
+              if(!snap.size) throw new Error('SDK: 0 docs');
+              const d=[];snap.forEach(x=>d.push({id:x.id,...x.data()}));
+              console.log('[TrickySSC] paperId SDK:',d.length);return d;
+            }),
+            ft(fetch(_url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(_body)})).then(async r=>{
+              const d=fromRest(await r.json());
+              if(!d.length) throw new Error('REST: 0 docs');
+              console.log('[TrickySSC] paperId REST:',d.length);return d;
+            })
+          ]);
+
+          for(const r of [r1,r2]){
+            if(r.status==='fulfilled'){allDocs=r.value;break;}
           }
-        }catch(e){ console.warn('paperId fetch failed:',e.message); allDocs=[]; }
+          if(!allDocs.length) console.warn('[TrickySSC] paperId both failed, falling back');
+        }catch(e){ console.warn('paperId fetch error:',e.message); allDocs=[]; }
       }
 
       if(allDocs.length===0 && mockId){
@@ -1240,7 +1249,7 @@ window.submitTest=async()=>{
   document.getElementById('testScreen').style.display='none';
   document.getElementById('resultScreen').style.display='block';
   document.getElementById('resultExamName').textContent=mockMeta?.title||((exam||'').toUpperCase().replace('-',' ')+(year?' '+year:''));
-  const maxMarks = questions.length * 2; // 2 marks per question
+  // maxMarks already declared above
   document.getElementById('scorePct').textContent = marks;
   document.getElementById('scoreSubLabel').textContent = 'out of ' + maxMarks + ' marks';
   document.getElementById('scorePctLabel').textContent = pct + '% · ' + correct + ' correct · ' + wrong + ' wrong';
