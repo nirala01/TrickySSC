@@ -353,7 +353,6 @@ window.submitGoogleExtra = async (uid) => {
   msgEl.style.display='block'; msgEl.style.color='#64748B'; msgEl.textContent='⏳ Verifying...';
 
   try {
-    // Check if phone already used by a different account
     const existing = await getDocs(query(collection(db,'users'), where('phone','==','+91'+phone)));
     if(!existing.empty && existing.docs[0].id !== uid){
       msgEl.style.display='block'; msgEl.style.color='#DC2626';
@@ -363,12 +362,16 @@ window.submitGoogleExtra = async (uid) => {
   } catch(e) {}
 
   const user = window._pendingGoogleUser;
-  // Use name from input (if shown) or Google's display name
   const nameInput = document.getElementById('gName');
   const finalName = (nameInput?.value?.trim()) || user.displayName || 'Student';
   if(finalName.length < 2){ msgEl.style.display='block'; msgEl.style.color='#DC2626'; msgEl.textContent='⚠️ Please enter your full name'; return; }
   await saveUserProfile(user, '+91'+phone, finalName);
   document.getElementById('extraInfoModal').remove();
+  // Save finalName (from modal) to localStorage so dashboard shows correct name immediately
+  localStorage.setItem('tssc_user', JSON.stringify({
+    uid: user.uid, name: finalName, phone: '+91'+phone,
+    email: user.email||'', photoURL: user.photoURL||'', loginMethod:'google'
+  }));
   goToDashboard(user);
 };
 

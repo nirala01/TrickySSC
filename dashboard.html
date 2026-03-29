@@ -493,8 +493,8 @@ async function loadDashboard(user) {
       // Update user profile stats in Firestore
       await setDoc(doc(db, 'users', effectiveUid), {
         totalTests: attempts.length,
-        avgScore: parseFloat(avg),
-        bestScore: parseFloat(best),
+        avgScore: parseFloat(avgMarks),
+        bestScore: parseFloat(bestMarks),
         lastActive: serverTimestamp(),
       }, {merge: true});
     }
@@ -658,8 +658,9 @@ function renderAttempts(attempts) {
   const rows = attempts.map(a => {
     const marks = parseFloat(a.marks)||0;
     const maxM = (parseInt(a.total)||100)*2;
-    const pct = parseFloat(a.percentage)||Math.round((marks/maxM)*100);
-    const cls = marks>=(maxM*0.7)?'score-high':marks>=(maxM*0.4)?'score-mid':'score-low';
+    const pct = parseFloat(a.percentage)||0;
+    const displayScore = marks > 0 ? marks+'/'+maxM : pct+'%';
+    const cls = marks>=(maxM*0.7)||pct>=70?'score-high':marks>=(maxM*0.4)||pct>=40?'score-mid':'score-low';
     const date = a.timestamp?.toDate
       ? a.timestamp.toDate().toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})
       : '—';
@@ -668,7 +669,7 @@ function renderAttempts(attempts) {
     return `<tr>
       <td><b>${examName}</b></td>
       <td>${a.total||'—'} Qs</td>
-      <td><span class="score-pill ${cls}">${marks > 0 ? marks + '/200' : pct + '%'}</span></td>
+      <td><span class="score-pill ${cls}">${displayScore}</span></td>
       <td style="color:var(--green);font-weight:600;">✅ ${a.correct||0}</td>
       <td style="color:#DC2626;font-weight:600;">❌ ${a.wrong||0}</td>
       <td style="color:var(--gray);font-size:0.82rem;">${date}</td>
