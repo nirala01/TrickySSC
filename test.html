@@ -1276,7 +1276,10 @@ window.submitTest=async()=>{
 
   if(!currentUser||!currentUser.uid){setSaveUi('error','⚠️ Not logged in. Result cannot be saved.');isSubmitting=false;return;}
   const attemptId=`${currentUser.uid}_${exam||'exam'}_${year||'na'}_${Date.now()}`;
-  const payload={uid:currentUser.uid,exam,year:year||'',total:questions.length,correct,wrong,skip,marks:parseFloat(marks),percentage:pct,answers,timestamp:serverTimestamp(),clientSubmittedAt:new Date().toISOString()};
+  // Build a readable exam name for dashboard display
+  const _examNames={'ssc-cgl':'SSC CGL','ssc-chsl':'SSC CHSL','ssc-mts':'SSC MTS','ssc-cpo':'SSC CPO','ssc-gd':'SSC GD','ssc-jht':'SSC JHT','ssc-je':'SSC JE'};
+  const _examLabel = mockMeta?.title || ((_examNames[exam]||(exam||'').toUpperCase().replace(/-/g,' '))+(year?' '+year:''));
+  const payload={uid:currentUser.uid,exam,year:year||'',examName:_examLabel,paperId:new URLSearchParams(window.location.search).get('paperId')||'',total:questions.length,correct,wrong,skip,marks:parseFloat(marks),percentage:pct,timestamp:serverTimestamp(),clientSubmittedAt:new Date().toISOString()};
   lastResultPayload={attemptId,payload};
   try{await persistWithRetry(payload,attemptId,3);localStorage.removeItem('pending_attempt_'+attemptId);setSaveUi('saved','✅ Result saved successfully.');}
   catch(e){console.warn('Save failed:',e);localStorage.setItem('pending_attempt_'+attemptId,JSON.stringify(lastResultPayload));setSaveUi('error','⚠️ Could not save. Check internet and tap Retry Save.');}

@@ -164,8 +164,8 @@ body{font-family:'Noto Sans',sans-serif;background:var(--bg);color:var(--text);m
 
 @media(max-width:768px){
   .stats-row{grid-template-columns:repeat(2,1fr);}
-  .table-head,.table-row{grid-template-columns:2fr 1.2fr 1fr 1fr;}
-  .table-head span:nth-child(n+5),.table-row span:nth-child(n+5){display:none;}
+  .table-head,.table-row{grid-template-columns:40px 2fr 1.2fr 1fr 1fr;}
+  .table-head span:nth-child(n+6),.table-row span:nth-child(n+6){display:none;}
   .main{padding:1rem;}
 }
 </style>
@@ -232,11 +232,14 @@ body{font-family:'Noto Sans',sans-serif;background:var(--bg);color:var(--text);m
       <option value="inactive">No Tests Yet</option>
     </select>
     <button class="export-btn" onclick="exportCSV()">⬇ Export CSV</button>
+    <button id="deleteSelectedBtn" onclick="deleteSelected()" style="background:var(--red);color:#fff;border:none;border-radius:10px;padding:0.65rem 1.25rem;font-family:'Rajdhani',sans-serif;font-size:0.9rem;font-weight:700;cursor:pointer;display:none;white-space:nowrap;">🗑 Delete Selected</button>
+    <button onclick="deleteAll()" style="background:transparent;color:var(--red);border:1px solid var(--red);border-radius:10px;padding:0.65rem 1.25rem;font-family:'Rajdhani',sans-serif;font-size:0.9rem;font-weight:700;cursor:pointer;white-space:nowrap;">⚠ Delete ALL</button>
   </div>
 
   <!-- Table -->
   <div class="table-wrap">
     <div class="table-head">
+      <span><input type="checkbox" id="selectAll" onchange="toggleSelectAll(this)" style="cursor:pointer;width:16px;height:16px;accent-color:var(--orange);"></span>
       <span>Candidate</span>
       <span>Mobile</span>
       <span>Tests</span>
@@ -267,7 +270,7 @@ body{font-family:'Noto Sans',sans-serif;background:var(--bg);color:var(--text);m
 
 <script type="module">
 import{initializeApp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import{getFirestore,collection,getDocs,query,orderBy}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import{getFirestore,collection,getDocs,query,orderBy,deleteDoc,doc,writeBatch}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 const app=initializeApp({apiKey:"AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",authDomain:"trickyssc-17bb3.firebaseapp.com",projectId:"trickyssc-17bb3",storageBucket:"trickyssc-17bb3.firebasestorage.app",messagingSenderId:"450627057220",appId:"1:450627057220:web:366267bf437d94f20c6e11"});
 const db=getFirestore(app);
@@ -358,8 +361,11 @@ function renderTable(users) {
     const joined = u.createdAt?.toDate ? u.createdAt.toDate().toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'2-digit'}) : '—';
     const email = u.email || '';
 
-    return `<div class="table-row" onclick="showDetail('${u.id}')" style="cursor:pointer;">
-      <div>
+    return `<div class="table-row" data-uid="${u.id}">
+      <div onclick="event.stopPropagation()">
+        <input type="checkbox" class="row-check" data-uid="${u.id}" onchange="updateDeleteBtn()" style="cursor:pointer;width:16px;height:16px;accent-color:var(--orange);">
+      </div>
+      <div onclick="showDetail('${u.id}')" style="cursor:pointer;">
         <div class="user-name">${name}</div>
         ${email?`<div class="user-email">${email}</div>`:''}
       </div>
@@ -445,6 +451,54 @@ window.exportCSV = () => {
   a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
   a.download='TrickySSC_Candidates_'+new Date().toISOString().slice(0,10)+'.csv';
   a.click();
+};
+
+// ── Select all / deselect all ──
+window.toggleSelectAll = (cb) => {
+  document.querySelectorAll('.row-check').forEach(c => c.checked = cb.checked);
+  updateDeleteBtn();
+};
+
+window.updateDeleteBtn = () => {
+  const checked = document.querySelectorAll('.row-check:checked').length;
+  const btn = document.getElementById('deleteSelectedBtn');
+  if(btn) { btn.style.display = checked > 0 ? 'block' : 'none'; btn.textContent = `🗑 Delete Selected (${checked})`; }
+};
+
+// ── Delete selected candidates ──
+window.deleteSelected = async () => {
+  const checked = [...document.querySelectorAll('.row-check:checked')].map(c => c.dataset.uid);
+  if(!checked.length) return;
+  if(!confirm(`Delete ${checked.length} selected candidate(s)? This cannot be undone.`)) return;
+  try {
+    const batch = writeBatch(db);
+    checked.forEach(uid => batch.delete(doc(db,'users',uid)));
+    await batch.commit();
+    alert(`✅ Deleted ${checked.length} candidate(s).`);
+    loadData();
+  } catch(e) { alert('Error: ' + e.message); }
+};
+
+// ── Delete ALL candidates ──
+window.deleteAll = async () => {
+  const count = allUsers.length;
+  if(!count) { alert('No candidates to delete.'); return; }
+  const confirm1 = confirm(`⚠️ This will permanently delete ALL ${count} candidates and cannot be undone!\n\nAre you absolutely sure?`);
+  if(!confirm1) return;
+  const typed = window.prompt(`Type "DELETE ALL" to confirm:`);
+  if(typed !== 'DELETE ALL') { alert('Cancelled — text did not match.'); return; }
+  try {
+    // Delete in batches of 400 (Firestore limit)
+    const chunks = [];
+    for(let i=0; i<allUsers.length; i+=400) chunks.push(allUsers.slice(i,i+400));
+    for(const chunk of chunks){
+      const batch = writeBatch(db);
+      chunk.forEach(u => batch.delete(doc(db,'users',u.id)));
+      await batch.commit();
+    }
+    alert(`✅ Deleted all ${count} candidates.`);
+    loadData();
+  } catch(e) { alert('Error: ' + e.message); }
 };
 
 // Close modal on overlay click
