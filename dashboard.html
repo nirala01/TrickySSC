@@ -268,12 +268,12 @@
     <div class="stat-card">
       <div class="stat-icon">✅</div>
       <div class="stat-num" id="statAvg">—</div>
-      <div class="stat-label">Avg Score</div>
+      <div class="stat-label">Avg Marks <span style="font-size:0.65rem;color:#94A3B8;">/200</span></div>
     </div>
     <div class="stat-card">
       <div class="stat-icon">🏆</div>
       <div class="stat-num" id="statBest">—</div>
-      <div class="stat-label">Best Score</div>
+      <div class="stat-label">Best Marks <span style="font-size:0.65rem;color:#94A3B8;">/200</span></div>
     </div>
     <div class="stat-card">
       <div class="stat-icon">🔥</div>
@@ -478,17 +478,17 @@ async function loadDashboard(user) {
 
     // Calculate stats from attempts
     if (attempts.length > 0) {
-      const scores = attempts.map(a => parseFloat(a.percentage)||0);
-      const avg = (scores.reduce((a,b)=>a+b,0)/scores.length).toFixed(1);
-      const best = Math.max(...scores).toFixed(1);
+      const marksArr = attempts.map(a => parseFloat(a.marks)||0);
+      const avgMarks = (marksArr.reduce((a,b)=>a+b,0)/marksArr.length).toFixed(1);
+      const bestMarks = Math.max(...marksArr).toFixed(1);
       const totalCorrect = attempts.reduce((s,a)=>s+(parseInt(a.correct)||0),0);
       const days = new Set(attempts.map(a => a.timestamp?.toDate ? a.timestamp.toDate().toDateString() : null).filter(Boolean));
 
       document.getElementById('statTests').textContent = attempts.length;
-      document.getElementById('statAvg').textContent = avg + '%';
-      document.getElementById('statBest').textContent = best + '%';
+      document.getElementById('statAvg').textContent = avgMarks;
+      document.getElementById('statBest').textContent = bestMarks;
       document.getElementById('statStreak').textContent = days.size;
-      document.getElementById('wSub').textContent = `${attempts.length} test${attempts.length>1?'s':''} attempted · ${totalCorrect} correct · Avg ${avg}% 💪`;
+      document.getElementById('wSub').textContent = `${attempts.length} test${attempts.length>1?'s':''} attempted · ${totalCorrect} correct · Avg ${avgMarks}/200 marks 💪`;
 
       // Update user profile stats in Firestore
       await setDoc(doc(db, 'users', effectiveUid), {
@@ -550,14 +550,15 @@ async function loadDashboardMobile(mUser) {
     const attempts = [];
     snap.forEach(d => attempts.push({id:d.id,...d.data()}));
     if(attempts.length > 0){
-      const scores = attempts.map(a=>parseFloat(a.percentage)||0);
+      const marksArr2 = attempts.map(a=>parseFloat(a.marks)||0);
       const totalCorrect = attempts.reduce((s,a)=>s+(parseInt(a.correct)||0),0);
+      const avgM2 = (marksArr2.reduce((a,b)=>a+b,0)/marksArr2.length).toFixed(1);
       document.getElementById('statTests').textContent = attempts.length;
-      document.getElementById('statAvg').textContent = (scores.reduce((a,b)=>a+b,0)/scores.length).toFixed(1)+'%';
-      document.getElementById('statBest').textContent = Math.max(...scores).toFixed(1)+'%';
+      document.getElementById('statAvg').textContent = avgM2;
+      document.getElementById('statBest').textContent = Math.max(...marksArr2).toFixed(1);
       const days = new Set(attempts.map(a => a.timestamp?.toDate ? a.timestamp.toDate().toDateString() : null).filter(Boolean));
       document.getElementById('statStreak').textContent = days.size;
-      document.getElementById('wSub').textContent = `${attempts.length} test${attempts.length>1?'s':''} attempted · ${totalCorrect} correct · Avg ${scores.length>0?((scores.reduce((a,b)=>a+b,0)/scores.length).toFixed(1)):'0'}% 💪`;
+      document.getElementById('wSub').textContent = `${attempts.length} test${attempts.length>1?'s':''} attempted · ${totalCorrect} correct · Avg ${avgM2}/200 marks 💪`;
     }
     renderAttempts(attempts);
   } catch(e) { renderAttempts([]); }
@@ -655,8 +656,10 @@ function renderAttempts(attempts) {
     return;
   }
   const rows = attempts.map(a => {
-    const pct = parseFloat(a.percentage)||0;
-    const cls = pct>=70?'score-high':pct>=40?'score-mid':'score-low';
+    const marks = parseFloat(a.marks)||0;
+    const maxM = (parseInt(a.total)||100)*2;
+    const pct = parseFloat(a.percentage)||Math.round((marks/maxM)*100);
+    const cls = marks>=(maxM*0.7)?'score-high':marks>=(maxM*0.4)?'score-mid':'score-low';
     const date = a.timestamp?.toDate
       ? a.timestamp.toDate().toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})
       : '—';
@@ -665,7 +668,7 @@ function renderAttempts(attempts) {
     return `<tr>
       <td><b>${examName}</b></td>
       <td>${a.total||'—'} Qs</td>
-      <td><span class="score-pill ${cls}">${pct}%</span></td>
+      <td><span class="score-pill ${cls}">${marks > 0 ? marks + '/200' : pct + '%'}</span></td>
       <td style="color:var(--green);font-weight:600;">✅ ${a.correct||0}</td>
       <td style="color:#DC2626;font-weight:600;">❌ ${a.wrong||0}</td>
       <td style="color:var(--gray);font-size:0.82rem;">${date}</td>

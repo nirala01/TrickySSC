@@ -610,12 +610,13 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:10
   <div class="result-card">
     <div style="font-family:'Rajdhani';font-size:22px;font-weight:700;color:#1E293B;margin-bottom:14px;" id="resultExamName"></div>
     <div class="score-big" id="scorePct"></div>
-    <div class="score-label">Score</div>
+    <div class="score-label" id="scoreSubLabel">out of 200 marks</div>
+    <div style="font-size:13px;color:#94A3B8;margin-top:2px;" id="scorePctLabel"></div>
     <div class="stats">
-      <div class="stat"><div class="stat-val" style="color:#22C55E" id="statCorrect">0</div><div class="stat-lbl">Correct</div></div>
-      <div class="stat"><div class="stat-val" style="color:#EF4444" id="statWrong">0</div><div class="stat-lbl">Wrong</div></div>
+      <div class="stat"><div class="stat-val" style="color:#22C55E" id="statCorrect">0</div><div class="stat-lbl">Correct<br><span style="font-size:9px;color:#94A3B8;">+2 each</span></div></div>
+      <div class="stat"><div class="stat-val" style="color:#EF4444" id="statWrong">0</div><div class="stat-lbl">Wrong<br><span style="font-size:9px;color:#94A3B8;">−0.5 each</span></div></div>
       <div class="stat"><div class="stat-val" style="color:#EAB308" id="statSkip">0</div><div class="stat-lbl">Skipped</div></div>
-      <div class="stat"><div class="stat-val" id="statMarks">0</div><div class="stat-lbl">Marks</div></div>
+      <div class="stat" style="background:#FFF7ED;border-color:#FED7AA;"><div class="stat-val" style="color:#FF6B00;" id="statMarks">0</div><div class="stat-lbl">Marks</div></div>
     </div>
     <button class="btn btn-next" id="goDashboardBtn" style="margin-top:24px;padding:12px 32px;" onclick="window.location='https://trickyssc.com/dashboard.html'" disabled>Saving result...</button>
     <div id="saveStatus" style="margin-top:10px;font-size:12px;color:#94A3B8;">⏳ Saving your result...</div>
@@ -1234,11 +1235,15 @@ window.submitTest=async()=>{
   let correct=0,wrong=0,skip=0;
   questions.forEach((q,i)=>{const a=answers[i];if(!a)skip++;else if(a===q.correct)correct++;else wrong++;});
   const marks=(correct*2-wrong*0.5).toFixed(1);
-  const pct=Math.round((correct/questions.length)*100);
+  const maxMarks = questions.length * 2;
+  const pct = parseFloat(((parseFloat(marks)/maxMarks)*100).toFixed(1));
   document.getElementById('testScreen').style.display='none';
   document.getElementById('resultScreen').style.display='block';
   document.getElementById('resultExamName').textContent=mockMeta?.title||((exam||'').toUpperCase().replace('-',' ')+(year?' '+year:''));
-  document.getElementById('scorePct').textContent=pct+'%';
+  const maxMarks = questions.length * 2; // 2 marks per question
+  document.getElementById('scorePct').textContent = marks;
+  document.getElementById('scoreSubLabel').textContent = 'out of ' + maxMarks + ' marks';
+  document.getElementById('scorePctLabel').textContent = pct + '% · ' + correct + ' correct · ' + wrong + ' wrong';
   document.getElementById('statCorrect').textContent=correct;
   document.getElementById('statWrong').textContent=wrong;
   document.getElementById('statSkip').textContent=skip;
