@@ -2855,8 +2855,10 @@
 <script type="module">
 import{initializeApp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import{getAuth,onAuthStateChanged}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import{getFirestore,doc,getDoc}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 const _app=initializeApp({apiKey:"AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",authDomain:"trickyssc-17bb3.firebaseapp.com",projectId:"trickyssc-17bb3",storageBucket:"trickyssc-17bb3.firebasestorage.app",messagingSenderId:"450627057220",appId:"1:450627057220:web:366267bf437d94f20c6e11"});
 const _auth=getAuth(_app);
+const _db=getFirestore(_app);
 
 function _setNavUser(name){
   // Replace Login/Register button with user pill in desktop nav
@@ -2867,28 +2869,41 @@ function _setNavUser(name){
   });
 }
 
-// Check Firebase Auth — for phone OTP users displayName is null, use localStorage
-function _refreshNavName(user) {
-  const stored = localStorage.getItem('tssc_user');
-  if(stored) {
-    try {
+// Read name: Firestore first (most accurate), then localStorage, then displayName
+onAuthStateChanged(_auth, async user => {
+  if(!user) return;
+  // Try localStorage first (instant, no network)
+  try {
+    const stored = localStorage.getItem('tssc_user');
+    if(stored) {
       const u = JSON.parse(stored);
-      if(u.name && u.name !== 'Student') { _setNavUser(u.name); return; }
-    } catch(e) {}
-  }
-  if(user) _setNavUser(user.displayName || user.email || 'Student');
-}
-
-onAuthStateChanged(_auth, user => {
-  if(user) { _refreshNavName(user); return; }
-  const stored = localStorage.getItem('tssc_user');
-  if(stored) { try { const u=JSON.parse(stored); _setNavUser(u.name||'Student'); } catch(e) {} }
-});
-
-// Also update name if localStorage changes (e.g. after OTP login sets the name)
-window.addEventListener('storage', e => {
-  if(e.key === 'tssc_user' && e.newValue) {
-    try { const u=JSON.parse(e.newValue); if(u.name && u.name!=='Student') _setNavUser(u.name); } catch(e2) {}
+      if(u.name && u.name !== 'Student') { _setNavUser(u.name); }
+    }
+  } catch(e) {}
+  // Then fetch from Firestore (authoritative) and update
+  try {
+    console.log('[Nav] Fetching Firestore for uid:', user.uid);
+    const snap = await getDoc(doc(_db, 'users', user.uid));
+    console.log('[Nav] Firestore exists:', snap.exists(), snap.exists() ? 'name='+snap.data().name : 'NO DOC');
+    if(snap.exists()) {
+      const name = snap.data().name;
+      if(name && name !== 'Student') {
+        _setNavUser(name);
+        try {
+          const stored = localStorage.getItem('tssc_user');
+          const u = stored ? JSON.parse(stored) : {};
+          localStorage.setItem('tssc_user', JSON.stringify({...u, name, uid: user.uid}));
+        } catch(e) {}
+      } else {
+        _setNavUser(user.displayName || user.email || 'Student');
+      }
+    } else {
+      console.warn('[Nav] No Firestore doc for uid:', user.uid, '— check if completeMobileLogin saved correctly');
+      _setNavUser(user.displayName || user.email || 'Student');
+    }
+  } catch(e) {
+    console.error('[Nav] Firestore error:', e.message);
+    _setNavUser(user.displayName || user.email || 'Student');
   }
 });
 </script>
