@@ -2289,11 +2289,30 @@ function htmlToMarkdown(html) {
     var tag = node.tagName.toLowerCase();
     var inner = Array.from(node.childNodes).map(walk).join('');
     if(tag === 'br') return '\n';
-    if(['p','div','tr','li'].includes(tag)) return inner + '\n';
+    if(tag === 'p') return inner.trim() + '\n';
+    if(tag === 'div') {
+      // ChatGPT uses div.flex or div with data-darkreader for display math
+      var cls = node.className || '';
+      if(cls.indexOf('flex') !== -1 || node.querySelector('annotation')) return inner.trim() + '\n';
+      return inner + '\n';
+    }
+    if(tag === 'li') return inner.trim() + '\n';
+    if(tag === 'ul' || tag === 'ol') return inner;
     if(tag === 'strong' || tag === 'b') return '**' + inner.trim() + '**';
     if(tag === 'em' || tag === 'i') return '*' + inner.trim() + '*';
-    if(['h1','h2','h3','h4','h5'].includes(tag)) return '**' + inner.trim() + '**\n';
+    if(['h1','h2','h3','h4','h5','h6'].includes(tag)) return '**' + inner.trim() + '**\n';
     if(tag === 'td' || tag === 'th') return inner + ' ';
+    // Handle MathJax/KaTeX annotation — get the LaTeX source
+    if(tag === 'annotation') return inner;
+    // Skip math rendering spans (they duplicate text)
+    if(tag === 'mjx-container' || tag === 'math') return inner;
+    if(tag === 'span') {
+      var cls2 = node.className || '';
+      // Skip visually hidden elements
+      if(node.getAttribute('aria-hidden') === 'true') return '';
+      return inner;
+    }
+    if(tag === 'script' || tag === 'style') return '';
     return inner;
   }
   return walk(tmp);
@@ -2308,7 +2327,12 @@ function smartPasteToField(e, fieldId) {
   var out = (html && html.trim()) ? htmlToMarkdown(html) : (plain || '');
   // Strip LaTeX math delimiters and convert commands to Unicode
   out = out.replace(/\$\$([^$]+?)\$\$/g, '$1');
-  out = out.replace(/\$([^$\n]+?)\$/g, '$1');
+  out = out.replace(/\$([^$\n]{1,80}?)\$/g, '$1');
+  // LaTeX commands → Unicode
+  out = out.replace(/\\leftrightarrow/g, '\u2194');
+  out = out.replace(/\\rightarrow/g, '\u2192');
+  out = out.replace(/\\leftarrow/g, '\u2190');
+  out = out.replace(/\\Rightarrow/g, '\u27f9');
   out = out.replace(/\\div/g, '\u00f7');
   out = out.replace(/\\times/g, '\u00d7');
   out = out.replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, '($1)/($2)');
@@ -2322,12 +2346,17 @@ function smartPasteToField(e, fieldId) {
   out = out.replace(/\\approx/g, '\u2248');
   out = out.replace(/\\therefore/g, '\u2234');
   out = out.replace(/\\because/g, '\u2235');
-  out = out.replace(/\\rightarrow/g, '\u2192');
-  out = out.replace(/\\Rightarrow/g, '\u27f9');
-  out = out.replace(/\\pi/g, '\u03c0');
   out = out.replace(/\\pm/g, '\u00b1');
+  out = out.replace(/\\pi/g, '\u03c0');
+  out = out.replace(/\\alpha/g, '\u03b1');
+  out = out.replace(/\\beta/g, '\u03b2');
+  out = out.replace(/\\theta/g, '\u03b8');
   out = out.replace(/\\,/g, ' ');
   out = out.replace(/\\\\/g, '');
+  // Remove trailing asterisks (*) used by some AI for bold markers
+  out = out.replace(/\*+\s*$/gm, '');
+  out = out.replace(/^\s*\*+/gm, '');
+  // Remove remaining $ signs
   out = out.replace(/\$/g, '');
   out = out.replace(/\r\n/g,'\n').replace(/\r/g,'\n').replace(/\n{3,}/g,'\n\n');
   var lines = out.split('\n').map(function(l){ return l.trim(); }).filter(function(l){ return l.length > 0; });
