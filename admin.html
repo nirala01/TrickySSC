@@ -348,6 +348,10 @@ textarea{resize:vertical;min-height:80px;}
         <label>📝 Step-by-Step Solution (optional)</label>
         <div id="qExplanation" contenteditable="true" data-placeholder="Paste or type the solution here..." class="rich-editor" oninput="syncRichEditor('qExplanation')"></div>
         <input type="hidden" id="qExplanationVal">
+        <div id="prevExpl" style="display:none;margin-top:0.5rem;border-radius:8px;overflow:hidden;font-size:13px;line-height:1.9;">
+          <div style="background:#DCFCE7;color:#15803D;padding:6px 12px;font-size:11px;font-weight:700;text-transform:uppercase;">💡 Preview — Step-by-Step Solution</div>
+          <div id="prevExplBody" style="background:#F0FDF4;color:#374151;padding:10px 12px;"></div>
+        </div>
         <div style="margin-top:0.5rem;display:flex;align-items:center;gap:0.4rem;">
           <label style="cursor:pointer;flex:1;display:flex;align-items:center;gap:0.5rem;background:#1E293B;border:1.5px dashed #00A86B;border-radius:7px;padding:0.5rem 0.75rem;">
             <input type="file" id="solImgFile" accept="image/*" onchange="handleSolImg(this)" style="display:none;">
@@ -365,6 +369,10 @@ textarea{resize:vertical;min-height:80px;}
         <label>⚡ Tricky Shortcut Method (optional)</label>
         <div id="qTrick" contenteditable="true" data-placeholder="Paste or type the trick here..." class="rich-editor" oninput="syncRichEditor('qTrick')"></div>
         <input type="hidden" id="qTrickVal">
+        <div id="prevTrick" style="display:none;margin-top:0.5rem;border-radius:8px;overflow:hidden;font-size:13px;line-height:1.9;">
+          <div style="background:#DBEAFE;color:#1D4ED8;padding:6px 12px;font-size:11px;font-weight:700;text-transform:uppercase;">⚡ Preview — Quick Trick</div>
+          <div id="prevTrickBody" style="background:#EFF6FF;color:#1E40AF;padding:10px 12px;"></div>
+        </div>
       </div>
       <div style="margin-bottom:1rem;">
         <label>🖼️ Question Image (optional — for figure/diagram based questions)</label>
@@ -2277,6 +2285,22 @@ window.syncRichEditor = function(id) {
   var editor = document.getElementById(id);
   var hidden = document.getElementById(id + 'Val');
   if(editor && hidden) hidden.value = editor.innerHTML;
+  // Update preview
+  var previewMap = {'qExplanation':'prevExpl','qTrick':'prevTrick'};
+  var previewId = previewMap[id];
+  if(previewId) {
+    var box = document.getElementById(previewId);
+    var body = document.getElementById(previewId + 'Body');
+    if(box && body) {
+      var val = editor ? editor.innerHTML : '';
+      if(val && val.replace(/<br>/g,'').trim()) {
+        box.style.display = 'block';
+        body.innerHTML = val;
+      } else {
+        box.style.display = 'none';
+      }
+    }
+  }
 };
 
 // ── Clean pasted HTML for storage & display ──
