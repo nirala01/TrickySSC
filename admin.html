@@ -2257,6 +2257,29 @@ window.updateCsvTiers = () => {
     tiers.map(t => `<option value="${t.v}">${t.l}</option>`).join('');
 };
 
+// ── Live Preview for explanation/trick fields ──
+function applyBRPreview(text){ return text.split('[BR]').join('<br>'); }
+function formatStepsPreview(text){
+  if(!text) return '';
+  var t = applyBRPreview(text).replace(/
+/g,'<br>');
+  t = t.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  t = t.replace(/\*([^*]+?)\*/g, '<em>$1</em>');
+  t = t.split(' → ').join(' →<br>');
+  t = t.split('∴').join('<br>∴ ');
+  t = t.split('∵').join('<br>∵ ');
+  return t;
+}
+window.updatePreview = function(inputId, previewId, type) {
+  const val = document.getElementById(inputId)?.value || '';
+  const boxEl = document.getElementById(previewId);
+  const bodyEl = document.getElementById(previewId + 'Body');
+  if(!boxEl) return;
+  if(!val.trim()){ boxEl.classList.remove('visible'); return; }
+  boxEl.classList.add('visible');
+  if(bodyEl) bodyEl.innerHTML = formatStepsPreview(val);
+};
+
 // ── Smart Paste: preserves bold + math symbols from ChatGPT/Word ──
 function htmlToMarkdown(html) {
   const tmp = document.createElement('div');
@@ -2294,7 +2317,8 @@ function smartPasteToField(e, fieldId) {
   // Normalize line endings, collapse 3+ newlines to 2
   out = out.replace(/
 /g, '
-').replace(//g, '
+').replace(/
+/g, '
 ').replace(/
 {3,}/g, '
 
