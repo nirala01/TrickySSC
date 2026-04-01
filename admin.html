@@ -2322,9 +2322,15 @@ function smartPasteToField(e, fieldId) {
   e.preventDefault();
   var el = document.getElementById(fieldId);
   if(!el) return;
-  var html = (e.clipboardData||window.clipboardData).getData('text/html');
   var plain = (e.clipboardData||window.clipboardData).getData('text/plain');
-  var out = (html && html.trim()) ? htmlToMarkdown(html) : (plain || '');
+  var html = (e.clipboardData||window.clipboardData).getData('text/html');
+  // Prefer plain text — ChatGPT/Word plain text is cleaner than their HTML
+  // Only use HTML if plain text is empty
+  var out = (plain && plain.trim()) ? plain : (html ? htmlToMarkdown(html) : '');
+  // If HTML has MathJax, plain text is always better
+  if(html && html.indexOf('mjx-container') !== -1 && plain && plain.trim()) {
+    out = plain;
+  }
   // Strip LaTeX math delimiters and convert commands to Unicode
   out = out.replace(/\$\$([^$]+?)\$\$/g, '$1');
   out = out.replace(/\$([^$\n]{1,80}?)\$/g, '$1');
