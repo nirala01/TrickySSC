@@ -1342,76 +1342,32 @@ function formatQText(raw){
 
 function formatSteps(text){
   if(!text) return '';
-
-  // Normalise: convert any already-processed <br> back to [BR] so we split consistently
-  text = text.replace(/<br\s*\/?>/gi, '[BR]');
-
-  // Split on [BR] into lines
-  var lines = text.split('[BR]');
-  var html = '';
-
-  for(var i=0; i<lines.length; i++){
-    var line = lines[i].trim();
-    if(!line) continue;
-
-    // Detect "Step N: Title." pattern — bold the entire Step header
-    var stepMatch = line.match(/^(Step\s+\d+\s*:\s*[^.]+\.)\s*(.*)/);
-    if(stepMatch){
-      var title   = stepMatch[1]; // e.g. "Step 1: Find the relationship in the first pair."
-      var rest    = stepMatch[2]; // any content after the title on the same line
-      // Add spacing before steps (except the first)
-      var topMargin = (html === '') ? '0' : '10px';
-      html += '<div style="margin-top:'+topMargin+';font-weight:700;color:inherit;">'
-            + escHtml(title)
-            + '</div>';
-      // If there's content after the title, treat it as a bullet
-      if(rest){
-        html += '<div style="display:flex;gap:6px;margin-top:3px;padding-left:4px;">'
-              + '<span style="flex-shrink:0;margin-top:1px;">&#10148;</span>'
-              + '<span>'+formatInline(rest)+'</span>'
-              + '</div>';
+  var t = applyBR(text);
+  t = t.split('. Step ').join('.<br>Step ');
+  var result = '';
+  for(var i=0; i<t.length; i++){
+    var ch = t[i];
+    if(ch==='.' && i+2<t.length && t[i+1]===' '){
+      var next = t[i+2];
+      var prev = t[i-1]||'';
+      if(/[A-Z0-9₹]/.test(next) && /[A-Za-z0-9₹%]/.test(prev)){
+        result += '.<br>';
+        i++;
+        continue;
       }
     }
-    // Detect bullet-like lines: start with •, -, *, ➤, ▸, or ✓/✗ marker lines
-    else if(/^[•\-\*➤▸]/.test(line)){
-      var content = line.replace(/^[•\-\*➤▸]\s*/,'');
-      html += '<div style="display:flex;gap:6px;margin-top:3px;padding-left:4px;">'
-            + '<span style="flex-shrink:0;margin-top:1px;">&#10148;</span>'
-            + '<span>'+formatInline(content)+'</span>'
-            + '</div>';
-    }
-    // ∴ and ∵ lines get their own styled row
-    else if(/^∴/.test(line) || /^∵/.test(line)){
-      html += '<div style="margin-top:6px;font-weight:600;">'+formatInline(line)+'</div>';
-    }
-    // Plain continuation line — treat as bullet if previous was a step, else as paragraph
-    else {
-      html += '<div style="display:flex;gap:6px;margin-top:3px;padding-left:4px;">'
-            + '<span style="flex-shrink:0;margin-top:1px;">&#10148;</span>'
-            + '<span>'+formatInline(line)+'</span>'
-            + '</div>';
-    }
+    result += ch;
   }
-
-  return html;
-}
-
-/* Escape HTML special chars in plain text segments */
-function escHtml(s){
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
-
-/* Format inline content: handle ∴ ∵ and keep math symbols intact */
-function formatInline(s){
-  // Escape HTML first
-  s = escHtml(s);
-  // Style ∴ and ∵ inline
-  s = s.replace(/∴/g,'<span style="font-weight:700;">∴</span>');
-  s = s.replace(/∵/g,'<span style="font-weight:700;">∵</span>');
-  // Bold checkmarks and cross marks
-  s = s.replace(/✓/g,'<span style="color:#16A34A;font-weight:700;">✓</span>');
-  s = s.replace(/✗/g,'<span style="color:#DC2626;font-weight:700;">✗</span>');
-  return s;
+  t = result;
+  t = t.split(' → ').join(' →<br>');
+  t = t.split('→').join('→<br>');
+  t = t.split('∴').join('<br>∴ ');
+  t = t.split('∵').join('<br>∵ ');
+  // Render **bold** markdown
+  t = t.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  // Render *italic*
+  t = t.replace(/\*([^*]+?)\*/g, '<em>$1</em>');
+  return t;
 }
 
 function formatQTextReview(raw, qNum){

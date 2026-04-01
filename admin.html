@@ -30,6 +30,16 @@ body{font-family:'Inter',sans-serif;background:#0F172A;color:#E2E8F0;min-height:
 .form-row.three{grid-template-columns:1fr 1fr 1fr;}
 label{display:block;font-size:0.8rem;font-weight:600;color:#94A3B8;margin-bottom:0.4rem;text-transform:uppercase;letter-spacing:0.05em;}
 select,input,textarea{width:100%;background:#0F172A;border:1px solid #334155;border-radius:8px;padding:0.65rem 0.9rem;color:#E2E8F0;font-family:'Inter',sans-serif;font-size:0.9rem;outline:none;transition:border 0.2s;}
+.preview-box{display:none;margin-top:0.5rem;border-radius:8px;overflow:hidden;font-size:13px;line-height:1.9;}
+.preview-box.visible{display:block;}
+.preview-header{padding:6px 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;}
+.preview-body{padding:10px 12px;}
+.preview-expl .preview-header{background:#DCFCE7;color:#15803D;}
+.preview-expl .preview-body{background:#F0FDF4;color:#374151;}
+.preview-trick .preview-header{background:#DBEAFE;color:#1D4ED8;}
+.preview-trick .preview-body{background:#EFF6FF;color:#1E40AF;}
+.preview-concept .preview-header{background:#FED7AA;color:#C2410C;}
+.preview-concept .preview-body{background:#FFF7ED;color:#7C2D12;}
 select:focus,input:focus,textarea:focus{border-color:#FF6B00;}
 textarea{resize:vertical;min-height:80px;}
 .options-grid{display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:1rem;}
@@ -133,7 +143,6 @@ textarea{resize:vertical;min-height:80px;}
     <button class="tab" onclick="switchTab('users')">👥 Users</button>
     <button class="tab" onclick="switchTab('import')">📥 Import CSV</button>
     <button class="tab" onclick="switchTab('export')">📤 Export CSV</button>
-    <button class="tab" onclick="switchTab('migrate')">🔑 Paper IDs</button>
   </div>
 
   <!-- TAB: Add Questions Manually -->
@@ -327,7 +336,8 @@ textarea{resize:vertical;min-height:80px;}
       </div>
       <div style="margin-bottom:1rem;">
         <label>📝 Step-by-Step Solution (optional)</label>
-        <textarea id="qExplanation" placeholder="Write the full solution here..."></textarea>
+        <textarea id="qExplanation" placeholder="Write the full solution here..." oninput="updatePreview('qExplanation','prevExpl','expl')"></textarea>
+        <div id="prevExpl" class="preview-box preview-expl"><div class="preview-header">💡 Step-by-Step Solution — Preview</div><div class="preview-body" id="prevExplBody"></div></div>
         <div style="margin-top:0.5rem;display:flex;align-items:center;gap:0.4rem;">
           <label style="cursor:pointer;flex:1;display:flex;align-items:center;gap:0.5rem;background:#1E293B;border:1.5px dashed #00A86B;border-radius:7px;padding:0.5rem 0.75rem;">
             <input type="file" id="solImgFile" accept="image/*" onchange="handleSolImg(this)" style="display:none;">
@@ -343,7 +353,8 @@ textarea{resize:vertical;min-height:80px;}
       </div>
       <div style="margin-bottom:1rem;">
         <label>⚡ Tricky Shortcut Method (optional)</label>
-        <textarea id="qTrick" placeholder="Write the quick trick or shortcut to solve this faster..."></textarea>
+        <textarea id="qTrick" placeholder="Write the quick trick or shortcut to solve this faster..." oninput="updatePreview('qTrick','prevTrick','trick')"></textarea>
+        <div id="prevTrick" class="preview-box preview-trick"><div class="preview-header">⚡ Quick Trick — Preview</div><div class="preview-body" id="prevTrickBody"></div></div>
       </div>
       <div style="margin-bottom:1rem;">
         <label>🖼️ Question Image (optional — for figure/diagram based questions)</label>
@@ -878,28 +889,6 @@ textarea{resize:vertical;min-height:80px;}
       </div>
     </div>
   </div>
-  <div class="panel" id="panel-migrate">
-    <div class="card">
-      <h3>🔑 Paper IDs &amp; Papers Collection</h3>
-      <p style="color:#94A3B8;font-size:0.9rem;margin-bottom:1.5rem;">
-        Groups all questions by <strong>exam+year+tier+shift+heldOn+language</strong>, assigns a unique
-        <code style="color:#A78BFA;">paperId</code> to each question, and creates a lightweight
-        <code style="color:#A78BFA;">papers</code> collection used by the exam pages for fast loading on mobile.
-      </p>
-      <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:1.5rem;">
-        <button class="btn btn-primary" onclick="runMigration()" id="migrateBtn">🚀 Run Migration</button>
-        <button class="btn" onclick="previewMigration()" id="previewBtn" style="background:#334155;color:#E2E8F0;border:1px solid #475569;">👁 Preview Groups</button>
-      </div>
-      <div id="migrationProgress" style="display:none;margin-bottom:1rem;">
-        <div style="background:#0F172A;border-radius:8px;height:8px;overflow:hidden;margin-bottom:0.5rem;">
-          <div id="migBar" style="height:100%;background:linear-gradient(90deg,#A78BFA,#60A5FA);width:0%;transition:width 0.3s;"></div>
-        </div>
-        <div id="migStatus" style="font-size:0.85rem;color:#94A3B8;"></div>
-      </div>
-      <div id="migrationResult" style="font-size:0.85rem;color:#94A3B8;line-height:1.8;max-height:400px;overflow-y:auto;"></div>
-    </div>
-  </div>
-
 </div><!-- /adminScreen -->
 
 <!-- Edit Modal -->
@@ -995,7 +984,8 @@ textarea{resize:vertical;min-height:80px;}
     </div>
     <div style="margin-bottom:1rem;">
   <label>📝 Explanation</label>
-  <textarea id="editExplanation" style="width:100%;min-height:70px;background:#0F172A;border:1px solid #334155;border-radius:8px;padding:0.65rem 0.9rem;color:#E2E8F0;font-family:'Inter',sans-serif;font-size:0.9rem;outline:none;resize:vertical;"></textarea>
+  <textarea id="editExplanation" style="width:100%;min-height:70px;background:#0F172A;border:1px solid #334155;border-radius:8px;padding:0.65rem 0.9rem;color:#E2E8F0;font-family:'Inter',sans-serif;font-size:0.9rem;outline:none;resize:vertical;" oninput="updatePreview('editExplanation','editPrevExpl','expl')"></textarea>
+  <div id="editPrevExpl" class="preview-box preview-expl"><div class="preview-header">💡 Solution — Preview</div><div class="preview-body" id="editPrevExplBody"></div></div>
   <div style="margin-top:0.5rem;display:flex;align-items:center;gap:0.4rem;">
     <label style="cursor:pointer;flex:1;display:flex;align-items:center;gap:0.5rem;background:#1E293B;border:1.5px dashed #00A86B;border-radius:7px;padding:0.5rem 0.75rem;">
       <input type="file" id="editSolImgFile" accept="image/*" onchange="handleEditSolImg(this)" style="display:none;">
@@ -1010,7 +1000,8 @@ textarea{resize:vertical;min-height:80px;}
   </div>
   <input type="hidden" id="editSolImgUrl">
 </div>
-    <div style="margin-bottom:1rem;"><label>⚡ Trick</label><textarea id="editTrick" style="width:100%;min-height:70px;background:#0F172A;border:1px solid #334155;border-radius:8px;padding:0.65rem 0.9rem;color:#E2E8F0;font-family:'Inter',sans-serif;font-size:0.9rem;outline:none;resize:vertical;"></textarea></div>
+    <div style="margin-bottom:1rem;"><label>⚡ Trick</label><textarea id="editTrick" style="width:100%;min-height:70px;background:#0F172A;border:1px solid #334155;border-radius:8px;padding:0.65rem 0.9rem;color:#E2E8F0;font-family:'Inter',sans-serif;font-size:0.9rem;outline:none;resize:vertical;" oninput="updatePreview('editTrick','editPrevTrick','trick')"></textarea>
+    <div id="editPrevTrick" class="preview-box preview-trick"><div class="preview-header">⚡ Trick — Preview</div><div class="preview-body" id="editPrevTrickBody"></div></div></div>
     <div style="margin-bottom:1rem;"><label>Difficulty</label>
       <select id="editDifficulty" style="width:100%;background:#0F172A;border:1px solid #334155;border-radius:8px;padding:0.65rem 0.9rem;color:#E2E8F0;font-family:'Inter',sans-serif;font-size:0.9rem;outline:none;">
         <option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option>
@@ -1044,7 +1035,7 @@ textarea{resize:vertical;min-height:80px;}
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
-import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, setDoc, query, where, orderBy, limit, getCountFromServer } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, query, where, orderBy, limit, getCountFromServer } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",
@@ -1790,16 +1781,6 @@ window.importCSV = async () => {
   const ovHeldOnType = document.getElementById('csvHeldOnType')?.value || '';
   const ovHeldOnDate = document.getElementById('csvHeldOnDate')?.value || '';
   let saved = 0, errors = 0;
-  // Generate one paperId for this entire CSV batch
-  const _bExam   = ovExam || csvParsedRows[0]?.exam || '';
-  const _bTier   = ovTier || csvParsedRows[0]?.tier || 'tier1';
-  const _bYear   = ovYear || csvParsedRows[0]?.year || '';
-  const _bShift  = ovShift || csvParsedRows[0]?.shift || '';
-  const _bLang   = ovLang  || csvParsedRows[0]?.language || 'en';
-  const _bHeldOn = (ovHeldOnType==='date') ? ovHeldOnDate : (csvParsedRows[0]?.heldOn||'');
-  const _batchPaperId = makePaperId(_bExam, _bYear, _bTier, _bShift, _bHeldOn, _bLang);
-  console.log('[Admin] CSV batch paperId:', _batchPaperId);
-
   for (let i = 0; i < csvParsedRows.length; i++) {
     const r = csvParsedRows[i];
     const exam = ovExam || r.exam || '';
@@ -1814,7 +1795,6 @@ window.importCSV = async () => {
     try {
       await addDoc(collection(db, 'questions'), {
         text: r.text, exam, tier, year, shift, language, heldOn,
-        paperId: _batchPaperId,
         type: r.type || 'pyq',
         subject: r.subject || '', chapter: r.chapter || '',
         difficulty: r.difficulty || 'medium', qNum: parseInt(r.qNum) || 0,
@@ -1830,8 +1810,6 @@ window.importCSV = async () => {
     status.textContent = `Importing ${i+1}/${csvParsedRows.length}...`;
   }
   status.textContent = `✅ Imported ${saved} questions${errors ? ' (' + errors + ' errors)' : ''}.`;
-  // Create/update the papers collection doc for fast mobile loading
-  if(saved > 0) await upsertPaperDoc(_batchPaperId, _bExam, _bYear, _bTier, _bShift, _bHeldOn, _bLang, saved);
   showToast(`✅ ${saved} questions imported!`, 'success');
   document.getElementById('csvImportBtn').disabled = false;
   loadStats();
@@ -1940,7 +1918,6 @@ window.switchTab = (tab) => {
   if (tab === 'users') loadUsers();
   if (tab === 'export') updateExportTiersAndSubjects();
   if (tab === 'import') { /* ready */ }
-  if (tab === 'migrate') { previewMigration(); }
 };
 
 // ── Edit Modal ──
@@ -2279,161 +2256,84 @@ window.updateCsvTiers = () => {
   tierSel.innerHTML = '<option value="">From CSV / keep as-is</option>' +
     tiers.map(t => `<option value="${t.v}">${t.l}</option>`).join('');
 };
-// ── Paper ID & Papers Collection helpers ──────────────────────────
 
-function makePaperId(exam, year, tier, shift, heldOn, lang) {
-  const clean = s => (s||'').toString().toLowerCase().replace(/[^a-z0-9-]/g,'');
-  return [clean(exam)||'x', clean(year)||'x', clean(tier)||'t1',
-          clean(shift)||'s0', clean(heldOn)||'nodate', clean(lang)||'en'].join('_');
+// ── Smart Paste: preserves bold + math symbols from ChatGPT/Word ──
+function htmlToMarkdown(html) {
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html;
+  function walk(node) {
+    if(node.nodeType === 3) return node.textContent;
+    if(node.nodeType !== 1) return '';
+    const tag = node.tagName.toLowerCase();
+    const inner = Array.from(node.childNodes).map(walk).join('');
+    if(tag === 'br') return '
+';
+    if(['p','div','tr','li'].includes(tag)) return inner + '
+';
+    if(tag === 'strong' || tag === 'b') return '**' + inner.trim() + '**';
+    if(tag === 'em' || tag === 'i') return '*' + inner.trim() + '*';
+    if(['h1','h2','h3','h4','h5'].includes(tag)) return '**' + inner.trim() + '**
+';
+    if(tag === 'td' || tag === 'th') return inner + ' ';
+    return inner;
+  }
+  return walk(tmp);
 }
 
-async function upsertPaperDoc(paperId, exam, year, tier, shift, heldOn, lang, questionCount) {
-  try {
-    await setDoc(doc(db, 'papers', paperId), {
-      paperId, exam,
-      year: String(year||''),
-      tier: String(tier||''),
-      shift: String(shift||''),
-      heldOn: String(heldOn||''),
-      language: String(lang||'en'),
-      questionCount: questionCount || 0,
-      updatedAt: new Date()
-    }, { merge: true });
-    console.log('[Admin] papers doc upserted:', paperId, '(', questionCount, 'qs)');
-  } catch(e) {
-    console.error('[Admin] upsertPaperDoc failed:', e.message);
-  }
+function smartPasteToField(e, fieldId) {
+  e.preventDefault();
+  const el = document.getElementById(fieldId);
+  if(!el) return;
+
+  // Try HTML clipboard first (preserves bold/italic from Word, ChatGPT, web)
+  const html = (e.clipboardData||window.clipboardData).getData('text/html');
+  const plain = (e.clipboardData||window.clipboardData).getData('text/plain');
+
+  let out = html && html.trim() ? htmlToMarkdown(html) : (plain || '');
+
+  // Normalize line endings, collapse 3+ newlines to 2
+  out = out.replace(/
+/g, '
+').replace(//g, '
+').replace(/
+{3,}/g, '
+
+');
+  // Split into lines, trim each, remove blanks, join with [BR]
+  const lines = out.split('
+').map(l => l.trim()).filter(l => l.length > 0);
+  out = lines.join('[BR]');
+
+  // Insert at cursor
+  const start = el.selectionStart, end = el.selectionEnd;
+  el.value = el.value.substring(0, start) + out + el.value.substring(end);
+  el.selectionStart = el.selectionEnd = start + out.length;
+  el.dispatchEvent(new Event('input'));
 }
 
-// ── Migration: preview groups ──
-window.previewMigration = async () => {
-  const result = document.getElementById('migrationResult');
-  if(!result) return;
-  result.innerHTML = '<span style="color:#94A3B8;">Scanning questions...</span>';
-  try {
-    const [qSnap, pSnap] = await Promise.all([
-      getDocs(collection(db, 'questions')),
-      getDocs(collection(db, 'papers'))
-    ]);
-    const existingPapers = new Set();
-    pSnap.forEach(d => existingPapers.add(d.id));
+// Attach paste handlers to all content fields on page load
+document.addEventListener('DOMContentLoaded', () => {
+  const fields = ['qExplanation','qTrick','qText','editExplanation','editTrick','editText'];
+  fields.forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.addEventListener('paste', e => smartPasteToField(e, id));
+  });
+});
 
-    const groups = {};
-    let withId = 0, withoutId = 0;
-    qSnap.forEach(d => {
-      const q = d.data();
-      if (q.paperId) { withId++; } else { withoutId++; }
-      const pid = q.paperId || makePaperId(q.exam, q.year, q.tier, q.shift, q.heldOn, q.language);
-      if (!groups[pid]) groups[pid] = {
-        exam:q.exam, year:q.year, tier:q.tier,
-        shift:q.shift||'', heldOn:q.heldOn||'',
-        lang:q.language||'en', count:0,
-        hasPapersDoc: existingPapers.has(pid)
-      };
-      groups[pid].count++;
-    });
-
-    const gList = Object.entries(groups).sort((a,b) => a[0].localeCompare(b[0]));
-    let html = `<div style="margin-bottom:1rem;">
-      <span style="color:#22C55E;">✅ With paperId: <strong>${withId}</strong></span> &nbsp;|&nbsp;
-      <span style="color:#F59E0B;">⚠ Without paperId: <strong>${withoutId}</strong></span> &nbsp;|&nbsp;
-      <span style="color:#60A5FA;">📄 Papers docs: <strong>${existingPapers.size}/${gList.length}</strong></span>
-    </div>`;
-    if (!gList.length) {
-      html += '<div style="color:#22C55E;">🎉 No questions found.</div>';
-    } else {
-      html += '<table style="width:100%;border-collapse:collapse;font-size:0.78rem;">';
-      html += '<tr style="color:#64748B;border-bottom:1px solid #1E293B;"><th style="text-align:left;padding:4px 6px;">Paper ID</th><th style="text-align:left;padding:4px 6px;">Year</th><th style="text-align:left;padding:4px 6px;">Tier</th><th style="text-align:left;padding:4px 6px;">Shift</th><th style="text-align:left;padding:4px 6px;">Lang</th><th style="text-align:right;padding:4px 6px;">Qs</th><th style="text-align:center;padding:4px 6px;">Doc</th></tr>';
-      gList.forEach(([pid, g]) => {
-        html += `<tr style="border-bottom:1px solid #1E293B22;">
-          <td style="padding:4px 6px;color:#A78BFA;font-family:monospace;font-size:0.72rem;">${pid}</td>
-          <td style="padding:4px 6px;">${g.year}</td>
-          <td style="padding:4px 6px;">${g.tier}</td>
-          <td style="padding:4px 6px;">${g.shift||'—'}</td>
-          <td style="padding:4px 6px;">${g.lang}</td>
-          <td style="padding:4px 6px;text-align:right;">${g.count}</td>
-          <td style="padding:4px 6px;text-align:center;">${g.hasPapersDoc?'✅':'❌'}</td>
-        </tr>`;
-      });
-      html += '</table>';
-    }
-    result.innerHTML = html;
-  } catch(e) {
-    result.innerHTML = '<span style="color:#EF4444;">Error: ' + e.message + '</span>';
-  }
-};
-
-// ── Migration: assign paperIds + create papers docs ──
-window.runMigration = async () => {
-  const btn = document.getElementById('migrateBtn');
-  const prog = document.getElementById('migrationProgress');
-  const bar  = document.getElementById('migBar');
-  const status = document.getElementById('migStatus');
-  const result = document.getElementById('migrationResult');
-  btn.disabled = true;
-  prog.style.display = 'block';
-  result.innerHTML = '';
-
-  try {
-    status.textContent = 'Fetching all questions...';
-    bar.style.width = '5%';
-    const snap = await getDocs(collection(db, 'questions'));
-
-    // Group by paperId
-    const groups = {};
-    const toUpdate = [];
-    snap.forEach(d => {
-      const q = d.data();
-      const pid = makePaperId(q.exam, q.year, q.tier, q.shift, q.heldOn, q.language);
-      if (!groups[pid]) groups[pid] = {
-        exam:q.exam, year:String(q.year||''), tier:String(q.tier||''),
-        shift:String(q.shift||''), heldOn:String(q.heldOn||''),
-        lang:String(q.language||'en'), count:0
-      };
-      groups[pid].count++;
-      if (!q.paperId) toUpdate.push({ id: d.id, paperId: pid });
-    });
-
-    const totalOps = toUpdate.length + Object.keys(groups).length;
-    let done = 0, errors = 0;
-
-    // Step 1: stamp paperId on questions missing it
-    status.textContent = `Stamping paperId on ${toUpdate.length} questions...`;
-    for (let i = 0; i < toUpdate.length; i++) {
-      try {
-        await updateDoc(doc(db, 'questions', toUpdate[i].id), { paperId: toUpdate[i].paperId });
-        done++;
-      } catch(e) { errors++; }
-      if (i % 20 === 0 || i === toUpdate.length-1) {
-        bar.style.width = (5 + (done/totalOps)*85) + '%';
-        status.textContent = `Stamping questions: ${done}/${toUpdate.length}...`;
+// Also attach when edit modal opens (fields may not exist on DOMContentLoaded)
+const _origOpenEdit = window.openEdit;
+window.openEdit = function(...args) {
+  if(_origOpenEdit) _origOpenEdit.apply(this, args);
+  setTimeout(() => {
+    ['editExplanation','editTrick','editText'].forEach(id => {
+      const el = document.getElementById(id);
+      if(el && !el._pasteAttached) {
+        el.addEventListener('paste', e => smartPasteToField(e, id));
+        el._pasteAttached = true;
       }
-    }
-
-    // Step 2: create/update papers docs
-    const pGroups = Object.entries(groups);
-    status.textContent = `Creating ${pGroups.length} papers docs...`;
-    for (let i = 0; i < pGroups.length; i++) {
-      const [pid, g] = pGroups[i];
-      try {
-        await upsertPaperDoc(pid, g.exam, g.year, g.tier, g.shift, g.heldOn, g.lang, g.count);
-        done++;
-      } catch(e) { errors++; console.error(e); }
-      bar.style.width = (5 + (done/totalOps)*85) + '%';
-      status.textContent = `Creating papers docs: ${i+1}/${pGroups.length}...`;
-    }
-
-    bar.style.width = '100%';
-    status.textContent = `✅ Done! ${toUpdate.length} questions stamped, ${pGroups.length} papers docs created.${errors?' ('+errors+' errors)':''}`;
-    showToast('✅ Migration complete!', 'success');
-    await previewMigration();
-  } catch(e) {
-    status.textContent = 'Error: ' + e.message;
-    console.error(e);
-  }
-  btn.disabled = false;
+    });
+  }, 200);
 };
-
 </script>
 </body>
 </html>
