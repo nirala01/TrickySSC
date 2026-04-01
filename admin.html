@@ -2317,24 +2317,83 @@ function cleanPastedHTML(html) {
 // ── Smart paste into rich editor ──
 function richPaste(e, fieldId) {
   e.preventDefault();
-  var html = (e.clipboardData||window.clipboardData).getData('text/html');
   var plain = (e.clipboardData||window.clipboardData).getData('text/plain');
+  var html  = (e.clipboardData||window.clipboardData).getData('text/html');
+  var out   = '';
 
-  var insertHTML = '';
-  if(html && html.trim() && html.indexOf('<') !== -1) {
-    insertHTML = cleanPastedHTML(html);
+  if(html && html.indexOf('mjx-container') !== -1) {
+    // ChatGPT with MathJax — plain text has each symbol on its own line
+    // followed by the compact inline version. Extract only the compact version.
+    out = fixChatGPTMath(plain || '');
+  } else if(html && html.trim()) {
+    out = cleanPastedHTML(html);
+    // Convert to display string via temp element
+    var tmp = document.createElement('div');
+    tmp.innerHTML = out;
+    // Keep as HTML for rich display
+    document.execCommand('insertHTML', false, out);
+    syncRichEditor(fieldId);
+    return;
   } else {
-    // Plain text — convert newlines to <br>
-    insertHTML = (plain||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-      .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
-      .replace(/\n/g,'<br>');
+    out = plain || '';
   }
 
-  // Insert at cursor in contenteditable
-  document.execCommand('insertHTML', false, insertHTML);
+  // Convert processed text to HTML with bold support
+  var html2 = out
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+    .replace(/\n/g,'<br>');
 
-  // Sync to hidden input
+  document.execCommand('insertHTML', false, html2);
   syncRichEditor(fieldId);
+}
+
+// Fix ChatGPT MathJax plain text — each equation has symbols on separate lines
+// followed by the compact inline version. Keep only the compact version.
+function fixChatGPTMath(text) {
+  var lines = text.split('\n');
+  var result = [];
+  var i = 0;
+
+  while(i < lines.length) {
+    var line = lines[i].trim();
+    if(!line) { i++; continue; }
+
+    // Detect if this line starts a MathJax block:
+    // MathJax renders: individual chars on separate lines, then full expression
+    // Pattern: short single token (operator/number) followed by more short tokens
+    // then a longer line that contains them all joined = compact version
+    var j = i;
+    var chunk = [];
+    while(j < lines.length && lines[j].trim().length <= 5 && lines[j].trim().length > 0) {
+      chunk.push(lines[j].trim());
+      j++;
+    }
+
+    // If we collected 3+ short tokens AND next line is a longer compact version
+    if(chunk.length >= 3 && j < lines.length) {
+      var compact = lines[j].trim();
+      // Check compact line contains the same chars (rough check)
+      if(compact.length > chunk.join('').length / 2) {
+        result.push(compact);
+        i = j + 1;
+        continue;
+      }
+    }
+
+    result.push(line);
+    i++;
+  }
+
+  // Clean up: remove duplicate consecutive lines
+  var deduped = [];
+  for(var k = 0; k < result.length; k++) {
+    if(k === 0 || result[k] !== result[k-1]) {
+      deduped.push(result[k]);
+    }
+  }
+
+  return deduped.join('\n');
 }
 
 // Attach paste: rich editors use richPaste, textareas use smartPasteToField
