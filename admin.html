@@ -2293,7 +2293,8 @@ window.syncRichEditor = function(id) {
     var body = document.getElementById(previewId + 'Body');
     if(box && body) {
       var val = editor ? editor.innerHTML : '';
-      if(val && val.replace(/<br>/g,'').trim()) {
+      var textOnly = val.replace(/<[^>]+>/g,'').trim();
+      if(val && textOnly) {
         box.style.display = 'block';
         body.innerHTML = val;
       } else {
@@ -2303,121 +2304,112 @@ window.syncRichEditor = function(id) {
   }
 };
 
-// ── Clean pasted HTML for storage & display ──
-function cleanPastedHTML(html) {
-  var tmp = document.createElement('div');
-  tmp.innerHTML = html;
+// ── Convert plain text to clean HTML ──
+function textToHTML(text) {
+  // Step 1: Normalize line endings
+  text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
 
-  // Remove all aria-hidden elements (MathJax duplicates)
-  tmp.querySelectorAll('[aria-hidden="true"]').forEach(function(el){ el.remove(); });
-  // Remove script/style
-  tmp.querySelectorAll('script,style').forEach(function(el){ el.remove(); });
-  // Remove MathJax containers keeping their annotation text
-  tmp.querySelectorAll('mjx-container').forEach(function(el){
-    var ann = el.querySelector('annotation');
-    var txt = document.createTextNode(ann ? ann.textContent : el.textContent);
-    el.parentNode.replaceChild(txt, el);
-  });
-  // Convert bullet lists to simple lines
-  tmp.querySelectorAll('li').forEach(function(li){
-    li.innerHTML = '• ' + li.innerHTML;
-  });
-  // Keep only: b, strong, em, i, br, p, div — strip everything else
-  tmp.querySelectorAll('*').forEach(function(el){
-    var keep = ['b','strong','em','i','br','p','div','ul','ol','li','span'];
-    if(!keep.includes(el.tagName.toLowerCase())){
-      while(el.firstChild) el.parentNode.insertBefore(el.firstChild, el);
-      el.remove();
-    }
-  });
-  // Remove class/style/id attributes from remaining elements
-  tmp.querySelectorAll('*').forEach(function(el){
-    ['class','style','id','data-darkreader-inline-color'].forEach(function(a){ el.removeAttribute(a); });
-  });
-
-  return tmp.innerHTML;
-}
-
-// ── Smart paste into rich editor ──
-function richPaste(e, fieldId) {
-  e.preventDefault();
-  var plain = (e.clipboardData||window.clipboardData).getData('text/plain');
-  var html  = (e.clipboardData||window.clipboardData).getData('text/html');
-  var out   = '';
-
-  if(html && html.indexOf('mjx-container') !== -1) {
-    // ChatGPT with MathJax — plain text has each symbol on its own line
-    // followed by the compact inline version. Extract only the compact version.
-    out = fixChatGPTMath(plain || '');
-  } else if(html && html.trim()) {
-    out = cleanPastedHTML(html);
-    // Convert to display string via temp element
-    var tmp = document.createElement('div');
-    tmp.innerHTML = out;
-    // Keep as HTML for rich display
-    document.execCommand('insertHTML', false, out);
-    syncRichEditor(fieldId);
-    return;
-  } else {
-    out = plain || '';
+  // Step 2: Convert LaTeX to Unicode
+  var latex = {
+    '\\times': '×', '\\div': '÷', '\\pm': '±',
+    '\\leq': '≤', '\\geq': '≥', '\\neq': '≠',
+    '\\approx': '≈', '\\therefore': '∴', '\\because': '∵',
+    '\\rightarrow': '→', '\\leftarrow': '←', '\\leftrightarrow': '↔',
+    '\\Rightarrow': '⟹', '\\sqrt': '√', '\\pi': 'π',
+    '\\alpha': 'α', '\\beta': 'β', '\\theta': 'θ',
+    '\\infty': '∞', '\\cdot': '·', '\\ldots': '…'
+  };
+  for(var cmd in latex) {
+    text = text.split(cmd).join(latex[cmd]);
   }
 
-  // Convert processed text to HTML with bold support
-  var html2 = out
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
-    .replace(/\n/g,'<br>');
+  // Step 3: Remove LaTeX $...$ wrappers
+  text = text.replace(/\$\$([^$]+?)\$\$/g, '$1');
+  text = text.replace(/\$([^$\n]{1,100}?)\$/g, '$1');
+  text = text.replace(/\$/g, '');
 
-  document.execCommand('insertHTML', false, html2);
-  syncRichEditor(fieldId);
-}
+  // Step 4: Remove remaining backslashes from unknown LaTeX
+  text = text.replace(/\\[a-zA-Z]+/g, '');
 
-// Fix ChatGPT MathJax plain text — each equation has symbols on separate lines
-// followed by the compact inline version. Keep only the compact version.
-function fixChatGPTMath(text) {
+  // Step 5: Collapse 3+ consecutive short lines into one (MathJax artifact)
+  // e.g. "4515\n×\n5\n−\n431" → "4515×5−431" is already in the compact line
   var lines = text.split('\n');
-  var result = [];
+  var cleaned = [];
   var i = 0;
-
   while(i < lines.length) {
     var line = lines[i].trim();
     if(!line) { i++; continue; }
 
-    // Detect if this line starts a MathJax block:
-    // MathJax renders: individual chars on separate lines, then full expression
-    // Pattern: short single token (operator/number) followed by more short tokens
-    // then a longer line that contains them all joined = compact version
+    // Check if this is the start of a MathJax symbol sequence
+    // (3+ consecutive lines that are all ≤4 chars)
     var j = i;
     var chunk = [];
-    while(j < lines.length && lines[j].trim().length <= 5 && lines[j].trim().length > 0) {
+    while(j < lines.length && lines[j].trim().length <= 4 && lines[j].trim().length > 0) {
       chunk.push(lines[j].trim());
       j++;
     }
 
-    // If we collected 3+ short tokens AND next line is a longer compact version
     if(chunk.length >= 3 && j < lines.length) {
-      var compact = lines[j].trim();
-      // Check compact line contains the same chars (rough check)
-      if(compact.length > chunk.join('').length / 2) {
-        result.push(compact);
+      // Next line after the short ones — check if it's the compact version
+      var compact = lines[j] ? lines[j].trim() : '';
+      if(compact.length >= chunk.length) {
+        // Use compact version, skip individual symbols
+        cleaned.push(compact);
         i = j + 1;
         continue;
       }
     }
 
-    result.push(line);
+    cleaned.push(line);
     i++;
   }
 
-  // Clean up: remove duplicate consecutive lines
+  // Step 6: Remove duplicate consecutive lines
   var deduped = [];
-  for(var k = 0; k < result.length; k++) {
-    if(k === 0 || result[k] !== result[k-1]) {
-      deduped.push(result[k]);
+  for(var k = 0; k < cleaned.length; k++) {
+    if(k === 0 || cleaned[k] !== cleaned[k-1]) {
+      deduped.push(cleaned[k]);
     }
   }
 
-  return deduped.join('\n');
+  // Step 7: Convert to HTML
+  var html = deduped.map(function(line) {
+    // Escape HTML
+    var safe = line.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    // Apply **bold**
+    safe = safe.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    // Apply *italic*
+    safe = safe.replace(/\*([^*]+?)\*/g, '<em>$1</em>');
+    return '<div>' + safe + '</div>';
+  }).join('');
+
+  return html;
+}
+
+// ── Paste handler for rich editors ──
+function richPaste(e, fieldId) {
+  e.preventDefault();
+  var plain = (e.clipboardData||window.clipboardData).getData('text/plain');
+  if(!plain || !plain.trim()) return;
+
+  var html = textToHTML(plain);
+  document.execCommand('insertHTML', false, html);
+  syncRichEditor(fieldId);
+}
+
+// smartPasteToField for plain textareas (qText etc)
+function smartPasteToField(e, fieldId) {
+  e.preventDefault();
+  var plain = (e.clipboardData||window.clipboardData).getData('text/plain');
+  if(!plain) return;
+  var el = document.getElementById(fieldId);
+  if(!el) return;
+  plain = plain.replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+  var lines = plain.split('\n').map(function(l){return l.trim();}).filter(function(l){return l.length>0;});
+  var out = lines.join('[BR]');
+  var s = el.selectionStart, e2 = el.selectionEnd;
+  el.value = el.value.substring(0,s) + out + el.value.substring(e2);
+  el.selectionStart = el.selectionEnd = s + out.length;
 }
 
 // Attach paste: rich editors use richPaste, textareas use smartPasteToField
