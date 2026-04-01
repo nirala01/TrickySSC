@@ -30,6 +30,16 @@ body{font-family:'Inter',sans-serif;background:#0F172A;color:#E2E8F0;min-height:
 .form-row.three{grid-template-columns:1fr 1fr 1fr;}
 label{display:block;font-size:0.8rem;font-weight:600;color:#94A3B8;margin-bottom:0.4rem;text-transform:uppercase;letter-spacing:0.05em;}
 select,input,textarea{width:100%;background:#0F172A;border:1px solid #334155;border-radius:8px;padding:0.65rem 0.9rem;color:#E2E8F0;font-family:'Inter',sans-serif;font-size:0.9rem;outline:none;transition:border 0.2s;}
+.img-paste-hint{
+  font-size:0.72rem;color:#64748B;margin-top:3px;
+  display:none;font-style:italic;
+}
+.img-paste-zone{
+  border:2px dashed #334155;border-radius:8px;padding:0.6rem;
+  text-align:center;font-size:0.78rem;color:#64748B;cursor:pointer;
+  transition:all 0.2s;margin-top:0.4rem;
+}
+.img-paste-zone:hover,.img-paste-zone.drag-over{border-color:#FF6B00;color:#FF6B00;}
 .rich-editor{
   width:100%;min-height:90px;background:#0F172A;border:1px solid #334155;border-radius:8px;
   padding:0.65rem 0.9rem;color:#E2E8F0;font-family:'Inter',sans-serif;font-size:0.9rem;
@@ -2432,17 +2442,205 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 });
 
-// Re-attach for edit modal
+// Re-attach for edit modal and add input listeners
 var _origOpenEdit2 = window.openEdit;
 window.openEdit = function() {
   if(_origOpenEdit2) _origOpenEdit2.apply(this, arguments);
   setTimeout(function() {
     ['editExplanation','editTrick'].forEach(function(id) {
       var el = document.getElementById(id);
-      if(el && !el._p) { el.addEventListener('paste', function(e){ richPaste(e, id); }); el._p=1; }
+      if(!el) return;
+      if(!el._p) {
+        el.addEventListener('paste', function(e){ richPaste(e, id); });
+        el.addEventListener('input', function(){ syncRichEditor(id); });
+        el._p = 1;
+      }
     });
   }, 300);
 };
+
+// Also attach input listeners for PYQ form fields on page load
+document.addEventListener('DOMContentLoaded', function() {
+  ['qExplanation','qTrick'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if(el) {
+      el.addEventListener('input', function(){ syncRichEditor(id); });
+      el.addEventListener('paste', function(e){ richPaste(e, id); });
+    }
+  });
+});
+</script>
+
+<!-- Image Paste Picker Modal -->
+<div id="imgPasteModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:#1E293B;border:1px solid #334155;border-radius:16px;padding:1.5rem;max-width:360px;width:90%;text-align:center;">
+    <div style="font-size:1.5rem;margin-bottom:0.5rem;">🖼️</div>
+    <div style="font-family:'Rajdhani',sans-serif;font-size:1.1rem;font-weight:700;color:#F8FAFC;margin-bottom:0.25rem;">Paste Image To...</div>
+    <div style="font-size:0.82rem;color:#64748B;margin-bottom:1.25rem;">Choose where to insert this image</div>
+    <div id="imgPasteOptions" style="display:grid;grid-template-columns:1fr 1fr;gap:0.6rem;"></div>
+    <button onclick="document.getElementById('imgPasteModal').style.display='none'" style="margin-top:1rem;width:100%;background:#334155;color:#94A3B8;border:none;border-radius:8px;padding:0.6rem;font-family:'Rajdhani',sans-serif;font-weight:700;cursor:pointer;">Cancel</button>
+  </div>
+</div>
+
+<script>
+// ── Clipboard Image Paste Handler ──
+(function(){
+  var _pendingImg = null;
+
+  function readImgFromClipboard(e) {
+    var items = (e.clipboardData || window.clipboardData || {}).items || [];
+    for(var i=0; i<items.length; i++) {
+      if(items[i].type.indexOf('image') !== -1) {
+        var file = items[i].getAsFile();
+        if(!file) continue;
+        var reader = new FileReader();
+        reader.onload = function(ev) {
+          _pendingImg = ev.target.result; // base64 data URL
+          showImgPastePicker();
+        };
+        reader.readAsDataURL(file);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function showImgPastePicker() {
+    // Build options based on which section is visible/active
+    var modal = document.getElementById('imgPasteModal');
+    var opts = document.getElementById('imgPasteOptions');
+    if(!modal || !opts) return;
+
+    // Detect context: are we in edit modal or PYQ form?
+    var inEdit = document.getElementById('editModal') &&
+                 (document.getElementById('editModal').style.display !== 'none');
+
+    var fields = [];
+    if(inEdit) {
+      fields = [
+        {label:'📄 Question', fn: function(){ setEditImg('question'); }},
+        {label:'💡 Solution',  fn: function(){ setEditImg('solution'); }},
+        {label:'🅐 Option A',  fn: function(){ setEditImg('optA'); }},
+        {label:'🅑 Option B',  fn: function(){ setEditImg('optB'); }},
+        {label:'🅒 Option C',  fn: function(){ setEditImg('optC'); }},
+        {label:'🅓 Option D',  fn: function(){ setEditImg('optD'); }},
+      ];
+    } else {
+      fields = [
+        {label:'📄 Question', fn: function(){ setQImg(); }},
+        {label:'💡 Solution',  fn: function(){ setSolImg(); }},
+        {label:'🅐 Option A',  fn: function(){ setOptImgPaste('A'); }},
+        {label:'🅑 Option B',  fn: function(){ setOptImgPaste('B'); }},
+        {label:'🅒 Option C',  fn: function(){ setOptImgPaste('C'); }},
+        {label:'🅓 Option D',  fn: function(){ setOptImgPaste('D'); }},
+      ];
+    }
+
+    opts.innerHTML = fields.map(function(f,i){
+      return '<button onclick="window._imgPasteActions['+i+']()" style="background:#0F172A;border:1px solid #334155;color:#E2E8F0;border-radius:8px;padding:0.6rem 0.4rem;font-family:'Rajdhani',sans-serif;font-size:0.85rem;font-weight:700;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor='#FF6B00'" onmouseout="this.style.borderColor='#334155'">'+ f.label +'</button>';
+    }).join('');
+
+    window._imgPasteActions = fields.map(function(f){ return f.fn; });
+    modal.style.display = 'flex';
+  }
+
+  function closeModal(){ document.getElementById('imgPasteModal').style.display='none'; }
+
+  // ── Set image functions ──
+  function setQImg(){
+    var el = document.getElementById('qImgPreview');
+    var wrap = document.getElementById('qImgPreviewWrap');
+    var ph = document.getElementById('qImgPlaceholder');
+    var url = document.getElementById('qImgUrl');
+    if(el) el.src = _pendingImg;
+    if(wrap) wrap.style.display = 'block';
+    if(ph) ph.style.display = 'none';
+    if(url) url.value = _pendingImg;
+    closeModal();
+  }
+
+  function setSolImg(){
+    var preview = document.getElementById('solImgPreview');
+    var img = document.getElementById('solImgImg');
+    var status = document.getElementById('solImgStatus');
+    var url = document.getElementById('solImgUrl');
+    if(img) img.src = _pendingImg;
+    if(preview) preview.style.display = 'block';
+    if(status){ status.style.display='inline'; status.textContent='✅ Pasted'; }
+    if(url) url.value = _pendingImg;
+    closeModal();
+  }
+
+  function setOptImgPaste(letter){
+    var id = 'opt'+letter;
+    var imgEl = document.getElementById(id+'ImgImg');
+    var previewEl = document.getElementById(id+'ImgPreview');
+    var urlEl = document.getElementById(id+'ImgUrl');
+    var statusEl = document.getElementById(id+'ImgStatus');
+    if(imgEl) imgEl.src = _pendingImg;
+    if(previewEl) previewEl.style.display = 'block';
+    if(urlEl) urlEl.value = _pendingImg;
+    if(statusEl){ statusEl.style.display='inline'; statusEl.textContent='✅'; }
+    closeModal();
+  }
+
+  function setEditImg(target){
+    if(target === 'question'){
+      var img = document.getElementById('editImgPreview');
+      var wrap = document.getElementById('editImgPreviewWrap');
+      var url = document.getElementById('editImgUrl');
+      if(img) img.src = _pendingImg;
+      if(wrap) wrap.style.display = 'block';
+      if(url) url.value = _pendingImg;
+    } else if(target === 'solution'){
+      var img2 = document.getElementById('editSolImgCurrent');
+      var wrap2 = document.getElementById('editSolImgCurrentWrap');
+      var url2 = document.getElementById('editSolImgUrl');
+      if(img2) img2.src = _pendingImg;
+      if(wrap2) wrap2.style.display = 'block';
+      if(url2) url2.value = _pendingImg;
+    } else {
+      // Option A/B/C/D in edit modal
+      var letter = target.replace('opt','');
+      var imgEl = document.getElementById('edit'+letter+'ImgImg') || document.getElementById('opt'+letter+'ImgImg');
+      var previewEl = document.getElementById('edit'+letter+'ImgPreview') || document.getElementById('opt'+letter+'ImgPreview');
+      var urlEl = document.getElementById('edit'+letter+'ImgUrl') || document.getElementById('opt'+letter+'ImgUrl');
+      if(imgEl) imgEl.src = _pendingImg;
+      if(previewEl) previewEl.style.display = 'block';
+      if(urlEl) urlEl.value = _pendingImg;
+    }
+    closeModal();
+  }
+
+  // Listen for paste events globally
+  document.addEventListener('paste', function(e) {
+    // Only intercept if not in a text input or rich editor
+    var active = document.activeElement;
+    var tag = active ? active.tagName.toLowerCase() : '';
+    var isText = tag === 'input' || tag === 'textarea' ||
+                 (active && active.contentEditable === 'true');
+    if(isText) return; // let text paste handle itself
+    readImgFromClipboard(e);
+  });
+
+  // Also add paste listener to image upload areas
+  document.addEventListener('DOMContentLoaded', function(){
+    var areas = ['qImgUploadArea'];
+    areas.forEach(function(id){
+      var el = document.getElementById(id);
+      if(el) el.addEventListener('paste', function(e){
+        if(!readImgFromClipboard(e)) return;
+        e.preventDefault();
+      });
+    });
+    // Add Ctrl+V hint text
+    var hint = document.createElement('div');
+    hint.style.cssText = 'font-size:0.75rem;color:#475569;text-align:center;margin-top:0.5rem;';
+    hint.innerHTML = '💡 Tip: Press <kbd style="background:#1E293B;border:1px solid #334155;border-radius:4px;padding:1px 5px;font-size:0.7rem;">Ctrl+V</kbd> anywhere on this page to paste an image from clipboard';
+    var form = document.querySelector('.main-form') || document.querySelector('.form-section');
+    if(form) form.appendChild(hint);
+  });
+})();
 </script>
 </body>
 </html>
