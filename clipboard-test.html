@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Clipboard Debug</title>
+<style>
+  body{font-family:monospace;padding:2rem;background:#0F172A;color:#E2E8F0;}
+  textarea{width:100%;height:200px;background:#1E293B;color:#E2E8F0;border:1px solid #334155;padding:1rem;font-size:0.85rem;}
+  pre{background:#1E293B;padding:1rem;border-radius:8px;overflow-x:auto;white-space:pre-wrap;font-size:0.8rem;color:#94A3B8;max-height:400px;overflow-y:auto;}
+  button{background:#FF6B00;color:white;border:none;padding:0.5rem 1rem;border-radius:6px;cursor:pointer;margin:0.5rem 0;}
+</style>
+</head>
+<body>
+<h2 style="color:#FF6B00;">📋 Clipboard HTML Inspector</h2>
+<p>Paste your ChatGPT content below, then click "Show Raw HTML"</p>
+<div id="editor" contenteditable="true" style="background:#1E293B;border:1px solid #334155;border-radius:8px;padding:1rem;min-height:100px;margin-bottom:1rem;"></div>
+<button onclick="showHTML()">Show Raw HTML →</button>
+<button onclick="showText()">Show Plain Text →</button>
+<pre id="output">Paste content above and click a button...</pre>
+
+<script>
+let _html = '', _plain = '';
+document.getElementById('editor').addEventListener('paste', function(e) {
+  e.preventDefault();
+  _html = (e.clipboardData||window.clipboardData).getData('text/html');
+  _plain = (e.clipboardData||window.clipboardData).getData('text/plain');
+  document.getElementById('output').textContent = 'Clipboard captured! Click a button to inspect.';
+  // Show plain text in editor for reference
+  this.innerText = _plain;
+});
+function showHTML() {
+  document.getElementById('output').textContent = _html || '(empty)';
+}
+function showText() {
+  document.getElementById('output').textContent = _plain || '(empty)';
+}
+</script>
+</body>
+</html>
