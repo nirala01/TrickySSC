@@ -1295,10 +1295,10 @@ window.submitTest=async()=>{
       </div>`;
     }).join('')}</div>`;
     const solImg=q.solutionImage||'';
-    const solHtml=(q.explanation||solImg)?`<div style="border-radius:8px;overflow:hidden;margin-top:8px;"><div style="background:#DCFCE7;color:#15803D;padding:7px 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;">💡 Step-by-Step Solution</div><div style="background:#F0FDF4;padding:10px 12px;font-size:13px;color:#374151;line-height:1.9;">${formatSteps(q.explanation||'')}${solImg?`<img src="${solImg}" style="max-width:100%;border-radius:6px;margin-top:8px;display:block;object-fit:contain;" onerror="this.style.display='none'" alt="Solution">`:''}
+    const solHtml=(q.explanation||solImg)?`<div style="border-radius:8px;overflow:hidden;margin-top:8px;"><div style="background:#DCFCE7;color:#15803D;padding:7px 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;">💡 Step-by-Step Solution</div><div style="background:#F0FDF4;padding:10px 12px;font-size:13px;color:#374151;line-height:1.9;">${renderContent(q.explanation||'')}${solImg?`<img src="${solImg}" style="max-width:100%;border-radius:6px;margin-top:8px;display:block;object-fit:contain;" onerror="this.style.display='none'" alt="Solution">`:''}
     </div></div>`:'';
-    const trickHtml=q.trick?`<div style="border-radius:8px;overflow:hidden;margin-top:6px;"><div style="background:#DBEAFE;color:#1D4ED8;padding:7px 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;">⚡ Quick Trick</div><div style="background:#EFF6FF;padding:10px 12px;font-size:13px;color:#1E40AF;line-height:1.9;">${formatSteps(q.trick)}</div></div>`:'';
-    const conceptHtml=q.concept?`<div style="border-radius:8px;overflow:hidden;margin-top:6px;"><div style="background:#FED7AA;color:#C2410C;padding:7px 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;">🧠 Concept</div><div style="background:#FFF7ED;padding:10px 12px;font-size:13px;color:#7C2D12;line-height:1.9;">${formatSteps(q.concept)}</div></div>`:'';
+    const trickHtml=q.trick?`<div style="border-radius:8px;overflow:hidden;margin-top:6px;"><div style="background:#DBEAFE;color:#1D4ED8;padding:7px 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;">⚡ Quick Trick</div><div style="background:#EFF6FF;padding:10px 12px;font-size:13px;color:#1E40AF;line-height:1.9;">${renderContent(q.trick)}</div></div>`:'';
+    const conceptHtml=q.concept?`<div style="border-radius:8px;overflow:hidden;margin-top:6px;"><div style="background:#FED7AA;color:#C2410C;padding:7px 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;">🧠 Concept</div><div style="background:#FFF7ED;padding:10px 12px;font-size:13px;color:#7C2D12;line-height:1.9;">${renderContent(q.concept)}</div></div>`:'';
     const rawRT=q.text||q.question||'';
     const reviewQHtml=formatQTextReview(rawRT,i+1);
     return `<div class="review-item ${status}">${reviewQHtml}${q.imageUrl?`<div style="text-align:center;margin:8px 0;"><img src="${q.imageUrl}" style="max-width:100%;max-height:220px;border-radius:8px;border:1px solid #E2E8F0;object-fit:contain;background:#F9FAFB;" onerror="this.style.display='none'"></div>`:''}${optsHtml}<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;background:${vBg};color:${vClr};font-size:13px;font-weight:600;margin-bottom:4px;">${vIcon} ${vText}</div>${solHtml}${trickHtml}${conceptHtml}</div>`;
@@ -1318,6 +1318,15 @@ window.submitTest=async()=>{
 
 
 /* ── Smart question text formatter ── */
+// renderContent: if stored as HTML (rich editor), render directly; otherwise use formatSteps
+function renderContent(text) {
+  if(!text) return '';
+  // If contains HTML tags → stored from rich editor → render directly
+  if(/<[a-z][\s\S]*>/i.test(text)) return text;
+  // Otherwise → plain text with [BR] tokens → use formatSteps
+  return formatSteps(text);
+}
+
 function applyBR(text){
   // Split on literal [BR] and rejoin with <br> — no regex needed
   return text.split('[BR]').join('<br>');

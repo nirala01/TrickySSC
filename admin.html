@@ -30,6 +30,16 @@ body{font-family:'Inter',sans-serif;background:#0F172A;color:#E2E8F0;min-height:
 .form-row.three{grid-template-columns:1fr 1fr 1fr;}
 label{display:block;font-size:0.8rem;font-weight:600;color:#94A3B8;margin-bottom:0.4rem;text-transform:uppercase;letter-spacing:0.05em;}
 select,input,textarea{width:100%;background:#0F172A;border:1px solid #334155;border-radius:8px;padding:0.65rem 0.9rem;color:#E2E8F0;font-family:'Inter',sans-serif;font-size:0.9rem;outline:none;transition:border 0.2s;}
+.rich-editor{
+  width:100%;min-height:90px;background:#0F172A;border:1px solid #334155;border-radius:8px;
+  padding:0.65rem 0.9rem;color:#E2E8F0;font-family:'Inter',sans-serif;font-size:0.9rem;
+  outline:none;transition:border 0.2s;line-height:1.8;cursor:text;white-space:pre-wrap;
+  overflow-y:auto;max-height:300px;
+}
+.rich-editor:focus{border-color:#FF6B00;}
+.rich-editor:empty:before{content:attr(data-placeholder);color:#475569;pointer-events:none;}
+.rich-editor strong,.rich-editor b{font-weight:700;color:#F8FAFC;}
+.rich-editor em,.rich-editor i{font-style:italic;}
 .preview-box{display:none;margin-top:0.5rem;border-radius:8px;overflow:hidden;font-size:13px;line-height:1.9;}
 .preview-box.visible{display:block;}
 .preview-header{padding:6px 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;}
@@ -336,8 +346,8 @@ textarea{resize:vertical;min-height:80px;}
       </div>
       <div style="margin-bottom:1rem;">
         <label>📝 Step-by-Step Solution (optional)</label>
-        <textarea id="qExplanation" placeholder="Write the full solution here..." oninput="updatePreview('qExplanation','prevExpl','expl')"></textarea>
-        <div id="prevExpl" class="preview-box preview-expl"><div class="preview-header">💡 Step-by-Step Solution — Preview</div><div class="preview-body" id="prevExplBody"></div></div>
+        <div id="qExplanation" contenteditable="true" data-placeholder="Paste or type the solution here..." class="rich-editor" oninput="syncRichEditor('qExplanation')"></div>
+        <input type="hidden" id="qExplanationVal">
         <div style="margin-top:0.5rem;display:flex;align-items:center;gap:0.4rem;">
           <label style="cursor:pointer;flex:1;display:flex;align-items:center;gap:0.5rem;background:#1E293B;border:1.5px dashed #00A86B;border-radius:7px;padding:0.5rem 0.75rem;">
             <input type="file" id="solImgFile" accept="image/*" onchange="handleSolImg(this)" style="display:none;">
@@ -353,8 +363,8 @@ textarea{resize:vertical;min-height:80px;}
       </div>
       <div style="margin-bottom:1rem;">
         <label>⚡ Tricky Shortcut Method (optional)</label>
-        <textarea id="qTrick" placeholder="Write the quick trick or shortcut to solve this faster..." oninput="updatePreview('qTrick','prevTrick','trick')"></textarea>
-        <div id="prevTrick" class="preview-box preview-trick"><div class="preview-header">⚡ Quick Trick — Preview</div><div class="preview-body" id="prevTrickBody"></div></div>
+        <div id="qTrick" contenteditable="true" data-placeholder="Paste or type the trick here..." class="rich-editor" oninput="syncRichEditor('qTrick')"></div>
+        <input type="hidden" id="qTrickVal">
       </div>
       <div style="margin-bottom:1rem;">
         <label>🖼️ Question Image (optional — for figure/diagram based questions)</label>
@@ -984,8 +994,8 @@ textarea{resize:vertical;min-height:80px;}
     </div>
     <div style="margin-bottom:1rem;">
   <label>📝 Explanation</label>
-  <textarea id="editExplanation" style="width:100%;min-height:70px;background:#0F172A;border:1px solid #334155;border-radius:8px;padding:0.65rem 0.9rem;color:#E2E8F0;font-family:'Inter',sans-serif;font-size:0.9rem;outline:none;resize:vertical;" oninput="updatePreview('editExplanation','editPrevExpl','expl')"></textarea>
-  <div id="editPrevExpl" class="preview-box preview-expl"><div class="preview-header">💡 Solution — Preview</div><div class="preview-body" id="editPrevExplBody"></div></div>
+  <div id="editExplanation" contenteditable="true" data-placeholder="Paste solution here..." class="rich-editor" oninput="syncRichEditor('editExplanation')"></div>
+  <input type="hidden" id="editExplanationVal">
   <div style="margin-top:0.5rem;display:flex;align-items:center;gap:0.4rem;">
     <label style="cursor:pointer;flex:1;display:flex;align-items:center;gap:0.5rem;background:#1E293B;border:1.5px dashed #00A86B;border-radius:7px;padding:0.5rem 0.75rem;">
       <input type="file" id="editSolImgFile" accept="image/*" onchange="handleEditSolImg(this)" style="display:none;">
@@ -1000,8 +1010,9 @@ textarea{resize:vertical;min-height:80px;}
   </div>
   <input type="hidden" id="editSolImgUrl">
 </div>
-    <div style="margin-bottom:1rem;"><label>⚡ Trick</label><textarea id="editTrick" style="width:100%;min-height:70px;background:#0F172A;border:1px solid #334155;border-radius:8px;padding:0.65rem 0.9rem;color:#E2E8F0;font-family:'Inter',sans-serif;font-size:0.9rem;outline:none;resize:vertical;" oninput="updatePreview('editTrick','editPrevTrick','trick')"></textarea>
-    <div id="editPrevTrick" class="preview-box preview-trick"><div class="preview-header">⚡ Trick — Preview</div><div class="preview-body" id="editPrevTrickBody"></div></div></div>
+    <div style="margin-bottom:1rem;"><label>⚡ Trick</label>
+    <div id="editTrick" contenteditable="true" data-placeholder="Paste trick here..." class="rich-editor" oninput="syncRichEditor('editTrick')"></div>
+    <input type="hidden" id="editTrickVal"></div>
     <div style="margin-bottom:1rem;"><label>Difficulty</label>
       <select id="editDifficulty" style="width:100%;background:#0F172A;border:1px solid #334155;border-radius:8px;padding:0.65rem 0.9rem;color:#E2E8F0;font-family:'Inter',sans-serif;font-size:0.9rem;outline:none;">
         <option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option>
@@ -1285,15 +1296,15 @@ window.saveQuestion = async () => {
       options: { A: optA, B: optB, C: optC, D: optD },
       optionImages:{A:document.getElementById('optAImgUrl')?.value||'',B:document.getElementById('optBImgUrl')?.value||'',C:document.getElementById('optCImgUrl')?.value||'',D:document.getElementById('optDImgUrl')?.value||''},
       correct: correct.value,
-      explanation: document.getElementById('qExplanation').value.trim(),
+      explanation: (document.getElementById('qExplanationVal').value || document.getElementById('qExplanation').innerHTML || '').trim(),
       solutionImage: document.getElementById('solImgUrl')?.value.trim()||'',
-      trick: document.getElementById('qTrick').value.trim(),
+      trick: (document.getElementById('qTrickVal').value || document.getElementById('qTrick').innerHTML || '').trim(),
       imageUrl: imageUrl || '',
       createdAt: new Date()
     });
     showToast('✅ Question saved!', 'success');
         ['optAImg','optBImg','optCImg','optDImg'].forEach(id=>{if(typeof clearOptImg==='function')clearOptImg(id);});
-    ['qText','optA','optB','optC','optD','qExplanation','qTrick','qImgUrl'].forEach(id => document.getElementById(id).value = '');
+    ['qText','optA','optB','optC','optD','qImgUrl'].forEach(id => document.getElementById(id).value = ''); ['qExplanation','qTrick'].forEach(id => { var e=document.getElementById(id); if(e){if(e.tagName==='TEXTAREA')e.value=''; else e.innerHTML='';} }); ['qExplanationVal','qTrickVal'].forEach(id=>{var e=document.getElementById(id);if(e)e.value='';});
     document.querySelectorAll('input[name="correct"]').forEach(r => r.checked = false);
     ['A','B','C','D'].forEach(l => { document.getElementById('lbl-'+l).className = 'option-label'; });
     document.getElementById('qImgFile').value = '';
@@ -1931,7 +1942,9 @@ window.openEditModal = (id) => {
   document.getElementById('eOptB').value = q.options?.B||'';
   document.getElementById('eOptC').value = q.options?.C||'';
   document.getElementById('eOptD').value = q.options?.D||'';
-  document.getElementById('editExplanation').value = q.explanation||'';
+  var ee = document.getElementById('editExplanation');
+  if(ee){ if(ee.tagName==='TEXTAREA') ee.value=q.explanation||''; else ee.innerHTML=q.explanation||''; }
+  document.getElementById('editExplanationVal').value = q.explanation||'';
   // Load option images into edit modal
   ['A','B','C','D'].forEach(l => {
     const url = q.optionImages?.[l]||'';
@@ -1951,7 +1964,9 @@ window.openEditModal = (id) => {
   const solImg  = document.getElementById('editSolImgCurrent');
   if(solUrl && solImg){ solImg.src=solUrl; if(solWrap) solWrap.style.display='block'; }
   else if(solWrap) solWrap.style.display='none';
-  document.getElementById('editTrick').value = q.trick||'';
+  var et = document.getElementById('editTrick');
+  if(et){ if(et.tagName==='TEXTAREA') et.value=q.trick||''; else et.innerHTML=q.trick||''; }
+  document.getElementById('editTrickVal').value = q.trick||'';
   document.getElementById('editDifficulty').value = q.difficulty||'medium';
   document.querySelectorAll('input[name="eCorrect"]').forEach(r=>{r.checked=r.value===q.correct;});
   ['A','B','C','D'].forEach(l=>{document.getElementById('elbl-'+l).className='option-label'+(l===q.correct?' correct':'');});
@@ -2019,9 +2034,9 @@ window.saveEdit = async () => {
       options: { A:document.getElementById('eOptA').value.trim(), B:document.getElementById('eOptB').value.trim(), C:document.getElementById('eOptC').value.trim(), D:document.getElementById('eOptD').value.trim() },
       optionImages: { A:document.getElementById('eOptAImgUrl')?.value||'', B:document.getElementById('eOptBImgUrl')?.value||'', C:document.getElementById('eOptCImgUrl')?.value||'', D:document.getElementById('eOptDImgUrl')?.value||'' },
       correct: correct.value,
-      explanation: document.getElementById('editExplanation').value.trim(),
+      explanation: (document.getElementById('editExplanationVal').value || document.getElementById('editExplanation').innerHTML || '').trim(),
       solutionImage: document.getElementById('editSolImgUrl')?.value.trim()||'',
-      trick: document.getElementById('editTrick').value.trim(),
+      trick: (document.getElementById('editTrickVal').value || document.getElementById('editTrick').innerHTML || '').trim(),
       difficulty: document.getElementById('editDifficulty').value,
       imageUrl: imageUrl
     });
@@ -2257,146 +2272,93 @@ window.updateCsvTiers = () => {
     tiers.map(t => `<option value="${t.v}">${t.l}</option>`).join('');
 };
 
-// ── Live Preview for explanation/trick fields ──
-function applyBRPreview(text){ return text.split('[BR]').join('<br>'); }
-function formatStepsPreview(text){
-  if(!text) return '';
-  var t = applyBRPreview(text).replace(/\n/g,'<br>');
-  t = t.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-  t = t.replace(/\*([^*]+?)\*/g, '<em>$1</em>');
-  t = t.split(' \u2192 ').join(' \u2192<br>');
-  t = t.split('\u2234').join('<br>\u2234 ');
-  t = t.split('\u2235').join('<br>\u2235 ');
-  return t;
-}
-window.updatePreview = function(inputId, previewId, type) {
-  var val = document.getElementById(inputId) ? document.getElementById(inputId).value : '';
-  var boxEl = document.getElementById(previewId);
-  var bodyEl = document.getElementById(previewId + 'Body');
-  if(!boxEl) return;
-  if(!val.trim()){ boxEl.classList.remove('visible'); return; }
-  boxEl.classList.add('visible');
-  if(bodyEl) bodyEl.innerHTML = formatStepsPreview(val);
+// ── Rich Editor: sync innerHTML to hidden input for saving ──
+window.syncRichEditor = function(id) {
+  var editor = document.getElementById(id);
+  var hidden = document.getElementById(id + 'Val');
+  if(editor && hidden) hidden.value = editor.innerHTML;
 };
 
-// ── Smart Paste: preserves bold + math symbols from ChatGPT/Word ──
-function htmlToMarkdown(html) {
+// ── Clean pasted HTML for storage & display ──
+function cleanPastedHTML(html) {
   var tmp = document.createElement('div');
   tmp.innerHTML = html;
 
-  function walk(node) {
-    // Skip aria-hidden nodes (MathJax duplicate renders)
-    if(node.nodeType === 1 && node.getAttribute && node.getAttribute('aria-hidden') === 'true') return '';
-    // Skip script/style
-    if(node.nodeType === 1 && (node.tagName === 'SCRIPT' || node.tagName === 'STYLE')) return '';
-    // Plain text
-    if(node.nodeType === 3) return node.textContent;
-    if(node.nodeType !== 1) return '';
-
-    var tag = node.tagName.toLowerCase();
-    var inner = Array.from(node.childNodes).map(walk).join('');
-
-    if(tag === 'br') return '\n';
-    if(tag === 'p') return inner.trim() + '\n';
-    if(tag === 'li') return inner.trim() + '\n';
-    if(tag === 'ul' || tag === 'ol') return inner;
-    if(tag === 'div') return inner.trim() ? inner.trim() + '\n' : '';
-    if(tag === 'strong' || tag === 'b') return '**' + inner.trim() + '**';
-    if(tag === 'em' || tag === 'i') return '*' + inner.trim() + '*';
-    if(['h1','h2','h3','h4','h5','h6'].includes(tag)) return '**' + inner.trim() + '**\n';
-    if(tag === 'td' || tag === 'th') return inner.trim() + ' | ';
-    if(tag === 'tr') return inner.trim() + '\n';
-    // MathJax container — get annotation (LaTeX source) if available
-    if(tag === 'mjx-container') {
-      var ann = node.querySelector('annotation');
-      return ann ? ann.textContent : inner;
+  // Remove all aria-hidden elements (MathJax duplicates)
+  tmp.querySelectorAll('[aria-hidden="true"]').forEach(function(el){ el.remove(); });
+  // Remove script/style
+  tmp.querySelectorAll('script,style').forEach(function(el){ el.remove(); });
+  // Remove MathJax containers keeping their annotation text
+  tmp.querySelectorAll('mjx-container').forEach(function(el){
+    var ann = el.querySelector('annotation');
+    var txt = document.createTextNode(ann ? ann.textContent : el.textContent);
+    el.parentNode.replaceChild(txt, el);
+  });
+  // Convert bullet lists to simple lines
+  tmp.querySelectorAll('li').forEach(function(li){
+    li.innerHTML = '• ' + li.innerHTML;
+  });
+  // Keep only: b, strong, em, i, br, p, div — strip everything else
+  tmp.querySelectorAll('*').forEach(function(el){
+    var keep = ['b','strong','em','i','br','p','div','ul','ol','li','span'];
+    if(!keep.includes(el.tagName.toLowerCase())){
+      while(el.firstChild) el.parentNode.insertBefore(el.firstChild, el);
+      el.remove();
     }
-    return inner;
-  }
-  return walk(tmp);
+  });
+  // Remove class/style/id attributes from remaining elements
+  tmp.querySelectorAll('*').forEach(function(el){
+    ['class','style','id','data-darkreader-inline-color'].forEach(function(a){ el.removeAttribute(a); });
+  });
+
+  return tmp.innerHTML;
 }
 
-function smartPasteToField(e, fieldId) {
+// ── Smart paste into rich editor ──
+function richPaste(e, fieldId) {
   e.preventDefault();
-  var el = document.getElementById(fieldId);
-  if(!el) return;
-
   var html = (e.clipboardData||window.clipboardData).getData('text/html');
   var plain = (e.clipboardData||window.clipboardData).getData('text/plain');
 
-  var out = '';
-  if(html && html.trim()) {
-    // Use HTML — skip aria-hidden MathJax duplicates
-    out = htmlToMarkdown(html);
+  var insertHTML = '';
+  if(html && html.trim() && html.indexOf('<') !== -1) {
+    insertHTML = cleanPastedHTML(html);
   } else {
-    out = plain || '';
+    // Plain text — convert newlines to <br>
+    insertHTML = (plain||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+      .replace(/\n/g,'<br>');
   }
 
-  // Convert LaTeX commands to Unicode
-  out = out.replace(/\$\$([^$]+?)\$\$/g, '$1');
-  out = out.replace(/\$([^$\n]{1,80}?)\$/g, '$1');
-  out = out.replace(/\\leftrightarrow/g, '\u2194');
-  out = out.replace(/\\rightarrow/g, '\u2192');
-  out = out.replace(/\\leftarrow/g, '\u2190');
-  out = out.replace(/\\Rightarrow/g, '\u27f9');
-  out = out.replace(/\\div/g, '\u00f7');
-  out = out.replace(/\\times/g, '\u00d7');
-  out = out.replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, '($1)/($2)');
-  out = out.replace(/\\sqrt\{([^}]+)\}/g, '\u221a($1)');
-  out = out.replace(/\\sqrt/g, '\u221a');
-  out = out.replace(/\^2/g, '\u00b2');
-  out = out.replace(/\^3/g, '\u00b3');
-  out = out.replace(/\\neq/g, '\u2260');
-  out = out.replace(/\\leq/g, '\u2264');
-  out = out.replace(/\\geq/g, '\u2265');
-  out = out.replace(/\\approx/g, '\u2248');
-  out = out.replace(/\\therefore/g, '\u2234');
-  out = out.replace(/\\because/g, '\u2235');
-  out = out.replace(/\\pm/g, '\u00b1');
-  out = out.replace(/\\pi/g, '\u03c0');
-  out = out.replace(/\\,/g, ' ');
-  out = out.replace(/\\\\/g, '');
-  // Remove lone * (not part of **bold**) — e.g. trailing * from some AI outputs
-  out = out.replace(/(?<!\*)\*(?!\*)/g, '');
-  out = out.replace(/\$\$/g, '');
-  out = out.replace(/\$/g, '');
+  // Insert at cursor in contenteditable
+  document.execCommand('insertHTML', false, insertHTML);
 
-  // Normalize whitespace and line breaks
-  out = out.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-  out = out.replace(/\n{3,}/g, '\n\n');
-
-  // Split to lines, trim, filter blanks, join with [BR]
-  var lines = out.split('\n').map(function(l){ return l.trim(); }).filter(function(l){ return l.length > 0; });
-  out = lines.join('[BR]');
-
-  var start2 = el.selectionStart, end2 = el.selectionEnd;
-  el.value = el.value.substring(0, start2) + out + el.value.substring(end2);
-  el.selectionStart = el.selectionEnd = start2 + out.length;
-  el.dispatchEvent(new Event('input'));
+  // Sync to hidden input
+  syncRichEditor(fieldId);
 }
 
-// Attach paste handlers to all content fields on page load
-document.addEventListener('DOMContentLoaded', () => {
-  const fields = ['qExplanation','qTrick','qText','editExplanation','editTrick','editText'];
-  fields.forEach(id => {
-    const el = document.getElementById(id);
-    if(el) el.addEventListener('paste', e => smartPasteToField(e, id));
+// Attach paste: rich editors use richPaste, textareas use smartPasteToField
+document.addEventListener('DOMContentLoaded', function() {
+  ['qExplanation','qTrick','editExplanation','editTrick'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if(el) el.addEventListener('paste', function(e){ richPaste(e, id); });
+  });
+  ['qText','editText'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if(el) el.addEventListener('paste', function(e){ smartPasteToField(e, id); });
   });
 });
 
-// Also attach when edit modal opens (fields may not exist on DOMContentLoaded)
-const _origOpenEdit = window.openEdit;
-window.openEdit = function(...args) {
-  if(_origOpenEdit) _origOpenEdit.apply(this, args);
-  setTimeout(() => {
-    ['editExplanation','editTrick','editText'].forEach(id => {
-      const el = document.getElementById(id);
-      if(el && !el._pasteAttached) {
-        el.addEventListener('paste', e => smartPasteToField(e, id));
-        el._pasteAttached = true;
-      }
+// Re-attach for edit modal
+var _origOpenEdit2 = window.openEdit;
+window.openEdit = function() {
+  if(_origOpenEdit2) _origOpenEdit2.apply(this, arguments);
+  setTimeout(function() {
+    ['editExplanation','editTrick'].forEach(function(id) {
+      var el = document.getElementById(id);
+      if(el && !el._p) { el.addEventListener('paste', function(e){ richPaste(e, id); }); el._p=1; }
     });
-  }, 200);
+  }, 300);
 };
 </script>
 </body>
