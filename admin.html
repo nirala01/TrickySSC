@@ -1004,6 +1004,10 @@ textarea{resize:vertical;min-height:80px;}
   <label>📝 Explanation</label>
   <div id="editExplanation" contenteditable="true" data-placeholder="Paste solution here..." class="rich-editor" oninput="syncRichEditor('editExplanation')"></div>
   <input type="hidden" id="editExplanationVal">
+  <div id="editPrevExpl" style="display:none;margin-top:0.5rem;border-radius:8px;overflow:hidden;font-size:13px;line-height:1.9;">
+    <div style="background:#DCFCE7;color:#15803D;padding:6px 12px;font-size:11px;font-weight:700;text-transform:uppercase;">💡 Preview</div>
+    <div id="editPrevExplBody" style="background:#F0FDF4;color:#374151;padding:10px 12px;"></div>
+  </div>
   <div style="margin-top:0.5rem;display:flex;align-items:center;gap:0.4rem;">
     <label style="cursor:pointer;flex:1;display:flex;align-items:center;gap:0.5rem;background:#1E293B;border:1.5px dashed #00A86B;border-radius:7px;padding:0.5rem 0.75rem;">
       <input type="file" id="editSolImgFile" accept="image/*" onchange="handleEditSolImg(this)" style="display:none;">
@@ -1020,7 +1024,11 @@ textarea{resize:vertical;min-height:80px;}
 </div>
     <div style="margin-bottom:1rem;"><label>⚡ Trick</label>
     <div id="editTrick" contenteditable="true" data-placeholder="Paste trick here..." class="rich-editor" oninput="syncRichEditor('editTrick')"></div>
-    <input type="hidden" id="editTrickVal"></div>
+    <input type="hidden" id="editTrickVal">
+    <div id="editPrevTrick" style="display:none;margin-top:0.5rem;border-radius:8px;overflow:hidden;font-size:13px;line-height:1.9;">
+      <div style="background:#DBEAFE;color:#1D4ED8;padding:6px 12px;font-size:11px;font-weight:700;text-transform:uppercase;">⚡ Preview</div>
+      <div id="editPrevTrickBody" style="background:#EFF6FF;color:#1E40AF;padding:10px 12px;"></div>
+    </div></div>
     <div style="margin-bottom:1rem;"><label>Difficulty</label>
       <select id="editDifficulty" style="width:100%;background:#0F172A;border:1px solid #334155;border-radius:8px;padding:0.65rem 0.9rem;color:#E2E8F0;font-family:'Inter',sans-serif;font-size:0.9rem;outline:none;">
         <option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option>
@@ -2286,7 +2294,7 @@ window.syncRichEditor = function(id) {
   var hidden = document.getElementById(id + 'Val');
   if(editor && hidden) hidden.value = editor.innerHTML;
   // Update preview
-  var previewMap = {'qExplanation':'prevExpl','qTrick':'prevTrick'};
+  var previewMap = {'qExplanation':'prevExpl','qTrick':'prevTrick','editExplanation':'editPrevExpl','editTrick':'editPrevTrick'};
   var previewId = previewMap[id];
   if(previewId) {
     var box = document.getElementById(previewId);
