@@ -1029,6 +1029,16 @@ Step 2: ...","trick":"Short trick","concept":"Concept used"}' style="width:100%;
       </div>
     </div>
     <div style="margin-bottom:1rem;">
+  <!-- JSON paste for edit modal -->
+  <div style="background:linear-gradient(135deg,rgba(255,107,0,0.08),rgba(255,140,56,0.05));border:1px solid rgba(255,107,0,0.25);border-radius:10px;padding:0.75rem;margin-bottom:0.75rem;">
+    <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:#FF6B00;font-size:0.88rem;margin-bottom:0.5rem;">📋 Paste JSON from ChatGPT</div>
+    <textarea id="editJsonInput" placeholder='{"explanation":"**Step 1.**\nContent","trick":"Short trick"}' style="width:100%;min-height:60px;background:#0F172A;border:1px solid #334155;border-radius:6px;padding:0.5rem;color:#E2E8F0;font-family:monospace;font-size:0.78rem;outline:none;resize:vertical;box-sizing:border-box;"></textarea>
+    <div style="display:flex;gap:0.5rem;margin-top:0.4rem;align-items:center;">
+      <button onclick="applyEditJSON()" style="background:#FF6B00;color:#fff;border:none;border-radius:6px;padding:0.4rem 1rem;font-family:'Rajdhani',sans-serif;font-size:0.85rem;font-weight:700;cursor:pointer;">⚡ Apply</button>
+      <button onclick="showJSONPrompt()" style="background:transparent;border:1px solid #334155;color:#94A3B8;border-radius:6px;padding:0.4rem 0.75rem;font-family:'Rajdhani',sans-serif;font-size:0.82rem;font-weight:600;cursor:pointer;">📎 Copy Prompt</button>
+      <span id="editJsonStatus" style="font-size:0.78rem;color:#94A3B8;"></span>
+    </div>
+  </div>
   <label>📝 Explanation</label>
   <div id="editExplanation" contenteditable="true" data-placeholder="Paste solution here..." class="rich-editor" oninput="syncRichEditor('editExplanation')"></div>
   <input type="hidden" id="editExplanationVal">
@@ -2401,6 +2411,20 @@ const CHATGPT_PROMPT = `Give me the solution for this SSC exam question in this 
 
 Question: [PASTE YOUR QUESTION HERE]`;
 
+window.applyEditJSON = () => {
+  const raw = document.getElementById('editJsonInput')?.value?.trim();
+  const s = document.getElementById('editJsonStatus');
+  if(!raw){ if(s){ s.textContent='⚠️ Paste JSON first'; s.style.color='#EF4444'; } return; }
+  let data;
+  try { const m=raw.match(/\{[\s\S]*\}/); if(!m) throw new Error('No JSON'); data=JSON.parse(m[0]); }
+  catch(e){ if(s){ s.textContent='⚠️ Invalid JSON'; s.style.color='#EF4444'; } return; }
+  if(data.explanation) setRichEditorContent('editExplanation', data.explanation);
+  if(data.trick) setRichEditorContent('editTrick', data.trick);
+  document.getElementById('editJsonInput').value = '';
+  if(s){ s.textContent='✅ Applied!'; s.style.color='#22C55E'; }
+  setTimeout(()=>{ if(s) s.textContent=''; }, 2000);
+};
+
 window.showJSONPrompt = () => {
   navigator.clipboard.writeText(CHATGPT_PROMPT).then(() => {
     const s = document.getElementById('jsonStatus');
@@ -2720,18 +2744,18 @@ document.addEventListener('DOMContentLoaded', function() {
       ];
     }
 
-    opts.innerHTML = fields.map(function(f,i){
+    // Set actions array FIRST, then build buttons referencing it
+    window._imgPasteActions = fields.map(function(f){ return f.fn; });
+    opts.innerHTML = '';
+    fields.forEach(function(f, i){
       var btn = document.createElement('button');
       btn.textContent = f.label;
-      btn.setAttribute('data-idx', i);
-      btn.style.cssText = 'background:#0F172A;border:1px solid #334155;color:#E2E8F0;border-radius:8px;padding:0.5rem;font-family:Rajdhani,sans-serif;font-size:0.85rem;font-weight:700;cursor:pointer;width:100%;';
-      btn.onclick = function(){ window._imgPasteActions[parseInt(this.getAttribute('data-idx'))](); };
-      btn.onmouseover = function(){ this.style.borderColor='#FF6B00'; };
-      btn.onmouseout = function(){ this.style.borderColor='#334155'; };
-      return btn.outerHTML;
-    }).join('');
-
-    window._imgPasteActions = fields.map(function(f){ return f.fn; });
+      btn.style.cssText = 'background:#0F172A;border:1px solid #334155;color:#E2E8F0;border-radius:8px;padding:0.6rem 0.4rem;font-family:Rajdhani,sans-serif;font-size:0.85rem;font-weight:700;cursor:pointer;width:100%;';
+      btn.addEventListener('click', (function(idx){ return function(){ window._imgPasteActions[idx](); closeModal(); }; })(i));
+      btn.addEventListener('mouseover', function(){ this.style.borderColor='#FF6B00'; });
+      btn.addEventListener('mouseout', function(){ this.style.borderColor='#334155'; });
+      opts.appendChild(btn);
+    });
     modal.style.display = 'flex';
   }
 
