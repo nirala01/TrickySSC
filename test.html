@@ -1321,9 +1321,17 @@ window.submitTest=async()=>{
 // renderContent: if stored as HTML (rich editor), render directly; otherwise use formatSteps
 function renderContent(text) {
   if(!text) return '';
-  // If contains HTML tags → stored from rich editor → render directly
-  if(/<[a-z][\s\S]*>/i.test(text)) return text;
-  // Otherwise → plain text with [BR] tokens → use formatSteps
+  // If contains HTML tags — stored from rich editor — render directly
+  if(text.indexOf('<') !== -1 && text.indexOf('>') !== -1 && /<[a-z]/i.test(text)) return text;
+  // If contains \n — from AI/CSV generation — convert to formatted HTML
+  if(text.indexOf('\n') !== -1) {
+    return text
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+      .replace(/\*([^*]+?)\*/g,'<em>$1</em>')
+      .split('\n').filter(function(l){return l.trim();}).join('<br>');
+  }
+  // Otherwise — plain text with [BR] tokens — use formatSteps
   return formatSteps(text);
 }
 

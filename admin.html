@@ -354,6 +354,24 @@ textarea{resize:vertical;min-height:80px;}
           <label><input type="radio" name="correct" value="D" onchange="highlightCorrect('D')"> D</label>
         </div>
       </div>
+      <!-- JSON Paste Button -->
+      <div style="margin-bottom:1rem;background:linear-gradient(135deg,rgba(255,107,0,0.08),rgba(255,140,56,0.05));border:1px solid rgba(255,107,0,0.25);border-radius:12px;padding:1rem;">
+        <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.75rem;">
+          <span style="font-size:1.2rem;">📋</span>
+          <div>
+            <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:#FF6B00;font-size:0.95rem;">Paste JSON from ChatGPT</div>
+            <div style="font-size:0.75rem;color:#64748B;">Ask ChatGPT for JSON → paste here → fields fill automatically</div>
+          </div>
+        </div>
+        <textarea id="jsonInput" placeholder='{"explanation":"Step 1: ...
+Step 2: ...","trick":"Short trick","concept":"Concept used"}' style="width:100%;min-height:80px;background:#0F172A;border:1px solid #334155;border-radius:8px;padding:0.65rem;color:#E2E8F0;font-family:monospace;font-size:0.82rem;outline:none;resize:vertical;box-sizing:border-box;" onfocus="this.style.borderColor='#FF6B00'" onblur="this.style.borderColor='#334155'"></textarea>
+        <div style="display:flex;gap:0.5rem;margin-top:0.5rem;align-items:center;">
+          <button onclick="applyJSON()" class="btn btn-primary" style="padding:0.5rem 1.25rem;font-size:0.88rem;">⚡ Apply JSON</button>
+          <button onclick="showJSONPrompt()" style="background:transparent;border:1px solid #334155;color:#94A3B8;border-radius:8px;padding:0.5rem 1rem;font-family:'Rajdhani',sans-serif;font-size:0.85rem;font-weight:600;cursor:pointer;" onmouseover="this.style.borderColor='#FF6B00'" onmouseout="this.style.borderColor='#334155'">📎 Copy ChatGPT Prompt</button>
+          <span id="jsonStatus" style="font-size:0.82rem;color:#94A3B8;"></span>
+        </div>
+      </div>
+
       <div style="margin-bottom:1rem;">
         <label>📝 Step-by-Step Solution (optional)</label>
         <div id="qExplanation" contenteditable="true" data-placeholder="Paste or type the solution here..." class="rich-editor" oninput="syncRichEditor('qExplanation')"></div>
@@ -1073,6 +1091,7 @@ textarea{resize:vertical;min-height:80px;}
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
 import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, query, where, orderBy, limit, getCountFromServer } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-storage.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",
@@ -1087,6 +1106,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const storage = getStorage(app);
 const provider = new GoogleAuthProvider();
 
 // Admin emails - add yours here
@@ -1417,8 +1437,16 @@ async function loadPdfPages(file) {
 
 // ── AI prompt ──
 const AI_PROMPT = `Extract ALL questions from this SSC exam paper image. Return ONLY a JSON array. Each item:
-{"qNum":<n>,"text":"<q>","options":{"A":"","B":"","C":"","D":""},"correct":"<A|B|C|D>","subject":"<reasoning|english|quant|gk>","chapter":"<analogies|series|coding-decoding|blood-relations|direction|syllogism|synonyms|antonyms|fill-blanks|error-spotting|comprehension|number-system|percentage|ratio|si-ci|profit-loss|time-work|time-distance|geometry|history|geography|polity|science|current-affairs|other>","difficulty":"<easy|medium|hard>","explanation":"<step-by-step solution>","trick":"<shortcut method>"}
-Write explanation and trick for every question. If answer unknown put A.`;
+{"qNum":<n>,"text":"<q>","options":{"A":"","B":"","C":"","D":""},"correct":"<A|B|C|D>","subject":"<reasoning|english|quant|gk>","chapter":"<analogies|series|coding-decoding|blood-relations|direction|syllogism|synonyms|antonyms|fill-blanks|error-spotting|comprehension|number-system|percentage|ratio|si-ci|profit-loss|time-work|time-distance|geometry|history|geography|polity|science|current-affairs|other>","difficulty":"<easy|medium|hard>","explanation":"<solution>","trick":"<shortcut>","concept":"<concept>"}
+
+IMPORTANT FORMATTING RULES for explanation and trick fields:
+- Use \n for line breaks within the JSON string value
+- Use **text** for bold (step titles, key terms, formulas)
+- Use Unicode math: \u00d7 \u00f7 \u221a \u00b2 \u00b3 \u2234 \u2192 \u2260 \u2264 \u2265 \u00b1 \u03c0 (NO LaTeX $ signs)
+- Format: "**Step 1: Title.**\nContent here\n**Step 2: Title.**\nContent here"
+- Example explanation: "**Step 1: Find speed.**\nSpeed = Distance/Time = 120/2 = 60 km/h\n**Step 2: Verify.**\n60 \u00d7 2 = 120 \u2713"
+
+Write detailed explanation, trick AND concept for EVERY question. If answer unknown put A.`;
 
 // ── Extract one image via AI ──
 async function extractPageQuestions(base64, mediaType) {
@@ -1969,7 +1997,10 @@ window.openEditModal = (id) => {
   document.getElementById('eOptC').value = q.options?.C||'';
   document.getElementById('eOptD').value = q.options?.D||'';
   var ee = document.getElementById('editExplanation');
-  if(ee){ if(ee.tagName==='TEXTAREA') ee.value=q.explanation||''; else ee.innerHTML=q.explanation||''; }
+  if(ee){
+    if(ee.tagName==='TEXTAREA') ee.value=q.explanation||'';
+    else ee.innerHTML = textToRichHTML(q.explanation||'');
+  }
   document.getElementById('editExplanationVal').value = q.explanation||'';
   // Load option images into edit modal
   ['A','B','C','D'].forEach(l => {
@@ -1991,7 +2022,10 @@ window.openEditModal = (id) => {
   if(solUrl && solImg){ solImg.src=solUrl; if(solWrap) solWrap.style.display='block'; }
   else if(solWrap) solWrap.style.display='none';
   var et = document.getElementById('editTrick');
-  if(et){ if(et.tagName==='TEXTAREA') et.value=q.trick||''; else et.innerHTML=q.trick||''; }
+  if(et){
+    if(et.tagName==='TEXTAREA') et.value=q.trick||'';
+    else et.innerHTML = textToRichHTML(q.trick||'');
+  }
   document.getElementById('editTrickVal').value = q.trick||'';
   document.getElementById('editDifficulty').value = q.difficulty||'medium';
   document.querySelectorAll('input[name="eCorrect"]').forEach(r=>{r.checked=r.value===q.correct;});
@@ -2072,8 +2106,9 @@ window.saveEdit = async () => {
   } catch(e) { showToast('Error: '+e.message,'error'); }
 };
 
-window.previewQImg = (event) => {
+window.previewQImg = async (event) => {
   const file = event.target.files[0]; if (!file) return;
+  // Show preview immediately
   const reader = new FileReader();
   reader.onload = (e) => {
     document.getElementById('qImgPreview').src = e.target.result;
@@ -2081,6 +2116,16 @@ window.previewQImg = (event) => {
     document.getElementById('qImgPlaceholder').style.display = 'none';
   };
   reader.readAsDataURL(file);
+  // Upload to Storage
+  const status = document.getElementById('qImgUploadStatus');
+  if(status){ status.style.display='block'; status.textContent='⏳ Uploading...'; }
+  try {
+    const url = await uploadToStorage(file, 'q_img');
+    document.getElementById('qImgUrl').value = url;
+    if(status) status.textContent = '✅ Uploaded to storage';
+  } catch(e) {
+    if(status) status.textContent = '⚠️ Upload failed — will use file directly';
+  }
 };
 window.highlightCorrect = (letter) => {
   ['A','B','C','D'].forEach(l => {
@@ -2297,6 +2342,153 @@ window.updateCsvTiers = () => {
   tierSel.innerHTML = '<option value="">From CSV / keep as-is</option>' +
     tiers.map(t => `<option value="${t.v}">${t.l}</option>`).join('');
 };
+
+// ── Upload image to Firebase Storage, return URL ──
+async function uploadToStorage(base64OrFile, path) {
+  let file;
+  if(typeof base64OrFile === 'string' && base64OrFile.startsWith('data:')) {
+    // Convert base64 to blob
+    const res = await fetch(base64OrFile);
+    const blob = await res.blob();
+    const ext = blob.type.split('/')[1] || 'jpg';
+    file = new File([blob], path + '.' + ext, {type: blob.type});
+  } else {
+    file = base64OrFile;
+  }
+  const ext = file.name.split('.').pop() || 'jpg';
+  const storageRef = ref(storage, 'questions/' + path + '_' + Date.now() + '.' + ext);
+  await uploadBytes(storageRef, file);
+  const url = await getDownloadURL(storageRef);
+  return url;
+}
+
+// ── Upload image and return URL (used by paste handler) ──
+async function processImage(base64, fieldId, displayId, urlId, statusId) {
+  // Show uploading state
+  const statusEl = document.getElementById(statusId);
+  if(statusEl){ statusEl.style.display='inline'; statusEl.textContent='⏳ Uploading...'; }
+  try {
+    const url = await uploadToStorage(base64, fieldId + '_' + Date.now());
+    // Show preview
+    const imgEl = document.getElementById(displayId);
+    if(imgEl){ imgEl.src = url; imgEl.closest('[style*="display"]') && (imgEl.closest('[style*="display"]').style.display='block'); }
+    // Set preview container visible
+    const previewEl = document.getElementById(displayId.replace('Img','Preview').replace('ImgImg','ImgPreview'));
+    if(previewEl) previewEl.style.display = 'block';
+    // Store URL
+    const urlEl = document.getElementById(urlId);
+    if(urlEl) urlEl.value = url;
+    if(statusEl){ statusEl.textContent='✅ Uploaded'; }
+    return url;
+  } catch(e) {
+    if(statusEl){ statusEl.textContent='⚠️ Upload failed'; }
+    console.error('Upload failed:', e);
+    // Fallback to base64
+    const urlEl = document.getElementById(urlId);
+    if(urlEl) urlEl.value = base64;
+    return base64;
+  }
+}
+
+// ── JSON Paste Handler ──
+const CHATGPT_PROMPT = `Give me the solution for this SSC exam question in this exact JSON format. Use plain Unicode math symbols (×, ÷, √, ², ³, ∴, →, ≠, ≤, ≥, ±, π). Use \n for new lines. Use **text** for bold. No LaTeX, no $ signs.
+
+{
+  "explanation": "**Step 1: Title.**\nContent here\n**Step 2: Title.**\nContent here",
+  "trick": "Short trick or shortcut method",
+  "concept": "Main concept or formula used"
+}
+
+Question: [PASTE YOUR QUESTION HERE]`;
+
+window.showJSONPrompt = () => {
+  navigator.clipboard.writeText(CHATGPT_PROMPT).then(() => {
+    const s = document.getElementById('jsonStatus');
+    if(s){ s.textContent = '✅ Prompt copied! Paste in ChatGPT.'; s.style.color='#22C55E'; }
+    setTimeout(() => { if(s) s.textContent = ''; }, 3000);
+  });
+};
+
+window.applyJSON = () => {
+  const raw = document.getElementById('jsonInput')?.value?.trim();
+  const s = document.getElementById('jsonStatus');
+  if(!raw){ if(s){ s.textContent='⚠️ Paste JSON first'; s.style.color='#EF4444'; } return; }
+
+  let data;
+  try {
+    // Try to extract JSON even if surrounded by extra text/markdown
+    const match = raw.match(/\{[\s\S]*\}/);
+    if(!match) throw new Error('No JSON object found');
+    data = JSON.parse(match[0]);
+  } catch(e) {
+    if(s){ s.textContent='⚠️ Invalid JSON — check format'; s.style.color='#EF4444'; }
+    return;
+  }
+
+  // Fill explanation
+  if(data.explanation) {
+    setRichEditorContent('qExplanation', data.explanation);
+  }
+  // Fill trick
+  if(data.trick) {
+    setRichEditorContent('qTrick', data.trick);
+  }
+  // Fill concept (if field exists)
+  if(data.concept && document.getElementById('qConcept')) {
+    setRichEditorContent('qConcept', data.concept);
+  }
+  // Fill question text if provided
+  if(data.question) {
+    const qt = document.getElementById('qText');
+    if(qt) qt.value = data.question;
+  }
+  // Fill options if provided
+  ['A','B','C','D'].forEach(l => {
+    if(data['option'+l] || data['option_'+l] || data[l]) {
+      const el = document.getElementById('opt'+l);
+      if(el) el.value = data['option'+l] || data['option_'+l] || data[l] || '';
+    }
+  });
+  // Set correct answer
+  if(data.correct || data.answer) {
+    const ans = (data.correct || data.answer || '').toUpperCase().replace('OPTION','').trim();
+    const radio = document.querySelector('input[name="correct"][value="'+ans+'"]');
+    if(radio){ radio.checked = true; highlightCorrect(ans); }
+  }
+
+  // Clear JSON input
+  document.getElementById('jsonInput').value = '';
+  if(s){ s.textContent='✅ Fields filled!'; s.style.color='#22C55E'; }
+  setTimeout(() => { if(s) s.textContent=''; }, 3000);
+};
+
+// Convert stored text (with \n and **bold**) to rich HTML for display
+function textToRichHTML(text) {
+  if(!text) return '';
+  // If already HTML, return as-is
+  if(/<[a-z][\s\S]*>/i.test(text)) return text;
+  // Convert plain text with 
+ and **bold** to HTML
+  return text
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+    .replace(/\*([^*]+?)\*/g,'<em>$1</em>')
+    .split('\n').map(function(l){ return '<div>'+(l.trim()||'<br>')+'</div>'; }).join('');
+}
+
+function setRichEditorContent(id, text) {
+  const el = document.getElementById(id);
+  if(!el) return;
+  // Convert 
+ to HTML line breaks and apply bold
+  const html = text
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+    .replace(/\*([^*]+?)\*/g,'<em>$1</em>')
+    .split('\n').map(l => '<div>' + (l.trim() || '<br>') + '</div>').join('');
+  el.innerHTML = html;
+  syncRichEditor(id);
+}
 
 // ── Rich Editor: sync innerHTML to hidden input for saving ──
 window.syncRichEditor = function(id) {
@@ -2547,31 +2739,48 @@ document.addEventListener('DOMContentLoaded', function() {
   function closeModal(){ document.getElementById('imgPasteModal').style.display='none'; }
 
   // ── Set image functions ──
-  function setQImg(){
+  async function setQImg(){
+    closeModal();
+    // Show base64 preview immediately, upload in background
     var el = document.getElementById('qImgPreview');
     var wrap = document.getElementById('qImgPreviewWrap');
     var ph = document.getElementById('qImgPlaceholder');
-    var url = document.getElementById('qImgUrl');
+    var status = document.getElementById('qImgUploadStatus');
     if(el) el.src = _pendingImg;
     if(wrap) wrap.style.display = 'block';
     if(ph) ph.style.display = 'none';
-    if(url) url.value = _pendingImg;
-    closeModal();
+    if(status){ status.style.display='block'; status.textContent='⏳ Uploading to storage...'; }
+    try {
+      var url = await uploadToStorage(_pendingImg, 'q_img');
+      document.getElementById('qImgUrl').value = url;
+      if(status) status.textContent = '✅ Uploaded';
+    } catch(e) {
+      document.getElementById('qImgUrl').value = _pendingImg; // fallback base64
+      if(status) status.textContent = '⚠️ Using base64 (storage failed)';
+    }
   }
 
-  function setSolImg(){
+  async function setSolImg(){
+    closeModal();
     var preview = document.getElementById('solImgPreview');
     var img = document.getElementById('solImgImg');
     var status = document.getElementById('solImgStatus');
-    var url = document.getElementById('solImgUrl');
+    var urlEl = document.getElementById('solImgUrl');
     if(img) img.src = _pendingImg;
     if(preview) preview.style.display = 'block';
-    if(status){ status.style.display='inline'; status.textContent='✅ Pasted'; }
-    if(url) url.value = _pendingImg;
-    closeModal();
+    if(status){ status.style.display='inline'; status.textContent='⏳ Uploading...'; }
+    try {
+      var url = await uploadToStorage(_pendingImg, 'sol_img');
+      if(urlEl) urlEl.value = url;
+      if(status) status.textContent = '✅ Uploaded';
+    } catch(e) {
+      if(urlEl) urlEl.value = _pendingImg;
+      if(status) status.textContent = '✅ Pasted';
+    }
   }
 
-  function setOptImgPaste(letter){
+  async function setOptImgPaste(letter){
+    closeModal();
     var id = 'opt'+letter;
     var imgEl = document.getElementById(id+'ImgImg');
     var previewEl = document.getElementById(id+'ImgPreview');
@@ -2579,37 +2788,46 @@ document.addEventListener('DOMContentLoaded', function() {
     var statusEl = document.getElementById(id+'ImgStatus');
     if(imgEl) imgEl.src = _pendingImg;
     if(previewEl) previewEl.style.display = 'block';
-    if(urlEl) urlEl.value = _pendingImg;
-    if(statusEl){ statusEl.style.display='inline'; statusEl.textContent='✅'; }
-    closeModal();
+    if(statusEl){ statusEl.style.display='inline'; statusEl.textContent='⏳'; }
+    try {
+      var url = await uploadToStorage(_pendingImg, 'opt_'+letter+'_img');
+      if(urlEl) urlEl.value = url;
+      if(statusEl) statusEl.textContent = '✅';
+    } catch(e) {
+      if(urlEl) urlEl.value = _pendingImg;
+      if(statusEl) statusEl.textContent = '✅';
+    }
   }
 
-  function setEditImg(target){
+  async function setEditImg(target){
+    closeModal();
+    var path = 'edit_'+target+'_img';
     if(target === 'question'){
       var img = document.getElementById('editImgPreview');
       var wrap = document.getElementById('editImgPreviewWrap');
-      var url = document.getElementById('editImgUrl');
+      var urlEl = document.getElementById('editImgUrl');
       if(img) img.src = _pendingImg;
       if(wrap) wrap.style.display = 'block';
-      if(url) url.value = _pendingImg;
+      try { var url = await uploadToStorage(_pendingImg, path); if(urlEl) urlEl.value = url; }
+      catch(e) { if(urlEl) urlEl.value = _pendingImg; }
     } else if(target === 'solution'){
       var img2 = document.getElementById('editSolImgCurrent');
       var wrap2 = document.getElementById('editSolImgCurrentWrap');
-      var url2 = document.getElementById('editSolImgUrl');
+      var url2El = document.getElementById('editSolImgUrl');
       if(img2) img2.src = _pendingImg;
       if(wrap2) wrap2.style.display = 'block';
-      if(url2) url2.value = _pendingImg;
+      try { var url2 = await uploadToStorage(_pendingImg, path); if(url2El) url2El.value = url2; }
+      catch(e) { if(url2El) url2El.value = _pendingImg; }
     } else {
-      // Option A/B/C/D in edit modal
       var letter = target.replace('opt','');
-      var imgEl = document.getElementById('edit'+letter+'ImgImg') || document.getElementById('opt'+letter+'ImgImg');
-      var previewEl = document.getElementById('edit'+letter+'ImgPreview') || document.getElementById('opt'+letter+'ImgPreview');
-      var urlEl = document.getElementById('edit'+letter+'ImgUrl') || document.getElementById('opt'+letter+'ImgUrl');
-      if(imgEl) imgEl.src = _pendingImg;
-      if(previewEl) previewEl.style.display = 'block';
-      if(urlEl) urlEl.value = _pendingImg;
+      var imgEl2 = document.getElementById('opt'+letter+'ImgImg');
+      var previewEl2 = document.getElementById('opt'+letter+'ImgPreview');
+      var urlEl2 = document.getElementById('opt'+letter+'ImgUrl');
+      if(imgEl2) imgEl2.src = _pendingImg;
+      if(previewEl2) previewEl2.style.display = 'block';
+      try { var url3 = await uploadToStorage(_pendingImg, path); if(urlEl2) urlEl2.value = url3; }
+      catch(e) { if(urlEl2) urlEl2.value = _pendingImg; }
     }
-    closeModal();
   }
 
   // Listen for paste events globally
