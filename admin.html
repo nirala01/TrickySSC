@@ -2372,6 +2372,19 @@ async function uploadToStorage(base64OrFile, path) {
   return url;
 }
 
+// Expose uploadToStorage to window so plain script can call it
+window.uploadImgToStorage = async function(base64, path, urlEl, statusEl) {
+  try {
+    if(statusEl){ statusEl.style.display='inline'; statusEl.textContent='⏳ Uploading...'; }
+    const url = await uploadToStorage(base64, path);
+    if(urlEl) urlEl.value = url;
+    if(statusEl) statusEl.textContent = '✅ Uploaded';
+  } catch(e) {
+    console.warn('Storage upload failed:', e.message);
+    if(statusEl) statusEl.textContent = '✅ (base64)';
+  }
+};
+
 // ── Upload image and return URL (used by paste handler) ──
 async function processImage(base64, fieldId, displayId, urlId, statusId) {
   // Show uploading state
@@ -2654,6 +2667,16 @@ document.addEventListener('DOMContentLoaded', function() {
 var _origOpenEdit2 = window.openEdit;
 window.openEdit = function() {
   if(_origOpenEdit2) _origOpenEdit2.apply(this, arguments);
+  // Scroll edit modal to top so JSON section is visible
+  setTimeout(function() {
+    var modal = document.getElementById('editModal') || document.querySelector('.modal');
+    if(modal) modal.scrollTop = 0;
+    // Also clear JSON input
+    var ji = document.getElementById('editJsonInput');
+    if(ji) ji.value = '';
+    var js = document.getElementById('editJsonStatus');
+    if(js) js.textContent = '';
+  }, 50);
   setTimeout(function() {
     ['editExplanation','editTrick'].forEach(function(id) {
       var el = document.getElementById(id);
@@ -2762,28 +2785,23 @@ document.addEventListener('DOMContentLoaded', function() {
   function closeModal(){ document.getElementById('imgPasteModal').style.display='none'; }
 
   // ── Set image functions ──
-  async function setQImg(){
+  function setQImg(){
     closeModal();
-    // Show base64 preview immediately, upload in background
     var el = document.getElementById('qImgPreview');
     var wrap = document.getElementById('qImgPreviewWrap');
     var ph = document.getElementById('qImgPlaceholder');
     var status = document.getElementById('qImgUploadStatus');
+    var urlEl = document.getElementById('qImgUrl');
     if(el) el.src = _pendingImg;
     if(wrap) wrap.style.display = 'block';
     if(ph) ph.style.display = 'none';
-    if(status){ status.style.display='block'; status.textContent='⏳ Uploading to storage...'; }
-    try {
-      var url = await uploadToStorage(_pendingImg, 'q_img');
-      document.getElementById('qImgUrl').value = url;
-      if(status) status.textContent = '✅ Uploaded';
-    } catch(e) {
-      document.getElementById('qImgUrl').value = _pendingImg; // fallback base64
-      if(status) status.textContent = '⚠️ Using base64 (storage failed)';
-    }
+    if(urlEl) urlEl.value = _pendingImg;
+    if(status){ status.style.display='block'; status.textContent='✅ Image pasted'; }
+    // Upload via module function if available
+    if(window.uploadImgToStorage) window.uploadImgToStorage(_pendingImg,'q_img',urlEl,status);
   }
 
-  async function setSolImg(){
+  function setSolImg(){
     closeModal();
     var preview = document.getElementById('solImgPreview');
     var img = document.getElementById('solImgImg');
@@ -2791,18 +2809,12 @@ document.addEventListener('DOMContentLoaded', function() {
     var urlEl = document.getElementById('solImgUrl');
     if(img) img.src = _pendingImg;
     if(preview) preview.style.display = 'block';
-    if(status){ status.style.display='inline'; status.textContent='⏳ Uploading...'; }
-    try {
-      var url = await uploadToStorage(_pendingImg, 'sol_img');
-      if(urlEl) urlEl.value = url;
-      if(status) status.textContent = '✅ Uploaded';
-    } catch(e) {
-      if(urlEl) urlEl.value = _pendingImg;
-      if(status) status.textContent = '✅ Pasted';
-    }
+    if(urlEl) urlEl.value = _pendingImg;
+    if(status){ status.style.display='inline'; status.textContent='✅ Pasted'; }
+    if(window.uploadImgToStorage) window.uploadImgToStorage(_pendingImg,'sol_img',urlEl,status);
   }
 
-  async function setOptImgPaste(letter){
+  function setOptImgPaste(letter){
     closeModal();
     var id = 'opt'+letter;
     var imgEl = document.getElementById(id+'ImgImg');
@@ -2811,36 +2823,29 @@ document.addEventListener('DOMContentLoaded', function() {
     var statusEl = document.getElementById(id+'ImgStatus');
     if(imgEl) imgEl.src = _pendingImg;
     if(previewEl) previewEl.style.display = 'block';
-    if(statusEl){ statusEl.style.display='inline'; statusEl.textContent='⏳'; }
-    try {
-      var url = await uploadToStorage(_pendingImg, 'opt_'+letter+'_img');
-      if(urlEl) urlEl.value = url;
-      if(statusEl) statusEl.textContent = '✅';
-    } catch(e) {
-      if(urlEl) urlEl.value = _pendingImg;
-      if(statusEl) statusEl.textContent = '✅';
-    }
+    if(urlEl) urlEl.value = _pendingImg;
+    if(statusEl){ statusEl.style.display='inline'; statusEl.textContent='✅'; }
+    if(window.uploadImgToStorage) window.uploadImgToStorage(_pendingImg,'opt_'+letter,urlEl,statusEl);
   }
 
-  async function setEditImg(target){
+  function setEditImg(target){
     closeModal();
-    var path = 'edit_'+target+'_img';
     if(target === 'question'){
       var img = document.getElementById('editImgPreview');
       var wrap = document.getElementById('editImgPreviewWrap');
       var urlEl = document.getElementById('editImgUrl');
       if(img) img.src = _pendingImg;
       if(wrap) wrap.style.display = 'block';
-      try { var url = await uploadToStorage(_pendingImg, path); if(urlEl) urlEl.value = url; }
-      catch(e) { if(urlEl) urlEl.value = _pendingImg; }
+      if(urlEl) urlEl.value = _pendingImg;
+      if(window.uploadImgToStorage) window.uploadImgToStorage(_pendingImg,'edit_q',urlEl,null);
     } else if(target === 'solution'){
       var img2 = document.getElementById('editSolImgCurrent');
       var wrap2 = document.getElementById('editSolImgCurrentWrap');
       var url2El = document.getElementById('editSolImgUrl');
       if(img2) img2.src = _pendingImg;
       if(wrap2) wrap2.style.display = 'block';
-      try { var url2 = await uploadToStorage(_pendingImg, path); if(url2El) url2El.value = url2; }
-      catch(e) { if(url2El) url2El.value = _pendingImg; }
+      if(url2El) url2El.value = _pendingImg;
+      if(window.uploadImgToStorage) window.uploadImgToStorage(_pendingImg,'edit_sol',url2El,null);
     } else {
       var letter = target.replace('opt','');
       var imgEl2 = document.getElementById('opt'+letter+'ImgImg');
@@ -2848,8 +2853,8 @@ document.addEventListener('DOMContentLoaded', function() {
       var urlEl2 = document.getElementById('opt'+letter+'ImgUrl');
       if(imgEl2) imgEl2.src = _pendingImg;
       if(previewEl2) previewEl2.style.display = 'block';
-      try { var url3 = await uploadToStorage(_pendingImg, path); if(urlEl2) urlEl2.value = url3; }
-      catch(e) { if(urlEl2) urlEl2.value = _pendingImg; }
+      if(urlEl2) urlEl2.value = _pendingImg;
+      if(window.uploadImgToStorage) window.uploadImgToStorage(_pendingImg,'edit_opt_'+letter,urlEl2,null);
     }
   }
 
