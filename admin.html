@@ -2468,22 +2468,18 @@ function textToRichHTML(text) {
   // If already HTML, return as-is
   if(text.indexOf('<') !== -1 && /<[a-z]/i.test(text)) return text;
   // Convert plain text (with newlines and **bold**) to HTML
-  return text
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
-    .replace(/\*([^*]+?)\*/g,'<em>$1</em>')
-    .split('\n').map(function(l){ return '<div>'+(l.trim()||'<br>')+'</div>'; }).join('');
+  var out = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  out = out.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\*([^*]+?)\*/g,'<em>$1</em>');
+  return out.split('\n').map(function(l){ return '<div>'+(l.trim()||'<br>')+'</div>'; }).join('');
 }
 
 function setRichEditorContent(id, text) {
   const el = document.getElementById(id);
   if(!el) return;
   // Convert to HTML line breaks and apply bold
-  const html = text
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
-    .replace(/\*([^*]+?)\*/g,'<em>$1</em>')
-    .split('\n').map(l => '<div>' + (l.trim() || '<br>') + '</div>').join('');
+  var t2 = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  t2 = t2.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\*([^*]+?)\*/g,'<em>$1</em>');
+  var html = t2.split('\n').map(function(l){ return '<div>'+(l.trim()||'<br>')+'</div>'; }).join('');
   el.innerHTML = html;
   syncRichEditor(id);
 }
