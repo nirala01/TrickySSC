@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TrickySSC — Quality Check</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --bg:#0F1117;--surface:#1A1D27;--surface2:#22263A;
+  --border:#2E3350;--orange:#FF6B00;--orange2:#FF8C38;
+  --green:#00C47A;--red:#EF4444;--yellow:#F59E0B;
+  --blue:#4E8EFF;--text:#E8EAF0;--muted:#6B7280;
+}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+
+/* AUTH */
+#authGate{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:100;}
+.auth-card{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:2.5rem;width:100%;max-width:380px;text-align:center;}
+.auth-logo{font-family:'Rajdhani',sans-serif;font-size:1.8rem;font-weight:700;color:var(--orange);margin-bottom:0.25rem;}
+.auth-sub{font-size:0.85rem;color:var(--muted);margin-bottom:2rem;}
+.auth-input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:0.85rem 1rem;color:var(--text);font-size:1rem;font-family:'Inter',sans-serif;margin-bottom:1rem;outline:none;transition:border-color 0.2s;}
+.auth-input:focus{border-color:var(--orange);}
+.auth-btn{width:100%;background:linear-gradient(135deg,var(--orange),var(--orange2));color:#fff;border:none;border-radius:10px;padding:0.9rem;font-family:'Rajdhani',sans-serif;font-size:1rem;font-weight:700;cursor:pointer;}
+.auth-err{color:var(--red);font-size:0.85rem;margin-top:0.75rem;display:none;}
+
+/* TOPBAR */
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0.85rem 2rem;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10;}
+.topbar-brand{font-family:'Rajdhani',sans-serif;font-size:1.2rem;font-weight:700;color:var(--orange);}
+.topbar-right{display:flex;gap:0.75rem;align-items:center;}
+.btn{padding:0.5rem 1.1rem;border-radius:8px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.88rem;cursor:pointer;border:none;transition:all 0.2s;}
+.btn-primary{background:linear-gradient(135deg,var(--orange),var(--orange2));color:#fff;}
+.btn-secondary{background:var(--surface2);border:1px solid var(--border);color:var(--text);}
+.btn-secondary:hover{border-color:var(--orange);color:var(--orange);}
+.btn-green{background:var(--green);color:#fff;}
+
+/* MAIN */
+.main{max-width:1400px;margin:0 auto;padding:1.5rem 2rem;}
+
+/* FILTERS CARD */
+.filters-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1.25rem 1.5rem;margin-bottom:1.25rem;}
+.filters-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:0.75rem;margin-bottom:1rem;}
+.filter-select{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:0.55rem 0.85rem;color:var(--text);font-size:0.85rem;outline:none;cursor:pointer;}
+.filter-select:focus{border-color:var(--orange);}
+.actions-row{display:flex;gap:0.75rem;flex-wrap:wrap;align-items:center;}
+
+/* ANSWER KEY */
+.ak-card{background:var(--surface);border:1px solid #F59E0B44;border-radius:14px;padding:1.25rem 1.5rem;margin-bottom:1.25rem;display:none;}
+.ak-card.visible{display:block;}
+.ak-header{font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--yellow);font-size:1rem;margin-bottom:0.75rem;}
+.ak-body{display:flex;gap:1rem;align-items:flex-start;}
+.ak-img{max-height:140px;border-radius:8px;border:1px solid var(--border);}
+.ak-right{flex:1;}
+.ak-textarea{width:100%;min-height:80px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:0.6rem;color:var(--text);font-family:monospace;font-size:0.82rem;outline:none;resize:vertical;box-sizing:border-box;}
+.ak-textarea:focus{border-color:var(--yellow);}
+
+/* STATS */
+.stats-row{display:grid;grid-template-columns:repeat(6,1fr);gap:0.75rem;margin-bottom:1.25rem;}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1rem;text-align:center;cursor:pointer;transition:border-color 0.2s;}
+.stat-card:hover{border-color:var(--orange);}
+.stat-card.active{border-color:var(--orange);}
+.stat-num{font-family:'Rajdhani',sans-serif;font-size:2rem;font-weight:700;line-height:1;}
+.stat-lbl{font-size:0.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-top:0.3rem;}
+
+/* TABLE */
+.table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;}
+.table-head{display:grid;grid-template-columns:80px 1fr 60px 1fr 70px 80px;padding:0.75rem 1rem;background:var(--surface2);font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;font-family:'Rajdhani',sans-serif;font-weight:600;}
+.table-row{display:grid;grid-template-columns:80px 1fr 60px 1fr 70px 80px;padding:0.85rem 1rem;border-top:1px solid var(--border);align-items:center;transition:background 0.15s;}
+.table-row:hover{background:var(--surface2);}
+.q-num{font-family:monospace;font-size:0.8rem;color:var(--muted);}
+.q-text{font-size:0.83rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;}
+.ans-badge{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.1rem;color:var(--orange);text-align:center;}
+.issues-cell{display:flex;flex-wrap:wrap;gap:3px;}
+.issue-tag{font-size:0.68rem;padding:2px 6px;border-radius:4px;font-weight:600;white-space:nowrap;}
+.issue-critical{background:#EF444422;color:#EF4444;}
+.issue-warn{background:#F59E0B22;color:#F59E0B;}
+.issue-info{background:#4E8EFF22;color:#4E8EFF;}
+.score-num{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1rem;text-align:center;}
+.fix-btn{background:var(--orange);color:#fff;border:none;border-radius:6px;padding:0.3rem 0.75rem;cursor:pointer;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.78rem;text-decoration:none;display:inline-block;text-align:center;}
+.fix-btn:hover{opacity:0.9;}
+
+/* EMPTY */
+.empty-state{padding:4rem;text-align:center;color:var(--muted);}
+.empty-state .icon{font-size:3rem;margin-bottom:1rem;}
+.empty-state h3{font-family:'Rajdhani',sans-serif;font-size:1.1rem;font-weight:700;color:var(--text);margin-bottom:0.4rem;}
+
+/* PROGRESS */
+.progress-bar{height:4px;background:var(--border);border-radius:2px;margin-top:0.75rem;overflow:hidden;display:none;}
+.progress-fill{height:100%;background:linear-gradient(135deg,var(--orange),var(--orange2));border-radius:2px;transition:width 0.3s;}
+
+@media(max-width:900px){
+  .filters-grid{grid-template-columns:1fr 1fr 1fr;}
+  .stats-row{grid-template-columns:repeat(3,1fr);}
+  .table-head,.table-row{grid-template-columns:60px 1fr 50px 80px 60px;}
+  .table-head span:last-child,.table-row>*:last-child{display:none;}
+}
+</style>
+</head>
+<body>
+
+<!-- AUTH -->
+<div id="authGate">
+  <div class="auth-card">
+    <div class="auth-logo">⚡ TrickySSC</div>
+    <div class="auth-sub">Quality Check — Admin Access</div>
+    <input class="auth-input" type="password" id="adminPass" placeholder="Enter admin password" onkeydown="if(event.key==='Enter')checkAuth()">
+    <button class="auth-btn" onclick="checkAuth()">Access →</button>
+    <div class="auth-err" id="authErr">⚠️ Incorrect password</div>
+  </div>
+</div>
+
+<!-- TOPBAR -->
+<div class="topbar" id="mainUI" style="display:none;">
+  <div style="display:flex;align-items:center;gap:1rem;">
+    <span class="topbar-brand">⚡ TrickySSC — Quality Check</span>
+    <a href="admin.html" style="font-size:0.8rem;color:var(--muted);text-decoration:none;border:1px solid var(--border);padding:0.3rem 0.75rem;border-radius:6px;">← Admin</a>
+  </div>
+  <div class="topbar-right">
+    <span id="statusMsg" style="font-size:0.82rem;color:var(--muted);"></span>
+    <button class="btn btn-secondary" onclick="exportReport()">📥 Export CSV</button>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main" id="mainContent" style="display:none;">
+
+  <!-- FILTERS -->
+  <div class="filters-card">
+    <div class="filters-grid">
+      <select class="filter-select" id="fExam">
+        <option value="">All Exams</option>
+        <option value="ssc-cgl">SSC CGL</option>
+        <option value="ssc-chsl">SSC CHSL</option>
+        <option value="ssc-mts">SSC MTS</option>
+        <option value="ssc-gd">SSC GD</option>
+        <option value="ssc-cpo">SSC CPO</option>
+        <option value="ssc-jht">SSC JHT</option>
+        <option value="ssc-je">SSC JE</option>
+      </select>
+      <select class="filter-select" id="fYear">
+        <option value="">All Years</option>
+        <option value="2024">2024</option>
+        <option value="2023">2023</option>
+        <option value="2022">2022</option>
+        <option value="2021">2021</option>
+        <option value="2020">2020</option>
+        <option value="2019">2019</option>
+      </select>
+      <select class="filter-select" id="fType">
+        <option value="">All Types</option>
+        <option value="pyq">PYQ Bank</option>
+        <option value="mock">Mock Tests</option>
+        <option value="chapterwise">Chapterwise</option>
+        <option value="sectionwise">Sectionwise</option>
+      </select>
+      <select class="filter-select" id="fSubject">
+        <option value="">All Subjects</option>
+        <option value="quant">Quantitative</option>
+        <option value="reasoning">Reasoning</option>
+        <option value="english">English</option>
+        <option value="gk">General Awareness</option>
+      </select>
+      <select class="filter-select" id="fIssue" onchange="applyFilter()">
+        <option value="all">All Questions</option>
+        <option value="critical">🔴 Critical Issues</option>
+        <option value="wrong_answer">⚠️ Wrong Answer</option>
+        <option value="no_solution">📝 No Solution</option>
+        <option value="ai_phrase">🤖 AI Phrases</option>
+        <option value="good">✅ Good (No Issues)</option>
+      </select>
+    </div>
+    <div class="actions-row">
+      <button class="btn btn-primary" onclick="runScan()">🔍 Scan Questions</button>
+      <button class="btn btn-secondary" onclick="document.getElementById('akFile').click()">🖼️ Upload Answer Key JPG</button>
+      <input type="file" id="akFile" accept="image/*" style="display:none;" onchange="loadAnswerKey(this)">
+      <button class="btn btn-secondary" onclick="document.getElementById('qpFile').click()">📄 Upload Question Paper</button>
+      <input type="file" id="qpFile" accept="image/*,.pdf" style="display:none;" onchange="loadQuestionPaper(this)">
+    </div>
+    <div class="progress-bar" id="progressBar">
+      <div class="progress-fill" id="progressFill" style="width:0%"></div>
+    </div>
+  </div>
+
+  <!-- ANSWER KEY CARD -->
+  <div class="ak-card" id="akCard">
+    <div class="ak-header">📋 Answer Key Loaded — Edit if AI misread anything</div>
+    <div class="ak-body">
+      <img class="ak-img" id="akPreview">
+      <div class="ak-right">
+        <div style="font-size:0.78rem;color:var(--muted);margin-bottom:0.4rem;">Format: Q1=A, Q2=B, Q3=C... (edit if needed)</div>
+        <textarea class="ak-textarea" id="akText" placeholder="Q1=A, Q2=B, Q3=D..."></textarea>
+        <div style="display:flex;gap:0.5rem;margin-top:0.5rem;align-items:center;">
+          <button class="btn btn-primary" onclick="compareAnswers()" style="padding:0.4rem 1rem;font-size:0.85rem;">🔄 Compare with Database</button>
+          <span id="akStatus" style="font-size:0.8rem;color:var(--muted);"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STATS ROW -->
+  <div class="stats-row" id="statsRow" style="display:none;">
+    <div class="stat-card" onclick="filterByIssue('all')">
+      <div class="stat-num" style="color:var(--orange);" id="sTotal">0</div>
+      <div class="stat-lbl">Total Scanned</div>
+    </div>
+    <div class="stat-card" onclick="filterByIssue('critical')">
+      <div class="stat-num" style="color:var(--red);" id="sCritical">0</div>
+      <div class="stat-lbl">🔴 Critical</div>
+    </div>
+    <div class="stat-card" onclick="filterByIssue('wrong_answer')">
+      <div class="stat-num" style="color:var(--yellow);" id="sWrongAns">0</div>
+      <div class="stat-lbl">⚠️ Wrong Answer</div>
+    </div>
+    <div class="stat-card" onclick="filterByIssue('no_solution')">
+      <div class="stat-num" style="color:var(--blue);" id="sNoSol">0</div>
+      <div class="stat-lbl">📝 No Solution</div>
+    </div>
+    <div class="stat-card" onclick="filterByIssue('ai_phrase')">
+      <div class="stat-num" style="color:#A78BFA;" id="sAI">0</div>
+      <div class="stat-lbl">🤖 AI Phrases</div>
+    </div>
+    <div class="stat-card" onclick="filterByIssue('good')">
+      <div class="stat-num" style="color:var(--green);" id="sGood">0</div>
+      <div class="stat-lbl">✅ Good</div>
+    </div>
+  </div>
+
+  <!-- RESULTS TABLE -->
+  <div class="table-wrap" id="tableWrap" style="display:none;">
+    <div class="table-head">
+      <span>Q# / Exam</span>
+      <span>Question</span>
+      <span>Ans</span>
+      <span>Issues</span>
+      <span>Score</span>
+      <span>Action</span>
+    </div>
+    <div id="tableBody"></div>
+    <div style="padding:0.75rem 1rem;font-size:0.78rem;color:var(--muted);text-align:right;" id="tableCount"></div>
+  </div>
+
+  <!-- EMPTY STATE -->
+  <div class="empty-state" id="emptyState">
+    <div class="icon">🔍</div>
+    <h3>Ready to check quality</h3>
+    <p>Select filters → optionally upload answer key → click Scan</p>
+  </div>
+
+</div>
+
+<script type="module">
+import{initializeApp}from"https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
+import{getFirestore,collection,getDocs,query,where,doc,updateDoc}from"https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+import{getAuth,signInAnonymously}from"https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
+
+const app=initializeApp({apiKey:"AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",authDomain:"trickyssc-17bb3.firebaseapp.com",projectId:"trickyssc-17bb3",storageBucket:"trickyssc-17bb3.firebasestorage.app",messagingSenderId:"450627057220",appId:"1:450627057220:web:366267bf437d94f20c6e11"});
+const db=getFirestore(app);
+const auth=getAuth(app);
+
+const ADMIN_PASS='TrickySSC@Admin2024';
+
+// ── AI phrases to detect ──
+const AI_PHRASES=[
+  'as we can see','as we know','it is worth noting','it should be noted',
+  'therefore we can conclude','let us understand','we need to find',
+  'certainly','step by step solution','let me explain','i hope this helps',
+  'please note that','in conclusion','thus we can say','it is clear that',
+  'obviously','as mentioned above','we can observe','it is given that',
+  'using the formula','applying the concept'
+];
+
+// ── Quality rules ──
+const RULES=[
+  {id:'no_text',     level:'critical', label:'Empty question',      check:q=>!q.text||q.text.trim().length<10},
+  {id:'no_answer',   level:'critical', label:'Missing answer',      check:q=>!q.correct},
+  {id:'bad_answer',  level:'critical', label:'Invalid answer (not A-D)', check:q=>q.correct&&!['A','B','C','D'].includes(q.correct.toUpperCase())},
+  {id:'missing_opt', level:'critical', label:'Empty option',        check:q=>['A','B','C','D'].some(l=>!q.options?.[l]||q.options[l].trim().length===0)},
+  {id:'dup_options', level:'critical', label:'Duplicate options',   check:q=>{const o=[q.options?.A,q.options?.B,q.options?.C,q.options?.D].filter(Boolean).map(x=>x.trim().toLowerCase());return new Set(o).size<o.length;}},
+  {id:'cut_text',    level:'critical', label:'Question cut off',    check:q=>/\.\.\.[\s]*$|—$|–$/.test((q.text||'').trim())},
+  {id:'no_solution', level:'warn',     label:'No solution',         check:q=>!q.explanation||q.explanation.trim().length<15},
+  {id:'short_sol',   level:'warn',     label:'Solution too short',  check:q=>q.explanation&&q.explanation.trim().length<50},
+  {id:'ai_phrase',   level:'warn',     label:'AI-sounding text',    check:q=>{const t=((q.explanation||'')+(q.trick||'')).toLowerCase();return AI_PHRASES.some(p=>t.includes(p));}},
+  {id:'latex',       level:'warn',     label:'LaTeX $ not removed', check:q=>/\$[^$]+\$/.test(q.explanation||'')},
+  {id:'no_trick',    level:'info',     label:'No trick/shortcut',   check:q=>!q.trick||q.trick.trim().length<5},
+  {id:'no_image_q',  level:'info',     label:'No image (may need)', check:q=>q.subject==='reasoning'&&!q.imageUrl},
+];
+
+let allResults=[];
+let answerKey={};
+
+// ── Auth ──
+window.checkAuth=async()=>{
+  const pass=document.getElementById('adminPass').value;
+  if(pass!==ADMIN_PASS){document.getElementById('authErr').style.display='block';return;}
+  try{await signInAnonymously(auth);}catch(e){}
+  document.getElementById('authGate').style.display='none';
+  document.getElementById('mainUI').style.display='flex';
+  document.getElementById('mainContent').style.display='block';
+};
+
+// ── Scan ──
+window.runScan=async()=>{
+  const exam=document.getElementById('fExam').value;
+  const year=document.getElementById('fYear').value;
+  const type=document.getElementById('fType').value;
+  const subject=document.getElementById('fSubject').value;
+  const status=document.getElementById('statusMsg');
+
+  setStatus('⏳ Loading questions...');
+  document.getElementById('progressBar').style.display='block';
+  document.getElementById('progressFill').style.width='10%';
+  document.getElementById('emptyState').style.display='none';
+  document.getElementById('tableWrap').style.display='none';
+  document.getElementById('statsRow').style.display='none';
+
+  try{
+    let q=collection(db,'questions');
+    const constraints=[];
+    if(exam) constraints.push(where('exam','==',exam));
+    if(year) constraints.push(where('year','==',year));
+    if(type) constraints.push(where('type','==',type));
+    if(subject) constraints.push(where('subject','==',subject));
+    const snap=await getDocs(constraints.length?query(q,...constraints):q);
+
+    document.getElementById('progressFill').style.width='50%';
+    setStatus(`⏳ Scanning ${snap.size} questions...`);
+
+    const qs=[];
+    snap.forEach(d=>qs.push({id:d.id,...d.data()}));
+
+    allResults=qs.map(q=>{
+      const issues=RULES.filter(r=>r.check(q)).map(r=>({...r}));
+      // Check answer key
+      if(Object.keys(answerKey).length>0&&q.qNum){
+        const exp=answerKey[parseInt(q.qNum)];
+        if(exp&&exp!==q.correct?.toUpperCase()){
+          issues.unshift({id:'wrong_answer',level:'critical',label:`Key says ${exp}, stored ${q.correct||'?'}`});
+        }
+      }
+      const score=Math.max(0,100
+        -issues.filter(i=>i.level==='critical').length*35
+        -issues.filter(i=>i.level==='warn').length*15
+        -issues.filter(i=>i.level==='info').length*5);
+      return{q,issues,score};
+    });
+
+    document.getElementById('progressFill').style.width='100%';
+    setTimeout(()=>{document.getElementById('progressBar').style.display='none';},500);
+    renderStats();
+    applyFilter();
+    setStatus(`✅ Scanned ${qs.length} questions`);
+  }catch(e){
+    setStatus('❌ Error: '+e.message);
+    document.getElementById('progressBar').style.display='none';
+  }
+};
+
+function renderStats(){
+  const critical=allResults.filter(r=>r.issues.some(i=>i.level==='critical')).length;
+  const wrongAns=allResults.filter(r=>r.issues.some(i=>i.id==='wrong_answer')).length;
+  const noSol=allResults.filter(r=>r.issues.some(i=>i.id==='no_solution')).length;
+  const ai=allResults.filter(r=>r.issues.some(i=>i.id==='ai_phrase')).length;
+  const good=allResults.filter(r=>r.issues.length===0).length;
+  document.getElementById('sTotal').textContent=allResults.length;
+  document.getElementById('sCritical').textContent=critical;
+  document.getElementById('sWrongAns').textContent=wrongAns;
+  document.getElementById('sNoSol').textContent=noSol;
+  document.getElementById('sAI').textContent=ai;
+  document.getElementById('sGood').textContent=good;
+  document.getElementById('statsRow').style.display='grid';
+}
+
+window.applyFilter=()=>{
+  const f=document.getElementById('fIssue').value;
+  let filtered=allResults;
+  if(f==='critical') filtered=allResults.filter(r=>r.issues.some(i=>i.level==='critical'));
+  else if(f==='wrong_answer') filtered=allResults.filter(r=>r.issues.some(i=>i.id==='wrong_answer'));
+  else if(f==='no_solution') filtered=allResults.filter(r=>r.issues.some(i=>i.id==='no_solution'));
+  else if(f==='ai_phrase') filtered=allResults.filter(r=>r.issues.some(i=>i.id==='ai_phrase'));
+  else if(f==='good') filtered=allResults.filter(r=>r.issues.length===0);
+  renderTable(filtered);
+};
+
+window.filterByIssue=(type)=>{
+  document.getElementById('fIssue').value=type;
+  applyFilter();
+};
+
+function renderTable(results){
+  if(!results.length){
+    document.getElementById('tableWrap').style.display='none';
+    document.getElementById('emptyState').style.display='block';
+    document.getElementById('emptyState').querySelector('h3').textContent='No questions match this filter';
+    return;
+  }
+  document.getElementById('tableWrap').style.display='block';
+  document.getElementById('emptyState').style.display='none';
+  document.getElementById('tableBody').innerHTML=results.map(({q,issues,score})=>{
+    const sc=score>=80?'var(--green)':score>=50?'var(--yellow)':'var(--red)';
+    const issHtml=issues.length===0
+      ?'<span class="issue-tag" style="background:#00C47A22;color:var(--green);">✅ Clean</span>'
+      :issues.slice(0,3).map(i=>`<span class="issue-tag issue-${i.level}">${i.level==='critical'?'🔴':i.level==='warn'?'🟡':'🔵'} ${i.label}</span>`).join('')
+        +(issues.length>3?`<span class="issue-tag" style="background:#33435022;color:var(--muted);">+${issues.length-3} more</span>`:'');
+    const qText=(q.text||'').replace(/\|\|.*$/,'').substring(0,70)+((q.text||'').length>70?'…':'');
+    const editUrl=`admin.html?edit=${q.id}`;
+    return`<div class="table-row">
+      <div class="q-num">Q${q.qNum||'?'}<br><span style="color:#334155;font-size:0.68rem;">${q.exam||''} ${q.year||''}</span></div>
+      <div class="q-text" title="${(q.text||'').replace(/"/g,"'")}">${qText}</div>
+      <div class="ans-badge">${q.correct||'—'}</div>
+      <div class="issues-cell">${issHtml}</div>
+      <div class="score-num" style="color:${sc};">${score}</div>
+      <div><a class="fix-btn" href="${editUrl}" target="_blank">✏️ Fix</a></div>
+    </div>`;
+  }).join('');
+  document.getElementById('tableCount').textContent=`Showing ${results.length} of ${allResults.length} questions`;
+}
+
+// ── Answer Key from image ──
+window.loadAnswerKey=async(input)=>{
+  const file=input.files[0];if(!file)return;
+  setStatus('⏳ Reading answer key with AI...');
+  const reader=new FileReader();
+  reader.onload=async e=>{
+    const base64=e.target.result.split(',')[1];
+    document.getElementById('akPreview').src=e.target.result;
+    document.getElementById('akCard').classList.add('visible');
+    document.getElementById('akStatus').textContent='⏳ AI reading...';
+    try{
+      const resp=await fetch('https://trickyssc-ai.nirala01.workers.dev/',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({model:'claude-opus-4-5',messages:[{role:'user',content:[
+          {type:'image',source:{type:'base64',media_type:file.type||'image/jpeg',data:base64}},
+          {type:'text',text:'This is an SSC exam official answer key image. Extract every question number and its correct answer option. Return ONLY in this exact format with one per line: Q1=A\nQ2=B\nQ3=C\nUse only A B C D. If answer shown as 1 2 3 4 convert: 1=A 2=B 3=C 4=D. Extract ALL questions shown.'}
+        ]}]})
+      });
+      const data=await resp.json();
+      const txt=data.content?.[0]?.text||'';
+      document.getElementById('akText').value=txt;
+      parseAK(txt);
+      document.getElementById('akStatus').textContent=`✅ ${Object.keys(answerKey).length} answers extracted`;
+      setStatus('✅ Answer key loaded');
+    }catch(e){
+      document.getElementById('akStatus').textContent='❌ Failed: '+e.message;
+      setStatus('❌ AI read failed');
+    }
+  };
+  reader.readAsDataURL(file);
+};
+
+function parseAK(txt){
+  answerKey={};
+  const matches=[...txt.matchAll(/Q?(\d+)\s*[=:]\s*([ABCD])/gi)];
+  matches.forEach(m=>answerKey[parseInt(m[1])]=m[2].toUpperCase());
+}
+
+window.compareAnswers=()=>{
+  parseAK(document.getElementById('akText').value);
+  if(allResults.length>0){
+    // Re-run issue check with new answer key
+    allResults=allResults.map(({q,issues,score})=>{
+      const filtered=issues.filter(i=>i.id!=='wrong_answer');
+      if(Object.keys(answerKey).length>0&&q.qNum){
+        const exp=answerKey[parseInt(q.qNum)];
+        if(exp&&exp!==q.correct?.toUpperCase()){
+          filtered.unshift({id:'wrong_answer',level:'critical',label:`Key says ${exp}, stored ${q.correct||'?'}`});
+        }
+      }
+      const newScore=Math.max(0,100-filtered.filter(i=>i.level==='critical').length*35-filtered.filter(i=>i.level==='warn').length*15-filtered.filter(i=>i.level==='info').length*5);
+      return{q,issues:filtered,score:newScore};
+    });
+    renderStats();
+    applyFilter();
+    document.getElementById('akStatus').textContent=`✅ Compared — ${allResults.filter(r=>r.issues.some(i=>i.id==='wrong_answer')).length} mismatches found`;
+  } else {
+    runScan();
+  }
+};
+
+// ── Export ──
+window.exportReport=()=>{
+  if(!allResults.length){alert('Run scan first');return;}
+  const rows=[['qNum','exam','year','type','subject','stored_answer','issues','score','question_preview']];
+  allResults.forEach(({q,issues,score})=>{
+    rows.push([q.qNum||'',q.exam||'',q.year||'',q.type||'',q.subject||'',q.correct||'',issues.map(i=>i.label).join('; '),score,(q.text||'').substring(0,100).replace(/,/g,' ')]);
+  });
+  const csv=rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(csv);
+  a.download='QC_Report_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+};
+
+// ── Question Paper cross-check ──
+let paperQuestions = {};
+
+window.loadQuestionPaper=async(input)=>{
+  const file=input.files[0];if(!file)return;
+  setStatus('⏳ Reading question paper with AI...');
+  const reader=new FileReader();
+  reader.onload=async e=>{
+    const base64=e.target.result.split(',')[1];
+    try{
+      const resp=await fetch('https://trickyssc-ai.nirala01.workers.dev/',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({model:'claude-opus-4-5',max_tokens:4000,messages:[{role:'user',content:[
+          {type:'image',source:{type:'base64',media_type:file.type||'image/jpeg',data:base64}},
+          {type:'text',text:'Extract ALL questions from this SSC exam paper. Return ONLY a JSON array: [{"qNum":1,"text":"full question","options":{"A":"opt a","B":"opt b","C":"opt c","D":"opt d"}},...]'}
+        ]}]})
+      });
+      const data=await resp.json();
+      const txt=data.content?.[0]?.text||'';
+      const match=txt.match(/\[[\s\S]*\]/);
+      if(match){
+        const qs=JSON.parse(match[0]);
+        paperQuestions={};
+        qs.forEach(q=>{if(q.qNum)paperQuestions[parseInt(q.qNum)]=q;});
+        const count=Object.keys(paperQuestions).length;
+        setStatus('✅ Read '+count+' questions from paper');
+        showPaperCard(count);
+        if(allResults.length>0) crossCheckPaper();
+      } else {
+        setStatus('⚠️ Could not parse — try clearer image');
+      }
+    }catch(e){setStatus('❌ Failed: '+e.message);}
+  };
+  reader.readAsDataURL(file);
+};
+
+function showPaperCard(count){
+  let card=document.getElementById('paperCard');
+  if(!card){
+    card=document.createElement('div');
+    card.id='paperCard';
+    card.style.cssText='background:var(--surface);border:1px solid #4E8EFF44;border-radius:14px;padding:1rem 1.5rem;margin-bottom:1.25rem;';
+    card.innerHTML='<div style="font-family:Rajdhani,sans-serif;font-weight:700;color:#4E8EFF;margin-bottom:0.5rem;">📄 Paper Loaded — <span id=\"paperCount\">'+count+'</span> questions read</div>'
+      +'<div style="font-size:0.82rem;color:var(--muted);margin-bottom:0.75rem;">Cross-check will compare stored questions vs paper text and options.</div>'
+      +'<button class="btn btn-primary" onclick="crossCheckPaper()" style="padding:0.4rem 1rem;font-size:0.85rem;">🔄 Cross-Check Now</button>'
+      +' <span id="paperStatus" style="font-size:0.8rem;color:var(--muted);margin-left:0.5rem;"></span>';
+    const stats=document.getElementById('statsRow');
+    stats.parentNode.insertBefore(card,stats);
+  } else {
+    const el=document.getElementById('paperCount');
+    if(el) el.textContent=count;
+  }
+}
+
+window.crossCheckPaper=()=>{
+  if(!Object.keys(paperQuestions).length){alert('Upload question paper first');return;}
+  if(!allResults.length){alert('Run scan first');return;}
+  let qMismatch=0, optMismatch=0;
+  allResults=allResults.map(({q,issues,score})=>{
+    const filtered=issues.filter(i=>!['diff_question','wrong_option'].includes(i.id));
+    const pq=paperQuestions[parseInt(q.qNum)];
+    if(pq){
+      const stored=(q.text||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+      const paper=(pq.text||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+      const sim=strSim(stored,paper);
+      if(sim<0.45&&stored.length>20&&paper.length>20){
+        filtered.unshift({id:'diff_question',level:'critical',
+          label:'Different question? Paper: "'+pq.text.substring(0,45)+'..."'});
+        qMismatch++;
+      } else {
+        ['A','B','C','D'].forEach(l=>{
+          const so=(q.options?.[l]||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+          const po=(pq.options?.[l]||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+          if(so.length>3&&po.length>3&&strSim(so,po)<0.4){
+            filtered.push({id:'wrong_option',level:'warn',
+              label:'Opt '+l+' mismatch: stored "'+((q.options?.[l]||'').substring(0,20))+'" vs paper "'+((pq.options?.[l]||'').substring(0,20))+'"'});
+            optMismatch++;
+          }
+        });
+      }
+    }
+    const ns=Math.max(0,100-filtered.filter(i=>i.level==='critical').length*35-filtered.filter(i=>i.level==='warn').length*15-filtered.filter(i=>i.level==='info').length*5);
+    return{q,issues:filtered,score:ns};
+  });
+  const ps=document.getElementById('paperStatus');
+  if(ps) ps.textContent=qMismatch+' question mismatches, '+optMismatch+' option mismatches found';
+  renderStats();applyFilter();
+};
+
+function strSim(a,b){
+  if(!a||!b)return 0;
+  const bg=s=>{const t=new Set();for(let i=0;i<s.length-1;i++)t.add(s[i]+s[i+1]);return t;};
+  const ba=bg(a),bb=bg(b);let n=0;
+  ba.forEach(g=>{if(bb.has(g))n++;});
+  return n/(ba.size+bb.size-n||1);
+}
+
+function setStatus(msg){document.getElementById('statusMsg').textContent=msg;}
+
+// Enter key on password
+document.getElementById('adminPass').addEventListener('keydown',e=>{if(e.key==='Enter')checkAuth();});
+</script>
+</body>
+</html>

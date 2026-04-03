@@ -126,6 +126,7 @@ textarea{resize:vertical;min-height:80px;}
       <a href="admin-mock.html" style="background:rgba(255,255,255,0.15);color:#fff;padding:0.3rem 0.85rem;border-radius:100px;font-size:0.75rem;font-weight:600;text-decoration:none;">🧪 Mocks</a>
       <a href="admin-chapterwise.html" style="background:rgba(255,255,255,0.15);color:#fff;padding:0.3rem 0.85rem;border-radius:100px;font-size:0.75rem;font-weight:600;text-decoration:none;">📚 Chapterwise</a>
       <a href="admin-sectionwise.html" style="background:rgba(255,255,255,0.15);color:#fff;padding:0.3rem 0.85rem;border-radius:100px;font-size:0.75rem;font-weight:600;text-decoration:none;">📑 Sectionwise</a>
+      <a href="quality-check.html" style="background:rgba(0,196,122,0.25);color:#00C47A;padding:0.3rem 0.85rem;border-radius:100px;font-size:0.75rem;font-weight:600;text-decoration:none;">✅ Quality Check</a>
     </div>
     <span class="badge" id="adminName">Loading...</span>
     <button class="btn btn-secondary" onclick="logout()" style="padding:0.4rem 0.9rem;font-size:0.8rem;">Logout</button>
@@ -163,6 +164,7 @@ textarea{resize:vertical;min-height:80px;}
     <button class="tab" onclick="switchTab('users')">👥 Users</button>
     <button class="tab" onclick="switchTab('import')">📥 Import CSV</button>
     <button class="tab" onclick="switchTab('export')">📤 Export CSV</button>
+    <button class="tab" onclick="switchTab('qc')">✅ Quality Check</button>
   </div>
 
   <!-- TAB: Add Questions Manually -->
@@ -1772,10 +1774,40 @@ function parseCSVLine(line) {
   return result;
 }
 
+// Parse full CSV text handling multi-line quoted cells
+function parseCSVFull(text) {
+  const rows = [];
+  let cur = '';
+  let inQ = false;
+  // Normalize line endings
+  text = text.replace(/
+/g, '
+').replace(/
+/g, '
+');
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === '"') {
+      if (inQ && text[i+1] === '"') { cur += '"'; i++; }
+      else { inQ = !inQ; }
+    } else if (ch === '
+' && !inQ) {
+      if (cur.trim() || rows.length > 0) rows.push(parseCSVLine(cur));
+      cur = '';
+    } else {
+      cur += ch;
+    }
+  }
+  if (cur.trim()) rows.push(parseCSVLine(cur));
+  return rows;
+}
+
 function parseAndPreviewCSV(text, filename) {
-  const lines = text.replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n').filter(l => l.trim());
-  if (lines.length < 2) { showToast('CSV must have header + at least 1 row','error'); return; }
-  const headers = parseCSVLine(lines[0]).map(h => h.trim().replace(/^\uFEFF/,''));
+  // Use full CSV parser that handles multi-line cells
+  const allRows = parseCSVFull(text.replace(/^\uFEFF/,''));
+  if (allRows.length < 2) { showToast('CSV must have header + at least 1 row','error'); return; }
+  const lines = null; // not used anymore
+  const headers = allRows[0].map(h => h.trim().replace(/^\uFEFF/,''));
   const required = ['text','option_A','option_B','option_C','option_D','correct','exam','subject'];
   const missing = required.filter(r => !headers.includes(r));
   const validEl = document.getElementById('csvValidation');
@@ -1784,11 +1816,11 @@ function parseAndPreviewCSV(text, filename) {
   } else {
     validEl.innerHTML = `<div style="background:#00A86B22;border:1px solid #00A86B44;border-radius:8px;padding:0.75rem;color:#00A86B;font-size:0.85rem;">✅ All required columns found. Ready to import.</div>`;
   }
-  csvParsedRows = lines.slice(1).map(l => {
-    const vals = parseCSVLine(l); const obj = {};
-    headers.forEach((h,i) => obj[h] = vals[i] || '');
+  csvParsedRows = allRows.slice(1).map(vals => {
+    const obj = {};
+    headers.forEach((h,i) => obj[h] = (vals[i] || '').trim());
     return obj;
-  });
+  }).filter(obj => obj.text || obj.qNum); // skip empty rows
   document.getElementById('csvFileName').textContent = '📄 ' + filename;
   document.getElementById('csvRowCount').textContent = csvParsedRows.length + ' rows';
   const visH = ['text','option_A','option_B','option_C','option_D','correct','exam','subject','chapter','difficulty'].filter(h => headers.includes(h));
@@ -2002,6 +2034,7 @@ window.switchTab = (tab) => {
   if (tab === 'users') loadUsers();
   if (tab === 'export') updateExportTiersAndSubjects();
   if (tab === 'import') { /* ready */ }
+  if (tab === 'qc') { document.getElementById('qcEmpty').style.display='block'; document.getElementById('qcResults').style.display='none'; }
 };
 
 // ── Edit Modal ──
@@ -2529,6 +2562,189 @@ function setRichEditorContent(id, text) {
   el.innerHTML = html;
   syncRichEditor(id);
 }
+
+// ── Quality Check Module ──
+const QC_AI_PHRASES = [
+  'as we can see','as we know','it is worth noting','it should be noted',
+  'therefore we can conclude','in conclusion','let us','we need to',
+  'certainly','indeed','moreover','furthermore','thus we get',
+  'it is clear that','obviously','clearly','as mentioned',
+  'step by step solution','let me explain','i hope','please note'
+];
+
+const QC_RULES = [
+  { id:'no_answer',    level:'critical', label:'Missing answer',       check: q => !q.correct },
+  { id:'no_text',      level:'critical', label:'Empty question text',  check: q => !q.text || q.text.trim().length < 5 },
+  { id:'dup_options',  level:'critical', label:'Duplicate options',    check: q => {
+    const opts = [q.options?.A,q.options?.B,q.options?.C,q.options?.D].filter(Boolean).map(o=>o.trim().toLowerCase());
+    return new Set(opts).size < opts.length;
+  }},
+  { id:'cut_text',     level:'critical', label:'Question cut off',     check: q => /\.\.\.$|—$/.test((q.text||'').trim()) },
+  { id:'no_solution',  level:'warn',     label:'No solution',          check: q => !q.explanation || q.explanation.trim().length < 10 },
+  { id:'short_sol',    level:'warn',     label:'Very short solution',  check: q => q.explanation && q.explanation.trim().length < 40 },
+  { id:'ai_phrase',    level:'warn',     label:'AI-sounding solution', check: q => {
+    const txt = ((q.explanation||'')+(q.trick||'')).toLowerCase();
+    return QC_AI_PHRASES.some(p => txt.includes(p));
+  }},
+  { id:'latex',        level:'warn',     label:'LaTeX $ signs in solution', check: q => /\$[^$]+\$/.test(q.explanation||'') },
+  { id:'no_trick',     level:'info',     label:'No trick/shortcut',    check: q => !q.trick || q.trick.trim().length < 5 },
+  { id:'missing_opt',  level:'critical', label:'Missing option text',  check: q => ['A','B','C','D'].some(l => !q.options?.[l] || q.options[l].trim().length === 0) },
+];
+
+let qcQuestions = [];
+let qcAnswerKey = {}; // {qNum: correctAnswer}
+
+window.runQC = async () => {
+  const exam = document.getElementById('qcExam').value;
+  const year = document.getElementById('qcYear').value;
+  const type = document.getElementById('qcType').value;
+  const status = document.getElementById('qcStatus');
+  status.textContent = '⏳ Loading questions...';
+  document.getElementById('qcEmpty').style.display = 'none';
+  document.getElementById('qcResults').style.display = 'none';
+
+  try {
+    let q = query(collection(db, 'questions'));
+    if(exam) q = query(q, where('exam','==',exam));
+    if(year) q = query(q, where('year','==',year));
+    if(type) q = query(q, where('type','==',type));
+
+    const snap = await getDocs(q);
+    qcQuestions = [];
+    snap.forEach(d => qcQuestions.push({id:d.id,...d.data()}));
+    status.textContent = `⏳ Scanning ${qcQuestions.length} questions...`;
+
+    // Run checks
+    const results = qcQuestions.map(q => {
+      const issues = QC_RULES.filter(r => r.check(q)).map(r => ({...r}));
+      // Check against loaded answer key
+      if(Object.keys(qcAnswerKey).length > 0 && q.qNum) {
+        const expected = qcAnswerKey[parseInt(q.qNum)];
+        if(expected && expected !== q.correct) {
+          issues.push({id:'wrong_answer', level:'critical', label:`Answer should be ${expected} (key says)`});
+        }
+      }
+      const score = Math.max(0, 100 - issues.filter(i=>i.level==='critical').length*40 - issues.filter(i=>i.level==='warn').length*15 - issues.filter(i=>i.level==='info').length*5);
+      return {q, issues, score};
+    });
+
+    renderQCResults(results);
+    status.textContent = `✅ Scanned ${qcQuestions.length} questions`;
+  } catch(e) {
+    status.textContent = '❌ Error: ' + e.message;
+  }
+};
+
+function renderQCResults(results) {
+  const filter = document.getElementById('qcFilter').value;
+  let filtered = results;
+  if(filter === 'critical') filtered = results.filter(r => r.issues.some(i=>i.level==='critical'));
+  else if(filter === 'answer') filtered = results.filter(r => r.issues.some(i=>i.id==='wrong_answer'));
+  else if(filter === 'solution') filtered = results.filter(r => r.issues.some(i=>['no_solution','short_sol'].includes(i.id)));
+  else if(filter === 'ai') filtered = results.filter(r => r.issues.some(i=>i.id==='ai_phrase'));
+  else if(filter === 'good') filtered = results.filter(r => r.issues.length === 0);
+
+  const critical = results.filter(r=>r.issues.some(i=>i.level==='critical')).length;
+  const warn = results.filter(r=>r.issues.some(i=>i.level==='warn') && !r.issues.some(i=>i.level==='critical')).length;
+  const good = results.filter(r=>r.issues.length===0).length;
+  const noSol = results.filter(r=>r.issues.some(i=>i.id==='no_solution')).length;
+
+  document.getElementById('qcTotalCount').textContent = results.length;
+  document.getElementById('qcCriticalCount').textContent = critical;
+  document.getElementById('qcWarnCount').textContent = warn;
+  document.getElementById('qcGoodCount').textContent = good;
+  document.getElementById('qcNoSolCount').textContent = noSol;
+  document.getElementById('qcStats').style.display = 'grid';
+  document.getElementById('qcResults').style.display = 'block';
+  document.getElementById('qcEmpty').style.display = 'none';
+
+  const tbody = document.getElementById('qcTableBody');
+  tbody.innerHTML = filtered.map(({q, issues, score}) => {
+    const scoreColor = score>=80?'#00A86B':score>=50?'#F59E0B':'#EF4444';
+    const issueHtml = issues.length === 0
+      ? '<span style="color:#00A86B;font-size:0.78rem;">✅ No issues</span>'
+      : issues.map(i => {
+          const c = i.level==='critical'?'#EF4444':i.level==='warn'?'#F59E0B':'#64748B';
+          const icon = i.level==='critical'?'🔴':i.level==='warn'?'🟡':'🔵';
+          return `<span style="display:inline-block;background:${c}22;color:${c};border-radius:4px;padding:1px 6px;font-size:0.72rem;margin:1px;">${icon} ${i.label}</span>`;
+        }).join('');
+    const qText = (q.text||'').substring(0,60) + ((q.text||'').length>60?'...':'');
+    const exam = q.exam||'';
+    const yr = q.year||'';
+    return `<tr style="border-top:1px solid #1E293B;" onmouseover="this.style.background='#0F172A'" onmouseout="this.style.background='transparent'">
+      <td style="padding:0.6rem 0.75rem;color:#64748B;font-family:monospace;white-space:nowrap;">Q${q.qNum||'?'}<br><span style="font-size:0.7rem;color:#334155;">${exam} ${yr}</span></td>
+      <td style="padding:0.6rem 0.75rem;color:#E2E8F0;max-width:280px;">${qText}</td>
+      <td style="padding:0.6rem 0.75rem;text-align:center;"><span style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1rem;color:#FF6B00;">${q.correct||'—'}</span></td>
+      <td style="padding:0.6rem 0.75rem;">${issueHtml}</td>
+      <td style="padding:0.6rem 0.75rem;text-align:center;"><span style="font-family:'Rajdhani',sans-serif;font-weight:700;color:${scoreColor};">${score}</span></td>
+      <td style="padding:0.6rem 0.75rem;text-align:center;"><button onclick="openEdit('${q.id}')" style="background:#FF6B00;color:#fff;border:none;border-radius:6px;padding:0.3rem 0.75rem;cursor:pointer;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.78rem;">✏️ Fix</button></td>
+    </tr>`;
+  }).join('');
+  document.getElementById('qcTableCount').textContent = `Showing ${filtered.length} of ${results.length} questions`;
+  window._qcAllResults = results;
+}
+
+// Answer key from image
+window.loadAnswerKey = async (input) => {
+  const file = input.files[0]; if(!file) return;
+  const status = document.getElementById('qcStatus');
+  status.textContent = '⏳ Reading answer key with AI...';
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    const base64 = e.target.result.split(',')[1];
+    const mediaType = file.type || 'image/jpeg';
+    document.getElementById('qcAKPreview').src = e.target.result;
+    document.getElementById('qcAKSection').style.display = 'block';
+    try {
+      const resp = await fetch('https://trickyssc-ai.nirala01.workers.dev/', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          model:'claude-opus-4-5',
+          messages:[{role:'user',content:[
+            {type:'image',source:{type:'base64',media_type:mediaType,data:base64}},
+            {type:'text',text:'This is an SSC exam answer key. Extract all question numbers and their correct answers. Return ONLY in this format, one per line: Q1=A Q2=B Q3=D ... Use letters A B C D only. If you see numbers 1 2 3 4 convert them to A B C D respectively.'}
+          ]}]
+        })
+      });
+      const data = await resp.json();
+      const txt = data.content?.[0]?.text || '';
+      document.getElementById('qcAKText').value = txt;
+      // Parse into object
+      parseAnswerKeyText(txt);
+      status.textContent = '✅ Answer key loaded — click Compare to check';
+    } catch(e) {
+      status.textContent = '❌ AI read failed: ' + e.message;
+    }
+  };
+  reader.readAsDataURL(file);
+};
+
+function parseAnswerKeyText(txt) {
+  qcAnswerKey = {};
+  const matches = txt.matchAll(/Q?(\d+)\s*[=:]\s*([ABCD])/gi);
+  for(const m of matches) qcAnswerKey[parseInt(m[1])] = m[2].toUpperCase();
+  console.log('[QC] Parsed answer key:', Object.keys(qcAnswerKey).length, 'answers');
+}
+
+window.compareAnswerKey = () => {
+  parseAnswerKeyText(document.getElementById('qcAKText').value);
+  if(window._qcAllResults) renderQCResults(window._qcAllResults);
+  else runQC();
+};
+
+window.exportQCReport = () => {
+  if(!window._qcAllResults) { alert('Run scan first'); return; }
+  const rows = [['qNum','exam','year','correct','issues','score','questionText']];
+  window._qcAllResults.forEach(({q,issues,score}) => {
+    rows.push([q.qNum||'',q.exam||'',q.year||'',q.correct||'',issues.map(i=>i.label).join('; '),score,(q.text||'').substring(0,100)]);
+  });
+  const csv = rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('
+');
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download='QC_Report_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+};
 
 // ── Rich Editor: sync innerHTML to hidden input for saving ──
 window.syncRichEditor = function(id) {
