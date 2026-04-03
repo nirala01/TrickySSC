@@ -1111,7 +1111,7 @@ Step 2: ...","trick":"Short trick","concept":"Concept used"}' style="width:100%;
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
-import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, query, where, orderBy, limit, getCountFromServer } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, setDoc, query, where, orderBy, limit, getCountFromServer } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-storage.js";
 
 const firebaseConfig = {
@@ -1924,6 +1924,43 @@ window.importCSV = async () => {
   showToast(`✅ ${saved} questions imported!`, 'success');
   document.getElementById('csvImportBtn').disabled = false;
   loadStats();
+
+  // ── Auto-create papers doc so PYQ page shows this paper ──
+  if (saved > 0) {
+    try {
+      const pExam  = ovExam  || csvParsedRows[0]?.exam     || '';
+      const pTier  = ovTier  || csvParsedRows[0]?.tier     || 'tier1';
+      const pYear  = ovYear  || csvParsedRows[0]?.year     || '';
+      const pShift = ovShift || csvParsedRows[0]?.shift    || '';
+      const pLang  = ovLang  || csvParsedRows[0]?.language || 'en';
+      let   pHeldOn = csvParsedRows[0]?.heldOn || '';
+      if (ovHeldOnType === 'none') pHeldOn = '';
+      else if (ovHeldOnType === 'date') pHeldOn = ovHeldOnDate;
+
+      if (pExam && pYear) {
+        // Stable unique paperId from key fields
+        const paperId = [pExam, pYear, pTier, pShift, pLang]
+          .map(s => String(s).toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,''))
+          .filter(Boolean).join('-');
+
+        await setDoc(doc(db, 'papers', paperId), {
+          paperId,
+          exam: pExam,
+          year: pYear,
+          tier: pTier,
+          shift: pShift,
+          language: pLang,
+          heldOn: pHeldOn,
+          questionCount: saved,
+          createdAt: new Date()
+        });
+        status.textContent += ` 📄 Paper card created (${paperId}).`;
+      }
+    } catch(pe) {
+      console.error('papers doc error:', pe);
+      status.textContent += ' ⚠️ Questions saved but paper card failed: ' + pe.message;
+    }
+  }
 };
 
 
