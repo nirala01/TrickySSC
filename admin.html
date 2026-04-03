@@ -1111,7 +1111,7 @@ Step 2: ...","trick":"Short trick","concept":"Concept used"}' style="width:100%;
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
-import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, query, where, orderBy, limit, getCountFromServer } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, setDoc, query, where, orderBy, limit, getCountFromServer } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-storage.js";
 
 const firebaseConfig = {
@@ -1940,6 +1940,40 @@ window.importCSV = async () => {
   showToast(`✅ ${saved} questions imported!`, 'success');
   document.getElementById('csvImportBtn').disabled = false;
   loadStats();
+
+  // ── Auto-create / update the paper document in `papers` collection ──
+  if (saved > 0) {
+    try {
+      const _exam   = ovExam  || csvParsedRows[0]?.exam  || '';
+      const _tier   = ovTier  || csvParsedRows[0]?.tier  || 'tier1';
+      const _year   = ovYear  || csvParsedRows[0]?.year  || '';
+      const _shift  = ovShift || csvParsedRows[0]?.shift || '';
+      const _lang   = ovLang  || csvParsedRows[0]?.language || 'en';
+      let   _heldOn = csvParsedRows[0]?.heldOn || '';
+      if (ovHeldOnType === 'none') _heldOn = '';
+      else if (ovHeldOnType === 'date') _heldOn = ovHeldOnDate;
+
+      if (_exam && _year) {
+        const _paperId = [_exam, _year, _tier, _shift.replace(/\s+/g,'-'), _heldOn, _lang]
+                          .filter(Boolean).join('_').toLowerCase().replace(/\s+/g,'-');
+        await setDoc(doc(db, 'papers', _paperId), {
+          paperId:       _paperId,
+          exam:          _exam,
+          tier:          _tier,
+          year:          _year,
+          shift:         _shift,
+          heldOn:        _heldOn,
+          language:      _lang,
+          questionCount: saved,
+          updatedAt:     new Date()
+        }, { merge: true });
+        showToast('\u2705 Paper card created/updated in database!', 'success');
+      }
+    } catch(pe) {
+      console.error('Failed to create paper doc:', pe);
+      showToast('\u26a0\ufe0f Questions imported but paper card failed — check console', 'error');
+    }
+  }
 };
 
 
