@@ -1780,18 +1780,13 @@ function parseCSVFull(text) {
   let cur = '';
   let inQ = false;
   // Normalize line endings
-  text = text.replace(/
-/g, '
-').replace(/
-/g, '
-');
+  text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
   for (let i = 0; i < text.length; i++) {
     const ch = text[i];
     if (ch === '"') {
       if (inQ && text[i+1] === '"') { cur += '"'; i++; }
       else { inQ = !inQ; }
-    } else if (ch === '
-' && !inQ) {
+    } else if (ch === '\n' && !inQ) {
       if (cur.trim() || rows.length > 0) rows.push(parseCSVLine(cur));
       cur = '';
     } else {
