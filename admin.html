@@ -1111,7 +1111,7 @@ Step 2: ...","trick":"Short trick","concept":"Concept used"}' style="width:100%;
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
-import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, setDoc, query, where, orderBy, limit, getCountFromServer } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, query, where, orderBy, limit, getCountFromServer } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-storage.js";
 
 const firebaseConfig = {
@@ -1710,10 +1710,26 @@ window.bulkDelete = async () => {
     document.getElementById('delStatus').textContent = `Deleted ${deleted}/${total} questions...`;
   }
 
+  // Also delete the paper document from papers collection
+  try {
+    const papersSnap = await getDocs(query(collection(db,'papers'), where('exam','==',exam)));
+    for (const pd of papersSnap.docs) {
+      const pData = pd.data();
+      const matchYear  = !year  || pData.year  === year;
+      const matchTier  = !tier  || pData.tier  === tier;
+      const matchShift = !shift || pData.shift === shift;
+      const matchLang  = !lang  || pData.language === lang;
+      const matchDate  = heldOnType !== 'date' || !heldOnDate || pData.heldOn === heldOnDate;
+      if (matchYear && matchTier && matchShift && matchLang && matchDate) {
+        await deleteDoc(doc(db,'papers',pd.id));
+      }
+    }
+  } catch(e) { console.warn('Paper doc delete failed:', e.message); }
+
   document.getElementById('delStatus').textContent = `✅ Done! Deleted ${deleted} questions.`;
   document.getElementById('delPreview').style.display = 'none';
   btn.style.display = 'none';
-  showToast(`✅ Deleted ${deleted} questions!`, 'success');
+  showToast(`✅ Deleted ${deleted} questions + paper entry!`, 'success');
   loadStats();
   loadQuestions();
 };
@@ -1904,13 +1920,8 @@ window.importCSV = async () => {
     else if (ovHeldOnType === 'date') heldOn = ovHeldOnDate;
     if (!r.text || !r.correct || !exam) { errors++; continue; }
     try {
-      // Build stable paperId — same formula as papers doc
-      const _pid = [exam, year, tier, shift, language]
-        .map(s => String(s||'').toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,''))
-        .filter(Boolean).join('-');
       await addDoc(collection(db, 'questions'), {
         text: r.text, exam, tier, year, shift, language, heldOn,
-        paperId: _pid,
         type: r.type || 'pyq',
         subject: r.subject || '', chapter: r.chapter || '',
         difficulty: r.difficulty || 'medium', qNum: parseInt(r.qNum) || 0,
@@ -1929,38 +1940,6 @@ window.importCSV = async () => {
   showToast(`✅ ${saved} questions imported!`, 'success');
   document.getElementById('csvImportBtn').disabled = false;
   loadStats();
-
-  // ── Auto-create papers doc so PYQ page shows this paper ──
-  if (saved > 0) {
-    try {
-      const pExam  = ovExam  || csvParsedRows[0]?.exam     || '';
-      const pTier  = ovTier  || csvParsedRows[0]?.tier     || 'tier1';
-      const pYear  = ovYear  || csvParsedRows[0]?.year     || '';
-      const pShift = ovShift || csvParsedRows[0]?.shift    || '';
-      const pLang  = ovLang  || csvParsedRows[0]?.language || 'en';
-      let   pHeldOn = csvParsedRows[0]?.heldOn || '';
-      if (ovHeldOnType === 'none') pHeldOn = '';
-      else if (ovHeldOnType === 'date') pHeldOn = ovHeldOnDate;
-
-      if (pExam && pYear) {
-        const paperId = [pExam, pYear, pTier, pShift, pLang]
-          .map(s => String(s||'').toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,''))
-          .filter(Boolean).join('-');
-
-        await setDoc(doc(db, 'papers', paperId), {
-          paperId,
-          exam: pExam, year: pYear, tier: pTier,
-          shift: pShift, language: pLang, heldOn: pHeldOn,
-          questionCount: saved,
-          createdAt: new Date()
-        });
-        status.textContent += ` 📄 Paper card created (${paperId}).`;
-      }
-    } catch(pe) {
-      console.error('papers doc error:', pe);
-      status.textContent += ' ⚠️ Questions saved but paper card failed: ' + pe.message;
-    }
-  }
 };
 
 
