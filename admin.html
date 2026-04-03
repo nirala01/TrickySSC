@@ -1904,8 +1904,13 @@ window.importCSV = async () => {
     else if (ovHeldOnType === 'date') heldOn = ovHeldOnDate;
     if (!r.text || !r.correct || !exam) { errors++; continue; }
     try {
+      // Build stable paperId — same formula as papers doc
+      const _pid = [exam, year, tier, shift, language]
+        .map(s => String(s||'').toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,''))
+        .filter(Boolean).join('-');
       await addDoc(collection(db, 'questions'), {
         text: r.text, exam, tier, year, shift, language, heldOn,
+        paperId: _pid,
         type: r.type || 'pyq',
         subject: r.subject || '', chapter: r.chapter || '',
         difficulty: r.difficulty || 'medium', qNum: parseInt(r.qNum) || 0,
@@ -1938,19 +1943,14 @@ window.importCSV = async () => {
       else if (ovHeldOnType === 'date') pHeldOn = ovHeldOnDate;
 
       if (pExam && pYear) {
-        // Stable unique paperId from key fields
         const paperId = [pExam, pYear, pTier, pShift, pLang]
-          .map(s => String(s).toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,''))
+          .map(s => String(s||'').toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,''))
           .filter(Boolean).join('-');
 
         await setDoc(doc(db, 'papers', paperId), {
           paperId,
-          exam: pExam,
-          year: pYear,
-          tier: pTier,
-          shift: pShift,
-          language: pLang,
-          heldOn: pHeldOn,
+          exam: pExam, year: pYear, tier: pTier,
+          shift: pShift, language: pLang, heldOn: pHeldOn,
           questionCount: saved,
           createdAt: new Date()
         });

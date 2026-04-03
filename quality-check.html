@@ -325,22 +325,58 @@ window.runScan=async()=>{
     let q=collection(db,'questions');
     const paperId=document.getElementById('fPaperId').value.trim();
     const constraints=[];
+    let qs=[];
+
     if(paperId){
-      // Fetch by exact paperId — most precise
-      constraints.push(where('paperId','==',paperId));
+      // Try paperId first
+      const snap1=await getDocs(query(q,where('paperId','==',paperId)));
+      snap1.forEach(d=>qs.push({id:d.id,...d.data()}));
+
+      // Fallback: if no paperId field on questions, parse paperId into components
+      // Format: exam-year-tier-shift-lang  e.g. ssc-cgl-2022-tier1-shift-3-en
+      if(qs.length===0){
+        setStatus('⏳ paperId field not found — falling back to component search...');
+        // Parse paperId string: last token = lang, second-last = shift tokens, find tier, year, exam
+        const parts = paperId.split('-');
+        const lang  = parts[parts.length-1];           // 'en' or 'hi'
+        // Find tier index (contains 'tier')
+        const tierIdx = parts.findIndex(p=>p==='tier1'||p==='tier2'||p.startsWith('tier'));
+        const tier    = tierIdx>=0 ? parts[tierIdx] : '';
+        // year is 4-digit number
+        const yearVal = parts.find(p=>/^\d{4}$/.test(p)) || '';
+        // shift: everything between tier and lang
+        const shiftParts = tierIdx>=0 ? parts.slice(tierIdx+1, parts.length-1) : [];
+        const shift = shiftParts.join('-');  // e.g. 'shift-3'
+        // exam: everything before year
+        const yearPartIdx = parts.findIndex(p=>/^\d{4}$/.test(p));
+        const examVal = yearPartIdx>0 ? parts.slice(0,yearPartIdx).join('-') : '';
+
+        const c2=[];
+        if(examVal) c2.push(where('exam','==',examVal));
+        if(yearVal) c2.push(where('year','==',yearVal));
+        if(tier)    c2.push(where('tier','==',tier));
+        if(lang)    c2.push(where('language','==',lang));
+
+        if(c2.length>0){
+          const snap2=await getDocs(query(q,...c2));
+          snap2.forEach(d=>qs.push({id:d.id,...d.data()}));
+          // Filter by shift client-side (shift has hyphens, hard to index)
+          if(shift) qs=qs.filter(d=>
+            (d.shift||'').toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'')===shift
+          );
+        }
+      }
     } else {
       if(exam) constraints.push(where('exam','==',exam));
       if(year) constraints.push(where('year','==',year));
       if(type) constraints.push(where('type','==',type));
       if(subject) constraints.push(where('subject','==',subject));
+      const snap=await getDocs(constraints.length?query(q,...constraints):q);
+      snap.forEach(d=>qs.push({id:d.id,...d.data()}));
     }
-    const snap=await getDocs(constraints.length?query(q,...constraints):q);
 
     document.getElementById('progressFill').style.width='50%';
-    setStatus(`⏳ Scanning ${snap.size} questions...`);
-
-    const qs=[];
-    snap.forEach(d=>qs.push({id:d.id,...d.data()}));
+    setStatus(`⏳ Scanning ${qs.length} questions...`);
 
     allResults=qs.sort((a,b)=>parseInt(a.qNum||0)-parseInt(b.qNum||0)).map(q=>{
       const issues=RULES.filter(r=>r.check(q)).map(r=>({...r}));
