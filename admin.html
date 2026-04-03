@@ -1111,7 +1111,7 @@ Step 2: ...","trick":"Short trick","concept":"Concept used"}' style="width:100%;
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
-import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, setDoc, query, where, orderBy, limit, getCountFromServer } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, query, where, orderBy, limit, getCountFromServer } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-storage.js";
 
 const firebaseConfig = {
@@ -1778,6 +1778,34 @@ window.handleCSVUpload = (event) => {
   reader.readAsText(file, 'UTF-8');
 };
 
+// Single-pass RFC-4180 CSV parser — handles quoted fields with commas and newlines
+function parseCSVFull(text) {
+  const rows = [];
+  text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  let row = [], cur = '', inQ = false, i = 0;
+  while (i < text.length) {
+    const ch = text[i];
+    if (inQ) {
+      if (ch === '"') {
+        if (text[i+1] === '"') { cur += '"'; i += 2; } // escaped quote
+        else { inQ = false; i++; }                        // closing quote
+      } else { cur += ch; i++; }
+    } else {
+      if (ch === '"') { inQ = true; i++; }
+      else if (ch === ',') { row.push(cur); cur = ''; i++; }
+      else if (ch === '\n') {
+        row.push(cur); cur = '';
+        if (row.some(c => c !== '') || rows.length > 0) rows.push(row);
+        row = []; i++;
+      } else { cur += ch; i++; }
+    }
+  }
+  row.push(cur);
+  if (row.some(c => c !== '') || rows.length > 0) rows.push(row);
+  return rows;
+}
+
+// Keep parseCSVLine as a no-op fallback (no longer used by parseCSVFull)
 function parseCSVLine(line) {
   const result = []; let cur = ''; let inQ = false;
   for (let i = 0; i < line.length; i++) {
@@ -1788,29 +1816,6 @@ function parseCSVLine(line) {
   }
   result.push(cur);
   return result;
-}
-
-// Parse full CSV text handling multi-line quoted cells
-function parseCSVFull(text) {
-  const rows = [];
-  let cur = '';
-  let inQ = false;
-  // Normalize line endings
-  text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i];
-    if (ch === '"') {
-      if (inQ && text[i+1] === '"') { cur += '"'; i++; }
-      else { inQ = !inQ; }
-    } else if (ch === '\n' && !inQ) {
-      if (cur.trim() || rows.length > 0) rows.push(parseCSVLine(cur));
-      cur = '';
-    } else {
-      cur += ch;
-    }
-  }
-  if (cur.trim()) rows.push(parseCSVLine(cur));
-  return rows;
 }
 
 function parseAndPreviewCSV(text, filename) {
@@ -1940,40 +1945,6 @@ window.importCSV = async () => {
   showToast(`✅ ${saved} questions imported!`, 'success');
   document.getElementById('csvImportBtn').disabled = false;
   loadStats();
-
-  // ── Auto-create / update the paper document in `papers` collection ──
-  if (saved > 0) {
-    try {
-      const _exam   = ovExam  || csvParsedRows[0]?.exam  || '';
-      const _tier   = ovTier  || csvParsedRows[0]?.tier  || 'tier1';
-      const _year   = ovYear  || csvParsedRows[0]?.year  || '';
-      const _shift  = ovShift || csvParsedRows[0]?.shift || '';
-      const _lang   = ovLang  || csvParsedRows[0]?.language || 'en';
-      let   _heldOn = csvParsedRows[0]?.heldOn || '';
-      if (ovHeldOnType === 'none') _heldOn = '';
-      else if (ovHeldOnType === 'date') _heldOn = ovHeldOnDate;
-
-      if (_exam && _year) {
-        const _paperId = [_exam, _year, _tier, _shift.replace(/\s+/g,'-'), _heldOn, _lang]
-                          .filter(Boolean).join('_').toLowerCase().replace(/\s+/g,'-');
-        await setDoc(doc(db, 'papers', _paperId), {
-          paperId:       _paperId,
-          exam:          _exam,
-          tier:          _tier,
-          year:          _year,
-          shift:         _shift,
-          heldOn:        _heldOn,
-          language:      _lang,
-          questionCount: saved,
-          updatedAt:     new Date()
-        }, { merge: true });
-        showToast('\u2705 Paper card created/updated in database!', 'success');
-      }
-    } catch(pe) {
-      console.error('Failed to create paper doc:', pe);
-      showToast('\u26a0\ufe0f Questions imported but paper card failed — check console', 'error');
-    }
-  }
 };
 
 
