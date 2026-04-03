@@ -127,7 +127,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 
   <!-- FILTERS -->
   <div class="filters-card">
-    <div class="filters-grid">
+    <div class="filters-grid" style="grid-template-columns:repeat(4,1fr);">
       <select class="filter-select" id="fExam">
         <option value="">All Exams</option>
         <option value="ssc-cgl">SSC CGL</option>
@@ -170,12 +170,19 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
         <option value="good">✅ Good (No Issues)</option>
       </select>
     </div>
+    <div style="display:flex;gap:0.75rem;margin-bottom:1rem;align-items:center;">
+      <div style="flex:1;position:relative;">
+        <input type="text" id="fPaperId" placeholder="🔑 Paper ID (e.g. ssc-cgl_2024_tier1_shift-1_2024-09-09_en)" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:0.55rem 0.85rem;color:var(--text);font-size:0.85rem;outline:none;box-sizing:border-box;" onfocus="this.style.borderColor='var(--orange)'" onblur="this.style.borderColor='var(--border)'" onkeydown="if(event.key==='Enter')runScan()">
+      </div>
+      <button class="btn btn-secondary" onclick="loadPaperIds()" style="white-space:nowrap;">📋 Browse Papers</button>
+    </div>
+    </div>
     <div class="actions-row">
       <button class="btn btn-primary" onclick="runScan()">🔍 Scan Questions</button>
-      <button class="btn btn-secondary" onclick="document.getElementById('akFile').click()">🖼️ Upload Answer Key JPG</button>
-      <input type="file" id="akFile" accept="image/*" style="display:none;" onchange="loadAnswerKey(this)">
-      <button class="btn btn-secondary" onclick="document.getElementById('qpFile').click()">📄 Upload Question Paper</button>
-      <input type="file" id="qpFile" accept="image/*,.pdf" style="display:none;" onchange="loadQuestionPaper(this)">
+      <button class="btn btn-secondary" onclick="document.getElementById('akFile').click()">🖼️ Answer Key (multi-page)</button>
+      <input type="file" id="akFile" accept="image/*" multiple style="display:none;" onchange="loadAnswerKey(this)">
+      <button class="btn btn-secondary" onclick="document.getElementById('qpFile').click()">📄 Question Paper (multi-page)</button>
+      <input type="file" id="qpFile" accept="image/*,.pdf" multiple style="display:none;" onchange="loadQuestionPaper(this)">
     </div>
     <div class="progress-bar" id="progressBar">
       <div class="progress-fill" id="progressFill" style="width:0%"></div>
@@ -316,11 +323,17 @@ window.runScan=async()=>{
 
   try{
     let q=collection(db,'questions');
+    const paperId=document.getElementById('fPaperId').value.trim();
     const constraints=[];
-    if(exam) constraints.push(where('exam','==',exam));
-    if(year) constraints.push(where('year','==',year));
-    if(type) constraints.push(where('type','==',type));
-    if(subject) constraints.push(where('subject','==',subject));
+    if(paperId){
+      // Fetch by exact paperId — most precise
+      constraints.push(where('paperId','==',paperId));
+    } else {
+      if(exam) constraints.push(where('exam','==',exam));
+      if(year) constraints.push(where('year','==',year));
+      if(type) constraints.push(where('type','==',type));
+      if(subject) constraints.push(where('subject','==',subject));
+    }
     const snap=await getDocs(constraints.length?query(q,...constraints):q);
 
     document.getElementById('progressFill').style.width='50%';
@@ -416,8 +429,89 @@ function renderTable(results){
   document.getElementById('tableCount').textContent=`Showing ${results.length} of ${allResults.length} questions`;
 }
 
-// ── Answer Key from image ──
+// ── Browse Paper IDs ──
+window.loadPaperIds=async()=>{
+  setStatus('⏳ Loading paper list...');
+  try{
+    const snap=await getDocs(collection(db,'papers'));
+    const papers=[];
+    snap.forEach(d=>papers.push({id:d.id,...d.data()}));
+    papers.sort((a,b)=>(a.paperId||a.id).localeCompare(b.paperId||b.id));
+    // Show picker modal
+    let modal=document.getElementById('paperPickerModal');
+    if(!modal){
+      modal=document.createElement('div');
+      modal.id='paperPickerModal';
+      modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:999;display:flex;align-items:center;justify-content:center;padding:1rem;';
+      document.body.appendChild(modal);
+    }
+    modal.innerHTML=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:1.5rem;max-width:600px;width:100%;max-height:80vh;overflow-y:auto;">
+      <div style="font-family:Rajdhani,sans-serif;font-weight:700;color:var(--orange);font-size:1.1rem;margin-bottom:1rem;">📋 Select Paper to Check</div>
+      <input type="text" placeholder="Search paper ID..." oninput="filterPapers(this.value)" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:0.5rem 0.75rem;color:var(--text);font-size:0.85rem;outline:none;margin-bottom:0.75rem;box-sizing:border-box;">
+      <div id="paperList">${papers.map(p=>`<div onclick="selectPaper('${p.paperId||p.id}')" style="padding:0.6rem 0.75rem;border-radius:8px;cursor:pointer;font-size:0.82rem;color:var(--text);border:1px solid transparent;margin-bottom:3px;" onmouseover="this.style.background='var(--surface2)';this.style.borderColor='var(--orange)'" onmouseout="this.style.background='';this.style.borderColor='transparent'">
+        <span style="color:var(--orange);font-family:monospace;">${p.paperId||p.id}</span>
+        <span style="color:var(--muted);font-size:0.75rem;margin-left:0.5rem;">${p.questionCount||'?'} questions · ${p.language||''}</span>
+      </div>`).join('')}</div>
+      <button onclick="document.getElementById('paperPickerModal').style.display='none'" style="margin-top:1rem;width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:0.6rem;font-family:Rajdhani,sans-serif;font-weight:700;cursor:pointer;">Close</button>
+    </div>`;
+    modal.style.display='flex';
+    setStatus('');
+  }catch(e){setStatus('❌ '+e.message);}
+};
+window._allPapers=[];
+window.filterPapers=(search)=>{
+  document.querySelectorAll('#paperList>div').forEach(d=>{
+    d.style.display=d.textContent.toLowerCase().includes(search.toLowerCase())?'':'none';
+  });
+};
+window.selectPaper=(pid)=>{
+  document.getElementById('fPaperId').value=pid;
+  document.getElementById('paperPickerModal').style.display='none';
+  runScan();
+};
+
+// ── Answer Key — multi-image ──
 window.loadAnswerKey=async(input)=>{
+  const files=Array.from(input.files);
+  if(!files.length)return;
+  setStatus('⏳ Reading '+files.length+' answer key image(s) with AI...');
+  document.getElementById('akCard').classList.add('visible');
+  document.getElementById('akStatus').textContent='⏳ Processing...';
+
+  // Show first image preview
+  const firstReader=new FileReader();
+  firstReader.onload=e=>document.getElementById('akPreview').src=e.target.result;
+  firstReader.readAsDataURL(files[0]);
+
+  // Process all pages in parallel
+  const results=await Promise.all(files.map(async(file,idx)=>{
+    return new Promise(resolve=>{
+      const r=new FileReader();
+      r.onload=async e=>{
+        const base64=e.target.result.split(',')[1];
+        try{
+          const resp=await fetch('https://trickyssc-ai.nirala01.workers.dev/',{
+            method:'POST',headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({model:'claude-opus-4-5',messages:[{role:'user',content:[
+              {type:'image',source:{type:'base64',media_type:file.type||'image/jpeg',data:base64}},
+              {type:'text',text:'This is page '+(idx+1)+' of an SSC exam official answer key. Extract ALL question numbers and answers visible on THIS page. Format strictly: Q1=A\nQ2=B\nQ3=C\nUse only A B C D. Convert 1=A 2=B 3=C 4=D if numbers used.'}
+            ]}]})
+          });
+          const data=await resp.json();
+          resolve(data.content?.[0]?.text||'');
+        }catch(e){resolve('');}
+      };
+      r.readAsDataURL(file);
+    });
+  }));
+
+  const combined=results.join('\n');
+  document.getElementById('akText').value=combined;
+  parseAK(combined);
+  const count=Object.keys(answerKey).length;
+  document.getElementById('akStatus').textContent='✅ '+count+' answers from '+files.length+' page(s)';
+  setStatus('✅ Answer key loaded — '+count+' answers');
+};
   const file=input.files[0];if(!file)return;
   setStatus('⏳ Reading answer key with AI...');
   const reader=new FileReader();
@@ -491,40 +585,46 @@ window.exportReport=()=>{
   a.click();
 };
 
-// ── Question Paper cross-check ──
+// ── Question Paper cross-check — multi-image ──
 let paperQuestions = {};
 
 window.loadQuestionPaper=async(input)=>{
-  const file=input.files[0];if(!file)return;
+  const files=Array.from(input.files);
+  if(!files.length)return;
+  setStatus('⏳ Reading '+files.length+' question paper page(s) with AI...');
   setStatus('⏳ Reading question paper with AI...');
-  const reader=new FileReader();
-  reader.onload=async e=>{
-    const base64=e.target.result.split(',')[1];
-    try{
-      const resp=await fetch('https://trickyssc-ai.nirala01.workers.dev/',{
-        method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({model:'claude-opus-4-5',max_tokens:4000,messages:[{role:'user',content:[
-          {type:'image',source:{type:'base64',media_type:file.type||'image/jpeg',data:base64}},
-          {type:'text',text:'Extract ALL questions from this SSC exam paper. Return ONLY a JSON array: [{"qNum":1,"text":"full question","options":{"A":"opt a","B":"opt b","C":"opt c","D":"opt d"}},...]'}
-        ]}]})
-      });
-      const data=await resp.json();
-      const txt=data.content?.[0]?.text||'';
-      const match=txt.match(/\[[\s\S]*\]/);
-      if(match){
-        const qs=JSON.parse(match[0]);
-        paperQuestions={};
-        qs.forEach(q=>{if(q.qNum)paperQuestions[parseInt(q.qNum)]=q;});
-        const count=Object.keys(paperQuestions).length;
-        setStatus('✅ Read '+count+' questions from paper');
-        showPaperCard(count);
-        if(allResults.length>0) crossCheckPaper();
-      } else {
-        setStatus('⚠️ Could not parse — try clearer image');
-      }
-    }catch(e){setStatus('❌ Failed: '+e.message);}
-  };
-  reader.readAsDataURL(file);
+  // Process all pages in parallel
+  const pageResults=await Promise.all(files.map((file,idx)=>{
+    return new Promise(resolve=>{
+      const r=new FileReader();
+      r.onload=async e=>{
+        const base64=e.target.result.split(',')[1];
+        try{
+          const resp=await fetch('https://trickyssc-ai.nirala01.workers.dev/',{
+            method:'POST',headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({model:'claude-opus-4-5',max_tokens:4000,messages:[{role:'user',content:[
+              {type:'image',source:{type:'base64',media_type:file.type||'image/jpeg',data:base64}},
+              {type:'text',text:'Page '+(idx+1)+': Extract ALL questions from this SSC exam paper page. Return ONLY a JSON array: [{"qNum":1,"text":"full question","options":{"A":"opt a","B":"opt b","C":"opt c","D":"opt d"}},...]'}
+            ]}]})
+          });
+          const data=await resp.json();
+          const txt=data.content?.[0]?.text||'';
+          const match=txt.match(/\[[\s\S]*\]/);
+          if(match){ try{resolve(JSON.parse(match[0]));}catch(e){resolve([]);} }
+          else resolve([]);
+        }catch(e){resolve([]);}
+      };
+      r.readAsDataURL(file);
+    });
+  }));
+
+  // Merge all pages
+  paperQuestions={};
+  pageResults.flat().forEach(q=>{if(q.qNum)paperQuestions[parseInt(q.qNum)]=q;});
+  const total=Object.keys(paperQuestions).length;
+  setStatus('✅ Read '+total+' questions from '+files.length+' page(s)');
+  showPaperCard(total);
+  if(allResults.length>0) crossCheckPaper();
 };
 
 function showPaperCard(count){
