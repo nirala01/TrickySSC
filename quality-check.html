@@ -512,35 +512,6 @@ window.loadAnswerKey=async(input)=>{
   document.getElementById('akStatus').textContent='✅ '+count+' answers from '+files.length+' page(s)';
   setStatus('✅ Answer key loaded — '+count+' answers');
 };
-  const file=input.files[0];if(!file)return;
-  setStatus('⏳ Reading answer key with AI...');
-  const reader=new FileReader();
-  reader.onload=async e=>{
-    const base64=e.target.result.split(',')[1];
-    document.getElementById('akPreview').src=e.target.result;
-    document.getElementById('akCard').classList.add('visible');
-    document.getElementById('akStatus').textContent='⏳ AI reading...';
-    try{
-      const resp=await fetch('https://trickyssc-ai.nirala01.workers.dev/',{
-        method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({model:'claude-opus-4-5',messages:[{role:'user',content:[
-          {type:'image',source:{type:'base64',media_type:file.type||'image/jpeg',data:base64}},
-          {type:'text',text:'This is an SSC exam official answer key image. Extract every question number and its correct answer option. Return ONLY in this exact format with one per line: Q1=A\nQ2=B\nQ3=C\nUse only A B C D. If answer shown as 1 2 3 4 convert: 1=A 2=B 3=C 4=D. Extract ALL questions shown.'}
-        ]}]})
-      });
-      const data=await resp.json();
-      const txt=data.content?.[0]?.text||'';
-      document.getElementById('akText').value=txt;
-      parseAK(txt);
-      document.getElementById('akStatus').textContent=`✅ ${Object.keys(answerKey).length} answers extracted`;
-      setStatus('✅ Answer key loaded');
-    }catch(e){
-      document.getElementById('akStatus').textContent='❌ Failed: '+e.message;
-      setStatus('❌ AI read failed');
-    }
-  };
-  reader.readAsDataURL(file);
-};
 
 function parseAK(txt){
   answerKey={};
