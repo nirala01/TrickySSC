@@ -2733,7 +2733,8 @@ window.exportQCReport = () => {
   window._qcAllResults.forEach(({q,issues,score}) => {
     rows.push([q.qNum||'',q.exam||'',q.year||'',q.correct||'',issues.map(i=>i.label).join('; '),score,(q.text||'').substring(0,100)]);
   });
-  const csv = rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join(\n');
+  const lines = rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(','));
+  const csv = lines.join('\n');
   const a=document.createElement('a');
   a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
   a.download='QC_Report_'+new Date().toISOString().slice(0,10)+'.csv';
