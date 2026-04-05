@@ -1360,31 +1360,43 @@ function formatQText(raw){
 function formatSteps(text){
   if(!text) return '';
   var t = applyBR(text);
-  t = t.split('. Step ').join('.<br>Step ');
-  var result = '';
-  for(var i=0; i<t.length; i++){
-    var ch = t[i];
-    if(ch==='.' && i+2<t.length && t[i+1]===' '){
-      var next = t[i+2];
-      var prev = t[i-1]||'';
-      if(/[A-Z0-9₹]/.test(next) && /[A-Za-z0-9₹%]/.test(prev)){
-        result += '.<br>';
-        i++;
-        continue;
-      }
+  // Split into lines by <br>
+  var lines = t.split('<br>');
+  var out = [];
+  for(var i=0; i<lines.length; i++){
+    var line = lines[i];
+    // Step title: starts with "Step N:" — render bold
+    var stepMatch = line.match(/^(Step \d+:\s*)(.*)/);
+    if(stepMatch){
+      var stepLabel = stepMatch[1].trim();
+      var stepBody  = stepMatch[2].trim();
+      out.push('<div style="margin-top:8px;"><strong style="color:#1E293B;font-size:0.88rem;">' + stepLabel + '</strong>' + (stepBody ? ' <span style="color:#374151;">' + stepBody + '</span>' : '') + '</div>');
     }
-    result += ch;
+    // Substep: starts with "- "
+    else if(line.match(/^- /)){
+      var sub = line.slice(2);
+      // Render ∴ and ∵
+      sub = sub.replace(/∴/g,'∴').replace(/∵/g,'∵');
+      out.push('<div style="margin-left:16px;color:#475569;font-size:0.87rem;line-height:1.7;"><span style="color:#FF6B00;font-weight:700;margin-right:5px;">—</span>' + sub + '</div>');
+    }
+    // Final Answer line
+    else if(line.match(/^Final Answer/)){
+      out.push('<div style="margin-top:8px;font-weight:700;color:#00A86B;font-size:0.88rem;">∴ ' + line + '</div>');
+    }
+    // ∴ standalone
+    else if(line.match(/^∴/)){
+      out.push('<div style="margin-top:4px;font-weight:700;color:#00A86B;font-size:0.88rem;">' + line + '</div>');
+    }
+    // Regular line
+    else if(line.trim()){
+      out.push('<div style="color:#374151;font-size:0.87rem;line-height:1.7;">' + line + '</div>');
+    }
   }
-  t = result;
-  t = t.split(' → ').join(' →<br>');
-  t = t.split('→').join('→<br>');
-  t = t.split('∴').join('<br>∴ ');
-  t = t.split('∵').join('<br>∵ ');
-  // Render **bold** markdown
-  t = t.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-  // Render *italic*
-  t = t.replace(/\*([^*]+?)\*/g, '<em>$1</em>');
-  return t;
+  var t2 = out.join('');
+  // Render **bold** markdown in any remaining text
+  t2 = t2.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  t2 = t2.replace(/\*([^*]+?)\*/g, '<em>$1</em>');
+  return t2;
 }
 
 function formatQTextReview(raw, qNum){
