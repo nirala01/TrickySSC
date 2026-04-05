@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>TrickySSC — Solution Updater</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Inter',sans-serif;background:#0F172A;color:#E2E8F0;min-height:100vh;}
+
+/* ── Topbar ── */
+.topbar{background:linear-gradient(135deg,#FF6B00,#FF8C38);padding:1rem 2rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;}
+.topbar h1{font-family:'Rajdhani',sans-serif;font-size:1.4rem;font-weight:700;color:#fff;display:flex;align-items:center;gap:0.5rem;}
+.topbar-links{display:flex;gap:0.5rem;align-items:center;}
+.topbar-links a{background:rgba(255,255,255,0.15);color:#fff;padding:0.3rem 0.85rem;border-radius:100px;font-size:0.75rem;font-weight:600;text-decoration:none;transition:background 0.2s;}
+.topbar-links a:hover{background:rgba(255,255,255,0.3);}
+#adminName{background:rgba(255,255,255,0.2);color:#fff;padding:0.25rem 0.75rem;border-radius:100px;font-size:0.75rem;font-weight:600;}
+
+/* ── Layout ── */
+#loginScreen{display:flex;align-items:center;justify-content:center;min-height:80vh;padding:2rem;}
+#mainScreen{display:none;max-width:900px;margin:0 auto;padding:2rem;}
+
+/* ── Login ── */
+.login-card{background:#1E293B;border:1px solid #334155;border-radius:16px;padding:2.5rem;width:100%;max-width:400px;text-align:center;}
+.login-card h2{font-family:'Rajdhani',sans-serif;font-size:1.75rem;font-weight:700;color:#FF6B00;margin-bottom:0.5rem;}
+.login-card p{color:#94A3B8;font-size:0.9rem;margin-bottom:1.5rem;}
+.google-btn{display:flex;align-items:center;justify-content:center;gap:0.75rem;background:#fff;color:#1A202C;border:none;padding:0.85rem 1.5rem;border-radius:10px;font-family:'Inter',sans-serif;font-weight:600;font-size:0.95rem;cursor:pointer;width:100%;transition:all 0.2s;}
+.google-btn:hover{box-shadow:0 4px 20px rgba(0,0,0,0.3);}
+
+/* ── Cards ── */
+.card{background:#1E293B;border:1px solid #334155;border-radius:16px;padding:1.5rem;margin-bottom:1.5rem;}
+.card h3{font-family:'Rajdhani',sans-serif;font-size:1.15rem;font-weight:700;color:#F1F5F9;margin-bottom:1rem;display:flex;align-items:center;gap:0.5rem;}
+
+/* ── Form elements ── */
+label{display:block;font-size:0.78rem;font-weight:600;color:#94A3B8;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.4rem;}
+select,input{width:100%;background:#0F172A;border:1px solid #334155;border-radius:8px;padding:0.65rem 0.9rem;color:#E2E8F0;font-family:'Inter',sans-serif;font-size:0.9rem;outline:none;transition:border 0.2s;}
+select:focus,input:focus{border-color:#FF6B00;}
+.form-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:0.75rem;margin-bottom:1rem;}
+
+/* ── Tabs ── */
+.mode-tabs{display:flex;gap:0.5rem;margin-bottom:1.5rem;background:#0F172A;padding:0.4rem;border-radius:10px;width:fit-content;}
+.mode-tab{padding:0.5rem 1.25rem;border-radius:8px;font-family:'Inter',sans-serif;font-weight:600;font-size:0.85rem;cursor:pointer;border:none;background:transparent;color:#64748B;transition:all 0.2s;}
+.mode-tab.active{background:#FF6B00;color:#fff;}
+
+/* ── Textarea ── */
+textarea{width:100%;background:#0F172A;border:1px solid #334155;border-radius:8px;padding:0.75rem;color:#E2E8F0;font-family:'Inter',sans-serif;font-size:0.85rem;outline:none;transition:border 0.2s;resize:vertical;min-height:200px;line-height:1.6;}
+textarea:focus{border-color:#FF6B00;}
+.textarea-hint{font-size:0.75rem;color:#64748B;margin-top:0.4rem;}
+
+/* ── Upload area ── */
+.upload-area{border:2px dashed #334155;border-radius:12px;padding:2rem;text-align:center;cursor:pointer;transition:all 0.2s;margin-bottom:1rem;}
+.upload-area:hover{border-color:#FF6B00;background:rgba(255,107,0,0.04);}
+.upload-area .icon{font-size:2rem;margin-bottom:0.5rem;}
+.upload-area p{color:#64748B;font-size:0.85rem;}
+.upload-area strong{color:#E2E8F0;}
+
+/* ── Buttons ── */
+.btn{padding:0.65rem 1.25rem;border-radius:8px;font-family:'Inter',sans-serif;font-weight:600;font-size:0.9rem;cursor:pointer;border:none;transition:all 0.2s;}
+.btn-primary{background:linear-gradient(135deg,#FF6B00,#FF8C38);color:#fff;}
+.btn-primary:hover{opacity:0.9;transform:translateY(-1px);}
+.btn-secondary{background:#334155;color:#E2E8F0;}
+.btn-secondary:hover{background:#475569;}
+.btn-danger{background:#EF4444;color:#fff;}
+.btn:disabled{opacity:0.5;cursor:not-allowed;transform:none;}
+.btn-row{display:flex;gap:0.75rem;flex-wrap:wrap;align-items:center;margin-top:1rem;}
+
+/* ── Progress ── */
+.progress-wrap{display:none;margin-top:1rem;}
+.progress-bar-bg{background:#0F172A;border-radius:6px;height:8px;overflow:hidden;margin-bottom:0.5rem;}
+.progress-bar{height:100%;background:linear-gradient(135deg,#FF6B00,#FF8C38);width:0%;transition:width 0.3s;}
+.progress-status{font-size:0.85rem;color:#94A3B8;}
+
+/* ── Preview table ── */
+.preview-wrap{display:none;margin-top:1.25rem;}
+.preview-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem;flex-wrap:wrap;gap:0.5rem;}
+.preview-header span{font-size:0.85rem;color:#94A3B8;}
+.badge{background:#334155;color:#94A3B8;padding:0.2rem 0.65rem;border-radius:100px;font-size:0.78rem;font-weight:600;}
+.badge-orange{background:rgba(255,107,0,0.15);color:#FF6B00;border:1px solid rgba(255,107,0,0.3);}
+.badge-green{background:rgba(0,168,107,0.15);color:#00A86B;border:1px solid rgba(0,168,107,0.3);}
+.badge-red{background:rgba(239,68,68,0.15);color:#EF4444;border:1px solid rgba(239,68,68,0.3);}
+.table-wrap{overflow-x:auto;border:1px solid #334155;border-radius:8px;}
+table{width:100%;border-collapse:collapse;font-size:0.8rem;}
+th{background:#0F172A;color:#64748B;font-weight:600;padding:0.6rem 0.75rem;text-align:left;border-bottom:1px solid #334155;white-space:nowrap;}
+td{padding:0.55rem 0.75rem;border-bottom:1px solid #1E293B;vertical-align:top;color:#CBD5E1;}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:rgba(255,107,0,0.03);}
+.td-qnum{font-weight:700;color:#FF6B00;width:50px;}
+.td-preview{max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#94A3B8;font-size:0.75rem;}
+.td-status{width:80px;}
+.has-content{color:#00A86B;}
+.no-content{color:#64748B;font-style:italic;}
+.will-replace{color:#F59E0B;}
+
+/* ── Info box ── */
+.info-box{background:rgba(14,165,233,0.08);border:1px solid rgba(14,165,233,0.2);border-radius:10px;padding:0.85rem 1rem;font-size:0.82rem;color:#7DD3FC;margin-bottom:1rem;line-height:1.6;}
+.warn-box{background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);border-radius:10px;padding:0.85rem 1rem;font-size:0.82rem;color:#FCD34D;margin-bottom:1rem;line-height:1.6;}
+
+/* ── Format guide ── */
+.format-card{background:#0F172A;border:1px solid #334155;border-radius:10px;padding:1rem;margin-top:0.75rem;}
+.format-card h4{font-size:0.8rem;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.6rem;}
+pre{font-family:monospace;font-size:0.78rem;color:#A78BFA;line-height:1.7;white-space:pre-wrap;word-break:break-all;}
+
+/* ── Toast ── */
+.toast{position:fixed;bottom:2rem;right:2rem;padding:0.85rem 1.25rem;border-radius:10px;font-weight:600;font-size:0.9rem;z-index:9999;display:none;max-width:360px;box-shadow:0 8px 32px rgba(0,0,0,0.4);}
+.toast.success{background:#00A86B;color:#fff;}
+.toast.error{background:#EF4444;color:#fff;}
+.toast.info{background:#0EA5E9;color:#fff;}
+
+/* ── Override toggle ── */
+.toggle-row{display:flex;align-items:center;gap:0.75rem;margin-bottom:1rem;}
+.toggle{position:relative;width:44px;height:24px;flex-shrink:0;}
+.toggle input{opacity:0;width:0;height:0;}
+.toggle-slider{position:absolute;inset:0;background:#334155;border-radius:100px;cursor:pointer;transition:0.2s;}
+.toggle-slider:before{content:'';position:absolute;width:18px;height:18px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:0.2s;}
+.toggle input:checked + .toggle-slider{background:#FF6B00;}
+.toggle input:checked + .toggle-slider:before{transform:translateX(20px);}
+.toggle-label{font-size:0.85rem;color:#CBD5E1;}
+.toggle-label strong{color:#F59E0B;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>⚡ TrickySSC &nbsp;<span style="opacity:0.6;font-weight:500;font-size:1rem;">/ Solution Updater</span></h1>
+  <div class="topbar-links">
+    <a href="admin.html">← Admin Panel</a>
+    <span id="adminName">Loading...</span>
+    <button class="btn btn-secondary" style="padding:0.3rem 0.85rem;font-size:0.75rem;" onclick="logout()">Logout</button>
+  </div>
+</div>
+
+<!-- Login Screen -->
+<div id="loginScreen">
+  <div class="login-card">
+    <h2>Solution Updater</h2>
+    <p>Bulk update explanations, tricks and concepts for any paper. Sign in to continue.</p>
+    <button class="google-btn" onclick="googleLogin()">
+      <svg width="20" height="20" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+      Sign in with Google
+    </button>
+  </div>
+</div>
+
+<!-- Main Screen -->
+<div id="mainScreen">
+
+  <!-- Paper Selector -->
+  <div class="card">
+    <h3>📄 Select Paper</h3>
+    <div class="form-grid">
+      <div>
+        <label>Exam</label>
+        <select id="selExam">
+          <option value="ssc-cgl">SSC CGL</option>
+          <option value="ssc-chsl">SSC CHSL</option>
+          <option value="ssc-mts">SSC MTS</option>
+          <option value="ssc-gd">SSC GD</option>
+          <option value="ssc-cpo">SSC CPO</option>
+          <option value="ssc-jht">SSC JHT</option>
+          <option value="ssc-je">SSC JE</option>
+        </select>
+      </div>
+      <div>
+        <label>Year</label>
+        <select id="selYear">
+          <option value="2025">2025</option>
+          <option value="2024">2024</option>
+          <option value="2023">2023</option>
+          <option value="2022" selected>2022</option>
+          <option value="2021">2021</option>
+          <option value="2020">2020</option>
+          <option value="2019">2019</option>
+          <option value="2018">2018</option>
+        </select>
+      </div>
+      <div>
+        <label>Tier / Session</label>
+        <select id="selTier">
+          <option value="tier1">Tier I (CBT)</option>
+          <option value="tier2">Tier II (CBT)</option>
+        </select>
+      </div>
+      <div>
+        <label>Shift</label>
+        <select id="selShift">
+          <option value="">Any Shift</option>
+          <option value="Shift-1">Shift 1</option>
+          <option value="Shift-2">Shift 2</option>
+          <option value="Shift-3">Shift 3</option>
+        </select>
+      </div>
+      <div>
+        <label>Language</label>
+        <select id="selLang">
+          <option value="en">English</option>
+          <option value="hi">Hindi</option>
+        </select>
+      </div>
+      <div>
+        <label>Held On (exam date)</label>
+        <input type="date" id="selHeldOn">
+      </div>
+    </div>
+    <button class="btn btn-secondary" onclick="fetchPaperQuestions()">🔍 Load Questions</button>
+    <div id="paperStatus" style="margin-top:0.75rem;font-size:0.85rem;color:#94A3B8;"></div>
+  </div>
+
+  <!-- Update Mode -->
+  <div class="card" id="updateCard" style="display:none;">
+    <h3>✏️ Update Solutions</h3>
+
+    <div class="toggle-row">
+      <label class="toggle"><input type="checkbox" id="overrideToggle" checked><span class="toggle-slider"></span></label>
+      <span class="toggle-label">Override existing solutions &nbsp;<strong>⚠️ Will replace any existing explanation/trick/concept</strong></span>
+    </div>
+
+    <div class="mode-tabs">
+      <button class="mode-tab active" onclick="switchMode('json')" id="tab-json">📋 Paste JSON</button>
+      <button class="mode-tab" onclick="switchMode('csv')" id="tab-csv">📄 Upload CSV</button>
+    </div>
+
+    <!-- JSON Mode -->
+    <div id="mode-json">
+      <div class="info-box">
+        Paste a JSON array with <code>qNum</code>, <code>explanation</code>, <code>trick</code>, and/or <code>concept</code> fields. You don't need all fields — only the ones you want to update.
+      </div>
+      <textarea id="jsonInput" placeholder='[&#10;  {&#10;    "qNum": 1,&#10;    "explanation": "Step 1: Title. Content.[BR]∴ Answer = X.",&#10;    "trick": "Step 1: Shortcut.[BR]Step 2: Apply.",&#10;    "concept": "Arithmetic: profit"&#10;  },&#10;  {&#10;    "qNum": 2,&#10;    "explanation": "...",&#10;    "trick": "..."&#10;  }&#10;]'></textarea>
+      <div class="textarea-hint">Use [BR] for line breaks. Do not use → arrows. Step titles must end with a full stop.</div>
+      <div class="btn-row">
+        <button class="btn btn-secondary" onclick="parseJSON()">👁 Preview</button>
+        <button class="btn btn-primary" id="jsonUpdateBtn" onclick="runUpdate('json')" disabled>⚡ Update All</button>
+        <button class="btn btn-secondary" onclick="document.getElementById('jsonInput').value='';clearPreview()">✕ Clear</button>
+      </div>
+      <div class="format-card">
+        <h4>JSON Format</h4>
+        <pre>[
+  {
+    "qNum": 1,
+    "explanation": "Step 1: Find relation. Content.[BR]Step 2: Verify. Check.[BR]∴ Answer = D.",
+    "trick": "Step 1: Shortcut tip.[BR]Step 2: Elimination tip.",
+    "concept": "Arithmetic: profit through false weights"
+  }
+]</pre>
+      </div>
+    </div>
+
+    <!-- CSV Mode -->
+    <div id="mode-csv" style="display:none;">
+      <div class="info-box">
+        Upload a CSV with columns: <code>qNum</code>, <code>explanation</code>, <code>trick</code>, <code>concept</code>. Only include rows for questions you want to update.
+      </div>
+      <div class="upload-area" onclick="document.getElementById('csvInput').click()">
+        <input type="file" id="csvInput" accept=".csv" style="display:none;" onchange="handleCSV(event)">
+        <div class="icon">📄</div>
+        <p><strong>Click to select CSV</strong> or drag & drop</p>
+        <p style="margin-top:0.25rem;">Columns: qNum, explanation, trick, concept</p>
+      </div>
+      <div id="csvFileInfo" style="display:none;font-size:0.85rem;color:#94A3B8;margin-bottom:0.75rem;"></div>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="csvUpdateBtn" onclick="runUpdate('csv')" disabled>⚡ Update All</button>
+        <button class="btn btn-secondary" onclick="clearCSVMode()">✕ Clear</button>
+      </div>
+      <div class="format-card">
+        <h4>CSV Format (first 3 columns required)</h4>
+        <pre>qNum,explanation,trick,concept
+1,"Step 1: Find value.[BR]∴ Answer = A.","Step 1: Shortcut.","Arithmetic: profit"
+2,"Step 1: Identify pattern.[BR]Step 2: Apply rule.","Memory: VIBGYOR","GK: History"</pre>
+      </div>
+    </div>
+
+    <!-- Preview -->
+    <div class="preview-wrap" id="previewWrap">
+      <div class="preview-header">
+        <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
+          <span>Preview</span>
+          <span class="badge badge-orange" id="previewTotal">0 questions</span>
+          <span class="badge badge-green" id="previewNew">0 new</span>
+          <span class="badge" id="previewReplace" style="display:none;">0 replacing existing</span>
+        </div>
+        <button class="btn btn-primary" id="confirmUpdateBtn" onclick="confirmUpdate()" style="padding:0.45rem 1rem;font-size:0.82rem;">✅ Confirm Update</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>Q#</th>
+            <th>Explanation</th>
+            <th>Trick</th>
+            <th>Concept</th>
+            <th>Status</th>
+          </tr></thead>
+          <tbody id="previewBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Progress -->
+    <div class="progress-wrap" id="progressWrap">
+      <div class="progress-bar-bg"><div class="progress-bar" id="progressBar"></div></div>
+      <div class="progress-status" id="progressStatus">Updating...</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Firebase -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
+import { getFirestore, collection, getDocs, updateDoc, query, where } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",
+  authDomain: "trickyssc-17bb3.firebaseapp.com",
+  projectId: "trickyssc-17bb3",
+  storageBucket: "trickyssc-17bb3.firebasestorage.app",
+  messagingSenderId: "450627057220",
+  appId: "1:450627057220:web:366267bf437d94f20c6e11"
+};
+
+const ADMIN_EMAILS = ['nirala01@gmail.com', 'ashish@trickyssc.com'];
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+// Auth state
+onAuthStateChanged(auth, user => {
+  if (user && (ADMIN_EMAILS.includes(user.email) || user.email.endsWith('@trickyssc.com'))) {
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('mainScreen').style.display = 'block';
+    document.getElementById('adminName').textContent = user.displayName || user.email;
+  } else {
+    document.getElementById('loginScreen').style.display = 'flex';
+    document.getElementById('mainScreen').style.display = 'none';
+    document.getElementById('adminName').textContent = 'Not logged in';
+  }
+});
+
+window.googleLogin = async () => {
+  try { await signInWithPopup(auth, new GoogleAuthProvider()); }
+  catch(e) { showToast('Login failed: ' + e.message, 'error'); }
+};
+
+window.logout = async () => {
+  await signOut(auth);
+  showToast('Logged out', 'info');
+};
+
+// ── State ──
+let loadedDocs = []; // Firestore docs for selected paper
+let parsedUpdates = []; // parsed updates from JSON or CSV
+let currentMode = 'json';
+
+// ── Paper loading ──
+window.fetchPaperQuestions = async () => {
+  const exam    = document.getElementById('selExam').value;
+  const year    = document.getElementById('selYear').value;
+  const tier    = document.getElementById('selTier').value;
+  const shift   = document.getElementById('selShift').value;
+  const lang    = document.getElementById('selLang').value;
+  const heldOn  = document.getElementById('selHeldOn').value;
+  const status  = document.getElementById('paperStatus');
+
+  status.textContent = '🔄 Loading questions...';
+  status.style.color = '#94A3B8';
+
+  try {
+    let q = query(collection(db, 'questions'), where('exam', '==', exam), where('year', '==', year));
+    const snap = await getDocs(q);
+    let docs = snap.docs;
+
+    if (tier)   docs = docs.filter(d => d.data().tier === tier);
+    if (shift)  docs = docs.filter(d => d.data().shift === shift);
+    if (lang)   docs = docs.filter(d => (d.data().language || 'en') === lang);
+    if (heldOn) docs = docs.filter(d => d.data().heldOn === heldOn);
+
+    loadedDocs = docs;
+    if (!docs.length) {
+      status.textContent = '❌ No questions found. Check filters.';
+      status.style.color = '#EF4444';
+      document.getElementById('updateCard').style.display = 'none';
+      return;
+    }
+    status.innerHTML = `✅ <strong style="color:#00A86B;">${docs.length} questions loaded</strong> — ready to update solutions.`;
+    document.getElementById('updateCard').style.display = 'block';
+    clearPreview();
+  } catch(e) {
+    status.textContent = '❌ Error: ' + e.message;
+    status.style.color = '#EF4444';
+  }
+};
+
+// ── Mode switch ──
+window.switchMode = (mode) => {
+  currentMode = mode;
+  document.getElementById('mode-json').style.display = mode === 'json' ? 'block' : 'none';
+  document.getElementById('mode-csv').style.display  = mode === 'csv'  ? 'block' : 'none';
+  document.getElementById('tab-json').className = 'mode-tab' + (mode === 'json' ? ' active' : '');
+  document.getElementById('tab-csv').className  = 'mode-tab' + (mode === 'csv'  ? ' active' : '');
+  clearPreview();
+};
+
+// ── JSON Parse ──
+window.parseJSON = () => {
+  const raw = document.getElementById('jsonInput').value.trim();
+  if (!raw) { showToast('Paste JSON first', 'error'); return; }
+  try {
+    let data = JSON.parse(raw);
+    if (!Array.isArray(data)) data = [data];
+    parsedUpdates = data.map(r => ({
+      qNum:        parseInt(r.qNum) || 0,
+      explanation: r.explanation || r.solution || '',
+      trick:       r.trick || '',
+      concept:     r.concept || ''
+    })).filter(r => r.qNum > 0);
+    if (!parsedUpdates.length) throw new Error('No valid entries with qNum found');
+    showPreview();
+    document.getElementById('jsonUpdateBtn').disabled = false;
+  } catch(e) {
+    showToast('JSON parse error: ' + e.message, 'error');
+  }
+};
+
+// ── CSV Parse ──
+window.handleCSV = (evt) => {
+  const file = evt.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      parsedUpdates = parseCSVtoUpdates(e.target.result);
+      if (!parsedUpdates.length) throw new Error('No valid rows found');
+      document.getElementById('csvFileInfo').style.display = 'block';
+      document.getElementById('csvFileInfo').textContent = `📄 ${file.name} — ${parsedUpdates.length} rows parsed`;
+      showPreview();
+      document.getElementById('csvUpdateBtn').disabled = false;
+    } catch(err) {
+      showToast('CSV error: ' + err.message, 'error');
+    }
+  };
+  reader.readAsText(file, 'UTF-8');
+};
+
+function parseCSVtoUpdates(text) {
+  text = text.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const rows = [];
+  let row = [], cur = '', inQ = false, i = 0;
+  while (i < text.length) {
+    const ch = text[i];
+    if (inQ) {
+      if (ch === '"') { if (text[i+1] === '"') { cur += '"'; i += 2; } else { inQ = false; i++; } }
+      else { cur += ch; i++; }
+    } else {
+      if (ch === '"') { inQ = true; i++; }
+      else if (ch === ',') { row.push(cur.trim()); cur = ''; i++; }
+      else if (ch === '\n') {
+        row.push(cur.trim()); cur = '';
+        if (row.some(c => c !== '')) rows.push(row);
+        row = []; i++;
+      } else { cur += ch; i++; }
+    }
+  }
+  row.push(cur.trim());
+  if (row.some(c => c !== '')) rows.push(row);
+
+  if (rows.length < 2) return [];
+  const headers = rows[0].map(h => h.toLowerCase().trim());
+  const iQ = headers.indexOf('qnum');
+  const iE = headers.indexOf('explanation');
+  const iT = headers.indexOf('trick');
+  const iC = headers.indexOf('concept');
+  if (iQ === -1) throw new Error('Missing qNum column');
+
+  return rows.slice(1).map(r => ({
+    qNum:        parseInt(r[iQ]) || 0,
+    explanation: iE >= 0 ? (r[iE] || '') : '',
+    trick:       iT >= 0 ? (r[iT] || '') : '',
+    concept:     iC >= 0 ? (r[iC] || '') : ''
+  })).filter(r => r.qNum > 0);
+}
+
+// ── Preview ──
+function showPreview() {
+  if (!loadedDocs.length) { showToast('Load a paper first', 'error'); return; }
+  const override = document.getElementById('overrideToggle').checked;
+
+  // Build qNum → doc map
+  const docMap = {};
+  loadedDocs.forEach(d => { docMap[parseInt(d.data().qNum)] = d; });
+
+  let newCount = 0, replaceCount = 0, notFoundCount = 0;
+  const tbody = document.getElementById('previewBody');
+  tbody.innerHTML = '';
+
+  parsedUpdates.forEach(upd => {
+    const doc = docMap[upd.qNum];
+    const tr = document.createElement('tr');
+
+    if (!doc) {
+      notFoundCount++;
+      tr.innerHTML = `<td class="td-qnum">${upd.qNum}</td>
+        <td colspan="3" style="color:#64748B;font-style:italic;">Question not found in loaded paper</td>
+        <td class="td-status"><span class="badge badge-red">Not found</span></td>`;
+    } else {
+      const data = doc.data();
+      const hasExpl = data.explanation && data.explanation.trim();
+      const hasTrick = data.trick && data.trick.trim();
+      const isReplace = (hasExpl || hasTrick) && override;
+      if (isReplace) replaceCount++; else newCount++;
+
+      const exprPreview = upd.explanation ? upd.explanation.replace(/\[BR\]/g, ' ').slice(0, 50) + (upd.explanation.length > 50 ? '…' : '') : '—';
+      const trickPreview = upd.trick ? upd.trick.replace(/\[BR\]/g, ' ').slice(0, 40) + (upd.trick.length > 40 ? '…' : '') : '—';
+      const conceptPreview = upd.concept || '—';
+
+      const statusHtml = isReplace
+        ? '<span class="badge will-replace" style="background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.3);">Replace</span>'
+        : '<span class="badge badge-green">New</span>';
+
+      tr.innerHTML = `<td class="td-qnum">${upd.qNum}</td>
+        <td class="td-preview ${upd.explanation ? 'has-content' : 'no-content'}">${exprPreview}</td>
+        <td class="td-preview ${upd.trick ? 'has-content' : 'no-content'}">${trickPreview}</td>
+        <td class="td-preview ${upd.concept ? 'has-content' : 'no-content'}">${conceptPreview}</td>
+        <td class="td-status">${statusHtml}</td>`;
+    }
+    tbody.appendChild(tr);
+  });
+
+  document.getElementById('previewTotal').textContent = parsedUpdates.length + ' questions';
+  document.getElementById('previewNew').textContent = newCount + ' new';
+  const replBadge = document.getElementById('previewReplace');
+  if (replaceCount > 0) {
+    replBadge.style.display = 'inline-block';
+    replBadge.textContent = replaceCount + ' replacing existing';
+    replBadge.className = 'badge will-replace';
+    replBadge.style.background = 'rgba(245,158,11,0.15)';
+    replBadge.style.border = '1px solid rgba(245,158,11,0.3)';
+    replBadge.style.color = '#F59E0B';
+  } else {
+    replBadge.style.display = 'none';
+  }
+
+  document.getElementById('previewWrap').style.display = 'block';
+}
+
+window.clearPreview = () => {
+  parsedUpdates = [];
+  document.getElementById('previewWrap').style.display = 'none';
+  document.getElementById('progressWrap').style.display = 'none';
+  if (document.getElementById('jsonUpdateBtn')) document.getElementById('jsonUpdateBtn').disabled = true;
+  if (document.getElementById('csvUpdateBtn')) document.getElementById('csvUpdateBtn').disabled = true;
+};
+
+window.clearCSVMode = () => {
+  document.getElementById('csvInput').value = '';
+  document.getElementById('csvFileInfo').style.display = 'none';
+  clearPreview();
+};
+
+// ── Run Update (triggers preview first if not done) ──
+window.runUpdate = (mode) => {
+  if (!parsedUpdates.length) {
+    if (mode === 'json') parseJSON();
+    return;
+  }
+  showPreview();
+};
+
+// ── Confirm & Execute ──
+window.confirmUpdate = async () => {
+  if (!parsedUpdates.length || !loadedDocs.length) return;
+  const override = document.getElementById('overrideToggle').checked;
+
+  const docMap = {};
+  loadedDocs.forEach(d => { docMap[parseInt(d.data().qNum)] = d; });
+
+  const prog = document.getElementById('progressWrap');
+  const bar  = document.getElementById('progressBar');
+  const status = document.getElementById('progressStatus');
+  prog.style.display = 'block';
+  document.getElementById('confirmUpdateBtn').disabled = true;
+
+  let updated = 0, skipped = 0, errors = 0;
+
+  for (let i = 0; i < parsedUpdates.length; i++) {
+    const upd = parsedUpdates[i];
+    const docSnap = docMap[upd.qNum];
+    if (!docSnap) { skipped++; continue; }
+
+    const data = docSnap.data();
+    const hasExpl = data.explanation && data.explanation.trim();
+    const hasTrick = data.trick && data.trick.trim();
+
+    // Skip if has existing content and override is OFF
+    if (!override && (hasExpl || hasTrick)) { skipped++; continue; }
+
+    const updatePayload = {};
+    if (upd.explanation !== undefined && upd.explanation !== '') updatePayload.explanation = upd.explanation;
+    if (upd.trick !== undefined && upd.trick !== '')             updatePayload.trick = upd.trick;
+    if (upd.concept !== undefined && upd.concept !== '')         updatePayload.concept = upd.concept;
+
+    // If override is ON, always write (even empty string to clear)
+    if (override) {
+      updatePayload.explanation = upd.explanation;
+      updatePayload.trick       = upd.trick;
+      if (upd.concept) updatePayload.concept = upd.concept;
+    }
+
+    if (!Object.keys(updatePayload).length) { skipped++; continue; }
+
+    try {
+      await updateDoc(docSnap.ref, updatePayload);
+      updated++;
+    } catch(e) {
+      errors++;
+      console.error(`Q${upd.qNum} error:`, e);
+    }
+
+    bar.style.width = ((i + 1) / parsedUpdates.length * 100) + '%';
+    status.textContent = `Updating ${i + 1}/${parsedUpdates.length}...`;
+  }
+
+  status.innerHTML = `✅ <strong>${updated} updated</strong>${skipped ? ` · ${skipped} skipped` : ''}${errors ? ` · <span style="color:#EF4444">${errors} errors</span>` : ''}`;
+  document.getElementById('confirmUpdateBtn').disabled = false;
+  showToast(`✅ ${updated} questions updated!`, 'success');
+};
+
+// ── Toast ──
+window.showToast = (msg, type = 'success') => {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast ' + type;
+  t.style.display = 'block';
+  setTimeout(() => { t.style.display = 'none'; }, 3500);
+};
+
+</script>
+</body>
+</html>
