@@ -218,6 +218,7 @@ pre{font-family:monospace;font-size:0.78rem;color:#A78BFA;line-height:1.7;white-
     <div class="mode-tabs">
       <button class="mode-tab active" onclick="switchMode('json')" id="tab-json">📋 Paste JSON</button>
       <button class="mode-tab" onclick="switchMode('csv')" id="tab-csv">📄 Upload CSV</button>
+      <button class="mode-tab" onclick="switchMode('paperid')" id="tab-paperid">🔧 Fix paperId</button>
     </div>
 
     <!-- JSON Mode -->
@@ -303,6 +304,27 @@ pre{font-family:monospace;font-size:0.78rem;color:#A78BFA;line-height:1.7;white-
 
 </div>
 
+
+  <!-- paperId Fix Card -->
+  <div class="card" id="paperIdCard" style="display:none;">
+    <h3>🔧 Fix Missing paperId on Questions</h3>
+    <div class="info-box">
+      Some questions imported before the auto-create fix may have no <code>paperId</code> field — causing the test loader to fall back to slow queries. This will stamp the correct <code>paperId</code> onto all matching questions in one click.
+    </div>
+    <div style="background:#0F172A;border:1px solid #334155;border-radius:10px;padding:1rem;margin-bottom:1rem;">
+      <div style="font-size:0.8rem;color:#64748B;margin-bottom:0.5rem;">paperId that will be written to all loaded questions:</div>
+      <div id="paperIdPreview" style="font-family:monospace;font-size:0.88rem;color:#A78BFA;padding:0.5rem;background:#1E293B;border-radius:6px;word-break:break-all;">—</div>
+    </div>
+    <div style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:center;">
+      <button class="btn btn-primary" onclick="fixPaperId()">🔧 Stamp paperId on All Questions</button>
+      <span id="paperIdStatus" style="font-size:0.85rem;color:#94A3B8;"></span>
+    </div>
+    <div class="progress-wrap" id="paperIdProgressWrap">
+      <div class="progress-bar-bg"><div class="progress-bar" id="paperIdBar"></div></div>
+      <div class="progress-status" id="paperIdProgressStatus"></div>
+    </div>
+  </div>
+
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
@@ -386,6 +408,7 @@ window.fetchPaperQuestions = async () => {
     }
     status.innerHTML = `✅ <strong style="color:#00A86B;">${docs.length} questions loaded</strong> — ready to update solutions.`;
     document.getElementById('updateCard').style.display = 'block';
+    updatePaperIdPreview();
     clearPreview();
   } catch(e) {
     status.textContent = '❌ Error: ' + e.message;
@@ -396,11 +419,14 @@ window.fetchPaperQuestions = async () => {
 // ── Mode switch ──
 window.switchMode = (mode) => {
   currentMode = mode;
-  document.getElementById('mode-json').style.display = mode === 'json' ? 'block' : 'none';
-  document.getElementById('mode-csv').style.display  = mode === 'csv'  ? 'block' : 'none';
-  document.getElementById('tab-json').className = 'mode-tab' + (mode === 'json' ? ' active' : '');
-  document.getElementById('tab-csv').className  = 'mode-tab' + (mode === 'csv'  ? ' active' : '');
+  document.getElementById('mode-json').style.display    = mode === 'json'    ? 'block' : 'none';
+  document.getElementById('mode-csv').style.display     = mode === 'csv'     ? 'block' : 'none';
+  document.getElementById('paperIdCard').style.display  = mode === 'paperid' ? 'block' : 'none';
+  document.getElementById('tab-json').className    = 'mode-tab' + (mode === 'json'    ? ' active' : '');
+  document.getElementById('tab-csv').className     = 'mode-tab' + (mode === 'csv'     ? ' active' : '');
+  document.getElementById('tab-paperid').className = 'mode-tab' + (mode === 'paperid' ? ' active' : '');
   clearPreview();
+  if (mode === 'paperid') updatePaperIdPreview();
 };
 
 // ── JSON Parse ──
@@ -625,6 +651,70 @@ window.confirmUpdate = async () => {
   status.innerHTML = `✅ <strong>${updated} updated</strong>${skipped ? ` · ${skipped} skipped` : ''}${errors ? ` · <span style="color:#EF4444">${errors} errors</span>` : ''}`;
   document.getElementById('confirmUpdateBtn').disabled = false;
   showToast(`✅ ${updated} questions updated!`, 'success');
+};
+
+// ── paperId Fix ──
+window.updatePaperIdPreview = () => {
+  if (!loadedDocs.length) {
+    document.getElementById('paperIdPreview').textContent = 'Load a paper first using the selector above.';
+    return;
+  }
+  const exam   = document.getElementById('selExam').value;
+  const tier   = document.getElementById('selTier').value;
+  const year   = document.getElementById('selYear').value;
+  const shift  = document.getElementById('selShift').value;
+  const lang   = document.getElementById('selLang').value;
+  const heldOn = document.getElementById('selHeldOn').value;
+  const pid = [exam, year, tier, shift.replace(/\s+/g,'-'), heldOn, lang]
+               .filter(Boolean).join('_').toLowerCase().replace(/\s+/g,'-');
+  document.getElementById('paperIdPreview').textContent = pid;
+};
+
+window.fixPaperId = async () => {
+  if (!loadedDocs.length) { showToast('Load a paper first', 'error'); return; }
+
+  const exam   = document.getElementById('selExam').value;
+  const tier   = document.getElementById('selTier').value;
+  const year   = document.getElementById('selYear').value;
+  const shift  = document.getElementById('selShift').value;
+  const lang   = document.getElementById('selLang').value;
+  const heldOn = document.getElementById('selHeldOn').value;
+  const pid = [exam, year, tier, shift.replace(/\s+/g,'-'), heldOn, lang]
+               .filter(Boolean).join('_').toLowerCase().replace(/\s+/g,'-');
+
+  if (!pid) { showToast('Cannot build paperId — check paper selector', 'error'); return; }
+
+  const confirmed = confirm(
+    'This will write paperId = "' + pid + '" to ' + loadedDocs.length + ' questions.\n\nContinue?'
+  );
+  if (!confirmed) return;
+
+  const prog   = document.getElementById('paperIdProgressWrap');
+  const bar    = document.getElementById('paperIdBar');
+  const status = document.getElementById('paperIdProgressStatus');
+  const btn    = document.querySelector('[onclick="fixPaperId()"]');
+  prog.style.display = 'block';
+  bar.style.width = '0%';
+  btn.disabled = true;
+
+  let updated = 0, errors = 0;
+  for (let i = 0; i < loadedDocs.length; i++) {
+    try {
+      await updateDoc(loadedDocs[i].ref, { paperId: pid });
+      updated++;
+    } catch(e) {
+      errors++;
+      console.error('paperId update error Q' + loadedDocs[i].data().qNum, e);
+    }
+    bar.style.width = ((i+1) / loadedDocs.length * 100) + '%';
+    status.textContent = 'Updating ' + (i+1) + '/' + loadedDocs.length + '...';
+  }
+
+  status.innerHTML = '✅ <strong>' + updated + ' questions updated</strong>' +
+    (errors ? ' · <span style="color:#EF4444">' + errors + ' errors</span>' : '');
+  document.getElementById('paperIdStatus').textContent = '✅ Done: ' + pid;
+  btn.disabled = false;
+  showToast('✅ paperId stamped on ' + updated + ' questions!', 'success');
 };
 
 // ── Toast ──
