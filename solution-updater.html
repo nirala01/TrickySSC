@@ -219,6 +219,7 @@ pre{font-family:monospace;font-size:0.78rem;color:#A78BFA;line-height:1.7;white-
       <button class="mode-tab active" onclick="switchMode('json')" id="tab-json">📋 Paste JSON</button>
       <button class="mode-tab" onclick="switchMode('csv')" id="tab-csv">📄 Upload CSV</button>
       <button class="mode-tab" onclick="switchMode('paperid')" id="tab-paperid">🔧 Fix paperId</button>
+      <button class="mode-tab" onclick="switchMode('qoptions')" id="tab-qoptions">📝 Fix Q &amp; Options</button>
     </div>
 
     <!-- JSON Mode -->
@@ -325,6 +326,66 @@ pre{font-family:monospace;font-size:0.78rem;color:#A78BFA;line-height:1.7;white-
     </div>
   </div>
 
+  <!-- Q & Options Fix Card -->
+  <div class="card" id="qoptionsCard" style="display:none;">
+    <h3>📝 Fix Questions &amp; Options</h3>
+    <div class="info-box">
+      Upload a CSV with columns: <code>qNum</code>, <code>text</code>, <code>option_A</code>, <code>option_B</code>, <code>option_C</code>, <code>option_D</code>, <code>correct</code>. Only include rows for questions you want to fix. You can include any subset of columns — only non-empty cells will be written.
+    </div>
+    <div class="warn-box">
+      ⚠️ <strong>correct</strong> must be A, B, C or D. This module updates question text, options, and correct answer only — it does NOT touch explanation/trick/concept.
+    </div>
+
+    <div class="upload-area" onclick="document.getElementById('qoptCsvInput').click()">
+      <input type="file" id="qoptCsvInput" accept=".csv" style="display:none;" onchange="handleQOptCSV(event)">
+      <div class="icon">📄</div>
+      <p><strong>Click to select CSV</strong> or drag &amp; drop</p>
+      <p style="margin-top:0.25rem;">Columns: qNum, text, option_A, option_B, option_C, option_D, correct</p>
+    </div>
+    <div id="qoptFileInfo" style="display:none;font-size:0.85rem;color:#94A3B8;margin-bottom:0.75rem;"></div>
+
+    <div class="format-card">
+      <h4>CSV Format</h4>
+      <pre>qNum,text,option_A,option_B,option_C,option_D,correct
+1,"If 2x + 3 = 11, find x.","2","4","3","5","B"
+7,"Which is the capital of France?","London","Paris","Berlin","Rome","B"</pre>
+    </div>
+
+    <!-- Preview table -->
+    <div class="preview-wrap" id="qoptPreviewWrap" style="display:none;margin-top:1.25rem;">
+      <div class="preview-header">
+        <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
+          <span>Preview</span>
+          <span class="badge badge-orange" id="qoptPreviewTotal">0 questions</span>
+          <span class="badge badge-green" id="qoptPreviewNew">0 ready</span>
+          <span class="badge badge-red" id="qoptPreviewMissing" style="display:none;">0 not found</span>
+        </div>
+        <button class="btn btn-primary" id="qoptConfirmBtn" onclick="confirmQOptUpdate()" style="padding:0.45rem 1rem;font-size:0.82rem;">✅ Confirm Update</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>Q#</th>
+            <th>Question Text</th>
+            <th>Opt A</th>
+            <th>Opt B</th>
+            <th>Opt C</th>
+            <th>Opt D</th>
+            <th>Correct</th>
+            <th>Status</th>
+          </tr></thead>
+          <tbody id="qoptPreviewBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Progress -->
+    <div class="progress-wrap" id="qoptProgressWrap">
+      <div class="progress-bar-bg"><div class="progress-bar" id="qoptProgressBar"></div></div>
+      <div class="progress-status" id="qoptProgressStatus">Updating...</div>
+    </div>
+  </div>
+
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
@@ -419,12 +480,14 @@ window.fetchPaperQuestions = async () => {
 // ── Mode switch ──
 window.switchMode = (mode) => {
   currentMode = mode;
-  document.getElementById('mode-json').style.display    = mode === 'json'    ? 'block' : 'none';
-  document.getElementById('mode-csv').style.display     = mode === 'csv'     ? 'block' : 'none';
-  document.getElementById('paperIdCard').style.display  = mode === 'paperid' ? 'block' : 'none';
-  document.getElementById('tab-json').className    = 'mode-tab' + (mode === 'json'    ? ' active' : '');
-  document.getElementById('tab-csv').className     = 'mode-tab' + (mode === 'csv'     ? ' active' : '');
-  document.getElementById('tab-paperid').className = 'mode-tab' + (mode === 'paperid' ? ' active' : '');
+  document.getElementById('mode-json').style.display    = mode === 'json'     ? 'block' : 'none';
+  document.getElementById('mode-csv').style.display     = mode === 'csv'      ? 'block' : 'none';
+  document.getElementById('paperIdCard').style.display  = mode === 'paperid'  ? 'block' : 'none';
+  document.getElementById('qoptionsCard').style.display = mode === 'qoptions' ? 'block' : 'none';
+  document.getElementById('tab-json').className     = 'mode-tab' + (mode === 'json'     ? ' active' : '');
+  document.getElementById('tab-csv').className      = 'mode-tab' + (mode === 'csv'      ? ' active' : '');
+  document.getElementById('tab-paperid').className  = 'mode-tab' + (mode === 'paperid'  ? ' active' : '');
+  document.getElementById('tab-qoptions').className = 'mode-tab' + (mode === 'qoptions' ? ' active' : '');
   clearPreview();
   if (mode === 'paperid') updatePaperIdPreview();
 };
@@ -715,6 +778,165 @@ window.fixPaperId = async () => {
   document.getElementById('paperIdStatus').textContent = '✅ Done: ' + pid;
   btn.disabled = false;
   showToast('✅ paperId stamped on ' + updated + ' questions!', 'success');
+};
+
+// ── Q & Options Module ──
+let parsedQOptUpdates = [];
+
+window.handleQOptCSV = (evt) => {
+  const file = evt.target.files[0];
+  if (!file) return;
+  if (!loadedDocs.length) { showToast('Load a paper first using the selector above', 'error'); return; }
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      parsedQOptUpdates = parseQOptCSV(e.target.result);
+      if (!parsedQOptUpdates.length) throw new Error('No valid rows found');
+      document.getElementById('qoptFileInfo').style.display = 'block';
+      document.getElementById('qoptFileInfo').textContent = `📄 ${file.name} — ${parsedQOptUpdates.length} rows parsed`;
+      showQOptPreview();
+    } catch(err) {
+      showToast('CSV error: ' + err.message, 'error');
+    }
+  };
+  reader.readAsText(file, 'UTF-8');
+};
+
+function parseQOptCSV(text) {
+  text = text.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const rows = [];
+  let row = [], cur = '', inQ = false, i = 0;
+  while (i < text.length) {
+    const ch = text[i];
+    if (inQ) {
+      if (ch === '"') { if (text[i+1] === '"') { cur += '"'; i += 2; } else { inQ = false; i++; } }
+      else { cur += ch; i++; }
+    } else {
+      if (ch === '"') { inQ = true; i++; }
+      else if (ch === ',') { row.push(cur.trim()); cur = ''; i++; }
+      else if (ch === '\n') {
+        row.push(cur.trim()); cur = '';
+        if (row.some(c => c !== '')) rows.push(row);
+        row = []; i++;
+      } else { cur += ch; i++; }
+    }
+  }
+  row.push(cur.trim());
+  if (row.some(c => c !== '')) rows.push(row);
+  if (rows.length < 2) return [];
+
+  const headers = rows[0].map(h => h.toLowerCase().trim());
+  const idx = (name) => headers.indexOf(name);
+  const iQ = idx('qnum');
+  if (iQ === -1) throw new Error('Missing qNum column');
+
+  const valid = ['A','B','C','D'];
+  return rows.slice(1).map(r => {
+    const correctRaw = (r[idx('correct')] || '').trim().toUpperCase();
+    return {
+      qNum:     parseInt(r[iQ]) || 0,
+      text:     idx('text')     >= 0 ? r[idx('text')]     || '' : '',
+      option_A: idx('option_a') >= 0 ? r[idx('option_a')] || '' : '',
+      option_B: idx('option_b') >= 0 ? r[idx('option_b')] || '' : '',
+      option_C: idx('option_c') >= 0 ? r[idx('option_c')] || '' : '',
+      option_D: idx('option_d') >= 0 ? r[idx('option_d')] || '' : '',
+      correct:  valid.includes(correctRaw) ? correctRaw : ''
+    };
+  }).filter(r => r.qNum > 0);
+}
+
+function showQOptPreview() {
+  const docMap = {};
+  loadedDocs.forEach(d => { docMap[parseInt(d.data().qNum)] = d; });
+
+  let readyCount = 0, missingCount = 0;
+  const tbody = document.getElementById('qoptPreviewBody');
+  tbody.innerHTML = '';
+
+  parsedQOptUpdates.forEach(upd => {
+    const doc = docMap[upd.qNum];
+    const tr = document.createElement('tr');
+    const clip = (s, n=30) => s ? (s.length > n ? s.slice(0,n)+'…' : s) : '—';
+
+    if (!doc) {
+      missingCount++;
+      tr.innerHTML = `<td class="td-qnum">${upd.qNum}</td>
+        <td colspan="6" style="color:#64748B;font-style:italic;">Question not found in loaded paper</td>
+        <td class="td-status"><span class="badge badge-red">Not found</span></td>`;
+    } else {
+      readyCount++;
+      const hasAny = upd.text || upd.option_A || upd.option_B || upd.option_C || upd.option_D || upd.correct;
+      tr.innerHTML = `
+        <td class="td-qnum">${upd.qNum}</td>
+        <td class="td-preview ${upd.text ? 'has-content':'no-content'}">${clip(upd.text,40)}</td>
+        <td class="td-preview ${upd.option_A ? 'has-content':'no-content'}">${clip(upd.option_A)}</td>
+        <td class="td-preview ${upd.option_B ? 'has-content':'no-content'}">${clip(upd.option_B)}</td>
+        <td class="td-preview ${upd.option_C ? 'has-content':'no-content'}">${clip(upd.option_C)}</td>
+        <td class="td-preview ${upd.option_D ? 'has-content':'no-content'}">${clip(upd.option_D)}</td>
+        <td style="font-weight:700;color:${upd.correct ? '#00A86B':'#64748B'}">${upd.correct || '—'}</td>
+        <td class="td-status"><span class="badge ${hasAny ? 'badge-green':'badge'}">
+          ${hasAny ? 'Update' : 'Empty'}</span></td>`;
+    }
+    tbody.appendChild(tr);
+  });
+
+  document.getElementById('qoptPreviewTotal').textContent = parsedQOptUpdates.length + ' questions';
+  document.getElementById('qoptPreviewNew').textContent = readyCount + ' ready';
+  const missBadge = document.getElementById('qoptPreviewMissing');
+  if (missingCount > 0) {
+    missBadge.style.display = 'inline-block';
+    missBadge.textContent = missingCount + ' not found';
+  } else {
+    missBadge.style.display = 'none';
+  }
+  document.getElementById('qoptPreviewWrap').style.display = 'block';
+}
+
+window.confirmQOptUpdate = async () => {
+  if (!parsedQOptUpdates.length || !loadedDocs.length) return;
+
+  const docMap = {};
+  loadedDocs.forEach(d => { docMap[parseInt(d.data().qNum)] = d; });
+
+  const prog   = document.getElementById('qoptProgressWrap');
+  const bar    = document.getElementById('qoptProgressBar');
+  const status = document.getElementById('qoptProgressStatus');
+  prog.style.display = 'block';
+  bar.style.width = '0%';
+  document.getElementById('qoptConfirmBtn').disabled = true;
+
+  let updated = 0, skipped = 0, errors = 0;
+
+  for (let i = 0; i < parsedQOptUpdates.length; i++) {
+    const upd = parsedQOptUpdates[i];
+    const docSnap = docMap[upd.qNum];
+    if (!docSnap) { skipped++; continue; }
+
+    const payload = {};
+    if (upd.text)     payload.text     = upd.text;
+    if (upd.option_A) payload.option_A = upd.option_A;
+    if (upd.option_B) payload.option_B = upd.option_B;
+    if (upd.option_C) payload.option_C = upd.option_C;
+    if (upd.option_D) payload.option_D = upd.option_D;
+    if (upd.correct)  payload.correct  = upd.correct;
+
+    if (!Object.keys(payload).length) { skipped++; continue; }
+
+    try {
+      await updateDoc(docSnap.ref, payload);
+      updated++;
+    } catch(e) {
+      errors++;
+      console.error(`Q${upd.qNum} error:`, e);
+    }
+
+    bar.style.width = ((i + 1) / parsedQOptUpdates.length * 100) + '%';
+    status.textContent = `Updating ${i + 1}/${parsedQOptUpdates.length}...`;
+  }
+
+  status.innerHTML = `✅ <strong>${updated} updated</strong>${skipped ? ` · ${skipped} skipped` : ''}${errors ? ` · <span style="color:#EF4444">${errors} errors</span>` : ''}`;
+  document.getElementById('qoptConfirmBtn').disabled = false;
+  showToast(`✅ ${updated} questions updated!`, 'success');
 };
 
 // ── Toast ──
