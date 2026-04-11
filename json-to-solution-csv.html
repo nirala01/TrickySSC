@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Solution Builder — TrickySSC</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#0F172A;--surface:#1E293B;--surface2:#0F172A;--border:#334155;
+  --accent:#FF6B00;--accent2:#00A86B;--blue:#3B82F6;
+  --text:#E2E8F0;--muted:#64748B;--subtle:#94A3B8;
+  --red:#EF4444;--yellow:#F59E0B;
+  --mono:'JetBrains Mono',monospace;--sans:'Syne',sans-serif;
+}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;}
+.topbar{background:linear-gradient(135deg,#FF6B00,#FF8C38);padding:0.9rem 1.5rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;}
+.topbar h1{font-size:1.15rem;font-weight:800;color:#fff;letter-spacing:-0.3px;}
+.topbar h1 span{opacity:0.65;font-weight:500;font-size:0.9rem;}
+.topbar-right{display:flex;align-items:center;gap:0.5rem;}
+#authStatus{font-size:0.75rem;font-family:var(--mono);background:rgba(255,255,255,0.15);color:#fff;padding:0.25rem 0.75rem;border-radius:100px;}
+.btn-sm{padding:0.3rem 0.85rem;border-radius:100px;font-family:var(--sans);font-weight:700;font-size:0.75rem;cursor:pointer;border:none;transition:all 0.15s;}
+.btn-white{background:rgba(255,255,255,0.9);color:#FF6B00;}
+.btn-white:hover{background:#fff;}
+.wrap{max-width:960px;margin:0 auto;padding:1.5rem;}
+#authBanner{background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.25);border-radius:10px;padding:0.85rem 1rem;font-size:0.82rem;color:#7DD3FC;margin-bottom:1.25rem;}
+#authBanner.authed{background:rgba(0,168,107,0.1);border-color:rgba(0,168,107,0.25);color:#6EE7B7;}
+.tabs{display:flex;gap:0.4rem;background:var(--surface);padding:0.35rem;border-radius:10px;width:fit-content;margin-bottom:1.25rem;}
+.tab{padding:0.45rem 1.1rem;border-radius:7px;font-weight:700;font-size:0.82rem;cursor:pointer;border:none;background:transparent;color:var(--muted);transition:all 0.15s;font-family:var(--sans);}
+.tab.active{background:var(--accent);color:#fff;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.25rem;margin-bottom:1.25rem;}
+.card-title{font-size:0.78rem;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:var(--muted);margin-bottom:1rem;display:flex;align-items:center;gap:0.4rem;}
+.card-title span{color:var(--accent);}
+.form-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:0.65rem;margin-bottom:0.85rem;}
+label{display:block;font-size:0.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.3rem;}
+select,input[type=date],input[type=number],input[type=text]{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:0.55rem 0.8rem;color:var(--text);font-family:var(--mono);font-size:0.8rem;outline:none;transition:border 0.15s;}
+select:focus,input:focus{border-color:var(--accent);}
+textarea{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:0.75rem;color:var(--text);font-family:var(--mono);font-size:0.75rem;line-height:1.6;outline:none;resize:vertical;transition:border 0.15s;}
+textarea:focus{border-color:var(--accent);}
+.hint{font-size:0.72rem;color:var(--muted);margin-top:0.4rem;font-family:var(--mono);}
+.btn{padding:0.6rem 1.2rem;border-radius:8px;font-family:var(--sans);font-weight:700;font-size:0.85rem;cursor:pointer;border:none;transition:all 0.15s;}
+.btn-primary{background:linear-gradient(135deg,#FF6B00,#FF8C38);color:#fff;}
+.btn-primary:hover{opacity:0.88;transform:translateY(-1px);}
+.btn-secondary{background:var(--border);color:var(--text);}
+.btn-secondary:hover{background:#475569;}
+.btn-success{background:linear-gradient(135deg,#00A86B,#00c97f);color:#fff;}
+.btn-success:hover{opacity:0.88;transform:translateY(-1px);}
+.btn-blue{background:linear-gradient(135deg,#3B82F6,#2563EB);color:#fff;}
+.btn-blue:hover{opacity:0.88;transform:translateY(-1px);}
+.btn:disabled{opacity:0.4;cursor:not-allowed;transform:none!important;}
+.btn-row{display:flex;gap:0.65rem;flex-wrap:wrap;align-items:center;margin-top:0.85rem;}
+.inputs-row{display:flex;gap:0.65rem;align-items:flex-end;margin-bottom:0.85rem;flex-wrap:wrap;}
+.field{flex:0 0 auto;}
+.field-grow{flex:1 1 160px;}
+.info-box{background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);border-radius:8px;padding:0.75rem 1rem;font-size:0.8rem;color:#7DD3FC;margin-bottom:0.85rem;line-height:1.6;}
+#paperStatus{font-size:0.82rem;color:var(--subtle);margin-top:0.6rem;min-height:20px;}
+.toggle-row{display:flex;align-items:center;gap:0.65rem;margin-bottom:0.85rem;}
+.toggle{position:relative;width:40px;height:22px;flex-shrink:0;}
+.toggle input{opacity:0;width:0;height:0;}
+.toggle-slider{position:absolute;inset:0;background:var(--border);border-radius:100px;cursor:pointer;transition:0.2s;}
+.toggle-slider:before{content:'';position:absolute;width:16px;height:16px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:0.2s;}
+.toggle input:checked + .toggle-slider{background:var(--accent);}
+.toggle input:checked + .toggle-slider:before{transform:translateX(18px);}
+.toggle-label{font-size:0.82rem;color:var(--subtle);}
+.toggle-label strong{color:var(--yellow);}
+.preview-box{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:1rem;margin-top:0.85rem;font-size:0.8rem;line-height:1.7;min-height:80px;}
+.preview-empty{color:#2a3555;font-family:var(--mono);font-size:0.75rem;text-align:center;padding:1.5rem;}
+.csv-out{font-family:var(--mono);font-size:0.7rem;color:#7affcb;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:0.85rem;min-height:60px;word-break:break-all;white-space:pre-wrap;overflow-y:auto;max-height:160px;margin-top:0.85rem;}
+.table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:8px;margin-top:0.85rem;}
+table{width:100%;border-collapse:collapse;font-size:0.78rem;}
+th{background:var(--surface2);color:var(--muted);font-weight:700;padding:0.55rem 0.75rem;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap;}
+td{padding:0.5rem 0.75rem;border-bottom:1px solid rgba(51,65,85,0.5);vertical-align:top;color:#CBD5E1;}
+tr:last-child td{border-bottom:none;}
+.td-q{font-weight:700;color:var(--accent);width:44px;}
+.td-clip{max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--subtle);font-size:0.72rem;}
+.has-c{color:var(--accent2);}
+.no-c{color:var(--muted);font-style:italic;}
+.badge{display:inline-block;padding:0.18rem 0.6rem;border-radius:100px;font-size:0.72rem;font-weight:700;}
+.badge-green{background:rgba(0,168,107,0.15);color:#00A86B;border:1px solid rgba(0,168,107,0.3);}
+.badge-orange{background:rgba(255,107,0,0.15);color:#FF6B00;border:1px solid rgba(255,107,0,0.3);}
+.badge-red{background:rgba(239,68,68,0.15);color:#EF4444;border:1px solid rgba(239,68,68,0.3);}
+.badge-yellow{background:rgba(245,158,11,0.15);color:#F59E0B;border:1px solid rgba(245,158,11,0.3);}
+.progress-wrap{display:none;margin-top:0.85rem;}
+.progress-bg{background:var(--surface2);border-radius:6px;height:7px;overflow:hidden;margin-bottom:0.45rem;}
+.progress-bar{height:100%;background:linear-gradient(135deg,#FF6B00,#FF8C38);width:0%;transition:width 0.3s;}
+.progress-status{font-size:0.8rem;color:var(--subtle);}
+.toast{position:fixed;bottom:1.5rem;right:1.5rem;padding:0.8rem 1.1rem;border-radius:10px;font-weight:700;font-size:0.88rem;z-index:9999;display:none;max-width:340px;box-shadow:0 8px 32px rgba(0,0,0,0.4);font-family:var(--sans);}
+.toast.success{background:#00A86B;color:#fff;}
+.toast.error{background:#EF4444;color:#fff;}
+.toast.info{background:#3B82F6;color:#fff;}
+.divider{border:none;border-top:1px solid var(--border);margin:1rem 0;}
+.section-label{font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--muted);margin-bottom:0.5rem;}
+.fmt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:0.65rem;margin-top:0.75rem;}
+.fmt-card{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:0.85rem;}
+.fmt-card h5{font-size:0.7rem;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:0.5rem;}
+pre{font-family:var(--mono);font-size:0.68rem;color:#8899cc;line-height:1.6;white-space:pre-wrap;word-break:break-word;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>⚡ TrickySSC &nbsp;<span>/ Solution Builder</span></h1>
+  <div class="topbar-right">
+    <span id="authStatus">Not signed in</span>
+    <button class="btn-sm btn-white" id="authBtn" onclick="toggleAuth()">Sign in with Google</button>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <div id="authBanner">
+    🔒 Sign in with your TrickySSC admin account to push solutions directly to Firestore.
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('convert')" id="tab-convert">🔄 Convert JSON</button>
+    <button class="tab" onclick="switchTab('push')" id="tab-push">🚀 Push to DB</button>
+  </div>
+
+  <!-- ══ TAB: CONVERT ══ -->
+  <div id="pane-convert">
+    <div class="card">
+      <div class="card-title">📋 Paste Solution <span>JSON</span></div>
+      <div class="inputs-row">
+        <div class="field">
+          <label>Q Number</label>
+          <input type="number" id="qnum" value="25" min="1" max="200" style="width:80px;">
+        </div>
+        <div class="field-grow">
+          <label>JSON Format</label>
+          <select id="fmtSel">
+            <option value="auto">Auto-detect</option>
+            <option value="steps_expl">steps[].explanation[]</option>
+            <option value="steps_process">steps[].process[]</option>
+            <option value="expl_trick_concept">explanation + trick + concept (strings)</option>
+            <option value="solution_steps">solution_steps[].calculation</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>&nbsp;</label>
+          <button class="btn btn-secondary" style="font-size:0.75rem;padding:0.52rem 0.85rem;" onclick="loadExample()">Load example</button>
+        </div>
+      </div>
+      <textarea id="jsonInput" rows="10" placeholder='{&#10;  "steps": [&#10;    { "step": 1, "title": "Identify the pattern", "explanation": ["(1 × 2) + 1 = 3"] }&#10;  ]&#10;}'></textarea>
+      <div class="hint">Supports: steps[].explanation[], steps[].process[], explanation+trick+concept strings, solution_steps[].calculation</div>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="convert()">⚡ Convert</button>
+        <button class="btn btn-secondary" onclick="clearConvert()">✕ Clear</button>
+      </div>
+    </div>
+
+    <div class="card" id="convertOutput" style="display:none;">
+      <div class="card-title">Output</div>
+      <div class="section-label">HTML Preview (Q<span id="previewQLabel">—</span>)</div>
+      <div class="preview-box" id="htmlPreview"><div class="preview-empty">—</div></div>
+      <hr class="divider">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;">
+        <div class="section-label" style="margin:0;">CSV Output</div>
+        <div style="display:flex;gap:0.5rem;">
+          <button class="btn btn-secondary" style="font-size:0.75rem;padding:0.35rem 0.9rem;" onclick="copyCSV()">Copy CSV</button>
+          <button class="btn btn-secondary" style="font-size:0.75rem;padding:0.35rem 0.9rem;" onclick="downloadCSV()">⬇ Download</button>
+        </div>
+      </div>
+      <div class="csv-out" id="csvOut"></div>
+      <hr class="divider">
+      <div class="btn-row">
+        <button class="btn btn-success" onclick="goToPush()">🚀 Push this to DB →</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📖 Supported JSON <span>Formats</span></div>
+      <div class="fmt-grid">
+        <div class="fmt-card"><h5>A — steps[].explanation[]</h5><pre>{ "steps": [{ "step": 1,
+  "title": "Find the pattern",
+  "explanation": ["(1×2)+1=3"] }] }</pre></div>
+        <div class="fmt-card"><h5>B — steps[].process[]</h5><pre>{ "steps": [{ "step": 1,
+  "title": "Letter Pattern",
+  "process": ["Y(-4)→U(-4)→Q"] }] }</pre></div>
+        <div class="fmt-card"><h5>C — explanation + trick + concept</h5><pre>{ "explanation": "Step 1: ...\n→ ...",
+  "trick": "Step 1: ...",
+  "concept": "Number Analogy..." }</pre></div>
+        <div class="fmt-card"><h5>D — solution_steps[].calculation</h5><pre>{ "solution_steps": [{
+  "step":1, "title":"First",
+  "calculation":"19×11=209" }] }</pre></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ TAB: PUSH TO DB ══ -->
+  <div id="pane-push" style="display:none;">
+
+    <div class="card">
+      <div class="card-title">📄 Select <span>Paper</span></div>
+      <div class="form-grid">
+        <div><label>Exam</label>
+          <select id="selExam">
+            <option value="ssc-cgl">SSC CGL</option>
+            <option value="ssc-chsl">SSC CHSL</option>
+            <option value="ssc-mts">SSC MTS</option>
+            <option value="ssc-gd">SSC GD</option>
+            <option value="ssc-cpo">SSC CPO</option>
+          </select></div>
+        <div><label>Year</label>
+          <select id="selYear">
+            <option value="2025">2025</option>
+            <option value="2024" selected>2024</option>
+            <option value="2023">2023</option>
+            <option value="2022">2022</option>
+            <option value="2021">2021</option>
+            <option value="2020">2020</option>
+          </select></div>
+        <div><label>Tier</label>
+          <select id="selTier">
+            <option value="tier1">Tier I (CBT)</option>
+            <option value="tier2">Tier II (CBT)</option>
+          </select></div>
+        <div><label>Shift</label>
+          <select id="selShift">
+            <option value="">Any Shift</option>
+            <option value="Shift-1" selected>Shift 1</option>
+            <option value="Shift-2">Shift 2</option>
+            <option value="Shift-3">Shift 3</option>
+          </select></div>
+        <div><label>Language</label>
+          <select id="selLang">
+            <option value="en">English</option>
+            <option value="hi">Hindi</option>
+          </select></div>
+        <div><label>Held On</label>
+          <input type="date" id="selHeldOn" value="2024-09-09"></div>
+      </div>
+      <button class="btn btn-secondary" onclick="loadPaper()">🔍 Load Questions</button>
+      <div id="paperStatus"></div>
+    </div>
+
+    <div class="card" id="updateSection" style="display:none;">
+      <div class="card-title">✏️ Push <span>Solutions</span></div>
+
+      <div class="toggle-row">
+        <label class="toggle"><input type="checkbox" id="overrideToggle" checked><span class="toggle-slider"></span></label>
+        <span class="toggle-label">Override existing &nbsp;<strong>⚠️ replaces existing explanation / trick / concept</strong></span>
+      </div>
+
+      <div class="info-box">
+        Paste a JSON array with <code>qNum</code>, <code>explanation</code>, <code>trick</code>, <code>concept</code>.<br>
+        Or use the <strong>🔄 Convert JSON</strong> tab and click <strong>🚀 Push to DB</strong> to pre-fill this automatically.
+      </div>
+
+      <textarea id="pushJsonInput" rows="12" placeholder='[&#10;  {&#10;    "qNum": 25,&#10;    "explanation": "&lt;div style=...&gt;Step 1: ...&lt;/div&gt;",&#10;    "trick": "Step 1: ...",&#10;    "concept": "Number Series: ..."&#10;  }&#10;]'></textarea>
+      <div class="hint">explanation = HTML string from Convert tab. trick &amp; concept = plain text.</div>
+
+      <div class="btn-row">
+        <button class="btn btn-blue" onclick="previewPush()">👁 Preview</button>
+        <button class="btn btn-primary" id="pushBtn" onclick="doPush()" disabled>🚀 Push to Firestore</button>
+        <button class="btn btn-secondary" onclick="clearPush()">✕ Clear</button>
+      </div>
+
+      <div id="pushPreviewWrap" style="display:none;">
+        <hr class="divider">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.65rem;">
+          <div style="display:flex;gap:0.5rem;align-items:center;">
+            <span class="badge badge-orange" id="pvTotal">0 qs</span>
+            <span class="badge badge-green"  id="pvNew">0 new</span>
+            <span class="badge badge-yellow" id="pvReplace" style="display:none;"></span>
+            <span class="badge badge-red"    id="pvMissing" style="display:none;"></span>
+          </div>
+          <button class="btn btn-primary" id="confirmPushBtn" onclick="doPush()" style="padding:0.4rem 1rem;font-size:0.8rem;">✅ Confirm Push</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Q#</th><th>Explanation</th><th>Trick</th><th>Concept</th><th>Status</th></tr></thead>
+            <tbody id="pushPreviewBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="progress-wrap" id="pushProgress">
+        <div class="progress-bg"><div class="progress-bar" id="pushBar"></div></div>
+        <div class="progress-status" id="pushStatus">Pushing...</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+<div class="toast" id="toast"></div>
+
+<!-- Firebase module -->
+<script type="module">
+import { initializeApp }      from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
+                               from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
+import { getFirestore, collection, getDocs, updateDoc, query, where }
+                               from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey:            "AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",
+  authDomain:        "trickyssc-17bb3.firebaseapp.com",
+  projectId:         "trickyssc-17bb3",
+  storageBucket:     "trickyssc-17bb3.firebasestorage.app",
+  messagingSenderId: "450627057220",
+  appId:             "1:450627057220:web:366267bf437d94f20c6e11"
+};
+const ADMIN_EMAILS = ['nirala01@gmail.com','ashish@trickyssc.com'];
+const app  = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db   = getFirestore(app);
+
+let currentUser = null;
+let loadedDocs  = [];
+let parsedPush  = [];
+
+onAuthStateChanged(auth, user => {
+  if (user && (ADMIN_EMAILS.includes(user.email) || user.email.endsWith('@trickyssc.com'))) {
+    currentUser = user;
+    document.getElementById('authStatus').textContent  = user.displayName || user.email;
+    document.getElementById('authBtn').textContent     = 'Sign out';
+    document.getElementById('authBanner').className    = 'authed';
+    document.getElementById('authBanner').innerHTML    = `✅ Signed in as <strong>${user.email}</strong> — DB push enabled.`;
+  } else {
+    currentUser = null;
+    document.getElementById('authStatus').textContent  = 'Not signed in';
+    document.getElementById('authBtn').textContent     = 'Sign in with Google';
+    document.getElementById('authBanner').className    = '';
+    document.getElementById('authBanner').innerHTML    = '🔒 Sign in with your TrickySSC admin account to push solutions directly to Firestore.';
+  }
+});
+
+window.toggleAuth = async () => {
+  if (currentUser) { await signOut(auth); showToast('Signed out','info'); }
+  else { try { await signInWithPopup(auth, new GoogleAuthProvider()); } catch(e) { showToast('Login failed: '+e.message,'error'); } }
+};
+
+window.loadPaper = async () => {
+  if (!currentUser) { showToast('Sign in first','error'); return; }
+  const exam   = document.getElementById('selExam').value;
+  const year   = document.getElementById('selYear').value;
+  const tier   = document.getElementById('selTier').value;
+  const shift  = document.getElementById('selShift').value;
+  const lang   = document.getElementById('selLang').value;
+  const heldOn = document.getElementById('selHeldOn').value;
+  const el     = document.getElementById('paperStatus');
+  el.textContent = '🔄 Loading...'; el.style.color='#94A3B8';
+  try {
+    const q    = query(collection(db,'questions'), where('exam','==',exam), where('year','==',year));
+    const snap = await getDocs(q);
+    let docs   = snap.docs;
+    if (tier)   docs = docs.filter(d => d.data().tier   === tier);
+    if (shift)  docs = docs.filter(d => d.data().shift  === shift);
+    if (lang)   docs = docs.filter(d => (d.data().language||'en') === lang);
+    if (heldOn) docs = docs.filter(d => d.data().heldOn === heldOn);
+    loadedDocs = docs;
+    if (!docs.length) {
+      el.innerHTML = '<span style="color:#EF4444;">❌ No questions found.</span>';
+      document.getElementById('updateSection').style.display = 'none'; return;
+    }
+    el.innerHTML = `✅ <strong style="color:#00A86B;">${docs.length} questions loaded</strong> — ready to push.`;
+    document.getElementById('updateSection').style.display = 'block';
+  } catch(e) { el.innerHTML = `<span style="color:#EF4444;">❌ ${e.message}</span>`; }
+};
+
+window.previewPush = () => {
+  const raw = document.getElementById('pushJsonInput').value.trim();
+  if (!raw)              { showToast('Paste JSON first','error'); return; }
+  if (!loadedDocs.length){ showToast('Load a paper first','error'); return; }
+  try {
+    let data = JSON.parse(raw);
+    if (!Array.isArray(data)) data = [data];
+    parsedPush = data.map(r=>({qNum:parseInt(r.qNum)||0,explanation:r.explanation||'',trick:r.trick||'',concept:r.concept||''})).filter(r=>r.qNum>0);
+    if (!parsedPush.length) throw new Error('No entries with valid qNum');
+  } catch(e) { showToast('JSON error: '+e.message,'error'); return; }
+
+  const override = document.getElementById('overrideToggle').checked;
+  const docMap   = {};
+  loadedDocs.forEach(d => { docMap[parseInt(d.data().qNum)] = d; });
+  let newC=0,replC=0,missC=0;
+  const tbody = document.getElementById('pushPreviewBody');
+  tbody.innerHTML='';
+  const clip = (s,n=45) => s?(s.length>n?s.slice(0,n)+'…':s):'—';
+  const strip = s => s.replace(/<[^>]+>/g,'').replace(/&[^;]+;/g,'');
+
+  parsedPush.forEach(upd => {
+    const doc = docMap[upd.qNum];
+    const tr  = document.createElement('tr');
+    if (!doc) {
+      missC++;
+      tr.innerHTML=`<td class="td-q">${upd.qNum}</td><td colspan="3" style="color:var(--muted);font-style:italic;">Not found in loaded paper</td><td><span class="badge badge-red">Missing</span></td>`;
+    } else {
+      const d=doc.data(); const hasE=d.explanation&&d.explanation.trim(); const hasT=d.trick&&d.trick.trim();
+      const isReplace=(hasE||hasT)&&override;
+      if(isReplace) replC++; else newC++;
+      tr.innerHTML=`<td class="td-q">${upd.qNum}</td>
+        <td class="td-clip ${upd.explanation?'has-c':'no-c'}">${clip(strip(upd.explanation))}</td>
+        <td class="td-clip ${upd.trick?'has-c':'no-c'}">${clip(upd.trick,35)}</td>
+        <td class="td-clip ${upd.concept?'has-c':'no-c'}">${clip(upd.concept,30)}</td>
+        <td><span class="badge ${isReplace?'badge-yellow':'badge-green'}">${isReplace?'Replace':'New'}</span></td>`;
+    }
+    tbody.appendChild(tr);
+  });
+
+  document.getElementById('pvTotal').textContent  = parsedPush.length+' qs';
+  document.getElementById('pvNew').textContent    = newC+' new';
+  const rb=document.getElementById('pvReplace'), mb=document.getElementById('pvMissing');
+  if(replC>0){rb.style.display='inline-block';rb.textContent=replC+' replace';}else rb.style.display='none';
+  if(missC>0){mb.style.display='inline-block';mb.textContent=missC+' missing';}else mb.style.display='none';
+  document.getElementById('pushPreviewWrap').style.display='block';
+  document.getElementById('pushBtn').disabled=false;
+  document.getElementById('confirmPushBtn').disabled=false;
+};
+
+window.doPush = async () => {
+  if (!currentUser)       { showToast('Sign in first','error'); return; }
+  if (!parsedPush.length) { showToast('Nothing to push — click Preview first','error'); return; }
+  if (!loadedDocs.length) { showToast('Load a paper first','error'); return; }
+
+  const override = document.getElementById('overrideToggle').checked;
+  const docMap   = {};
+  loadedDocs.forEach(d => { docMap[parseInt(d.data().qNum)] = d; });
+
+  const prog=document.getElementById('pushProgress'), bar=document.getElementById('pushBar'), stat=document.getElementById('pushStatus');
+  prog.style.display='block'; bar.style.width='0%';
+  document.getElementById('pushBtn').disabled=true;
+  document.getElementById('confirmPushBtn').disabled=true;
+
+  let updated=0,skipped=0,errors=0;
+  for(let i=0;i<parsedPush.length;i++){
+    const upd=parsedPush[i]; const docSnap=docMap[upd.qNum];
+    if(!docSnap){skipped++;continue;}
+    const data=docSnap.data();
+    const hasE=data.explanation&&data.explanation.trim(); const hasT=data.trick&&data.trick.trim();
+    if(!override&&(hasE||hasT)){skipped++;continue;}
+    const payload={};
+    if(override){
+      payload.explanation=upd.explanation; payload.trick=upd.trick;
+      if(upd.concept) payload.concept=upd.concept;
+    } else {
+      if(upd.explanation) payload.explanation=upd.explanation;
+      if(upd.trick)       payload.trick=upd.trick;
+      if(upd.concept)     payload.concept=upd.concept;
+    }
+    if(!Object.keys(payload).length){skipped++;continue;}
+    try{ await updateDoc(docSnap.ref,payload); updated++; }
+    catch(e){ errors++; console.error('Q'+upd.qNum,e); }
+    bar.style.width=((i+1)/parsedPush.length*100)+'%';
+    stat.textContent=`Pushing ${i+1}/${parsedPush.length}...`;
+  }
+  stat.innerHTML=`✅ <strong>${updated} updated</strong>`+(skipped?` · ${skipped} skipped`:'')+( errors?` · <span style="color:#EF4444">${errors} errors</span>`:'');
+  document.getElementById('pushBtn').disabled=false;
+  document.getElementById('confirmPushBtn').disabled=false;
+  showToast(`✅ ${updated} questions updated!`,'success');
+};
+
+window.clearPush = () => {
+  parsedPush=[];
+  document.getElementById('pushJsonInput').value='';
+  document.getElementById('pushPreviewWrap').style.display='none';
+  document.getElementById('pushProgress').style.display='none';
+  document.getElementById('pushBtn').disabled=true;
+};
+
+window.showToast = (msg,type='success') => {
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.className='toast '+type; t.style.display='block';
+  setTimeout(()=>{t.style.display='none';},3500);
+};
+</script>
+
+<!-- Non-module JS -->
+<script>
+function stepDiv(n,title){if(!title.endsWith('.'))title+='.';return `<div style="margin-top:8px;"><strong style="color:#155724;font-size:0.88rem;">Step ${n}: ${title}</strong></div>`;}
+function subDiv(c){c=c.replace(/^→\s*/,'').replace(/→/g,' = ').trim();if(!c)return '';return `<div style="margin-left:14px;color:#374151;font-size:0.87rem;line-height:1.7;"><span style="color:#FF6B00;font-weight:700;margin-right:4px;">—</span>${c}</div>`;}
+function finalDiv(v){return `<div style="margin-top:8px;font-weight:700;color:#00A86B;font-size:0.88rem;">&#8756; Final Answer = ${v}</div>`;}
+function cln(s){return(s||'').replace(/👉/g,'').replace(/✔️/g,'').replace(/\*\*([^*]+)\*\*/g,'$1').replace(/\\'/g,"'").trim();}
+
+function parseStepsArray(steps,key){
+  const h=[];let fa=null;
+  steps.forEach(s=>{
+    const n=s.step||''; const title=cln(s.title||s.stepTitle||'Step '+n);
+    h.push(stepDiv(n,title));
+    (s[key]||[]).forEach(line=>{
+      const c=cln(line);
+      if(/final\s+(answer|result)/i.test(c)){const m=c.match(/[=:]\s*(.+)$/);if(m)fa=m[1].trim().replace(/^[=→ ]+/,'').trim();}
+      const d=subDiv(c);if(d)h.push(d);
+    });
+  });
+  if(!fa){const last=steps[steps.length-1];const lines=(last&&last[key])||[];if(lines.length){const ll=cln(lines[lines.length-1]);const m=ll.match(/(?:Result|Answer|=)\s*:?\s*([A-Z0-9][^\s,\.]+)/i);if(m)fa=m[1];}}
+  if(fa)h.push(finalDiv(fa));
+  return h.join('');
+}
+
+function parseSolutionSteps(steps,root){
+  const h=[];
+  steps.forEach(s=>{h.push(stepDiv(s.step||'',cln(s.title||'Step '+(s.step||''))));if(s.calculation){const d=subDiv(cln(s.calculation));if(d)h.push(d);}});
+  if(root&&root.correct_answer&&root.correct_answer.value)h.push(finalDiv(root.correct_answer.value));
+  return h.join('');
+}
+
+function parseExplTrickConcept(obj){
+  function procExpl(raw){
+    if(!raw)return '';
+    raw=cln(raw.replace(/\\n/g,'\n'));
+    const lines=raw.split('\n').map(l=>l.trim()).filter(Boolean);
+    let start=0;while(start<lines.length&&/^Question\s*\d+/i.test(lines[start]))start++;
+    let body=lines.slice(start);
+    const fs=body.findIndex(l=>/^Step\s+\d+/i.test(l));if(fs>0)body=body.slice(fs);
+    const merged=[];let i=0;
+    while(i<body.length){const l=body[i];if(/^Step\s+\d+\s*[:.]\s*$/i.test(l)&&i+1<body.length&&!/^(Step\s+\d+|→)/i.test(body[i+1])){merged.push(l.replace(/[:.]\s*$/,': ')+body[i+1]);i+=2;}else{merged.push(l);i++;}}
+    const h=[];
+    merged.forEach(line=>{
+      const sm=line.match(/^Step\s+(\d+)\s*[:.]\s*(.*)/i);
+      if(sm){let rest=sm[2].trim(),sub='';if(rest.includes('→')){[rest,sub]=rest.split('→',2);sub=sub.trim();}h.push(stepDiv(sm[1],rest.trim()));if(sub){const d=subDiv(sub);if(d)h.push(d);}}
+      else if(line.startsWith('→')){const d=subDiv(line.slice(1));if(d)h.push(d);}
+      else{const d=subDiv(line);if(d)h.push(d);}
+    });
+    const full=merged.join(' ');const fa=full.match(/(?:Final\s+(?:Answer|Result))\s*[=:→]\s*([^\.\n]+)/i);
+    if(fa)h.push(finalDiv(fa[1].trim().replace(/^[=→ ]+/,'').trim()));
+    return h.join('');
+  }
+  const cp=t=>cln((t||'').replace(/\\n/g,' ').replace(/→/g,' = ')).replace(/\s+/g,' ').trim();
+  return{explanation:procExpl(obj.explanation),trick:cp(obj.trick),concept:cp(obj.concept)};
+}
+
+function detectFormat(obj){
+  if(obj.steps&&Array.isArray(obj.steps)){return Array.isArray((obj.steps[0]||{}).process)?'steps_process':'steps_expl';}
+  if(obj.solution_steps)return 'solution_steps';
+  if(obj.explanation!==undefined)return 'expl_trick_concept';
+  return null;
+}
+
+let lastExpl='',lastTrick='',lastConcept='',lastQNum='';
+
+window.convert=()=>{
+  const raw=document.getElementById('jsonInput').value.trim();
+  const qnum=document.getElementById('qnum').value.trim();
+  const fmtSel=document.getElementById('fmtSel').value;
+  if(!raw){showToast('Paste JSON first','error');return;}
+  if(!qnum){showToast('Enter Q number','error');return;}
+  let obj;try{obj=JSON.parse(raw);}catch(e){showToast('Invalid JSON: '+e.message,'error');return;}
+  const fmt=fmtSel==='auto'?detectFormat(obj):fmtSel;
+  if(!fmt){showToast('Cannot detect format — select manually','error');return;}
+  let explanation='',trick='',concept='';
+  try{
+    if(fmt==='steps_expl')       explanation=parseStepsArray(obj.steps,'explanation');
+    else if(fmt==='steps_process')   explanation=parseStepsArray(obj.steps,'process');
+    else if(fmt==='solution_steps')  explanation=parseSolutionSteps(obj.solution_steps,obj);
+    else if(fmt==='expl_trick_concept'){const r=parseExplTrickConcept(obj);explanation=r.explanation;trick=r.trick;concept=r.concept;}
+  }catch(e){showToast('Parse error: '+e.message,'error');return;}
+  lastExpl=explanation;lastTrick=trick;lastConcept=concept;lastQNum=qnum;
+  const csvText=[['qNum','explanation','trick','concept'],[qnum,explanation,trick,concept]].map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n');
+  document.getElementById('previewQLabel').textContent=qnum;
+  document.getElementById('htmlPreview').innerHTML=explanation||'<div class="preview-empty">No HTML generated</div>';
+  document.getElementById('csvOut').textContent=csvText;
+  document.getElementById('convertOutput').style.display='block';
+  showToast('Converted Q'+qnum+' ('+fmt+')','success');
+};
+
+window.clearConvert=()=>{document.getElementById('jsonInput').value='';document.getElementById('convertOutput').style.display='none';};
+window.copyCSV=()=>{navigator.clipboard.writeText(document.getElementById('csvOut').textContent).then(()=>showToast('CSV copied!','success'));};
+window.downloadCSV=()=>{const qnum=document.getElementById('qnum').value;const blob=new Blob([document.getElementById('csvOut').textContent],{type:'text/csv'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`q${qnum}_solution.csv`;a.click();showToast('Downloaded','success');};
+
+window.goToPush=()=>{
+  if(!lastExpl){showToast('Convert a question first','error');return;}
+  document.getElementById('pushJsonInput').value=JSON.stringify([{qNum:parseInt(lastQNum),explanation:lastExpl,trick:lastTrick,concept:lastConcept}],null,2);
+  switchTab('push');
+  showToast('Pre-filled Q'+lastQNum+' — load paper & push','info');
+};
+
+window.switchTab=t=>{
+  document.getElementById('pane-convert').style.display=t==='convert'?'block':'none';
+  document.getElementById('pane-push').style.display=t==='push'?'block':'none';
+  document.getElementById('tab-convert').className='tab'+(t==='convert'?' active':'');
+  document.getElementById('tab-push').className='tab'+(t==='push'?' active':'');
+};
+
+window.loadExample=()=>{
+  document.getElementById('jsonInput').value=JSON.stringify({"steps":[{"step":1,"title":"Identify the mathematical progression","explanation":["(1 × 2) + 1 = 3","(3 × 3) + 1 = 10","(10 × 4) + 1 = 41"]},{"step":2,"title":"Apply logic to find the missing term","explanation":["(41 × 5) + 1 = 205 + 1 = 206"]},{"step":3,"title":"Verify with the final term","explanation":["(206 × 6) + 1 = 1236 + 1 = 1237"]}]},null,2);
+  document.getElementById('qnum').value=25;
+  showToast('Example loaded — click Convert','info');
+};
+
+// Fallback toast for non-module calls (before Firebase module loads)
+if(!window.showToast)window.showToast=(msg,type='success')=>{const t=document.getElementById('toast');t.textContent=msg;t.className='toast '+type;t.style.display='block';setTimeout(()=>{t.style.display='none';},3500);};
+</script>
+</body>
+</html>
