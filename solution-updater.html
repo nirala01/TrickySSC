@@ -220,6 +220,7 @@ pre{font-family:monospace;font-size:0.78rem;color:#A78BFA;line-height:1.7;white-
       <button class="mode-tab" onclick="switchMode('csv')" id="tab-csv">📄 Upload CSV</button>
       <button class="mode-tab" onclick="switchMode('paperid')" id="tab-paperid">🔧 Fix paperId</button>
       <button class="mode-tab" onclick="switchMode('qoptions')" id="tab-qoptions">📝 Fix Q &amp; Options</button>
+      <button class="mode-tab" onclick="switchMode('builder')" id="tab-builder">🔄 Build from JSON</button>
     </div>
 
     <!-- JSON Mode -->
@@ -268,6 +269,95 @@ pre{font-family:monospace;font-size:0.78rem;color:#A78BFA;line-height:1.7;white-
         <pre>qNum,explanation,trick,concept
 1,"Step 1: Find value.[BR]∴ Answer = A.","Step 1: Shortcut.","Arithmetic: profit"
 2,"Step 1: Identify pattern.[BR]Step 2: Apply rule.","Memory: VIBGYOR","GK: History"</pre>
+      </div>
+    </div>
+
+    <!-- Builder Mode -->
+    <div id="mode-builder" style="display:none;">
+      <div class="info-box">
+        Paste a <strong>single-question JSON</strong> (any format), set the Q number, convert to HTML — then push directly to the loaded paper in one click. No CSV needed.
+      </div>
+
+      <div style="display:flex;gap:0.75rem;align-items:flex-end;flex-wrap:wrap;margin-bottom:0.75rem;">
+        <div>
+          <label>Q Number</label>
+          <input type="number" id="bldQNum" value="1" min="1" max="200" style="width:90px;">
+        </div>
+        <div style="flex:1;min-width:160px;">
+          <label>JSON Format</label>
+          <select id="bldFmt">
+            <option value="auto">Auto-detect</option>
+            <option value="steps_expl">steps[].explanation[]</option>
+            <option value="steps_process">steps[].process[]</option>
+            <option value="expl_trick_concept">explanation + trick + concept (strings)</option>
+            <option value="solution_steps">solution_steps[].calculation</option>
+          </select>
+        </div>
+        <button class="btn btn-secondary" onclick="bldLoadExample()" style="padding:0.55rem 0.9rem;font-size:0.82rem;">Load example</button>
+      </div>
+
+      <textarea id="bldJsonInput" style="min-height:180px;" placeholder='{&#10;  "steps": [&#10;    { "step": 1, "title": "Identify the pattern", "explanation": ["(1 × 2) + 1 = 3", "(3 × 3) + 1 = 10"] },&#10;    { "step": 2, "title": "Apply to missing term", "explanation": ["(41 × 5) + 1 = 206"] }&#10;  ]&#10;}'></textarea>
+      <div class="textarea-hint">Supports: steps[].explanation[], steps[].process[], explanation+trick+concept strings, solution_steps[].calculation</div>
+
+      <div class="btn-row">
+        <button class="btn btn-secondary" onclick="bldConvert()">⚡ Convert &amp; Preview</button>
+        <button class="btn btn-primary" id="bldPushBtn" onclick="bldPush()" disabled>🚀 Push to DB</button>
+        <button class="btn btn-secondary" onclick="bldClear()">✕ Clear</button>
+      </div>
+
+      <!-- HTML Preview -->
+      <div id="bldPreviewWrap" style="display:none;margin-top:1rem;">
+        <div style="font-size:0.78rem;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.5rem;">
+          HTML Preview — Q<span id="bldPreviewQLabel">—</span>
+          <span id="bldStatusBadge" style="margin-left:8px;"></span>
+        </div>
+        <div id="bldHtmlPreview" style="background:#0F172A;border:1px solid #334155;border-radius:8px;padding:1rem;font-size:0.85rem;line-height:1.7;min-height:60px;"></div>
+
+        <div style="margin-top:0.75rem;font-size:0.78rem;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.4rem;">Trick</div>
+        <div id="bldTrickPreview" style="background:#0F172A;border:1px solid #334155;border-radius:8px;padding:0.6rem 0.85rem;font-size:0.8rem;color:#94A3B8;min-height:32px;"></div>
+
+        <div style="margin-top:0.75rem;font-size:0.78rem;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.4rem;">Concept</div>
+        <div id="bldConceptPreview" style="background:#0F172A;border:1px solid #334155;border-radius:8px;padding:0.6rem 0.85rem;font-size:0.8rem;color:#94A3B8;min-height:32px;"></div>
+      </div>
+
+      <!-- Push progress -->
+      <div class="progress-wrap" id="bldProgressWrap">
+        <div class="progress-bar-bg"><div class="progress-bar" id="bldProgressBar"></div></div>
+        <div class="progress-status" id="bldProgressStatus"></div>
+      </div>
+
+      <!-- Format reference -->
+      <div class="format-card" style="margin-top:1rem;">
+        <h4>Supported JSON Formats</h4>
+        <pre style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+<span>// Format A — steps[].explanation[]
+{
+  "steps": [{
+    "step": 1,
+    "title": "Find the pattern",
+    "explanation": ["(1×2)+1=3","(3×3)+1=10"]
+  }]
+}</span><span>// Format B — steps[].process[]
+{
+  "steps": [{
+    "step": 1,
+    "title": "Letter Pattern",
+    "process": ["Y(-4)→U(-4)→Q(-4)→M"]
+  }]
+}</span>
+<span>// Format C — explanation + trick + concept
+{
+  "explanation": "Step 1: Find.\n→ content",
+  "trick": "Step 1: Shortcut.",
+  "concept": "Number Analogy: ..."
+}</span><span>// Format D — solution_steps[].calculation
+{
+  "solution_steps": [{
+    "step": 1,
+    "title": "First Relation",
+    "calculation": "19 × 11 = 209"
+  }]
+}</span></pre>
       </div>
     </div>
 
@@ -482,10 +572,12 @@ window.switchMode = (mode) => {
   currentMode = mode;
   document.getElementById('mode-json').style.display    = mode === 'json'     ? 'block' : 'none';
   document.getElementById('mode-csv').style.display     = mode === 'csv'      ? 'block' : 'none';
+  document.getElementById('mode-builder').style.display = mode === 'builder'  ? 'block' : 'none';
   document.getElementById('paperIdCard').style.display  = mode === 'paperid'  ? 'block' : 'none';
   document.getElementById('qoptionsCard').style.display = mode === 'qoptions' ? 'block' : 'none';
   document.getElementById('tab-json').className     = 'mode-tab' + (mode === 'json'     ? ' active' : '');
   document.getElementById('tab-csv').className      = 'mode-tab' + (mode === 'csv'      ? ' active' : '');
+  document.getElementById('tab-builder').className  = 'mode-tab' + (mode === 'builder'  ? ' active' : '');
   document.getElementById('tab-paperid').className  = 'mode-tab' + (mode === 'paperid'  ? ' active' : '');
   document.getElementById('tab-qoptions').className = 'mode-tab' + (mode === 'qoptions' ? ' active' : '');
   clearPreview();
@@ -937,6 +1029,210 @@ window.confirmQOptUpdate = async () => {
   status.innerHTML = `✅ <strong>${updated} updated</strong>${skipped ? ` · ${skipped} skipped` : ''}${errors ? ` · <span style="color:#EF4444">${errors} errors</span>` : ''}`;
   document.getElementById('qoptConfirmBtn').disabled = false;
   showToast(`✅ ${updated} questions updated!`, 'success');
+};
+
+// ══════════════════════════════════════════════════════════
+// ── Build-from-JSON tab ──────────────────────────────────
+// ══════════════════════════════════════════════════════════
+
+// HTML fragment builders
+function bldStepDiv(n, title) {
+  if (!title.endsWith('.')) title += '.';
+  return `<div style="margin-top:8px;"><strong style="color:#155724;font-size:0.88rem;">Step ${n}: ${title}</strong></div>`;
+}
+function bldSubDiv(content) {
+  content = content.replace(/^→\s*/, '').replace(/→/g, ' = ').trim();
+  if (!content) return '';
+  return `<div style="margin-left:14px;color:#374151;font-size:0.87rem;line-height:1.7;"><span style="color:#FF6B00;font-weight:700;margin-right:4px;">—</span>${content}</div>`;
+}
+function bldFinalDiv(val) {
+  return `<div style="margin-top:8px;font-weight:700;color:#00A86B;font-size:0.88rem;">&#8756; Final Answer = ${val}</div>`;
+}
+function bldClean(s) {
+  return (s || '').replace(/👉/g, '').replace(/✔️/g, '').replace(/\*\*([^*]+)\*\*/g, '$1').replace(/\\'/g, "'").trim();
+}
+
+function bldParseStepsArray(steps, key) {
+  const html = []; let fa = null;
+  steps.forEach(s => {
+    const n = s.step || ''; const title = bldClean(s.title || s.stepTitle || 'Step ' + n);
+    html.push(bldStepDiv(n, title));
+    (s[key] || []).forEach(line => {
+      const c = bldClean(line);
+      if (/final\s+(answer|result)/i.test(c)) { const m = c.match(/[=:]\s*(.+)$/); if (m) fa = m[1].trim().replace(/^[=→ ]+/, '').trim(); }
+      const d = bldSubDiv(c); if (d) html.push(d);
+    });
+  });
+  if (!fa) {
+    const last = steps[steps.length - 1]; const lines = (last && last[key]) || [];
+    if (lines.length) { const ll = bldClean(lines[lines.length - 1]); const m = ll.match(/(?:Result|Answer|=)\s*:?\s*([A-Z0-9][^\s,\.]+)/i); if (m) fa = m[1]; }
+  }
+  if (fa) html.push(bldFinalDiv(fa));
+  return html.join('');
+}
+
+function bldParseSolutionSteps(steps, root) {
+  const html = [];
+  steps.forEach(s => {
+    html.push(bldStepDiv(s.step || '', bldClean(s.title || 'Step ' + (s.step || ''))));
+    if (s.calculation) { const d = bldSubDiv(bldClean(s.calculation)); if (d) html.push(d); }
+  });
+  if (root && root.correct_answer && root.correct_answer.value) html.push(bldFinalDiv(root.correct_answer.value));
+  return html.join('');
+}
+
+function bldParseExplTrickConcept(obj) {
+  function procExpl(raw) {
+    if (!raw) return '';
+    raw = bldClean(raw.replace(/\\n/g, '\n'));
+    const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
+    let start = 0;
+    while (start < lines.length && /^Question\s*\d+/i.test(lines[start])) start++;
+    let body = lines.slice(start);
+    const fs = body.findIndex(l => /^Step\s+\d+/i.test(l));
+    if (fs > 0) body = body.slice(fs);
+    const merged = []; let i = 0;
+    while (i < body.length) {
+      const l = body[i];
+      if (/^Step\s+\d+\s*[:.]\s*$/i.test(l) && i + 1 < body.length && !/^(Step\s+\d+|→)/i.test(body[i + 1])) {
+        merged.push(l.replace(/[:.]\s*$/, ': ') + body[i + 1]); i += 2;
+      } else { merged.push(l); i++; }
+    }
+    const html = [];
+    merged.forEach(line => {
+      const sm = line.match(/^Step\s+(\d+)\s*[:.]\s*(.*)/i);
+      if (sm) {
+        let rest = sm[2].trim(), sub = '';
+        if (rest.includes('→')) { [rest, sub] = rest.split('→', 2); sub = sub.trim(); }
+        html.push(bldStepDiv(sm[1], rest.trim()));
+        if (sub) { const d = bldSubDiv(sub); if (d) html.push(d); }
+      } else if (line.startsWith('→')) {
+        const d = bldSubDiv(line.slice(1)); if (d) html.push(d);
+      } else { const d = bldSubDiv(line); if (d) html.push(d); }
+    });
+    const full = merged.join(' ');
+    const fam = full.match(/(?:Final\s+(?:Answer|Result))\s*[=:→]\s*([^\.\n]+)/i);
+    if (fam) html.push(bldFinalDiv(fam[1].trim().replace(/^[=→ ]+/, '').trim()));
+    return html.join('');
+  }
+  const cp = t => bldClean((t || '').replace(/\\n/g, ' ').replace(/→/g, ' = ')).replace(/\s+/g, ' ').trim();
+  return { explanation: procExpl(obj.explanation), trick: cp(obj.trick), concept: cp(obj.concept) };
+}
+
+function bldDetectFormat(obj) {
+  if (obj.steps && Array.isArray(obj.steps)) {
+    return Array.isArray((obj.steps[0] || {}).process) ? 'steps_process' : 'steps_expl';
+  }
+  if (obj.solution_steps) return 'solution_steps';
+  if (obj.explanation !== undefined) return 'expl_trick_concept';
+  return null;
+}
+
+// State for last converted result
+let _bldExpl = '', _bldTrick = '', _bldConcept = '', _bldQNum = 0;
+
+window.bldConvert = () => {
+  const raw    = document.getElementById('bldJsonInput').value.trim();
+  const qnum   = parseInt(document.getElementById('bldQNum').value) || 0;
+  const fmtSel = document.getElementById('bldFmt').value;
+
+  if (!raw)  { showToast('Paste JSON first', 'error'); return; }
+  if (!qnum) { showToast('Enter a Q number', 'error'); return; }
+
+  let obj;
+  try { obj = JSON.parse(raw); } catch(e) { showToast('Invalid JSON: ' + e.message, 'error'); return; }
+
+  const fmt = fmtSel === 'auto' ? bldDetectFormat(obj) : fmtSel;
+  if (!fmt) { showToast('Cannot detect format — select manually', 'error'); return; }
+
+  let explanation = '', trick = '', concept = '';
+  try {
+    if      (fmt === 'steps_expl')         explanation = bldParseStepsArray(obj.steps, 'explanation');
+    else if (fmt === 'steps_process')      explanation = bldParseStepsArray(obj.steps, 'process');
+    else if (fmt === 'solution_steps')     explanation = bldParseSolutionSteps(obj.solution_steps, obj);
+    else if (fmt === 'expl_trick_concept') { const r = bldParseExplTrickConcept(obj); explanation = r.explanation; trick = r.trick; concept = r.concept; }
+  } catch(e) { showToast('Parse error: ' + e.message, 'error'); return; }
+
+  _bldExpl = explanation; _bldTrick = trick; _bldConcept = concept; _bldQNum = qnum;
+
+  // Show preview
+  document.getElementById('bldPreviewQLabel').textContent  = qnum;
+  document.getElementById('bldHtmlPreview').innerHTML      = explanation || '<span style="color:#475569;">No HTML generated</span>';
+  document.getElementById('bldTrickPreview').textContent   = trick   || '(empty)';
+  document.getElementById('bldConceptPreview').textContent = concept || '(empty)';
+  document.getElementById('bldPreviewWrap').style.display  = 'block';
+
+  const badge = document.getElementById('bldStatusBadge');
+  badge.innerHTML = '<span class="badge badge-orange">Ready to push</span>';
+
+  document.getElementById('bldPushBtn').disabled = false;
+  showToast('Converted Q' + qnum + ' (' + fmt + ') — check preview then push', 'info');
+};
+
+window.bldPush = async () => {
+  if (!_bldExpl)         { showToast('Convert a question first', 'error'); return; }
+  if (!loadedDocs.length){ showToast('Load a paper first using the selector above', 'error'); return; }
+
+  const override = document.getElementById('overrideToggle').checked;
+  const docMap   = {};
+  loadedDocs.forEach(d => { docMap[parseInt(d.data().qNum)] = d; });
+
+  const docSnap = docMap[_bldQNum];
+  if (!docSnap) {
+    showToast(`Q${_bldQNum} not found in loaded paper`, 'error');
+    document.getElementById('bldStatusBadge').innerHTML = '<span class="badge badge-red">Not found in paper</span>';
+    return;
+  }
+
+  const data    = docSnap.data();
+  const hasExpl = data.explanation && data.explanation.trim();
+  const hasTrick= data.trick && data.trick.trim();
+  if (!override && (hasExpl || hasTrick)) {
+    showToast(`Q${_bldQNum} already has a solution. Enable Override toggle to replace.`, 'error'); return;
+  }
+
+  const prog   = document.getElementById('bldProgressWrap');
+  const bar    = document.getElementById('bldProgressBar');
+  const status = document.getElementById('bldProgressStatus');
+  prog.style.display = 'block'; bar.style.width = '0%';
+  document.getElementById('bldPushBtn').disabled = true;
+  status.textContent = `Pushing Q${_bldQNum}...`;
+
+  const payload = { explanation: _bldExpl, trick: _bldTrick };
+  if (_bldConcept) payload.concept = _bldConcept;
+
+  try {
+    await updateDoc(docSnap.ref, payload);
+    bar.style.width = '100%';
+    status.innerHTML = `✅ <strong>Q${_bldQNum} updated successfully!</strong>`;
+    document.getElementById('bldStatusBadge').innerHTML = '<span class="badge badge-green">✅ Pushed</span>';
+    showToast(`✅ Q${_bldQNum} solution saved!`, 'success');
+  } catch(e) {
+    status.innerHTML = `<span style="color:#EF4444;">❌ Error: ${e.message}</span>`;
+    document.getElementById('bldStatusBadge').innerHTML = '<span class="badge badge-red">Error</span>';
+    showToast('Push failed: ' + e.message, 'error');
+  }
+  document.getElementById('bldPushBtn').disabled = false;
+};
+
+window.bldClear = () => {
+  document.getElementById('bldJsonInput').value = '';
+  document.getElementById('bldPreviewWrap').style.display = 'none';
+  document.getElementById('bldProgressWrap').style.display = 'none';
+  document.getElementById('bldPushBtn').disabled = true;
+  _bldExpl = ''; _bldTrick = ''; _bldConcept = ''; _bldQNum = 0;
+};
+
+window.bldLoadExample = () => {
+  document.getElementById('bldJsonInput').value = JSON.stringify({
+    "steps": [
+      { "step": 1, "title": "Identify the mathematical progression", "explanation": ["(1 × 2) + 1 = 3", "(3 × 3) + 1 = 10", "(10 × 4) + 1 = 41"] },
+      { "step": 2, "title": "Apply logic to find the missing term",  "explanation": ["(41 × 5) + 1 = 205 + 1 = 206"] },
+      { "step": 3, "title": "Verify with the final term",            "explanation": ["(206 × 6) + 1 = 1236 + 1 = 1237"] }
+    ]
+  }, null, 2);
+  document.getElementById('bldQNum').value = 25;
+  showToast('Example loaded — click Convert & Preview', 'info');
 };
 
 // ── Toast ──
