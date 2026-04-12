@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>TrickySSC — Question Uploader</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Inter',sans-serif;background:#0F172A;color:#E2E8F0;min-height:100vh;}
+
+/* Topbar */
+.topbar{background:linear-gradient(135deg,#FF6B00,#FF8C38);padding:1rem 2rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;}
+.topbar h1{font-family:'Rajdhani',sans-serif;font-size:1.4rem;font-weight:700;color:#fff;display:flex;align-items:center;gap:0.5rem;}
+.topbar-links{display:flex;gap:0.5rem;align-items:center;}
+.topbar-links a{background:rgba(255,255,255,0.15);color:#fff;padding:0.3rem 0.85rem;border-radius:100px;font-size:0.75rem;font-weight:600;text-decoration:none;transition:background 0.2s;}
+.topbar-links a:hover{background:rgba(255,255,255,0.3);}
+#adminName{background:rgba(255,255,255,0.2);color:#fff;padding:0.25rem 0.75rem;border-radius:100px;font-size:0.75rem;font-weight:600;}
+
+/* Screens */
+#loginScreen{display:flex;align-items:center;justify-content:center;min-height:80vh;padding:2rem;}
+#mainScreen{display:none;max-width:1100px;margin:0 auto;padding:2rem;}
+
+/* Login */
+.login-card{background:#1E293B;border:1px solid #334155;border-radius:16px;padding:2.5rem;width:100%;max-width:400px;text-align:center;}
+.login-card h2{font-family:'Rajdhani',sans-serif;font-size:1.75rem;font-weight:700;color:#FF6B00;margin-bottom:0.5rem;}
+.login-card p{color:#94A3B8;font-size:0.9rem;margin-bottom:1.5rem;}
+.google-btn{display:flex;align-items:center;justify-content:center;gap:0.75rem;background:#fff;color:#1A202C;border:none;padding:0.85rem 1.5rem;border-radius:10px;font-family:'Inter',sans-serif;font-weight:600;font-size:0.95rem;cursor:pointer;width:100%;transition:all 0.2s;}
+.google-btn:hover{box-shadow:0 4px 20px rgba(0,0,0,0.3);}
+
+/* Cards */
+.card{background:#1E293B;border:1px solid #334155;border-radius:16px;padding:1.5rem;margin-bottom:1.5rem;}
+.card h3{font-family:'Rajdhani',sans-serif;font-size:1.15rem;font-weight:700;color:#F1F5F9;margin-bottom:1rem;display:flex;align-items:center;gap:0.5rem;}
+
+/* Form */
+label{display:block;font-size:0.78rem;font-weight:600;color:#94A3B8;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.4rem;}
+select,input[type=date],input[type=text],input[type=number]{width:100%;background:#0F172A;border:1px solid #334155;border-radius:8px;padding:0.65rem 0.9rem;color:#E2E8F0;font-family:'Inter',sans-serif;font-size:0.9rem;outline:none;transition:border 0.2s;}
+select:focus,input:focus{border-color:#FF6B00;}
+.form-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:0.75rem;margin-bottom:1rem;}
+
+/* Textarea */
+textarea{width:100%;background:#0F172A;border:1px solid #334155;border-radius:8px;padding:0.75rem;color:#E2E8F0;font-family:'Inter',sans-serif;font-size:0.82rem;outline:none;resize:vertical;transition:border 0.2s;line-height:1.6;}
+textarea:focus{border-color:#FF6B00;}
+.textarea-hint{font-size:0.75rem;color:#64748B;margin-top:0.4rem;line-height:1.5;}
+
+/* Buttons */
+.btn{padding:0.65rem 1.25rem;border-radius:8px;font-family:'Inter',sans-serif;font-weight:600;font-size:0.9rem;cursor:pointer;border:none;transition:all 0.2s;}
+.btn-primary{background:linear-gradient(135deg,#FF6B00,#FF8C38);color:#fff;}
+.btn-primary:hover{opacity:0.9;transform:translateY(-1px);}
+.btn-secondary{background:#334155;color:#E2E8F0;}
+.btn-secondary:hover{background:#475569;}
+.btn-success{background:linear-gradient(135deg,#00A86B,#00c97f);color:#fff;}
+.btn-success:hover{opacity:0.9;transform:translateY(-1px);}
+.btn-danger{background:#EF4444;color:#fff;}
+.btn-danger:hover{opacity:0.9;}
+.btn:disabled{opacity:0.45;cursor:not-allowed;transform:none;}
+.btn-row{display:flex;gap:0.75rem;flex-wrap:wrap;align-items:center;margin-top:1rem;}
+
+/* Info/warn boxes */
+.info-box{background:rgba(14,165,233,0.08);border:1px solid rgba(14,165,233,0.2);border-radius:10px;padding:0.85rem 1rem;font-size:0.82rem;color:#7DD3FC;margin-bottom:1rem;line-height:1.6;}
+.warn-box{background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);border-radius:10px;padding:0.85rem 1rem;font-size:0.82rem;color:#FCD34D;margin-bottom:1rem;line-height:1.6;}
+.success-box{background:rgba(0,168,107,0.08);border:1px solid rgba(0,168,107,0.2);border-radius:10px;padding:0.85rem 1rem;font-size:0.82rem;color:#6EE7B7;margin-bottom:1rem;line-height:1.6;}
+
+/* Badges */
+.badge{background:#334155;color:#94A3B8;padding:0.2rem 0.65rem;border-radius:100px;font-size:0.78rem;font-weight:600;}
+.badge-green{background:rgba(0,168,107,0.15);color:#00A86B;border:1px solid rgba(0,168,107,0.3);}
+.badge-orange{background:rgba(255,107,0,0.15);color:#FF6B00;border:1px solid rgba(255,107,0,0.3);}
+.badge-red{background:rgba(239,68,68,0.15);color:#EF4444;border:1px solid rgba(239,68,68,0.3);}
+.badge-yellow{background:rgba(245,158,11,0.15);color:#F59E0B;border:1px solid rgba(245,158,11,0.3);}
+
+/* Progress */
+.progress-wrap{display:none;margin-top:1rem;}
+.progress-bar-bg{background:#0F172A;border-radius:6px;height:8px;overflow:hidden;margin-bottom:0.5rem;}
+.progress-bar{height:100%;background:linear-gradient(135deg,#FF6B00,#FF8C38);width:0%;transition:width 0.3s;}
+.progress-status{font-size:0.85rem;color:#94A3B8;}
+
+/* Toast */
+.toast{position:fixed;bottom:2rem;right:2rem;padding:0.85rem 1.25rem;border-radius:10px;font-weight:600;font-size:0.9rem;z-index:9999;display:none;max-width:360px;box-shadow:0 8px 32px rgba(0,0,0,0.4);}
+.toast.success{background:#00A86B;color:#fff;}
+.toast.error{background:#EF4444;color:#fff;}
+.toast.info{background:#0EA5E9;color:#fff;}
+
+/* Editable table */
+.table-wrap{overflow-x:auto;border:1px solid #334155;border-radius:10px;margin-top:1rem;}
+table{width:100%;border-collapse:collapse;font-size:0.78rem;min-width:900px;}
+th{background:#0F172A;color:#64748B;font-weight:600;padding:0.6rem 0.75rem;text-align:left;border-bottom:1px solid #334155;white-space:nowrap;position:sticky;top:0;z-index:1;}
+td{padding:0.4rem 0.5rem;border-bottom:1px solid #1E293B;vertical-align:top;}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:rgba(255,107,0,0.03);}
+
+/* Editable cells */
+.cell-input{background:#0F172A;border:1px solid #334155;border-radius:5px;color:#E2E8F0;font-family:'Inter',sans-serif;font-size:0.78rem;padding:0.3rem 0.5rem;width:100%;outline:none;transition:border 0.15s;}
+.cell-input:focus{border-color:#FF6B00;}
+.cell-input.error{border-color:#EF4444;background:rgba(239,68,68,0.08);}
+.cell-select{background:#0F172A;border:1px solid #334155;border-radius:5px;color:#E2E8F0;font-family:'Inter',sans-serif;font-size:0.78rem;padding:0.3rem 0.4rem;outline:none;}
+.cell-select:focus{border-color:#FF6B00;}
+.cell-select.correct-a{color:#34D399;}
+.td-num{width:42px;text-align:center;font-weight:700;color:#FF6B00;}
+.td-del{width:36px;text-align:center;}
+.del-btn{background:none;border:none;color:#475569;cursor:pointer;font-size:1rem;padding:0.2rem;transition:color 0.15s;}
+.del-btn:hover{color:#EF4444;}
+.td-err{width:28px;text-align:center;}
+.err-icon{color:#EF4444;font-size:0.9rem;cursor:help;}
+.ok-icon{color:#00A86B;font-size:0.9rem;}
+
+/* Stats bar */
+.stats-bar{display:flex;gap:0.75rem;flex-wrap:wrap;align-items:center;margin-bottom:0.75rem;}
+
+/* Step 2 section (hidden until step 1 done) */
+#step2{display:none;}
+
+/* Prompt box */
+.prompt-box{background:#0F172A;border:1px solid #334155;border-radius:10px;padding:1rem;font-family:monospace;font-size:0.75rem;color:#A78BFA;line-height:1.7;white-space:pre-wrap;word-break:break-word;max-height:300px;overflow-y:auto;position:relative;}
+.copy-prompt-btn{position:absolute;top:0.6rem;right:0.6rem;background:#334155;border:none;color:#94A3B8;padding:0.3rem 0.75rem;border-radius:6px;font-size:0.72rem;cursor:pointer;font-family:'Inter',sans-serif;font-weight:600;}
+.copy-prompt-btn:hover{background:#475569;color:#E2E8F0;}
+
+/* paperId preview */
+.paperid-preview{background:#0F172A;border:1px solid #334155;border-radius:8px;padding:0.6rem 0.85rem;font-family:monospace;font-size:0.82rem;color:#A78BFA;margin-top:0.5rem;word-break:break-all;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>⚡ TrickySSC &nbsp;<span style="opacity:0.6;font-weight:500;font-size:1rem;">/ Question Uploader</span></h1>
+  <div class="topbar-links">
+    <a href="admin.html">← Admin</a>
+    <a href="solution-updater.html">Solution Updater</a>
+    <span id="adminName">Loading...</span>
+    <button class="btn btn-secondary" style="padding:0.3rem 0.85rem;font-size:0.75rem;" onclick="logout()">Logout</button>
+  </div>
+</div>
+
+<!-- Login -->
+<div id="loginScreen">
+  <div class="login-card">
+    <h2>Question Uploader</h2>
+    <p>Upload questions from AI-generated JSON directly to Firestore. No CSV errors.</p>
+    <button class="google-btn" onclick="googleLogin()">
+      <svg width="20" height="20" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+      Sign in with Google
+    </button>
+  </div>
+</div>
+
+<!-- Main -->
+<div id="mainScreen">
+
+  <!-- STEP 1 — Paper setup & prompt -->
+  <div class="card">
+    <h3>① Paper Details</h3>
+    <div class="form-grid">
+      <div>
+        <label>Exam</label>
+        <select id="selExam" onchange="updatePaperId()">
+          <option value="ssc-cgl">SSC CGL</option>
+          <option value="ssc-chsl">SSC CHSL</option>
+          <option value="ssc-mts">SSC MTS</option>
+          <option value="ssc-gd">SSC GD</option>
+          <option value="ssc-cpo">SSC CPO</option>
+          <option value="ssc-jht">SSC JHT</option>
+          <option value="ssc-je">SSC JE</option>
+        </select>
+      </div>
+      <div>
+        <label>Year</label>
+        <select id="selYear" onchange="updatePaperId()">
+          <option value="2025">2025</option>
+          <option value="2024" selected>2024</option>
+          <option value="2023">2023</option>
+          <option value="2022">2022</option>
+          <option value="2021">2021</option>
+          <option value="2020">2020</option>
+          <option value="2019">2019</option>
+          <option value="2018">2018</option>
+        </select>
+      </div>
+      <div>
+        <label>Tier</label>
+        <select id="selTier" onchange="updatePaperId()">
+          <option value="tier1">Tier I (CBT)</option>
+          <option value="tier2">Tier II (CBT)</option>
+        </select>
+      </div>
+      <div>
+        <label>Shift</label>
+        <select id="selShift" onchange="updatePaperId()">
+          <option value="Shift-1">Shift 1</option>
+          <option value="Shift-2">Shift 2</option>
+          <option value="Shift-3">Shift 3</option>
+        </select>
+      </div>
+      <div>
+        <label>Language</label>
+        <select id="selLang" onchange="updatePaperId()">
+          <option value="en">English</option>
+          <option value="hi">Hindi</option>
+        </select>
+      </div>
+      <div>
+        <label>Held On (date)</label>
+        <input type="date" id="selHeldOn" value="2024-09-09" onchange="updatePaperId()">
+      </div>
+    </div>
+    <label>Paper ID (auto-generated)</label>
+    <div class="paperid-preview" id="paperIdDisplay">—</div>
+  </div>
+
+  <!-- AI Prompt Generator -->
+  <div class="card">
+    <h3>② Get AI Prompt</h3>
+    <div class="info-box">
+      Copy this prompt → paste into <strong>ChatGPT or Claude</strong> → attach your paper PDF or image → paste the JSON output below.
+    </div>
+    <div class="prompt-box" id="promptBox">
+      <button class="copy-prompt-btn" onclick="copyPrompt()">📋 Copy</button>
+      <span id="promptText"></span>
+    </div>
+  </div>
+
+  <!-- STEP 2 — Paste JSON & edit -->
+  <div class="card">
+    <h3>③ Paste AI Output JSON</h3>
+    <textarea id="jsonPaste" rows="10" placeholder='[
+  {
+    "qNum": 1,
+    "text": "If 2x + 3 = 11, find x.",
+    "option_A": "2",
+    "option_B": "4",
+    "option_C": "3",
+    "option_D": "5",
+    "correct": "B"
+  },
+  {
+    "qNum": 2,
+    "text": "...",
+    "option_A": "...",
+    "option_B": "...",
+    "option_C": "...",
+    "option_D": "...",
+    "correct": "A"
+  }
+]'></textarea>
+    <div class="textarea-hint">Paste the full JSON array from AI. explanation / trick / concept can be empty — add them later via Solution Updater.</div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="parseAndPreview()">👁 Parse &amp; Preview</button>
+      <button class="btn btn-secondary" onclick="clearAll()">✕ Clear</button>
+    </div>
+  </div>
+
+  <!-- STEP 3 — Editable preview table -->
+  <div id="step2">
+    <div class="card">
+      <h3>④ Review &amp; Edit — Fix any errors inline</h3>
+
+      <div class="stats-bar" id="statsBar"></div>
+
+      <div class="warn-box" id="errorSummary" style="display:none;"></div>
+
+      <div class="table-wrap">
+        <table id="previewTable">
+          <thead>
+            <tr>
+              <th class="td-err">✓</th>
+              <th style="width:42px;">Q#</th>
+              <th style="min-width:260px;">Question Text</th>
+              <th style="min-width:100px;">Option A</th>
+              <th style="min-width:100px;">Option B</th>
+              <th style="min-width:100px;">Option C</th>
+              <th style="min-width:100px;">Option D</th>
+              <th style="width:70px;">Correct</th>
+              <th class="td-del">🗑</th>
+            </tr>
+          </thead>
+          <tbody id="previewBody"></tbody>
+        </table>
+      </div>
+
+      <div class="btn-row" style="margin-top:1.25rem;">
+        <button class="btn btn-success" id="uploadBtn" onclick="uploadAll()">🚀 Upload All to Firestore</button>
+        <button class="btn btn-secondary" onclick="addBlankRow()">+ Add Row</button>
+        <button class="btn btn-secondary" onclick="revalidate()">🔍 Re-validate</button>
+        <span id="uploadSummary" style="font-size:0.85rem;color:#94A3B8;"></span>
+      </div>
+
+      <div class="progress-wrap" id="progressWrap">
+        <div class="progress-bar-bg"><div class="progress-bar" id="progressBar"></div></div>
+        <div class="progress-status" id="progressStatus">Uploading...</div>
+      </div>
+    </div>
+
+    <!-- Results -->
+    <div class="card" id="resultsCard" style="display:none;">
+      <h3>✅ Upload Complete</h3>
+      <div id="resultsBody"></div>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Firebase -->
+<script type="module">
+import { initializeApp }      from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
+                               from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
+import { getFirestore, collection, addDoc, getDocs, query, where, doc, setDoc }
+                               from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey:            "AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",
+  authDomain:        "trickyssc-17bb3.firebaseapp.com",
+  projectId:         "trickyssc-17bb3",
+  storageBucket:     "trickyssc-17bb3.firebasestorage.app",
+  messagingSenderId: "450627057220",
+  appId:             "1:450627057220:web:366267bf437d94f20c6e11"
+};
+const ADMIN_EMAILS = ['nirala01@gmail.com','ashish@trickyssc.com'];
+
+const app  = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db   = getFirestore(app);
+
+let currentUser = null;
+
+onAuthStateChanged(auth, user => {
+  if (user && (ADMIN_EMAILS.includes(user.email) || user.email.endsWith('@trickyssc.com'))) {
+    currentUser = user;
+    document.getElementById('loginScreen').style.display  = 'none';
+    document.getElementById('mainScreen').style.display   = 'block';
+    document.getElementById('adminName').textContent      = user.displayName || user.email;
+    updatePaperId();
+    updatePrompt();
+  } else {
+    currentUser = null;
+    document.getElementById('loginScreen').style.display  = 'flex';
+    document.getElementById('mainScreen').style.display   = 'none';
+    document.getElementById('adminName').textContent      = 'Not logged in';
+  }
+});
+
+window.googleLogin = async () => {
+  try { await signInWithPopup(auth, new GoogleAuthProvider()); }
+  catch(e) { showToast('Login failed: '+e.message,'error'); }
+};
+window.logout = async () => {
+  await signOut(auth); showToast('Logged out','info');
+};
+
+// ── Paper ID builder ──────────────────────────────────────────────────────
+window.updatePaperId = () => {
+  const exam   = document.getElementById('selExam').value;
+  const year   = document.getElementById('selYear').value;
+  const tier   = document.getElementById('selTier').value;
+  const shift  = document.getElementById('selShift').value;
+  const lang   = document.getElementById('selLang').value;
+  const heldOn = document.getElementById('selHeldOn').value;
+  const pid    = [exam,year,tier,shift.replace(/\s+/g,'-'),heldOn,lang].filter(Boolean).join('_').toLowerCase();
+  document.getElementById('paperIdDisplay').textContent = pid;
+  updatePrompt();
+};
+
+// ── Prompt generator ─────────────────────────────────────────────────────
+window.updatePrompt = () => {
+  const exam   = document.getElementById('selExam')?.value || 'ssc-cgl';
+  const year   = document.getElementById('selYear')?.value || '2024';
+  const shift  = document.getElementById('selShift')?.value || 'Shift-1';
+  const heldOn = document.getElementById('selHeldOn')?.value || '';
+  const lang   = document.getElementById('selLang')?.value || 'en';
+
+  const prompt = `Extract ALL questions from this ${exam.toUpperCase()} ${year} ${shift}${heldOn?' ('+heldOn+')':''} exam paper into a JSON array.
+
+Output ONLY a raw JSON array — no explanation, no markdown, no code blocks.
+
+Each question must have EXACTLY these fields:
+{
+  "qNum": 1,
+  "text": "Question text here",
+  "option_A": "Option text",
+  "option_B": "Option text",
+  "option_C": "Option text",
+  "option_D": "Option text",
+  "correct": "A"
+}
+
+STRICT RULES:
+- "qNum" must be an integer (1, 2, 3...)
+- "correct" must be exactly one of: A B C D — nothing else
+- Use plain Unicode for math: x² x³ sin cos √ × ÷ ± ≥ ≤ θ π
+- NO LaTeX, NO $...$ or $$...$$, NO \\frac \\sin \\cos
+- NO line breaks inside any field value
+- NO markdown bold (**text**) inside field values
+- If ${lang === 'hi' ? 'Hindi' : 'English'} paper — all text must be in ${lang === 'hi' ? 'Hindi' : 'English'}
+- Extract ALL questions — do not skip any
+
+Start output with [ and end with ]`;
+
+  const el = document.getElementById('promptText');
+  if (el) el.textContent = prompt;
+};
+
+// ── Upload to Firestore ───────────────────────────────────────────────────
+window.uploadAll = async () => {
+  if (!currentUser) { showToast('Sign in first','error'); return; }
+
+  const rows = collectTableData();
+  const errors = rows.filter(r => r._errors.length > 0);
+  if (errors.length > 0) {
+    showToast(errors.length+' rows have errors — fix them first','error');
+    return;
+  }
+  if (!rows.length) { showToast('No rows to upload','error'); return; }
+
+  const confirmed = confirm(`Upload ${rows.length} questions to Firestore?\n\nPaper: ${document.getElementById('paperIdDisplay').textContent}\n\nThis will ADD new documents. It will NOT overwrite existing ones.`);
+  if (!confirmed) return;
+
+  const exam   = document.getElementById('selExam').value;
+  const year   = document.getElementById('selYear').value;
+  const tier   = document.getElementById('selTier').value;
+  const shift  = document.getElementById('selShift').value;
+  const lang   = document.getElementById('selLang').value;
+  const heldOn = document.getElementById('selHeldOn').value;
+  const paperId = document.getElementById('paperIdDisplay').textContent;
+
+  const prog   = document.getElementById('progressWrap');
+  const bar    = document.getElementById('progressBar');
+  const status = document.getElementById('progressStatus');
+  prog.style.display = 'block'; bar.style.width = '0%';
+  document.getElementById('uploadBtn').disabled = true;
+
+  let uploaded=0, errors2=0;
+  const errorLog = [];
+
+  for (let i=0; i<rows.length; i++) {
+    const r = rows[i];
+    const docData = {
+      qNum:     r.qNum,
+      text:     r.text,
+      option_A: r.option_A,
+      option_B: r.option_B,
+      option_C: r.option_C,
+      option_D: r.option_D,
+      correct:  r.correct,
+      exam:     exam,
+      year:     year,
+      tier:     tier,
+      shift:    shift,
+      language: lang,
+      heldOn:   heldOn,
+      paperId:  paperId,
+      explanation: '',
+      trick:       '',
+      concept:     ''
+    };
+
+    try {
+      await addDoc(collection(db,'questions'), docData);
+      uploaded++;
+    } catch(e) {
+      errors2++;
+      errorLog.push(`Q${r.qNum}: ${e.message}`);
+      console.error('Upload error Q'+r.qNum, e);
+    }
+
+    bar.style.width = ((i+1)/rows.length*100)+'%';
+    status.textContent = `Uploading ${i+1}/${rows.length}...`;
+  }
+
+  status.innerHTML = `✅ <strong>${uploaded} uploaded</strong>${errors2?` · <span style="color:#EF4444;">${errors2} errors</span>`:''}`;
+  document.getElementById('uploadBtn').disabled = false;
+
+  // Also upsert into papers collection
+  try {
+    await setDoc(doc(db,'papers',paperId), {
+      paperId, exam, year, tier, shift, language:lang, heldOn,
+      questionCount: rows.length,
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+  } catch(e) { console.warn('papers upsert failed', e); }
+
+  document.getElementById('resultsCard').style.display = 'block';
+  document.getElementById('resultsBody').innerHTML = `
+    <div class="success-box">✅ <strong>${uploaded} questions uploaded</strong> to paper <code>${paperId}</code>${errors2?`<br>❌ ${errors2} failed — check console`:''}${errorLog.length?`<br><small style="opacity:0.7">${errorLog.join(' | ')}</small>`:''}</div>
+    <p style="font-size:0.85rem;color:#64748B;margin-top:0.5rem;">Add explanations, tricks and concepts later using <a href="solution-updater.html" style="color:#FF6B00;">Solution Updater →</a></p>`;
+  showToast(`✅ ${uploaded} questions uploaded!`,'success');
+};
+
+window.showToast = (msg,type='success') => {
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.className='toast '+type; t.style.display='block';
+  setTimeout(()=>{t.style.display='none';},3500);
+};
+</script>
+
+<!-- Non-module JS -->
+<script>
+let parsedRows = [];
+
+// ── Helpers ──────────────────────────────────────────────────────────────
+function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function validateRow(r) {
+  const errs = [];
+  if (!r.qNum || isNaN(r.qNum) || r.qNum < 1)     errs.push('Invalid Q number');
+  if (!r.text || r.text.trim().length < 3)          errs.push('Question text too short');
+  if (!r.option_A || !r.option_A.trim())            errs.push('Option A missing');
+  if (!r.option_B || !r.option_B.trim())            errs.push('Option B missing');
+  if (!r.option_C || !r.option_C.trim())            errs.push('Option C missing');
+  if (!r.option_D || !r.option_D.trim())            errs.push('Option D missing');
+  if (!['A','B','C','D'].includes((r.correct||'').toUpperCase())) errs.push('Correct must be A/B/C/D');
+  return errs;
+}
+
+function collectTableData() {
+  const tbody = document.getElementById('previewBody');
+  const rows  = Array.from(tbody.querySelectorAll('tr[data-idx]'));
+  return rows.map(tr => {
+    const idx = tr.dataset.idx;
+    const get = (cls) => tr.querySelector('.cell-input[data-f="'+cls+'"]')?.value.trim() || '';
+    const cor = tr.querySelector('.cell-select')?.value || '';
+    const r   = { qNum: parseInt(get('qNum'))||0, text: get('text'), option_A: get('option_A'), option_B: get('option_B'), option_C: get('option_C'), option_D: get('option_D'), correct: cor };
+    r._errors = validateRow(r);
+    r._idx    = idx;
+    return r;
+  });
+}
+
+function buildRow(r, idx) {
+  const errs = validateRow(r);
+  const errHtml = errs.length
+    ? `<span class="err-icon" title="${errs.join(', ')}">⚠️</span>`
+    : `<span class="ok-icon">✓</span>`;
+
+  const opts = ['A','B','C','D'].map(o =>
+    `<option value="${o}" ${(r.correct||'').toUpperCase()===o?'selected':''}>${o}</option>`
+  ).join('');
+
+  return `<tr data-idx="${idx}">
+    <td class="td-err">${errHtml}</td>
+    <td class="td-num"><input class="cell-input" data-f="qNum" value="${esc(String(r.qNum||''))}"></td>
+    <td><textarea class="cell-input" data-f="text" rows="2" style="min-width:240px;resize:vertical;">${esc(r.text||'')}</textarea></td>
+    <td><input class="cell-input" data-f="option_A" value="${esc(r.option_A||'')}"></td>
+    <td><input class="cell-input" data-f="option_B" value="${esc(r.option_B||'')}"></td>
+    <td><input class="cell-input" data-f="option_C" value="${esc(r.option_C||'')}"></td>
+    <td><input class="cell-input" data-f="option_D" value="${esc(r.option_D||'')}"></td>
+    <td><select class="cell-select">${opts}</select></td>
+    <td class="td-del"><button class="del-btn" onclick="deleteRow(this)" title="Delete row">🗑</button></td>
+  </tr>`;
+}
+
+function renderTable(rows) {
+  const tbody = document.getElementById('previewBody');
+  tbody.innerHTML = rows.map((r,i) => buildRow(r,i)).join('');
+  updateStats();
+}
+
+function updateStats() {
+  const rows  = collectTableData();
+  const total = rows.length;
+  const errs  = rows.filter(r=>r._errors.length>0);
+  const bar   = document.getElementById('statsBar');
+  bar.innerHTML = `
+    <span class="badge badge-orange">${total} questions</span>
+    ${errs.length
+      ? `<span class="badge badge-red">⚠️ ${errs.length} errors</span>`
+      : `<span class="badge badge-green">✓ All valid</span>`}
+    <span class="badge">Q${rows[0]?.qNum||'?'} – Q${rows[total-1]?.qNum||'?'}</span>`;
+
+  // Error summary
+  const errBox = document.getElementById('errorSummary');
+  if (errs.length) {
+    errBox.style.display = 'block';
+    errBox.innerHTML = `⚠️ <strong>${errs.length} rows need fixing:</strong> ` +
+      errs.slice(0,8).map(r=>`Q${r.qNum||'?'} (${r._errors.join(', ')})`).join(' · ') +
+      (errs.length>8?` · and ${errs.length-8} more`:'');
+  } else {
+    errBox.style.display = 'none';
+  }
+  document.getElementById('uploadBtn').disabled = errs.length > 0;
+  document.getElementById('uploadSummary').textContent = errs.length
+    ? `Fix ${errs.length} error${errs.length>1?'s':''} before uploading`
+    : `${total} questions ready to upload`;
+}
+
+// ── Parse & Preview ───────────────────────────────────────────────────────
+window.parseAndPreview = () => {
+  const raw = document.getElementById('jsonPaste').value.trim();
+  if (!raw) { showToast('Paste JSON first','error'); return; }
+
+  let data;
+  try {
+    data = JSON.parse(raw);
+    if (!Array.isArray(data)) data = [data];
+  } catch(e) {
+    showToast('Invalid JSON: '+e.message,'error'); return;
+  }
+
+  parsedRows = data.map(r => ({
+    qNum:     parseInt(r.qNum||r.question_number||r.number||0) || 0,
+    text:     r.text || r.question || r.question_text || r.q || '',
+    option_A: r.option_A || r.optionA || r.a || r.A || r.options?.A || '',
+    option_B: r.option_B || r.optionB || r.b || r.B || r.options?.B || '',
+    option_C: r.option_C || r.optionC || r.c || r.C || r.options?.C || '',
+    option_D: r.option_D || r.optionD || r.d || r.D || r.options?.D || '',
+    correct:  (r.correct || r.answer || r.correct_answer || '').toString().trim().toUpperCase().replace(/^([ABCD]).*/,'$1')
+  })).filter(r => r.qNum > 0 || r.text);
+
+  // Fix zero qNums (assign sequential)
+  parsedRows.forEach((r,i) => { if(!r.qNum) r.qNum = i+1; });
+
+  if (!parsedRows.length) { showToast('No valid questions found in JSON','error'); return; }
+
+  renderTable(parsedRows);
+  document.getElementById('step2').style.display = 'block';
+  document.getElementById('step2').scrollIntoView({behavior:'smooth'});
+  showToast(`Parsed ${parsedRows.length} questions — review and fix any errors`,'info');
+};
+
+// ── Re-validate ───────────────────────────────────────────────────────────
+window.revalidate = () => {
+  const tbody = document.getElementById('previewBody');
+  const rows  = Array.from(tbody.querySelectorAll('tr[data-idx]'));
+  rows.forEach(tr => {
+    const idx = tr.dataset.idx;
+    const get = (f) => tr.querySelector('.cell-input[data-f="'+f+'"]')?.value.trim() || '';
+    const r   = { qNum:parseInt(get('qNum'))||0, text:get('text'), option_A:get('option_A'), option_B:get('option_B'), option_C:get('option_C'), option_D:get('option_D'), correct:tr.querySelector('.cell-select')?.value||'' };
+    const errs = validateRow(r);
+    const errCell = tr.querySelector('.td-err');
+    errCell.innerHTML = errs.length
+      ? `<span class="err-icon" title="${errs.join(', ')}">⚠️</span>`
+      : `<span class="ok-icon">✓</span>`;
+  });
+  updateStats();
+  showToast('Validation updated','info');
+};
+
+// ── Delete row ────────────────────────────────────────────────────────────
+window.deleteRow = (btn) => {
+  btn.closest('tr').remove();
+  updateStats();
+};
+
+// ── Add blank row ─────────────────────────────────────────────────────────
+window.addBlankRow = () => {
+  const tbody = document.getElementById('previewBody');
+  const rows  = tbody.querySelectorAll('tr[data-idx]');
+  const nextIdx = rows.length;
+  // guess next qNum
+  const lastQ = parseInt(rows[rows.length-1]?.querySelector('.cell-input[data-f="qNum"]')?.value)||0;
+  const newRow = { qNum:lastQ+1, text:'', option_A:'', option_B:'', option_C:'', option_D:'', correct:'A' };
+  tbody.insertAdjacentHTML('beforeend', buildRow(newRow, nextIdx));
+  updateStats();
+};
+
+// ── Clear all ─────────────────────────────────────────────────────────────
+window.clearAll = () => {
+  document.getElementById('jsonPaste').value = '';
+  document.getElementById('step2').style.display = 'none';
+  document.getElementById('resultsCard').style.display = 'none';
+  document.getElementById('previewBody').innerHTML = '';
+  parsedRows = [];
+};
+
+// ── Copy prompt ───────────────────────────────────────────────────────────
+window.copyPrompt = () => {
+  const text = document.getElementById('promptText').textContent;
+  navigator.clipboard.writeText(text).then(()=>showToast('Prompt copied!','success'));
+};
+
+// Fallback toast
+window.showToast = window.showToast || ((msg,type='success')=>{
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.className='toast '+type; t.style.display='block';
+  setTimeout(()=>{t.style.display='none';},3500);
+});
+</script>
+</body>
+</html>
