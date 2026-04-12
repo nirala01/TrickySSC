@@ -328,7 +328,7 @@ const auth = getAuth(app);
 const db   = getFirestore(app);
 
 let currentUser = null;
-let loadedDocMap = {}; // qNum → Firestore doc snapshot
+window.loadedDocMap = {}; // qNum → Firestore doc snapshot — shared with non-module script
 
 onAuthStateChanged(auth, user => {
   if (user && (ADMIN_EMAILS.includes(user.email) || user.email.endsWith('@trickyssc.com'))) {
@@ -430,10 +430,10 @@ window.loadExisting = async () => {
     if (lang)   docs = docs.filter(d => (d.data().language||'en') === lang);
     if (heldOn) docs = docs.filter(d => d.data().heldOn === heldOn);
 
-    loadedDocMap = {};
-    docs.forEach(d => { loadedDocMap[parseInt(d.data().qNum)] = d; });
+    window.loadedDocMap = {};
+    docs.forEach(d => { window.loadedDocMap[parseInt(d.data().qNum)] = d; });
 
-    const count = Object.keys(loadedDocMap).length;
+    const count = Object.keys(window.loadedDocMap).length;
     lbl.innerHTML = `✅ <strong style="color:#00A86B;">${count} existing questions loaded</strong> — preview will show New / Update status per row`;
     lbl.style.color = '#00A86B';
 
@@ -468,8 +468,8 @@ window.uploadAll = async () => {
   const heldOn  = document.getElementById('selHeldOn').value;
   const paperId = document.getElementById('paperIdDisplay').textContent;
 
-  const toAdd    = rows.filter(r => !loadedDocMap[r.qNum]);
-  const toUpdate = rows.filter(r =>  loadedDocMap[r.qNum]);
+  const toAdd    = rows.filter(r => !window.loadedDocMap[r.qNum]);
+  const toUpdate = rows.filter(r =>  window.loadedDocMap[r.qNum]);
 
   const confirmed = confirm(
     `Ready to push ${rows.length} questions to Firestore.\n\n` +
@@ -490,7 +490,7 @@ window.uploadAll = async () => {
 
   for (let i=0; i<rows.length; i++) {
     const r = rows[i];
-    const existingDoc = loadedDocMap[r.qNum];
+    const existingDoc = window.loadedDocMap[r.qNum];
 
     const payload = {
       qNum:     r.qNum,
@@ -629,8 +629,8 @@ function buildRow(r, idx) {
 }
 
 function getStatusBadge(qNum) {
-  if (!Object.keys(loadedDocMap).length) return '<span class="badge" style="font-size:0.68rem;">—</span>';
-  return loadedDocMap[parseInt(qNum)]
+  if (!Object.keys(window.loadedDocMap).length) return '<span class="badge" style="font-size:0.68rem;">—</span>';
+  return window.loadedDocMap[parseInt(qNum)]
     ? '<span class="badge badge-yellow" style="font-size:0.68rem;">Update</span>'
     : '<span class="badge badge-green" style="font-size:0.68rem;">New</span>';
 }
@@ -655,9 +655,9 @@ function updateStats() {
   const rows   = collectTableData();
   const total  = rows.length;
   const errs   = rows.filter(r=>r._errors.length>0);
-  const isLoaded = Object.keys(loadedDocMap).length > 0;
-  const toUpdate = isLoaded ? rows.filter(r=>loadedDocMap[r.qNum]).length : 0;
-  const toAdd    = isLoaded ? rows.filter(r=>!loadedDocMap[r.qNum]).length : 0;
+  const isLoaded = Object.keys(window.loadedDocMap).length > 0;
+  const toUpdate = isLoaded ? rows.filter(r=>window.loadedDocMap[r.qNum]).length : 0;
+  const toAdd    = isLoaded ? rows.filter(r=>!window.loadedDocMap[r.qNum]).length : 0;
 
   const bar = document.getElementById('statsBar');
   bar.innerHTML = `
@@ -766,7 +766,7 @@ window.clearAll = () => {
   document.getElementById('loadExistingStatus').textContent = 'Load to enable smart add/update mode';
   document.getElementById('loadExistingStatus').style.color = '';
   parsedRows = [];
-  loadedDocMap = {};
+  window.loadedDocMap = {};
 };
 
 // ── Copy prompt ───────────────────────────────────────────────────────────
