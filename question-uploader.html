@@ -97,6 +97,7 @@ tr:hover td{background:rgba(255,107,0,0.03);}
 .cell-select.correct-a{color:#34D399;}
 .td-num{width:42px;text-align:center;font-weight:700;color:#FF6B00;}
 .td-del{width:36px;text-align:center;}
+.td-status{width:80px;text-align:center;}
 .del-btn{background:none;border:none;color:#475569;cursor:pointer;font-size:1rem;padding:0.2rem;transition:color 0.15s;}
 .del-btn:hover{color:#EF4444;}
 .td-err{width:28px;text-align:center;}
@@ -203,6 +204,10 @@ tr:hover td{background:rgba(255,107,0,0.03);}
     </div>
     <label>Paper ID (auto-generated)</label>
     <div class="paperid-preview" id="paperIdDisplay">—</div>
+    <div class="btn-row" style="margin-top:0.85rem;">
+      <button class="btn btn-secondary" id="loadExistingBtn" onclick="loadExisting()">🔍 Load Existing Questions</button>
+      <span id="loadExistingStatus" style="font-size:0.82rem;color:#94A3B8;">Load to enable smart add/update mode</span>
+    </div>
   </div>
 
   <!-- AI Prompt Generator -->
@@ -268,6 +273,7 @@ tr:hover td{background:rgba(255,107,0,0.03);}
               <th style="min-width:100px;">Option C</th>
               <th style="min-width:100px;">Option D</th>
               <th style="width:70px;">Correct</th>
+              <th style="width:80px;">Status</th>
               <th class="td-del">🗑</th>
             </tr>
           </thead>
@@ -304,7 +310,7 @@ tr:hover td{background:rgba(255,107,0,0.03);}
 import { initializeApp }      from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
                                from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
-import { getFirestore, collection, addDoc, getDocs, query, where, doc, setDoc }
+import { getFirestore, collection, addDoc, getDocs, updateDoc, query, where, doc, setDoc }
                                from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -322,6 +328,7 @@ const auth = getAuth(app);
 const db   = getFirestore(app);
 
 let currentUser = null;
+let loadedDocMap = {}; // qNum → Firestore doc snapshot
 
 onAuthStateChanged(auth, user => {
   if (user && (ADMIN_EMAILS.includes(user.email) || user.email.endsWith('@trickyssc.com'))) {
@@ -399,28 +406,78 @@ Start output with [ and end with ]`;
   if (el) el.textContent = prompt;
 };
 
-// ── Upload to Firestore ───────────────────────────────────────────────────
-window.uploadAll = async () => {
+// ── Load existing questions for this paper ────────────────────────────────
+window.loadExisting = async () => {
   if (!currentUser) { showToast('Sign in first','error'); return; }
-
-  const rows = collectTableData();
-  const errors = rows.filter(r => r._errors.length > 0);
-  if (errors.length > 0) {
-    showToast(errors.length+' rows have errors — fix them first','error');
-    return;
-  }
-  if (!rows.length) { showToast('No rows to upload','error'); return; }
-
-  const confirmed = confirm(`Upload ${rows.length} questions to Firestore?\n\nPaper: ${document.getElementById('paperIdDisplay').textContent}\n\nThis will ADD new documents. It will NOT overwrite existing ones.`);
-  if (!confirmed) return;
-
   const exam   = document.getElementById('selExam').value;
   const year   = document.getElementById('selYear').value;
   const tier   = document.getElementById('selTier').value;
   const shift  = document.getElementById('selShift').value;
   const lang   = document.getElementById('selLang').value;
   const heldOn = document.getElementById('selHeldOn').value;
+
+  const btn = document.getElementById('loadExistingBtn');
+  const lbl = document.getElementById('loadExistingStatus');
+  btn.disabled = true;
+  lbl.textContent = '🔄 Loading...';
+
+  try {
+    let q = query(collection(db,'questions'), where('exam','==',exam), where('year','==',year));
+    const snap = await getDocs(q);
+    let docs = snap.docs;
+    if (tier)   docs = docs.filter(d => d.data().tier   === tier);
+    if (shift)  docs = docs.filter(d => d.data().shift  === shift);
+    if (lang)   docs = docs.filter(d => (d.data().language||'en') === lang);
+    if (heldOn) docs = docs.filter(d => d.data().heldOn === heldOn);
+
+    loadedDocMap = {};
+    docs.forEach(d => { loadedDocMap[parseInt(d.data().qNum)] = d; });
+
+    const count = Object.keys(loadedDocMap).length;
+    lbl.innerHTML = `✅ <strong style="color:#00A86B;">${count} existing questions loaded</strong> — preview will show New / Update status per row`;
+    lbl.style.color = '#00A86B';
+
+    // Re-render table if already showing to update badges
+    if (document.getElementById('step2').style.display !== 'none') {
+      revalidate();
+      refreshStatusBadges();
+    }
+    showToast(count+' existing questions loaded','success');
+  } catch(e) {
+    lbl.textContent = '❌ Error: '+e.message;
+    lbl.style.color = '#EF4444';
+    showToast('Load failed: '+e.message,'error');
+  }
+  btn.disabled = false;
+};
+
+// ── Upload to Firestore ───────────────────────────────────────────────────
+window.uploadAll = async () => {
+  if (!currentUser) { showToast('Sign in first','error'); return; }
+
+  const rows = collectTableData();
+  const errors = rows.filter(r => r._errors.length > 0);
+  if (errors.length > 0) { showToast(errors.length+' rows have errors — fix them first','error'); return; }
+  if (!rows.length) { showToast('No rows to upload','error'); return; }
+
+  const exam    = document.getElementById('selExam').value;
+  const year    = document.getElementById('selYear').value;
+  const tier    = document.getElementById('selTier').value;
+  const shift   = document.getElementById('selShift').value;
+  const lang    = document.getElementById('selLang').value;
+  const heldOn  = document.getElementById('selHeldOn').value;
   const paperId = document.getElementById('paperIdDisplay').textContent;
+
+  const toAdd    = rows.filter(r => !loadedDocMap[r.qNum]);
+  const toUpdate = rows.filter(r =>  loadedDocMap[r.qNum]);
+
+  const confirmed = confirm(
+    `Ready to push ${rows.length} questions to Firestore.\n\n` +
+    `✅ New (will add): ${toAdd.length}\n` +
+    `✏️ Existing (will update): ${toUpdate.length}\n\n` +
+    `Paper: ${paperId}\n\nContinue?`
+  );
+  if (!confirmed) return;
 
   const prog   = document.getElementById('progressWrap');
   const bar    = document.getElementById('progressBar');
@@ -428,12 +485,14 @@ window.uploadAll = async () => {
   prog.style.display = 'block'; bar.style.width = '0%';
   document.getElementById('uploadBtn').disabled = true;
 
-  let uploaded=0, errors2=0;
+  let added=0, updated=0, errors2=0;
   const errorLog = [];
 
   for (let i=0; i<rows.length; i++) {
     const r = rows[i];
-    const docData = {
+    const existingDoc = loadedDocMap[r.qNum];
+
+    const payload = {
       qNum:     r.qNum,
       text:     r.text,
       option_A: r.option_A,
@@ -441,35 +500,48 @@ window.uploadAll = async () => {
       option_C: r.option_C,
       option_D: r.option_D,
       correct:  r.correct,
-      exam:     exam,
-      year:     year,
-      tier:     tier,
-      shift:    shift,
+      exam, year, tier, shift,
       language: lang,
-      heldOn:   heldOn,
-      paperId:  paperId,
-      explanation: '',
-      trick:       '',
-      concept:     ''
+      heldOn,
+      paperId
     };
 
     try {
-      await addDoc(collection(db,'questions'), docData);
-      uploaded++;
+      if (existingDoc) {
+        // UPDATE — preserve existing explanation/trick/concept
+        await updateDoc(existingDoc.ref, {
+          text:     payload.text,
+          option_A: payload.option_A,
+          option_B: payload.option_B,
+          option_C: payload.option_C,
+          option_D: payload.option_D,
+          correct:  payload.correct
+        });
+        updated++;
+      } else {
+        // ADD new — include blank solution fields
+        await addDoc(collection(db,'questions'), {
+          ...payload,
+          explanation: '',
+          trick:       '',
+          concept:     ''
+        });
+        added++;
+      }
     } catch(e) {
       errors2++;
       errorLog.push(`Q${r.qNum}: ${e.message}`);
-      console.error('Upload error Q'+r.qNum, e);
+      console.error('Q'+r.qNum, e);
     }
 
     bar.style.width = ((i+1)/rows.length*100)+'%';
-    status.textContent = `Uploading ${i+1}/${rows.length}...`;
+    status.textContent = `Processing ${i+1}/${rows.length}...`;
   }
 
-  status.innerHTML = `✅ <strong>${uploaded} uploaded</strong>${errors2?` · <span style="color:#EF4444;">${errors2} errors</span>`:''}`;
+  status.innerHTML = `✅ <strong>${added} added · ${updated} updated</strong>${errors2?` · <span style="color:#EF4444;">${errors2} errors</span>`:''}`;
   document.getElementById('uploadBtn').disabled = false;
 
-  // Also upsert into papers collection
+  // Upsert papers collection
   try {
     await setDoc(doc(db,'papers',paperId), {
       paperId, exam, year, tier, shift, language:lang, heldOn,
@@ -480,9 +552,14 @@ window.uploadAll = async () => {
 
   document.getElementById('resultsCard').style.display = 'block';
   document.getElementById('resultsBody').innerHTML = `
-    <div class="success-box">✅ <strong>${uploaded} questions uploaded</strong> to paper <code>${paperId}</code>${errors2?`<br>❌ ${errors2} failed — check console`:''}${errorLog.length?`<br><small style="opacity:0.7">${errorLog.join(' | ')}</small>`:''}</div>
-    <p style="font-size:0.85rem;color:#64748B;margin-top:0.5rem;">Add explanations, tricks and concepts later using <a href="solution-updater.html" style="color:#FF6B00;">Solution Updater →</a></p>`;
-  showToast(`✅ ${uploaded} questions uploaded!`,'success');
+    <div class="success-box">
+      ✅ <strong>${added} new added · ${updated} existing updated</strong> — paper: <code>${paperId}</code>
+      ${errors2?`<br>❌ ${errors2} failed${errorLog.length?': '+errorLog.join(' | '):''}` :''}
+    </div>
+    <p style="font-size:0.85rem;color:#64748B;margin-top:0.5rem;">
+      Add explanations, tricks and concepts using <a href="solution-updater.html" style="color:#FF6B00;">Solution Updater →</a>
+    </p>`;
+  showToast(`✅ ${added} added · ${updated} updated`,'success');
 };
 
 window.showToast = (msg,type='success') => {
@@ -535,18 +612,38 @@ function buildRow(r, idx) {
     `<option value="${o}" ${(r.correct||'').toUpperCase()===o?'selected':''}>${o}</option>`
   ).join('');
 
+  const statusHtml = getStatusBadge(r.qNum);
+
   return `<tr data-idx="${idx}">
     <td class="td-err">${errHtml}</td>
-    <td class="td-num"><input class="cell-input" data-f="qNum" value="${esc(String(r.qNum||''))}"></td>
+    <td class="td-num"><input class="cell-input" data-f="qNum" value="${esc(String(r.qNum||''))}" onchange="refreshStatusBadges()"></td>
     <td><textarea class="cell-input" data-f="text" rows="2" style="min-width:240px;resize:vertical;">${esc(r.text||'')}</textarea></td>
     <td><input class="cell-input" data-f="option_A" value="${esc(r.option_A||'')}"></td>
     <td><input class="cell-input" data-f="option_B" value="${esc(r.option_B||'')}"></td>
     <td><input class="cell-input" data-f="option_C" value="${esc(r.option_C||'')}"></td>
     <td><input class="cell-input" data-f="option_D" value="${esc(r.option_D||'')}"></td>
     <td><select class="cell-select">${opts}</select></td>
+    <td class="td-status">${statusHtml}</td>
     <td class="td-del"><button class="del-btn" onclick="deleteRow(this)" title="Delete row">🗑</button></td>
   </tr>`;
 }
+
+function getStatusBadge(qNum) {
+  if (!Object.keys(loadedDocMap).length) return '<span class="badge" style="font-size:0.68rem;">—</span>';
+  return loadedDocMap[parseInt(qNum)]
+    ? '<span class="badge badge-yellow" style="font-size:0.68rem;">Update</span>'
+    : '<span class="badge badge-green" style="font-size:0.68rem;">New</span>';
+}
+
+window.refreshStatusBadges = () => {
+  const tbody = document.getElementById('previewBody');
+  tbody.querySelectorAll('tr[data-idx]').forEach(tr => {
+    const qNum = parseInt(tr.querySelector('.cell-input[data-f="qNum"]')?.value)||0;
+    const td   = tr.querySelector('.td-status');
+    if (td) td.innerHTML = getStatusBadge(qNum);
+  });
+  updateStats();
+};
 
 function renderTable(rows) {
   const tbody = document.getElementById('previewBody');
@@ -555,18 +652,24 @@ function renderTable(rows) {
 }
 
 function updateStats() {
-  const rows  = collectTableData();
-  const total = rows.length;
-  const errs  = rows.filter(r=>r._errors.length>0);
-  const bar   = document.getElementById('statsBar');
+  const rows   = collectTableData();
+  const total  = rows.length;
+  const errs   = rows.filter(r=>r._errors.length>0);
+  const isLoaded = Object.keys(loadedDocMap).length > 0;
+  const toUpdate = isLoaded ? rows.filter(r=>loadedDocMap[r.qNum]).length : 0;
+  const toAdd    = isLoaded ? rows.filter(r=>!loadedDocMap[r.qNum]).length : 0;
+
+  const bar = document.getElementById('statsBar');
   bar.innerHTML = `
     <span class="badge badge-orange">${total} questions</span>
     ${errs.length
       ? `<span class="badge badge-red">⚠️ ${errs.length} errors</span>`
       : `<span class="badge badge-green">✓ All valid</span>`}
+    ${isLoaded
+      ? `<span class="badge badge-green">✅ ${toAdd} new</span><span class="badge badge-yellow">✏️ ${toUpdate} update</span>`
+      : `<span class="badge" style="font-size:0.72rem;">Load existing to see add/update split</span>`}
     <span class="badge">Q${rows[0]?.qNum||'?'} – Q${rows[total-1]?.qNum||'?'}</span>`;
 
-  // Error summary
   const errBox = document.getElementById('errorSummary');
   if (errs.length) {
     errBox.style.display = 'block';
@@ -579,7 +682,9 @@ function updateStats() {
   document.getElementById('uploadBtn').disabled = errs.length > 0;
   document.getElementById('uploadSummary').textContent = errs.length
     ? `Fix ${errs.length} error${errs.length>1?'s':''} before uploading`
-    : `${total} questions ready to upload`;
+    : isLoaded
+      ? `${toAdd} new · ${toUpdate} updates — ready to push`
+      : `${total} questions ready to upload`;
 }
 
 // ── Parse & Preview ───────────────────────────────────────────────────────
@@ -658,7 +763,10 @@ window.clearAll = () => {
   document.getElementById('step2').style.display = 'none';
   document.getElementById('resultsCard').style.display = 'none';
   document.getElementById('previewBody').innerHTML = '';
+  document.getElementById('loadExistingStatus').textContent = 'Load to enable smart add/update mode';
+  document.getElementById('loadExistingStatus').style.color = '';
   parsedRows = [];
+  loadedDocMap = {};
 };
 
 // ── Copy prompt ───────────────────────────────────────────────────────────
