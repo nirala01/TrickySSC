@@ -221,6 +221,7 @@ pre{font-family:monospace;font-size:0.78rem;color:#A78BFA;line-height:1.7;white-
       <button class="mode-tab" onclick="switchMode('paperid')" id="tab-paperid">🔧 Fix paperId</button>
       <button class="mode-tab" onclick="switchMode('qoptions')" id="tab-qoptions">📝 Fix Q &amp; Options</button>
       <button class="mode-tab" onclick="switchMode('builder')" id="tab-builder">🔄 Build from JSON</button>
+      <button class="mode-tab" onclick="switchMode('mathconv')" id="tab-mathconv">🧮 Math Converter</button>
     </div>
 
     <!-- JSON Mode -->
@@ -291,6 +292,7 @@ pre{font-family:monospace;font-size:0.78rem;color:#A78BFA;line-height:1.7;white-
             <option value="steps_process">steps[].process[]</option>
             <option value="expl_trick_concept">explanation + trick + concept (strings)</option>
             <option value="solution_steps">solution_steps[].calculation</option>
+            <option value="description_steps">solution_steps[].description + data fields</option>
           </select>
         </div>
         <button class="btn btn-secondary" onclick="bldLoadExample()" style="padding:0.55rem 0.9rem;font-size:0.82rem;">Load example</button>
@@ -357,7 +359,122 @@ pre{font-family:monospace;font-size:0.78rem;color:#A78BFA;line-height:1.7;white-
     "title": "First Relation",
     "calculation": "19 × 11 = 209"
   }]
+}</span><span>// Format E — solution_steps[].description + data fields
+{
+  "solution_steps": [{
+    "step": 1, "description": "Write word with positions",
+    "data": "N(1) I(2) G(3)..."
+  }, {
+    "step": 2, "description": "Sort alphabetically",
+    "letters": ["N","I","G"], "sorted": ["G","I","N"]
+  }, {
+    "step": 3, "description": "Align and compare",
+    "alignment": {"given":"N I G","new":"G I N"}
+  }, {
+    "step": 4, "description": "Unchanged positions",
+    "unchanged_positions": [{"position":2,"letter":"I"}]
+  }, {
+    "step": 5, "description": "Count total",
+    "total_count": 1
+  }]
 }</span></pre>
+      </div>
+    </div>
+
+    <!-- Math Converter Mode -->
+    <div id="mode-mathconv" style="display:none;">
+      <div class="info-box">
+        Paste the <strong>raw solution text from ChatGPT</strong> (with x^2, a^3, \sin, \frac etc.) — it will be converted to Unicode (x², a³, sin, etc.) and formatted into the <code>[BR]</code> step structure your test page expects. Then push directly to DB.
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+
+        <!-- Input -->
+        <div>
+          <label style="margin-bottom:0.4rem;">Raw Input (paste from ChatGPT)</label>
+          <textarea id="mcRawInput" style="min-height:280px;font-size:0.78rem;" placeholder="Step 1: Simplify the Numerator
+The expression x^3 + 15x^2 + 75x + 125 is a perfect cube.
+It follows the identity (a + b)^3 = a^3 + 3a^2*b + 3ab^2 + b^3.
+Here, a = x and b = 5 (since 5^3 = 125).
+So, the numerator = (x + 5)^3.
+
+Step 2: Simplify the Denominator
+The denominator x^2 - 25 follows the identity a^2 - b^2 = (a+b)(a-b).
+x^2 - 5^2 = (x + 5)(x - 5).
+
+Final Answer = x^2 + 10x + 25"></textarea>
+          <div class="textarea-hint">Accepts: x^2 x^3 x^{10}, \sin \cos \tan \frac{a}{b} \sqrt{x}, bullet points (•), bold (**text**)</div>
+        </div>
+
+        <!-- Output -->
+        <div>
+          <label style="margin-bottom:0.4rem;">Converted Output (ready for DB)</label>
+          <textarea id="mcConvertedOutput" style="min-height:280px;font-size:0.78rem;color:#00A86B;" readonly placeholder="Converted text will appear here..."></textarea>
+          <div class="textarea-hint">Uses [BR] line breaks — compatible with test.html renderContent()</div>
+        </div>
+      </div>
+
+      <!-- Live preview -->
+      <div style="margin-top:0.75rem;">
+        <label style="margin-bottom:0.4rem;">Live Preview (how it looks in test)</label>
+        <div id="mcLivePreview" style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px;padding:1rem;font-size:0.88rem;line-height:1.9;min-height:80px;color:#374151;">
+          <span style="color:#94A3B8;font-size:0.8rem;">Preview will appear after conversion...</span>
+        </div>
+      </div>
+
+      <div class="btn-row" style="margin-top:0.85rem;">
+        <button class="btn btn-primary" onclick="mcConvert()">⚡ Convert</button>
+        <button class="btn btn-secondary" onclick="mcCopyOutput()">📋 Copy Output</button>
+        <button class="btn btn-secondary" onclick="mcClear()">✕ Clear</button>
+      </div>
+
+      <hr style="border:none;border-top:1px solid #334155;margin:1rem 0;">
+
+      <!-- Push to DB -->
+      <div style="background:#0F172A;border:1px solid #334155;border-radius:10px;padding:1rem;">
+        <div style="font-size:0.8rem;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.75rem;">Push to DB</div>
+        <div style="display:flex;gap:0.75rem;align-items:flex-end;flex-wrap:wrap;margin-bottom:0.75rem;">
+          <div>
+            <label>Q Number</label>
+            <input type="number" id="mcQNum" value="1" min="1" max="200" style="width:90px;">
+          </div>
+          <div style="flex:1;min-width:120px;">
+            <label>Field</label>
+            <select id="mcField">
+              <option value="explanation">explanation</option>
+              <option value="trick">trick</option>
+              <option value="concept">concept</option>
+            </select>
+          </div>
+        </div>
+        <div class="btn-row" style="margin-top:0;">
+          <button class="btn btn-primary" id="mcPushBtn" onclick="mcPush()" disabled>🚀 Push to Firestore</button>
+          <span id="mcPushStatus" style="font-size:0.82rem;color:#94A3B8;"></span>
+        </div>
+        <div class="progress-wrap" id="mcProgressWrap">
+          <div class="progress-bar-bg"><div class="progress-bar" id="mcProgressBar"></div></div>
+          <div class="progress-status" id="mcProgressStatus"></div>
+        </div>
+      </div>
+
+      <!-- Cheat sheet -->
+      <div class="format-card" style="margin-top:1rem;">
+        <h4>Conversion Cheat Sheet</h4>
+        <pre style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;font-size:0.72rem;">
+<span>x^2 → x²      x^3 → x³      x^{10} → x¹⁰
+a^2 + b^2 → a² + b²
+(a+b)^3 → (a+b)³
+5^3 = 125 → 5³ = 125</span><span>\sin → sin    \cos → cos    \tan → tan
+\frac{1}{2} → 1/2
+\sqrt{x} → √x    \sqrt{3} → √3
+\times → ×    \div → ÷    \pm → ±</span>
+<span>\theta → θ    \alpha → α    \beta → β
+\pi → π    \infty → ∞
+\geq → ≥    \leq → ≤    \neq → ≠
+90\degree → 90°</span><span>• bullet → substep line (— prefix)
+**bold text** → bold
+Step N: Title → Step N: Title.
+Final Answer = X → ∴ Final Answer = X</span></pre>
       </div>
     </div>
 
@@ -570,16 +687,18 @@ window.fetchPaperQuestions = async () => {
 // ── Mode switch ──
 window.switchMode = (mode) => {
   currentMode = mode;
-  document.getElementById('mode-json').style.display    = mode === 'json'     ? 'block' : 'none';
-  document.getElementById('mode-csv').style.display     = mode === 'csv'      ? 'block' : 'none';
-  document.getElementById('mode-builder').style.display = mode === 'builder'  ? 'block' : 'none';
-  document.getElementById('paperIdCard').style.display  = mode === 'paperid'  ? 'block' : 'none';
-  document.getElementById('qoptionsCard').style.display = mode === 'qoptions' ? 'block' : 'none';
-  document.getElementById('tab-json').className     = 'mode-tab' + (mode === 'json'     ? ' active' : '');
-  document.getElementById('tab-csv').className      = 'mode-tab' + (mode === 'csv'      ? ' active' : '');
-  document.getElementById('tab-builder').className  = 'mode-tab' + (mode === 'builder'  ? ' active' : '');
-  document.getElementById('tab-paperid').className  = 'mode-tab' + (mode === 'paperid'  ? ' active' : '');
-  document.getElementById('tab-qoptions').className = 'mode-tab' + (mode === 'qoptions' ? ' active' : '');
+  document.getElementById('mode-json').style.display     = mode === 'json'      ? 'block' : 'none';
+  document.getElementById('mode-csv').style.display      = mode === 'csv'       ? 'block' : 'none';
+  document.getElementById('mode-builder').style.display  = mode === 'builder'   ? 'block' : 'none';
+  document.getElementById('mode-mathconv').style.display = mode === 'mathconv'  ? 'block' : 'none';
+  document.getElementById('paperIdCard').style.display   = mode === 'paperid'   ? 'block' : 'none';
+  document.getElementById('qoptionsCard').style.display  = mode === 'qoptions'  ? 'block' : 'none';
+  document.getElementById('tab-json').className      = 'mode-tab' + (mode === 'json'      ? ' active' : '');
+  document.getElementById('tab-csv').className       = 'mode-tab' + (mode === 'csv'       ? ' active' : '');
+  document.getElementById('tab-builder').className   = 'mode-tab' + (mode === 'builder'   ? ' active' : '');
+  document.getElementById('tab-mathconv').className  = 'mode-tab' + (mode === 'mathconv'  ? ' active' : '');
+  document.getElementById('tab-paperid').className   = 'mode-tab' + (mode === 'paperid'   ? ' active' : '');
+  document.getElementById('tab-qoptions').className  = 'mode-tab' + (mode === 'qoptions'  ? ' active' : '');
   clearPreview();
   if (mode === 'paperid') updatePaperIdPreview();
 };
@@ -1074,10 +1193,73 @@ function bldParseStepsArray(steps, key) {
 function bldParseSolutionSteps(steps, root) {
   const html = [];
   steps.forEach(s => {
-    html.push(bldStepDiv(s.step || '', bldClean(s.title || 'Step ' + (s.step || ''))));
+    // title: prefer "title", fall back to "description", then generic
+    const title = bldClean(s.title || s.description || 'Step ' + (s.step || ''));
+    html.push(bldStepDiv(s.step || '', title));
+    // Format D original: single calculation string
     if (s.calculation) { const d = bldSubDiv(bldClean(s.calculation)); if (d) html.push(d); }
   });
   if (root && root.correct_answer && root.correct_answer.value) html.push(bldFinalDiv(root.correct_answer.value));
+  return html.join('');
+}
+
+// Format E — solution_steps with description + varied data fields
+// (data string, letters/sorted arrays, alignment object, unchanged_positions array, total_count)
+function bldParseDescriptionSteps(steps, root) {
+  const html = [];
+  let finalAns = null;
+
+  steps.forEach(s => {
+    const title = bldClean(s.description || s.title || 'Step ' + (s.step || ''));
+    html.push(bldStepDiv(s.step || '', title));
+
+    // "data" — plain string line
+    if (s.data) {
+      const d = bldSubDiv(bldClean(s.data)); if (d) html.push(d);
+    }
+
+    // "letters" + "sorted" — show original then sorted
+    if (s.letters && Array.isArray(s.letters)) {
+      html.push(bldSubDiv('Original: ' + s.letters.join(', ')));
+    }
+    if (s.sorted && Array.isArray(s.sorted)) {
+      html.push(bldSubDiv('Sorted: ' + s.sorted.join(', ')));
+    }
+
+    // "alignment" — given vs new
+    if (s.alignment) {
+      if (s.alignment.given) html.push(bldSubDiv('Given: ' + s.alignment.given));
+      if (s.alignment.new)   html.push(bldSubDiv('New: '   + s.alignment.new));
+    }
+
+    // "unchanged_positions" — list each match
+    if (s.unchanged_positions && Array.isArray(s.unchanged_positions)) {
+      s.unchanged_positions.forEach(p => {
+        html.push(bldSubDiv('Position ' + p.position + ': ' + p.letter + ' (unchanged)'));
+      });
+    }
+
+    // "total_count" — this is the final answer
+    if (s.total_count !== undefined) {
+      finalAns = String(s.total_count);
+      html.push(bldSubDiv('Total unchanged = ' + s.total_count));
+    }
+
+    // "calculation" (Format D overlap)
+    if (s.calculation) { const d = bldSubDiv(bldClean(s.calculation)); if (d) html.push(d); }
+
+    // "result" / "answer" string
+    if (s.result) { const d = bldSubDiv(bldClean(String(s.result))); if (d) html.push(d); finalAns = finalAns || String(s.result); }
+    if (s.answer) { finalAns = finalAns || String(s.answer); }
+  });
+
+  // root-level correct_answer
+  if (root && root.correct_answer) {
+    const v = root.correct_answer.value !== undefined ? root.correct_answer.value : root.correct_answer;
+    if (v !== undefined) finalAns = finalAns || String(v);
+  }
+
+  if (finalAns) html.push(bldFinalDiv(finalAns));
   return html.join('');
 }
 
@@ -1123,7 +1305,12 @@ function bldDetectFormat(obj) {
   if (obj.steps && Array.isArray(obj.steps)) {
     return Array.isArray((obj.steps[0] || {}).process) ? 'steps_process' : 'steps_expl';
   }
-  if (obj.solution_steps) return 'solution_steps';
+  if (obj.solution_steps && Array.isArray(obj.solution_steps)) {
+    // If steps use "description" field instead of "title" → Format E
+    const first = obj.solution_steps[0] || {};
+    if (first.description !== undefined && first.title === undefined) return 'description_steps';
+    return 'solution_steps';
+  }
   if (obj.explanation !== undefined) return 'expl_trick_concept';
   return null;
 }
@@ -1150,6 +1337,7 @@ window.bldConvert = () => {
     if      (fmt === 'steps_expl')         explanation = bldParseStepsArray(obj.steps, 'explanation');
     else if (fmt === 'steps_process')      explanation = bldParseStepsArray(obj.steps, 'process');
     else if (fmt === 'solution_steps')     explanation = bldParseSolutionSteps(obj.solution_steps, obj);
+    else if (fmt === 'description_steps')  explanation = bldParseDescriptionSteps(obj.solution_steps, obj);
     else if (fmt === 'expl_trick_concept') { const r = bldParseExplTrickConcept(obj); explanation = r.explanation; trick = r.trick; concept = r.concept; }
   } catch(e) { showToast('Parse error: ' + e.message, 'error'); return; }
 
@@ -1233,6 +1421,245 @@ window.bldLoadExample = () => {
   }, null, 2);
   document.getElementById('bldQNum').value = 25;
   showToast('Example loaded — click Convert & Preview', 'info');
+};
+
+// ══════════════════════════════════════════════════════════
+// ── Math Converter tab ───────────────────────────────────
+// ══════════════════════════════════════════════════════════
+
+const MC_SUP = {'0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹','+':'⁺','-':'⁻','n':'ⁿ','x':'ˣ','a':'ᵃ','b':'ᵇ'};
+const MC_SUB = {'0':'₀','1':'₁','2':'₂','3':'₃','4':'₄','5':'₅','6':'₆','7':'₇','8':'₈','9':'₉'};
+
+function mcToSup(s) {
+  return s.split('').map(c => MC_SUP[c] || c).join('');
+}
+function mcToSub(s) {
+  return s.split('').map(c => MC_SUB[c] || c).join('');
+}
+
+function mcConvertMath(text) {
+  // ── Remove LaTeX delimiters ──
+  text = text.replace(/\$\$[\s\S]*?\$\$/g, s => s.slice(2,-2));
+  text = text.replace(/\$([^$]+)\$/g, '$1');
+  text = text.replace(/\\\[[\s\S]*?\\\]/g, s => s.slice(2,-2));
+  text = text.replace(/\\\([\s\S]*?\\\)/g, s => s.slice(2,-2));
+
+  // ── \text{...} → content only ──
+  text = text.replace(/\\text\{([^}]*)\}/g, '$1');
+
+  // ── \frac{a}{b} → a/b ──
+  text = text.replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, '$1/$2');
+
+  // ── \sqrt{x} → √x, \sqrt → √ ──
+  text = text.replace(/\\sqrt\{([^}]+)\}/g, '√($1)');
+  text = text.replace(/\\sqrt\s*/g, '√');
+
+  // ── Trig & math functions ──
+  text = text.replace(/\\sin/g,  'sin');
+  text = text.replace(/\\cos/g,  'cos');
+  text = text.replace(/\\tan/g,  'tan');
+  text = text.replace(/\\cot/g,  'cot');
+  text = text.replace(/\\sec/g,  'sec');
+  text = text.replace(/\\cosec/g,'cosec');
+  text = text.replace(/\\log/g,  'log');
+  text = text.replace(/\\ln/g,   'ln');
+  text = text.replace(/\\lim/g,  'lim');
+
+  // ── Greek letters ──
+  text = text.replace(/\\theta/g,  'θ');
+  text = text.replace(/\\alpha/g,  'α');
+  text = text.replace(/\\beta/g,   'β');
+  text = text.replace(/\\gamma/g,  'γ');
+  text = text.replace(/\\delta/g,  'δ');
+  text = text.replace(/\\phi/g,    'φ');
+  text = text.replace(/\\pi/g,     'π');
+  text = text.replace(/\\infty/g,  '∞');
+  text = text.replace(/\\sigma/g,  'σ');
+  text = text.replace(/\\mu/g,     'μ');
+  text = text.replace(/\\lambda/g, 'λ');
+
+  // ── Operators & symbols ──
+  text = text.replace(/\\times/g,  '×');
+  text = text.replace(/\\div/g,    '÷');
+  text = text.replace(/\\pm/g,     '±');
+  text = text.replace(/\\mp/g,     '∓');
+  text = text.replace(/\\geq/g,    '≥');
+  text = text.replace(/\\leq/g,    '≤');
+  text = text.replace(/\\neq/g,    '≠');
+  text = text.replace(/\\approx/g, '≈');
+  text = text.replace(/\\equiv/g,  '≡');
+  text = text.replace(/\\cdot/g,   '·');
+  text = text.replace(/\\ldots/g,  '...');
+  text = text.replace(/\\degree/g, '°');
+  text = text.replace(/\\circ/g,   '°');
+  text = text.replace(/\^\\circ/g, '°');
+  text = text.replace(/\\%/g,      '%');
+  text = text.replace(/\\&/g,      '&');
+
+  // ── Superscripts: x^{10} → x¹⁰, x^2 → x², x^n → xⁿ ──
+  // braced: ^{content}
+  text = text.replace(/\^\{([^}]+)\}/g, (_, exp) => mcToSup(exp));
+  // single char: ^2 ^3 ^n etc
+  text = text.replace(/\^([0-9a-zA-Z+\-])/g, (_, c) => mcToSup(c));
+
+  // ── Subscripts: x_{10} → x₁₀, x_2 → x₂ ──
+  text = text.replace(/\_\{([^}]+)\}/g, (_, sub) => mcToSub(sub));
+  text = text.replace(/\_([0-9])/g, (_, c) => mcToSub(c));
+
+  // ── Remove remaining lone backslashes ──
+  text = text.replace(/\\/g, '');
+
+  return text;
+}
+
+function mcFormatSteps(raw) {
+  // Split on real newlines
+  const lines = raw.split('\n');
+  const out = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    let line = lines[i].trim();
+    if (!line) continue;
+
+    // Apply math conversion to each line
+    line = mcConvertMath(line);
+
+    // Remove markdown bold/italic wrappers from step titles
+    line = line.replace(/\*\*(.+?)\*\*/g, '$1');
+    line = line.replace(/\*([^*]+?)\*/g, '$1');
+
+    // ── Step title: "Step N: Title" or "Step N. Title" ──
+    const stepM = line.match(/^Step\s+(\d+)\s*[:.]\s*(.*)/i);
+    if (stepM) {
+      let title = stepM[2].trim();
+      // Ensure ends with full stop
+      if (title && !title.endsWith('.')) title += '.';
+      out.push('Step ' + stepM[1] + ': ' + title);
+      continue;
+    }
+
+    // ── Bullet points (•, -, *) → substep ──
+    const bulletM = line.match(/^[•\-\*]\s+(.+)/);
+    if (bulletM) {
+      out.push('- ' + bulletM[1].trim());
+      continue;
+    }
+
+    // ── Final Answer ──
+    if (/^(final\s+answer|∴\s*final)/i.test(line)) {
+      const valM = line.match(/[=:]\s*(.+)$/i);
+      const val = valM ? valM[1].trim() : line;
+      out.push('∴ Final Answer = ' + val);
+      continue;
+    }
+    // ∴ standalone
+    if (line.startsWith('∴')) {
+      out.push(line);
+      continue;
+    }
+
+    // ── Regular line — becomes a substep if inside a step, else plain ──
+    out.push('- ' + line);
+  }
+
+  return out.join('[BR]');
+}
+
+// Render converted text using same logic as test.html formatSteps()
+function mcRenderPreview(text) {
+  if (!text) return '';
+  const lines = text.split('[BR]');
+  const out = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const stepM = line.match(/^(Step \d+:\s*)(.*)/);
+    if (stepM) {
+      out.push('<div style="margin-top:8px;"><strong style="color:#15803D;font-size:0.88rem;">' + stepM[1].trim() + '</strong>' + (stepM[2] ? ' <span style="color:#374151;">' + stepM[2].trim() + '</span>' : '') + '</div>');
+    } else if (line.match(/^- /)) {
+      out.push('<div style="margin-left:16px;color:#374151;font-size:0.87rem;line-height:1.7;"><span style="color:#FF6B00;font-weight:700;margin-right:5px;">—</span>' + line.slice(2) + '</div>');
+    } else if (/^∴/.test(line)) {
+      out.push('<div style="margin-top:6px;font-weight:700;color:#00A86B;font-size:0.88rem;">' + line + '</div>');
+    } else if (line.trim()) {
+      out.push('<div style="color:#374151;font-size:0.87rem;line-height:1.7;">' + line + '</div>');
+    }
+  }
+  return out.join('');
+}
+
+let _mcConverted = '';
+
+window.mcConvert = () => {
+  const raw = document.getElementById('mcRawInput').value;
+  if (!raw.trim()) { showToast('Paste solution text first', 'error'); return; }
+
+  _mcConverted = mcFormatSteps(raw);
+
+  document.getElementById('mcConvertedOutput').value = _mcConverted;
+  document.getElementById('mcLivePreview').innerHTML = mcRenderPreview(_mcConverted) || '<span style="color:#94A3B8;">Nothing to preview</span>';
+  document.getElementById('mcPushBtn').disabled = false;
+  showToast('Converted — check preview then push', 'info');
+};
+
+window.mcCopyOutput = () => {
+  const val = document.getElementById('mcConvertedOutput').value;
+  if (!val) { showToast('Convert first', 'error'); return; }
+  navigator.clipboard.writeText(val).then(() => showToast('Copied!', 'success'));
+};
+
+window.mcClear = () => {
+  document.getElementById('mcRawInput').value = '';
+  document.getElementById('mcConvertedOutput').value = '';
+  document.getElementById('mcLivePreview').innerHTML = '<span style="color:#94A3B8;font-size:0.8rem;">Preview will appear after conversion...</span>';
+  document.getElementById('mcPushBtn').disabled = true;
+  document.getElementById('mcPushStatus').textContent = '';
+  document.getElementById('mcProgressWrap').style.display = 'none';
+  _mcConverted = '';
+};
+
+window.mcPush = async () => {
+  if (!_mcConverted)       { showToast('Convert first', 'error'); return; }
+  if (!loadedDocs.length)  { showToast('Load a paper first using the selector above', 'error'); return; }
+
+  const qnum    = parseInt(document.getElementById('mcQNum').value) || 0;
+  const field   = document.getElementById('mcField').value;
+  if (!qnum) { showToast('Enter a Q number', 'error'); return; }
+
+  const docMap = {};
+  loadedDocs.forEach(d => { docMap[parseInt(d.data().qNum)] = d; });
+  const docSnap = docMap[qnum];
+  if (!docSnap) {
+    showToast('Q' + qnum + ' not found in loaded paper', 'error');
+    document.getElementById('mcPushStatus').textContent = '❌ Q' + qnum + ' not found';
+    return;
+  }
+
+  const override = document.getElementById('overrideToggle').checked;
+  const data     = docSnap.data();
+  if (!override && data[field] && data[field].trim()) {
+    showToast('Q' + qnum + ' already has ' + field + '. Enable Override to replace.', 'error'); return;
+  }
+
+  const prog   = document.getElementById('mcProgressWrap');
+  const bar    = document.getElementById('mcProgressBar');
+  const status = document.getElementById('mcProgressStatus');
+  prog.style.display = 'block'; bar.style.width = '0%';
+  document.getElementById('mcPushBtn').disabled = true;
+  document.getElementById('mcPushStatus').textContent = '';
+  status.textContent = 'Pushing Q' + qnum + '...';
+
+  try {
+    const payload = {};
+    payload[field] = _mcConverted;
+    await updateDoc(docSnap.ref, payload);
+    bar.style.width = '100%';
+    status.innerHTML = '✅ <strong>Q' + qnum + ' ' + field + ' updated!</strong>';
+    document.getElementById('mcPushStatus').textContent = '✅ Done';
+    showToast('✅ Q' + qnum + ' ' + field + ' saved!', 'success');
+  } catch(e) {
+    status.innerHTML = '<span style="color:#EF4444;">❌ ' + e.message + '</span>';
+    showToast('Push failed: ' + e.message, 'error');
+  }
+  document.getElementById('mcPushBtn').disabled = false;
 };
 
 // ── Toast ──
