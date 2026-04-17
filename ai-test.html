@@ -95,8 +95,12 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;color:#1E293B
 .review-opt.wrong{border-color:#EF4444;background:#FEF2F2;color:#DC2626;}
 .review-explanation{margin-top:0.65rem;background:#FFF7ED;border-left:3px solid #FF6B00;padding:0.5rem 0.75rem;font-size:0.78rem;color:#92400E;border-radius:0 6px 6px 0;line-height:1.6;}
 
-/* Error */
-.error-wrap{background:#FEF2F2;border:1px solid #FECACA;border-radius:12px;padding:1.5rem;text-align:center;}
+/* Timer */
+.timer-wrap{display:flex;align-items:center;gap:6px;background:#FFF7ED;border:1.5px solid #FED7AA;border-radius:8px;padding:0.35rem 0.85rem;}
+.timer-icon{font-size:14px;}
+.timer{font-family:'Rajdhani';font-size:1.3rem;font-weight:700;color:#FF6B00;letter-spacing:1px;}
+.timer.warning{color:#EF4444;animation:pulse 1s ease-in-out infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.5;}}
 
 /* Section headers */
 .section-title{font-family:'Rajdhani';font-size:1.2rem;font-weight:700;color:#1E293B;margin-bottom:0.75rem;display:flex;align-items:center;gap:0.4rem;}
@@ -160,10 +164,12 @@ const COUNT   = parseInt(P.get('count')) || 10;
 
 // ── State ────────────────────────────────────────────────────────────────────
 let questions  = [];
-let answers    = {};   // qIdx → selected option 'A'/'B'/'C'/'D'
+let answers    = {};
 let currentQ   = 0;
 let submitted  = false;
 let dbSamples  = [];
+let timerSecs  = 15 * 60; // 15 minutes
+let timerInterval = null;
 
 // ── Boot ─────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
@@ -313,9 +319,39 @@ Rules:
   throw lastErr || new Error('Could not generate questions — please try again');
 }
 
+// ── Timer ─────────────────────────────────────────────────────────────────────
+function startTimer() {
+  timerSecs = 15 * 60;
+  if (timerInterval) clearInterval(timerInterval);
+  timerInterval = setInterval(() => {
+    timerSecs--;
+    updateTimerDisplay();
+    if (timerSecs <= 0) {
+      clearInterval(timerInterval);
+      submitted = true;
+      showResults();
+    }
+  }, 1000);
+}
+
+function stopTimer() {
+  if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+}
+
+function updateTimerDisplay() {
+  const el = document.getElementById('timerDisplay');
+  if (!el) return;
+  const m  = Math.floor(timerSecs / 60);
+  const s  = timerSecs % 60;
+  el.textContent = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  el.className   = 'timer' + (timerSecs <= 60 ? ' warning' : '');
+}
+
 // ── Render test ───────────────────────────────────────────────────────────────
 function showTest() {
+  startTimer();
   renderTestLayout();
+  updateTimerDisplay();
 }
 
 function renderTestLayout() {
@@ -344,6 +380,10 @@ function renderTestLayout() {
       </div>
       <div class="test-meta">
         <span class="chip">${Object.keys(answers).length}/${questions.length} answered</span>
+        <div class="timer-wrap">
+          <span class="timer-icon">⏱</span>
+          <span class="timer" id="timerDisplay">15:00</span>
+        </div>
       </div>
     </div>
 
@@ -385,6 +425,7 @@ window.goTo = (idx) => {
   if (idx < 0 || idx >= questions.length) return;
   currentQ = idx;
   renderTestLayout();
+  updateTimerDisplay();
 };
 
 window.submitTest = () => {
@@ -392,12 +433,16 @@ window.submitTest = () => {
   if (unanswered > 0) {
     if (!confirm(`You have ${unanswered} unanswered question(s). Submit anyway?`)) return;
   }
+  stopTimer();
   submitted = true;
   showResults();
 };
 
-// ── Results ───────────────────────────────────────────────────────────────────
 function showResults() {
+  stopTimer();
+  const timeTaken = 15*60 - timerSecs;
+  const tm = Math.floor(timeTaken/60), ts = timeTaken%60;
+  const timeStr = `${String(tm).padStart(2,'0')}:${String(ts).padStart(2,'0')}`;
   let correct = 0, wrong = 0, skipped = 0;
   questions.forEach((q, i) => {
     if (!answers[i])               skipped++;
@@ -434,7 +479,7 @@ function showResults() {
     <div class="result-card">
       <div class="result-score" style="color:${color}">${pct}%</div>
       <div class="result-label">${grade}</div>
-      <div style="font-size:0.85rem;color:#64748B;">${SUBJECT} · ${CHAPTER} · ${DIFF}</div>
+      <div style="font-size:0.85rem;color:#64748B;">${SUBJECT} · ${CHAPTER} · ${DIFF} · ⏱ ${timeStr}</div>
       <div class="result-stats">
         <div class="stat-box">
           <div class="stat-val" style="color:#00A86B">${correct}</div>
