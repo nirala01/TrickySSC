@@ -7,10 +7,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-3MMDNVBJQN"></script>
 <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-3MMDNVBJQN');</script>
-<!-- Google Generative AI SDK -->
-<script type="importmap">
-{"imports": {"@google/generative-ai": "https://esm.run/@google/generative-ai"}}
-</script>
+
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;color:#1E293B;min-height:100vh;}
@@ -161,8 +158,6 @@ const CHAPTER = P.get('chapter')    || 'Percentage';
 const DIFF    = P.get('difficulty') || 'Easy';
 const COUNT   = parseInt(P.get('count')) || 10;
 
-const GEMINI_KEY = 'AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA'; // replaced by public Gemini key below
-
 // ── State ────────────────────────────────────────────────────────────────────
 let questions  = [];
 let answers    = {};   // qIdx → selected option 'A'/'B'/'C'/'D'
@@ -184,7 +179,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 async function startLoad() {
   // Set key directly
-  window._GEMINI_KEY = window._GEMINI_KEY || 'AQ.Ab8RN6IH6S_0K6-hPo4YO6ujKUvly7eIKEd5ff1xwq08u2bpog';
+  window._GROQ_KEY = window._GROQ_KEY || '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';
 
   try {
     setStep(0);
@@ -238,18 +233,14 @@ function setStep(n) {
   }
 }
 
-// ── Gemini API call via SDK ────────────────────────────────────────────────────
+// ── Groq API call ────────────────────────────────────────────────────────────
 async function generateQuestions(dbSamples) {
-  const { GoogleGenerativeAI } = await import('@google/generative-ai');
-  const genAI = new GoogleGenerativeAI(window._GEMINI_KEY);
-
-  // Build style examples from DB
   const examples = dbSamples.slice(0, 5).map(q =>
     `"${(q.text||'').slice(0,120)}" — correct: ${q.correct||'A'}`
   ).join('\n');
 
   const chapterDesc = CHAPTER === 'Mixed Topics'
-    ? `a general mix of all important topics from ${SUBJECT} — do NOT focus on one chapter, spread questions across multiple topics`
+    ? `a general mix of all important topics from ${SUBJECT} — spread questions across multiple chapters`
     : `the specific topic "${CHAPTER}"`;
 
   const prompt = `You are an expert SSC exam question setter for ${EXAM}.
@@ -257,74 +248,69 @@ async function generateQuestions(dbSamples) {
 Generate exactly ${COUNT} multiple choice questions on ${chapterDesc} (subject: ${SUBJECT}).
 Difficulty: ${DIFF}.
 
-Here are sample questions from the actual ${EXAM} question database — match this exact style, format, and difficulty level:
-${examples || '(No samples available — use standard SSC CGL style)'}
+Sample questions from the actual exam database (match this style):
+${examples || '(Use standard SSC CGL style)'}
 
-Return ONLY a valid JSON array — no markdown, no explanation:
-[
-  {
-    "text": "Question text here",
-    "option_A": "Option A text",
-    "option_B": "Option B text",
-    "option_C": "Option C text",
-    "option_D": "Option D text",
-    "correct": "A",
-    "explanation": "Brief explanation of why the answer is correct — 1-2 sentences"
-  }
-]
+Return ONLY a valid JSON array, no markdown, no explanation:
+[{"text":"...","option_A":"...","option_B":"...","option_C":"...","option_D":"...","correct":"A","explanation":"..."}]
 
 Rules:
-- Questions must be similar in style to the DB samples but NOT identical — rephrase/change values
-- Each question must have 4 options and exactly one correct answer
-- "correct" must be exactly A, B, C, or D
-- Match the difficulty level: ${DIFF}
-- Questions must test conceptual understanding, not just recall
-- For Quantitative Aptitude: include numerical calculations
-- For Reasoning: include logical patterns
-- For English: include grammar/vocabulary
-- For GK: include factual questions about India/World
+- Similar style to samples but NOT identical
+- Exactly 4 options, one correct answer (A/B/C/D)
+- Difficulty: ${DIFF}
+- For Quant: numerical problems. For Reasoning: logical patterns. For English: grammar/vocab. For GK: India/World facts
 - Return exactly ${COUNT} questions`;
 
-  const MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-1.5-flash'];
   const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const MODELS = ['llama-3.3-70b-versatile', 'llama3-70b-8192', 'mixtral-8x7b-32768'];
 
   let lastErr = null;
-  for (const modelName of MODELS) {
-    for (let attempt = 1; attempt <= 3; attempt++) {
+  for (const model of MODELS) {
+    for (let attempt = 1; attempt <= 2; attempt++) {
       try {
-        console.log(`Trying ${modelName} attempt ${attempt}`);
-        const model  = genAI.getGenerativeModel({
-          model: modelName,
-          generationConfig: { temperature: 0.4, maxOutputTokens: 8192, responseMimeType: 'application/json' }
+        console.log(`Trying Groq model: ${model} attempt ${attempt}`);
+        const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + window._GROQ_KEY
+          },
+          body: JSON.stringify({
+            model,
+            messages: [{ role: 'user', content: prompt }],
+            temperature: 0.4,
+            max_tokens: 8192,
+            response_format: { type: 'json_object' }
+          })
         });
-        const result = await model.generateContent(prompt);
-        const text   = result.response.text();
+        const data = await resp.json();
+        if (data.error) throw new Error(data.error.message);
+        let text = data.choices[0].message.content;
         let parsed;
-        try { parsed = JSON.parse(text); }
-        catch(e) { const m = text.match(/\[[\s\S]*\]/); if (!m) throw new Error('No JSON array in response'); parsed = JSON.parse(m[0]); }
-        if (!Array.isArray(parsed) || parsed.length === 0) throw new Error('Empty questions array');
-        console.log(`✅ Got ${parsed.length} questions from ${modelName}`);
+        try { parsed = JSON.parse(text); } catch(e) { const m = text.match(/\[[\s\S]*\]/); if (!m) throw new Error('No JSON array'); parsed = JSON.parse(m[0]); }
+        // Handle {questions: [...]} wrapper
+        if (!Array.isArray(parsed)) parsed = parsed.questions || parsed.data || Object.values(parsed)[0];
+        if (!Array.isArray(parsed) || !parsed.length) throw new Error('Empty array');
+        console.log(`✅ Got ${parsed.length} questions from ${model}`);
         return parsed.slice(0, COUNT).map((q, i) => ({
-          text:        q.text        || `Question ${i+1}`,
-          option_A:    q.option_A    || q.options?.A || 'Option A',
-          option_B:    q.option_B    || q.options?.B || 'Option B',
-          option_C:    q.option_C    || q.options?.C || 'Option C',
-          option_D:    q.option_D    || q.options?.D || 'Option D',
-          correct:     (q.correct||'A').toString().toUpperCase().trim().charAt(0),
-          explanation: q.explanation || ''
+          text:        q.text        || q.question || `Question ${i+1}`,
+          option_A:    q.option_A    || q.options?.A || q.a || 'Option A',
+          option_B:    q.option_B    || q.options?.B || q.b || 'Option B',
+          option_C:    q.option_C    || q.options?.C || q.c || 'Option C',
+          option_D:    q.option_D    || q.options?.D || q.d || 'Option D',
+          correct:     (q.correct||q.answer||'A').toString().toUpperCase().trim().charAt(0),
+          explanation: q.explanation || q.solution || ''
         }));
       } catch(err) {
         lastErr = err;
-        console.warn(`${modelName} attempt ${attempt} failed:`, err.message);
-        const isOverload = err.message.includes('demand') || err.message.includes('overload') || err.message.includes('503') || err.message.includes('429') || err.message.includes('quota');
-        const isNotFound = err.message.includes('not found') || err.message.includes('404') || err.message.includes('not supported');
-        if (isNotFound) break;
-        if (attempt < 3 && isOverload) await sleep(12000);
-        else if (!isOverload) break;
+        console.warn(`${model} attempt ${attempt} failed:`, err.message);
+        const retry = err.message.includes('rate') || err.message.includes('429') || err.message.includes('503');
+        if (retry && attempt < 2) await sleep(8000);
+        else break;
       }
     }
   }
-  throw lastErr || new Error('All models failed — please try again');
+  throw lastErr || new Error('Could not generate questions — please try again');
 }
 
 // ── Render test ───────────────────────────────────────────────────────────────
@@ -490,12 +476,7 @@ function esc(s) {
   return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
-// Gemini key loaded from config.js (not committed to git)
-// Falls back to prompt if not set
-if (!window._GEMINI_KEY) {
-  const k = localStorage.getItem('tssc_gemini_key');
-  if (k) window._GEMINI_KEY = k;
-}
+
 </script>
 </body>
 </html>
