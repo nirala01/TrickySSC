@@ -91,8 +91,7 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;color:#1E293B
 .empty-icon{font-size:2.5rem;margin-bottom:0.5rem;}
 
 /* Sources footer */
-.sources-footer{margin-top:1.5rem;background:#FFF7ED;border:1px solid #FED7AA;border-radius:10px;padding:0.8rem 1rem;font-size:0.78rem;color:#92400E;line-height:1.7;}
-.sources-footer a{color:#EA580C;font-weight:600;}
+.sources-footer{display:none;}
 
 /* No results */
 .no-results{text-align:center;padding:2rem;color:#94A3B8;font-size:0.88rem;}
@@ -113,7 +112,7 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;color:#1E293B
   <div class="page-header">
     <div>
       <h1>📰 Today's Current Affairs</h1>
-      <p>Summarized from Drishti IAS &amp; Adda247 — rephrased for SSC exam prep</p>
+      <p>Daily current affairs — rephrased for SSC exam prep</p>
     </div>
     <span class="date-chip" id="dateChip">Loading...</span>
   </div>
@@ -160,7 +159,7 @@ async function loadData() {
     document.getElementById('dateChip').textContent = data.date || 'Today';
 
     if (data.error || !data.items || !data.items.length) {
-      showError(data.error || 'No items found', data.sources || []);
+      showError(data.error || 'No items found');
       return;
     }
 
@@ -168,7 +167,7 @@ async function loadData() {
     render(data);
 
   } catch(err) {
-    showError(err.message, []);
+    showError(err.message);
   }
 }
 
@@ -221,7 +220,7 @@ function buildCard(item) {
   const cfg    = CATS[cat] || CATS.general;
   const kp     = (item.keyPoints || []).slice(0,4).map(p => `<li>${esc(p)}</li>`).join('');
   const tags   = (item.tags || []).slice(0,4).map(t => `<span class="tag">${esc(t)}</span>`).join('');
-  const srcUrl = 'https://www.drishtiias.com/current-affairs-news-analysis-editorials';
+  const srcUrl = null;
 
   return `<div class="news-card">
     <div class="card-meta">
@@ -235,20 +234,11 @@ function buildCard(item) {
       : ''}
     <div class="card-footer">
       <div class="tags">${tags}</div>
-      <a href="${srcUrl}" target="_blank" rel="noopener" class="src-link">Read more ↗</a>
     </div>
   </div>`;
 }
 
-function buildSourcesFooter(sources) {
-  const links = (sources || []).map((s,i) =>
-    `<a href="${s}" target="_blank" rel="noopener">${i===0?'Drishti IAS':'Adda247'}</a>`
-  ).join(' and ');
-  return `<div class="sources-footer">
-    📌 Content sourced &amp; rephrased from ${links || 'Drishti IAS and Adda247'}.
-    All content is AI-summarized and rephrased — visit source sites for full detailed analysis.
-  </div>`;
-}
+function buildSourcesFooter() { return ''; }
 
 // ── Filter ─────────────────────────────────────────────────────────────────
 window.filterCat = (cat, btn) => {
@@ -272,21 +262,11 @@ window.filterCat = (cat, btn) => {
 };
 
 // ── Error ──────────────────────────────────────────────────────────────────
-function showError(msg, sources) {
-  const dDate = getDrishtiDate();
+function showError(msg) {
   document.getElementById('root').innerHTML = `
     <div class="error-wrap">
       <div class="error-title">⚠️ Could not load today's current affairs</div>
       <div class="error-sub">${msg || 'The daily update may not have run yet. Try again after 6 AM IST.'}</div>
-      <div style="font-size:0.82rem;color:#64748B;margin-bottom:0.75rem;">Read directly from source:</div>
-      <div class="src-links">
-        <a class="src-btn" style="background:#2563EB;"
-           href="https://www.drishtiias.com/current-affairs-news-analysis-editorials/news-analysis/${dDate}"
-           target="_blank">Drishti IAS ↗</a>
-        <a class="src-btn" style="background:#16A34A;"
-           href="https://currentaffairs.adda247.com/"
-           target="_blank">Adda247 ↗</a>
-      </div>
     </div>`;
 }
 
@@ -302,13 +282,6 @@ function formatTime(iso) {
     });
   } catch(e) { return iso; }
 }
-function getDrishtiDate() {
-  const d  = new Date();
-  const dd = String(d.getDate()).padStart(2,'0');
-  const mm = String(d.getMonth()+1).padStart(2,'0');
-  return `${dd}-${mm}-${d.getFullYear()}`;
-}
-
 // ── Boot ───────────────────────────────────────────────────────────────────
 loadData();
 </script>
