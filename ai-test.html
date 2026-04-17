@@ -7,8 +7,10 @@
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-3MMDNVBJQN"></script>
 <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-3MMDNVBJQN');</script>
-<!-- Gemini key config — this file is in .gitignore -->
-<script src="config.js" onerror="void(0)"></script>
+<!-- Google Generative AI SDK -->
+<script type="importmap">
+{"imports": {"@google/generative-ai": "https://esm.run/@google/generative-ai"}}
+</script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;color:#1E293B;min-height:100vh;}
@@ -236,16 +238,23 @@ function setStep(n) {
   }
 }
 
-// ── Gemini API call ────────────────────────────────────────────────────────────
+// ── Gemini API call via SDK ────────────────────────────────────────────────────
 async function generateQuestions(dbSamples) {
+  const { GoogleGenerativeAI } = await import('@google/generative-ai');
+  const genAI = new GoogleGenerativeAI(window._GEMINI_KEY);
+
   // Build style examples from DB
   const examples = dbSamples.slice(0, 5).map(q =>
     `"${(q.text||'').slice(0,120)}" — correct: ${q.correct||'A'}`
   ).join('\n');
 
+  const chapterDesc = CHAPTER === 'Mixed Topics'
+    ? `a general mix of all important topics from ${SUBJECT} — do NOT focus on one chapter, spread questions across multiple topics`
+    : `the specific topic "${CHAPTER}"`;
+
   const prompt = `You are an expert SSC exam question setter for ${EXAM}.
 
-Generate exactly ${COUNT} multiple choice questions on the topic "${CHAPTER}" (subject: ${SUBJECT}).
+Generate exactly ${COUNT} multiple choice questions on ${chapterDesc} (subject: ${SUBJECT}).
 Difficulty: ${DIFF}.
 
 Here are sample questions from the actual ${EXAM} question database — match this exact style, format, and difficulty level:
@@ -276,31 +285,25 @@ Rules:
 - For GK: include factual questions about India/World
 - Return exactly ${COUNT} questions`;
 
-  const MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite'];
+  const MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-1.5-flash'];
   const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-  for (const model of MODELS) {
+  let lastErr = null;
+  for (const modelName of MODELS) {
     for (let attempt = 1; attempt <= 3; attempt++) {
       try {
-        const resp = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${window._GEMINI_KEY}`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [{ parts: [{ text: prompt }] }],
-              generationConfig: { temperature: 0.4, maxOutputTokens: 8192, responseMimeType: 'application/json' }
-            })
-          }
-        );
-        const data = await resp.json();
-        if (data.error) throw new Error(data.error.message);
-        const text = data.candidates[0].content.parts[0].text;
+        console.log(`Trying ${modelName} attempt ${attempt}`);
+        const model  = genAI.getGenerativeModel({
+          model: modelName,
+          generationConfig: { temperature: 0.4, maxOutputTokens: 8192, responseMimeType: 'application/json' }
+        });
+        const result = await model.generateContent(prompt);
+        const text   = result.response.text();
         let parsed;
         try { parsed = JSON.parse(text); }
-        catch(e) { const m = text.match(/\[[\s\S]*\]/); if (!m) throw new Error('No JSON array'); parsed = JSON.parse(m[0]); }
-        if (!Array.isArray(parsed) || parsed.length === 0) throw new Error('Empty array');
-        // Validate and fix
+        catch(e) { const m = text.match(/\[[\s\S]*\]/); if (!m) throw new Error('No JSON array in response'); parsed = JSON.parse(m[0]); }
+        if (!Array.isArray(parsed) || parsed.length === 0) throw new Error('Empty questions array');
+        console.log(`✅ Got ${parsed.length} questions from ${modelName}`);
         return parsed.slice(0, COUNT).map((q, i) => ({
           text:        q.text        || `Question ${i+1}`,
           option_A:    q.option_A    || q.options?.A || 'Option A',
@@ -311,13 +314,17 @@ Rules:
           explanation: q.explanation || ''
         }));
       } catch(err) {
-        const isOverload = err.message.includes('demand') || err.message.includes('overload') || err.message.includes('503') || err.message.includes('429');
-        if (!isOverload) break;
-        if (attempt < 3) await sleep(12000);
+        lastErr = err;
+        console.warn(`${modelName} attempt ${attempt} failed:`, err.message);
+        const isOverload = err.message.includes('demand') || err.message.includes('overload') || err.message.includes('503') || err.message.includes('429') || err.message.includes('quota');
+        const isNotFound = err.message.includes('not found') || err.message.includes('404') || err.message.includes('not supported');
+        if (isNotFound) break;
+        if (attempt < 3 && isOverload) await sleep(12000);
+        else if (!isOverload) break;
       }
     }
   }
-  throw new Error('Could not generate questions — please try again');
+  throw lastErr || new Error('All models failed — please try again');
 }
 
 // ── Render test ───────────────────────────────────────────────────────────────
@@ -346,8 +353,8 @@ function renderTestLayout() {
   document.getElementById('root').innerHTML = `
     <div class="test-info">
       <div class="test-info-left">
-        <h2>🎯 ${SUBJECT} — ${CHAPTER}</h2>
-        <p>${EXAM} · ${DIFF} · ${COUNT} Questions</p>
+        <h2>🎯 ${SUBJECT}</h2>
+        <p>${EXAM} · ${CHAPTER === 'Mixed Topics' ? 'General Mix · All Topics' : CHAPTER} · ${DIFF}</p>
       </div>
       <div class="test-meta">
         <span class="chip">${Object.keys(answers).length}/${questions.length} answered</span>
