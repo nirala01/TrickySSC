@@ -7,6 +7,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-3MMDNVBJQN"></script>
 <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-3MMDNVBJQN');</script>
+<!-- Gemini key config — this file is in .gitignore -->
+<script src="config.js" onerror="void(0)"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;color:#1E293B;min-height:100vh;}
@@ -179,6 +181,14 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 async function startLoad() {
+  // Check Gemini key
+  if (!window._GEMINI_KEY) {
+    const k = prompt('Enter your Gemini API key to use AI test generation:');
+    if (!k) { showError('Gemini API key is required to generate questions.'); return; }
+    window._GEMINI_KEY = k.trim();
+    localStorage.setItem('tssc_gemini_key', k.trim());
+  }
+
   try {
     setStep(0);
     // 1. Fetch DB sample questions for style matching
@@ -477,8 +487,12 @@ function esc(s) {
   return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
-// Gemini API key — same project as fetch-ca.js (free tier)
-window._GEMINI_KEY = 'AQ.Ab8RN6IH6S_0K6-hPo4YO6ujKUvly7eIKEd5ff1xwq08u2bpog';
+// Gemini key loaded from config.js (not committed to git)
+// Falls back to prompt if not set
+if (!window._GEMINI_KEY) {
+  const k = localStorage.getItem('tssc_gemini_key');
+  if (k) window._GEMINI_KEY = k;
+}
 </script>
 </body>
 </html>
