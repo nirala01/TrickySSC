@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>AI Practice Test — TrickySSC</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-3MMDNVBJQN"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-3MMDNVBJQN');</script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;color:#1E293B;min-height:100vh;}
+
+.topbar{background:linear-gradient(135deg,#FF6B00,#FF8C38);padding:0.85rem 1.5rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;position:sticky;top:0;z-index:100;}
+.topbar-left{display:flex;align-items:center;gap:10px;}
+.brand{width:34px;height:34px;background:rgba(255,255,255,0.2);border-radius:10px;display:flex;align-items:center;justify-content:center;font-family:'Rajdhani';font-size:15px;font-weight:700;color:#fff;flex-shrink:0;}
+.topbar-title{font-family:'Rajdhani';font-size:1.1rem;font-weight:700;color:#fff;}
+.back-btn{background:rgba(255,255,255,0.2);color:#fff;padding:0.3rem 0.9rem;border-radius:100px;font-size:0.78rem;font-weight:600;text-decoration:none;transition:background 0.2s;}
+.back-btn:hover{background:rgba(255,255,255,0.35);}
+
+.page{max-width:800px;margin:0 auto;padding:1.5rem 1rem 4rem;}
+
+/* Test info bar */
+.test-info{background:#fff;border:1px solid #E2E8F0;border-radius:12px;padding:1rem 1.25rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;margin-bottom:1.25rem;}
+.test-info-left h2{font-family:'Rajdhani';font-size:1.3rem;font-weight:700;color:#1E293B;}
+.test-info-left p{font-size:0.78rem;color:#64748B;margin-top:2px;}
+.test-meta{display:flex;gap:0.5rem;flex-wrap:wrap;}
+.chip{background:#F1F5F9;border:1px solid #E2E8F0;border-radius:100px;padding:0.25rem 0.75rem;font-size:0.75rem;font-weight:600;color:#64748B;}
+.chip-orange{background:#FFF7ED;border-color:#FED7AA;color:#C2410C;}
+
+/* Loading */
+.loading-wrap{text-align:center;padding:4rem 1rem;}
+.spinner{width:44px;height:44px;border:3px solid #E2E8F0;border-top-color:#FF6B00;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 1.25rem;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.loading-title{font-family:'Rajdhani';font-size:1.3rem;font-weight:700;color:#1E293B;margin-bottom:0.4rem;}
+.loading-sub{font-size:0.82rem;color:#64748B;}
+.loading-steps{margin-top:1.25rem;display:flex;flex-direction:column;gap:0.4rem;text-align:left;max-width:320px;margin-left:auto;margin-right:auto;}
+.loading-step{font-size:0.78rem;color:#94A3B8;display:flex;align-items:center;gap:0.5rem;}
+.loading-step.done{color:#00A86B;}
+.loading-step.active{color:#FF6B00;font-weight:600;}
+
+/* Question card */
+.q-card{background:#fff;border:1px solid #E2E8F0;border-radius:14px;padding:1.4rem;margin-bottom:1rem;box-shadow:0 1px 4px rgba(0,0,0,0.05);}
+.q-num{font-size:0.72rem;font-weight:700;color:#FF6B00;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.5rem;}
+.q-text{font-size:0.97rem;font-weight:600;color:#1E293B;line-height:1.6;margin-bottom:1rem;}
+.q-options{display:flex;flex-direction:column;gap:0.5rem;}
+.q-opt{background:#F8FAFC;border:1.5px solid #E2E8F0;border-radius:8px;padding:0.65rem 1rem;font-size:0.87rem;cursor:pointer;transition:all 0.15s;text-align:left;color:#374151;font-family:'Plus Jakarta Sans';}
+.q-opt:hover{border-color:#FF6B00;background:#FFF7ED;color:#C2410C;}
+.q-opt.selected{border-color:#FF6B00;background:#FFF7ED;color:#C2410C;font-weight:600;}
+.q-opt.correct{border-color:#00A86B;background:#F0FDF4;color:#15803D;font-weight:600;}
+.q-opt.wrong{border-color:#EF4444;background:#FEF2F2;color:#DC2626;}
+.q-opt:disabled{cursor:not-allowed;}
+
+/* Progress bar */
+.progress-wrap{background:#fff;border:1px solid #E2E8F0;border-radius:10px;padding:0.75rem 1rem;margin-bottom:1rem;display:flex;align-items:center;gap:0.75rem;}
+.progress-bg{flex:1;background:#F1F5F9;border-radius:100px;height:8px;overflow:hidden;}
+.progress-fill{height:100%;background:linear-gradient(90deg,#FF6B00,#FF8C38);border-radius:100px;transition:width 0.3s;}
+.progress-text{font-size:0.78rem;font-weight:600;color:#64748B;white-space:nowrap;}
+
+/* Nav buttons */
+.nav-row{display:flex;gap:0.65rem;justify-content:space-between;flex-wrap:wrap;margin-top:1rem;}
+.btn{padding:0.65rem 1.25rem;border-radius:8px;font-family:'Plus Jakarta Sans';font-weight:700;font-size:0.88rem;cursor:pointer;border:none;transition:all 0.15s;}
+.btn-primary{background:linear-gradient(135deg,#FF6B00,#FF8C38);color:#fff;}
+.btn-primary:hover{opacity:0.88;transform:translateY(-1px);}
+.btn-secondary{background:#E2E8F0;color:#475569;}
+.btn-secondary:hover{background:#CBD5E1;}
+.btn-success{background:linear-gradient(135deg,#00A86B,#00c97f);color:#fff;}
+.btn-success:hover{opacity:0.88;}
+.btn:disabled{opacity:0.4;cursor:not-allowed;transform:none!important;}
+
+/* Q dot navigator */
+.q-nav{display:flex;flex-wrap:wrap;gap:0.4rem;margin-bottom:1rem;}
+.q-dot{width:32px;height:32px;border-radius:8px;border:1.5px solid #E2E8F0;background:#fff;font-size:0.75rem;font-weight:600;cursor:pointer;color:#64748B;transition:all 0.15s;display:flex;align-items:center;justify-content:center;}
+.q-dot.answered{background:#FFF7ED;border-color:#FF6B00;color:#C2410C;}
+.q-dot.current{background:#FF6B00;border-color:#FF6B00;color:#fff;}
+.q-dot.correct{background:#F0FDF4;border-color:#00A86B;color:#15803D;}
+.q-dot.wrong{background:#FEF2F2;border-color:#EF4444;color:#DC2626;}
+
+/* Results */
+.result-card{background:#fff;border:1px solid #E2E8F0;border-radius:16px;padding:2rem;text-align:center;margin-bottom:1.25rem;box-shadow:0 2px 8px rgba(0,0,0,0.06);}
+.result-score{font-family:'Rajdhani';font-size:3.5rem;font-weight:700;line-height:1;margin-bottom:0.25rem;}
+.result-label{font-size:0.85rem;color:#64748B;margin-bottom:1.25rem;}
+.result-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:0.75rem;margin-top:1.25rem;}
+.stat-box{background:#F8FAFC;border-radius:10px;padding:0.85rem;border:1px solid #E2E8F0;}
+.stat-val{font-family:'Rajdhani';font-size:1.6rem;font-weight:700;}
+.stat-lbl{font-size:0.72rem;color:#64748B;margin-top:2px;}
+
+/* Answer review */
+.review-card{background:#fff;border:1px solid #E2E8F0;border-radius:12px;padding:1.1rem 1.3rem;margin-bottom:0.75rem;}
+.review-q{font-size:0.88rem;font-weight:600;color:#1E293B;line-height:1.5;margin-bottom:0.65rem;}
+.review-opts{display:grid;grid-template-columns:1fr 1fr;gap:0.35rem;}
+.review-opt{font-size:0.78rem;padding:0.4rem 0.65rem;border-radius:6px;border:1px solid #E2E8F0;color:#64748B;background:#F8FAFC;}
+.review-opt.correct{border-color:#00A86B;background:#F0FDF4;color:#15803D;font-weight:600;}
+.review-opt.wrong{border-color:#EF4444;background:#FEF2F2;color:#DC2626;}
+.review-explanation{margin-top:0.65rem;background:#FFF7ED;border-left:3px solid #FF6B00;padding:0.5rem 0.75rem;font-size:0.78rem;color:#92400E;border-radius:0 6px 6px 0;line-height:1.6;}
+
+/* Error */
+.error-wrap{background:#FEF2F2;border:1px solid #FECACA;border-radius:12px;padding:1.5rem;text-align:center;}
+
+/* Section headers */
+.section-title{font-family:'Rajdhani';font-size:1.2rem;font-weight:700;color:#1E293B;margin-bottom:0.75rem;display:flex;align-items:center;gap:0.4rem;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="brand">T</div>
+    <span class="topbar-title">AI Practice Test</span>
+  </div>
+  <a href="index.html#ai" class="back-btn" id="backBtn">← Back</a>
+</div>
+
+<div class="page">
+  <div id="root">
+    <div class="loading-wrap">
+      <div class="spinner"></div>
+      <div class="loading-title">Setting up your test...</div>
+      <div class="loading-sub">Loading configuration</div>
+    </div>
+  </div>
+</div>
+
+<!-- Firebase -->
+<script type="module">
+import { initializeApp }   from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+import { getFirestore, collection, query, where, limit, getDocs }
+                            from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+const app = initializeApp({
+  apiKey:            'AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA',
+  authDomain:        'trickyssc-17bb3.firebaseapp.com',
+  projectId:         'trickyssc-17bb3',
+  storageBucket:     'trickyssc-17bb3.firebasestorage.app',
+  messagingSenderId: '450627057220',
+  appId:             '1:450627057220:web:366267bf437d94f20c6e11'
+});
+const db = getFirestore(app);
+
+// Expose DB fetch to non-module script
+window._fetchDBQuestions = async (subject, count) => {
+  const snap = await getDocs(
+    query(collection(db, 'questions'), where('subject', '==', subject), limit(count * 3))
+  );
+  return snap.docs.map(d => d.data());
+};
+window._dbReady = true;
+window.dispatchEvent(new Event('dbReady'));
+</script>
+
+<script>
+// ── URL params ──────────────────────────────────────────────────────────────
+const P       = new URLSearchParams(location.search);
+const EXAM    = P.get('exam')       || 'SSC CGL';
+const SUBJECT = P.get('subject')    || 'Quantitative Aptitude';
+const CHAPTER = P.get('chapter')    || 'Percentage';
+const DIFF    = P.get('difficulty') || 'Easy';
+const COUNT   = parseInt(P.get('count')) || 10;
+
+const GEMINI_KEY = 'AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA'; // replaced by public Gemini key below
+
+// ── State ────────────────────────────────────────────────────────────────────
+let questions  = [];
+let answers    = {};   // qIdx → selected option 'A'/'B'/'C'/'D'
+let currentQ   = 0;
+let submitted  = false;
+let dbSamples  = [];
+
+// ── Boot ─────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  document.title = `AI Test — ${SUBJECT} · ${CHAPTER} — TrickySSC`;
+  showLoading();
+
+  const tryFetch = () => {
+    if (window._dbReady) { startLoad(); }
+    else { window.addEventListener('dbReady', startLoad, { once: true }); }
+  };
+  tryFetch();
+});
+
+async function startLoad() {
+  try {
+    setStep(0);
+    // 1. Fetch DB sample questions for style matching
+    dbSamples = await window._fetchDBQuestions(SUBJECT, COUNT);
+    setStep(1);
+
+    // 2. Generate via Gemini
+    questions = await generateQuestions(dbSamples);
+    setStep(2);
+
+    // 3. Show test
+    showTest();
+  } catch(err) {
+    showError(err.message);
+  }
+}
+
+// ── Loading UI ────────────────────────────────────────────────────────────────
+function showLoading() {
+  document.getElementById('root').innerHTML = `
+    <div class="test-info">
+      <div class="test-info-left">
+        <h2>🤖 AI Practice Test</h2>
+        <p>${EXAM} · ${SUBJECT} · ${CHAPTER}</p>
+      </div>
+      <div class="test-meta">
+        <span class="chip">${COUNT} Questions</span>
+        <span class="chip-orange">${DIFF}</span>
+      </div>
+    </div>
+    <div class="loading-wrap">
+      <div class="spinner"></div>
+      <div class="loading-title">Generating your test...</div>
+      <div class="loading-sub">AI is creating ${COUNT} fresh questions for ${CHAPTER}</div>
+      <div class="loading-steps">
+        <div class="loading-step active" id="step0">⏳ Fetching question patterns from database...</div>
+        <div class="loading-step" id="step1">⏳ Generating AI questions matching DB style...</div>
+        <div class="loading-step" id="step2">⏳ Preparing test interface...</div>
+      </div>
+    </div>`;
+}
+
+function setStep(n) {
+  for (let i = 0; i <= 2; i++) {
+    const el = document.getElementById('step'+i);
+    if (!el) continue;
+    if (i < n)  { el.className = 'loading-step done'; el.textContent = el.textContent.replace('⏳','✅'); }
+    if (i === n){ el.className = 'loading-step active'; el.textContent = el.textContent.replace('⏳','🔄'); }
+  }
+}
+
+// ── Gemini API call ────────────────────────────────────────────────────────────
+async function generateQuestions(dbSamples) {
+  // Build style examples from DB
+  const examples = dbSamples.slice(0, 5).map(q =>
+    `"${(q.text||'').slice(0,120)}" — correct: ${q.correct||'A'}`
+  ).join('\n');
+
+  const prompt = `You are an expert SSC exam question setter for ${EXAM}.
+
+Generate exactly ${COUNT} multiple choice questions on the topic "${CHAPTER}" (subject: ${SUBJECT}).
+Difficulty: ${DIFF}.
+
+Here are sample questions from the actual ${EXAM} question database — match this exact style, format, and difficulty level:
+${examples || '(No samples available — use standard SSC CGL style)'}
+
+Return ONLY a valid JSON array — no markdown, no explanation:
+[
+  {
+    "text": "Question text here",
+    "option_A": "Option A text",
+    "option_B": "Option B text",
+    "option_C": "Option C text",
+    "option_D": "Option D text",
+    "correct": "A",
+    "explanation": "Brief explanation of why the answer is correct — 1-2 sentences"
+  }
+]
+
+Rules:
+- Questions must be similar in style to the DB samples but NOT identical — rephrase/change values
+- Each question must have 4 options and exactly one correct answer
+- "correct" must be exactly A, B, C, or D
+- Match the difficulty level: ${DIFF}
+- Questions must test conceptual understanding, not just recall
+- For Quantitative Aptitude: include numerical calculations
+- For Reasoning: include logical patterns
+- For English: include grammar/vocabulary
+- For GK: include factual questions about India/World
+- Return exactly ${COUNT} questions`;
+
+  const MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite'];
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+  for (const model of MODELS) {
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const resp = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${window._GEMINI_KEY}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }],
+              generationConfig: { temperature: 0.4, maxOutputTokens: 8192, responseMimeType: 'application/json' }
+            })
+          }
+        );
+        const data = await resp.json();
+        if (data.error) throw new Error(data.error.message);
+        const text = data.candidates[0].content.parts[0].text;
+        let parsed;
+        try { parsed = JSON.parse(text); }
+        catch(e) { const m = text.match(/\[[\s\S]*\]/); if (!m) throw new Error('No JSON array'); parsed = JSON.parse(m[0]); }
+        if (!Array.isArray(parsed) || parsed.length === 0) throw new Error('Empty array');
+        // Validate and fix
+        return parsed.slice(0, COUNT).map((q, i) => ({
+          text:        q.text        || `Question ${i+1}`,
+          option_A:    q.option_A    || q.options?.A || 'Option A',
+          option_B:    q.option_B    || q.options?.B || 'Option B',
+          option_C:    q.option_C    || q.options?.C || 'Option C',
+          option_D:    q.option_D    || q.options?.D || 'Option D',
+          correct:     (q.correct||'A').toString().toUpperCase().trim().charAt(0),
+          explanation: q.explanation || ''
+        }));
+      } catch(err) {
+        const isOverload = err.message.includes('demand') || err.message.includes('overload') || err.message.includes('503') || err.message.includes('429');
+        if (!isOverload) break;
+        if (attempt < 3) await sleep(12000);
+      }
+    }
+  }
+  throw new Error('Could not generate questions — please try again');
+}
+
+// ── Render test ───────────────────────────────────────────────────────────────
+function showTest() {
+  renderTestLayout();
+}
+
+function renderTestLayout() {
+  const q   = questions[currentQ];
+  const num = currentQ + 1;
+  const pct = Math.round((Object.keys(answers).length / questions.length) * 100);
+
+  const opts = ['A','B','C','D'].map(letter => {
+    const text    = q[`option_${letter}`] || '';
+    const sel     = answers[currentQ] === letter;
+    return `<button class="q-opt ${sel?'selected':''}" onclick="selectAnswer(${currentQ},'${letter}',this)">${letter}. ${esc(text)}</button>`;
+  }).join('');
+
+  const dots = questions.map((_,i) => {
+    let cls = '';
+    if (i === currentQ) cls = 'current';
+    else if (answers[i]) cls = 'answered';
+    return `<button class="q-dot ${cls}" onclick="goTo(${i})">${i+1}</button>`;
+  }).join('');
+
+  document.getElementById('root').innerHTML = `
+    <div class="test-info">
+      <div class="test-info-left">
+        <h2>🎯 ${SUBJECT} — ${CHAPTER}</h2>
+        <p>${EXAM} · ${DIFF} · ${COUNT} Questions</p>
+      </div>
+      <div class="test-meta">
+        <span class="chip">${Object.keys(answers).length}/${questions.length} answered</span>
+      </div>
+    </div>
+
+    <div class="progress-wrap">
+      <div class="progress-bg"><div class="progress-fill" style="width:${pct}%"></div></div>
+      <span class="progress-text">${pct}%</span>
+    </div>
+
+    <div class="q-nav">${dots}</div>
+
+    <div class="q-card">
+      <div class="q-num">Question ${num} of ${questions.length}</div>
+      <div class="q-text">${esc(q.text)}</div>
+      <div class="q-options">${opts}</div>
+    </div>
+
+    <div class="nav-row">
+      <button class="btn btn-secondary" onclick="goTo(${currentQ-1})" ${currentQ===0?'disabled':''}>← Previous</button>
+      ${currentQ < questions.length-1
+        ? `<button class="btn btn-primary" onclick="goTo(${currentQ+1})">Next →</button>`
+        : `<button class="btn btn-success" onclick="submitTest()">✅ Submit Test</button>`
+      }
+    </div>`;
+}
+
+window.selectAnswer = (qIdx, letter, btn) => {
+  answers[qIdx] = letter;
+  // Update dots and options
+  btn.closest('.q-options').querySelectorAll('.q-opt').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  // Update dot
+  document.querySelectorAll('.q-dot')[qIdx]?.classList.replace('current','answered') ||
+  document.querySelectorAll('.q-dot')[qIdx]?.classList.add('answered');
+  // Update counter
+  document.querySelector('.test-info .chip').textContent = `${Object.keys(answers).length}/${questions.length} answered`;
+};
+
+window.goTo = (idx) => {
+  if (idx < 0 || idx >= questions.length) return;
+  currentQ = idx;
+  renderTestLayout();
+};
+
+window.submitTest = () => {
+  const unanswered = questions.length - Object.keys(answers).length;
+  if (unanswered > 0) {
+    if (!confirm(`You have ${unanswered} unanswered question(s). Submit anyway?`)) return;
+  }
+  submitted = true;
+  showResults();
+};
+
+// ── Results ───────────────────────────────────────────────────────────────────
+function showResults() {
+  let correct = 0, wrong = 0, skipped = 0;
+  questions.forEach((q, i) => {
+    if (!answers[i])               skipped++;
+    else if (answers[i] === q.correct) correct++;
+    else                           wrong++;
+  });
+  const pct   = Math.round((correct / questions.length) * 100);
+  const grade = pct >= 80 ? '🏆 Excellent!' : pct >= 60 ? '👍 Good' : pct >= 40 ? '📚 Keep Practicing' : '💪 Need More Practice';
+  const color = pct >= 80 ? '#00A86B' : pct >= 60 ? '#FF6B00' : pct >= 40 ? '#F59E0B' : '#EF4444';
+
+  const reviewHtml = questions.map((q, i) => {
+    const userAns = answers[i];
+    const isCorrect = userAns === q.correct;
+    const opts = ['A','B','C','D'].map(letter => {
+      let cls = '';
+      if (letter === q.correct)              cls = 'correct';
+      else if (letter === userAns && !isCorrect) cls = 'wrong';
+      return `<div class="review-opt ${cls}">${letter}. ${esc(q[`option_${letter}`]||'')}</div>`;
+    }).join('');
+
+    return `<div class="review-card">
+      <div style="display:flex;gap:0.5rem;align-items:center;margin-bottom:0.5rem;">
+        <span style="font-size:0.72rem;font-weight:700;color:#FF6B00;">Q${i+1}</span>
+        <span style="font-size:0.72rem;padding:0.15rem 0.5rem;border-radius:100px;font-weight:700;background:${isCorrect?'#F0FDF4':'#FEF2F2'};color:${isCorrect?'#15803D':'#DC2626'};">${isCorrect?'✓ Correct':'✗ Wrong'}</span>
+        ${!userAns?'<span style="font-size:0.72rem;color:#94A3B8;">Skipped</span>':''}
+      </div>
+      <div class="review-q">${esc(q.text)}</div>
+      <div class="review-opts">${opts}</div>
+      ${q.explanation ? `<div class="review-explanation">💡 ${esc(q.explanation)}</div>` : ''}
+    </div>`;
+  }).join('');
+
+  document.getElementById('root').innerHTML = `
+    <div class="result-card">
+      <div class="result-score" style="color:${color}">${pct}%</div>
+      <div class="result-label">${grade}</div>
+      <div style="font-size:0.85rem;color:#64748B;">${SUBJECT} · ${CHAPTER} · ${DIFF}</div>
+      <div class="result-stats">
+        <div class="stat-box">
+          <div class="stat-val" style="color:#00A86B">${correct}</div>
+          <div class="stat-lbl">Correct</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-val" style="color:#EF4444">${wrong}</div>
+          <div class="stat-lbl">Wrong</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-val" style="color:#94A3B8">${skipped}</div>
+          <div class="stat-lbl">Skipped</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:0.65rem;justify-content:center;margin-top:1.25rem;flex-wrap:wrap;">
+        <button class="btn btn-primary" onclick="location.reload()">🔄 Try Again</button>
+        <a href="index.html" class="btn btn-secondary" style="text-decoration:none;">← Home</a>
+      </div>
+    </div>
+
+    <div class="section-title">📋 Answer Review</div>
+    ${reviewHtml}`;
+}
+
+// ── Error ─────────────────────────────────────────────────────────────────────
+function showError(msg) {
+  document.getElementById('root').innerHTML = `
+    <div class="error-wrap">
+      <div style="font-size:1rem;font-weight:700;color:#EF4444;margin-bottom:0.5rem;">⚠️ Could not generate test</div>
+      <div style="font-size:0.82rem;color:#94A3B8;margin-bottom:1rem;">${msg}</div>
+      <div style="display:flex;gap:0.5rem;justify-content:center;flex-wrap:wrap;">
+        <button class="btn btn-primary" onclick="location.reload()">🔄 Try Again</button>
+        <a href="index.html" class="btn btn-secondary" style="text-decoration:none;">← Back</a>
+      </div>
+    </div>`;
+}
+
+function esc(s) {
+  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// Gemini API key — same project as fetch-ca.js (free tier)
+window._GEMINI_KEY = 'AQ.Ab8RN6IH6S_0K6-hPo4YO6ujKUvly7eIKEd5ff1xwq08u2bpog';
+</script>
+</body>
+</html>
