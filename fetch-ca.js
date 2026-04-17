@@ -110,20 +110,56 @@ STRICT CONTENT RULES:
     }
   };
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`;
+  const MODELS = [
+    'gemini-2.5-flash',
+    'gemini-2.5-flash-lite',
+    'gemini-2.0-flash',
+  ];
 
-  try {
+  const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+  async function tryModel(model, attempt) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_KEY}`;
+    console.log(`Trying model: ${model} (attempt ${attempt})`);
     const resp = await httpsPost(url, body);
-
     if (resp.error) throw new Error(resp.error.message);
     if (!resp.candidates || !resp.candidates[0]) throw new Error('No candidates in response');
+    return resp;
+  }
 
+  let resp = null;
+  let lastErr = null;
+
+  // Try each model up to 3 times with 10s delay between retries
+  outer:
+  for (const model of MODELS) {
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        resp = await tryModel(model, attempt);
+        console.log(`✅ Success with model: ${model}`);
+        break outer;
+      } catch(err) {
+        lastErr = err;
+        const isOverload = err.message.includes('high demand') || err.message.includes('overloaded') || err.message.includes('503') || err.message.includes('429');
+        const isNotFound = err.message.includes('not found') || err.message.includes('not supported');
+        console.warn(`⚠️ ${model} attempt ${attempt} failed: ${err.message.slice(0,80)}`);
+        if (isNotFound) break; // try next model immediately
+        if (attempt < 3) {
+          console.log(`Waiting 15s before retry...`);
+          await sleep(15000);
+        }
+      }
+    }
+  }
+
+  if (!resp) throw lastErr || new Error('All models failed');
+
+  try {
     const text = resp.candidates[0].content.parts[0].text;
     let parsed;
     try {
       parsed = JSON.parse(text);
     } catch(e) {
-      // Try to extract JSON if wrapped
       const m = text.match(/\{[\s\S]*\}/);
       if (!m) throw new Error('No JSON object in response');
       parsed = JSON.parse(m[0]);
@@ -133,13 +169,11 @@ STRICT CONTENT RULES:
       throw new Error('Invalid response structure — no items array');
     }
 
-    // Ensure required fields
     parsed.date        = parsed.date        || dispDate;
     parsed.dateKey     = parsed.dateKey     || dateStr;
     parsed.generatedAt = parsed.generatedAt || new Date().toISOString();
     parsed.sources     = parsed.sources     || [];
 
-    // Write to file
     fs.writeFileSync('current-affairs-data.json', JSON.stringify(parsed, null, 2), 'utf8');
     console.log(`✅ Saved ${parsed.items.length} items to current-affairs-data.json`);
     console.log(`Categories: ${[...new Set(parsed.items.map(i=>i.category))].join(', ')}`);
