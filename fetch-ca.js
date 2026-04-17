@@ -77,22 +77,29 @@ Return ONLY a valid JSON object with this exact structure — no markdown, no ex
   ],
   "items": [
     {
-      "title": "Rephrased headline (not verbatim from source)",
-      "summary": "2-3 sentences in simple language for SSC students",
-      "keyPoints": ["Fact 1", "Fact 2", "Fact 3"],
+      "title": "Rephrased headline with key name/place/number included",
+      "summary": "2-3 sentences. MUST include: full names of people/organizations, exact dates, specific places, numbers/amounts/ranks. No vague language.",
+      "keyPoints": ["Specific fact with name/number", "Specific fact with date/place", "Specific fact with data"],
       "category": "polity|economy|science|intl|environ|society|defence|sports|awards|general",
-      "examRelevance": "Which SSC topic/subject this falls under",
+      "examRelevance": "Which SSC topic/subject this falls under and why it matters",
       "tags": ["tag1", "tag2", "tag3"]
     }
   ]
 }
 
-Rules:
-- Rephrase all content — do not copy verbatim from any source
-- Keep language simple and factual — suitable for SSC exam prep
-- Include items from: Polity, Economy, Science & Tech, International Affairs, Environment, Society, Defence, Sports, Awards & Rankings
-- Focus on India-centric news with national/international importance
-- Each item must have all fields filled`;
+STRICT CONTENT RULES:
+- ALWAYS include full proper names — never say "an author", "a minister", "a company" — always use the actual name
+- ALWAYS include specific numbers — ranks, amounts, dates, percentages, distances, years
+- ALWAYS include place names — cities, states, countries, rivers, mountains
+- ALWAYS include the appointing/awarding body name when relevant
+- Rephrase all content — do not copy verbatim from source
+- If a person won an award: include their full name, award name, category, and who gave it
+- If a scheme was launched: include scheme name, ministry, target beneficiaries, budget amount
+- If a report/index was released: include rank of India, total countries, publishing organization
+- If a sports event: include winner name, venue, opponent, score if available
+- Keep language simple and direct — suitable for SSC exam prep
+- Include items from all categories: Polity, Economy, Science & Tech, International Affairs, Environment, Society, Defence, Sports, Awards & Rankings
+- Each item must have ALL fields filled with specific factual content — no placeholder text`;
 
   const body = {
     contents: [{ parts: [{ text: prompt }] }],
