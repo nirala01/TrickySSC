@@ -181,13 +181,8 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 async function startLoad() {
-  // Check Gemini key
-  if (!window._GEMINI_KEY) {
-    const k = prompt('Enter your Gemini API key to use AI test generation:');
-    if (!k) { showError('Gemini API key is required to generate questions.'); return; }
-    window._GEMINI_KEY = k.trim();
-    localStorage.setItem('tssc_gemini_key', k.trim());
-  }
+  // Set key directly
+  window._GEMINI_KEY = window._GEMINI_KEY || 'AQ.Ab8RN6IH6S_0K6-hPo4YO6ujKUvly7eIKEd5ff1xwq08u2bpog';
 
   try {
     setStep(0);
@@ -202,7 +197,8 @@ async function startLoad() {
     // 3. Show test
     showTest();
   } catch(err) {
-    showError(err.message);
+    console.error('startLoad error:', err);
+    showError(err.message || 'Unknown error — check console');
   }
 }
 
