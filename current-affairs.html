@@ -91,10 +91,20 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;color:#1E293B
 .empty-icon{font-size:2.5rem;margin-bottom:0.5rem;}
 
 /* Sources footer */
-.sources-footer{display:none;}
+.sources-footer{margin-top:1.5rem;background:#FFF7ED;border:1px solid #FED7AA;border-radius:10px;padding:0.8rem 1rem;font-size:0.78rem;color:#92400E;line-height:1.7;}
+.sources-footer a{color:#EA580C;font-weight:600;}
 
-/* No results */
-.no-results{text-align:center;padding:2rem;color:#94A3B8;font-size:0.88rem;}
+/* Section blocks */
+.section-block{margin:0.6rem 0;}
+.section-label-row{font-size:0.75rem;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.35rem;}
+.section-content{font-size:0.83rem;color:#374151;line-height:1.7;}
+.why-block{background:#F0F9FF;border-left:3px solid #0EA5E9;border-radius:0 8px 8px 0;padding:0.5rem 0.75rem;}
+.why-block .section-label-row{color:#0369A1;}
+.why-block .section-content{color:#0C4A6E;}
+.imp-block{background:#F0FDF4;border-left:3px solid #16A34A;border-radius:0 8px 8px 0;padding:0.5rem 0.75rem;}
+.imp-block .section-label-row{color:#15803D;}
+.imp-points{padding-left:1.1rem;margin-top:0.2rem;}
+.imp-points li{font-size:0.8rem;color:#166534;line-height:1.6;margin-bottom:0.25rem;font-weight:500;}
 </style>
 </head>
 <body>
@@ -112,7 +122,7 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;color:#1E293B
   <div class="page-header">
     <div>
       <h1>📰 Today's Current Affairs</h1>
-      <p>Daily current affairs — rephrased for SSC exam prep</p>
+      <p>AI-curated daily current affairs — rephrased for SSC exam prep</p>
     </div>
     <span class="date-chip" id="dateChip">Loading...</span>
   </div>
@@ -159,7 +169,7 @@ async function loadData() {
     document.getElementById('dateChip').textContent = data.date || 'Today';
 
     if (data.error || !data.items || !data.items.length) {
-      showError(data.error || 'No items found');
+      showError(data.error || 'No items found', data.sources || []);
       return;
     }
 
@@ -167,7 +177,7 @@ async function loadData() {
     render(data);
 
   } catch(err) {
-    showError(err.message);
+    showError(err.message, []);
   }
 }
 
@@ -219,26 +229,50 @@ function buildCard(item) {
   const cat    = item.category || 'general';
   const cfg    = CATS[cat] || CATS.general;
   const kp     = (item.keyPoints || []).slice(0,4).map(p => `<li>${esc(p)}</li>`).join('');
+  const ip     = (item.importantPoints || []).slice(0,5).map(p => `<li>${esc(p)}</li>`).join('');
   const tags   = (item.tags || []).slice(0,4).map(t => `<span class="tag">${esc(t)}</span>`).join('');
-  const srcUrl = null;
+  const srcUrl = '#';
 
   return `<div class="news-card">
     <div class="card-meta">
       <span class="cat-badge cat-${cat}">${cfg.label}</span>
     </div>
     <div class="card-title">${esc(item.title || '')}</div>
-    <div class="card-summary">${esc(item.summary || '')}</div>
-    ${kp ? `<ul class="key-points">${kp}</ul>` : ''}
-    ${item.examRelevance
-      ? `<div class="exam-tip"><strong>📚 SSC Tip:</strong> ${esc(item.examRelevance)}</div>`
-      : ''}
+
+    ${item.whyInNews ? `
+    <div class="section-block why-block">
+      <div class="section-label-row">📌 Why in News?</div>
+      <div class="section-content">${esc(item.whyInNews)}</div>
+    </div>` : ''}
+
+    ${item.summary ? `
+    <div class="card-summary">${esc(item.summary)}</div>` : ''}
+
+    ${kp ? `
+    <div class="section-block">
+      <div class="section-label-row">🔑 Key Facts</div>
+      <ul class="key-points">${kp}</ul>
+    </div>` : ''}
+
+    ${ip ? `
+    <div class="section-block imp-block">
+      <div class="section-label-row">📝 Important Points to Remember</div>
+      <ul class="imp-points">${ip}</ul>
+    </div>` : ''}
+
+    ${item.examRelevance ? `
+    <div class="exam-tip"><strong>📚 SSC Tip:</strong> ${esc(item.examRelevance)}</div>` : ''}
+
     <div class="card-footer">
       <div class="tags">${tags}</div>
+      <a style="display:none;" target="_blank" rel="noopener" class="src-link">Read more ↗</a>
     </div>
   </div>`;
 }
 
-function buildSourcesFooter() { return ''; }
+function buildSourcesFooter(sources) {
+  return '';
+}
 
 // ── Filter ─────────────────────────────────────────────────────────────────
 window.filterCat = (cat, btn) => {
@@ -262,11 +296,16 @@ window.filterCat = (cat, btn) => {
 };
 
 // ── Error ──────────────────────────────────────────────────────────────────
-function showError(msg) {
+function showError(msg, sources) {
+  const dDate = getFormattedDate();
   document.getElementById('root').innerHTML = `
     <div class="error-wrap">
       <div class="error-title">⚠️ Could not load today's current affairs</div>
       <div class="error-sub">${msg || 'The daily update may not have run yet. Try again after 6 AM IST.'}</div>
+      <div style="font-size:0.82rem;color:#64748B;margin-bottom:0.75rem;">Please try again after a few minutes.</div>
+      <div class="src-links">
+
+      </div>
     </div>`;
 }
 
@@ -282,6 +321,13 @@ function formatTime(iso) {
     });
   } catch(e) { return iso; }
 }
+function getFormattedDate() {
+  const d  = new Date();
+  const dd = String(d.getDate()).padStart(2,'0');
+  const mm = String(d.getMonth()+1).padStart(2,'0');
+  return `${dd}-${mm}-${d.getFullYear()}`;
+}
+
 // ── Boot ───────────────────────────────────────────────────────────────────
 loadData();
 </script>

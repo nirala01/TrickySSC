@@ -13,7 +13,7 @@ function getIST() {
   const ist = new Date(now.getTime() + 5.5 * 60 * 60 * 1000);
   return ist;
 }
-function drishtiDate(d) {
+function formatDate(d) {
   const dd = String(d.getUTCDate()).padStart(2,'0');
   const mm = String(d.getUTCMonth()+1).padStart(2,'0');
   return `${dd}-${mm}-${d.getUTCFullYear()}`;
@@ -50,18 +50,16 @@ function httpsPost(url, body) {
 
 async function fetchCA() {
   const ist      = getIST();
-  const dateStr  = drishtiDate(ist);
+  const dateStr  = formatDate(ist);
   const dispDate = displayDate(ist);
 
-  console.log(`Fetching CA for ${dispDate} (Drishti date: ${dateStr})`);
+  console.log(`Fetching CA for ${dispDate} (date: ${dateStr})`);
 
   const prompt = `You are a current affairs expert for SSC and competitive exam preparation in India.
 
 Today is ${dispDate}.
 
-Search and find today's important current affairs from:
-1. Drishti IAS daily news: https://www.drishtiias.com/current-affairs-news-analysis-editorials/news-analysis/${dateStr}
-2. Adda247 current affairs: https://currentaffairs.adda247.com/
+Search and find today's most important current affairs for India.
 
 Based on your knowledge of current events in India around this date, provide 18-22 important current affairs items relevant for SSC CGL, CHSL, and other competitive exams.
 
@@ -71,15 +69,14 @@ Return ONLY a valid JSON object with this exact structure — no markdown, no ex
   "date": "${dispDate}",
   "dateKey": "${dateStr}",
   "generatedAt": "${new Date().toISOString()}",
-  "sources": [
-    "https://www.drishtiias.com/current-affairs-news-analysis-editorials/news-analysis/${dateStr}",
-    "https://currentaffairs.adda247.com/"
-  ],
+  "sources": [],
   "items": [
     {
       "title": "Rephrased headline with key name/place/number included",
+      "whyInNews": "1-2 sentences explaining exactly what happened and why it made news today — include full names, dates, places, numbers",
       "summary": "2-3 sentences. MUST include: full names of people/organizations, exact dates, specific places, numbers/amounts/ranks. No vague language.",
       "keyPoints": ["Specific fact with name/number", "Specific fact with date/place", "Specific fact with data"],
+      "importantPoints": ["Point 1 to remember for exam", "Point 2 to remember for exam", "Point 3 to remember for exam", "Point 4 to remember for exam"],
       "category": "polity|economy|science|intl|environ|society|defence|sports|awards|general",
       "examRelevance": "Which SSC topic/subject this falls under and why it matters",
       "tags": ["tag1", "tag2", "tag3"]
@@ -99,6 +96,12 @@ STRICT CONTENT RULES:
 - If a sports event: include winner name, venue, opponent, score if available
 - Keep language simple and direct — suitable for SSC exam prep
 - Include items from all categories: Polity, Economy, Science & Tech, International Affairs, Environment, Society, Defence, Sports, Awards & Rankings
+
+FIELD INSTRUCTIONS:
+- "whyInNews": What specifically happened today that made this news — the triggering event with full facts
+- "summary": Background context + today's development in simple language
+- "keyPoints": 3-4 bullet facts that could directly appear as MCQ options in SSC exam
+- "importantPoints": 4-5 memory points for exam — include founding year, headquarters, full form, related articles, historical facts about the topic
 - Each item must have ALL fields filled with specific factual content — no placeholder text`;
 
   const body = {
@@ -187,10 +190,7 @@ STRICT CONTENT RULES:
       dateKey: dateStr,
       generatedAt: new Date().toISOString(),
       error: err.message,
-      sources: [
-        `https://www.drishtiias.com/current-affairs-news-analysis-editorials/news-analysis/${dateStr}`,
-        'https://currentaffairs.adda247.com/'
-      ],
+      sources: [],
       items: []
     };
     fs.writeFileSync('current-affairs-data.json', JSON.stringify(fallback, null, 2), 'utf8');
