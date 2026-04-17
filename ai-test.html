@@ -158,9 +158,10 @@ window.dispatchEvent(new Event('dbReady'));
 const P       = new URLSearchParams(location.search);
 const EXAM    = P.get('exam')       || 'SSC CGL';
 const SUBJECT = P.get('subject')    || 'Quantitative Aptitude';
-const CHAPTER = P.get('chapter')    || 'Percentage';
+const CHAPTER = P.get('chapter')    || 'Mixed Topics';
 const DIFF    = P.get('difficulty') || 'Easy';
 const COUNT   = parseInt(P.get('count')) || 10;
+const LANG    = (SUBJECT === 'English Language') ? 'English' : (P.get('lang') || 'Hindi');
 
 // ── State ────────────────────────────────────────────────────────────────────
 let questions  = [];
@@ -245,6 +246,10 @@ async function generateQuestions(dbSamples) {
     `"${(q.text||'').slice(0,120)}" — correct: ${q.correct||'A'}`
   ).join('\n');
 
+  const langInstruction = LANG === 'Hindi'
+    ? `Write ALL question text and ALL option text in Hindi (Devanagari script). Explanation must also be in Hindi. Only keep mathematical symbols, numbers, and proper nouns in English.`
+    : `Write ALL question text and ALL option text in English.`;
+
   const chapterDesc = CHAPTER === 'Mixed Topics'
     ? `a general mix of all important topics from ${SUBJECT} — spread questions across multiple chapters`
     : `the specific topic "${CHAPTER}"`;
@@ -253,18 +258,32 @@ async function generateQuestions(dbSamples) {
 
 Generate exactly ${COUNT} multiple choice questions on ${chapterDesc} (subject: ${SUBJECT}).
 Difficulty: ${DIFF}.
+Language: ${LANG}. ${langInstruction}
 
-Sample questions from the actual exam database (match this style):
+Sample questions from the actual exam database (match this style and difficulty):
 ${examples || '(Use standard SSC CGL style)'}
 
 Return ONLY a valid JSON array, no markdown, no explanation:
-[{"text":"...","option_A":"...","option_B":"...","option_C":"...","option_D":"...","correct":"A","explanation":"..."}]
+[{
+  "text": "question text in ${LANG}",
+  "option_A": "option in ${LANG}",
+  "option_B": "option in ${LANG}",
+  "option_C": "option in ${LANG}",
+  "option_D": "option in ${LANG}",
+  "correct": "A",
+  "explanation": "detailed pointwise explanation",
+  "solution_steps": ["Step 1: ...", "Step 2: ...", "Step 3: ..."],
+  "key_concept": "the main concept/formula used"
+}]
 
 Rules:
-- Similar style to samples but NOT identical
+- Similar style to samples but NOT identical — change values/numbers
 - Exactly 4 options, one correct answer (A/B/C/D)
 - Difficulty: ${DIFF}
-- For Quant: numerical problems. For Reasoning: logical patterns. For English: grammar/vocab. For GK: India/World facts
+- For Quant: numerical problems with clear steps. For Reasoning: logical patterns. For English: grammar/vocab. For GK: India/World facts
+- "explanation": 2-3 sentence summary in ${LANG}
+- "solution_steps": 3-5 clear numbered steps showing HOW to solve in ${LANG}
+- "key_concept": the formula/rule/concept name used in ${LANG}
 - Return exactly ${COUNT} questions`;
 
   const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -299,13 +318,15 @@ Rules:
         if (!Array.isArray(parsed) || !parsed.length) throw new Error('Empty array');
         console.log(`✅ Got ${parsed.length} questions from ${model}`);
         return parsed.slice(0, COUNT).map((q, i) => ({
-          text:        q.text        || q.question || `Question ${i+1}`,
-          option_A:    q.option_A    || q.options?.A || q.a || 'Option A',
-          option_B:    q.option_B    || q.options?.B || q.b || 'Option B',
-          option_C:    q.option_C    || q.options?.C || q.c || 'Option C',
-          option_D:    q.option_D    || q.options?.D || q.d || 'Option D',
-          correct:     (q.correct||q.answer||'A').toString().toUpperCase().trim().charAt(0),
-          explanation: q.explanation || q.solution || ''
+          text:           q.text        || q.question || `Question ${i+1}`,
+          option_A:       q.option_A    || q.options?.A || q.a || 'Option A',
+          option_B:       q.option_B    || q.options?.B || q.b || 'Option B',
+          option_C:       q.option_C    || q.options?.C || q.c || 'Option C',
+          option_D:       q.option_D    || q.options?.D || q.d || 'Option D',
+          correct:        (q.correct||q.answer||'A').toString().toUpperCase().trim().charAt(0),
+          explanation:    q.explanation || q.solution || '',
+          solution_steps: q.solution_steps || [],
+          key_concept:    q.key_concept || ''
         }));
       } catch(err) {
         lastErr = err;
@@ -380,6 +401,7 @@ function renderTestLayout() {
       </div>
       <div class="test-meta">
         <span class="chip">${Object.keys(answers).length}/${questions.length} answered</span>
+        <span class="chip-orange">${LANG === 'Hindi' ? '🇮🇳 Hindi' : '🇬🇧 English'}</span>
         <div class="timer-wrap">
           <span class="timer-icon">⏱</span>
           <span class="timer" id="timerDisplay">15:00</span>
@@ -471,7 +493,23 @@ function showResults() {
       </div>
       <div class="review-q">${esc(q.text)}</div>
       <div class="review-opts">${opts}</div>
-      ${q.explanation ? `<div class="review-explanation">💡 ${esc(q.explanation)}</div>` : ''}
+      ${q.key_concept ? `
+      <div style="margin-top:0.6rem;background:#EFF6FF;border-left:3px solid #3B82F6;padding:0.45rem 0.7rem;border-radius:0 6px 6px 0;font-size:0.75rem;color:#1D4ED8;font-weight:600;">
+        📐 ${esc(q.key_concept)}
+      </div>` : ''}
+      ${q.solution_steps && q.solution_steps.length ? `
+      <div style="margin-top:0.6rem;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px;padding:0.65rem 0.85rem;">
+        <div style="font-size:0.72rem;font-weight:700;color:#15803D;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:0.45rem;">📝 Step-by-Step Solution</div>
+        ${q.solution_steps.map((step,si) => `
+        <div style="display:flex;gap:0.5rem;margin-bottom:0.35rem;font-size:0.8rem;color:#166534;line-height:1.5;">
+          <span style="background:#16A34A;color:#fff;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:0.65rem;font-weight:700;flex-shrink:0;margin-top:1px;">${si+1}</span>
+          <span>${esc(step)}</span>
+        </div>`).join('')}
+      </div>` : ''}
+      ${q.explanation && !q.solution_steps?.length ? `
+      <div class="review-explanation">💡 ${esc(q.explanation)}</div>` : ''}
+      ${q.explanation && q.solution_steps?.length ? `
+      <div style="margin-top:0.45rem;font-size:0.76rem;color:#92400E;background:#FFF7ED;border-left:3px solid #FF6B00;padding:0.4rem 0.65rem;border-radius:0 6px 6px 0;">💡 ${esc(q.explanation)}</div>` : ''}
     </div>`;
   }).join('');
 
@@ -479,7 +517,7 @@ function showResults() {
     <div class="result-card">
       <div class="result-score" style="color:${color}">${pct}%</div>
       <div class="result-label">${grade}</div>
-      <div style="font-size:0.85rem;color:#64748B;">${SUBJECT} · ${CHAPTER} · ${DIFF} · ⏱ ${timeStr}</div>
+      <div style="font-size:0.85rem;color:#64748B;">${SUBJECT} · ${DIFF} · ${LANG === 'Hindi' ? '🇮🇳 Hindi' : '🇬🇧 English'} · ⏱ ${timeStr}</div>
       <div class="result-stats">
         <div class="stat-box">
           <div class="stat-val" style="color:#00A86B">${correct}</div>
