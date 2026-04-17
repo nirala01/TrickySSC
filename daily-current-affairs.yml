@@ -1,0 +1,36 @@
+name: Daily Current Affairs Update
+
+on:
+  schedule:
+    # 0:30 UTC = 6:00 AM IST every day
+    - cron: '30 0 * * *'
+  # Allow manual trigger from GitHub Actions tab
+  workflow_dispatch:
+
+jobs:
+  fetch-current-affairs:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Fetch Current Affairs via Gemini
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: node fetch-ca.js
+
+      - name: Commit and push updated data
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "CA Bot"
+          git add current-affairs-data.json
+          git diff --staged --quiet || git commit -m "🗞️ Daily CA update - $(date +'%d %b %Y')"
+          git push
