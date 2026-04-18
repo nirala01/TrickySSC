@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>CA Admin — TrickySSC</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:#0F172A;color:#E2E8F0;min-height:100vh;}
+.topbar{background:linear-gradient(135deg,#FF6B00,#FF8C38);padding:0.85rem 1.5rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;}
+.topbar-left{display:flex;align-items:center;gap:10px;}
+.brand{width:34px;height:34px;background:rgba(255,255,255,0.2);border-radius:10px;display:flex;align-items:center;justify-content:center;font-family:'Rajdhani';font-size:15px;font-weight:700;color:#fff;}
+.topbar-title{font-family:'Rajdhani';font-size:1.15rem;font-weight:700;color:#fff;}
+.back-btn{background:rgba(255,255,255,0.2);color:#fff;padding:0.3rem 0.9rem;border-radius:100px;font-size:0.78rem;font-weight:600;text-decoration:none;}
+
+.page{max-width:1000px;margin:0 auto;padding:1.5rem 1rem 4rem;}
+.card{background:#1E293B;border:1px solid #334155;border-radius:14px;padding:1.25rem 1.4rem;margin-bottom:1.25rem;}
+.card h3{font-family:'Rajdhani';font-size:1.1rem;font-weight:700;color:#F1F5F9;margin-bottom:1rem;display:flex;align-items:center;gap:0.5rem;}
+
+label{display:block;font-size:0.75rem;font-weight:600;color:#94A3B8;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.4rem;margin-top:0.75rem;}
+input,select,textarea{width:100%;background:#0F172A;border:1px solid #334155;border-radius:8px;padding:0.65rem 0.9rem;color:#E2E8F0;font-family:'Plus Jakarta Sans';font-size:0.88rem;outline:none;transition:border 0.2s;}
+input:focus,select:focus,textarea:focus{border-color:#FF6B00;}
+textarea{resize:vertical;line-height:1.6;}
+
+.btn{padding:0.65rem 1.25rem;border-radius:8px;font-family:'Plus Jakarta Sans';font-weight:700;font-size:0.88rem;cursor:pointer;border:none;transition:all 0.15s;}
+.btn-primary{background:linear-gradient(135deg,#FF6B00,#FF8C38);color:#fff;}
+.btn-primary:hover{opacity:0.88;}
+.btn-primary:disabled{opacity:0.4;cursor:not-allowed;}
+.btn-secondary{background:#334155;color:#E2E8F0;}
+.btn-success{background:linear-gradient(135deg,#00A86B,#00c97f);color:#fff;}
+.btn-success:disabled{opacity:0.4;cursor:not-allowed;}
+.btn-row{display:flex;gap:0.65rem;flex-wrap:wrap;margin-top:1rem;}
+
+.source-tabs{display:flex;gap:0.4rem;flex-wrap:wrap;margin-bottom:1rem;}
+.src-tab{background:#0F172A;border:1.5px solid #334155;border-radius:8px;padding:0.4rem 0.85rem;font-size:0.78rem;font-weight:600;cursor:pointer;color:#64748B;transition:all 0.15s;}
+.src-tab.active{border-color:#FF6B00;color:#FF6B00;background:#1a1f2e;}
+
+.spinner{width:18px;height:18px;border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin 0.7s linear infinite;display:inline-block;vertical-align:middle;margin-right:6px;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+.status-bar{background:#0F172A;border:1px solid #334155;border-radius:8px;padding:0.65rem 0.9rem;font-size:0.82rem;color:#94A3B8;margin-top:0.75rem;min-height:38px;}
+.status-bar.success{border-color:#00A86B;color:#00A86B;}
+.status-bar.error{border-color:#EF4444;color:#EF4444;}
+.status-bar.info{border-color:#3B82F6;color:#93C5FD;}
+
+/* Preview cards */
+.preview-grid{display:flex;flex-direction:column;gap:0.75rem;margin-top:1rem;}
+.preview-card{background:#0F172A;border:1px solid #334155;border-radius:10px;padding:1rem 1.1rem;}
+.preview-card-top{display:flex;align-items:center;justify-content:space-between;gap:0.5rem;margin-bottom:0.5rem;flex-wrap:wrap;}
+.cat-badge{font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;padding:0.18rem 0.65rem;border-radius:100px;}
+.cat-polity  {background:#1e3a5f;color:#60A5FA;}
+.cat-economy {background:#14532d;color:#4ADE80;}
+.cat-science {background:#3b0764;color:#C084FC;}
+.cat-intl    {background:#431407;color:#FB923C;}
+.cat-environ {background:#064e3b;color:#34D399;}
+.cat-society {background:#500724;color:#FB7185;}
+.cat-defence {background:#1e293b;color:#94A3B8;}
+.cat-sports  {background:#451a03;color:#FCD34D;}
+.cat-awards  {background:#2e1065;color:#A78BFA;}
+.cat-general {background:#1e293b;color:#94A3B8;}
+.preview-title{font-size:0.92rem;font-weight:700;color:#F1F5F9;line-height:1.4;margin-bottom:0.4rem;}
+.preview-why{font-size:0.78rem;color:#93C5FD;background:#1e3358;border-left:3px solid #3B82F6;padding:0.35rem 0.65rem;border-radius:0 6px 6px 0;margin-bottom:0.4rem;}
+.preview-summary{font-size:0.8rem;color:#94A3B8;line-height:1.6;}
+.preview-points{margin-top:0.4rem;padding-left:1rem;}
+.preview-points li{font-size:0.75rem;color:#64748B;line-height:1.5;}
+.preview-imp{margin-top:0.4rem;background:#064e3b;border-left:3px solid #00A86B;padding:0.35rem 0.65rem;border-radius:0 6px 6px 0;}
+.preview-imp li{font-size:0.75rem;color:#4ADE80;line-height:1.5;}
+.preview-tip{font-size:0.72rem;color:#F97316;margin-top:0.4rem;background:#1c1107;padding:0.3rem 0.6rem;border-radius:6px;}
+
+.count-badge{background:#FF6B00;color:#fff;border-radius:100px;padding:0.1rem 0.5rem;font-size:0.72rem;font-weight:700;margin-left:0.4rem;}
+
+/* GitHub config */
+.config-grid{display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;}
+@media(max-width:600px){.config-grid{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="brand">T</div>
+    <span class="topbar-title">Current Affairs Admin</span>
+  </div>
+  <a href="index.html" class="back-btn">← Home</a>
+</div>
+
+<div class="page">
+
+  <!-- GitHub Config -->
+  <div class="card">
+    <h3>⚙️ GitHub Config <span style="font-size:0.72rem;color:#64748B;font-weight:400;">(saved in browser)</span></h3>
+    <div class="config-grid">
+      <div>
+        <label>GitHub Personal Access Token</label>
+        <input type="password" id="ghToken" placeholder="ghp_xxxxxxxxxxxx" oninput="saveConfig()">
+      </div>
+      <div>
+        <label>Date for this content</label>
+        <input type="date" id="caDate">
+      </div>
+    </div>
+    <div style="font-size:0.75rem;color:#64748B;margin-top:0.5rem;">
+      Token needs <strong>repo</strong> permission. Get at github.com/settings/tokens → Generate new token (classic) → check <strong>repo</strong>
+    </div>
+  </div>
+
+  <!-- Paste Sources -->
+  <div class="card">
+    <h3>📋 Paste Raw Content</h3>
+    <p style="font-size:0.82rem;color:#64748B;margin-bottom:1rem;">Copy text from any current affairs website and paste below. You can paste from multiple sources — AI will combine and format everything.</p>
+
+    <div class="source-tabs">
+      <div class="src-tab active" onclick="setSource(this,'gktoday')">GKToday</div>
+      <div class="src-tab" onclick="setSource(this,'drishti')">Drishti IAS</div>
+      <div class="src-tab" onclick="setSource(this,'adda247')">Adda247</div>
+      <div class="src-tab" onclick="setSource(this,'other')">Other</div>
+    </div>
+
+    <label>Paste content from <span id="sourceLabel">GKToday</span></label>
+    <textarea id="pasteArea1" rows="8" placeholder="Copy text from GKToday and paste here..."></textarea>
+
+    <div style="margin-top:0.75rem;">
+      <label>Additional source (optional)</label>
+      <textarea id="pasteArea2" rows="6" placeholder="Paste from a second source here (optional)..."></textarea>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-primary" id="processBtn" onclick="processContent()">🤖 Process with AI</button>
+      <button class="btn btn-secondary" onclick="clearAll()">✕ Clear</button>
+    </div>
+    <div class="status-bar" id="processStatus">Paste content above and click Process with AI</div>
+  </div>
+
+  <!-- Preview -->
+  <div id="previewSection" style="display:none;">
+    <div class="card">
+      <h3>👁 Preview <span class="count-badge" id="previewCount">0</span></h3>
+      <div id="previewGrid" class="preview-grid"></div>
+    </div>
+
+    <div class="card">
+      <h3>💾 Save to Website</h3>
+      <p style="font-size:0.82rem;color:#64748B;margin-bottom:1rem;">This will update <code>current-affairs-data.json</code> and save a dated archive file in your GitHub repo.</p>
+      <div class="btn-row">
+        <button class="btn btn-success" id="saveBtn" onclick="saveToGitHub()">🚀 Save to GitHub</button>
+        <button class="btn btn-secondary" onclick="downloadJSON()">⬇ Download JSON</button>
+      </div>
+      <div class="status-bar" id="saveStatus">Ready to save</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const GROQ_KEY = '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';
+const REPO     = 'nirala01/TrickySSC';
+const BRANCH   = 'main';
+
+let processedData = null;
+let currentSource = 'gktoday';
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  // Set today's date
+  const today = new Date();
+  document.getElementById('caDate').value = today.toISOString().split('T')[0];
+  // Load saved token
+  const saved = localStorage.getItem('tssc_gh_token');
+  if (saved) document.getElementById('ghToken').value = saved;
+});
+
+function saveConfig() {
+  localStorage.setItem('tssc_gh_token', document.getElementById('ghToken').value);
+}
+
+function setSource(tab, src) {
+  document.querySelectorAll('.src-tab').forEach(t => t.classList.remove('active'));
+  tab.classList.add('active');
+  currentSource = src;
+  const labels = { gktoday:'GKToday', drishti:'Drishti IAS', adda247:'Adda247', other:'Other Source' };
+  document.getElementById('sourceLabel').textContent = labels[src] || src;
+}
+
+function clearAll() {
+  document.getElementById('pasteArea1').value = '';
+  document.getElementById('pasteArea2').value = '';
+  document.getElementById('previewSection').style.display = 'none';
+  document.getElementById('processStatus').textContent = 'Paste content above and click Process with AI';
+  document.getElementById('processStatus').className = 'status-bar';
+  processedData = null;
+}
+
+// ── Process with Groq ─────────────────────────────────────────────────────────
+async function processContent() {
+  const text1 = document.getElementById('pasteArea1').value.trim();
+  const text2 = document.getElementById('pasteArea2').value.trim();
+
+  if (!text1) { setStatus('processStatus', 'error', '⚠️ Please paste some content first'); return; }
+
+  const dateVal  = document.getElementById('caDate').value;
+  const dateObj  = dateVal ? new Date(dateVal) : new Date();
+  const dispDate = dateObj.toLocaleDateString('en-IN', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+  const dateKey  = formatDateKey(dateObj);
+
+  const btn = document.getElementById('processBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Processing...';
+  setStatus('processStatus', 'info', '🔄 AI is analyzing and formatting the content...');
+
+  const combinedText = [
+    text1 ? `=== SOURCE 1 ===\n${text1}` : '',
+    text2 ? `=== SOURCE 2 ===\n${text2}` : ''
+  ].filter(Boolean).join('\n\n');
+
+  const prompt = `You are a current affairs expert for SSC competitive exam preparation in India.
+
+Below is raw current affairs content copied from news websites for ${dispDate}.
+
+Your task: Extract and format all distinct current affairs items from this text into a structured JSON format for SSC exam students.
+
+RAW CONTENT:
+${combinedText.slice(0, 8000)}
+
+Return ONLY a valid JSON object — no markdown, no explanation:
+{
+  "date": "${dispDate}",
+  "dateKey": "${dateKey}",
+  "generatedAt": "${new Date().toISOString()}",
+  "sources": [],
+  "items": [
+    {
+      "title": "Clear headline with key name/place/number",
+      "whyInNews": "1-2 sentences — what happened, with full names, dates, places, numbers",
+      "summary": "2-3 sentences with full proper names, exact numbers, specific places",
+      "keyPoints": ["Specific fact 1", "Specific fact 2", "Specific fact 3"],
+      "importantPoints": ["Memory point 1", "Memory point 2", "Memory point 3", "Memory point 4"],
+      "category": "polity|economy|science|intl|environ|society|defence|sports|awards|general",
+      "examRelevance": "Which SSC topic/subject and why it matters for exam",
+      "tags": ["tag1", "tag2", "tag3"]
+    }
+  ]
+}
+
+RULES:
+- Extract ALL distinct news items from the raw content
+- ALWAYS use full proper names — never vague references
+- ALWAYS include specific numbers, ranks, amounts, dates
+- "importantPoints": include founding year, HQ, full form, related constitutional article, historical facts
+- Keep language simple and factual for SSC students
+- category must be exactly one of: polity/economy/science/intl/environ/society/defence/sports/awards/general`;
+
+  try {
+    const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + GROQ_KEY },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.2,
+        max_tokens: 8000,
+        response_format: { type: 'json_object' }
+      })
+    });
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error.message);
+
+    let parsed = JSON.parse(data.choices[0].message.content);
+    if (!parsed.items) parsed = { date: dispDate, dateKey, generatedAt: new Date().toISOString(), sources: [], items: Object.values(parsed)[0] || [] };
+    if (!Array.isArray(parsed.items)) throw new Error('No items array in response');
+
+    processedData = parsed;
+    renderPreview(parsed);
+    setStatus('processStatus', 'success', `✅ ${parsed.items.length} items extracted and formatted`);
+    document.getElementById('previewSection').style.display = 'block';
+    document.getElementById('previewSection').scrollIntoView({ behavior: 'smooth' });
+
+  } catch(err) {
+    setStatus('processStatus', 'error', '❌ ' + err.message);
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = '🤖 Process with AI';
+}
+
+// ── Preview ───────────────────────────────────────────────────────────────────
+function renderPreview(data) {
+  document.getElementById('previewCount').textContent = data.items.length;
+  const CATS = { polity:'Polity',economy:'Economy',science:'Science & Tech',intl:'International',environ:'Environment',society:'Society',defence:'Defence',sports:'Sports',awards:'Awards',general:'General' };
+  document.getElementById('previewGrid').innerHTML = data.items.map((item,i) => {
+    const cat  = item.category || 'general';
+    const kp   = (item.keyPoints||[]).map(p=>`<li>${esc(p)}</li>`).join('');
+    const ip   = (item.importantPoints||[]).map(p=>`<li>${esc(p)}</li>`).join('');
+    return `<div class="preview-card">
+      <div class="preview-card-top">
+        <span class="cat-badge cat-${cat}">${CATS[cat]||cat}</span>
+        <span style="font-size:0.68rem;color:#475569;">Item ${i+1}</span>
+      </div>
+      <div class="preview-title">${esc(item.title||'')}</div>
+      ${item.whyInNews?`<div class="preview-why">📌 ${esc(item.whyInNews)}</div>`:''}
+      <div class="preview-summary">${esc(item.summary||'')}</div>
+      ${kp?`<ul class="preview-points">${kp}</ul>`:''}
+      ${ip?`<ul class="preview-imp">${ip}</ul>`:''}
+      ${item.examRelevance?`<div class="preview-tip">📚 ${esc(item.examRelevance)}</div>`:''}
+    </div>`;
+  }).join('');
+}
+
+// ── Save to GitHub ────────────────────────────────────────────────────────────
+async function saveToGitHub() {
+  const token = document.getElementById('ghToken').value.trim();
+  if (!token) { setStatus('saveStatus','error','⚠️ Enter your GitHub token first'); return; }
+  if (!processedData) { setStatus('saveStatus','error','⚠️ Process content first'); return; }
+
+  const btn = document.getElementById('saveBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Saving...';
+  setStatus('saveStatus','info','🔄 Saving to GitHub...');
+
+  try {
+    const content = JSON.stringify(processedData, null, 2);
+    const dateKey = processedData.dateKey;
+
+    // 1. Save main file
+    await githubPut(token, 'current-affairs-data.json', content, `🗞️ CA update - ${processedData.date}`);
+    setStatus('saveStatus','info','🔄 Saved main file, saving archive...');
+
+    // 2. Save archive file
+    await githubPut(token, `ca-archive/ca-${dateKey}.json`, content, `📅 CA archive - ${dateKey}`);
+    setStatus('saveStatus','info','🔄 Updating archive index...');
+
+    // 3. Update archive index
+    let index = [];
+    try {
+      const res = await fetch(`https://raw.githubusercontent.com/${REPO}/${BRANCH}/ca-archive/index.json?v=`+Date.now());
+      if (res.ok) index = await res.json();
+    } catch(e){}
+    if (!index.find(e => e.dateKey === dateKey)) {
+      index.unshift({ date: processedData.date, dateKey, file: `ca-${dateKey}.json`, count: processedData.items.length });
+      if (index.length > 365) index = index.slice(0, 365);
+    }
+    await githubPut(token, 'ca-archive/index.json', JSON.stringify(index, null, 2), `📋 CA index update - ${dateKey}`);
+
+    setStatus('saveStatus','success',`✅ Saved! ${processedData.items.length} items live on trickyssc.com/current-affairs.html`);
+  } catch(err) {
+    setStatus('saveStatus','error','❌ ' + err.message);
+  }
+  btn.disabled = false;
+  btn.innerHTML = '🚀 Save to GitHub';
+}
+
+async function githubPut(token, path, content, message) {
+  const apiUrl = `https://api.github.com/repos/${REPO}/contents/${path}`;
+  // Get existing SHA if file exists
+  let sha = null;
+  try {
+    const r = await fetch(apiUrl, { headers: { 'Authorization': 'Bearer ' + token, 'Accept': 'application/vnd.github.v3+json' }});
+    if (r.ok) { const d = await r.json(); sha = d.sha; }
+  } catch(e){}
+
+  const body = { message, content: btoa(unescape(encodeURIComponent(content))), branch: BRANCH };
+  if (sha) body.sha = sha;
+
+  const resp = await fetch(apiUrl, {
+    method: 'PUT',
+    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json', 'Accept': 'application/vnd.github.v3+json' },
+    body: JSON.stringify(body)
+  });
+  if (!resp.ok) {
+    const err = await resp.json();
+    throw new Error(err.message || 'GitHub API error ' + resp.status);
+  }
+}
+
+// ── Download JSON ─────────────────────────────────────────────────────────────
+function downloadJSON() {
+  if (!processedData) return;
+  const blob = new Blob([JSON.stringify(processedData, null, 2)], { type: 'application/json' });
+  const a    = document.createElement('a');
+  a.href     = URL.createObjectURL(blob);
+  a.download = `ca-${processedData.dateKey || 'today'}.json`;
+  a.click();
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function formatDateKey(d) {
+  const dd = String(d.getDate()).padStart(2,'0');
+  const mm = String(d.getMonth()+1).padStart(2,'0');
+  return `${dd}-${mm}-${d.getFullYear()}`;
+}
+function setStatus(id, type, msg) {
+  const el = document.getElementById(id);
+  el.className = 'status-bar ' + type;
+  el.textContent = msg;
+}
+function esc(s) {
+  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+</body>
+</html>
