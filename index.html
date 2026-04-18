@@ -1796,6 +1796,33 @@
           <div style="font-family:'Baloo 2',cursive;font-size:1.2rem;font-weight:700;margin-bottom:0.5rem">Ready to Generate</div>
           <div style="font-size:0.9rem">Configure your preferences on the left and click Generate Test — you'll be taken to a fresh AI-powered test page.</div>
         </div>
+        <div id="aiGenerating" style="display:none">
+          <div class="generating-state">
+            <div class="spinner"></div>
+            <div style="font-family:'Baloo 2',cursive;font-size:1.1rem;font-weight:700">Generating questions...</div>
+            <div style="font-size:0.85rem;color:var(--text-muted);margin-top:0.5rem">Analyzing SSC CGL pattern & difficulty</div>
+          </div>
+        </div>
+        <div id="aiQuestions" style="display:none">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem">
+            <div style="font-family:'Baloo 2',cursive;font-size:1.1rem;font-weight:800">🎯 10 Questions Generated</div>
+            <span class="badge badge-green">Percentage · Easy</span>
+          </div>
+          <div class="ai-generated-q">
+            <div class="ai-q-num">Q1.</div>
+            <div class="ai-q-text">A shopkeeper marks his goods 25% above the cost price and then gives a discount of 10%. What is his profit percentage?</div>
+          </div>
+          <div class="ai-generated-q">
+            <div class="ai-q-num">Q2.</div>
+            <div class="ai-q-text">If 40% of a number is equal to two-third of another number, what is the ratio of the first number to the second number?</div>
+          </div>
+          <div class="ai-generated-q">
+            <div class="ai-q-num">Q3.</div>
+            <div class="ai-q-text">In an election, a candidate who gets 60% of the total votes cast wins by 480 votes. Find the total number of votes cast.</div>
+          </div>
+          <div style="text-align:center;padding:1rem;color:var(--text-muted);font-size:0.88rem">+ 7 more questions</div>
+          <button class="btn-primary" style="width:100%;justify-content:center">Start This Test →</button>
+        </div>
       </div>
     </div>
   </div>
@@ -2197,7 +2224,7 @@
   <div class="footer-inner">
     <div class="footer-grid">
       <div class="footer-brand">
-        <div class="logo" style="font-size:1.5rem">Tricky<span>SSC</span></div>
+        <div class="logo" style="font-size:1.5rem;color:#fff;">Tricky<span>SSC</span></div>
         <p>India's most trusted platform for SSC CGL preparation. Practice PYQs, learn shortcut tricks, and crack the exam with confidence.</p>
       </div>
       <div class="footer-col">
@@ -2312,12 +2339,11 @@
 
   // ===== AI GENERATOR =====
   function aiSubjectChanged() {
-    const subj   = document.getElementById('aiSubjectSel')?.value || '';
-    const isEng  = subj === 'English Language';
-    const grid   = document.getElementById('aiLangGrid');
-    const note   = document.getElementById('aiLangNote');
+    const subj  = document.getElementById('aiSubjectSel')?.value || '';
+    const isEng = subj === 'English Language';
+    const grid  = document.getElementById('aiLangGrid');
+    const note  = document.getElementById('aiLangNote');
     if (isEng) {
-      // Force English, disable Hindi
       grid.querySelectorAll('.diff-btn').forEach(b => {
         b.classList.remove('selected');
         if (b.textContent.includes('English')) b.classList.add('selected');
@@ -2337,12 +2363,11 @@
     const diffBtn  = document.querySelector('#ai .difficulty-grid .diff-btn.selected');
     const countBtn = document.querySelector('#ai .count-grid .diff-btn.selected');
     const langBtn  = document.querySelector('#aiLangGrid .diff-btn.selected');
-    const diff     = diffBtn ? diffBtn.textContent.replace(/[^a-zA-Z]/g,'').trim() : 'Easy';
-    const count    = countBtn ? (countBtn.textContent.includes('25') ? '25' : '10') : '10';
+    const diff     = diffBtn  ? diffBtn.textContent.replace(/[^a-zA-Z]/g,'').trim()  : 'Easy';
+    const count    = countBtn ? (countBtn.textContent.includes('25') ? '25' : '10')  : '10';
     const lang     = (subject === 'English Language') ? 'English'
                    : langBtn ? (langBtn.textContent.includes('Hindi') ? 'Hindi' : 'English')
                    : 'Hindi';
-
     const params = new URLSearchParams({ exam, subject, chapter: 'Mixed Topics', difficulty: diff, count, lang });
     window.location.href = 'ai-test.html?' + params.toString();
   }
