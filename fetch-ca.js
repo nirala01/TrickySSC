@@ -98,7 +98,9 @@ async function fetchCA() {
 
 Today is ${dispDate}.
 
-Provide 18-22 important current affairs items for India from today or the past 1-2 days, relevant for SSC CGL, CHSL, and other competitive exams.
+Provide 20-25 important current affairs items for India from today or the past 1-2 days, relevant for SSC CGL, CHSL, and other competitive exams.
+
+Draw content from reliable Indian news sources covering government, economy, science, sports, awards, and international affairs.
 
 Return ONLY a valid JSON object — no markdown, no explanation:
 
@@ -109,7 +111,7 @@ Return ONLY a valid JSON object — no markdown, no explanation:
   "sources": [],
   "items": [
     {
-      "title": "Rephrased headline with key name/place/number",
+      "title": "Clear headline with key name/place/number",
       "whyInNews": "1-2 sentences — what specifically happened, with full names, dates, places, numbers",
       "summary": "2-3 sentences with full proper names, exact numbers, specific places",
       "keyPoints": ["Specific fact with name/number", "Specific fact with date/place", "Specific fact with data"],
@@ -125,7 +127,7 @@ STRICT RULES:
 - ALWAYS use full proper names — never "a minister", "an author", always the actual name
 - ALWAYS include specific numbers — ranks, amounts, dates, percentages
 - ALWAYS include place names — cities, states, countries
-- Rephrase all content — do not copy verbatim from any source
+- Write content clearly and accurately based on the facts
 - If award: full name + category + awarding body
 - If scheme: scheme name + ministry + budget + beneficiaries
 - If report/index: India rank + total countries + publishing org
