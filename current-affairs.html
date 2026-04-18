@@ -72,6 +72,11 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;color:#1E293B
 .cat-awards  {background:#FDF4FF;color:#7C3AED;}
 .cat-general {background:#F1F5F9;color:#64748B;}
 
+/* Date picker pills */
+.date-pill{background:#fff;border:1.5px solid #E2E8F0;border-radius:8px;padding:0.32rem 0.75rem;font-size:0.75rem;font-weight:600;cursor:pointer;color:#64748B;transition:all 0.15s;font-family:'Plus Jakarta Sans';}
+.date-pill.active{background:#FF6B00;border-color:#FF6B00;color:#fff;}
+.date-pill:hover:not(.active){border-color:#FF6B00;color:#FF6B00;}
+
 /* Loading */
 .loading-wrap{text-align:center;padding:3rem 1rem;}
 .spinner{width:38px;height:38px;border:3px solid #E2E8F0;border-top-color:#FF6B00;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 1rem;}
@@ -140,7 +145,9 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;color:#1E293B
 <script>
 // ── Config ─────────────────────────────────────────────────────────────────
 // Replace with your GitHub username and repo
-const DATA_URL = 'https://raw.githubusercontent.com/nirala01/TrickySSC/main/current-affairs-data.json';
+const DATA_URL     = 'https://raw.githubusercontent.com/nirala01/TrickySSC/main/current-affairs-data.json';
+const ARCHIVE_BASE = 'https://raw.githubusercontent.com/nirala01/TrickySSC/main/ca-archive';
+const INDEX_URL    = 'https://raw.githubusercontent.com/nirala01/TrickySSC/main/ca-archive/index.json';
 
 // ── Category config ────────────────────────────────────────────────────────
 const CATS = {
@@ -160,25 +167,88 @@ let allItems    = [];
 let activeFilter = 'all';
 
 // ── Load ───────────────────────────────────────────────────────────────────
+let archiveIndex = []; // list of {date, dateKey, file, count}
+let selectedDate = 'today';
+
 async function loadData() {
+  // Load archive index silently
   try {
-    const res = await fetch(DATA_URL + '?v=' + Date.now());
+    const res = await fetch(INDEX_URL + '?v=' + Date.now());
+    if (res.ok) archiveIndex = await res.json();
+  } catch(e) {}
+
+  // Build date picker if we have archive
+  renderDatePicker();
+
+  // Load today's data
+  await loadDateData('today');
+}
+
+async function loadDateData(dateKey) {
+  selectedDate = dateKey;
+  highlightDatePicker(dateKey);
+  document.getElementById('root').innerHTML = `
+    <div class="loading-wrap">
+      <div class="spinner"></div>
+      <div class="loading-text">Loading current affairs...</div>
+    </div>`;
+
+  try {
+    let url;
+    if (dateKey === 'today') {
+      url = DATA_URL + '?v=' + Date.now();
+    } else {
+      url = `${ARCHIVE_BASE}/ca-${dateKey}.json?v=` + Date.now();
+    }
+    const res = await fetch(url);
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
-
     document.getElementById('dateChip').textContent = data.date || 'Today';
-
     if (data.error || !data.items || !data.items.length) {
-      showError(data.error || 'No items found', data.sources || []);
+      showError(data.error || 'No items found', []);
       return;
     }
-
     allItems = data.items;
     render(data);
-
   } catch(err) {
     showError(err.message, []);
   }
+}
+
+function renderDatePicker() {
+  const existing = document.getElementById('datePicker');
+  if (existing) existing.remove();
+  if (!archiveIndex.length) return;
+
+  // Show last 30 entries + today
+  const entries = archiveIndex.slice(0, 30);
+  const btns = entries.map(e =>
+    `<button class="date-pill" data-key="${e.dateKey}" onclick="loadDateData('${e.dateKey}')"
+      title="${e.date} · ${e.count} items">
+      ${formatShortDate(e.dateKey)}
+    </button>`
+  ).join('');
+
+  const picker = document.createElement('div');
+  picker.id = 'datePicker';
+  picker.style.cssText = 'display:flex;gap:0.4rem;flex-wrap:wrap;margin-bottom:1rem;';
+  picker.innerHTML = `
+    <button class="date-pill active" data-key="today" onclick="loadDateData('today')">Today</button>
+    ${btns}`;
+  document.querySelector('.page').insertBefore(picker, document.getElementById('root'));
+}
+
+function highlightDatePicker(dateKey) {
+  document.querySelectorAll('.date-pill').forEach(b => {
+    b.classList.toggle('active', b.dataset.key === dateKey);
+  });
+}
+
+function formatShortDate(dateKey) {
+  // dateKey format: DD-MM-YYYY
+  const [dd, mm, yyyy] = dateKey.split('-');
+  const months = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return `${parseInt(dd)} ${months[parseInt(mm)]}`;
 }
 
 // ── Render ─────────────────────────────────────────────────────────────────

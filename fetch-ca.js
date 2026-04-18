@@ -154,8 +154,29 @@ STRICT RULES:
       items
     };
 
+    // Save as today's main file
     fs.writeFileSync('current-affairs-data.json', JSON.stringify(result, null, 2), 'utf8');
     console.log(`✅ Saved ${items.length} items to current-affairs-data.json`);
+
+    // Also save dated archive file e.g. ca-archive/ca-17-04-2026.json
+    const archiveDir = 'ca-archive';
+    if (!fs.existsSync(archiveDir)) fs.mkdirSync(archiveDir);
+    const archiveFile = `${archiveDir}/ca-${dateStr}.json`;
+    fs.writeFileSync(archiveFile, JSON.stringify(result, null, 2), 'utf8');
+    console.log(`✅ Archive saved to ${archiveFile}`);
+
+    // Update archive index
+    const indexFile = 'ca-archive/index.json';
+    let index = [];
+    try { index = JSON.parse(fs.readFileSync(indexFile, 'utf8')); } catch(e) {}
+    if (!index.find(e => e.dateKey === dateStr)) {
+      index.unshift({ date: result.date, dateKey: dateStr, file: `ca-${dateStr}.json`, count: items.length });
+      // Keep max 365 entries
+      if (index.length > 365) index = index.slice(0, 365);
+      fs.writeFileSync(indexFile, JSON.stringify(index, null, 2), 'utf8');
+      console.log(`✅ Archive index updated (${index.length} entries)`);
+    }
+
     console.log(`Categories: ${[...new Set(items.map(i=>i.category))].join(', ')}`);
 
   } catch(err) {
