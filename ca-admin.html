@@ -107,8 +107,8 @@ textarea{resize:vertical;line-height:1.6;}
 
   <!-- Paste Sources -->
   <div class="card">
-    <h3>📋 Paste Raw Content</h3>
-    <p style="font-size:0.82rem;color:#64748B;margin-bottom:1rem;">Copy text from any current affairs website and paste below. You can paste from multiple sources — AI will combine and format everything.</p>
+    <h3>📋 Add Current Affairs Items</h3>
+    <p style="font-size:0.82rem;color:#64748B;margin-bottom:1rem;">Paste <strong>one news topic at a time</strong> — each paste creates one organized card. Add as many as you want, then save all at once.</p>
 
     <div class="source-tabs">
       <div class="src-tab active" onclick="setSource(this,'gktoday')">GKToday</div>
@@ -117,25 +117,22 @@ textarea{resize:vertical;line-height:1.6;}
       <div class="src-tab" onclick="setSource(this,'other')">Other</div>
     </div>
 
-    <label>Paste content from <span id="sourceLabel">GKToday</span></label>
-    <textarea id="pasteArea1" rows="8" placeholder="Copy text from GKToday and paste here..."></textarea>
-
-    <div style="margin-top:0.75rem;">
-      <label>Additional source (optional)</label>
-      <textarea id="pasteArea2" rows="6" placeholder="Paste from a second source here (optional)..."></textarea>
-    </div>
+    <label>Paste one topic from <span id="sourceLabel">GKToday</span></label>
+    <textarea id="pasteArea1" rows="6" placeholder="Copy and paste one news topic here — e.g. one article, one headline with details..."></textarea>
 
     <div class="btn-row">
-      <button class="btn btn-primary" id="processBtn" onclick="processContent()">🤖 Process with AI</button>
-      <button class="btn btn-secondary" onclick="clearAll()">✕ Clear</button>
+      <button class="btn btn-primary" id="processBtn" onclick="processContent()">➕ Add This Item</button>
+      <button class="btn btn-secondary" onclick="clearPaste()">✕ Clear</button>
     </div>
-    <div class="status-bar" id="processStatus">Paste content above and click Process with AI</div>
+    <div class="status-bar" id="processStatus">Paste one news topic above and click Add This Item</div>
   </div>
 
-  <!-- Preview -->
+  <!-- Items List -->
   <div id="previewSection" style="display:none;">
     <div class="card">
-      <h3>👁 Preview <span class="count-badge" id="previewCount">0</span></h3>
+      <h3>📋 Added Items <span class="count-badge" id="previewCount">0</span>
+        <button class="btn btn-secondary" style="margin-left:auto;font-size:0.75rem;padding:0.3rem 0.75rem;" onclick="clearAll()">🗑 Clear All</button>
+      </h3>
       <div id="previewGrid" class="preview-grid"></div>
     </div>
 
@@ -143,7 +140,7 @@ textarea{resize:vertical;line-height:1.6;}
       <h3>💾 Save to Website</h3>
       <p style="font-size:0.82rem;color:#64748B;margin-bottom:1rem;">This will update <code>current-affairs-data.json</code> and save a dated archive file in your GitHub repo.</p>
       <div class="btn-row">
-        <button class="btn btn-success" id="saveBtn" onclick="saveToGitHub()">🚀 Save to GitHub</button>
+        <button class="btn btn-success" id="saveBtn" onclick="saveToGitHub()">🚀 Save All to GitHub</button>
         <button class="btn btn-secondary" onclick="downloadJSON()">⬇ Download JSON</button>
       </div>
       <div class="status-bar" id="saveStatus">Ready to save</div>
@@ -157,8 +154,254 @@ const GROQ_KEY = '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';
 const REPO     = 'nirala01/TrickySSC';
 const BRANCH   = 'main';
 
-let processedData = null;
+let allItems   = []; // running list of processed items
 let currentSource = 'gktoday';
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  const today = new Date();
+  document.getElementById('caDate').value = today.toISOString().split('T')[0];
+  const saved = localStorage.getItem('tssc_gh_token');
+  if (saved) document.getElementById('ghToken').value = saved;
+});
+
+function saveConfig() {
+  localStorage.setItem('tssc_gh_token', document.getElementById('ghToken').value);
+}
+
+function setSource(tab, src) {
+  document.querySelectorAll('.src-tab').forEach(t => t.classList.remove('active'));
+  tab.classList.add('active');
+  currentSource = src;
+  const labels = { gktoday:'GKToday', drishti:'Drishti IAS', adda247:'Adda247', other:'Other Source' };
+  document.getElementById('sourceLabel').textContent = labels[src] || src;
+}
+
+function clearPaste() {
+  document.getElementById('pasteArea1').value = '';
+  document.getElementById('processStatus').textContent = 'Paste one news topic above and click Add This Item';
+  document.getElementById('processStatus').className = 'status-bar';
+}
+
+function clearAll() {
+  allItems = [];
+  clearPaste();
+  document.getElementById('previewSection').style.display = 'none';
+  document.getElementById('previewGrid').innerHTML = '';
+  document.getElementById('previewCount').textContent = '0';
+}
+
+// ── Process single item ───────────────────────────────────────────────────────
+async function processContent() {
+  const text = document.getElementById('pasteArea1').value.trim();
+  if (!text) { setStatus('processStatus','error','⚠️ Please paste a news topic first'); return; }
+
+  const dateVal  = document.getElementById('caDate').value;
+  const dateObj  = dateVal ? new Date(dateVal) : new Date();
+  const dispDate = dateObj.toLocaleDateString('en-IN', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+
+  const btn = document.getElementById('processBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Processing...';
+  setStatus('processStatus','info','🔄 AI is formatting this item...');
+
+  const prompt = `You are a current affairs expert for SSC competitive exam preparation in India.
+
+Below is raw text about ONE news topic for ${dispDate}.
+
+Format this into a SINGLE current affairs card for SSC students.
+
+RAW TEXT:
+${text.slice(0, 3000)}
+
+Return ONLY a valid JSON object for ONE item — no array, no markdown:
+{
+  "title": "Clear headline with key name/place/number",
+  "whyInNews": "1-2 sentences — what specifically happened, with full names, exact dates, places, numbers",
+  "summary": "2-3 sentences with full proper names, exact numbers, specific places. No vague language.",
+  "keyPoints": ["Specific fact with name/number", "Specific fact with date/place", "Specific fact with data", "Another key fact"],
+  "importantPoints": ["Memory point with founding year/HQ/full form", "Related constitutional article or act", "Historical context or background", "Key data point or statistic", "Why it matters for India"],
+  "category": "polity|economy|science|intl|environ|society|defence|sports|awards|general",
+  "examRelevance": "Which SSC subject/topic this falls under and why students must remember it",
+  "tags": ["tag1", "tag2", "tag3"]
+}
+
+STRICT RULES:
+- ONE item only — do not split into multiple items
+- ALWAYS use full proper names — never "a minister", always the actual name
+- ALWAYS include specific numbers, ranks, amounts, percentages
+- ALWAYS include place names — cities, states, countries
+- If award: full award name + category + awarding body
+- If scheme: scheme name + ministry + budget + beneficiaries  
+- If report/index: India's rank + total countries + publishing organization
+- If sports: winner name + venue + opponent + score
+- "importantPoints": 4-5 points a student must memorize for exam`;
+
+  try {
+    const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + GROQ_KEY },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.2,
+        max_tokens: 2000,
+        response_format: { type: 'json_object' }
+      })
+    });
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error.message);
+
+    let item = JSON.parse(data.choices[0].message.content);
+    // If AI returned {items:[...]} accidentally, take first
+    if (item.items && Array.isArray(item.items)) item = item.items[0];
+    if (!item.title) throw new Error('Invalid response — no title found');
+
+    // Add to running list
+    allItems.push(item);
+    renderPreview();
+    setStatus('processStatus','success',`✅ Item added! Total: ${allItems.length}. Paste the next topic.`);
+
+    // Clear paste area for next item
+    document.getElementById('pasteArea1').value = '';
+    document.getElementById('pasteArea1').focus();
+
+    // Show preview section
+    document.getElementById('previewSection').style.display = 'block';
+
+  } catch(err) {
+    setStatus('processStatus','error','❌ ' + err.message);
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = '➕ Add This Item';
+}
+
+// ── Preview ───────────────────────────────────────────────────────────────────
+function renderPreview() {
+  document.getElementById('previewCount').textContent = allItems.length;
+  const CATS = { polity:'Polity',economy:'Economy',science:'Science & Tech',intl:'International',environ:'Environment',society:'Society',defence:'Defence',sports:'Sports',awards:'Awards',general:'General' };
+
+  document.getElementById('previewGrid').innerHTML = allItems.map((item,i) => {
+    const cat = item.category || 'general';
+    const kp  = (item.keyPoints||[]).map(p=>`<li>${esc(p)}</li>`).join('');
+    const ip  = (item.importantPoints||[]).map(p=>`<li>${esc(p)}</li>`).join('');
+    return `<div class="preview-card" id="item-${i}">
+      <div class="preview-card-top">
+        <span class="cat-badge cat-${cat}">${CATS[cat]||cat}</span>
+        <div style="display:flex;gap:0.4rem;align-items:center;">
+          <span style="font-size:0.68rem;color:#475569;">Item ${i+1}</span>
+          <button onclick="deleteItem(${i})" style="background:#EF4444;color:#fff;border:none;border-radius:4px;padding:0.15rem 0.5rem;font-size:0.68rem;cursor:pointer;">✕ Remove</button>
+        </div>
+      </div>
+      <div class="preview-title">${esc(item.title||'')}</div>
+      ${item.whyInNews?`<div class="preview-why">📌 ${esc(item.whyInNews)}</div>`:''}
+      <div class="preview-summary">${esc(item.summary||'')}</div>
+      ${kp?`<ul class="preview-points">${kp}</ul>`:''}
+      ${ip?`<ul class="preview-imp">${ip}</ul>`:''}
+      ${item.examRelevance?`<div class="preview-tip">📚 ${esc(item.examRelevance)}</div>`:''}
+    </div>`;
+  }).join('');
+}
+
+window.deleteItem = (i) => {
+  allItems.splice(i, 1);
+  renderPreview();
+  if (!allItems.length) document.getElementById('previewSection').style.display = 'none';
+};
+
+// ── Save to GitHub ────────────────────────────────────────────────────────────
+async function saveToGitHub() {
+  const token = document.getElementById('ghToken').value.trim();
+  if (!token) { setStatus('saveStatus','error','⚠️ Enter your GitHub token first'); return; }
+  if (!allItems.length) { setStatus('saveStatus','error','⚠️ Add at least one item first'); return; }
+
+  const dateVal  = document.getElementById('caDate').value;
+  const dateObj  = dateVal ? new Date(dateVal) : new Date();
+  const dispDate = dateObj.toLocaleDateString('en-IN', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+  const dateKey  = formatDateKey(dateObj);
+
+  const payload = {
+    date:        dispDate,
+    dateKey,
+    generatedAt: new Date().toISOString(),
+    sources:     [],
+    items:       allItems
+  };
+
+  const btn = document.getElementById('saveBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Saving...';
+  setStatus('saveStatus','info','🔄 Saving to GitHub...');
+
+  try {
+    const content = JSON.stringify(payload, null, 2);
+
+    // 1. Save main file (only if saving today's date)
+    const today = formatDateKey(new Date());
+    if (dateKey === today) {
+      await githubPut(token, 'current-affairs-data.json', content, `🗞️ CA update - ${dispDate}`);
+    }
+
+    // 2. Save archive file
+    await githubPut(token, `ca-archive/ca-${dateKey}.json`, content, `📅 CA archive - ${dateKey}`);
+    setStatus('saveStatus','info','🔄 Updating archive index...');
+
+    // 3. Update archive index
+    let index = [];
+    try {
+      const res = await fetch(`https://raw.githubusercontent.com/${REPO}/${BRANCH}/ca-archive/index.json?v=`+Date.now());
+      if (res.ok) index = await res.json();
+    } catch(e){}
+    const existing = index.findIndex(e => e.dateKey === dateKey);
+    const entry = { date: dispDate, dateKey, file: `ca-${dateKey}.json`, count: allItems.length };
+    if (existing >= 0) index[existing] = entry;
+    else index.unshift(entry);
+    index.sort((a,b) => b.dateKey.split('-').reverse().join('').localeCompare(a.dateKey.split('-').reverse().join('')));
+    if (index.length > 365) index = index.slice(0, 365);
+    await githubPut(token, 'ca-archive/index.json', JSON.stringify(index, null, 2), `📋 CA index - ${dateKey}`);
+
+    setStatus('saveStatus','success',`✅ ${allItems.length} items saved for ${dispDate} — live on trickyssc.com/current-affairs.html`);
+  } catch(err) {
+    setStatus('saveStatus','error','❌ ' + err.message);
+  }
+  btn.disabled = false;
+  btn.innerHTML = '🚀 Save All to GitHub';
+}
+
+async function githubPut(token, path, content, message) {
+  const apiUrl = `https://api.github.com/repos/${REPO}/contents/${path}`;
+  let sha = null;
+  try {
+    const r = await fetch(apiUrl, { headers: { 'Authorization': 'Bearer '+token, 'Accept': 'application/vnd.github.v3+json' }});
+    if (r.ok) { const d = await r.json(); sha = d.sha; }
+  } catch(e){}
+  const body = { message, content: btoa(unescape(encodeURIComponent(content))), branch: BRANCH };
+  if (sha) body.sha = sha;
+  const resp = await fetch(apiUrl, {
+    method: 'PUT',
+    headers: { 'Authorization': 'Bearer '+token, 'Content-Type': 'application/json', 'Accept': 'application/vnd.github.v3+json' },
+    body: JSON.stringify(body)
+  });
+  if (!resp.ok) { const err = await resp.json(); throw new Error(err.message || 'GitHub API error '+resp.status); }
+}
+
+function downloadJSON() {
+  if (!allItems.length) return;
+  const dateVal = document.getElementById('caDate').value;
+  const dateObj = dateVal ? new Date(dateVal) : new Date();
+  const payload = { date: dateObj.toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long',year:'numeric'}), dateKey: formatDateKey(dateObj), generatedAt: new Date().toISOString(), sources: [], items: allItems };
+  const blob = new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `ca-${formatDateKey(dateObj)}.json`; a.click();
+}
+
+function formatDateKey(d) {
+  const dd = String(d.getDate()).padStart(2,'0');
+  const mm = String(d.getMonth()+1).padStart(2,'0');
+  return `${dd}-${mm}-${d.getFullYear()}`;
+}
+function setStatus(id,type,msg){ const el=document.getElementById(id); el.className='status-bar '+type; el.textContent=msg; }
+function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
