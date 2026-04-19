@@ -193,24 +193,28 @@ Return ONLY valid JSON — no markdown:
     {
       "title": "Clear headline — full names, place, number",
       "whyInNews": "1-2 sentences — what happened, who, where, when, numbers",
-      "summary": "2-3 sentences with full proper names, exact numbers, specific places",
-      "keyPoints": ["Specific fact 1", "Specific fact 2", "Specific fact 3", "Specific fact 4"],
-      "importantPoints": ["HQ/founding year/full form", "Related act/article/amendment", "Historical context", "Key data/stat", "Why it matters for India"],
+      "summary": "2-3 detailed sentences with full proper names, exact numbers, specific places, background context",
+      "keyPoints": ["Specific fact with name/number", "Specific fact with date/place", "Specific fact with data", "Another important detail"],
+      "importantPoints": ["Full form / HQ / founding year of key organization", "Related constitutional article / act / amendment", "Historical background or previous context", "Key statistics or data points", "Why it matters for India / global significance"],
       "category": "polity|economy|science|intl|environ|society|defence|sports|awards|general",
-      "examRelevance": "SSC subject/topic and why students must remember",
+      "examRelevance": "SSC subject/topic and specific reason why students must remember this",
       "tags": ["tag1","tag2","tag3"]
     }
   ]
 }
 
 RULES:
-- Extract 10-12 distinct items from the headlines above
-- Full proper names always — never vague like "a minister" or "a country"
-- Sports: winner name + team/country + venue + opponent + score/result
-- Appointments: full name + new designation + organization + who replaced
-- International: country names + leader names + event/treaty/summit details
-- Awards/Rankings: recipient name + award name + category + given by whom
-- Index/Reports: India rank + total countries/participants + publishing org`;
+- Extract 10-12 distinct items
+- Full proper names always — never vague like "a minister", "a country", "an organization"
+- If the headline is brief, USE YOUR KNOWLEDGE to fill in full details — venue, dates, full names, background facts
+- Sports: winner full name + team/country + venue city + opponent + score/result + tournament context
+- Appointments: full name + new designation + organization full name + who they replaced + when
+- International: country names + leader names + what was agreed/signed + implications
+- Awards/Rankings: recipient full name + award full name + category + given by which organization + when
+- Index/Reports: India rank + total countries + publishing organization + previous rank
+- Economy/Schemes: scheme full name + ministry + budget amount + beneficiaries + launch date
+- importantPoints MUST have 5 points — include founding year, HQ, full form, related act, historical fact
+- summary MUST be at least 3 sentences with rich detail — not just repeating the title`;
 
   console.log('\nCalling Groq Batch 1 (India/PIB/Economy)...');
   const r1 = await groqCall(makePrompt(
