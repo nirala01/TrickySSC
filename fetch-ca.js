@@ -1,5 +1,5 @@
 // GitHub Action — Daily Current Affairs
-// Sources: PIB RSS + Jina Search (International, Sports, Appointments, India news)
+// Sources: PIB RSS + Indian Express RSS + Hindu RSS + Groq formatting
 
 const https = require('https');
 const http  = require('http');
@@ -19,28 +19,62 @@ function fmtDisp(d) {
   return `${days[d.getUTCDay()]}, ${d.getUTCDate()} ${months[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 }
 
-// ── HTTP GET with redirect follow ─────────────────────────────────────────────
+// ── HTTP GET ──────────────────────────────────────────────────────────────────
 function httpGet(url, maxRedirects = 5) {
   return new Promise((resolve, reject) => {
     const mod = url.startsWith('https') ? https : http;
     const req = mod.get(url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; TrickySSC-Bot/1.0)',
-        'Accept': 'text/html,application/xhtml+xml,*/*',
-        'Accept-Language': 'en-US,en;q=0.9',
+        'User-Agent': 'Mozilla/5.0 (compatible; RSS-Reader/1.0)',
+        'Accept': 'application/rss+xml, application/xml, text/xml, */*',
       }
     }, res => {
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location && maxRedirects > 0) {
-        const next = res.headers.location.startsWith('http') ? res.headers.location : new URL(res.headers.location, url).href;
+        const next = res.headers.location.startsWith('http')
+          ? res.headers.location
+          : new URL(res.headers.location, url).href;
         return httpGet(next, maxRedirects - 1).then(resolve).catch(reject);
       }
       let buf = '';
+      res.setEncoding('utf8');
       res.on('data', c => buf += c);
       res.on('end', () => resolve(buf));
     });
     req.on('error', reject);
-    req.setTimeout(25000, () => { req.destroy(); reject(new Error('Timeout: ' + url)); });
+    req.setTimeout(20000, () => { req.destroy(); reject(new Error('Timeout')); });
   });
+}
+
+// ── Parse RSS XML ─────────────────────────────────────────────────────────────
+function parseRSS(xml, sourceName, maxItems = 20) {
+  const items = [];
+  // Match <item> blocks
+  const itemRe = /<item>([\s\S]*?)<\/item>/g;
+  let m;
+  while ((m = itemRe.exec(xml)) !== null && items.length < maxItems) {
+    const block = m[1];
+    const title = (block.match(/<title>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/title>/) || [])[1]?.trim();
+    const desc  = (block.match(/<description>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/description>/) || [])[1]
+                    ?.replace(/<[^>]+>/g, '').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/\s+/g,' ').trim().slice(0, 300);
+    if (title && title.length > 5) {
+      items.push(`[${sourceName}] ${title}${desc ? ': ' + desc : ''}`);
+    }
+  }
+  return items;
+}
+
+// ── Fetch RSS sources ─────────────────────────────────────────────────────────
+async function fetchRSS(url, name, max = 20) {
+  try {
+    console.log(`Fetching RSS: ${name}`);
+    const xml   = await httpGet(url);
+    const items = parseRSS(xml, name, max);
+    console.log(`  ${name}: ${items.length} items`);
+    return items;
+  } catch(e) {
+    console.warn(`  ${name} failed: ${e.message}`);
+    return [];
+  }
 }
 
 // ── Groq call ─────────────────────────────────────────────────────────────────
@@ -51,86 +85,54 @@ function httpsPost(url, headers, body) {
     const req  = https.request({
       hostname: u.hostname, port: 443, path: u.pathname,
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data), ...headers }
+      headers: { 'Content-Type':'application/json', 'Content-Length':Buffer.byteLength(data), ...headers }
     }, res => {
       let buf = '';
       res.on('data', c => buf += c);
-      res.on('end', () => { try { resolve(JSON.parse(buf)); } catch(e) { reject(new Error('Parse fail: ' + buf.slice(0,200))); } });
+      res.on('end', () => { try { resolve(JSON.parse(buf)); } catch(e) { reject(new Error('Parse: '+buf.slice(0,200))); } });
     });
     req.on('error', reject);
-    req.setTimeout(30000, () => { req.destroy(); reject(new Error('Groq timeout')); });
+    req.setTimeout(60000, () => { req.destroy(); reject(new Error('Groq timeout')); });
     req.write(data); req.end();
   });
 }
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-// ── Fetch PIB RSS ─────────────────────────────────────────────────────────────
-async function fetchPIB() {
-  try {
-    const xml = await httpGet('https://pib.gov.in/RssMain.aspx?ModId=6&Lang=1&Regid=3');
-    const items = [];
-    const re = /<item>[\s\S]*?<title><!\[CDATA\[(.*?)\]\]><\/title>[\s\S]*?<description><!\[CDATA\[(.*?)\]\]><\/description>[\s\S]*?<\/item>/g;
-    let m;
-    while ((m = re.exec(xml)) !== null && items.length < 15) {
-      const title = m[1]?.trim();
-      const desc  = m[2]?.replace(/<[^>]+>/g,'').replace(/\s+/g,' ').trim().slice(0,250);
-      if (title && title.length > 5) items.push(`• ${title}: ${desc}`);
-    }
-    console.log(`PIB: ${items.length} items`);
-    return items.join('\n');
-  } catch(e) {
-    console.warn('PIB failed:', e.message);
-    return '';
-  }
-}
-
-// ── Jina Search ───────────────────────────────────────────────────────────────
-async function jinaSearch(query, label) {
-  try {
-    const url = `https://s.jina.ai/${encodeURIComponent(query)}`;
-    const raw = await httpGet(url);
-    const clean = raw
-      .replace(/https?:\/\/\S+/g, '')
-      .replace(/#{1,6}\s/g, '')
-      .replace(/\[.*?\]\(.*?\)/g, '')
-      .replace(/\s{3,}/g, '\n\n')
-      .trim()
-      .slice(0, 4000);
-    console.log(`Jina [${label}]: ${clean.length} chars — preview: ${clean.slice(0,100).replace(/\n/g,' ')}...`);
-    return clean;
-  } catch(e) {
-    console.warn(`Jina [${label}] failed:`, e.message);
-    return '';
-  }
-}
-
-// ── Groq format ───────────────────────────────────────────────────────────────
-async function groqFormat(prompt) {
-  const MODELS = ['llama-3.3-70b-versatile', 'llama3-70b-8192'];
+async function groqCall(prompt) {
+  // Updated model list — decommissioned models removed
+  const MODELS = [
+    'llama-3.3-70b-versatile',
+    'llama-3.1-70b-versatile',
+    'gemma2-9b-it',
+    'mixtral-8x7b-32768'
+  ];
   let lastErr;
   for (const model of MODELS) {
-    for (let i = 1; i <= 3; i++) {
+    for (let i = 1; i <= 2; i++) {
       try {
+        console.log(`  Groq [${model}] attempt ${i}`);
         const resp = await httpsPost(
           'https://api.groq.com/openai/v1/chat/completions',
           { 'Authorization': 'Bearer ' + GROQ_KEY },
-          { model, messages:[{role:'user',content:prompt}], temperature:0.25, max_tokens:8000, response_format:{type:'json_object'} }
+          { model, messages:[{role:'user',content:prompt}], temperature:0.25, max_tokens:6000, response_format:{type:'json_object'} }
         );
         if (resp.error) throw new Error(resp.error.message);
         const parsed = JSON.parse(resp.choices[0].message.content);
-        console.log(`Groq success: ${model}`);
+        console.log(`  Success: ${model}`);
         return parsed;
       } catch(e) {
         lastErr = e;
-        console.warn(`${model} attempt ${i}: ${e.message.slice(0,80)}`);
-        const retry = /rate|429|503|overload|demand/i.test(e.message);
-        if (!retry) break;
-        if (i < 3) { console.log('Waiting 15s...'); await sleep(15000); }
+        const retry    = /rate|429|503|overload|demand/i.test(e.message);
+        const skip     = /decommission|not.*support|404|not found/i.test(e.message);
+        console.warn(`  ${model} attempt ${i}: ${e.message.slice(0,80)}`);
+        if (skip) break;
+        if (retry && i < 2) { console.log('  Waiting 20s...'); await sleep(20000); }
+        else if (!retry) break;
       }
     }
   }
-  throw lastErr;
+  throw lastErr || new Error('All Groq models failed');
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
@@ -140,126 +142,127 @@ async function main() {
   const dateTxt = fmtDisp(ist);
   console.log(`\n=== CA Fetch: ${dateTxt} ===\n`);
 
-  // Get simple date formats for search
-  const dd   = String(ist.getUTCDate()).padStart(2,'0');
-  const mm   = String(ist.getUTCMonth()+1).padStart(2,'0');
-  const yyyy = ist.getUTCFullYear();
-  const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-  const monthName  = monthNames[ist.getUTCMonth()];
-  const simpleDate = `${parseInt(dd)} ${monthName} ${yyyy}`;
-
-  // Fetch all sources in parallel
-  console.log('Fetching all sources in parallel...');
+  // Fetch multiple RSS feeds in parallel — all free, no auth needed
   const [
-    pib,
-    indiaNews,
-    intlNews,
-    sportsNews,
-    appointAwards,
-    scienceEnv,
+    pibItems,
+    indianExpressItems,
+    hinduItems,
+    hinduSportsItems,
+    pibScienceItems,
+    pib2Items,
   ] = await Promise.all([
-    fetchPIB(),
-    jinaSearch(`India current affairs ${simpleDate}`, 'India'),
-    jinaSearch(`world international news ${simpleDate} summit UN treaty`, 'International'),
-    jinaSearch(`sports news India ${simpleDate} cricket winner result`, 'Sports'),
-    jinaSearch(`India appointment award ranking index ${simpleDate}`, 'Appoint/Awards'),
-    jinaSearch(`India science technology ISRO environment ${simpleDate}`, 'Science/Env'),
+    fetchRSS('https://pib.gov.in/RssMain.aspx?ModId=6&Lang=1&Regid=3',   'PIB-National',    20),
+    fetchRSS('https://indianexpress.com/section/india/feed/',              'IndianExpress',   15),
+    fetchRSS('https://www.thehindu.com/news/national/?service=rss',       'TheHindu',        15),
+    fetchRSS('https://www.thehindu.com/sport/?service=rss',               'Hindu-Sports',    10),
+    fetchRSS('https://pib.gov.in/RssMain.aspx?ModId=23&Lang=1&Regid=3',  'PIB-Science',     10),
+    fetchRSS('https://pib.gov.in/RssMain.aspx?ModId=7&Lang=1&Regid=3',   'PIB-Finance',     10),
   ]);
 
-  console.log('\nAll sources fetched. Calling Groq (2 batches)...\n');
+  const allItems = [
+    ...pibItems,
+    ...pib2Items,
+    ...pibScienceItems,
+    ...indianExpressItems,
+    ...hinduItems,
+    ...hinduSportsItems,
+  ];
 
-  // Build prompt for a batch
-  function buildPrompt(batchLabel, sources, categories, minItems) {
-    return `You are a current affairs expert for SSC exam preparation in India.
-Today is ${dateTxt}.
+  console.log(`\nTotal RSS items collected: ${allItems.length}`);
 
-Extract current affairs items from the sources below for SSC students.
+  if (allItems.length < 5) {
+    throw new Error('Too few RSS items — check network connectivity');
+  }
 
-${sources}
+  // Split into two batches for two separate Groq calls
+  const half    = Math.ceil(allItems.length / 2);
+  const batch1  = allItems.slice(0, half);
+  const batch2  = allItems.slice(half);
+
+  const makePrompt = (items, focus) => `You are a current affairs expert for SSC competitive exam prep in India.
+Today: ${dateTxt}.
+
+Extract important current affairs from these news headlines:
+${items.join('\n')}
+
+Focus on: ${focus}
 
 Return ONLY valid JSON — no markdown:
 {
   "items": [
     {
-      "title": "Headline with full name/place/number",
-      "whyInNews": "What happened — full names, date, place, numbers",
-      "summary": "2-3 sentences with proper names, numbers, places",
-      "keyPoints": ["Fact 1", "Fact 2", "Fact 3", "Fact 4"],
-      "importantPoints": ["HQ/founding year/full form", "Related act/article", "Historical context", "Key stat", "Why it matters"],
+      "title": "Clear headline — full names, place, number",
+      "whyInNews": "1-2 sentences — what happened, who, where, when, numbers",
+      "summary": "2-3 sentences with full proper names, exact numbers, specific places",
+      "keyPoints": ["Specific fact 1", "Specific fact 2", "Specific fact 3", "Specific fact 4"],
+      "importantPoints": ["HQ/founding year/full form", "Related act/article/amendment", "Historical context", "Key data/stat", "Why it matters for India"],
       "category": "polity|economy|science|intl|environ|society|defence|sports|awards|general",
-      "examRelevance": "SSC subject and why to remember",
+      "examRelevance": "SSC subject/topic and why students must remember",
       "tags": ["tag1","tag2","tag3"]
     }
   ]
 }
 
-MUST extract at least ${minItems} items focusing on: ${categories}
-RULES: Full proper names. Specific numbers/dates/places. 
-Sports: winner+team+venue+score. Appointments: name+designation+org.
-International: country+leader+event+outcome. Awards: recipient+award name+body.`;
-  }
+RULES:
+- Extract 10-12 distinct items from the headlines above
+- Full proper names always — never vague like "a minister" or "a country"
+- Sports: winner name + team/country + venue + opponent + score/result
+- Appointments: full name + new designation + organization + who replaced
+- International: country names + leader names + event/treaty/summit details
+- Awards/Rankings: recipient name + award name + category + given by whom
+- Index/Reports: India rank + total countries/participants + publishing org`;
 
-  // Batch 1: India news + PIB + Science
-  const prompt1 = buildPrompt('India',
-    `=== PIB GOVERNMENT PRESS RELEASES ===\n${pib || 'No data'}\n\n=== INDIA NEWS ===\n${indiaNews || 'No data'}\n\n=== SCIENCE & TECH & ENVIRONMENT ===\n${scienceEnv || 'No data'}`,
-    'Polity, Economy, Science & Tech, Environment, Defence, Society',
-    10
-  );
+  console.log('\nCalling Groq Batch 1 (India/PIB/Economy)...');
+  const r1 = await groqCall(makePrompt(
+    batch1,
+    'Polity, Economy, Science & Tech, Environment, Defence, Society — India-focused news'
+  ));
+  await sleep(3000); // small gap between calls to avoid rate limit
 
-  // Batch 2: International + Sports + Awards
-  const prompt2 = buildPrompt('World',
-    `=== INTERNATIONAL NEWS ===\n${intlNews || 'No data'}\n\n=== SPORTS NEWS ===\n${sportsNews || 'No data'}\n\n=== APPOINTMENTS AWARDS RANKINGS ===\n${appointAwards || 'No data'}`,
-    'International Affairs, Sports, Awards & Rankings, Appointments',
-    10
-  );
+  console.log('Calling Groq Batch 2 (International/Sports/Awards)...');
+  const r2 = await groqCall(makePrompt(
+    batch2,
+    'International Affairs, Sports results, Awards, Appointments, Global Rankings'
+  ));
 
-  // Run both in parallel
-  const [result1, result2] = await Promise.all([
-    groqFormat(prompt1),
-    groqFormat(prompt2),
-  ]);
+  const items = [...(r1.items||[]), ...(r2.items||[])];
+  console.log(`\nTotal items: ${items.length} (B1:${r1.items?.length||0} B2:${r2.items?.length||0})`);
 
-  const items = [
-    ...(result1.items || []),
-    ...(result2.items || []),
-  ];
-
-  if (!items.length) throw new Error('No items from either batch');
-  console.log(`\nTotal items: ${items.length} (Batch1: ${result1.items?.length||0}, Batch2: ${result2.items?.length||0})`);
+  if (!items.length) throw new Error('No items from Groq');
 
   const result = {
     date:        dateTxt,
     dateKey,
     generatedAt: new Date().toISOString(),
-    sources:     [],
+    sources:     ['PIB', 'The Hindu', 'Indian Express'],
     items
   };
 
   // Save files
   fs.writeFileSync('current-affairs-data.json', JSON.stringify(result, null, 2));
-  console.log(`✅ Saved ${items.length} items`);
+  console.log(`✅ Saved ${items.length} items → current-affairs-data.json`);
 
   const dir = 'ca-archive';
   if (!fs.existsSync(dir)) fs.mkdirSync(dir);
   fs.writeFileSync(`${dir}/ca-${dateKey}.json`, JSON.stringify(result, null, 2));
-  console.log(`✅ Archive: ${dir}/ca-${dateKey}.json`);
+  console.log(`✅ Archive → ${dir}/ca-${dateKey}.json`);
 
   // Update index
   let index = [];
   try { index = JSON.parse(fs.readFileSync(`${dir}/index.json`, 'utf8')); } catch(e) {}
-  const ei = index.findIndex(e => e.dateKey === dateKey);
-  const entry = { date: result.date, dateKey, file: `ca-${dateKey}.json`, count: items.length };
+  const ei    = index.findIndex(e => e.dateKey === dateKey);
+  const entry = { date: dateTxt, dateKey, file: `ca-${dateKey}.json`, count: items.length };
   if (ei >= 0) index[ei] = entry; else index.unshift(entry);
   index.sort((a,b) => b.dateKey.split('-').reverse().join('').localeCompare(a.dateKey.split('-').reverse().join('')));
   if (index.length > 365) index = index.slice(0,365);
   fs.writeFileSync(`${dir}/index.json`, JSON.stringify(index, null, 2));
-  console.log(`✅ Index: ${index.length} dates`);
+  console.log(`✅ Index updated: ${index.length} dates`);
 
-  // Log category breakdown
+  // Category breakdown
   const cats = {};
   items.forEach(i => { cats[i.category] = (cats[i.category]||0)+1; });
   console.log('\nCategory breakdown:');
-  Object.entries(cats).forEach(([k,v]) => console.log(`  ${k}: ${v}`));
+  Object.entries(cats).sort((a,b)=>b[1]-a[1]).forEach(([k,v]) => console.log(`  ${k}: ${v}`));
 }
 
 main().catch(err => {
