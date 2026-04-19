@@ -2,10 +2,10 @@ name: Daily Current Affairs Update
 
 on:
   schedule:
-    # 6:00 AM IST = 0:30 UTC — catches morning updates (GKToday)
+    # 6:00 AM IST = 0:30 UTC
     - cron: '30 0 * * *'
-    # 11:00 PM IST = 17:30 UTC — catches night updates (Drishti/Adda247)
-    - cron: '30 17 * * *'
+    # 8:00 PM IST = 14:30 UTC (evening update)
+    - cron: '30 14 * * *'
   workflow_dispatch:
 
 jobs:
@@ -24,15 +24,15 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Fetch Current Affairs via Groq
+      - name: Fetch Current Affairs
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
         run: node fetch-ca.js
 
-      - name: Commit and push updated data
+      - name: Commit and push
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "CA Bot"
           git add current-affairs-data.json ca-archive/
-          git diff --staged --quiet || git commit -m "🗞️ Daily CA update - $(date +'%d %b %Y')"
+          git diff --staged --quiet || git commit -m "🗞️ CA update - $(date +'%d %b %Y %H:%M UTC')"
           git push
