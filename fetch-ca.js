@@ -90,15 +90,14 @@ async function jinaSearch(query, label) {
   try {
     const url = `https://s.jina.ai/${encodeURIComponent(query)}`;
     const raw = await httpGet(url);
-    // Extract just text content, remove URLs and junk
     const clean = raw
       .replace(/https?:\/\/\S+/g, '')
       .replace(/#{1,6}\s/g, '')
       .replace(/\[.*?\]\(.*?\)/g, '')
       .replace(/\s{3,}/g, '\n\n')
       .trim()
-      .slice(0, 2500);
-    console.log(`Jina [${label}]: ${clean.length} chars`);
+      .slice(0, 4000);
+    console.log(`Jina [${label}]: ${clean.length} chars — preview: ${clean.slice(0,100).replace(/\n/g,' ')}...`);
     return clean;
   } catch(e) {
     console.warn(`Jina [${label}] failed:`, e.message);
@@ -141,6 +140,14 @@ async function main() {
   const dateTxt = fmtDisp(ist);
   console.log(`\n=== CA Fetch: ${dateTxt} ===\n`);
 
+  // Get simple date formats for search
+  const dd   = String(ist.getUTCDate()).padStart(2,'0');
+  const mm   = String(ist.getUTCMonth()+1).padStart(2,'0');
+  const yyyy = ist.getUTCFullYear();
+  const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const monthName  = monthNames[ist.getUTCMonth()];
+  const simpleDate = `${parseInt(dd)} ${monthName} ${yyyy}`;
+
   // Fetch all sources in parallel
   console.log('Fetching all sources in parallel...');
   const [
@@ -152,59 +159,32 @@ async function main() {
     scienceEnv,
   ] = await Promise.all([
     fetchPIB(),
-    jinaSearch(`India current affairs ${dateTxt} government scheme policy economy`, 'India'),
-    jinaSearch(`international news today ${dateTxt} UN summit treaty world leaders`, 'International'),
-    jinaSearch(`sports results today ${dateTxt} India cricket football chess winner medal`, 'Sports'),
-    jinaSearch(`India appointments awards rankings index ${dateTxt} 2026`, 'Appoint/Awards'),
-    jinaSearch(`India science technology space ISRO environment climate ${dateTxt}`, 'Science/Env'),
+    jinaSearch(`India current affairs ${simpleDate}`, 'India'),
+    jinaSearch(`world international news ${simpleDate} summit UN treaty`, 'International'),
+    jinaSearch(`sports news India ${simpleDate} cricket winner result`, 'Sports'),
+    jinaSearch(`India appointment award ranking index ${simpleDate}`, 'Appoint/Awards'),
+    jinaSearch(`India science technology ISRO environment ${simpleDate}`, 'Science/Env'),
   ]);
 
-  console.log('\nAll sources fetched. Sending to Groq...\n');
+  console.log('\nAll sources fetched. Calling Groq (2 batches)...\n');
 
-  const prompt = `You are a current affairs expert for SSC and competitive exam preparation in India.
+  // Build prompt for a batch
+  function buildPrompt(batchLabel, sources, categories, minItems) {
+    return `You are a current affairs expert for SSC exam preparation in India.
 Today is ${dateTxt}.
 
-Below are news items from MULTIPLE distinct sources. You MUST extract items from EACH source section.
+Extract current affairs items from the sources below for SSC students.
 
-=== SOURCE A: PIB (Government Press Releases) ===
-${pib || 'No data'}
-
-=== SOURCE B: India News (Government, Economy, Schemes) ===
-${indiaNews || 'No data'}
-
-=== SOURCE C: International News (World Events, UN, Summits) ===
-${intlNews || 'No data'}
-
-=== SOURCE D: Sports News (Results, Champions, Medals) ===
-${sportsNews || 'No data'}
-
-=== SOURCE E: Appointments, Awards & Rankings ===
-${appointAwards || 'No data'}
-
-=== SOURCE F: Science, Technology & Environment ===
-${scienceEnv || 'No data'}
-
-TASK: Extract 20-25 current affairs items. You MUST include items from EVERY source section above.
-Minimum coverage required:
-- At least 4 items from SOURCE A (PIB)
-- At least 3 items from SOURCE B (India news)
-- At least 3 items from SOURCE C (International)
-- At least 3 items from SOURCE D (Sports)
-- At least 3 items from SOURCE E (Appointments/Awards)
-- At least 2 items from SOURCE F (Science/Environment)
+${sources}
 
 Return ONLY valid JSON — no markdown:
 {
-  "date": "${dateTxt}",
-  "dateKey": "${dateKey}",
-  "generatedAt": "${new Date().toISOString()}",
-  "sources": [],
   "items": [
     {
       "title": "Headline with full name/place/number",
       "whyInNews": "What happened — full names, date, place, numbers",
       "summary": "2-3 sentences with proper names, numbers, places",
-      "keyPoints": ["Specific fact 1", "Fact 2", "Fact 3", "Fact 4"],
+      "keyPoints": ["Fact 1", "Fact 2", "Fact 3", "Fact 4"],
       "importantPoints": ["HQ/founding year/full form", "Related act/article", "Historical context", "Key stat", "Why it matters"],
       "category": "polity|economy|science|intl|environ|society|defence|sports|awards|general",
       "examRelevance": "SSC subject and why to remember",
@@ -213,24 +193,45 @@ Return ONLY valid JSON — no markdown:
   ]
 }
 
-STRICT RULES:
-- Full proper names always
-- Specific numbers, ranks, amounts, dates
-- Sports: winner + country/team + venue + opponent + score
-- Appointments: full name + designation + organization
-- International: country + leader name + organization + what happened
-- Awards: recipient + full award name + category + awarding body
-- Rankings: India rank + total countries + publishing organization`;
+MUST extract at least ${minItems} items focusing on: ${categories}
+RULES: Full proper names. Specific numbers/dates/places. 
+Sports: winner+team+venue+score. Appointments: name+designation+org.
+International: country+leader+event+outcome. Awards: recipient+award name+body.`;
+  }
 
-  const data  = await groqFormat(prompt);
-  const items = data.items || [];
-  if (!items.length) throw new Error('No items returned');
+  // Batch 1: India news + PIB + Science
+  const prompt1 = buildPrompt('India',
+    `=== PIB GOVERNMENT PRESS RELEASES ===\n${pib || 'No data'}\n\n=== INDIA NEWS ===\n${indiaNews || 'No data'}\n\n=== SCIENCE & TECH & ENVIRONMENT ===\n${scienceEnv || 'No data'}`,
+    'Polity, Economy, Science & Tech, Environment, Defence, Society',
+    10
+  );
+
+  // Batch 2: International + Sports + Awards
+  const prompt2 = buildPrompt('World',
+    `=== INTERNATIONAL NEWS ===\n${intlNews || 'No data'}\n\n=== SPORTS NEWS ===\n${sportsNews || 'No data'}\n\n=== APPOINTMENTS AWARDS RANKINGS ===\n${appointAwards || 'No data'}`,
+    'International Affairs, Sports, Awards & Rankings, Appointments',
+    10
+  );
+
+  // Run both in parallel
+  const [result1, result2] = await Promise.all([
+    groqFormat(prompt1),
+    groqFormat(prompt2),
+  ]);
+
+  const items = [
+    ...(result1.items || []),
+    ...(result2.items || []),
+  ];
+
+  if (!items.length) throw new Error('No items from either batch');
+  console.log(`\nTotal items: ${items.length} (Batch1: ${result1.items?.length||0}, Batch2: ${result2.items?.length||0})`);
 
   const result = {
-    date: data.date || dateTxt,
-    dateKey: data.dateKey || dateKey,
-    generatedAt: data.generatedAt || new Date().toISOString(),
-    sources: [],
+    date:        dateTxt,
+    dateKey,
+    generatedAt: new Date().toISOString(),
+    sources:     [],
     items
   };
 
