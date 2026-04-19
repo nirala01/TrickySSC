@@ -100,16 +100,14 @@ function httpsPost(url, headers, body) {
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 async function groqCall(prompt) {
-  // Updated model list — decommissioned models removed
   const MODELS = [
     'llama-3.3-70b-versatile',
-    'llama-3.1-70b-versatile',
-    'gemma2-9b-it',
-    'mixtral-8x7b-32768'
+    'llama-3.3-70b-specdec',
+    'llama3-groq-70b-8192-tool-use-preview',
   ];
   let lastErr;
   for (const model of MODELS) {
-    for (let i = 1; i <= 2; i++) {
+    for (let i = 1; i <= 3; i++) {
       try {
         console.log(`  Groq [${model}] attempt ${i}`);
         const resp = await httpsPost(
@@ -123,11 +121,11 @@ async function groqCall(prompt) {
         return parsed;
       } catch(e) {
         lastErr = e;
-        const retry    = /rate|429|503|overload|demand/i.test(e.message);
-        const skip     = /decommission|not.*support|404|not found/i.test(e.message);
-        console.warn(`  ${model} attempt ${i}: ${e.message.slice(0,80)}`);
-        if (skip) break;
-        if (retry && i < 2) { console.log('  Waiting 20s...'); await sleep(20000); }
+        const retry = /rate|429|503|overload|demand/i.test(e.message);
+        const skip  = /decommission|no longer support|not found|404/i.test(e.message);
+        console.warn(`  ${model} attempt ${i}: ${e.message.slice(0,100)}`);
+        if (skip) { console.log(`  Skipping ${model} (decommissioned)`); break; }
+        if (retry && i < 3) { console.log(`  Rate limit — waiting 30s...`); await sleep(30000); }
         else if (!retry) break;
       }
     }
@@ -221,7 +219,9 @@ RULES:
     batch1,
     'Polity, Economy, Science & Tech, Environment, Defence, Society — India-focused news'
   ));
-  await sleep(3000); // small gap between calls to avoid rate limit
+
+  console.log('Waiting 40s before Batch 2 to avoid rate limit...');
+  await sleep(40000);
 
   console.log('Calling Groq Batch 2 (International/Sports/Awards)...');
   const r2 = await groqCall(makePrompt(
