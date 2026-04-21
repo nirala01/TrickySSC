@@ -140,6 +140,16 @@ async function main() {
   const dateTxt = fmtDisp(ist);
   console.log(`\n=== CA Fetch: ${dateTxt} ===\n`);
 
+  // Skip if already successfully ran today (archive file exists with items)
+  try {
+    const existing = fs.readFileSync(`ca-archive/ca-${dateKey}.json`, 'utf8');
+    const parsed   = JSON.parse(existing);
+    if (parsed.items && parsed.items.length >= 10) {
+      console.log(`✅ Already have ${parsed.items.length} items for ${dateKey} — skipping duplicate run`);
+      return;
+    }
+  } catch(e) { /* file doesn't exist yet — proceed */ }
+
   // Fetch multiple RSS feeds in parallel — all free, no auth needed
   const [
     pibItems,
@@ -185,6 +195,25 @@ ${items.join('\n')}
 
 Focus on: ${focus}
 
+STRICTLY EXCLUDE — do NOT include these types of news:
+- Crime, murder, rape, assault, accidents, deaths of individuals
+- Political party fights, blame games, election rhetoric, party controversies
+- Celebrity/film/TV/entertainment news
+- Religious disputes, communal incidents, riots
+- Personal tragedies, domestic violence, suicides
+- Sensational or tabloid-style news
+- Petty state-level political squabbles
+
+ONLY include SSC-exam-relevant news:
+- Government schemes, policies, bills, acts, budgets
+- International relations, treaties, summits, UN/global events
+- Science, space, technology, defence achievements
+- Economy — RBI, GDP, trade, markets, indices
+- Sports championships, medals, records (not personal life)
+- Awards, appointments to key positions, global rankings
+- Environment — climate agreements, wildlife, conservation
+- Constitutional/judicial matters of national importance
+
 Return ONLY valid JSON — no markdown:
 {
   "items": [
@@ -202,17 +231,13 @@ Return ONLY valid JSON — no markdown:
 }
 
 RULES:
-- Extract 10-12 distinct items
-- Full proper names always — never vague like "a minister", "a country", "an organization"
-- If the headline is brief, USE YOUR KNOWLEDGE to fill in full details — venue, dates, full names, background facts
-- Sports: winner full name + team/country + venue city + opponent + score/result + tournament context
-- Appointments: full name + new designation + organization full name + who they replaced + when
-- International: country names + leader names + what was agreed/signed + implications
-- Awards/Rankings: recipient full name + award full name + category + given by which organization + when
-- Index/Reports: India rank + total countries + publishing organization + previous rank
-- Economy/Schemes: scheme full name + ministry + budget amount + beneficiaries + launch date
-- importantPoints MUST have 5 points — include founding year, HQ, full form, related act, historical fact
-- summary MUST be at least 3 sentences with rich detail — not just repeating the title`;
+- Extract 10-12 items — only SSC-relevant news, skip everything else
+- Full proper names always — never vague like "a minister", "a country"
+- If headline is brief, USE YOUR KNOWLEDGE to fill full details
+- Sports: winner+team+venue+score. Appointments: name+designation+org
+- International: country+leader+event+outcome. Awards: recipient+award+body
+- importantPoints MUST have 5 points — founding year, HQ, full form, related act, historical fact
+- summary MUST be 3 detailed sentences`;
 
   console.log('\nCalling Groq Batch 1 (India/PIB/Economy)...');
   const r1 = await groqCall(makePrompt(
