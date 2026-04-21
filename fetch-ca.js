@@ -187,7 +187,7 @@ async function main() {
   const batch1  = allItems.slice(0, half);
   const batch2  = allItems.slice(half);
 
-  const makePrompt = (items, focus) => `You are a current affairs expert for SSC competitive exam prep in India.
+  const makePrompt = (items, focus) => `You are a current affairs expert for SSC competitive exam preparation in India.
 Today: ${dateTxt}.
 
 Extract important current affairs from these news headlines:
@@ -195,7 +195,7 @@ ${items.join('\n')}
 
 Focus on: ${focus}
 
-STRICTLY EXCLUDE — do NOT include these types of news:
+STRICTLY EXCLUDE — do NOT include:
 - Crime, murder, rape, assault, accidents, deaths of individuals
 - Political party fights, blame games, election rhetoric, party controversies
 - Celebrity/film/TV/entertainment news
@@ -209,35 +209,51 @@ ONLY include SSC-exam-relevant news:
 - International relations, treaties, summits, UN/global events
 - Science, space, technology, defence achievements
 - Economy — RBI, GDP, trade, markets, indices
-- Sports championships, medals, records (not personal life)
+- Sports championships, medals, records
 - Awards, appointments to key positions, global rankings
 - Environment — climate agreements, wildlife, conservation
 - Constitutional/judicial matters of national importance
 
-Return ONLY valid JSON — no markdown:
+Return ONLY valid JSON — no markdown, no code blocks:
 {
   "items": [
     {
-      "title": "Clear headline — full names, place, number",
-      "whyInNews": "1-2 sentences — what happened, who, where, when, numbers",
-      "summary": "2-3 detailed sentences with full proper names, exact numbers, specific places, background context",
-      "keyPoints": ["Specific fact with name/number", "Specific fact with date/place", "Specific fact with data", "Another important detail"],
-      "importantPoints": ["Full form / HQ / founding year of key organization", "Related constitutional article / act / amendment", "Historical background or previous context", "Key statistics or data points", "Why it matters for India / global significance"],
+      "title": "Clear headline with key name/place/number — never vague",
+      "whyInNews": "1-2 sentences — what specifically happened, full names of people/organisations, exact date, specific place, exact numbers/amounts",
+      "summary": "Exactly 3 sentences. Every sentence must contain full proper names, exact figures, specific locations. No vague language like recently or some officials or a country.",
+      "keyPoints": [
+        "Specific fact with full name and number",
+        "Specific fact with exact date and place",
+        "Specific fact with data or statistic",
+        "Another standalone important detail"
+      ],
+      "importantPoints": [
+        "Full form AND founding year AND headquarters of the key organisation mentioned",
+        "Related constitutional article OR act OR amendment OR government scheme with year",
+        "Historical context — first time achievement, previous record holder, or background",
+        "Key statistic or ranking — India rank, total countries, index name, score",
+        "Policy implication or why this matters specifically for India"
+      ],
       "category": "polity|economy|science|intl|environ|society|defence|sports|awards|general",
-      "examRelevance": "SSC subject/topic and specific reason why students must remember this",
+      "examRelevance": "Name the exact SSC subject (GK/History/Geography/Polity/Economy/Science/Current Affairs) and the specific chapter/topic it belongs to — e.g. GK: International Organisations, or Economy: RBI Monetary Policy",
       "tags": ["tag1","tag2","tag3"]
     }
   ]
 }
 
-RULES:
-- Extract 10-12 items — only SSC-relevant news, skip everything else
-- Full proper names always — never vague like "a minister", "a country"
-- If headline is brief, USE YOUR KNOWLEDGE to fill full details
-- Sports: winner+team+venue+score. Appointments: name+designation+org
-- International: country+leader+event+outcome. Awards: recipient+award+body
-- importantPoints MUST have 5 points — founding year, HQ, full form, related act, historical fact
-- summary MUST be 3 detailed sentences`;
+STRICT RULES — violations will make content useless for students:
+- NEVER use vague words: recently, some, various, certain, officials, a country, a minister — always use full proper names
+- Full name on first use for every person, organisation, place, scheme
+- Sports: full name of winner + country/team + venue city + opponent name + exact score or margin
+- Appointments: full name of appointee + exact new designation + full organisation name + who they replaced (if known)
+- International: country name + leader full name + organisation full name + exact outcome or decision
+- Awards: recipient full name + award full name + category + awarding body full name + year award was established
+- Rankings: India's exact rank + total countries in survey + full name of publishing organisation + previous rank if available
+- importantPoints item 1 MUST have full form + founding year + HQ city of the main organisation
+- importantPoints item 2 MUST cite a specific article number, act name with year, or scheme name
+- importantPoints item 3 MUST give a historical fact — year, previous record, or context
+- keyPoints: exactly 4 items, each a crisp standalone fact a student can memorise
+- Extract 10-12 items total — quality over quantity`;
 
   console.log('\nCalling Groq Batch 1 (India/PIB/Economy)...');
   const r1 = await groqCall(makePrompt(
