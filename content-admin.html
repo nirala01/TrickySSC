@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Content Admin — TrickySSC</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:#0F172A;color:#E2E8F0;min-height:100vh;}
+.topbar{background:linear-gradient(135deg,#FF6B00,#FF8C38);padding:0.85rem 1.5rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;}
+.topbar-left{display:flex;align-items:center;gap:10px;}
+.brand{width:32px;height:32px;background:rgba(255,255,255,0.2);border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:'Rajdhani';font-size:14px;font-weight:700;color:#fff;}
+.topbar-title{font-family:'Rajdhani';font-size:1.1rem;font-weight:700;color:#fff;}
+.nav-links{display:flex;gap:0.5rem;}
+.nav-link{background:rgba(255,255,255,0.2);color:#fff;padding:0.3rem 0.9rem;border-radius:100px;font-size:0.75rem;font-weight:600;text-decoration:none;}
+.page{max-width:900px;margin:0 auto;padding:1.5rem 1rem 4rem;}
+/* Tabs */
+.tabs{display:flex;gap:0.5rem;margin-bottom:1.5rem;background:#1E293B;border-radius:12px;padding:0.4rem;}
+.tab{flex:1;background:none;border:none;color:#64748B;padding:0.6rem;border-radius:8px;font-family:'Plus Jakarta Sans';font-weight:600;font-size:0.85rem;cursor:pointer;transition:all 0.15s;}
+.tab.active{background:#FF6B00;color:#fff;}
+.tab-pane{display:none;}
+.tab-pane.active{display:block;}
+.card{background:#1E293B;border:1px solid #334155;border-radius:14px;padding:1.25rem 1.4rem;margin-bottom:1.25rem;}
+.card h3{font-family:'Rajdhani';font-size:1.1rem;font-weight:700;color:#F1F5F9;margin-bottom:1rem;display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;}
+label{display:block;font-size:0.75rem;font-weight:600;color:#94A3B8;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.4rem;margin-top:0.75rem;}
+input,select,textarea{width:100%;background:#0F172A;border:1px solid #334155;border-radius:8px;padding:0.65rem 0.9rem;color:#E2E8F0;font-family:'Plus Jakarta Sans';font-size:0.88rem;outline:none;transition:border 0.2s;}
+input:focus,select:focus,textarea:focus{border-color:#FF6B00;}
+textarea{resize:vertical;line-height:1.6;}
+.hint{font-size:0.73rem;color:#64748B;margin-top:0.3rem;line-height:1.5;}
+.btn{padding:0.65rem 1.25rem;border-radius:8px;font-family:'Plus Jakarta Sans';font-weight:700;font-size:0.88rem;cursor:pointer;border:none;transition:all 0.15s;}
+.btn-primary{background:linear-gradient(135deg,#FF6B00,#FF8C38);color:#fff;}
+.btn-primary:hover{opacity:0.88;}
+.btn-secondary{background:#334155;color:#E2E8F0;}
+.btn-secondary:hover{background:#475569;}
+.btn-success{background:linear-gradient(135deg,#00A86B,#00c97f);color:#fff;}
+.btn-danger{background:#EF4444;color:#fff;}
+.btn-row{display:flex;gap:0.65rem;flex-wrap:wrap;margin-top:1rem;}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.75rem;}
+@media(max-width:600px){.grid-2,.grid-3{grid-template-columns:1fr;}}
+.status-bar{background:#0F172A;border:1px solid #334155;border-radius:8px;padding:0.65rem 0.9rem;font-size:0.82rem;color:#94A3B8;margin-top:0.75rem;}
+.status-bar.success{border-color:#00A86B;color:#00A86B;}
+.status-bar.error{border-color:#EF4444;color:#EF4444;}
+.status-bar.info{border-color:#3B82F6;color:#93C5FD;}
+.count-badge{background:#FF6B00;color:#fff;border-radius:100px;padding:0.1rem 0.5rem;font-size:0.72rem;font-weight:700;margin-left:0.4rem;}
+.item-row{background:#0F172A;border:1px solid #334155;border-radius:10px;padding:0.8rem 1rem;margin-bottom:0.55rem;display:flex;align-items:center;justify-content:space-between;gap:0.75rem;flex-wrap:wrap;}
+.item-info{flex:1;}
+.item-title{font-size:0.88rem;font-weight:600;color:#F1F5F9;margin-bottom:0.2rem;}
+.item-meta{font-size:0.72rem;color:#64748B;}
+.item-actions{display:flex;gap:0.35rem;}
+.spinner{width:14px;height:14px;border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin 0.7s linear infinite;display:inline-block;vertical-align:middle;margin-right:5px;}
+@keyframes spin{to{transform:rotate(360deg);}}
+/* ChatGPT prompt box */
+.prompt-box{background:#0F172A;border:1px solid #334155;border-radius:8px;padding:1rem;font-size:0.78rem;color:#94A3B8;line-height:1.7;font-family:monospace;white-space:pre-wrap;position:relative;max-height:220px;overflow-y:auto;}
+.copy-btn{position:absolute;top:0.5rem;right:0.5rem;background:#FF6B00;color:#fff;border:none;border-radius:6px;padding:0.25rem 0.65rem;font-size:0.72rem;font-weight:700;cursor:pointer;}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="topbar-left"><div class="brand">T</div><span class="topbar-title">Content Admin</span></div>
+  <div class="nav-links">
+    <a href="tricks.html" class="nav-link">⚡ Tricks</a>
+    <a href="study-notes.html" class="nav-link">📓 Notes</a>
+    <a href="index.html" class="nav-link">← Home</a>
+  </div>
+</div>
+
+<div class="page">
+
+  <!-- Config -->
+  <div class="card">
+    <h3>⚙️ GitHub Config</h3>
+    <div class="grid-2">
+      <div>
+        <label>GitHub Token</label>
+        <input type="password" id="ghToken" placeholder="ghp_xxxx" oninput="saveConfig()">
+      </div>
+      <div style="display:flex;align-items:flex-end;gap:0.5rem;">
+        <button class="btn btn-secondary" style="flex:1" onclick="loadAll()">📥 Load All</button>
+      </div>
+    </div>
+    <div class="status-bar" id="loadStatus">Enter token and click Load All</div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('tricks',this)">⚡ Tricks</button>
+    <button class="tab" onclick="switchTab('notes',this)">📓 Study Notes</button>
+  </div>
+
+  <!-- TRICKS TAB -->
+  <div class="tab-pane active" id="tab-tricks">
+
+    <!-- ChatGPT Prompt -->
+    <div class="card">
+      <h3>💬 ChatGPT Prompt for Tricks</h3>
+      <div class="prompt-box" id="trickPromptBox"><button class="copy-btn" onclick="copyPrompt('trickPromptBox')">📋 Copy</button>Rephrase and structure the following content into this exact JSON format. Return ONLY the JSON object, no explanation:
+
+{
+  "formula": "Shortcut formula — clear, concise. Use new lines for multiple formulas.",
+  "trick": "The shortcut trick with explanation. New lines for multiple tricks.",
+  "example": "One solved example showing the trick step by step."
+}
+
+MY CONTENT:
+[PASTE YOUR CONTENT HERE]</div>
+    </div>
+
+    <div class="card">
+      <h3 id="tHeading">➕ Add Trick</h3>
+      <input type="hidden" id="tId">
+      <div class="grid-3">
+        <div>
+          <label>Exam</label>
+          <select id="tExam">
+            <option>SSC CGL</option><option>SSC CHSL</option><option>SSC CPO</option><option>SSC MTS</option><option>All SSC</option>
+          </select>
+        </div>
+        <div>
+          <label>Subject</label>
+          <select id="tSubject">
+            <option>Quantitative Aptitude</option>
+            <option>General Intelligence & Reasoning</option>
+            <option>English Language</option>
+            <option>General Awareness</option>
+          </select>
+        </div>
+        <div>
+          <label>Icon (emoji)</label>
+          <input type="text" id="tIcon" placeholder="⚡ % 🔢">
+        </div>
+      </div>
+      <div class="grid-2">
+        <div>
+          <label>Chapter (display name)</label>
+          <input type="text" id="tChapter" placeholder="e.g. Percentage">
+        </div>
+        <div>
+          <label>Chapter Key (Firestore match)</label>
+          <input type="text" id="tChapterKey" placeholder="e.g. percentage">
+          <div class="hint">Must match the 'chapter' field in your Firestore questions</div>
+        </div>
+      </div>
+      <label>Shortcut Formula</label>
+      <textarea id="tFormula" rows="3" placeholder="Paste from ChatGPT — formula field..."></textarea>
+      <label>Trick</label>
+      <textarea id="tTrick" rows="3" placeholder="Paste from ChatGPT — trick field..."></textarea>
+      <label>Example</label>
+      <textarea id="tExample" rows="3" placeholder="Paste from ChatGPT — example field..."></textarea>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="saveTrick()">💾 Save</button>
+        <button class="btn btn-secondary" onclick="clearTrick()">✕ Clear</button>
+      </div>
+      <div class="status-bar" id="tFormStatus">Fill fields and click Save</div>
+    </div>
+
+    <div class="card">
+      <h3>📋 Tricks <span class="count-badge" id="tCount">0</span>
+        <button class="btn btn-success" style="margin-left:auto;font-size:0.78rem;padding:0.35rem 0.85rem;" onclick="pushTricks()">🚀 Push Tricks</button>
+      </h3>
+      <div id="tList"><p style="color:#64748B;font-size:0.85rem;">None yet.</p></div>
+      <div class="status-bar" id="tSaveStatus">Ready</div>
+    </div>
+  </div>
+
+  <!-- NOTES TAB -->
+  <div class="tab-pane" id="tab-notes">
+
+    <div class="card">
+      <h3>💬 ChatGPT Prompt for Notes</h3>
+      <div class="prompt-box" id="notesPromptBox"><button class="copy-btn" onclick="copyPrompt('notesPromptBox')">📋 Copy</button>Rephrase and structure the following content into this exact JSON format. Return ONLY the JSON object, no explanation:
+
+{
+  "concept": "Clear explanation of the concept in 3-5 sentences.",
+  "keyPoints": ["Point 1", "Point 2", "Point 3", "Point 4", "Point 5"],
+  "importantFacts": ["Fact 1", "Fact 2", "Fact 3"],
+  "dates": ["Label :: Value", "Label :: Value"],
+  "quickRevision": "2-3 line quick summary to revise just before exam."
+}
+
+Note for dates format: use :: to separate label and value, e.g. "Founded :: 1949" or "Article 21 :: Right to Life"
+
+MY CONTENT:
+[PASTE YOUR CONTENT HERE]</div>
+    </div>
+
+    <div class="card">
+      <h3 id="nHeading">➕ Add Notes Topic</h3>
+      <input type="hidden" id="nId">
+      <div class="grid-3">
+        <div>
+          <label>Exam</label>
+          <select id="nExam">
+            <option>SSC CGL</option><option>SSC CHSL</option><option>SSC CPO</option><option>SSC MTS</option><option>All SSC</option>
+          </select>
+        </div>
+        <div>
+          <label>Subject</label>
+          <select id="nSubject">
+            <option>General Awareness</option>
+            <option>Quantitative Aptitude</option>
+            <option>General Intelligence & Reasoning</option>
+            <option>English Language</option>
+          </select>
+        </div>
+        <div>
+          <label>Icon (emoji)</label>
+          <input type="text" id="nIcon" placeholder="📓 🏛️ 🌍">
+        </div>
+      </div>
+      <div class="grid-2">
+        <div>
+          <label>Chapter (display name)</label>
+          <input type="text" id="nChapter" placeholder="e.g. Indian Parliament">
+        </div>
+        <div>
+          <label>Chapter Key (Firestore match)</label>
+          <input type="text" id="nChapterKey" placeholder="e.g. polity">
+          <div class="hint">Must match 'chapter' field in Firestore</div>
+        </div>
+      </div>
+      <label>Concept</label>
+      <textarea id="nConcept" rows="3" placeholder="Paste from ChatGPT — concept field..."></textarea>
+      <label>Key Points (one per line)</label>
+      <textarea id="nKeyPoints" rows="4" placeholder="Paste from ChatGPT — keyPoints array, one per line..."></textarea>
+      <label>Important Facts (one per line)</label>
+      <textarea id="nImportantFacts" rows="3" placeholder="Paste from ChatGPT — importantFacts array, one per line..."></textarea>
+      <label>Dates & Numbers (format: Label :: Value, one per line)</label>
+      <textarea id="nDates" rows="3" placeholder="e.g. Founded :: 1949&#10;Article 21 :: Right to Life&#10;Members :: 545"></textarea>
+      <label>Quick Revision</label>
+      <textarea id="nQuickRevision" rows="2" placeholder="Paste from ChatGPT — quickRevision field..."></textarea>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="saveNote()">💾 Save</button>
+        <button class="btn btn-secondary" onclick="clearNote()">✕ Clear</button>
+      </div>
+      <div class="status-bar" id="nFormStatus">Fill fields and click Save</div>
+    </div>
+
+    <div class="card">
+      <h3>📋 Notes <span class="count-badge" id="nCount">0</span>
+        <button class="btn btn-success" style="margin-left:auto;font-size:0.78rem;padding:0.35rem 0.85rem;" onclick="pushNotes()">🚀 Push Notes</button>
+      </h3>
+      <div id="nList"><p style="color:#64748B;font-size:0.85rem;">None yet.</p></div>
+      <div class="status-bar" id="nSaveStatus">Ready</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const REPO='nirala01/TrickySSC', BRANCH='main';
+let tricks=[], notes=[], editTId=null, editNId=null;
+
+window.addEventListener('DOMContentLoaded',()=>{
+  const t=localStorage.getItem('tssc_gh_token');
+  if(t) document.getElementById('ghToken').value=t;
+});
+function saveConfig(){localStorage.setItem('tssc_gh_token',document.getElementById('ghToken').value);}
+
+function switchTab(name,btn){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab-pane').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('tab-'+name).classList.add('active');
+}
+
+function copyPrompt(id){
+  const box=document.getElementById(id);
+  const btn=box.querySelector('.copy-btn');
+  const text=box.innerText.replace(btn.innerText,'').trim();
+  navigator.clipboard.writeText(text).then(()=>{btn.textContent='✅ Copied!';setTimeout(()=>btn.textContent='📋 Copy',2000);});
+}
+
+async function loadAll(){
+  setS('loadStatus','info','🔄 Loading...');
+  try{
+    const [r1,r2]=await Promise.all([
+      fetch(`https://raw.githubusercontent.com/${REPO}/${BRANCH}/tricks-data.json?v=`+Date.now()),
+      fetch(`https://raw.githubusercontent.com/${REPO}/${BRANCH}/notes-data.json?v=`+Date.now()),
+    ]);
+    tricks=r1.ok?await r1.json():[];
+    notes=r2.ok?await r2.json():[];
+    renderTricks();renderNotes();
+    setS('loadStatus','success',`✅ Loaded ${tricks.length} tricks + ${notes.length} notes`);
+  }catch(e){setS('loadStatus','error','❌ '+e.message);}
+}
+
+/* ── TRICKS ── */
+function saveTrick(){
+  const chapter=document.getElementById('tChapter').value.trim();
+  const exam=document.getElementById('tExam').value;
+  const subject=document.getElementById('tSubject').value;
+  if(!chapter){setS('tFormStatus','error','⚠️ Chapter name required');return;}
+  const id=editTId||(exam+'-'+subject+'-'+chapter).replace(/\s+/g,'-').toLowerCase();
+  const t={id,exam,subject,chapter,icon:document.getElementById('tIcon').value.trim(),chapterKey:document.getElementById('tChapterKey').value.trim(),formula:document.getElementById('tFormula').value.trim(),trick:document.getElementById('tTrick').value.trim(),example:document.getElementById('tExample').value.trim()};
+  const ei=tricks.findIndex(x=>x.id===id);
+  if(ei>=0)tricks[ei]=t;else tricks.push(t);
+  renderTricks();clearTrick();
+  setS('tFormStatus','success',`✅ "${chapter}" saved. Click Push Tricks to publish.`);
+}
+function clearTrick(){
+  editTId=null;
+  document.getElementById('tHeading').textContent='➕ Add Trick';
+  ['tId','tChapter','tChapterKey','tIcon','tFormula','tTrick','tExample'].forEach(i=>document.getElementById(i).value='');
+  document.getElementById('tExam').value='SSC CGL';
+  document.getElementById('tSubject').value='Quantitative Aptitude';
+  setS('tFormStatus','','Fill fields and click Save');
+}
+function renderTricks(){
+  document.getElementById('tCount').textContent=tricks.length;
+  document.getElementById('tList').innerHTML=tricks.length?tricks.map((t,i)=>`
+    <div class="item-row">
+      <div class="item-info"><div class="item-title">${t.icon||'⚡'} ${t.chapter}</div><div class="item-meta">${t.exam} · ${t.subject} · key:${t.chapterKey||'-'}</div></div>
+      <div class="item-actions">
+        <button class="btn btn-secondary" style="font-size:0.72rem;padding:0.25rem 0.55rem;" onclick="editTrick(${i})">✏️</button>
+        <button class="btn btn-danger" style="font-size:0.72rem;padding:0.25rem 0.55rem;" onclick="delTrick(${i})">🗑</button>
+      </div>
+    </div>`).join(''):'<p style="color:#64748B;font-size:0.85rem;">None yet.</p>';
+}
+function editTrick(i){
+  const t=tricks[i];editTId=t.id;
+  document.getElementById('tHeading').textContent='✏️ Editing: '+t.chapter;
+  document.getElementById('tExam').value=t.exam||'SSC CGL';
+  document.getElementById('tSubject').value=t.subject||'Quantitative Aptitude';
+  document.getElementById('tChapter').value=t.chapter||'';
+  document.getElementById('tChapterKey').value=t.chapterKey||'';
+  document.getElementById('tIcon').value=t.icon||'';
+  document.getElementById('tFormula').value=t.formula||'';
+  document.getElementById('tTrick').value=t.trick||'';
+  document.getElementById('tExample').value=t.example||'';
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function delTrick(i){if(!confirm(`Delete "${tricks[i].chapter}"?`))return;tricks.splice(i,1);renderTricks();}
+async function pushTricks(){
+  const token=document.getElementById('ghToken').value.trim();
+  if(!token){setS('tSaveStatus','error','⚠️ Enter token first');return;}
+  setS('tSaveStatus','info','🔄 Pushing...');
+  try{await ghPut(token,'tricks-data.json',JSON.stringify(tricks,null,2),`⚡ Tricks update — ${tricks.length} topics`);setS('tSaveStatus','success',`✅ ${tricks.length} tricks live on tricks.html`);}
+  catch(e){setS('tSaveStatus','error','❌ '+e.message);}
+}
+
+/* ── NOTES ── */
+function saveNote(){
+  const chapter=document.getElementById('nChapter').value.trim();
+  const exam=document.getElementById('nExam').value;
+  const subject=document.getElementById('nSubject').value;
+  if(!chapter){setS('nFormStatus','error','⚠️ Chapter name required');return;}
+  const id=editNId||(exam+'-'+subject+'-'+chapter).replace(/\s+/g,'-').toLowerCase();
+  const kp=document.getElementById('nKeyPoints').value.split('\n').map(s=>s.replace(/^[-•*]\s*/,'').trim()).filter(Boolean);
+  const facts=document.getElementById('nImportantFacts').value.split('\n').map(s=>s.replace(/^[-•*]\s*/,'').trim()).filter(Boolean);
+  const dates=document.getElementById('nDates').value.split('\n').map(s=>s.trim()).filter(Boolean);
+  const n={id,exam,subject,chapter,icon:document.getElementById('nIcon').value.trim(),chapterKey:document.getElementById('nChapterKey').value.trim(),concept:document.getElementById('nConcept').value.trim(),keyPoints:kp,importantFacts:facts,dates,quickRevision:document.getElementById('nQuickRevision').value.trim()};
+  const ei=notes.findIndex(x=>x.id===id);
+  if(ei>=0)notes[ei]=n;else notes.push(n);
+  renderNotes();clearNote();
+  setS('nFormStatus','success',`✅ "${chapter}" saved. Click Push Notes to publish.`);
+}
+function clearNote(){
+  editNId=null;
+  document.getElementById('nHeading').textContent='➕ Add Notes Topic';
+  ['nId','nChapter','nChapterKey','nIcon','nConcept','nKeyPoints','nImportantFacts','nDates','nQuickRevision'].forEach(i=>document.getElementById(i).value='');
+  document.getElementById('nExam').value='SSC CGL';
+  document.getElementById('nSubject').value='General Awareness';
+  setS('nFormStatus','','Fill fields and click Save');
+}
+function renderNotes(){
+  document.getElementById('nCount').textContent=notes.length;
+  document.getElementById('nList').innerHTML=notes.length?notes.map((n,i)=>`
+    <div class="item-row">
+      <div class="item-info"><div class="item-title">${n.icon||'📓'} ${n.chapter}</div><div class="item-meta">${n.exam} · ${n.subject} · key:${n.chapterKey||'-'}</div></div>
+      <div class="item-actions">
+        <button class="btn btn-secondary" style="font-size:0.72rem;padding:0.25rem 0.55rem;" onclick="editNote(${i})">✏️</button>
+        <button class="btn btn-danger" style="font-size:0.72rem;padding:0.25rem 0.55rem;" onclick="delNote(${i})">🗑</button>
+      </div>
+    </div>`).join(''):'<p style="color:#64748B;font-size:0.85rem;">None yet.</p>';
+}
+function editNote(i){
+  const n=notes[i];editNId=n.id;
+  document.getElementById('nHeading').textContent='✏️ Editing: '+n.chapter;
+  document.getElementById('nExam').value=n.exam||'SSC CGL';
+  document.getElementById('nSubject').value=n.subject||'General Awareness';
+  document.getElementById('nChapter').value=n.chapter||'';
+  document.getElementById('nChapterKey').value=n.chapterKey||'';
+  document.getElementById('nIcon').value=n.icon||'';
+  document.getElementById('nConcept').value=n.concept||'';
+  document.getElementById('nKeyPoints').value=(n.keyPoints||[]).join('\n');
+  document.getElementById('nImportantFacts').value=(n.importantFacts||[]).join('\n');
+  document.getElementById('nDates').value=(n.dates||[]).join('\n');
+  document.getElementById('nQuickRevision').value=n.quickRevision||'';
+  window.scrollTo({top:0,behavior:'smooth'});
+  // switch to notes tab
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab-pane').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab')[1].classList.add('active');
+  document.getElementById('tab-notes').classList.add('active');
+}
+function delNote(i){if(!confirm(`Delete "${notes[i].chapter}"?`))return;notes.splice(i,1);renderNotes();}
+async function pushNotes(){
+  const token=document.getElementById('ghToken').value.trim();
+  if(!token){setS('nSaveStatus','error','⚠️ Enter token first');return;}
+  setS('nSaveStatus','info','🔄 Pushing...');
+  try{await ghPut(token,'notes-data.json',JSON.stringify(notes,null,2),`📓 Notes update — ${notes.length} topics`);setS('nSaveStatus','success',`✅ ${notes.length} notes live on study-notes.html`);}
+  catch(e){setS('nSaveStatus','error','❌ '+e.message);}
+}
+
+/* ── GitHub ── */
+async function ghPut(token,path,content,msg){
+  const url=`https://api.github.com/repos/${REPO}/contents/${path}`;
+  let sha=null;
+  try{const r=await fetch(url,{headers:{'Authorization':'Bearer '+token,'Accept':'application/vnd.github.v3+json'}});if(r.ok){const d=await r.json();sha=d.sha;}}catch(e){}
+  const body={message:msg,content:btoa(unescape(encodeURIComponent(content))),branch:BRANCH};
+  if(sha)body.sha=sha;
+  const resp=await fetch(url,{method:'PUT',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json','Accept':'application/vnd.github.v3+json'},body:JSON.stringify(body)});
+  if(!resp.ok){const e=await resp.json();throw new Error(e.message||'GitHub error '+resp.status);}
+}
+function setS(id,type,msg){const el=document.getElementById(id);el.className='status-bar'+(type?' '+type:'');el.textContent=msg;}
+</script>
+</body>
+</html>
