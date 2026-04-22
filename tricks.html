@@ -125,13 +125,25 @@ window._dbReady=true;window.dispatchEvent(new Event('dbReady'));
 <script>
 const URL='https://raw.githubusercontent.com/nirala01/TrickySSC/main/tricks-data.json';
 let data=[],activeId=null;
+const examParam=new URLSearchParams(window.location.search).get('exam')||'';
 window.addEventListener('DOMContentLoaded',async()=>{
   try{const r=await fetch(URL+'?v='+Date.now());if(r.ok)data=await r.json();}catch(e){}
+  // Update page title if exam param set
+  if(examParam){
+    document.querySelector('.topbar-brand').textContent='TrickySSC — '+examParam+' Tricks';
+  }
   renderSB();
+  // Auto-load first topic if exam param set
+  const filtered=examParam?data.filter(t=>t.exam===examParam||t.exam==='All SSC'):data;
+  if(filtered.length)loadTopic(filtered[0].id);
 });
 function renderSB(f=''){
   const fl=f.toLowerCase();
-  const items=data.filter(t=>!fl||t.chapter.toLowerCase().includes(fl)||t.subject.toLowerCase().includes(fl));
+  const items=data.filter(t=>{
+    const examMatch=!examParam||(t.exam===examParam||t.exam==='All SSC');
+    const textMatch=!fl||t.chapter.toLowerCase().includes(fl)||t.subject.toLowerCase().includes(fl);
+    return examMatch&&textMatch;
+  });
   const grps={};
   items.forEach(t=>{
     const k=t.exam+'|'+t.subject;
