@@ -38,30 +38,19 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F1F5F9;color:#1E293B
 .te.active .te-name{color:#FF6B00;font-weight:700;}
 .te-name{font-size:0.82rem;font-weight:500;color:#374151;flex:1;}
 .no-items{padding:2rem 1rem;text-align:center;color:#94A3B8;font-size:0.82rem;}
-.content-panel{padding:1.25rem 1rem;min-width:0;}
+.content-panel{padding:1.25rem 1rem 3rem;min-width:0;}
 .welcome{text-align:center;padding:4rem 1rem;}
 .welcome-icon{font-size:3rem;margin-bottom:1rem;}
 .welcome h2{font-family:'Rajdhani';font-size:1.5rem;font-weight:700;margin-bottom:0.5rem;}
 .welcome p{font-size:0.85rem;color:#64748B;max-width:360px;margin:0 auto;}
 .ch-header{margin-bottom:1rem;}
 .ch-title{font-family:'Rajdhani';font-size:1.4rem;font-weight:700;margin-bottom:0.4rem;}
-.chips{display:flex;gap:0.4rem;flex-wrap:wrap;}
+.chips{display:flex;gap:0.4rem;flex-wrap:wrap;margin-bottom:1rem;}
 .chip{font-size:0.7rem;font-weight:700;padding:0.18rem 0.6rem;border-radius:100px;}
 .c-exam{background:#FFF7ED;color:#C2410C;}
 .c-subj{background:#EFF6FF;color:#1D4ED8;}
-.card{background:#fff;border-radius:12px;border:1px solid #E2E8F0;padding:1rem 1.1rem;margin-bottom:0.85rem;}
-.blk{border-radius:0 8px 8px 0;padding:0.5rem 0.75rem;margin-bottom:0.65rem;}
-.blk-lbl{font-size:0.63rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.3rem;}
-.formula-blk{background:#EFF6FF;border-left:3px solid #3B82F6;}
-.formula-blk .blk-lbl{color:#1D4ED8;}
-.formula-blk .blk-txt{font-size:0.85rem;color:#1E40AF;font-weight:600;line-height:1.7;}
-.trick-blk{background:#FFF7ED;border-left:3px solid #FF6B00;}
-.trick-blk .blk-lbl{color:#C2410C;}
-.trick-blk .blk-txt{font-size:0.83rem;color:#92400E;line-height:1.7;}
-.example-blk{background:#F0FDF4;border-left:3px solid #16A34A;}
-.example-blk .blk-lbl{color:#15803D;}
-.example-blk .blk-txt{font-size:0.82rem;color:#166534;line-height:1.7;}
-.pyq-sec{margin-top:0.25rem;}
+.content-body{background:#fff;border-radius:12px;border:1px solid #E2E8F0;padding:1.25rem 1.5rem;margin-bottom:1rem;font-size:0.88rem;line-height:1.9;color:#1E293B;white-space:pre-wrap;font-family:'Plus Jakarta Sans';word-wrap:break-word;}
+.pyq-sec{margin-top:0.5rem;}
 .pyq-hdr{font-family:'Rajdhani';font-size:1rem;font-weight:700;margin-bottom:0.65rem;display:flex;align-items:center;gap:0.5rem;}
 .pyq-card{background:#fff;border:1px solid #E2E8F0;border-radius:10px;padding:0.85rem;margin-bottom:0.55rem;}
 .pyq-meta{display:flex;gap:0.3rem;flex-wrap:wrap;margin-bottom:0.4rem;}
@@ -86,8 +75,9 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F1F5F9;color:#1E293B
   .sidebar{position:fixed;top:0;left:-280px;height:100vh;width:280px;transition:left 0.25s;z-index:250;}
   .sidebar.open{left:0;}
   .sidebar-close{display:block;}
-  .content-panel{padding:1rem 0.85rem;}
+  .content-panel{padding:1rem 0.85rem 3rem;}
   .pyq-opts{grid-template-columns:1fr;}
+  .content-body{font-size:0.84rem;padding:1rem;}
 }
 </style>
 </head>
@@ -96,6 +86,7 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F1F5F9;color:#1E293B
   <div class="topbar-left"><div class="brand">T</div><span class="topbar-brand">TrickySSC — Tricks</span></div>
   <div class="topbar-right">
     <a href="index.html" class="back-btn">← Home</a>
+    <a href="content-admin.html" class="back-btn">⚙️ Admin</a>
     <button class="menu-btn" onclick="toggleSB()">☰</button>
   </div>
 </div>
@@ -107,58 +98,37 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F1F5F9;color:#1E293B
     <div class="topic-list" id="topicList"><div class="no-items"><div class="spinner"></div>Loading...</div></div>
   </div>
   <div class="content-panel" id="contentPanel">
-    <div class="welcome"><div class="welcome-icon">⚡</div><h2>Shortcut Tricks</h2><p>Select a chapter from the sidebar to view formulas, tricks and SSC PYQ questions.</p></div>
+    <div class="welcome"><div class="welcome-icon">⚡</div><h2>Shortcut Tricks</h2><p>Select a chapter from the sidebar to view tricks and SSC PYQ questions.</p></div>
   </div>
 </div>
+
 <script type="module">
 import{initializeApp}from'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
 import{getFirestore,collection,query,where,limit,getDocs}from'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 const db=getFirestore(initializeApp({apiKey:'AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA',authDomain:'trickyssc-17bb3.firebaseapp.com',projectId:'trickyssc-17bb3',storageBucket:'trickyssc-17bb3.firebasestorage.app',messagingSenderId:'450627057220',appId:'1:450627057220:web:366267bf437d94f20c6e11'}));
 window._fetchPYQ=async(subject,chapterKey,n=5)=>{
-  try{
-    const q=chapterKey?query(collection(db,'questions'),where('subject','==',subject),where('chapter','==',chapterKey),limit(n)):query(collection(db,'questions'),where('subject','==',subject),limit(n));
-    return(await getDocs(q)).docs.map(d=>({id:d.id,...d.data()}));
-  }catch(e){return[];}
+  try{const q=chapterKey?query(collection(db,'questions'),where('subject','==',subject),where('chapter','==',chapterKey),limit(n)):query(collection(db,'questions'),where('subject','==',subject),limit(n));return(await getDocs(q)).docs.map(d=>({id:d.id,...d.data()}));}catch(e){return[];}
 };
 window._dbReady=true;window.dispatchEvent(new Event('dbReady'));
 </script>
 <script>
-const URL='https://raw.githubusercontent.com/nirala01/TrickySSC/main/tricks-data.json';
+const DATA_URL='https://raw.githubusercontent.com/nirala01/TrickySSC/main/tricks-data.json';
 let data=[],activeId=null;
 const examParam=new URLSearchParams(window.location.search).get('exam')||'';
 window.addEventListener('DOMContentLoaded',async()=>{
-  try{const r=await fetch(URL+'?v='+Date.now());if(r.ok)data=await r.json();}catch(e){}
-  // Update page title if exam param set
-  if(examParam){
-    document.querySelector('.topbar-brand').textContent='TrickySSC — '+examParam+' Tricks';
-  }
+  try{const r=await fetch(DATA_URL+'?v='+Date.now());if(r.ok)data=await r.json();}catch(e){}
+  if(examParam)document.querySelector('.topbar-brand').textContent='TrickySSC — '+examParam+' Tricks';
   renderSB();
-  // Auto-load first topic if exam param set
   const filtered=examParam?data.filter(t=>t.exam===examParam||t.exam==='All SSC'):data;
   if(filtered.length)loadTopic(filtered[0].id);
 });
 function renderSB(f=''){
   const fl=f.toLowerCase();
-  const items=data.filter(t=>{
-    const examMatch=!examParam||(t.exam===examParam||t.exam==='All SSC');
-    const textMatch=!fl||t.chapter.toLowerCase().includes(fl)||t.subject.toLowerCase().includes(fl);
-    return examMatch&&textMatch;
-  });
-  const grps={};
-  items.forEach(t=>{
-    const k=t.exam+'|'+t.subject;
-    if(!grps[k])grps[k]={exam:t.exam,subject:t.subject,items:[]};
-    grps[k].items.push(t);
-  });
+  const items=data.filter(t=>{const em=!examParam||(t.exam===examParam||t.exam==='All SSC');const tm=!fl||t.chapter.toLowerCase().includes(fl)||t.subject.toLowerCase().includes(fl);return em&&tm;});
+  const grps={};items.forEach(t=>{const k=t.exam+'|'+t.subject;if(!grps[k])grps[k]={exam:t.exam,subject:t.subject,items:[]};grps[k].items.push(t);});
   const list=document.getElementById('topicList');
   if(!Object.keys(grps).length){list.innerHTML='<div class="no-items">No chapters found</div>';return;}
-  list.innerHTML=Object.entries(grps).map(([k,g])=>{
-    const gid='g'+btoa(k).replace(/[^a-z0-9]/gi,'');
-    return`<div class="grp" id="${gid}">
-      <div class="grp-header" onclick="toggleGrp('${gid}')"><span class="grp-label">${g.exam} · ${g.subject}</span><span class="grp-arrow">▾</span></div>
-      <div class="grp-body">${g.items.map(t=>`<div class="te ${activeId===t.id?'active':''}" data-id="${t.id}" onclick="loadTopic('${t.id}')">${t.icon||'⚡'} <span class="te-name">${t.chapter}</span></div>`).join('')}</div>
-    </div>`;
-  }).join('');
+  list.innerHTML=Object.entries(grps).map(([k,g])=>{const gid='g'+btoa(k).replace(/[^a-z0-9]/gi,'');return`<div class="grp" id="${gid}"><div class="grp-header" onclick="toggleGrp('${gid}')"><span class="grp-label">${g.exam} · ${g.subject}</span><span class="grp-arrow">▾</span></div><div class="grp-body">${g.items.map(t=>`<div class="te ${activeId===t.id?'active':''}" data-id="${t.id}" onclick="loadTopic('${t.id}')">${t.icon||'⚡'} <span class="te-name">${t.chapter}</span></div>`).join('')}</div></div>`;}).join('');
 }
 window.toggleGrp=id=>document.getElementById(id)?.classList.toggle('collapsed');
 window.filterList=v=>renderSB(v);
@@ -167,28 +137,19 @@ async function loadTopic(id){
   document.querySelectorAll('.te').forEach(e=>e.classList.toggle('active',e.dataset.id===id));
   const t=data.find(x=>x.id===id);if(!t)return;
   document.getElementById('contentPanel').innerHTML='<div class="center-box"><div class="spinner"></div></div>';
-  const pyqs=window._dbReady?await window._fetchPYQ(t.subject,t.chapterKey,5):[];
+  const pyqs=window._dbReady?await window._fetchPYQ(t.subject,t.chapterKey,6):[];
   document.getElementById('contentPanel').innerHTML=`
     <div class="ch-header">
-      <div class="ch-title">${t.icon||'⚡'} ${t.chapter}</div>
-      <div class="chips"><span class="chip c-exam">${t.exam}</span><span class="chip c-subj">${t.subject}</span></div>
+      <div class="ch-title">${t.icon||'⚡'} ${esc(t.chapter)}</div>
+      <div class="chips"><span class="chip c-exam">${esc(t.exam)}</span><span class="chip c-subj">${esc(t.subject)}</span></div>
     </div>
-    <div class="card">
-      ${t.formula?`<div class="blk formula-blk"><div class="blk-lbl">📐 Shortcut Formula</div><div class="blk-txt">${esc(t.formula).replace(/\n/g,'<br>')}</div></div>`:''}
-      ${t.trick?`<div class="blk trick-blk"><div class="blk-lbl">⚡ Trick</div><div class="blk-txt">${esc(t.trick).replace(/\n/g,'<br>')}</div></div>`:''}
-      ${t.example?`<div class="blk example-blk"><div class="blk-lbl">✅ Example</div><div class="blk-txt">${esc(t.example).replace(/\n/g,'<br>')}</div></div>`:''}
-    </div>
-    ${pyqs.length?`<div class="pyq-sec"><div class="pyq-hdr">📄 SSC PYQ Questions<span style="font-size:0.75rem;color:#64748B;font-weight:400;margin-left:0.4rem;">${pyqs.length} from database</span></div>${pyqs.map((q,i)=>pyqCard(q,i)).join('')}</div>`:`<div class="center-box"><p style="font-size:0.82rem;">No PYQ questions in database for this chapter yet.</p></div>`}`;
+    <div class="content-body">${esc(t.rawContent||'')}</div>
+    ${pyqs.length?`<div class="pyq-sec"><div class="pyq-hdr">📄 SSC PYQ Questions <span style="font-size:0.75rem;color:#64748B;font-weight:400;">${pyqs.length} from database</span></div>${pyqs.map((q,i)=>pyqCard(q,i)).join('')}</div>`:`<div class="center-box"><p style="font-size:0.82rem;">No PYQ questions in database for this chapter yet.</p></div>`}`;
 }
 function pyqCard(q,i){
   const opts=['A','B','C','D'].map(l=>{const txt=q.options?q.options[l]:q[`option_${l}`]||'';return`<div class="pyq-opt ${q.correct===l?'correct':''}">${l}. ${esc(txt)}</div>`;}).join('');
   const sol=(q.explanation||'').replace(/<[^>]+>/g,'').slice(0,400)||q.trick||'';
-  return`<div class="pyq-card">
-    <div class="pyq-meta">${q.year?`<span class="pyq-tag yr">${q.year}</span>`:''} ${q.shift?`<span class="pyq-tag">${q.shift}</span>`:''}</div>
-    <div class="pyq-q">Q${q.qNum||i+1}. ${esc(q.text||'')}</div>
-    <div class="pyq-opts">${opts}</div>
-    ${sol?`<button class="sol-btn" onclick="var s=this.nextElementSibling;s.classList.toggle('show');this.textContent=s.classList.contains('show')?'🙈 Hide':'💡 Solution'">💡 Solution</button><div class="sol-txt">${esc(sol)}</div>`:''}
-  </div>`;
+  return`<div class="pyq-card"><div class="pyq-meta">${q.year?`<span class="pyq-tag yr">${q.year}</span>`:''} ${q.shift?`<span class="pyq-tag">${q.shift}</span>`:''}</div><div class="pyq-q">Q${q.qNum||i+1}. ${esc(q.text||'')}</div><div class="pyq-opts">${opts}</div>${sol?`<button class="sol-btn" onclick="var s=this.nextElementSibling;s.classList.toggle('show');this.textContent=s.classList.contains('show')?'🙈 Hide':'💡 Solution'">💡 Solution</button><div class="sol-txt">${esc(sol)}</div>`:''}</div>`;
 }
 window.toggleSB=()=>{const sb=document.getElementById('sidebar'),ov=document.getElementById('overlay');const o=sb.classList.toggle('open');ov.classList.toggle('show',o);document.body.style.overflow=o?'hidden':'';};
 function closeSB(){document.getElementById('sidebar').classList.remove('open');document.getElementById('overlay').classList.remove('show');document.body.style.overflow='';}
