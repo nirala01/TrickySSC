@@ -46,6 +46,16 @@ textarea{resize:vertical;line-height:1.7;}
 .spinner{width:14px;height:14px;border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin 0.7s linear infinite;display:inline-block;vertical-align:middle;margin-right:5px;}
 @keyframes spin{to{transform:rotate(360deg);}}
 .hint{font-size:0.73rem;color:#64748B;margin-top:0.3rem;}
+/* Toolbar */
+.editor-wrap{border:1px solid #334155;border-radius:8px;overflow:hidden;}
+.toolbar{background:#1a2744;padding:0.5rem 0.65rem;display:flex;gap:0.35rem;flex-wrap:wrap;align-items:center;border-bottom:1px solid #334155;}
+.tb-btn{background:#334155;color:#E2E8F0;border:none;border-radius:5px;padding:0.28rem 0.6rem;font-size:0.78rem;font-weight:600;cursor:pointer;font-family:'Plus Jakarta Sans';transition:all 0.12s;}
+.tb-btn:hover{background:#FF6B00;color:#fff;}
+.tb-sep{width:1px;height:20px;background:#334155;margin:0 0.15rem;}
+.tb-label{font-size:0.68rem;color:#64748B;font-weight:600;text-transform:uppercase;}
+.editor-wrap textarea{border:none;border-radius:0;border-top:none;}
+.editor-wrap textarea:focus{border-color:transparent;outline:none;}
+
 /* Preview */
 .preview-card{background:#0F172A;border:1px solid #334155;border-radius:10px;padding:1rem 1.1rem;margin-bottom:0.65rem;}
 .pc-top{display:flex;align-items:center;justify-content:space-between;gap:0.5rem;margin-bottom:0.6rem;flex-wrap:wrap;}
@@ -129,7 +139,22 @@ textarea{resize:vertical;line-height:1.7;}
     <div class="card">
       <h3>📝 Paste Your Content</h3>
       <p style="font-size:0.82rem;color:#64748B;margin-bottom:1rem;">Paste any content exactly as-is — it will be displayed exactly the same on the website. Any language, any format, any emojis.</p>
-      <textarea id="nRawContent" rows="18" placeholder="Paste your content here exactly as you want it to appear...
+      <div class="editor-wrap">
+        <div class="toolbar">
+          <span class="tb-label">Format:</span>
+          <button class="tb-btn" onclick="fmt('n','bold')" title="Bold selected text"><b>B</b></button>
+          <button class="tb-btn" onclick="fmt('n','heading')" title="Make heading (large text)">H</button>
+          <button class="tb-btn" onclick="fmt('n','subheading')" title="Subheading">h</button>
+          <div class="tb-sep"></div>
+          <button class="tb-btn" onclick="fmt('n','bullet')" title="Add bullet point">• List</button>
+          <button class="tb-btn" onclick="fmt('n','numbered')" title="Add numbered point">1. List</button>
+          <button class="tb-btn" onclick="fmt('n','arrow')" title="Add arrow point">→ Point</button>
+          <div class="tb-sep"></div>
+          <button class="tb-btn" onclick="fmt('n','highlight')" title="Highlight (orange)">🟠 Hi</button>
+          <button class="tb-btn" onclick="fmt('n','green')" title="Green text">🟢 Ok</button>
+          <button class="tb-btn" onclick="fmt('n','divider')" title="Add divider line">— Line</button>
+        </div>
+        <textarea id="nRawContent" rows="18" placeholder="Paste your content here exactly as you want it to appear...
 
 🌟 CHAPTER 3: PATTERNED SEQUENCES (Series)
 A patterned sequence is an arrangement of numbers...
@@ -139,6 +164,7 @@ Example 1: 2, 5, 8, 11, ? → +3 → Answer = 14
 ...
 
 Content will appear EXACTLY like this on the website."></textarea>
+      </div>
       <div class="btn-row">
         <button class="btn btn-primary" onclick="nPreview()">👁 Preview</button>
         <button class="btn btn-success" onclick="nAdd()">➕ Add to List</button>
@@ -203,7 +229,22 @@ Content will appear EXACTLY like this on the website."></textarea>
     <div class="card">
       <h3>📝 Paste Your Content</h3>
       <p style="font-size:0.82rem;color:#64748B;margin-bottom:1rem;">Paste your tricks content exactly as-is. Any language, any format.</p>
-      <textarea id="tRawContent" rows="14" placeholder="Paste trick content here exactly as you want it to appear...
+      <div class="editor-wrap">
+        <div class="toolbar">
+          <span class="tb-label">Format:</span>
+          <button class="tb-btn" onclick="fmt('t','bold')" title="Bold selected text"><b>B</b></button>
+          <button class="tb-btn" onclick="fmt('t','heading')" title="Make heading">H</button>
+          <button class="tb-btn" onclick="fmt('t','subheading')" title="Subheading">h</button>
+          <div class="tb-sep"></div>
+          <button class="tb-btn" onclick="fmt('t','bullet')" title="Bullet point">• List</button>
+          <button class="tb-btn" onclick="fmt('t','numbered')" title="Numbered point">1. List</button>
+          <button class="tb-btn" onclick="fmt('t','arrow')" title="Arrow point">→ Point</button>
+          <div class="tb-sep"></div>
+          <button class="tb-btn" onclick="fmt('t','highlight')" title="Highlight orange">🟠 Hi</button>
+          <button class="tb-btn" onclick="fmt('t','green')" title="Green text">🟢 Ok</button>
+          <button class="tb-btn" onclick="fmt('t','divider')" title="Divider line">— Line</button>
+        </div>
+        <textarea id="tRawContent" rows="14" placeholder="Paste trick content here exactly as you want it to appear...
 
 ⚡ PERCENTAGE TRICK
 If A is x% more than B → B is less than A by: x/(100+x) × 100%
@@ -211,6 +252,7 @@ If A is x% more than B → B is less than A by: x/(100+x) × 100%
 Example:
 Q: A earns 25% more than B. By how much % is B less than A?
 Sol: 25/(100+25) × 100 = 20% ✅"></textarea>
+      </div>
       <div class="btn-row">
         <button class="btn btn-primary" onclick="tPreview()">👁 Preview</button>
         <button class="btn btn-success" onclick="tAdd()">➕ Add to List</button>
@@ -403,6 +445,74 @@ async function ghPut(token,path,content,msg){
 }
 function setS(id,type,msg){const el=document.getElementById(id);el.className='status-bar'+(type?' '+type:'');el.textContent=msg;}
 function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+// ── Formatting toolbar ────────────────────────────────────────────────────────
+// Markup format: @@bold@@, ##heading##, ~~subheading~~, ::bullet::, ##1::numbered, ->arrow->, ==highlight==, ++green++, ---divider---
+// Display page renders these tags as styled HTML
+let numberedCounters = {n:0, t:0};
+
+function fmt(prefix, type) {
+  const ta = document.getElementById(prefix + 'RawContent');
+  const start = ta.selectionStart;
+  const end   = ta.selectionEnd;
+  const sel   = ta.value.substring(start, end);
+  const before = ta.value.substring(0, start);
+  const after  = ta.value.substring(end);
+
+  let insert = '';
+
+  switch(type) {
+    case 'bold':
+      insert = sel ? `@@${sel}@@` : '@@bold text@@';
+      break;
+    case 'heading':
+      // Wrap whole line or selection
+      insert = sel ? `##${sel}##` : '##Heading Text##';
+      break;
+    case 'subheading':
+      insert = sel ? `~~${sel}~~` : '~~Subheading~~';
+      break;
+    case 'bullet':
+      // Add on new line
+      const bulletLine = (before.endsWith('\n') || before === '' ? '' : '\n') + `• ${sel || 'Point here'}`;
+      ta.value = before + bulletLine + after;
+      ta.selectionStart = ta.selectionEnd = before.length + bulletLine.length;
+      ta.focus();
+      return;
+    case 'numbered':
+      numberedCounters[prefix]++;
+      const numLine = (before.endsWith('\n') || before === '' ? '' : '\n') + `${numberedCounters[prefix]}. ${sel || 'Point here'}`;
+      ta.value = before + numLine + after;
+      ta.selectionStart = ta.selectionEnd = before.length + numLine.length;
+      ta.focus();
+      return;
+    case 'arrow':
+      const arrLine = (before.endsWith('\n') || before === '' ? '' : '\n') + `→ ${sel || 'Point here'}`;
+      ta.value = before + arrLine + after;
+      ta.selectionStart = ta.selectionEnd = before.length + arrLine.length;
+      ta.focus();
+      return;
+    case 'highlight':
+      insert = sel ? `==${sel}==` : '==highlighted text==';
+      break;
+    case 'green':
+      insert = sel ? `++${sel}++` : '++green text++';
+      break;
+    case 'divider':
+      insert = (before.endsWith('\n') || before==='' ? '' : '\n') + '―――――――――――――――――――――――\n';
+      ta.value = before + insert + after;
+      ta.selectionStart = ta.selectionEnd = before.length + insert.length;
+      ta.focus();
+      return;
+  }
+
+  ta.value = before + insert + after;
+  // Select the inner content for easy replacement
+  ta.selectionStart = before.length + (insert.indexOf(sel||'') >= 0 ? insert.indexOf(sel||'') : 2);
+  ta.selectionEnd   = ta.selectionStart + (sel ? sel.length : insert.length - 4);
+  ta.focus();
+}
+
 </script>
 </body>
 </html>

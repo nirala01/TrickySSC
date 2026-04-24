@@ -143,7 +143,7 @@ async function loadTopic(id){
       <div class="ch-title">${t.icon||'⚡'} ${esc(t.chapter)}</div>
       <div class="chips"><span class="chip c-exam">${esc(t.exam)}</span><span class="chip c-subj">${esc(t.subject)}</span></div>
     </div>
-    <div class="content-body">${esc(t.rawContent||'')}</div>
+    <div class="content-body" style="white-space:normal;">${renderContent(t.rawContent||'')}</div>
     ${pyqs.length?`<div class="pyq-sec"><div class="pyq-hdr">📄 SSC PYQ Questions <span style="font-size:0.75rem;color:#64748B;font-weight:400;">${pyqs.length} from database</span></div>${pyqs.map((q,i)=>pyqCard(q,i)).join('')}</div>`:`<div class="center-box"><p style="font-size:0.82rem;">No PYQ questions in database for this chapter yet.</p></div>`}`;
 }
 function pyqCard(q,i){
@@ -154,6 +154,25 @@ function pyqCard(q,i){
 window.toggleSB=()=>{const sb=document.getElementById('sidebar'),ov=document.getElementById('overlay');const o=sb.classList.toggle('open');ov.classList.toggle('show',o);document.body.style.overflow=o?'hidden':'';};
 function closeSB(){document.getElementById('sidebar').classList.remove('open');document.getElementById('overlay').classList.remove('show');document.body.style.overflow='';}
 function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+// Render markup tags as styled HTML
+function renderContent(raw) {
+  if (!raw) return '';
+  let html = esc(raw);
+  // @@bold@@ → bold orange
+  html = html.replace(/@@(.*?)@@/g, '<strong style="color:#FF6B00;font-weight:700;">$1</strong>');
+  // ##heading## → large heading
+  html = html.replace(/##(.*?)##/g, '<div style="font-family:Rajdhani,sans-serif;font-size:1.15rem;font-weight:700;color:#1E293B;margin:0.85rem 0 0.35rem;">$1</div>');
+  // ~~subheading~~ → medium subheading
+  html = html.replace(/~~(.*?)~~/g, '<div style="font-size:0.95rem;font-weight:700;color:#374151;margin:0.6rem 0 0.25rem;">$1</div>');
+  // ==highlight== → orange highlight
+  html = html.replace(/==(.*?)==/g, '<mark style="background:#FFF3CD;color:#92400E;padding:0.05rem 0.25rem;border-radius:3px;font-weight:600;">$1</mark>');
+  // ++green++ → green text
+  html = html.replace(/\+\+(.*?)\+\+/g, '<span style="color:#15803D;font-weight:600;">$1</span>');
+  // Preserve line breaks
+  html = html.replace(/\n/g, '<br>');
+  return html;
+}
 </script>
 </body>
 </html>
