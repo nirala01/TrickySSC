@@ -37,17 +37,17 @@ textarea{resize:vertical;line-height:1.6;}
 .btn-danger{background:#EF4444;color:#fff;}
 .btn-row{display:flex;gap:0.65rem;flex-wrap:wrap;margin-top:1rem;}
 .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;}
-@media(max-width:600px){.grid-2{grid-template-columns:1fr;}}
-.status-bar{background:#0F172A;border:1px solid #334155;border-radius:8px;padding:0.65rem 0.9rem;font-size:0.82rem;color:#94A3B8;margin-top:0.75rem;}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.75rem;}
+@media(max-width:600px){.grid-2,.grid-3{grid-template-columns:1fr;}}
+.status-bar{background:#0F172A;border:1px solid #334155;border-radius:8px;padding:0.65rem 0.9rem;font-size:0.82rem;color:#94A3B8;margin-top:0.75rem;min-height:38px;}
 .status-bar.success{border-color:#00A86B;color:#00A86B;}
 .status-bar.error{border-color:#EF4444;color:#EF4444;}
 .status-bar.info{border-color:#3B82F6;color:#93C5FD;}
 .count-badge{background:#FF6B00;color:#fff;border-radius:100px;padding:0.1rem 0.5rem;font-size:0.72rem;font-weight:700;margin-left:0.4rem;}
 .spinner{width:14px;height:14px;border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin 0.7s linear infinite;display:inline-block;vertical-align:middle;margin-right:5px;}
+.big-spinner{width:36px;height:36px;border:3px solid rgba(255,255,255,0.1);border-top-color:#FF6B00;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 1rem;}
 @keyframes spin{to{transform:rotate(360deg);}}
-.prompt-box{background:#0F172A;border:1px solid #334155;border-radius:8px;padding:1rem;font-size:0.78rem;color:#94A3B8;line-height:1.7;font-family:monospace;white-space:pre-wrap;position:relative;max-height:300px;overflow-y:auto;}
-.copy-btn{position:absolute;top:0.5rem;right:0.5rem;background:#FF6B00;color:#fff;border:none;border-radius:6px;padding:0.25rem 0.7rem;font-size:0.72rem;font-weight:700;cursor:pointer;}
-.copy-btn:hover{opacity:0.88;}
+.hint{font-size:0.73rem;color:#64748B;margin-top:0.3rem;line-height:1.5;}
 .preview-card{background:#0F172A;border:1px solid #334155;border-radius:10px;padding:1rem 1.1rem;margin-bottom:0.65rem;}
 .pc-top{display:flex;align-items:center;justify-content:space-between;gap:0.5rem;margin-bottom:0.6rem;flex-wrap:wrap;}
 .pc-title{font-size:0.95rem;font-weight:700;color:#F1F5F9;margin-bottom:0.35rem;}
@@ -58,8 +58,8 @@ textarea{resize:vertical;line-height:1.6;}
 .concept-blk p{font-size:0.8rem;color:#93C5FD;line-height:1.6;}
 .type-blk{background:#1E293B;border:1px solid #334155;border-radius:6px;padding:0.5rem 0.7rem;margin-bottom:0.4rem;}
 .type-blk-name{font-size:0.82rem;font-weight:700;color:#F1F5F9;margin-bottom:0.25rem;}
-.type-blk-desc{font-size:0.77rem;color:#64748B;line-height:1.6;}
-.type-blk-ex{font-size:0.75rem;color:#4ADE80;margin-top:0.25rem;font-family:monospace;}
+.type-blk-desc{font-size:0.77rem;color:#64748B;line-height:1.5;}
+.type-blk-ex{font-size:0.75rem;color:#4ADE80;margin-top:0.25rem;}
 .kp-blk{background:#1e293b;border-left:3px solid #FF6B00;}
 .kp-blk .blk-lbl{color:#FB923C;}
 .kp-blk ul{padding-left:1rem;}
@@ -85,6 +85,8 @@ textarea{resize:vertical;line-height:1.6;}
 .item-title{font-size:0.88rem;font-weight:600;color:#F1F5F9;margin-bottom:0.15rem;}
 .item-meta{font-size:0.72rem;color:#64748B;}
 .item-actions{display:flex;gap:0.35rem;}
+.processing-box{text-align:center;padding:2rem;background:#0F172A;border:1px solid #334155;border-radius:10px;margin-top:1rem;}
+.processing-box p{font-size:0.82rem;color:#64748B;margin-top:0.5rem;}
 </style>
 </head>
 <body>
@@ -94,7 +96,7 @@ textarea{resize:vertical;line-height:1.6;}
   <div class="nav-links">
     <a href="tricks.html" class="nav-link">⚡ Tricks</a>
     <a href="study-notes.html" class="nav-link">📓 Notes</a>
-    <a href="ca-admin.html" class="nav-link">📰 CA Admin</a>
+    <a href="ca-admin.html" class="nav-link">📰 CA</a>
     <a href="admin.html" class="nav-link">← Admin</a>
   </div>
 </div>
@@ -113,156 +115,166 @@ textarea{resize:vertical;line-height:1.6;}
 
   <!-- Tabs -->
   <div class="tabs">
-    <button class="tab active" onclick="switchTab('tricks',this)">⚡ Tricks</button>
-    <button class="tab" onclick="switchTab('notes',this)">📓 Study Notes</button>
-  </div>
-
-  <!-- ══ TRICKS TAB ══ -->
-  <div class="tab-pane active" id="tab-tricks">
-    <div class="card">
-      <h3>💬 ChatGPT Prompt for Tricks</h3>
-      <div class="prompt-box" id="tPromptBox"><button class="copy-btn" onclick="copyPrompt('tPromptBox')">📋 Copy</button>Convert my content into this exact JSON format. Return ONLY the JSON object, no explanation, no markdown backticks:
-
-{
-  "exam": "SSC CGL",
-  "subject": "Quantitative Aptitude",
-  "chapter": "Percentage",
-  "chapterKey": "percentage",
-  "icon": "%",
-  "formula": "x% of y = (x×y)/100\nIncrease% = (Change/Original)×100\nDecrease% = (Change/Original)×100",
-  "trick": "If A is x% more than B → B is less than A by: x/(100+x) × 100%\nIf A is x% less than B → B is more than A by: x/(100-x) × 100%",
-  "example": "Q: A's salary is 25% more than B. By what % is B's salary less than A's?\nSol: 25/(100+25) × 100 = 25/125 × 100 = 20%\nAnswer: 20%"
-}
-
-Rules:
-- subject: Quantitative Aptitude / General Intelligence & Reasoning / English Language / General Awareness
-- chapterKey: lowercase, hyphens only (e.g. time-work, si-ci, coding-decoding)
-- formula: use \n for new lines between formulas
-- trick: use \n for new lines between multiple tricks
-- example: show full question + step-by-step solution
-
-MY CONTENT:
-[PASTE YOUR CONTENT HERE]</div>
-    </div>
-    <div class="card">
-      <h3>📋 Paste JSON from ChatGPT</h3>
-      <p style="font-size:0.82rem;color:#64748B;margin-bottom:1rem;">Paste JSON → Preview → Add to List → Push to GitHub.</p>
-      <textarea id="tJsonPaste" rows="12" placeholder='Paste trick JSON here...'></textarea>
-      <div class="btn-row">
-        <button class="btn btn-primary" onclick="tPreview()">👁 Preview</button>
-        <button class="btn btn-success" onclick="tAdd()">➕ Add to List</button>
-        <button class="btn btn-secondary" onclick="tClear()">✕ Clear</button>
-      </div>
-      <div class="status-bar" id="tParseStatus">Paste JSON → Preview → Add to List</div>
-      <div id="tSinglePreview" style="display:none;margin-top:1rem;"></div>
-    </div>
-    <div id="tListSection" style="display:none;">
-      <div class="card">
-        <h3>📋 Tricks <span class="count-badge" id="tCount">0</span>
-          <button class="btn btn-danger" style="margin-left:auto;font-size:0.75rem;padding:0.3rem 0.7rem;" onclick="if(confirm('Clear all?')){tricks=[];renderTricks();document.getElementById('tListSection').style.display='none';}">🗑 Clear All</button>
-        </h3>
-        <div id="tList"></div>
-      </div>
-      <div class="card">
-        <h3>💾 Push Tricks</h3>
-        <div class="btn-row"><button class="btn btn-success" id="tSaveBtn" onclick="pushTricks()">🚀 Push to GitHub</button></div>
-        <div class="status-bar" id="tSaveStatus">Ready</div>
-      </div>
-    </div>
+    <button class="tab active" onclick="switchTab('notes',this)">📓 Study Notes</button>
+    <button class="tab" onclick="switchTab('tricks',this)">⚡ Tricks</button>
   </div>
 
   <!-- ══ NOTES TAB ══ -->
-  <div class="tab-pane" id="tab-notes">
+  <div class="tab-pane active" id="tab-notes">
+
     <div class="card">
-      <h3>💬 ChatGPT Prompt for Study Notes</h3>
-      <div class="prompt-box" id="nPromptBox"><button class="copy-btn" onclick="copyPrompt('nPromptBox')">📋 Copy</button>Convert my content into this exact JSON format. Return ONLY the JSON object, no explanation, no markdown backticks:
-
-{
-  "exam": "SSC CGL",
-  "subject": "General Intelligence & Reasoning",
-  "chapter": "Series",
-  "chapterKey": "series",
-  "icon": "🔢",
-  "concept": "A series is a sequence of numbers/alphabetical letters or both which follow a particular rule. Each element is called a term. The objective is to find the missing term, next term, or wrong term.",
-  "types": [
-    {
-      "name": "Number Series",
-      "desc": "A series made by only numbers. Types: Ascending, Descending, Oscillating.",
-      "subtypes": [
-        { "name": "Ascending Series", "desc": "Values increase. Example: 2, 4, 8, 16" },
-        { "name": "Descending Series", "desc": "Values decrease. Example: 100, 90, 75, 55" }
-      ],
-      "example": "4, 6, 9, 13, 18, ?",
-      "solution": "+2, +3, +4, +5 → Answer: 24"
-    },
-    {
-      "name": "Alphabet Series",
-      "desc": "A series made by only alphabetical letters. Use positions A=1 to Z=26.",
-      "subtypes": [],
-      "example": "G, H, J, M, ?",
-      "solution": "+1, +2, +3, +4 → Answer: Q"
-    }
-  ],
-  "keyPoints": [
-    "Difference Pattern: Check difference between consecutive terms",
-    "Multiplication Pattern: Each term multiplied by a number",
-    "Square/Cube Pattern: 1,4,9,16 → Squares; 1,8,27 → Cubes",
-    "Alternate Pattern: Two sequences run simultaneously at odd/even positions"
-  ],
-  "strategy": [
-    "Check difference between consecutive terms",
-    "Check ratio (multiplication/division)",
-    "Look for alternate pattern (odd/even positions separately)",
-    "Check square or cube pattern",
-    "Try combination of operations"
-  ],
-  "importantFacts": [
-    "Special Series: Prime (2,3,5,7,11), Fibonacci (1,1,2,3,5,8), Factorial (1,2,6,24)",
-    "Opposite letters always sum to 27 (A+Z=27, B+Y=27)",
-    "Big numbers → check division; Small numbers → check difference"
-  ],
-  "dates": [
-    "A=1, M=13, Z=26 :: Standard letter positions",
-    "Opposite sum :: Always 27 for any pair"
-  ],
-  "quickRevision": "Step 1: Difference → Step 2: Ratio → Step 3: Alternate → Step 4: Square/Cube → Step 5: Combination.\nCommon mistakes: ignoring alternate patterns, not converting letters to numbers."
-}
-
-Rules:
-- subject: General Awareness / Quantitative Aptitude / General Intelligence & Reasoning / English Language
-- chapterKey: lowercase with hyphens (e.g. number-series, blood-relations)
-- types: array of topic types — each with name, desc, subtypes[], example, solution
-- subtypes: can be empty array [] if no subtypes
-- strategy: step-by-step approach as array of strings
-- dates: format "Label :: Value" with :: separator
-- All arrays can have as many items as needed
-
-MY CONTENT:
-[PASTE YOUR CONTENT HERE]</div>
-    </div>
-    <div class="card">
-      <h3>📋 Paste JSON from ChatGPT</h3>
-      <p style="font-size:0.82rem;color:#64748B;margin-bottom:1rem;">Paste JSON → Preview → Add to List → Push to GitHub.</p>
-      <textarea id="nJsonPaste" rows="14" placeholder='Paste notes JSON here...'></textarea>
-      <div class="btn-row">
-        <button class="btn btn-primary" onclick="nPreview()">👁 Preview</button>
-        <button class="btn btn-success" onclick="nAdd()">➕ Add to List</button>
-        <button class="btn btn-secondary" onclick="nClear()">✕ Clear</button>
+      <h3>📋 Topic Info</h3>
+      <div class="grid-3">
+        <div>
+          <label>Exam</label>
+          <select id="nExam">
+            <option>SSC CGL</option><option>SSC CHSL</option><option>SSC CPO</option><option>SSC MTS</option><option>All SSC</option>
+          </select>
+        </div>
+        <div>
+          <label>Subject</label>
+          <select id="nSubject">
+            <option>General Awareness</option>
+            <option>General Intelligence & Reasoning</option>
+            <option>Quantitative Aptitude</option>
+            <option>English Language</option>
+          </select>
+        </div>
+        <div>
+          <label>Icon (emoji)</label>
+          <input type="text" id="nIcon" placeholder="📓 🔢 🏛️ 🌍">
+        </div>
       </div>
-      <div class="status-bar" id="nParseStatus">Paste JSON → Preview → Add to List</div>
-      <div id="nSinglePreview" style="display:none;margin-top:1rem;"></div>
+      <div class="grid-2">
+        <div>
+          <label>Chapter Name</label>
+          <input type="text" id="nChapter" placeholder="e.g. Series, Percentage, Indian Polity">
+        </div>
+        <div>
+          <label>Chapter Key (Firestore match)</label>
+          <input type="text" id="nChapterKey" placeholder="e.g. series, percentage, polity">
+          <div class="hint">Must match 'chapter' field in your Firestore questions</div>
+        </div>
+      </div>
     </div>
+
+    <div class="card">
+      <h3>📝 Paste Your Content</h3>
+      <p style="font-size:0.82rem;color:#64748B;margin-bottom:1rem;">Paste any content — book text, your own notes, any format, any language. AI will structure it automatically.</p>
+      <textarea id="nRawContent" rows="16" placeholder="Paste your raw content here...
+
+Example:
+🌟 CHAPTER 3: PATTERNED SEQUENCES (Series)
+A series is an arrangement of numbers, letters, or symbols...
+
+🔷 1️⃣ Numeric Sequences
+Only numbers are used. Patterns may involve +, −, ×...
+Example 1: 2, 5, 8, 11, ? → +3 each time → Answer = 14
+...
+
+Can be in Hindi, English, or mixed. Any format works."></textarea>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="nProcessBtn" onclick="processNotes()">🤖 Process with AI</button>
+        <button class="btn btn-secondary" onclick="document.getElementById('nRawContent').value='';setS('nProcessStatus','','')">✕ Clear</button>
+      </div>
+      <div class="status-bar" id="nProcessStatus">Paste content → click Process with AI → preview → add to list</div>
+      <div id="nProcessing" style="display:none;" class="processing-box">
+        <div class="big-spinner"></div>
+        <p id="nProcessingMsg">AI is reading and structuring your content...</p>
+      </div>
+      <div id="nPreviewBox" style="display:none;margin-top:1rem;"></div>
+    </div>
+
     <div id="nListSection" style="display:none;">
       <div class="card">
-        <h3>📋 Notes <span class="count-badge" id="nCount">0</span>
+        <h3>📋 Notes Topics <span class="count-badge" id="nCount">0</span>
           <button class="btn btn-danger" style="margin-left:auto;font-size:0.75rem;padding:0.3rem 0.7rem;" onclick="if(confirm('Clear all?')){notes=[];renderNotes();document.getElementById('nListSection').style.display='none';}">🗑 Clear All</button>
         </h3>
         <div id="nList"></div>
       </div>
       <div class="card">
-        <h3>💾 Push Notes</h3>
-        <div class="btn-row"><button class="btn btn-success" id="nSaveBtn" onclick="pushNotes()">🚀 Push to GitHub</button></div>
+        <h3>💾 Push to GitHub</h3>
+        <div class="btn-row"><button class="btn btn-success" id="nSaveBtn" onclick="pushNotes()">🚀 Push Notes to GitHub</button></div>
         <div class="status-bar" id="nSaveStatus">Ready</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ TRICKS TAB ══ -->
+  <div class="tab-pane" id="tab-tricks">
+
+    <div class="card">
+      <h3>📋 Topic Info</h3>
+      <div class="grid-3">
+        <div>
+          <label>Exam</label>
+          <select id="tExam">
+            <option>SSC CGL</option><option>SSC CHSL</option><option>SSC CPO</option><option>SSC MTS</option><option>All SSC</option>
+          </select>
+        </div>
+        <div>
+          <label>Subject</label>
+          <select id="tSubject">
+            <option>Quantitative Aptitude</option>
+            <option>General Intelligence & Reasoning</option>
+            <option>English Language</option>
+            <option>General Awareness</option>
+          </select>
+        </div>
+        <div>
+          <label>Icon (emoji)</label>
+          <input type="text" id="tIcon" placeholder="⚡ % 🔢 ⚖️">
+        </div>
+      </div>
+      <div class="grid-2">
+        <div>
+          <label>Chapter Name</label>
+          <input type="text" id="tChapter" placeholder="e.g. Percentage, Coding-Decoding">
+        </div>
+        <div>
+          <label>Chapter Key (Firestore match)</label>
+          <input type="text" id="tChapterKey" placeholder="e.g. percentage, coding-decoding">
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>📝 Paste Your Content</h3>
+      <p style="font-size:0.82rem;color:#64748B;margin-bottom:1rem;">Paste your tricks content — formulas, shortcuts, examples. Any format, any language.</p>
+      <textarea id="tRawContent" rows="12" placeholder="Paste your trick content here...
+
+Example:
+Percentage Trick:
+If A is x% more than B, then B is less than A by x/(100+x) × 100%
+
+Example: A earns 25% more than B. By how much % is B less than A?
+Sol: 25/125 × 100 = 20%
+Answer = 20%
+
+Can be in Hindi, English, or both."></textarea>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="tProcessBtn" onclick="processTricks()">🤖 Process with AI</button>
+        <button class="btn btn-secondary" onclick="document.getElementById('tRawContent').value='';setS('tProcessStatus','','')">✕ Clear</button>
+      </div>
+      <div class="status-bar" id="tProcessStatus">Paste content → click Process with AI → preview → add to list</div>
+      <div id="tProcessing" style="display:none;" class="processing-box">
+        <div class="big-spinner"></div>
+        <p id="tProcessingMsg">AI is reading and structuring your content...</p>
+      </div>
+      <div id="tPreviewBox" style="display:none;margin-top:1rem;"></div>
+    </div>
+
+    <div id="tListSection" style="display:none;">
+      <div class="card">
+        <h3>📋 Tricks Topics <span class="count-badge" id="tCount">0</span>
+          <button class="btn btn-danger" style="margin-left:auto;font-size:0.75rem;padding:0.3rem 0.7rem;" onclick="if(confirm('Clear all?')){tricks=[];renderTricks();document.getElementById('tListSection').style.display='none';}">🗑 Clear All</button>
+        </h3>
+        <div id="tList"></div>
+      </div>
+      <div class="card">
+        <h3>💾 Push to GitHub</h3>
+        <div class="btn-row"><button class="btn btn-success" id="tSaveBtn" onclick="pushTricks()">🚀 Push Tricks to GitHub</button></div>
+        <div class="status-bar" id="tSaveStatus">Ready</div>
       </div>
     </div>
   </div>
@@ -272,142 +284,308 @@ MY CONTENT:
 <!-- Edit Modal -->
 <div id="editModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:200;align-items:center;justify-content:center;padding:1rem;">
   <div style="background:#1E293B;border:1px solid #334155;border-radius:16px;padding:1.5rem;width:100%;max-width:700px;max-height:90vh;overflow-y:auto;">
-    <h3 style="font-family:'Rajdhani';font-size:1.1rem;font-weight:700;color:#F1F5F9;margin-bottom:1rem;" id="modalTitle">✏️ Edit</h3>
+    <h3 style="font-family:'Rajdhani';font-size:1.1rem;font-weight:700;color:#F1F5F9;margin-bottom:1rem;" id="modalTitle">✏️ Edit Raw Content</h3>
+    <p style="font-size:0.78rem;color:#64748B;margin-bottom:0.75rem;">Edit the raw content and re-process, or edit the structured JSON directly below.</p>
     <textarea id="modalJson" rows="22" style="font-family:monospace;font-size:0.8rem;"></textarea>
     <div style="display:flex;gap:0.65rem;margin-top:1rem;">
       <button class="btn btn-success" onclick="saveModal()">✅ Save</button>
       <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
     </div>
-    <div class="status-bar" id="modalStatus" style="margin-top:0.75rem;">Edit JSON and click Save</div>
+    <div class="status-bar" id="modalStatus" style="margin-top:0.75rem;"></div>
   </div>
 </div>
 
 <script>
-const REPO='nirala01/TrickySSC',BRANCH='main';
-let tricks=[],notes=[],parsedTrick=null,parsedNote=null,editType=null,editIdx=-1;
+const REPO='nirala01/TrickySSC', BRANCH='main';
+const WORKER_URL='https://trickyssc-ai.nirala01.workers.dev/';
+let tricks=[], notes=[], parsedNote=null, parsedTrick=null, editType=null, editIdx=-1;
 
 window.addEventListener('DOMContentLoaded',()=>{
   const t=localStorage.getItem('tssc_gh_token');
-  if(t)document.getElementById('ghToken').value=t;
+  if(t) document.getElementById('ghToken').value=t;
 });
 function saveConfig(){localStorage.setItem('tssc_gh_token',document.getElementById('ghToken').value);}
 function switchTab(n,btn){document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));document.querySelectorAll('.tab-pane').forEach(t=>t.classList.remove('active'));btn.classList.add('active');document.getElementById('tab-'+n).classList.add('active');}
-function copyPrompt(id){const box=document.getElementById(id);const btn=box.querySelector('.copy-btn');const text=box.innerText.replace(btn.innerText,'').trim();navigator.clipboard.writeText(text).then(()=>{btn.textContent='✅ Copied!';setTimeout(()=>btn.textContent='📋 Copy',2000);});}
 
+// ── Load existing ─────────────────────────────────────────────────────────────
 async function loadAll(){
   setS('loadStatus','info','🔄 Loading...');
   try{
-    const[r1,r2]=await Promise.all([fetch(`https://raw.githubusercontent.com/${REPO}/${BRANCH}/tricks-data.json?v=`+Date.now()),fetch(`https://raw.githubusercontent.com/${REPO}/${BRANCH}/notes-data.json?v=`+Date.now())]);
-    tricks=r1.ok?await r1.json():[];notes=r2.ok?await r2.json():[];
+    const[r1,r2]=await Promise.all([
+      fetch(`https://raw.githubusercontent.com/${REPO}/${BRANCH}/tricks-data.json?v=`+Date.now()),
+      fetch(`https://raw.githubusercontent.com/${REPO}/${BRANCH}/notes-data.json?v=`+Date.now()),
+    ]);
+    tricks=r1.ok?await r1.json():[];
+    notes=r2.ok?await r2.json():[];
     if(tricks.length){renderTricks();document.getElementById('tListSection').style.display='block';}
     if(notes.length){renderNotes();document.getElementById('nListSection').style.display='block';}
     setS('loadStatus','success',`✅ ${tricks.length} tricks + ${notes.length} notes loaded`);
   }catch(e){setS('loadStatus','error','❌ '+e.message);}
 }
 
-// ── TRICKS ────────────────────────────────────────────────────────────────────
-function tPreview(){
-  const raw=document.getElementById('tJsonPaste').value.trim();
-  if(!raw){setS('tParseStatus','error','⚠️ Paste JSON first');return;}
-  try{
-    const d=parseJ(raw);
-    if(!d.chapter)throw new Error('Missing "chapter" field');
-    parsedTrick=normT(d);
-    document.getElementById('tSinglePreview').style.display='block';
-    document.getElementById('tSinglePreview').innerHTML=buildTCard(parsedTrick,-1);
-    setS('tParseStatus','success','✅ Valid — click Add to List');
-  }catch(e){parsedTrick=null;document.getElementById('tSinglePreview').style.display='none';setS('tParseStatus','error','❌ '+e.message);}
+// ── AI call via Cloudflare Worker ─────────────────────────────────────────────
+async function callAI(systemPrompt, userContent) {
+  const resp = await fetch(WORKER_URL, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 8000,
+      system: systemPrompt,
+      messages: [{role:'user', content: userContent}]
+    })
+  });
+  if (!resp.ok) throw new Error('AI request failed: ' + resp.status);
+  const data = await resp.json();
+  const text = data.content?.[0]?.text || '';
+  // Extract JSON from response
+  const match = text.match(/\{[\s\S]*\}/);
+  if (!match) throw new Error('No JSON in AI response');
+  return JSON.parse(match[0]);
 }
+
+// ── PROCESS NOTES ─────────────────────────────────────────────────────────────
+async function processNotes() {
+  const content = document.getElementById('nRawContent').value.trim();
+  if (!content) { setS('nProcessStatus','error','⚠️ Paste some content first'); return; }
+
+  const exam    = document.getElementById('nExam').value;
+  const subject = document.getElementById('nSubject').value;
+  const chapter = document.getElementById('nChapter').value.trim();
+  const key     = document.getElementById('nChapterKey').value.trim();
+  const icon    = document.getElementById('nIcon').value.trim();
+
+  if (!chapter) { setS('nProcessStatus','error','⚠️ Enter Chapter Name first'); return; }
+
+  // Show processing
+  document.getElementById('nProcessing').style.display='block';
+  document.getElementById('nPreviewBox').style.display='none';
+  document.getElementById('nProcessBtn').disabled=true;
+  setS('nProcessStatus','info','🤖 AI is reading your content...');
+
+  const msgs = ['Reading your content...', 'Identifying types and examples...', 'Structuring key points...', 'Building the notes...'];
+  let mi=0;
+  const ticker = setInterval(()=>{ document.getElementById('nProcessingMsg').textContent = msgs[mi++ % msgs.length]; }, 2000);
+
+  try {
+    const systemPrompt = `You are an expert SSC exam content editor. Convert raw study material into structured JSON for a study notes website. Preserve ALL emojis, symbols, examples, and solutions EXACTLY as given — do not simplify or remove any content. Keep the content in whatever language it is given (Hindi, English, or mixed).
+
+Return ONLY valid JSON matching this exact structure:
+{
+  "concept": "Main definition/introduction paragraph (preserve emojis and formatting)",
+  "types": [
+    {
+      "name": "Type name with emojis exactly as given",
+      "desc": "Description of this type",
+      "subtypes": [
+        {"name": "Example label (e.g. Example 1 (Easy): 2,5,8,11,?)", "desc": "Full solution steps with arrows and answer"}
+      ],
+      "example": "",
+      "solution": ""
+    }
+  ],
+  "keyPoints": ["Key point 1 with emoji", "Key point 2"],
+  "strategy": ["Step 1", "Step 2", "Step 3"],
+  "importantFacts": ["Fact 1 with emoji", "Fact 2"],
+  "dates": ["Label :: Value", "Label :: Value"],
+  "quickRevision": "Quick revision summary"
+}
+
+Rules:
+- Preserve ALL emojis (🔷,👉,✅,➡,🌟,⭐,🔑 etc) exactly as in original
+- Keep examples as subtypes under each type
+- Each example becomes a subtype with name=question and desc=full solution
+- If content has Hindi, keep it in Hindi
+- dates array: use format "Label :: Value" with :: separator
+- If no dates/numbers section found, use [] for dates
+- strategy: extract step-by-step approach if mentioned, otherwise derive from content`;
+
+    const result = await callAI(systemPrompt, content);
+
+    clearInterval(ticker);
+
+    // Build full note object
+    parsedNote = {
+      id: (exam+'-'+subject+'-'+chapter).replace(/[^a-z0-9]/gi,'-').toLowerCase(),
+      exam, subject, chapter,
+      chapterKey: key || chapter.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,''),
+      icon: icon || '📓',
+      concept:        result.concept        || '',
+      types:          Array.isArray(result.types) ? result.types : [],
+      keyPoints:      toArr(result.keyPoints),
+      strategy:       toArr(result.strategy),
+      importantFacts: toArr(result.importantFacts),
+      dates:          toArr(result.dates),
+      quickRevision:  result.quickRevision  || '',
+    };
+
+    document.getElementById('nProcessing').style.display='none';
+    document.getElementById('nPreviewBox').style.display='block';
+    document.getElementById('nPreviewBox').innerHTML = buildNCard(parsedNote, -1) +
+      `<div class="btn-row" style="margin-top:0.75rem;">
+        <button class="btn btn-success" onclick="nAdd()">➕ Add to List</button>
+        <button class="btn btn-secondary" onclick="document.getElementById('nPreviewBox').style.display='none';parsedNote=null;">✕ Discard</button>
+      </div>`;
+    setS('nProcessStatus','success','✅ Content structured! Review preview and click Add to List.');
+
+  } catch(e) {
+    clearInterval(ticker);
+    document.getElementById('nProcessing').style.display='none';
+    setS('nProcessStatus','error','❌ AI error: '+e.message);
+  }
+  document.getElementById('nProcessBtn').disabled=false;
+}
+
+function nAdd(){
+  if(!parsedNote)return;
+  const ei=notes.findIndex(n=>n.id===parsedNote.id);
+  if(ei>=0)notes[ei]=parsedNote; else notes.push({...parsedNote});
+  const n=notes.length; parsedNote=null;
+  document.getElementById('nPreviewBox').style.display='none';
+  document.getElementById('nRawContent').value='';
+  renderNotes();
+  document.getElementById('nListSection').style.display='block';
+  setS('nProcessStatus','success',`✅ Added! Total: ${n} topics. Paste next content.`);
+}
+
+// ── PROCESS TRICKS ────────────────────────────────────────────────────────────
+async function processTricks() {
+  const content = document.getElementById('tRawContent').value.trim();
+  if (!content) { setS('tProcessStatus','error','⚠️ Paste some content first'); return; }
+
+  const exam    = document.getElementById('tExam').value;
+  const subject = document.getElementById('tSubject').value;
+  const chapter = document.getElementById('tChapter').value.trim();
+  const key     = document.getElementById('tChapterKey').value.trim();
+  const icon    = document.getElementById('tIcon').value.trim();
+
+  if (!chapter) { setS('tProcessStatus','error','⚠️ Enter Chapter Name first'); return; }
+
+  document.getElementById('tProcessing').style.display='block';
+  document.getElementById('tPreviewBox').style.display='none';
+  document.getElementById('tProcessBtn').disabled=true;
+  setS('tProcessStatus','info','🤖 AI is structuring your tricks...');
+
+  const msgs = ['Reading tricks...', 'Extracting formulas...', 'Finding examples...', 'Almost done...'];
+  let mi=0;
+  const ticker = setInterval(()=>{ document.getElementById('tProcessingMsg').textContent = msgs[mi++ % msgs.length]; }, 2000);
+
+  try {
+    const systemPrompt = `You are an expert SSC exam content editor. Convert raw shortcut trick content into structured JSON. Preserve ALL emojis, symbols, formulas, and examples EXACTLY. Keep content in whatever language given (Hindi, English, or mixed).
+
+Return ONLY valid JSON:
+{
+  "formula": "All formulas/rules — preserve emojis and formatting. Use \\n for new lines between multiple formulas.",
+  "trick": "The shortcut trick(s) with explanation — preserve emojis. Use \\n between multiple tricks.",
+  "example": "All examples with full solutions — preserve step-by-step format, arrows (→), emojis (✅). Use \\n between examples."
+}
+
+Rules:
+- Preserve ALL emojis exactly
+- Keep arrows → and symbols ✅ ➡ exactly
+- formula: main mathematical formula or rule
+- trick: the shortcut/memorization technique
+- example: solved examples showing trick in action
+- If content is in Hindi, keep Hindi
+- Combine multiple formulas/tricks with \\n separator`;
+
+    const result = await callAI(systemPrompt, content);
+
+    clearInterval(ticker);
+
+    parsedTrick = {
+      id: (exam+'-'+subject+'-'+chapter).replace(/[^a-z0-9]/gi,'-').toLowerCase(),
+      exam, subject, chapter,
+      chapterKey: key || chapter.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,''),
+      icon: icon || '⚡',
+      formula: result.formula || '',
+      trick:   result.trick   || '',
+      example: result.example || '',
+    };
+
+    document.getElementById('tProcessing').style.display='none';
+    document.getElementById('tPreviewBox').style.display='block';
+    document.getElementById('tPreviewBox').innerHTML = buildTCard(parsedTrick, -1) +
+      `<div class="btn-row" style="margin-top:0.75rem;">
+        <button class="btn btn-success" onclick="tAdd()">➕ Add to List</button>
+        <button class="btn btn-secondary" onclick="document.getElementById('tPreviewBox').style.display='none';parsedTrick=null;">✕ Discard</button>
+      </div>`;
+    setS('tProcessStatus','success','✅ Tricks structured! Review preview and click Add to List.');
+
+  } catch(e) {
+    clearInterval(ticker);
+    document.getElementById('tProcessing').style.display='none';
+    setS('tProcessStatus','error','❌ AI error: '+e.message);
+  }
+  document.getElementById('tProcessBtn').disabled=false;
+}
+
 function tAdd(){
-  if(!parsedTrick){tPreview();return;}
+  if(!parsedTrick)return;
   const ei=tricks.findIndex(t=>t.id===parsedTrick.id);
-  if(ei>=0)tricks[ei]=parsedTrick;else tricks.push({...parsedTrick});
-  const n=tricks.length;parsedTrick=null;tClear();renderTricks();
+  if(ei>=0)tricks[ei]=parsedTrick; else tricks.push({...parsedTrick});
+  const n=tricks.length; parsedTrick=null;
+  document.getElementById('tPreviewBox').style.display='none';
+  document.getElementById('tRawContent').value='';
+  renderTricks();
   document.getElementById('tListSection').style.display='block';
-  setS('tParseStatus','success',`✅ Added! Total: ${n}. Paste next.`);
-  document.getElementById('tJsonPaste').focus();
+  setS('tProcessStatus','success',`✅ Added! Total: ${n} tricks. Paste next content.`);
 }
-function tClear(){document.getElementById('tJsonPaste').value='';document.getElementById('tSinglePreview').style.display='none';document.getElementById('tSinglePreview').innerHTML='';parsedTrick=null;setS('tParseStatus','','Paste JSON → Preview → Add to List');}
-function normT(d){return{id:d.id||mkId(d.exam,d.subject,d.chapter),exam:d.exam||'SSC CGL',subject:d.subject||'',chapter:d.chapter||'',chapterKey:d.chapterKey||slug(d.chapter),icon:d.icon||'⚡',formula:d.formula||'',trick:d.trick||'',example:d.example||''};}
+
+// ── Card builders ─────────────────────────────────────────────────────────────
+function buildNCard(n,i){
+  const act=i<0?'':actBtns('note',i);
+  const kp=(n.keyPoints||[]).slice(0,3).map(p=>`<li>${esc(p)}</li>`).join('');
+  const types=(n.types||[]).slice(0,3).map(t=>`<div class="type-blk"><div class="type-blk-name">${esc(t.name)}</div><div class="type-blk-desc">${esc(t.desc||'').slice(0,100)}</div>${(t.subtypes||[]).slice(0,2).map(s=>`<div class="type-blk-ex">→ ${esc(s.name)}</div>`).join('')}</div>`).join('');
+  return`<div class="preview-card">
+    <div class="pc-top">
+      <div><span style="background:#1c1107;color:#FB923C;font-size:0.68rem;font-weight:700;padding:0.15rem 0.55rem;border-radius:100px;margin-right:0.3rem;">${esc(n.exam)}</span><span style="background:#1e3358;color:#60A5FA;font-size:0.68rem;font-weight:700;padding:0.15rem 0.55rem;border-radius:100px;">${esc(n.subject)}</span></div>
+      ${act}
+    </div>
+    <div class="pc-title">${n.icon||'📓'} ${esc(n.chapter)}</div>
+    ${n.concept?`<div class="section-blk concept-blk"><div class="blk-lbl">📘 Concept</div><p>${esc(n.concept).slice(0,200)}...</p></div>`:''}
+    ${types?`<div style="margin-bottom:0.5rem;"><div class="blk-lbl" style="color:#94A3B8;font-size:0.63rem;font-weight:700;text-transform:uppercase;margin-bottom:0.35rem;">📂 ${n.types.length} Types</div>${types}</div>`:''}
+    ${kp?`<div class="section-blk kp-blk"><div class="blk-lbl">🔑 Key Points</div><ul>${kp}</ul></div>`:''}
+    ${n.quickRevision?`<div class="qr-blk"><div class="blk-lbl">🔄 Quick Revision</div><p>${esc(n.quickRevision).slice(0,200)}</p></div>`:''}
+  </div>`;
+}
+
 function buildTCard(t,i){
   const act=i<0?'':actBtns('trick',i);
   return`<div class="preview-card">
-    <div class="pc-top"><span style="background:#1c1107;color:#FB923C;font-size:0.68rem;font-weight:700;padding:0.15rem 0.55rem;border-radius:100px;">${esc(t.exam)}</span><span style="background:#1e3358;color:#60A5FA;font-size:0.68rem;font-weight:700;padding:0.15rem 0.55rem;border-radius:100px;">${esc(t.subject)}</span>${act}</div>
+    <div class="pc-top">
+      <div><span style="background:#1c1107;color:#FB923C;font-size:0.68rem;font-weight:700;padding:0.15rem 0.55rem;border-radius:100px;margin-right:0.3rem;">${esc(t.exam)}</span><span style="background:#1e3358;color:#60A5FA;font-size:0.68rem;font-weight:700;padding:0.15rem 0.55rem;border-radius:100px;">${esc(t.subject)}</span></div>
+      ${act}
+    </div>
     <div class="pc-title">${t.icon||'⚡'} ${esc(t.chapter)}</div>
-    ${t.formula?`<div class="section-blk formula-blk"><div class="blk-lbl">📐 Formula</div><p>${esc(t.formula).replace(/\n/g,'<br>')}</p></div>`:''}
-    ${t.trick?`<div class="section-blk trick-blk-p"><div class="blk-lbl">⚡ Trick</div><p>${esc(t.trick).replace(/\n/g,'<br>')}</p></div>`:''}
-    ${t.example?`<div class="section-blk example-blk"><div class="blk-lbl">✅ Example</div><p>${esc(t.example).replace(/\n/g,'<br>')}</p></div>`:''}
+    ${t.formula?`<div class="section-blk formula-blk"><div class="blk-lbl">📐 Formula</div><p>${esc(t.formula).replace(/\n/g,'<br>').slice(0,300)}</p></div>`:''}
+    ${t.trick?`<div class="section-blk trick-blk-p"><div class="blk-lbl">⚡ Trick</div><p>${esc(t.trick).replace(/\n/g,'<br>').slice(0,300)}</p></div>`:''}
+    ${t.example?`<div class="section-blk example-blk"><div class="blk-lbl">✅ Example</div><p>${esc(t.example).replace(/\n/g,'<br>').slice(0,300)}</p></div>`:''}
   </div>`;
+}
+
+function renderNotes(){
+  document.getElementById('nCount').textContent=notes.length;
+  document.getElementById('nList').innerHTML=notes.length?notes.map((n,i)=>buildNCard(n,i)).join(''):'<p style="color:#64748B;font-size:0.85rem;">None yet.</p>';
 }
 function renderTricks(){
   document.getElementById('tCount').textContent=tricks.length;
   document.getElementById('tList').innerHTML=tricks.length?tricks.map((t,i)=>buildTCard(t,i)).join(''):'<p style="color:#64748B;font-size:0.85rem;">None yet.</p>';
 }
-window.delTrick=i=>{if(!confirm(`Delete "${tricks[i]?.chapter}"?`))return;tricks.splice(i,1);renderTricks();if(!tricks.length)document.getElementById('tListSection').style.display='none';};
 
-// ── NOTES ─────────────────────────────────────────────────────────────────────
-function nPreview(){
-  const raw=document.getElementById('nJsonPaste').value.trim();
-  if(!raw){setS('nParseStatus','error','⚠️ Paste JSON first');return;}
-  try{
-    const d=parseJ(raw);
-    if(!d.chapter)throw new Error('Missing "chapter" field');
-    parsedNote=normN(d);
-    document.getElementById('nSinglePreview').style.display='block';
-    document.getElementById('nSinglePreview').innerHTML=buildNCard(parsedNote,-1);
-    setS('nParseStatus','success','✅ Valid — click Add to List');
-  }catch(e){parsedNote=null;document.getElementById('nSinglePreview').style.display='none';setS('nParseStatus','error','❌ '+e.message);}
-}
-function nAdd(){
-  if(!parsedNote){nPreview();return;}
-  const ei=notes.findIndex(n=>n.id===parsedNote.id);
-  if(ei>=0)notes[ei]=parsedNote;else notes.push({...parsedNote});
-  const n=notes.length;parsedNote=null;nClear();renderNotes();
-  document.getElementById('nListSection').style.display='block';
-  setS('nParseStatus','success',`✅ Added! Total: ${n}. Paste next.`);
-  document.getElementById('nJsonPaste').focus();
-}
-function nClear(){document.getElementById('nJsonPaste').value='';document.getElementById('nSinglePreview').style.display='none';document.getElementById('nSinglePreview').innerHTML='';parsedNote=null;setS('nParseStatus','','Paste JSON → Preview → Add to List');}
-function normN(d){
-  return{
-    id:d.id||mkId(d.exam,d.subject,d.chapter),exam:d.exam||'SSC CGL',subject:d.subject||'',chapter:d.chapter||'',
-    chapterKey:d.chapterKey||slug(d.chapter),icon:d.icon||'📓',concept:d.concept||'',
-    types:Array.isArray(d.types)?d.types:[],
-    keyPoints:toArr(d.keyPoints),strategy:toArr(d.strategy),
-    importantFacts:toArr(d.importantFacts),dates:toArr(d.dates),quickRevision:d.quickRevision||''
-  };
-}
-function buildNCard(n,i){
-  const act=i<0?'':actBtns('note',i);
-  const kp=(n.keyPoints||[]).map(p=>`<li>${esc(p)}</li>`).join('');
-  const facts=(n.importantFacts||[]).map(f=>`<li>${esc(f)}</li>`).join('');
-  const types=(n.types||[]).map(t=>`<div class="type-blk"><div class="type-blk-name">▶ ${esc(t.name)}</div><div class="type-blk-desc">${esc(t.desc||'')}</div>${t.example?`<div class="type-blk-ex">Ex: ${esc(t.example)}${t.solution?' → '+esc(t.solution):''}</div>`:''}</div>`).join('');
-  return`<div class="preview-card">
-    <div class="pc-top"><span style="background:#1c1107;color:#FB923C;font-size:0.68rem;font-weight:700;padding:0.15rem 0.55rem;border-radius:100px;">${esc(n.exam)}</span><span style="background:#1e3358;color:#60A5FA;font-size:0.68rem;font-weight:700;padding:0.15rem 0.55rem;border-radius:100px;">${esc(n.subject)}</span>${act}</div>
-    <div class="pc-title">${n.icon||'📓'} ${esc(n.chapter)}</div>
-    ${n.concept?`<div class="section-blk concept-blk"><div class="blk-lbl">📘 Concept</div><p>${esc(n.concept).slice(0,200)}...</p></div>`:''}
-    ${types?`<div style="margin-bottom:0.5rem;"><div class="blk-lbl" style="color:#94A3B8;font-size:0.63rem;font-weight:700;text-transform:uppercase;margin-bottom:0.35rem;">📂 Types (${n.types.length})</div>${types}</div>`:''}
-    ${kp?`<div class="section-blk kp-blk"><div class="blk-lbl">🔑 Key Points</div><ul>${kp}</ul></div>`:''}
-    ${facts?`<div class="section-blk facts-blk"><div class="blk-lbl">⭐ Important Facts</div><ul>${facts}</ul></div>`:''}
-    ${n.quickRevision?`<div class="qr-blk"><div class="blk-lbl">🔄 Quick Revision</div><p>${esc(n.quickRevision).slice(0,200)}</p></div>`:''}
-  </div>`;
-}
-function renderNotes(){
-  document.getElementById('nCount').textContent=notes.length;
-  document.getElementById('nList').innerHTML=notes.length?notes.map((n,i)=>buildNCard(n,i)).join(''):'<p style="color:#64748B;font-size:0.85rem;">None yet.</p>';
-}
 window.delNote=i=>{if(!confirm(`Delete "${notes[i]?.chapter}"?`))return;notes.splice(i,1);renderNotes();if(!notes.length)document.getElementById('nListSection').style.display='none';};
+window.delTrick=i=>{if(!confirm(`Delete "${tricks[i]?.chapter}"?`))return;tricks.splice(i,1);renderTricks();if(!tricks.length)document.getElementById('tListSection').style.display='none';};
 
 // ── Edit Modal ────────────────────────────────────────────────────────────────
 function actBtns(type,i){
   return`<div style="display:flex;gap:0.35rem;">
     <span style="font-size:0.68rem;color:#475569;">#${i+1}</span>
-    <button onclick="editItem('${type}',${i})" style="background:#3B82F6;color:#fff;border:none;border-radius:4px;padding:0.18rem 0.55rem;font-size:0.7rem;font-weight:600;cursor:pointer;">✏️ Edit</button>
+    <button onclick="editItem('${type}',${i})" style="background:#3B82F6;color:#fff;border:none;border-radius:4px;padding:0.18rem 0.55rem;font-size:0.7rem;font-weight:600;cursor:pointer;">✏️</button>
     <button onclick="del${type==='trick'?'Trick':'Note'}(${i})" style="background:#EF4444;color:#fff;border:none;border-radius:4px;padding:0.18rem 0.55rem;font-size:0.7rem;font-weight:600;cursor:pointer;">🗑</button>
   </div>`;
 }
 window.editItem=(type,i)=>{
-  editType=type;editIdx=i;
+  editType=type; editIdx=i;
   const item=type==='trick'?tricks[i]:notes[i];
   document.getElementById('modalTitle').textContent='✏️ Edit: '+item.chapter;
   document.getElementById('modalJson').value=JSON.stringify(item,null,2);
@@ -416,31 +594,32 @@ window.editItem=(type,i)=>{
 window.saveModal=()=>{
   try{
     const d=JSON.parse(document.getElementById('modalJson').value);
-    if(editType==='trick'){tricks[editIdx]=normT(d);renderTricks();}
-    else{notes[editIdx]=normN(d);renderNotes();}
+    if(editType==='trick'){tricks[editIdx]=d;renderTricks();}
+    else{notes[editIdx]=d;renderNotes();}
     closeModal();
   }catch(e){setS('modalStatus','error','❌ '+e.message);}
 };
-window.closeModal=()=>{document.getElementById('editModal').style.display='none';editType=null;editIdx=-1;};
+window.closeModal=()=>{document.getElementById('editModal').style.display='none';};
 document.getElementById('editModal').addEventListener('click',function(e){if(e.target===this)closeModal();});
 
 // ── Push ──────────────────────────────────────────────────────────────────────
-async function pushTricks(){
-  const token=document.getElementById('ghToken').value.trim();
-  if(!token){setS('tSaveStatus','error','⚠️ Enter token first');return;}
-  const btn=document.getElementById('tSaveBtn');btn.disabled=true;btn.innerHTML='<span class="spinner"></span>Pushing...';
-  try{await ghPut(token,'tricks-data.json',JSON.stringify(tricks,null,2),`⚡ Tricks — ${tricks.length} topics`);setS('tSaveStatus','success',`✅ ${tricks.length} tricks live on tricks.html`);}
-  catch(e){setS('tSaveStatus','error','❌ '+e.message);}
-  btn.disabled=false;btn.innerHTML='🚀 Push to GitHub';
-}
 async function pushNotes(){
   const token=document.getElementById('ghToken').value.trim();
   if(!token){setS('nSaveStatus','error','⚠️ Enter token first');return;}
   const btn=document.getElementById('nSaveBtn');btn.disabled=true;btn.innerHTML='<span class="spinner"></span>Pushing...';
   try{await ghPut(token,'notes-data.json',JSON.stringify(notes,null,2),`📓 Notes — ${notes.length} topics`);setS('nSaveStatus','success',`✅ ${notes.length} notes live on study-notes.html`);}
   catch(e){setS('nSaveStatus','error','❌ '+e.message);}
-  btn.disabled=false;btn.innerHTML='🚀 Push to GitHub';
+  btn.disabled=false;btn.innerHTML='🚀 Push Notes to GitHub';
 }
+async function pushTricks(){
+  const token=document.getElementById('ghToken').value.trim();
+  if(!token){setS('tSaveStatus','error','⚠️ Enter token first');return;}
+  const btn=document.getElementById('tSaveBtn');btn.disabled=true;btn.innerHTML='<span class="spinner"></span>Pushing...';
+  try{await ghPut(token,'tricks-data.json',JSON.stringify(tricks,null,2),`⚡ Tricks — ${tricks.length} topics`);setS('tSaveStatus','success',`✅ ${tricks.length} tricks live on tricks.html`);}
+  catch(e){setS('tSaveStatus','error','❌ '+e.message);}
+  btn.disabled=false;btn.innerHTML='🚀 Push Tricks to GitHub';
+}
+
 async function ghPut(token,path,content,msg){
   const url=`https://api.github.com/repos/${REPO}/contents/${path}`;
   let sha=null;
@@ -451,11 +630,7 @@ async function ghPut(token,path,content,msg){
   if(!resp.ok){const e=await resp.json();throw new Error(e.message||'GitHub error '+resp.status);}
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-function parseJ(raw){let c=raw.replace(/^```json\s*/i,'').replace(/^```\s*/,'').replace(/\s*```$/,'').trim();return JSON.parse(c);}
 function toArr(v){if(!v)return[];if(Array.isArray(v))return v.map(s=>String(s).trim()).filter(Boolean);return String(v).split('\n').map(s=>s.trim()).filter(Boolean);}
-function mkId(e,s,c){return(e+'-'+s+'-'+c).replace(/[^a-z0-9]/gi,'-').toLowerCase();}
-function slug(s){return(s||'').toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');}
 function setS(id,type,msg){const el=document.getElementById(id);el.className='status-bar'+(type?' '+type:'');el.textContent=msg;}
 function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 </script>
