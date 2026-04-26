@@ -3258,15 +3258,17 @@ Rules:
 - For GK: give factual explanation with the actual reason why the answer is correct
 - Final Answer line with color:#00A86B is MANDATORY — never omit it`;
 
-      // Generate in 2 batches of ~12-13 to avoid token limit issues
-      const half1 = Math.ceil(qPerSec / 2);
-      const half2 = qPerSec - half1;
+      // Generate in 3 batches of 10 max to avoid token limit issues
+      const batchSize = 10;
+      const batches = [];
+      let rem = qPerSec;
+      while (rem > 0) { batches.push(Math.min(batchSize, rem)); rem -= batchSize; }
       let sectionQs = [];
 
-      for (const [batchIdx, batchCount] of [[1, half1],[2, half2]]) {
+      for (const [batchIdx, batchCount] of batches.map((b,i)=>[i+1,b])) {
         const batchPrompt = prompt.replace(
           `Generate ${qPerSec} NEW`,
-          `Generate ${batchCount} NEW (batch ${batchIdx} of 2)`
+          `Generate exactly ${batchCount} NEW (batch ${batchIdx} of ${batches.length})`
         );
         try {
           setMsg(`${sec.short||sec.subject} — batch ${batchIdx}/2...`, pct);
@@ -3328,8 +3330,42 @@ Rules:
         }
       }
 
+      // Top-up if we got fewer than expected
+      const missing = qPerSec - sectionQs.length;
+      if (missing > 0 && sectionQs.length > 0) {
+        setMsg(`⚡ ${sec.short} — topping up ${missing} missing questions...`, pct + 10);
+        try {
+          const topUpPrompt = SYSTEM_PROMPT + '\n\nNow generate the questions:\n\n' +
+            prompt.replace(`Generate ${qPerSec} NEW`, `Generate exactly ${missing} NEW`) +
+            `\n\nIMPORTANT: Generate ONLY ${missing} questions. Keep explanations concise (2 steps max).`;
+
+          const topResp = await fetch(WORKER, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              model: 'claude-sonnet-4-20250514',
+              max_tokens: 4000,
+              messages: [{ role: 'user', content: topUpPrompt }]
+            })
+          });
+          if (topResp.ok) {
+            const topData = await topResp.json();
+            const topText = topData.content?.[0]?.text || '';
+            const topMatch = topText.match(/\[[\s\S]*\]/);
+            if (topMatch) {
+              try {
+                const topQs = JSON.parse(topMatch[0]);
+                sectionQs = [...sectionQs, ...topQs.slice(0, missing)];
+                setMsg(`✅ ${sec.short} topped up — now ${sectionQs.length} questions`, pct + 12);
+              } catch(e) { setMsg(`⚠️ ${sec.short} top-up parse failed`, pct + 10); }
+            }
+          }
+        } catch(e) { setMsg(`⚠️ ${sec.short} top-up failed: ${e.message.slice(0,60)}`, pct + 10); }
+        await new Promise(r => setTimeout(r, 1000));
+      }
+
       if (sectionQs.length) {
-        sectionQs.forEach((q, i) => {
+        sectionQs.slice(0, qPerSec).forEach((q, i) => {
           allGeneratedQs.push({
             ...q,
             exam,
@@ -3344,7 +3380,7 @@ Rules:
             createdAt: new Date(),
           });
         });
-        setMsg(`✅ ${sec.subject}: ${sectionQs.length} questions generated`, pct + 12);
+        setMsg(`✅ ${sec.subject}: ${Math.min(sectionQs.length, qPerSec)} questions saved`, pct + 12);
       } else {
         setMsg(`⚠️ ${sec.subject}: all batches failed — skipping`, pct);
       }
