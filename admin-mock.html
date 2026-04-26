@@ -3085,10 +3085,10 @@ window.generateMock = async () => {
 
   const WORKER = 'https://trickyssc-ai.nirala01.workers.dev/';
   const SECTIONS = [
-    { subject: 'General Intelligence & Reasoning', short: 'reasoning' },
-    { subject: 'Quantitative Aptitude',            short: 'quant'     },
-    { subject: 'English Language',                 short: 'english'   },
-    { subject: 'General Awareness',                short: 'gk'        },
+    { subject: 'General Intelligence & Reasoning', short: 'Reasoning' },
+    { subject: 'Quantitative Aptitude',            short: 'Quant'     },
+    { subject: 'English Language',                 short: 'English'   },
+    { subject: 'General Awareness',                short: 'GK'        },
   ];
 
   try {
@@ -3170,35 +3170,69 @@ Rules:
 - Cover different chapters/topics
 - explanation: clear step-by-step solution`;
 
-      try {
-        const resp = await fetch(WORKER, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            model: 'claude-sonnet-4-20250514',
-            max_tokens: 8000,
-            messages: [{ role: 'user', content: prompt }]
-          })
-        });
+      // Generate in 2 batches of ~12-13 to avoid token limit issues
+      const half1 = Math.ceil(qPerSec / 2);
+      const half2 = qPerSec - half1;
+      let sectionQs = [];
 
-        if (!resp.ok) throw new Error(`API error: ${resp.status}`);
-        const data = await resp.json();
-        const text = data.content?.[0]?.text || '';
+      for (const [batchIdx, batchCount] of [[1, half1],[2, half2]]) {
+        const batchPrompt = prompt.replace(
+          `Generate ${qPerSec} NEW`,
+          `Generate ${batchCount} NEW (batch ${batchIdx} of 2)`
+        );
+        try {
+          setMsg(`${sec.short||sec.subject} — batch ${batchIdx}/2...`, pct);
+          const resp = await fetch(WORKER, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              model: 'claude-sonnet-4-20250514',
+              max_tokens: 16000,
+              messages: [{ role: 'user', content: batchPrompt }]
+            })
+          });
 
-        // Extract JSON array
-        const match = text.match(/\[[\s\S]*\]/);
-        if (!match) throw new Error('No JSON array in response');
-        const questions = JSON.parse(match[0]);
+          if (!resp.ok) throw new Error(`API error: ${resp.status}`);
+          const data = await resp.json();
+          const text = data.content?.[0]?.text || '';
 
-        // Add metadata
-        questions.forEach((q, i) => {
+          // Try to extract valid JSON array — handle truncation
+          let questions = [];
+          const match = text.match(/\[[\s\S]*\]/);
+          if (match) {
+            try {
+              questions = JSON.parse(match[0]);
+            } catch(parseErr) {
+              // Try to repair truncated JSON by closing open array
+              try {
+                const truncated = match[0].replace(/,?\s*\{[^}]*$/, '') + ']';
+                questions = JSON.parse(truncated);
+                setMsg(`⚠️ ${sec.short} batch ${batchIdx} — partial (truncated JSON recovered)`, pct);
+              } catch(e2) {
+                throw new Error('JSON truncated and unrecoverable: ' + parseErr.message.slice(0,60));
+              }
+            }
+          } else {
+            throw new Error('No JSON array in response');
+          }
+
+          sectionQs = [...sectionQs, ...questions];
+          await new Promise(r => setTimeout(r, 1500));
+
+        } catch(e) {
+          setMsg(`⚠️ ${sec.subject} batch ${batchIdx} failed: ${e.message.slice(0,80)}`, pct);
+        }
+      }
+
+      if (sectionQs.length) {
+        sectionQs.forEach((q, i) => {
           allGeneratedQs.push({
             ...q,
             exam,
             tier,
             year: parseInt(year),
             subject: sec.subject,
-            lang: currentLang, // English Language section stays English but tagged with medium lang
+            lang: currentLang,
             type: 'mock',
             mockId,
             mockSeriesNum: seriesNum,
@@ -3206,10 +3240,9 @@ Rules:
             createdAt: new Date(),
           });
         });
-
-        setMsg(`✅ ${sec.subject}: ${questions.length} questions generated`, pct + 15);
-      } catch(e) {
-        setMsg(`⚠️ ${sec.subject} failed: ${e.message.slice(0,80)} — skipping`, pct + 5);
+        setMsg(`✅ ${sec.subject}: ${sectionQs.length} questions generated`, pct + 12);
+      } else {
+        setMsg(`⚠️ ${sec.subject}: all batches failed — skipping`, pct);
       }
 
       pct += 10;
