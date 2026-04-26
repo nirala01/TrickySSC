@@ -331,7 +331,7 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--dark);color:var
 <!-- Firebase -->
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-import { getFirestore, collection, query, where, getDocs, addDoc, orderBy } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+import { getFirestore, collection, query, where, getDocs, addDoc, orderBy, getDoc, doc as fsDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 
 const app = initializeApp({
   apiKey:'AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA',
@@ -345,12 +345,15 @@ const db = getFirestore(app);
 
 // Parse URL params
 const params = new URLSearchParams(window.location.search);
-const mockId     = params.get('mockId');     // mockId field
-const exam       = params.get('exam');       // ssc-cgl
+const mockId     = params.get('mockId') || '';   // mockId field on mock_tests doc
+const docId      = params.get('docId')  || '';   // Firestore document ID of mock_tests
+const exam       = params.get('exam')   || '';   // ssc-cgl
 const seriesNum  = parseInt(params.get('series') || '1');
 const tier       = params.get('tier') || 'Tier I';
 
 window._db = db;
+window._getDoc = getDoc;
+window._fsDoc = (id) => fsDoc(db,'mock_tests',id);
 window._firestoreLoaded = true;
 window.dispatchEvent(new Event('fsReady'));
 
@@ -364,8 +367,17 @@ window._loadQuestions = async () => {
     // Load mock_tests metadata — try all available params
     let mockMeta = null;
 
-    // Try by mockId first (most specific)
-    if (mockId && mockId !== 'null' && mockId !== '') {
+    // Try by Firestore document ID first (fastest, most reliable)
+    if (docId && docId !== 'null' && docId !== '') {
+      try {
+        const docSnap = await window._getDoc(window._fsDoc(docId));
+        if (docSnap.exists()) mockMeta = { id: docSnap.id, ...docSnap.data() };
+        setLoad(20, `Loaded mock by docId: ${docSnap.exists()?'found':'not found'}`);
+      } catch(e) { console.warn('docId fetch failed:', e.message); }
+    }
+
+    // Try by mockId field
+    if (!mockMeta && mockId && mockId !== 'null' && mockId !== '') {
       try {
         const snap = await getDocs(query(collection(db,'mock_tests'), where('mockId','==',mockId)));
         if (!snap.empty) mockMeta = { id: snap.docs[0].id, ...snap.docs[0].data() };
@@ -434,6 +446,19 @@ window._loadQuestions = async () => {
       } catch(e) { console.warn('type=mock query failed:', e.message); }
     }
 
+    // Strategy 4: by mockSeriesNum alone (last resort)
+    if (!qDocs.length && (mockMeta.seriesNum||seriesNum)) {
+      try {
+        const snap = await getDocs(query(
+          collection(db,'questions'),
+          where('mockSeriesNum','==', mockMeta.seriesNum||seriesNum),
+          limit(200)
+        ));
+        qDocs = snap.docs;
+        setLoad(60, `Found ${qDocs.length} questions by mockSeriesNum only`);
+      } catch(e) { console.warn('mockSeriesNum-only query failed:', e.message); }
+    }
+
     qList = qDocs.map(d => ({ id: d.id, ...d.data() }));
 
     if (!qList.length) {
@@ -458,8 +483,14 @@ window._loadQuestions = async () => {
     window._initTest(mockMeta, qList);
 
   } catch(e) {
-    document.getElementById('loadMsg').textContent = '❌ '+e.message;
-    document.getElementById('loadMsg').style.color = '#EF4444';
+    const errEl = document.getElementById('loadMsg');
+    errEl.style.color = '#EF4444';
+    errEl.style.fontSize = '0.78rem';
+    errEl.style.maxWidth = '500px';
+    errEl.style.lineHeight = '1.6';
+    errEl.innerHTML = '❌ ' + e.message +
+      '<br><br><span style="color:#64748B;font-size:0.72rem;">URL: ' + window.location.search + '</span>' +
+      '<br><a href="mock-list.html" style="color:#FF6B00;font-size:0.8rem;">← Back to Mock List</a>';
   }
 };
 
