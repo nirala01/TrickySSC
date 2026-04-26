@@ -3150,25 +3150,43 @@ ${sampleQs}` : ''}
 Return ONLY valid JSON array — no markdown:
 [
   {
-    "text": "Question text",
+    "text": "Question text (NO figure/mirror/image-based questions — text only)",
     "option_A": "Option A",
-    "option_B": "Option B", 
+    "option_B": "Option B",
     "option_C": "Option C",
     "option_D": "Option D",
     "correct": "A",
-    "explanation": "Step-by-step solution",
-    "trick": "One-line shortcut",
+    "explanation": "<div style=\"margin-top:8px;\"><strong style=\"color:#FF6B00;font-size:0.9rem;\">Step 1: Understand the question.</strong></div><div style=\"margin-left:14px;color:#374151;font-size:0.87rem;line-height:1.7;\"><span style=\"color:#FF6B00;font-weight:700;margin-right:4px;\">—</span>Write the key observation or given data here.</div><div style=\"margin-top:8px;\"><strong style=\"color:#FF6B00;font-size:0.9rem;\">Step 2: Apply the method.</strong></div><div style=\"margin-left:14px;color:#374151;font-size:0.87rem;line-height:1.7;\"><span style=\"color:#FF6B00;font-weight:700;margin-right:4px;\">—</span>Show the calculation or logic here.</div><div style=\"margin-top:8px;font-weight:700;color:#00A86B;font-size:0.9rem;\">∴ Final Answer = X (Option A)</div>",
+    "trick": "One-line shortcut tip",
     "chapter": "topic name",
+    "diTable": null,
     "difficulty": "${difficulty === 'higher' ? 'hard' : 'medium'}"
   }
 ]
 
+For Data Interpretation questions (2-3 per Quant section), use this format:
+{
+  "text": "Study the table and answer: What is X?",
+  "diTable": {"title": "Table Title", "headers": ["Col1","Col2","Col3"], "rows": [["R1C1","R1C2","R1C3"],["R2C1","R2C2","R2C3"]]},
+  "option_A": "...", "option_B": "...", "option_C": "...", "option_D": "...",
+  "correct": "B",
+  "explanation": "<div style=\"margin-top:8px;\"><strong style=\"color:#FF6B00;font-size:0.9rem;\">Step 1: Read the table.</strong></div><div style=\"margin-left:14px;color:#374151;font-size:0.87rem;line-height:1.7;\"><span style=\"color:#FF6B00;font-weight:700;margin-right:4px;\">—</span>From the table, value = X.</div><div style=\"margin-top:8px;font-weight:700;color:#00A86B;font-size:0.9rem;\">∴ Final Answer = B</div>",
+  "trick": "DI shortcut here",
+  "chapter": "data-interpretation",
+  "diTable": {"title":"...", "headers":[...], "rows":[[...],[...]]},
+  "difficulty": "medium"
+}
+
 Rules:
-- All ${qPerSec} questions must be UNIQUE and ORIGINAL
+- All ${batchCount} questions must be UNIQUE and ORIGINAL
+- NEVER generate figure/mirror/image-based questions — text only
+- For Reasoning: use coding-decoding, blood relations, series, directions, syllogism, analogy instead of mirror/figure questions
 - Correct answers must be genuinely correct — verify before finalizing
 - Mix of easy (20%), medium (50%), hard (30%)
 - Cover different chapters/topics
-- explanation: clear step-by-step solution`;
+- explanation MUST follow the exact HTML format shown above with proper Step 1, Step 2... and green Final Answer line
+- For maths: show actual numbers and calculations in each step
+- For GK/English: explain WHY the answer is correct with facts/grammar rules`;
 
       // Generate in 2 batches of ~12-13 to avoid token limit issues
       const half1 = Math.ceil(qPerSec / 2);

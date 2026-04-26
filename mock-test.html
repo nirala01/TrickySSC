@@ -105,6 +105,9 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--dark);color:var
 .sol-box.show{display:block;}
 .sol-title{color:var(--orange);font-weight:700;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:0.5rem;}
 .sol-text{color:var(--muted);line-height:1.7;}
+.sol-text strong{color:#FF6B00;}
+.sol-text [style*="color:#00A86B"]{color:#00A86B !important;font-weight:700;}
+.sol-text [style*="color:#FF6B00"]{color:#FF6B00 !important;}
 .trick-box{background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.25);border-radius:6px;padding:0.4rem 0.65rem;margin-top:0.45rem;font-size:0.77rem;color:#FBBF24;}
 
 /* ── Side panel ── */
@@ -774,6 +777,7 @@ window.closeModal = () => document.getElementById('confirmModal').classList.remo
 window.submitTest = () => {
   clearInterval(timerInt);
   closeModal();
+  resultMode = true;
   document.getElementById('testScreen').style.display  = 'none';
   document.getElementById('resultScreen').style.display = 'block';
 
@@ -852,9 +856,10 @@ window.showReview = () => {
         <span class="q-subj">${q.subject?.replace('General Intelligence & Reasoning','Reasoning').replace('Quantitative Aptitude','Quant').replace('General Awareness','GK')||''}</span>
         <span class="${badgeCls}">${badgeTxt}</span>
       </div>
+      ${q.diTable?`<div style="margin-bottom:0.6rem;">${buildDITable(q.diTable)}</div>`:''}
       <div style="font-size:0.85rem;color:var(--text);line-height:1.6;margin-bottom:0.6rem;">${q.text||''}</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.3rem;margin-bottom:0.6rem;">${opts}</div>
-      ${sol?`<div class="sol-box show"><div class="sol-title">📖 Explanation</div><div class="sol-text">${sol.replace(/<[^>]+>/g,'')}</div>${trk?`<div class="trick-box">⚡ Trick: ${trk}</div>`:''}</div>`:''}
+      ${sol?`<div class="sol-box show"><div class="sol-title">📖 Explanation</div><div class="sol-text">${sol${trk?`<div class="trick-box">⚡ Trick: ${trk}</div>`:''}</div>`:''}
     </div>`;
   }).join('');
 };
