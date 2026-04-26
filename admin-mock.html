@@ -3286,15 +3286,19 @@ Rules:
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               model: 'claude-sonnet-4-20250514',
-              max_tokens: 16000,
+              max_tokens: 8000,
               messages: [
                 { role: 'user', content: SYSTEM_PROMPT + '\n\nNow generate the questions:\n\n' + batchPrompt }
               ]
             })
           });
 
-          if (!resp.ok) throw new Error(`API error: ${resp.status}`);
+          if (!resp.ok) {
+            const errText = await resp.text().catch(()=>'');
+            throw new Error(`API error ${resp.status}: ${errText.slice(0,200)}`);
+          }
           const data = await resp.json();
+          if (data.error) throw new Error('Claude error: ' + (data.error.message || JSON.stringify(data.error)));
           const text = data.content?.[0]?.text || '';
 
           // Try to extract valid JSON array — handle truncation
