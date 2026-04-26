@@ -1665,6 +1665,13 @@ textarea{resize:vertical;min-height:80px;}
         </div>
       </div>
     </div>
+    <div class="form-row">
+      <div>
+        <label>Source Paper ID (paperId) — required for PYQ-based mocks</label>
+        <input type="text" id="pubSourcePaperId" placeholder="e.g. ssc-cgl_2024_tier1_shift1_en  (leave blank for AI-generated mocks)">
+        <div style="font-size:0.72rem;color:#64748B;margin-top:0.3rem;">⚠️ This links the mock to your uploaded PYQ questions. Without this, questions won't load.</div>
+      </div>
+    </div>
 
     <button class="btn btn-primary" onclick="publishMock()" style="margin-top:0.5rem;background:linear-gradient(135deg,#00A86B,#0EA5E9);min-width:200px;">
       🚀 Publish Mock Test
@@ -2864,8 +2871,12 @@ window.publishMock = async () => {
   const duration  = parseInt(document.getElementById('pubDuration').value) || 60;
   const marks     = parseInt(document.getElementById('pubMarks').value) || 200;
   const isPaid    = document.getElementById('pubIsPaid').value === 'true';
+  const sourcePaperId = document.getElementById('pubSourcePaperId').value.trim() || null;
 
   if (!title) { showToast('Please enter a title', 'error'); return; }
+  if (!sourcePaperId) {
+    if (!confirm('No Source Paper ID entered. Questions won\'t load unless this mock has a mockId (AI-generated). Continue?')) return;
+  }
 
   try {
     // Check if this exact mock already exists
@@ -2881,7 +2892,9 @@ window.publishMock = async () => {
       const docId = existing.docs[0].id;
       await updateDoc(doc(db,'mock_tests',docId), {
         title, totalQuestions:totalQ, duration, totalMarks:marks,
-        isPaid, isPublished:true, updatedAt:new Date()
+        isPaid, isPublished:true,
+        ...(sourcePaperId ? { sourcePaperId } : {}),
+        updatedAt:new Date()
       });
       showToast('✅ Mock updated & published!','success');
     } else {
@@ -2891,6 +2904,7 @@ window.publishMock = async () => {
         totalQuestions: totalQ,
         duration, totalMarks: marks,
         isPaid, isPublished: true,
+        ...(sourcePaperId ? { sourcePaperId } : {}),
         createdAt: new Date()
       });
       showToast('✅ Mock test published! It will now appear on the exam page.','success');

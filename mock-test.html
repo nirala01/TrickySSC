@@ -375,17 +375,40 @@ window._loadQuestions = async () => {
     window._mockMeta = mockMeta;
     setLoad(25,'Loading questions...');
 
-    // Load questions by mockId or exam+type
+    // Load questions — try multiple strategies in priority order
     let qSnap;
+
+    // Strategy 1: mockId on questions (AI-generated mocks)
     if (mockMeta.mockId) {
       qSnap = await getDocs(query(collection(db,'questions'), where('mockId','==',mockMeta.mockId)));
-    } else {
-      qSnap = await getDocs(query(collection(db,'questions'),
-        where('exam','==',exam), where('type','==','mock'), where('mockSeriesNum','==',seriesNum)));
+      qList = qSnap.docs.map(d => ({ id: d.id, ...d.data() }));
     }
 
-    qList = qSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-    if (!qList.length) throw new Error('No questions found for this mock test.');
+    // Strategy 2: paperId (PYQ-based mocks published via Publish tab or linked to a PYQ paper)
+    if (!qList.length && mockMeta.sourcePaperId) {
+      setLoad(30,'Loading PYQ questions...');
+      qSnap = await getDocs(query(collection(db,'questions'), where('paperId','==',mockMeta.sourcePaperId)));
+      qList = qSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      // If bilingual paper, default to English (or what URL says)
+      const langParam = new URLSearchParams(window.location.search).get('lang') || 'en';
+      const engQs = qList.filter(q => (q.lang||'en') === 'en');
+      const hiQs  = qList.filter(q => (q.lang||'en') === 'hi');
+      if (engQs.length && hiQs.length) {
+        // Both langs present — keep all, language toggle will handle it
+      } else if (engQs.length) {
+        qList = engQs;
+      }
+    }
+
+    // Strategy 3: Legacy type=mock query (manually added mock questions)
+    if (!qList.length) {
+      setLoad(35,'Searching mock questions...');
+      qSnap = await getDocs(query(collection(db,'questions'),
+        where('exam','==',exam), where('type','==','mock'), where('mockSeriesNum','==',seriesNum)));
+      qList = qSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    }
+
+    if (!qList.length) throw new Error('No questions found for this mock test. Please check the paper has been uploaded.');
 
     setLoad(70,'Organizing sections...');
 
