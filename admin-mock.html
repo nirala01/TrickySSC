@@ -1480,26 +1480,39 @@ textarea{resize:vertical;min-height:80px;}
     </div>
 
     <div style="font-family:Rajdhani,sans-serif;font-size:0.85rem;font-weight:700;color:#FF6B00;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.75rem;">Step 1 — Select Source PYQ Paper</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:0.75rem;margin-bottom:0.75rem;">
-      <div><label>Exam</label>
-        <select id="genExam">
-          <option value="ssc-cgl">SSC CGL</option><option value="ssc-chsl">SSC CHSL</option>
-          <option value="ssc-mts">SSC MTS</option><option value="ssc-gd">SSC GD</option><option value="ssc-cpo">SSC CPO</option>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:0.75rem;">
+      <div>
+        <label>Exam</label>
+        <select id="genExam" onchange="genResetPapers()">
+          <option value="ssc-cgl">SSC CGL</option>
+          <option value="ssc-chsl">SSC CHSL</option>
+          <option value="ssc-mts">SSC MTS</option>
+          <option value="ssc-gd">SSC GD</option>
+          <option value="ssc-cpo">SSC CPO</option>
         </select>
       </div>
-      <div><label>Tier</label>
-        <select id="genTier"><option value="Tier I">Tier I</option><option value="Tier II">Tier II</option></select>
-      </div>
-      <div><label>Year</label>
-        <select id="genYear"><option>2024</option><option>2023</option><option selected>2022</option><option>2021</option><option>2020</option></select>
-      </div>
-      <div><label>Language</label>
-        <select id="genLang"><option value="en">English</option><option value="hi">Hindi</option></select>
+      <div style="display:flex;align-items:flex-end;">
+        <button onclick="genLoadPapers()" id="genLoadBtn" style="width:100%;padding:0.65rem 1rem;background:linear-gradient(135deg,#3B82F6,#0EA5E9);color:#fff;border:none;border-radius:8px;font-family:Plus Jakarta Sans,sans-serif;font-weight:700;font-size:0.88rem;cursor:pointer;">
+          📥 Load PYQ Papers
+        </button>
       </div>
     </div>
-    <div><label>Source Paper (PYQ Paper ID)</label>
-      <input type="text" id="genPaperId" placeholder="e.g. ssc-cgl_2022_tier1_shift-1_2022-12-08_en">
-      <div style="font-size:0.72rem;color:#64748B;margin-top:0.3rem;">Copy from question-uploader.html — the auto-generated Paper ID for the paper you uploaded</div>
+
+    <div id="genPapersWrap" style="display:none;">
+      <label>Select PYQ Paper</label>
+      <select id="genPaperSelect" onchange="genPaperSelected()" style="margin-bottom:0.5rem;">
+        <option value="">-- Select a paper --</option>
+      </select>
+      <div id="genPaperInfo" style="display:none;background:#0F172A;border:1px solid #334155;border-radius:8px;padding:0.65rem 0.9rem;font-size:0.8rem;color:#94A3B8;line-height:1.7;"></div>
+      <input type="hidden" id="genPaperId">
+    </div>
+
+    <div id="genPapersEmpty" style="display:none;background:#0F172A;border:1px solid #EF444433;border-radius:8px;padding:0.65rem 0.9rem;font-size:0.8rem;color:#FCA5A5;">
+      No PYQ papers found for this exam. Upload papers via admin.html first.
+    </div>
+    <div id="genPapersLoading" style="display:none;background:#0F172A;border:1px solid #334155;border-radius:8px;padding:0.65rem 0.9rem;font-size:0.8rem;color:#94A3B8;">
+      ⏳ Loading papers from Firestore...
     </div>
 
     <div style="font-family:Rajdhani,sans-serif;font-size:0.85rem;font-weight:700;color:#FF6B00;text-transform:uppercase;letter-spacing:0.05em;margin:1.25rem 0 0.75rem;">Step 2 — Mock Settings</div>
@@ -3166,6 +3179,132 @@ Rules:
 
   btn.disabled = false;
   btn.textContent = '🤖 Generate Mock Test';
+};
+
+// ── Load PYQ papers for mock generator ───────────────────────────────────────
+window.genResetPapers = () => {
+  document.getElementById('genPapersWrap').style.display    = 'none';
+  document.getElementById('genPapersEmpty').style.display   = 'none';
+  document.getElementById('genPapersLoading').style.display = 'none';
+  document.getElementById('genPaperId').value = '';
+  document.getElementById('genPaperInfo').style.display = 'none';
+};
+
+window.genLoadPapers = async () => {
+  const exam = document.getElementById('genExam').value;
+  const btn  = document.getElementById('genLoadBtn');
+  btn.textContent = '⏳ Loading...';
+  btn.disabled = true;
+
+  document.getElementById('genPapersWrap').style.display    = 'none';
+  document.getElementById('genPapersEmpty').style.display   = 'none';
+  document.getElementById('genPapersLoading').style.display = 'block';
+
+  try {
+    // Get distinct paperIds for this exam from questions collection
+    const snap = await getDocs(query(
+      collection(db, 'questions'),
+      where('exam', '==', exam.replace('ssc-','ssc ').replace(/-/g,' ').toUpperCase()
+        .replace('SSC CGL','SSC CGL').replace('SSC CHSL','SSC CHSL')
+        .replace('SSC MTS','SSC MTS').replace('SSC GD','SSC GD').replace('SSC CPO','SSC CPO')),
+      limit(500)
+    ));
+
+    // Also try with lowercase exam value directly
+    const snap2 = await getDocs(query(
+      collection(db, 'questions'),
+      where('exam', '==', exam),
+      limit(500)
+    ));
+
+    const allDocs = [...snap.docs, ...snap2.docs].map(d => d.data());
+
+    // Group by paperId
+    const papers = {};
+    allDocs.forEach(q => {
+      const pid = q.paperId;
+      if (!pid) return;
+      if (!papers[pid]) {
+        papers[pid] = {
+          paperId: pid,
+          exam: q.exam || exam,
+          year: q.year || '',
+          tier: q.tier || '',
+          shift: q.shift || '',
+          heldOn: q.heldOn || q.date || '',
+          lang: q.lang || 'en',
+          count: 0,
+          subjects: new Set()
+        };
+      }
+      papers[pid].count++;
+      if (q.subject) papers[pid].subjects.add(q.subject);
+    });
+
+    document.getElementById('genPapersLoading').style.display = 'none';
+
+    const paperList = Object.values(papers).sort((a,b) => {
+      if (b.year !== a.year) return (b.year||0) - (a.year||0);
+      return (a.shift||'').localeCompare(b.shift||'');
+    });
+
+    if (!paperList.length) {
+      document.getElementById('genPapersEmpty').style.display = 'block';
+    } else {
+      const sel = document.getElementById('genPaperSelect');
+      sel.innerHTML = '<option value="">-- Select a paper --</option>' +
+        paperList.map(p => {
+          const label = [p.year, p.tier, p.shift, p.heldOn, '('+p.count+' Qs)'].filter(Boolean).join(' · ');
+          return `<option value="${p.paperId}" data-count="${p.count}" data-tier="${p.tier||''}" data-year="${p.year||''}" data-shift="${p.shift||''}" data-held="${p.heldOn||''}" data-lang="${p.lang||'en'}">${label}</option>`;
+        }).join('');
+      document.getElementById('genPapersWrap').style.display = 'block';
+    }
+
+  } catch(e) {
+    document.getElementById('genPapersLoading').style.display = 'none';
+    document.getElementById('genPapersEmpty').innerHTML = '❌ Error loading papers: ' + e.message;
+    document.getElementById('genPapersEmpty').style.display = 'block';
+  }
+
+  btn.textContent = '📥 Load PYQ Papers';
+  btn.disabled = false;
+};
+
+window.genPaperSelected = () => {
+  const sel = document.getElementById('genPaperSelect');
+  const opt = sel.options[sel.selectedIndex];
+  if (!opt || !opt.value) {
+    document.getElementById('genPaperInfo').style.display = 'none';
+    document.getElementById('genPaperId').value = '';
+    return;
+  }
+
+  const paperId = opt.value;
+  document.getElementById('genPaperId').value = paperId;
+
+  const count = opt.dataset.count || '?';
+  const tier  = opt.dataset.tier  || '';
+  const year  = opt.dataset.year  || '';
+  const shift = opt.dataset.shift || '';
+  const held  = opt.dataset.held  || '';
+  const lang  = opt.dataset.lang  || 'en';
+
+  const info = document.getElementById('genPaperInfo');
+  info.style.display = 'block';
+  info.innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0.5rem;">
+      <div><span style="color:#64748B;font-size:0.7rem;">PAPER ID</span><br><span style="color:#E2E8F0;font-size:0.78rem;font-family:monospace;">${paperId}</span></div>
+      <div><span style="color:#64748B;font-size:0.7rem;">QUESTIONS</span><br><span style="color:#FF6B00;font-weight:700;">${count} Qs</span></div>
+      <div><span style="color:#64748B;font-size:0.7rem;">TIER / SHIFT</span><br><span style="color:#E2E8F0;">${tier} ${shift}</span></div>
+      <div><span style="color:#64748B;font-size:0.7rem;">YEAR</span><br><span style="color:#E2E8F0;">${year}</span></div>
+      <div><span style="color:#64748B;font-size:0.7rem;">DATE</span><br><span style="color:#E2E8F0;">${held||'—'}</span></div>
+      <div><span style="color:#64748B;font-size:0.7rem;">LANGUAGE</span><br><span style="color:#E2E8F0;">${lang === 'hi' ? '🇮🇳 Hindi' : '🇬🇧 English'}</span></div>
+    </div>`;
+
+  // Auto-fill mock title and tier
+  const examName = document.getElementById('genExam').value.toUpperCase().replace('-',' ');
+  const nextNum  = parseInt(document.getElementById('genSeriesNum').value) || 1;
+  document.getElementById('genTitle').value = `${examName} ${tier} Mock Test ${nextNum} — Based on ${year} ${shift}`;
 };
 </script>
 </body>
