@@ -354,8 +354,6 @@ const tier       = params.get('tier') || 'Tier I';
 window._db = db;
 window._getDoc = getDoc;
 window._fsDoc = (id) => fsDoc(db,'mock_tests',id);
-window._firestoreLoaded = true;
-window.dispatchEvent(new Event('fsReady'));
 
 window._loadQuestions = async () => {
   setLoad(10,'Loading mock test info...');
@@ -494,12 +492,16 @@ window._loadQuestions = async () => {
   }
 };
 
-window.addEventListener('fsReady', () => window._loadQuestions());
+// fsReady handled in module
 window._saveResult = async (result) => {
   try {
     await addDoc(collection(db,'mock_results'), result);
   } catch(e) { console.warn('Save result failed:', e.message); }
 };
+
+// Fire after everything is defined
+window._firestoreLoaded = true;
+window._loadQuestions();
 </script>
 
 <script>
@@ -862,10 +864,7 @@ window.toggleSidePanel = () => {
   document.getElementById('sidePanel').classList.toggle('open');
 };
 
-// ── If Firebase not ready yet ─────────────────────────────────────────────────
-window.addEventListener('fsReady', () => {});
-// If module already fired
-if (window._firestoreLoaded) window._loadQuestions?.();
+// Firebase module calls _loadQuestions() directly after init
 
 // ── Language toggle ───────────────────────────────────────────────────────────
 window.toggleLang = () => {
