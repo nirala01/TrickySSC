@@ -1545,6 +1545,13 @@ textarea{resize:vertical;min-height:80px;}
           <option value="similar">Similar to PYQ</option>
         </select>
       </div>
+      <div><label>Language</label>
+        <select id="genLang">
+          <option value="both">Both (English + Hindi)</option>
+          <option value="en">English Only</option>
+          <option value="hi">Hindi Only</option>
+        </select>
+      </div>
       <div><label>Access</label>
         <select id="genIsPaid"><option value="false">Free</option><option value="true">Paid</option></select>
       </div>
@@ -2975,7 +2982,9 @@ window.generateMock = async () => {
   const exam      = document.getElementById('genExam').value;
   const tier      = document.getElementById('genTier').value;
   const year      = document.getElementById('genYear').value;
-  const lang      = document.getElementById('genLang').value;
+  const langSel   = document.getElementById('genLang').value; // 'en', 'hi', or 'both'
+  const langs     = langSel === 'both' ? ['en','hi'] : [langSel];
+  const lang      = langs[0]; // primary lang for metadata
   const title     = document.getElementById('genTitle').value.trim();
   const seriesNum = parseInt(document.getElementById('genSeriesNum').value);
   const qPerSec   = parseInt(document.getElementById('genQperSection').value);
@@ -3034,9 +3043,14 @@ window.generateMock = async () => {
     // Step 2: Generate new questions for each section using Claude API
     const mockId = `${exam}_mock${seriesNum}_${Date.now()}`;
     const allGeneratedQs = [];
-    const totalMarks = qPerSec * 4 * 2; // 2 marks per question
+    const totalMarks = qPerSec * 4 * 2 * langs.length; // 2 marks per question
+
+    setMsg(`Generating for language(s): ${langs.map(l=>l==='hi'?'Hindi':'English').join(' + ')}`, 18);
 
     let pct = 20;
+    for (const currentLang of langs) {
+    const langLabel = currentLang === 'hi' ? 'Hindi' : 'English';
+    setMsg(`Starting ${langLabel} questions...`, pct);
     for (const sec of SECTIONS) {
       setMsg(`Generating ${qPerSec} ${sec.short} questions...`, pct);
 
@@ -3054,7 +3068,7 @@ window.generateMock = async () => {
 
 Source paper topics: ${topics.join(', ') || sec.subject}
 Difficulty: ${difficulty === 'higher' ? 'HARDER than standard PYQ — more complex calculations, trickier logic, less obvious answers' : 'Similar to standard PYQ level'}
-Language: ${lang === 'hi' ? 'Hindi' : 'English'}
+Language: ${currentLang === 'hi' && sec.subject !== 'English Language' ? 'Hindi (use Devanagari script for question and options)' : 'English (this section is always in English regardless of medium)'}
 ${sampleQs ? `Reference style (DO NOT copy, just match style):
 ${sampleQs}` : ''}
 
@@ -3109,7 +3123,7 @@ Rules:
             tier,
             year: parseInt(year),
             subject: sec.subject,
-            lang,
+            lang: currentLang, // English Language section stays English but tagged with medium lang
             type: 'mock',
             mockId,
             mockSeriesNum: seriesNum,
@@ -3123,10 +3137,13 @@ Rules:
         setMsg(`⚠️ ${sec.subject} failed: ${e.message.slice(0,80)} — skipping`, pct + 5);
       }
 
-      pct += 15;
+      pct += 10;
       // Small delay to avoid rate limits
       await new Promise(r => setTimeout(r, 2000));
-    }
+    } // end sections loop
+    pct += 5;
+    if (langs.length > 1) { setMsg('Waiting before next language...', pct); await new Promise(r => setTimeout(r, 3000)); }
+    } // end langs loop
 
     if (!allGeneratedQs.length) throw new Error('No questions generated — check API connection');
 
@@ -3150,6 +3167,7 @@ Rules:
       isPublished: true,
       mockId,
       sourcePaperId: paperId,
+      languages: langs,
       generatedAt: new Date(),
       createdAt: new Date(),
     };
@@ -3201,25 +3219,32 @@ window.genLoadPapers = async () => {
   document.getElementById('genPapersLoading').style.display = 'block';
 
   try {
-    // Get distinct paperIds for this exam from questions collection
-    const snap = await getDocs(query(
-      collection(db, 'questions'),
-      where('exam', '==', exam.replace('ssc-','ssc ').replace(/-/g,' ').toUpperCase()
-        .replace('SSC CGL','SSC CGL').replace('SSC CHSL','SSC CHSL')
-        .replace('SSC MTS','SSC MTS').replace('SSC GD','SSC GD').replace('SSC CPO','SSC CPO')),
-      limit(500)
-    ));
+    // Try multiple exam name formats
+    const examFormats = [
+      exam,
+      exam.toUpperCase(),
+      exam.replace('ssc-','SSC ').toUpperCase(),
+      'SSC CGL', 'SSC CHSL', 'SSC MTS', 'SSC GD', 'SSC CPO'
+    ].filter((v,i,a) => a.indexOf(v)===i);
 
-    // Also try with lowercase exam value directly
-    const snap2 = await getDocs(query(
-      collection(db, 'questions'),
-      where('exam', '==', exam),
-      limit(500)
-    ));
+    let allDocs = [];
+    for (const ef of examFormats) {
+      try {
+        const snap = await getDocs(query(collection(db,'questions'), where('exam','==',ef), limit(1000)));
+        if (snap.docs.length > 0) {
+          allDocs = [...allDocs, ...snap.docs.map(d => d.data())];
+          break; // found the right format
+        }
+      } catch(e) {}
+    }
 
-    const allDocs = [...snap.docs, ...snap2.docs].map(d => d.data());
+    // Also fetch from papers collection if exists
+    try {
+      const pSnap = await getDocs(query(collection(db,'papers'), where('exam','==',exam)));
+      // papers collection stores metadata — use as fallback
+    } catch(e) {}
 
-    // Group by paperId
+    // Group by paperId — count ALL questions per paper
     const papers = {};
     allDocs.forEach(q => {
       const pid = q.paperId;
@@ -3229,10 +3254,10 @@ window.genLoadPapers = async () => {
           paperId: pid,
           exam: q.exam || exam,
           year: q.year || '',
-          tier: q.tier || '',
-          shift: q.shift || '',
-          heldOn: q.heldOn || q.date || '',
-          lang: q.lang || 'en',
+          tier: q.tier || q.Tier || '',
+          shift: q.shift || q.Shift || '',
+          heldOn: q.heldOn || q.date || q.examDate || '',
+          lang: q.lang || q.language || 'en',
           count: 0,
           subjects: new Set()
         };
@@ -3245,7 +3270,8 @@ window.genLoadPapers = async () => {
 
     const paperList = Object.values(papers).sort((a,b) => {
       if (b.year !== a.year) return (b.year||0) - (a.year||0);
-      return (a.shift||'').localeCompare(b.shift||'');
+      if ((a.shift||'') !== (b.shift||'')) return (a.shift||'').localeCompare(b.shift||'');
+      return (a.lang||'').localeCompare(b.lang||'');
     });
 
     if (!paperList.length) {
@@ -3254,10 +3280,18 @@ window.genLoadPapers = async () => {
       const sel = document.getElementById('genPaperSelect');
       sel.innerHTML = '<option value="">-- Select a paper --</option>' +
         paperList.map(p => {
-          const label = [p.year, p.tier, p.shift, p.heldOn, '('+p.count+' Qs)'].filter(Boolean).join(' · ');
+          const qLabel = p.count >= 100 ? '✅ '+p.count+' Qs' : '⚠️ '+p.count+' Qs';
+          const langLabel = p.lang === 'hi' ? '🇮🇳 Hindi' : '🇬🇧 English';
+          const label = [p.year, p.tier, p.shift, p.heldOn, qLabel, langLabel].filter(Boolean).join(' · ');
           return `<option value="${p.paperId}" data-count="${p.count}" data-tier="${p.tier||''}" data-year="${p.year||''}" data-shift="${p.shift||''}" data-held="${p.heldOn||''}" data-lang="${p.lang||'en'}">${label}</option>`;
         }).join('');
       document.getElementById('genPapersWrap').style.display = 'block';
+
+      // Show count summary
+      const total = paperList.length;
+      const full  = paperList.filter(p => p.count >= 100).length;
+      document.getElementById('genPaperInfo').style.display = 'block';
+      document.getElementById('genPaperInfo').innerHTML = `Found <strong style="color:#FF6B00;">${total} papers</strong> — ${full} complete (100+ Qs), ${total-full} partial. Select one below.`;
     }
 
   } catch(e) {
