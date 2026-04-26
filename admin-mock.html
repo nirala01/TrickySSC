@@ -1499,20 +1499,30 @@ textarea{resize:vertical;min-height:80px;}
       </div>
     </div>
 
+    <!-- Step 1b: Paper list loaded from Firestore -->
+    <div id="genPapersLoading" style="display:none;background:#0F172A;border:1px solid #334155;border-radius:8px;padding:0.65rem 0.9rem;font-size:0.8rem;color:#94A3B8;">
+      ⏳ Loading paper IDs...
+    </div>
+    <div id="genPapersEmpty" style="display:none;background:#0F172A;border:1px solid #EF444433;border-radius:8px;padding:0.65rem 0.9rem;font-size:0.8rem;color:#FCA5A5;">
+      No PYQ papers found. Upload papers via admin.html first.
+    </div>
     <div id="genPapersWrap" style="display:none;">
       <label>Select PYQ Paper</label>
-      <select id="genPaperSelect" onchange="genPaperSelected()" style="margin-bottom:0.5rem;">
+      <select id="genPaperSelect" onchange="genPaperSelected()" style="margin-bottom:0.65rem;">
         <option value="">-- Select a paper --</option>
       </select>
-      <div id="genPaperInfo" style="display:none;background:#0F172A;border:1px solid #334155;border-radius:8px;padding:0.65rem 0.9rem;font-size:0.8rem;color:#94A3B8;line-height:1.7;"></div>
       <input type="hidden" id="genPaperId">
-    </div>
 
-    <div id="genPapersEmpty" style="display:none;background:#0F172A;border:1px solid #EF444433;border-radius:8px;padding:0.65rem 0.9rem;font-size:0.8rem;color:#FCA5A5;">
-      No PYQ papers found for this exam. Upload papers via admin.html first.
-    </div>
-    <div id="genPapersLoading" style="display:none;background:#0F172A;border:1px solid #334155;border-radius:8px;padding:0.65rem 0.9rem;font-size:0.8rem;color:#94A3B8;">
-      ⏳ Loading papers from Firestore...
+      <!-- Step 1c: Load questions for selected paper -->
+      <div id="genLoadQWrap" style="display:none;margin-top:0.5rem;">
+        <button onclick="genLoadQuestions()" id="genLoadQBtn"
+          style="padding:0.55rem 1.1rem;background:linear-gradient(135deg,#10B981,#0EA5E9);color:#fff;border:none;border-radius:8px;font-family:Plus Jakarta Sans,sans-serif;font-weight:700;font-size:0.85rem;cursor:pointer;">
+          📋 Load Questions for this Paper
+        </button>
+      </div>
+
+      <!-- Paper info + question count after loading -->
+      <div id="genPaperInfo" style="display:none;background:#0F172A;border:1px solid #334155;border-radius:8px;padding:0.75rem 0.9rem;margin-top:0.65rem;font-size:0.8rem;color:#94A3B8;line-height:1.8;"></div>
     </div>
 
     <div style="font-family:Rajdhani,sans-serif;font-size:0.85rem;font-weight:700;color:#FF6B00;text-transform:uppercase;letter-spacing:0.05em;margin:1.25rem 0 0.75rem;">Step 2 — Mock Settings</div>
@@ -1663,13 +1673,6 @@ textarea{resize:vertical;min-height:80px;}
         <div style="background:#1E293B;border:1px solid #334155;border-radius:8px;padding:0.65rem 1rem;font-size:0.82rem;color:#94A3B8;width:100%;">
           ✅ <code>isPublished</code> is always set to <strong style="color:#00A86B;">true</strong> when you click Publish.
         </div>
-      </div>
-    </div>
-    <div class="form-row">
-      <div>
-        <label>Source Paper ID (paperId) — required for PYQ-based mocks</label>
-        <input type="text" id="pubSourcePaperId" placeholder="e.g. ssc-cgl_2024_tier1_shift1_en  (leave blank for AI-generated mocks)">
-        <div style="font-size:0.72rem;color:#64748B;margin-top:0.3rem;">⚠️ This links the mock to your uploaded PYQ questions. Without this, questions won't load.</div>
       </div>
     </div>
 
@@ -2871,12 +2874,8 @@ window.publishMock = async () => {
   const duration  = parseInt(document.getElementById('pubDuration').value) || 60;
   const marks     = parseInt(document.getElementById('pubMarks').value) || 200;
   const isPaid    = document.getElementById('pubIsPaid').value === 'true';
-  const sourcePaperId = document.getElementById('pubSourcePaperId').value.trim() || null;
 
   if (!title) { showToast('Please enter a title', 'error'); return; }
-  if (!sourcePaperId) {
-    if (!confirm('No Source Paper ID entered. Questions won\'t load unless this mock has a mockId (AI-generated). Continue?')) return;
-  }
 
   try {
     // Check if this exact mock already exists
@@ -2892,9 +2891,7 @@ window.publishMock = async () => {
       const docId = existing.docs[0].id;
       await updateDoc(doc(db,'mock_tests',docId), {
         title, totalQuestions:totalQ, duration, totalMarks:marks,
-        isPaid, isPublished:true,
-        ...(sourcePaperId ? { sourcePaperId } : {}),
-        updatedAt:new Date()
+        isPaid, isPublished:true, updatedAt:new Date()
       });
       showToast('✅ Mock updated & published!','success');
     } else {
@@ -2904,7 +2901,6 @@ window.publishMock = async () => {
         totalQuestions: totalQ,
         duration, totalMarks: marks,
         isPaid, isPublished: true,
-        ...(sourcePaperId ? { sourcePaperId } : {}),
         createdAt: new Date()
       });
       showToast('✅ Mock test published! It will now appear on the exam page.','success');
@@ -3215,11 +3211,11 @@ Rules:
 
 // ── Load PYQ papers for mock generator ───────────────────────────────────────
 window.genResetPapers = () => {
-  document.getElementById('genPapersWrap').style.display    = 'none';
-  document.getElementById('genPapersEmpty').style.display   = 'none';
-  document.getElementById('genPapersLoading').style.display = 'none';
+  ['genPapersWrap','genPapersEmpty','genPapersLoading','genPaperInfo','genLoadQWrap'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
   document.getElementById('genPaperId').value = '';
-  document.getElementById('genPaperInfo').style.display = 'none';
 };
 
 window.genLoadPapers = async () => {
@@ -3228,62 +3224,59 @@ window.genLoadPapers = async () => {
   btn.textContent = '⏳ Loading...';
   btn.disabled = true;
 
-  document.getElementById('genPapersWrap').style.display    = 'none';
-  document.getElementById('genPapersEmpty').style.display   = 'none';
+  genResetPapers();
   document.getElementById('genPapersLoading').style.display = 'block';
 
   try {
-    // Try multiple exam name formats
-    const examFormats = [
-      exam,
-      exam.toUpperCase(),
-      exam.replace('ssc-','SSC ').toUpperCase(),
-      'SSC CGL', 'SSC CHSL', 'SSC MTS', 'SSC GD', 'SSC CPO'
-    ].filter((v,i,a) => a.indexOf(v)===i);
+    // Load only paperIds — fetch 1 question per paperId using papers collection or a lightweight scan
+    let paperMap = {};
 
-    let allDocs = [];
+    // Try papers collection first (lightweight metadata)
+    const examFormats = [exam, exam.toUpperCase(), exam.replace('ssc-','SSC ').toUpperCase(),
+      'SSC CGL','SSC CHSL','SSC MTS','SSC GD','SSC CPO'].filter((v,i,a)=>a.indexOf(v)===i);
+
     for (const ef of examFormats) {
       try {
-        const snap = await getDocs(query(collection(db,'questions'), where('exam','==',ef), limit(1000)));
-        if (snap.docs.length > 0) {
-          allDocs = [...allDocs, ...snap.docs.map(d => d.data())];
-          break; // found the right format
+        const pSnap = await getDocs(query(collection(db,'papers'), where('exam','==',ef)));
+        if (!pSnap.empty) {
+          pSnap.docs.forEach(d => {
+            const p = d.data();
+            const pid = p.paperId || d.id;
+            if (!pid) return;
+            paperMap[pid] = { paperId:pid, exam:p.exam||ef, year:p.year||'', tier:p.tier||'',
+              shift:p.shift||'', heldOn:p.heldOn||'', lang:p.lang||'en', count:p.totalQuestions||'?' };
+          });
+          if (Object.keys(paperMap).length) break;
         }
       } catch(e) {}
     }
 
-    // Also fetch from papers collection if exists
-    try {
-      const pSnap = await getDocs(query(collection(db,'papers'), where('exam','==',exam)));
-      // papers collection stores metadata — use as fallback
-    } catch(e) {}
-
-    // Group by paperId — count ALL questions per paper
-    const papers = {};
-    allDocs.forEach(q => {
-      const pid = q.paperId;
-      if (!pid) return;
-      if (!papers[pid]) {
-        papers[pid] = {
-          paperId: pid,
-          exam: q.exam || exam,
-          year: q.year || '',
-          tier: q.tier || q.Tier || '',
-          shift: q.shift || q.Shift || '',
-          heldOn: q.heldOn || q.date || q.examDate || '',
-          lang: q.lang || q.language || 'en',
-          count: 0,
-          subjects: new Set()
-        };
+    // If papers collection empty, do a lightweight scan — fetch minimal fields
+    if (!Object.keys(paperMap).length) {
+      for (const ef of examFormats) {
+        try {
+          // Fetch just enough to get unique paperIds — limit 200 should give us all paperIds
+          const snap = await getDocs(query(collection(db,'questions'), where('exam','==',ef), limit(200)));
+          if (snap.empty) continue;
+          snap.docs.forEach(d => {
+            const q = d.data();
+            const pid = q.paperId;
+            if (!pid) return;
+            if (!paperMap[pid]) {
+              paperMap[pid] = { paperId:pid, exam:q.exam||ef, year:q.year||'',
+                tier:q.tier||'', shift:q.shift||'', heldOn:q.heldOn||q.date||'',
+                lang:q.lang||'en', count:'?' };
+            }
+          });
+          if (Object.keys(paperMap).length) break;
+        } catch(e) {}
       }
-      papers[pid].count++;
-      if (q.subject) papers[pid].subjects.add(q.subject);
-    });
+    }
 
     document.getElementById('genPapersLoading').style.display = 'none';
 
-    const paperList = Object.values(papers).sort((a,b) => {
-      if (b.year !== a.year) return (b.year||0) - (a.year||0);
+    const paperList = Object.values(paperMap).sort((a,b) => {
+      if ((b.year||0) !== (a.year||0)) return (b.year||0)-(a.year||0);
       if ((a.shift||'') !== (b.shift||'')) return (a.shift||'').localeCompare(b.shift||'');
       return (a.lang||'').localeCompare(b.lang||'');
     });
@@ -3294,23 +3287,22 @@ window.genLoadPapers = async () => {
       const sel = document.getElementById('genPaperSelect');
       sel.innerHTML = '<option value="">-- Select a paper --</option>' +
         paperList.map(p => {
-          const qLabel = p.count >= 100 ? '✅ '+p.count+' Qs' : '⚠️ '+p.count+' Qs';
-          const langLabel = p.lang === 'hi' ? '🇮🇳 Hindi' : '🇬🇧 English';
-          const label = [p.year, p.tier, p.shift, p.heldOn, qLabel, langLabel].filter(Boolean).join(' · ');
-          return `<option value="${p.paperId}" data-count="${p.count}" data-tier="${p.tier||''}" data-year="${p.year||''}" data-shift="${p.shift||''}" data-held="${p.heldOn||''}" data-lang="${p.lang||'en'}">${label}</option>`;
+          const langFlag = p.lang === 'hi' ? '🇮🇳' : '🇬🇧';
+          const label = [p.year, p.tier, p.shift, p.heldOn, langFlag].filter(Boolean).join(' · ');
+          return `<option value="${p.paperId}"
+            data-tier="${p.tier||''}" data-year="${p.year||''}"
+            data-shift="${p.shift||''}" data-held="${p.heldOn||''}"
+            data-lang="${p.lang||'en'}" data-count="${p.count||'?'}"
+            >${label} (${p.count} Qs)</option>`;
         }).join('');
       document.getElementById('genPapersWrap').style.display = 'block';
-
-      // Show count summary
-      const total = paperList.length;
-      const full  = paperList.filter(p => p.count >= 100).length;
-      document.getElementById('genPaperInfo').style.display = 'block';
-      document.getElementById('genPaperInfo').innerHTML = `Found <strong style="color:#FF6B00;">${total} papers</strong> — ${full} complete (100+ Qs), ${total-full} partial. Select one below.`;
+      const info = document.getElementById('genPaperInfo');
+      info.style.display = 'block';
+      info.innerHTML = `Found <strong style="color:#FF6B00;">${paperList.length} papers</strong> — select one then click Load Questions.`;
     }
-
   } catch(e) {
     document.getElementById('genPapersLoading').style.display = 'none';
-    document.getElementById('genPapersEmpty').innerHTML = '❌ Error loading papers: ' + e.message;
+    document.getElementById('genPapersEmpty').innerHTML = '❌ ' + e.message;
     document.getElementById('genPapersEmpty').style.display = 'block';
   }
 
@@ -3322,38 +3314,98 @@ window.genPaperSelected = () => {
   const sel = document.getElementById('genPaperSelect');
   const opt = sel.options[sel.selectedIndex];
   if (!opt || !opt.value) {
+    document.getElementById('genLoadQWrap').style.display = 'none';
     document.getElementById('genPaperInfo').style.display = 'none';
     document.getElementById('genPaperId').value = '';
     return;
   }
+  document.getElementById('genPaperId').value = opt.value;
+  document.getElementById('genLoadQWrap').style.display = 'block';
+  // Clear any previous paper info detail
+  const info = document.getElementById('genPaperInfo');
+  info.style.display = 'block';
+  info.innerHTML = `Selected: <strong style="color:#E2E8F0;">${opt.value}</strong><br>
+    Click <strong style="color:#10B981;">Load Questions</strong> to verify question count before generating.`;
+};
 
-  const paperId = opt.value;
-  document.getElementById('genPaperId').value = paperId;
+window.genLoadQuestions = async () => {
+  const paperId = document.getElementById('genPaperId').value.trim();
+  if (!paperId) return;
 
-  const count = opt.dataset.count || '?';
-  const tier  = opt.dataset.tier  || '';
-  const year  = opt.dataset.year  || '';
-  const shift = opt.dataset.shift || '';
-  const held  = opt.dataset.held  || '';
-  const lang  = opt.dataset.lang  || 'en';
+  const btn = document.getElementById('genLoadQBtn');
+  btn.textContent = '⏳ Loading...';
+  btn.disabled = true;
 
   const info = document.getElementById('genPaperInfo');
   info.style.display = 'block';
-  info.innerHTML = `
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0.5rem;">
-      <div><span style="color:#64748B;font-size:0.7rem;">PAPER ID</span><br><span style="color:#E2E8F0;font-size:0.78rem;font-family:monospace;">${paperId}</span></div>
-      <div><span style="color:#64748B;font-size:0.7rem;">QUESTIONS</span><br><span style="color:#FF6B00;font-weight:700;">${count} Qs</span></div>
-      <div><span style="color:#64748B;font-size:0.7rem;">TIER / SHIFT</span><br><span style="color:#E2E8F0;">${tier} ${shift}</span></div>
-      <div><span style="color:#64748B;font-size:0.7rem;">YEAR</span><br><span style="color:#E2E8F0;">${year}</span></div>
-      <div><span style="color:#64748B;font-size:0.7rem;">DATE</span><br><span style="color:#E2E8F0;">${held||'—'}</span></div>
-      <div><span style="color:#64748B;font-size:0.7rem;">LANGUAGE</span><br><span style="color:#E2E8F0;">${lang === 'hi' ? '🇮🇳 Hindi' : '🇬🇧 English'}</span></div>
-    </div>`;
+  info.innerHTML = '⏳ Fetching all questions for this paper...';
 
-  // Auto-fill mock title and tier
-  const examName = document.getElementById('genExam').value.toUpperCase().replace('-',' ');
-  const nextNum  = parseInt(document.getElementById('genSeriesNum').value) || 1;
-  document.getElementById('genTitle').value = `${examName} ${tier} Mock Test ${nextNum} — Based on ${year} ${shift}`;
+  try {
+    const snap = await getDocs(query(collection(db,'questions'), where('paperId','==',paperId)));
+    const qs = snap.docs.map(d => d.data());
+
+    if (!qs.length) {
+      info.innerHTML = '⚠️ No questions found for this paperId. Make sure you uploaded with the correct Paper ID.';
+      btn.textContent = '📋 Load Questions for this Paper';
+      btn.disabled = false;
+      return;
+    }
+
+    // Count by subject
+    const subjectCounts = {};
+    const chapters = new Set();
+    qs.forEach(q => {
+      const s = q.subject || 'Unknown';
+      subjectCounts[s] = (subjectCounts[s]||0) + 1;
+      if (q.chapter) chapters.add(q.chapter);
+    });
+
+    const subjectRows = Object.entries(subjectCounts)
+      .map(([s,c]) => `<span style="color:#E2E8F0;">${s.replace('General Intelligence & Reasoning','Reasoning').replace('Quantitative Aptitude','Quant').replace('General Awareness','GK')}: <strong style="color:#FF6B00;">${c}</strong></span>`)
+      .join('&nbsp;&nbsp;|&nbsp;&nbsp;');
+
+    const sel   = document.getElementById('genPaperSelect');
+    const opt   = sel.options[sel.selectedIndex];
+    const year  = opt?.dataset.year  || '';
+    const tier  = opt?.dataset.tier  || '';
+    const shift = opt?.dataset.shift || '';
+    const held  = opt?.dataset.held  || '';
+    const lang  = opt?.dataset.lang  || 'en';
+
+    info.innerHTML = `
+      <div style="margin-bottom:0.5rem;">
+        <span style="color:#64748B;">Paper:</span> <span style="color:#E2E8F0;font-family:monospace;font-size:0.76rem;">${paperId}</span>
+      </div>
+      <div style="margin-bottom:0.5rem;">
+        <span style="color:#64748B;">Details:</span> ${year} · ${tier} · ${shift} · ${held} · ${lang === 'hi' ? '🇮🇳 Hindi' : '🇬🇧 English'}
+      </div>
+      <div style="margin-bottom:0.5rem;">${subjectRows}</div>
+      <div>
+        <span style="color:#64748B;">Total:</span>
+        <strong style="color:${qs.length >= 100 ? '#4ADE80' : '#FBBF24'};">${qs.length} questions</strong>
+        ${qs.length >= 100 ? '✅ Full paper — ready to generate' : '⚠️ Partial paper — mock may have fewer questions'}
+      </div>
+      <div style="margin-top:0.4rem;font-size:0.72rem;color:#64748B;">
+        Topics: ${[...chapters].slice(0,8).join(', ')}${chapters.size > 8 ? '...' : ''}
+      </div>`;
+
+    // Auto-fill mock title
+    const examName = document.getElementById('genExam').value.replace('ssc-','SSC ').toUpperCase();
+    const sNum = parseInt(document.getElementById('genSeriesNum').value) || 1;
+    if (!document.getElementById('genTitle').value) {
+      document.getElementById('genTitle').value = `${examName} Mock Test ${sNum} — Based on ${year} ${shift}`;
+    }
+
+    btn.textContent = `✅ ${qs.length} Questions Loaded`;
+    btn.style.background = 'linear-gradient(135deg,#16A34A,#15803D)';
+
+  } catch(e) {
+    info.innerHTML = '❌ Error: ' + e.message;
+    btn.textContent = '📋 Load Questions for this Paper';
+  }
+  btn.disabled = false;
 };
+
 </script>
 </body>
 </html>
