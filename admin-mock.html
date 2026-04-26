@@ -133,6 +133,7 @@ textarea{resize:vertical;min-height:80px;}
     <button class="tab" onclick="switchTab('users')">👥 Users</button>
     <button class="tab" onclick="switchTab('import')">📥 Import CSV</button>
     <button class="tab" onclick="switchTab('export')">📤 Export CSV</button>
+    <button class="tab" onclick="switchTab('manage-mocks')">🗑 Manage Mocks</button>
     <button class="tab" onclick="switchTab('generate')">🤖 Generate Mock</button>
     <button class="tab" onclick="switchTab('publish')" style="background:linear-gradient(135deg,#00A86B,#0EA5E9);color:#fff;font-weight:700;">🚀 Publish Mocks</button>
   </div>
@@ -1468,6 +1469,57 @@ textarea{resize:vertical;min-height:80px;}
   </div>
 </div>
 
+<!-- PANEL: Manage Mocks -->
+<div class="panel" id="panel-manage-mocks">
+  <div class="card">
+    <h3>🗑 Manage Mock Tests</h3>
+    <p style="color:#94A3B8;font-size:0.88rem;margin-bottom:1.25rem;">
+      Delete entire mock papers or individual questions. Deleting a mock also deletes all its generated questions from Firestore.
+    </p>
+
+    <!-- Filter -->
+    <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:0.75rem;margin-bottom:1rem;align-items:flex-end;">
+      <div>
+        <label>Filter by Exam</label>
+        <select id="mmExam" onchange="mmLoad()">
+          <option value="">All Exams</option>
+          <option value="ssc-cgl">SSC CGL</option>
+          <option value="ssc-chsl">SSC CHSL</option>
+          <option value="ssc-mts">SSC MTS</option>
+          <option value="ssc-gd">SSC GD</option>
+          <option value="ssc-cpo">SSC CPO</option>
+        </select>
+      </div>
+      <div>
+        <label>Filter by Tier</label>
+        <select id="mmTier" onchange="mmLoad()">
+          <option value="">All Tiers</option>
+          <option value="Tier I">Tier I</option>
+          <option value="Tier II">Tier II</option>
+        </select>
+      </div>
+      <button class="btn btn-secondary" onclick="mmLoad()" style="padding:0.65rem 1rem;">🔄 Refresh</button>
+    </div>
+
+    <div id="mmList">
+      <div style="color:#94A3B8;font-size:0.85rem;padding:1rem 0;">Click Refresh to load mocks.</div>
+    </div>
+  </div>
+
+  <!-- Questions panel for selected mock -->
+  <div class="card" id="mmQCard" style="display:none;">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;margin-bottom:1rem;">
+      <h3 id="mmQTitle" style="margin:0;">Questions</h3>
+      <div style="display:flex;gap:0.5rem;">
+        <input type="text" id="mmQSearch" placeholder="Search questions..." oninput="mmFilterQs()" style="width:220px;padding:0.35rem 0.7rem;font-size:0.82rem;">
+        <button class="btn btn-secondary" onclick="document.getElementById('mmQCard').style.display='none'" style="padding:0.35rem 0.75rem;font-size:0.82rem;">✕ Close</button>
+      </div>
+    </div>
+    <div id="mmQStats" style="font-size:0.78rem;color:#64748B;margin-bottom:0.75rem;"></div>
+    <div id="mmQList"></div>
+  </div>
+</div>
+
 <!-- PANEL: Generate Mock from PYQ -->
 <div class="panel" id="panel-generate">
   <div class="card">
@@ -2512,6 +2564,7 @@ window.switchTab = (tab) => {
   if (tab === 'export') updateExportTiersAndSubjects();
   if (tab === 'import') { /* ready */ }
   if (tab === 'publish') { loadPublishedMocks(); pubAutoTitle(); }
+  if (tab === 'manage-mocks') { mmLoad(); }
 };
 
 // ── Edit Modal ──
@@ -3418,6 +3471,187 @@ window.genLoadQuestions = async () => {
   btn.disabled = false;
 };
 
+
+// ── Mock Manager ──────────────────────────────────────────────────────────────
+let mmAllMocks = [];
+let mmCurrentMockId = null;
+let mmAllQs = [];
+
+window.mmLoad = async () => {
+  const exam = document.getElementById('mmExam').value;
+  const tier = document.getElementById('mmTier').value;
+  const list = document.getElementById('mmList');
+  list.innerHTML = '<div style="color:#94A3B8;font-size:0.85rem;padding:0.75rem 0;">⏳ Loading...</div>';
+
+  try {
+    let q = collection(db,'mock_tests');
+    let constraints = [];
+    if (exam) constraints.push(where('exam','==',exam));
+    if (tier) constraints.push(where('tier','==',tier));
+    const snap = await getDocs(constraints.length ? query(q,...constraints) : q);
+    mmAllMocks = snap.docs.map(d=>({id:d.id,...d.data()}))
+      .sort((a,b)=>{
+        if(a.exam!==b.exam) return (a.exam||'').localeCompare(b.exam||'');
+        return (a.seriesNum||99)-(b.seriesNum||99);
+      });
+
+    if (!mmAllMocks.length) {
+      list.innerHTML = '<div style="color:#94A3B8;font-size:0.85rem;padding:0.75rem 0;">No mocks found.</div>';
+      return;
+    }
+
+    list.innerHTML = mmAllMocks.map(m => `
+      <div style="background:#0F172A;border:1px solid #334155;border-radius:10px;padding:0.85rem 1rem;margin-bottom:0.6rem;">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;">
+          <div>
+            <div style="font-size:0.9rem;font-weight:700;color:#E2E8F0;margin-bottom:0.2rem;">${m.title||'Untitled Mock'}</div>
+            <div style="font-size:0.72rem;color:#64748B;">
+              ${m.exam||'—'} · ${m.tier||'—'} · Mock #${m.seriesNum||'?'} ·
+              <span style="color:#FF6B00;">${m.totalQuestions||0} Qs</span> ·
+              ${m.isPublished?'<span style="color:#4ADE80;">✅ Live</span>':'<span style="color:#EF4444;">❌ Unpublished</span>'}
+              ${m.mockId?'<br><span style="font-family:monospace;font-size:0.68rem;color:#475569;">'+m.mockId+'</span>':''}
+            </div>
+          </div>
+          <div style="display:flex;gap:0.4rem;flex-wrap:wrap;">
+            <button onclick="mmViewQuestions('${m.id}','${m.mockId||''}','${(m.title||'').replace(/'/g,'')}',${m.seriesNum||0},'${m.exam||''}')"
+              style="background:#3B82F6;color:#fff;border:none;border-radius:6px;padding:0.3rem 0.75rem;font-size:0.75rem;font-weight:600;cursor:pointer;">
+              📋 View/Edit Questions
+            </button>
+            <button onclick="mmDeleteMock('${m.id}','${m.mockId||''}','${(m.title||'').replace(/'/g,'')}')"
+              style="background:#EF4444;color:#fff;border:none;border-radius:6px;padding:0.3rem 0.75rem;font-size:0.75rem;font-weight:600;cursor:pointer;">
+              🗑 Delete Entire Mock
+            </button>
+          </div>
+        </div>
+      </div>`).join('');
+
+  } catch(e) {
+    list.innerHTML = '<div style="color:#EF4444;font-size:0.85rem;">Error: '+e.message+'</div>';
+  }
+};
+
+window.mmDeleteMock = async (docId, mockId, title) => {
+  if (!confirm(`Delete "${title}"?\n\nThis will:\n1. Delete the mock_tests entry\n2. Delete ALL questions for this mock from Firestore\n\nThis cannot be undone.`)) return;
+
+  showToast('⏳ Deleting...', '');
+  try {
+    // Delete mock_tests entry
+    await deleteDoc(doc(db,'mock_tests',docId));
+
+    // Delete all questions with this mockId
+    let deletedCount = 0;
+    if (mockId) {
+      const qSnap = await getDocs(query(collection(db,'questions'), where('mockId','==',mockId)));
+      const batchDeletes = qSnap.docs.map(d => deleteDoc(doc(db,'questions',d.id)));
+      await Promise.all(batchDeletes);
+      deletedCount = qSnap.docs.length;
+    }
+
+    showToast(`✅ Mock deleted — ${deletedCount} questions removed`, 'success');
+    mmLoad();
+    document.getElementById('mmQCard').style.display = 'none';
+  } catch(e) {
+    showToast('Error: '+e.message, 'error');
+  }
+};
+
+window.mmViewQuestions = async (docId, mockId, title, seriesNum, exam) => {
+  mmCurrentMockId = mockId;
+  const card  = document.getElementById('mmQCard');
+  const qlist = document.getElementById('mmQList');
+  const stats = document.getElementById('mmQStats');
+  document.getElementById('mmQTitle').textContent = `📋 ${title} — Questions`;
+  card.style.display = 'block';
+  qlist.innerHTML = '<div style="color:#94A3B8;padding:1rem 0;">⏳ Loading questions...</div>';
+  stats.textContent = '';
+  card.scrollIntoView({behavior:'smooth', block:'start'});
+
+  try {
+    // Load by mockId or by exam+type+seriesNum
+    let snap;
+    if (mockId) {
+      snap = await getDocs(query(collection(db,'questions'), where('mockId','==',mockId)));
+    } else {
+      snap = await getDocs(query(collection(db,'questions'),
+        where('exam','==',exam), where('type','==','mock'), where('mockSeriesNum','==',seriesNum)));
+    }
+
+    mmAllQs = snap.docs.map(d => ({id:d.id,...d.data()}))
+      .sort((a,b) => {
+        if (a.subject !== b.subject) return (a.subject||'').localeCompare(b.subject||'');
+        return (a.qNum||0)-(b.qNum||0);
+      });
+
+    if (!mmAllQs.length) {
+      qlist.innerHTML = '<div style="color:#FBBF24;font-size:0.85rem;padding:0.75rem 0;">No questions found for this mock. They may have been stored without a mockId.</div>';
+      return;
+    }
+
+    // Count by subject
+    const subCounts = {};
+    mmAllQs.forEach(q => { const s=q.subject||'Unknown'; subCounts[s]=(subCounts[s]||0)+1; });
+    const subStr = Object.entries(subCounts).map(([s,c])=>`${s.replace('General Intelligence & Reasoning','Reasoning').replace('Quantitative Aptitude','Quant').replace('General Awareness','GK')}: ${c}`).join(' | ');
+    stats.innerHTML = `<span style="color:#FF6B00;font-weight:700;">${mmAllQs.length} questions</span> — ${subStr}`;
+
+    mmRenderQs(mmAllQs);
+  } catch(e) {
+    qlist.innerHTML = '<div style="color:#EF4444;">Error: '+e.message+'</div>';
+  }
+};
+
+function mmRenderQs(qs) {
+  const qlist = document.getElementById('mmQList');
+  if (!qs.length) { qlist.innerHTML = '<div style="color:#94A3B8;padding:0.5rem 0;">No questions match.</div>'; return; }
+
+  qlist.innerHTML = qs.map((q,i) => `
+    <div id="mmq-${q.id}" style="background:#1E293B;border:1px solid #334155;border-radius:8px;padding:0.75rem 0.9rem;margin-bottom:0.5rem;">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:0.75rem;">
+        <div style="flex:1;">
+          <div style="display:flex;gap:0.35rem;flex-wrap:wrap;margin-bottom:0.4rem;">
+            <span style="background:#FF6B0020;color:#FF6B00;border-radius:4px;padding:0.12rem 0.45rem;font-size:0.68rem;font-weight:700;">Q${q.qNum||i+1}</span>
+            <span style="background:#1e3358;color:#60A5FA;border-radius:4px;padding:0.12rem 0.45rem;font-size:0.68rem;">${(q.subject||'').replace('General Intelligence & Reasoning','Reasoning').replace('Quantitative Aptitude','Quant').replace('General Awareness','GK')}</span>
+            <span style="background:#0F172A;color:#64748B;border-radius:4px;padding:0.12rem 0.45rem;font-size:0.68rem;">${q.chapter||''}</span>
+            <span style="background:#0F172A;color:#64748B;border-radius:4px;padding:0.12rem 0.45rem;font-size:0.68rem;">${q.lang==='hi'?'🇮🇳':'🇬🇧'}</span>
+          </div>
+          <div style="font-size:0.83rem;color:#E2E8F0;line-height:1.5;margin-bottom:0.4rem;">${(q.text||'').slice(0,150)}${q.text?.length>150?'...':''}</div>
+          <div style="display:flex;gap:0.5rem;flex-wrap:wrap;font-size:0.75rem;color:#64748B;">
+            <span>A: ${(q.option_A||q.options?.A||'').slice(0,30)}</span>
+            <span>B: ${(q.option_B||q.options?.B||'').slice(0,30)}</span>
+            <span style="color:#4ADE80;">✓ ${q.correct}</span>
+          </div>
+        </div>
+        <button onclick="mmDeleteQuestion('${q.id}')"
+          style="background:#EF444420;color:#FCA5A5;border:1px solid #EF444433;border-radius:6px;padding:0.28rem 0.6rem;font-size:0.72rem;font-weight:600;cursor:pointer;flex-shrink:0;white-space:nowrap;">
+          🗑 Delete
+        </button>
+      </div>
+    </div>`).join('');
+}
+
+window.mmFilterQs = () => {
+  const term = document.getElementById('mmQSearch').value.toLowerCase();
+  if (!term) { mmRenderQs(mmAllQs); return; }
+  mmRenderQs(mmAllQs.filter(q =>
+    (q.text||'').toLowerCase().includes(term) ||
+    (q.subject||'').toLowerCase().includes(term) ||
+    (q.chapter||'').toLowerCase().includes(term)
+  ));
+};
+
+window.mmDeleteQuestion = async (qDocId) => {
+  if (!confirm('Delete this question? This cannot be undone.')) return;
+  try {
+    await deleteDoc(doc(db,'questions',qDocId));
+    mmAllQs = mmAllQs.filter(q => q.id !== qDocId);
+    const el = document.getElementById('mmq-'+qDocId);
+    if (el) el.remove();
+    const stats = document.getElementById('mmQStats');
+    stats.innerHTML = `<span style="color:#FF6B00;font-weight:700;">${mmAllQs.length} questions</span> remaining`;
+    showToast('✅ Question deleted', 'success');
+  } catch(e) {
+    showToast('Error: '+e.message, 'error');
+  }
+};
 </script>
 </body>
 </html>
