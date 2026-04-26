@@ -2931,32 +2931,47 @@ window.publishMock = async () => {
   if (!title) { showToast('Please enter a title', 'error'); return; }
 
   try {
-    // Check if this exact mock already exists
-    const existing = await getDocs(query(
-      collection(db, 'mock_tests'),
-      where('exam','==',exam),
-      where('seriesNum','==',seriesNum),
-      where('tier','==',tier)
-    ));
-
-    if (!existing.empty) {
-      // Update existing doc
-      const docId = existing.docs[0].id;
-      await updateDoc(doc(db,'mock_tests',docId), {
-        title, totalQuestions:totalQ, duration, totalMarks:marks,
+    // If editing an existing mock via editMockEntry()
+    if (window._editingMockDocId) {
+      await updateDoc(doc(db,'mock_tests',window._editingMockDocId), {
+        exam, tier, seriesNum, title,
+        totalQuestions:totalQ, duration, totalMarks:marks,
         isPaid, isPublished:true, updatedAt:new Date()
       });
-      showToast('✅ Mock updated & published!','success');
+      showToast('✅ Mock updated!','success');
+      // Reset edit state
+      window._editingMockDocId = null;
+      const pubBtn = document.querySelector('[onclick="publishMock()"]');
+      if (pubBtn) {
+        pubBtn.textContent = '🚀 Publish Mock Test';
+        pubBtn.style.background = 'linear-gradient(135deg,#00A86B,#0EA5E9)';
+      }
     } else {
-      // Create new doc
-      await addDoc(collection(db,'mock_tests'), {
-        exam, tier, seriesNum, title,
-        totalQuestions: totalQ,
-        duration, totalMarks: marks,
-        isPaid, isPublished: true,
-        createdAt: new Date()
-      });
-      showToast('✅ Mock test published! It will now appear on the exam page.','success');
+      // Check if this exact mock already exists
+      const existing = await getDocs(query(
+        collection(db, 'mock_tests'),
+        where('exam','==',exam),
+        where('seriesNum','==',seriesNum),
+        where('tier','==',tier)
+      ));
+
+      if (!existing.empty) {
+        const docId = existing.docs[0].id;
+        await updateDoc(doc(db,'mock_tests',docId), {
+          title, totalQuestions:totalQ, duration, totalMarks:marks,
+          isPaid, isPublished:true, updatedAt:new Date()
+        });
+        showToast('✅ Mock updated & published!','success');
+      } else {
+        await addDoc(collection(db,'mock_tests'), {
+          exam, tier, seriesNum, title,
+          totalQuestions: totalQ,
+          duration, totalMarks: marks,
+          isPaid, isPublished: true,
+          createdAt: new Date()
+        });
+        showToast('✅ Mock test published!','success');
+      }
     }
     loadPublishedMocks();
   } catch(e) { showToast('Error: '+e.message,'error'); }
@@ -3007,9 +3022,13 @@ window.loadPublishedMocks = async () => {
               <td style="padding:0.6rem 0.75rem;text-align:center;">${pubLabel(d.isPublished)}</td>
               <td style="padding:0.6rem 0.75rem;text-align:center;color:${statusColor(d.isPaid)};">${statusLabel(d.isPaid)}</td>
               <td style="padding:0.6rem 0.75rem;text-align:center;">
+                <button onclick="editMockEntry('${d.id}','${(d.exam||'').replace(/'/g,'')}',${ d.seriesNum||1},'${(d.tier||'').replace(/'/g,'')}','${(d.title||'').replace(/'/g,'')}',${d.totalQuestions||100},${d.duration||60},${d.totalMarks||200},${d.isPaid||false})"
+                  style="background:#3B82F6;border:none;color:#fff;padding:0.25rem 0.6rem;border-radius:6px;font-size:0.75rem;cursor:pointer;margin-right:0.3rem;">
+                  ✏️ Edit
+                </button>
                 <button onclick="togglePublish('${d.id}',${!d.isPublished})"
-                  style="background:${d.isPublished?'#EF4444':'#00A86B'};border:none;color:#fff;padding:0.25rem 0.6rem;border-radius:6px;font-size:0.75rem;cursor:pointer;margin-right:0.3rem;">
-                  ${d.isPublished?'Unpublish':'Publish'}
+                  style="background:${d.isPublished?'#F59E0B':'#00A86B'};border:none;color:#fff;padding:0.25rem 0.6rem;border-radius:6px;font-size:0.75rem;cursor:pointer;margin-right:0.3rem;">
+                  ${d.isPublished?'⏸ Hide':'✅ Live'}
                 </button>
                 <button onclick="deleteMockEntry('${d.id}')"
                   style="background:#334155;border:none;color:#94A3B8;padding:0.25rem 0.6rem;border-radius:6px;font-size:0.75rem;cursor:pointer;">
@@ -3028,6 +3047,53 @@ window.togglePublish = async (id, newState) => {
     showToast(newState ? '✅ Mock is now Live!' : '⏸ Mock unpublished', newState?'success':'');
     loadPublishedMocks();
   } catch(e){ showToast('Error: '+e.message,'error'); }
+};
+
+window.editMockEntry = (docId, exam, seriesNum, tier, title, totalQ, duration, marks, isPaid) => {
+  // Switch to publish tab and pre-fill the form
+  switchTab('publish');
+
+  // Set exam
+  const examSel = document.getElementById('pubExam');
+  if (examSel) examSel.value = exam;
+
+  // Set tier
+  const tierSel = document.getElementById('pubTier');
+  if (tierSel) tierSel.value = tier;
+
+  // Set series num
+  const numSel = document.getElementById('pubSeriesNum');
+  if (numSel) numSel.value = seriesNum;
+
+  // Set fields
+  const titleEl = document.getElementById('pubTitle');
+  if (titleEl) titleEl.value = title;
+
+  const totalQEl = document.getElementById('pubTotalQ');
+  if (totalQEl) totalQEl.value = totalQ;
+
+  const durEl = document.getElementById('pubDuration');
+  if (durEl) durEl.value = duration;
+
+  const marksEl = document.getElementById('pubMarks');
+  if (marksEl) marksEl.value = marks;
+
+  const paidSel = document.getElementById('pubIsPaid');
+  if (paidSel) paidSel.value = String(isPaid);
+
+  // Store the docId so publishMock() updates this specific doc
+  window._editingMockDocId = docId;
+
+  // Update publish button to show "Update"
+  const pubBtn = document.querySelector('[onclick="publishMock()"]');
+  if (pubBtn) {
+    pubBtn.textContent = '💾 Update Mock Test';
+    pubBtn.style.background = 'linear-gradient(135deg,#3B82F6,#0EA5E9)';
+  }
+
+  // Scroll to form
+  document.getElementById('panel-publish').scrollIntoView({behavior:'smooth', block:'start'});
+  showToast('✏️ Editing mock — update fields and click Update Mock Test', '');
 };
 
 window.deleteMockEntry = async (id) => {
@@ -3184,9 +3250,12 @@ Rules:
 - Correct answers must be genuinely correct — verify before finalizing
 - Mix of easy (20%), medium (50%), hard (30%)
 - Cover different chapters/topics
-- explanation MUST follow the exact HTML format shown above with proper Step 1, Step 2... and green Final Answer line
-- For maths: show actual numbers and calculations in each step
-- For GK/English: explain WHY the answer is correct with facts/grammar rules`;
+- explanation MUST be the exact HTML format shown in the JSON example — copy the HTML structure exactly
+- NEVER write plain text in explanation — always use the div/strong HTML format
+- For maths: show actual numbers and calculations (e.g. 25/125 × 100 = 20%) in each step
+- For reasoning: trace the exact logic step by step with actual values
+- For GK: give factual explanation with the actual reason why the answer is correct
+- Final Answer line with color:#00A86B is MANDATORY — never omit it`;
 
       // Generate in 2 batches of ~12-13 to avoid token limit issues
       const half1 = Math.ceil(qPerSec / 2);
@@ -3200,12 +3269,24 @@ Rules:
         );
         try {
           setMsg(`${sec.short||sec.subject} — batch ${batchIdx}/2...`, pct);
+          const SYSTEM_PROMPT = `You are an SSC exam question generator. You MUST return ONLY a valid JSON array with no explanation outside the JSON.
+
+CRITICAL — explanation field format (copy this EXACTLY, just change the content):
+<div style="margin-top:8px;"><strong style="color:#FF6B00;font-size:0.9rem;">Step 1: [Title].</strong></div><div style="margin-left:14px;color:#374151;font-size:0.87rem;line-height:1.7;"><span style="color:#FF6B00;font-weight:700;margin-right:4px;">—</span>[Content]</div><div style="margin-top:8px;"><strong style="color:#FF6B00;font-size:0.9rem;">Step 2: [Title].</strong></div><div style="margin-left:14px;color:#374151;font-size:0.87rem;line-height:1.7;"><span style="color:#FF6B00;font-weight:700;margin-right:4px;">—</span>[Content]</div><div style="margin-top:8px;font-weight:700;color:#00A86B;font-size:0.9rem;">∴ Final Answer = [answer] (Option [X])</div>
+
+Rules:
+- explanation must be this exact HTML — no plain text, no markdown, no thinking out loud
+- Each step must show actual values, numbers, and working — not vague descriptions
+- Final Answer line is MANDATORY in green color
+- Return ONLY the JSON array, nothing else`;
+
           const resp = await fetch(WORKER, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               model: 'claude-sonnet-4-20250514',
               max_tokens: 16000,
+              system: SYSTEM_PROMPT,
               messages: [{ role: 'user', content: batchPrompt }]
             })
           });
