@@ -3210,7 +3210,7 @@ window.generateMock = async () => {
 Source paper topics: ${topics.join(', ') || sec.subject}
 Difficulty: ${difficulty === 'higher' ? 'HARDER than standard PYQ — more complex calculations, trickier logic, less obvious answers' : 'Similar to standard PYQ level'}
 Language: ${currentLang === 'hi' && sec.subject !== 'English Language' ? 'Hindi (use Devanagari script for question and options)' : 'English (this section is always in English regardless of medium)'}
-${sec.subject === 'English Language' ? `IMPORTANT: The last 5 questions (questions ${batchCount === Math.ceil(qPerSec/2) ? qPerSec-4 : qPerSec-4} to ${qPerSec}) MUST be a Reading Comprehension passage. Include one paragraph passage (4-6 sentences) followed by 5 questions based on it. Format: first give the passage as a shared context in the question text of Q${qPerSec-4} like "Read the passage and answer Q${qPerSec-4} to Q${qPerSec}: [PASSAGE TEXT]\n\nQuestion: [specific question about passage]", then Q${qPerSec-3} to Q${qPerSec} should reference "Based on the passage above:" with specific questions about vocabulary, inference, main idea, tone, and grammar from the passage.` : ''}
+${sec.subject === 'English Language' ? 'IMPORTANT: The last 5 questions MUST be a Reading Comprehension set. Include one short passage (4-5 sentences) in Q21, then Q22-Q25 should ask: vocabulary meaning, inference, main idea, author tone, and one grammar/fill-in-blank based on the passage.' : ''}
 ${sampleQs ? `Reference style (DO NOT copy, just match style):
 ${sampleQs}` : ''}
 
@@ -3245,7 +3245,7 @@ For Data Interpretation questions (2-3 per Quant section), use this format:
 }
 
 Rules:
-- All ${batchCount} questions must be UNIQUE and ORIGINAL
+- All questions must be UNIQUE and ORIGINAL
 - NEVER generate figure/mirror/image-based questions — text only
 - For Reasoning: use coding-decoding, blood relations, series, directions, syllogism, analogy instead of mirror/figure questions
 - Correct answers must be genuinely correct — verify before finalizing
@@ -3286,13 +3286,11 @@ Rules:
               max_tokens: 8000,
               messages: [{ role: 'user', content: SYSTEM_PROMPT + '\n\nNow generate the questions:\n\n' + batchPrompt }]
             };
-          console.log('Calling Worker:', WORKER, 'body size:', JSON.stringify(reqBody).length);
           const resp = await fetch(WORKER, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(reqBody)
           });
-          console.log('Worker response status:', resp.status, resp.statusText);
 
           if (!resp.ok) {
             const errText = await resp.text().catch(()=>'');
