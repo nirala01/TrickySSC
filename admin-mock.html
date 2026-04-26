@@ -2990,20 +2990,32 @@ window.deleteMockEntry = async (id) => {
 window.generateMock = async () => {
   const paperId   = document.getElementById('genPaperId').value.trim();
   const exam      = document.getElementById('genExam').value;
-  const tier      = document.getElementById('genTier').value;
-  const year      = document.getElementById('genYear').value;
-  const langSel   = document.getElementById('genLang').value; // 'en', 'hi', or 'both'
-  const langs     = langSel === 'both' ? ['en','hi'] : [langSel];
-  const lang      = langs[0]; // primary lang for metadata
-  const title     = document.getElementById('genTitle').value.trim();
+
+  // Get tier/year/lang from selected paper dropdown option
+  const sel     = document.getElementById('genPaperSelect');
+  const selOpt  = sel ? sel.options[sel.selectedIndex] : null;
+  const tier    = selOpt?.dataset?.tier  || 'Tier I';
+  const year    = selOpt?.dataset?.year  || '';
+
+  const langSel = document.getElementById('genLang') ? document.getElementById('genLang').value : 'both';
+  const langs   = langSel === 'both' ? ['en','hi'] : [langSel];
+  const lang    = langs[0];
+  const title   = document.getElementById('genTitle').value.trim();
   const seriesNum = parseInt(document.getElementById('genSeriesNum').value);
   const qPerSec   = parseInt(document.getElementById('genQperSection').value);
   const duration  = parseInt(document.getElementById('genDuration').value) || 60;
   const difficulty= document.getElementById('genDifficulty').value;
   const isPaid    = document.getElementById('genIsPaid').value === 'true';
 
-  if (!paperId) { showToast('Enter the source Paper ID first', 'error'); return; }
-  if (!title)   { showToast('Enter a mock title', 'error'); return; }
+  if (!paperId) { showToast('⚠️ Select a PYQ paper first', 'error'); return; }
+  if (!title)   { showToast('⚠️ Enter a mock title', 'error'); return; }
+
+  // Check questions were loaded
+  const loadBtn = document.getElementById('genLoadQBtn');
+  if (!loadBtn || !loadBtn.textContent.includes('Loaded')) {
+    showToast('⚠️ Click "Load Questions" first to verify the paper', 'error');
+    return;
+  }
 
   const btn = document.getElementById('genBtn');
   btn.disabled = true;
