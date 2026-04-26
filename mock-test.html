@@ -487,6 +487,14 @@ window._saveResult = async (result) => {
   } catch(e) { console.warn('Save result failed:', e.message); }
 };
 
+// Define setLoad inside module scope so it's available immediately
+window.setLoad = function(pct, msg) {
+  const fill = document.getElementById('loadFill');
+  const msgEl = document.getElementById('loadMsg');
+  if (fill) fill.style.width = pct + '%';
+  if (msgEl) msgEl.textContent = msg;
+};
+
 // Fire after everything is defined
 window._firestoreLoaded = true;
 window._loadQuestions();
@@ -845,7 +853,7 @@ window.showReview = () => {
       ${q.diTable ? '<div style="margin-bottom:0.6rem;">'+buildDITable(q.diTable)+'</div>' : ''}
       <div style="font-size:0.85rem;color:var(--text);line-height:1.6;margin-bottom:0.6rem;">${q.text||''}</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.3rem;margin-bottom:0.6rem;">${opts}</div>
-      ${sol ? '<div class="sol-box show"><div class="sol-title">📖 Explanation</div><div class="sol-text">'+sol+'</div>'+(trk?'<div class="trick-box">⚡ Trick: '+trk+'</div>':'')+'</div>' : ''}</div>`:''}
+      ${sol ? '<div class="sol-box show"><div class="sol-title">📖 Explanation</div><div class="sol-text">'+sol+'</div>'+(trk?'<div class="trick-box">⚡ Trick: '+trk+'</div>':'')+'</div>' : ''}
     </div>`;
   }).join('');
 };
