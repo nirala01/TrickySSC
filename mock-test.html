@@ -359,56 +359,86 @@ window._loadQuestions = async () => {
   let qList = [];
 
   try {
-    // Load mock_tests metadata
+    setLoad(10, `Loading: exam=${exam} series=${seriesNum} tier=${tier} mockId=${mockId||'none'}`);
+
+    // Load mock_tests metadata — try all available params
     let mockMeta = null;
-    if (mockId) {
-      const snap = await getDocs(query(collection(db,'mock_tests'), where('mockId','==',mockId)));
-      if (!snap.empty) mockMeta = { id: snap.docs[0].id, ...snap.docs[0].data() };
+
+    // Try by mockId first (most specific)
+    if (mockId && mockId !== 'null' && mockId !== '') {
+      try {
+        const snap = await getDocs(query(collection(db,'mock_tests'), where('mockId','==',mockId)));
+        if (!snap.empty) mockMeta = { id: snap.docs[0].id, ...snap.docs[0].data() };
+      } catch(e) { console.warn('mockId lookup failed:', e.message); }
     }
+
+    // Try by exam+seriesNum+tier
     if (!mockMeta && exam) {
-      const snap = await getDocs(query(collection(db,'mock_tests'),
-        where('exam','==',exam), where('seriesNum','==',seriesNum), where('tier','==',tier)));
-      if (!snap.empty) mockMeta = { id: snap.docs[0].id, ...snap.docs[0].data() };
+      try {
+        const snap = await getDocs(query(collection(db,'mock_tests'),
+          where('exam','==',exam), where('seriesNum','==',seriesNum)));
+        if (!snap.empty) {
+          // Filter by tier if available
+          const tierMatch = snap.docs.find(d => !tier || d.data().tier === tier);
+          const picked = tierMatch || snap.docs[0];
+          mockMeta = { id: picked.id, ...picked.data() };
+        }
+      } catch(e) { console.warn('exam+series lookup failed:', e.message); }
     }
-    if (!mockMeta) throw new Error('Mock test not found. Check the URL params.');
+
+    if (!mockMeta) {
+      throw new Error(`Mock test not found. URL params: exam=${exam}, series=${seriesNum}, tier=${tier}, mockId=${mockId||'none'}`);
+    }
 
     window._mockMeta = mockMeta;
-    setLoad(25,'Loading questions...');
+    setLoad(30, `Found: "${mockMeta.title}" — loading questions...`);
 
-    // Load questions — try multiple strategies in priority order
-    let qSnap;
+    // Load questions — try multiple strategies
+    let qDocs = [];
 
-    // Strategy 1: mockId on questions (AI-generated mocks)
+    // Strategy 1: by mockId (most reliable)
     if (mockMeta.mockId) {
-      qSnap = await getDocs(query(collection(db,'questions'), where('mockId','==',mockMeta.mockId)));
-      qList = qSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      try {
+        const snap = await getDocs(query(
+          collection(db,'questions'),
+          where('mockId','==',mockMeta.mockId)
+        ));
+        qDocs = snap.docs;
+        setLoad(60, `Found ${qDocs.length} questions by mockId`);
+      } catch(e) { console.warn('mockId query failed:', e.message); }
     }
 
-    // Strategy 2: paperId (PYQ-based mocks published via Publish tab or linked to a PYQ paper)
-    if (!qList.length && mockMeta.sourcePaperId) {
-      setLoad(30,'Loading PYQ questions...');
-      qSnap = await getDocs(query(collection(db,'questions'), where('paperId','==',mockMeta.sourcePaperId)));
-      qList = qSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-      // If bilingual paper, default to English (or what URL says)
-      const langParam = new URLSearchParams(window.location.search).get('lang') || 'en';
-      const engQs = qList.filter(q => (q.lang||'en') === 'en');
-      const hiQs  = qList.filter(q => (q.lang||'en') === 'hi');
-      if (engQs.length && hiQs.length) {
-        // Both langs present — keep all, language toggle will handle it
-      } else if (engQs.length) {
-        qList = engQs;
-      }
+    // Strategy 2: by exam + mockSeriesNum (no index needed)
+    if (!qDocs.length) {
+      try {
+        const snap = await getDocs(query(
+          collection(db,'questions'),
+          where('exam','==',mockMeta.exam||exam),
+          where('mockSeriesNum','==',mockMeta.seriesNum||seriesNum)
+        ));
+        qDocs = snap.docs;
+        setLoad(60, `Found ${qDocs.length} questions by exam+seriesNum`);
+      } catch(e) { console.warn('exam+mockSeriesNum query failed:', e.message); }
     }
 
-    // Strategy 3: Legacy type=mock query (manually added mock questions)
+    // Strategy 3: by type=mock + exam (broad fallback)
+    if (!qDocs.length) {
+      try {
+        const snap = await getDocs(query(
+          collection(db,'questions'),
+          where('exam','==',mockMeta.exam||exam),
+          where('type','==','mock')
+        ));
+        qDocs = snap.docs;
+        setLoad(60, `Found ${qDocs.length} questions by type=mock`);
+      } catch(e) { console.warn('type=mock query failed:', e.message); }
+    }
+
+    qList = qDocs.map(d => ({ id: d.id, ...d.data() }));
+
     if (!qList.length) {
-      setLoad(35,'Searching mock questions...');
-      qSnap = await getDocs(query(collection(db,'questions'),
-        where('exam','==',exam), where('type','==','mock'), where('mockSeriesNum','==',seriesNum)));
-      qList = qSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      throw new Error(`No questions found for this mock. mockId="${mockMeta.mockId||'none'}", exam="${mockMeta.exam||exam}", series=${mockMeta.seriesNum||seriesNum}. Generate questions first via admin-mock.html.`);
     }
-
-    if (!qList.length) throw new Error('No questions found for this mock test. Please check the paper has been uploaded.');
 
     setLoad(70,'Organizing sections...');
 
