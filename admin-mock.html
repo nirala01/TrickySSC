@@ -133,6 +133,7 @@ textarea{resize:vertical;min-height:80px;}
     <button class="tab" onclick="switchTab('users')">👥 Users</button>
     <button class="tab" onclick="switchTab('import')">📥 Import CSV</button>
     <button class="tab" onclick="switchTab('export')">📤 Export CSV</button>
+    <button class="tab" onclick="switchTab('generate')">🤖 Generate Mock</button>
     <button class="tab" onclick="switchTab('publish')" style="background:linear-gradient(135deg,#00A86B,#0EA5E9);color:#fff;font-weight:700;">🚀 Publish Mocks</button>
   </div>
 
@@ -1463,6 +1464,92 @@ textarea{resize:vertical;min-height:80px;}
     <div style="display:flex;gap:0.75rem;">
       <button class="btn btn-primary" onclick="saveEdit()" style="flex:1;">💾 Save Changes</button>
       <button class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- PANEL: Generate Mock from PYQ -->
+<div class="panel" id="panel-generate">
+  <div class="card">
+    <h3>🤖 Generate Mock from PYQ Paper</h3>
+    <p style="color:#94A3B8;font-size:0.9rem;margin-bottom:1.5rem;">
+      Select a PYQ paper → AI generates <strong style="color:#FF6B00;">new questions</strong> on same topics at <strong style="color:#FF6B00;">higher difficulty</strong> → saves to Firestore → auto-publishes as mock test.
+    </p>
+    <div style="background:#0F172A;border:1px solid #FF6B0044;border-radius:10px;padding:1rem 1.25rem;margin-bottom:1.5rem;font-size:0.82rem;color:#94A3B8;line-height:1.7;">
+      <strong style="color:#FF6B00;">How it works:</strong> AI reads topics from your PYQ → generates harder new questions → stores with <code style="color:#A78BFA;">type:"mock"</code> in <code style="color:#A78BFA;">questions</code> collection → creates <code style="color:#A78BFA;">mock_tests</code> entry automatically.
+    </div>
+
+    <div style="font-family:Rajdhani,sans-serif;font-size:0.85rem;font-weight:700;color:#FF6B00;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.75rem;">Step 1 — Select Source PYQ Paper</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:0.75rem;margin-bottom:0.75rem;">
+      <div><label>Exam</label>
+        <select id="genExam">
+          <option value="ssc-cgl">SSC CGL</option><option value="ssc-chsl">SSC CHSL</option>
+          <option value="ssc-mts">SSC MTS</option><option value="ssc-gd">SSC GD</option><option value="ssc-cpo">SSC CPO</option>
+        </select>
+      </div>
+      <div><label>Tier</label>
+        <select id="genTier"><option value="Tier I">Tier I</option><option value="Tier II">Tier II</option></select>
+      </div>
+      <div><label>Year</label>
+        <select id="genYear"><option>2024</option><option>2023</option><option selected>2022</option><option>2021</option><option>2020</option></select>
+      </div>
+      <div><label>Language</label>
+        <select id="genLang"><option value="en">English</option><option value="hi">Hindi</option></select>
+      </div>
+    </div>
+    <div><label>Source Paper (PYQ Paper ID)</label>
+      <input type="text" id="genPaperId" placeholder="e.g. ssc-cgl_2022_tier1_shift-1_2022-12-08_en">
+      <div style="font-size:0.72rem;color:#64748B;margin-top:0.3rem;">Copy from question-uploader.html — the auto-generated Paper ID for the paper you uploaded</div>
+    </div>
+
+    <div style="font-family:Rajdhani,sans-serif;font-size:0.85rem;font-weight:700;color:#FF6B00;text-transform:uppercase;letter-spacing:0.05em;margin:1.25rem 0 0.75rem;">Step 2 — Mock Settings</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.75rem;">
+      <div><label>Mock Title</label>
+        <input type="text" id="genTitle" placeholder="e.g. SSC CGL Mock Test 1">
+      </div>
+      <div><label>Mock Number</label>
+        <select id="genSeriesNum">
+          <option value="1">Mock #1</option><option value="2">Mock #2</option><option value="3">Mock #3</option>
+          <option value="4">Mock #4</option><option value="5">Mock #5</option><option value="6">Mock #6</option>
+          <option value="7">Mock #7</option><option value="8">Mock #8</option><option value="9">Mock #9</option><option value="10">Mock #10</option>
+        </select>
+      </div>
+      <div><label>Questions per Section (×4 sections)</label>
+        <select id="genQperSection">
+          <option value="25">25 → Full 100 Qs</option>
+          <option value="15">15 → Short 60 Qs</option>
+          <option value="10">10 → Mini 40 Qs</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.75rem;margin-top:0.75rem;">
+      <div><label>Duration (minutes)</label>
+        <input type="number" id="genDuration" value="60" min="10">
+      </div>
+      <div><label>Difficulty</label>
+        <select id="genDifficulty">
+          <option value="higher">Higher than PYQ</option>
+          <option value="similar">Similar to PYQ</option>
+        </select>
+      </div>
+      <div><label>Access</label>
+        <select id="genIsPaid"><option value="false">Free</option><option value="true">Paid</option></select>
+      </div>
+    </div>
+
+    <button class="btn btn-primary" id="genBtn" onclick="generateMock()" style="background:linear-gradient(135deg,#FF6B00,#FF8C38);min-width:220px;margin-top:1rem;">
+      🤖 Generate Mock Test
+    </button>
+
+    <div id="genProgress" style="display:none;margin-top:1rem;background:#0F172A;border:1px solid #334155;border-radius:10px;padding:1.25rem;">
+      <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.75rem;">
+        <div style="width:18px;height:18px;border:2px solid rgba(255,107,0,0.3);border-top-color:#FF6B00;border-radius:50%;animation:spin 0.7s linear infinite;flex-shrink:0;"></div>
+        <span id="genProgressMsg" style="font-size:0.85rem;color:#94A3B8;">Starting...</span>
+      </div>
+      <div style="background:#1E293B;border-radius:100px;height:6px;overflow:hidden;">
+        <div id="genProgressBar" style="height:100%;background:linear-gradient(90deg,#FF6B00,#FF8C38);width:0;transition:width 0.5s ease;border-radius:100px;"></div>
+      </div>
+      <div id="genProgressLog" style="margin-top:0.75rem;font-size:0.75rem;color:#64748B;font-family:monospace;max-height:140px;overflow-y:auto;line-height:1.8;"></div>
     </div>
   </div>
 </div>
@@ -2867,6 +2954,222 @@ window.deleteMockEntry = async (id) => {
     showToast('🗑 Mock entry deleted','');
     loadPublishedMocks();
   } catch(e){ showToast('Error: '+e.message,'error'); }
+};
+
+// ── Generate Mock from PYQ ────────────────────────────────────────────────────
+window.generateMock = async () => {
+  const paperId   = document.getElementById('genPaperId').value.trim();
+  const exam      = document.getElementById('genExam').value;
+  const tier      = document.getElementById('genTier').value;
+  const year      = document.getElementById('genYear').value;
+  const lang      = document.getElementById('genLang').value;
+  const title     = document.getElementById('genTitle').value.trim();
+  const seriesNum = parseInt(document.getElementById('genSeriesNum').value);
+  const qPerSec   = parseInt(document.getElementById('genQperSection').value);
+  const duration  = parseInt(document.getElementById('genDuration').value) || 60;
+  const difficulty= document.getElementById('genDifficulty').value;
+  const isPaid    = document.getElementById('genIsPaid').value === 'true';
+
+  if (!paperId) { showToast('Enter the source Paper ID first', 'error'); return; }
+  if (!title)   { showToast('Enter a mock title', 'error'); return; }
+
+  const btn = document.getElementById('genBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Generating...';
+  document.getElementById('genProgress').style.display = 'block';
+
+  const setMsg = (msg, pct) => {
+    document.getElementById('genProgressMsg').textContent = msg;
+    document.getElementById('genProgressBar').style.width = pct + '%';
+    const log = document.getElementById('genProgressLog');
+    log.innerHTML += `<div>→ ${msg}</div>`;
+    log.scrollTop = log.scrollHeight;
+  };
+
+  const WORKER = 'https://trickyssc-ai.nirala01.workers.dev/';
+  const SECTIONS = [
+    { subject: 'General Intelligence & Reasoning', short: 'reasoning' },
+    { subject: 'Quantitative Aptitude',            short: 'quant'     },
+    { subject: 'English Language',                 short: 'english'   },
+    { subject: 'General Awareness',                short: 'gk'        },
+  ];
+
+  try {
+    // Step 1: Load source PYQ questions for topic analysis
+    setMsg(`Loading source paper: ${paperId}`, 5);
+    const sourceSnap = await getDocs(query(
+      collection(db, 'questions'),
+      where('paperId', '==', paperId),
+      limit(100)
+    ));
+
+    if (sourceSnap.empty) {
+      throw new Error(`No questions found for paperId: ${paperId}. Make sure you uploaded this paper.`);
+    }
+
+    const sourceQs = sourceSnap.docs.map(d => d.data());
+    setMsg(`Found ${sourceQs.length} source questions — analyzing topics...`, 15);
+
+    // Group by subject
+    const bySubject = {};
+    sourceQs.forEach(q => {
+      const s = q.subject || 'General Awareness';
+      if (!bySubject[s]) bySubject[s] = [];
+      bySubject[s].push(q);
+    });
+
+    // Step 2: Generate new questions for each section using Claude API
+    const mockId = `${exam}_mock${seriesNum}_${Date.now()}`;
+    const allGeneratedQs = [];
+    const totalMarks = qPerSec * 4 * 2; // 2 marks per question
+
+    let pct = 20;
+    for (const sec of SECTIONS) {
+      setMsg(`Generating ${qPerSec} ${sec.short} questions...`, pct);
+
+      const sourceForSection = bySubject[sec.subject] || sourceQs.filter(q =>
+        q.subject?.toLowerCase().includes(sec.short.slice(0,4))
+      );
+
+      // Build topic list from source
+      const topics = [...new Set(sourceForSection.map(q => q.chapter).filter(Boolean))];
+      const sampleQs = sourceForSection.slice(0, 5).map(q =>
+        `Q: ${q.text}
+Options: A)${q.option_A||q.options?.A} B)${q.option_B||q.options?.B} C)${q.option_C||q.options?.C} D)${q.option_D||q.options?.D}
+Answer: ${q.correct}`
+      ).join('
+
+');
+
+      const prompt = `You are an SSC exam expert. Generate ${qPerSec} NEW ${sec.subject} questions for an SSC mock test.
+
+Source paper topics: ${topics.join(', ') || sec.subject}
+Difficulty: ${difficulty === 'higher' ? 'HARDER than standard PYQ — more complex calculations, trickier logic, less obvious answers' : 'Similar to standard PYQ level'}
+Language: ${lang === 'hi' ? 'Hindi' : 'English'}
+${sampleQs ? `Reference style (DO NOT copy, just match style):
+${sampleQs}` : ''}
+
+Return ONLY valid JSON array — no markdown:
+[
+  {
+    "text": "Question text",
+    "option_A": "Option A",
+    "option_B": "Option B", 
+    "option_C": "Option C",
+    "option_D": "Option D",
+    "correct": "A",
+    "explanation": "Step-by-step solution",
+    "trick": "One-line shortcut",
+    "chapter": "topic name",
+    "difficulty": "${difficulty === 'higher' ? 'hard' : 'medium'}"
+  }
+]
+
+Rules:
+- All ${qPerSec} questions must be UNIQUE and ORIGINAL
+- Correct answers must be genuinely correct — verify before finalizing
+- Mix of easy (20%), medium (50%), hard (30%)
+- Cover different chapters/topics
+- explanation: clear step-by-step solution`;
+
+      try {
+        const resp = await fetch(WORKER, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: 'claude-sonnet-4-20250514',
+            max_tokens: 8000,
+            messages: [{ role: 'user', content: prompt }]
+          })
+        });
+
+        if (!resp.ok) throw new Error(`API error: ${resp.status}`);
+        const data = await resp.json();
+        const text = data.content?.[0]?.text || '';
+
+        // Extract JSON array
+        const match = text.match(/\[[\s\S]*\]/);
+        if (!match) throw new Error('No JSON array in response');
+        const questions = JSON.parse(match[0]);
+
+        // Add metadata
+        questions.forEach((q, i) => {
+          allGeneratedQs.push({
+            ...q,
+            exam,
+            tier,
+            year: parseInt(year),
+            subject: sec.subject,
+            lang,
+            type: 'mock',
+            mockId,
+            mockSeriesNum: seriesNum,
+            qNum: allGeneratedQs.length + i + 1,
+            createdAt: new Date(),
+          });
+        });
+
+        setMsg(`✅ ${sec.subject}: ${questions.length} questions generated`, pct + 15);
+      } catch(e) {
+        setMsg(`⚠️ ${sec.subject} failed: ${e.message.slice(0,80)} — skipping`, pct + 5);
+      }
+
+      pct += 15;
+      // Small delay to avoid rate limits
+      await new Promise(r => setTimeout(r, 2000));
+    }
+
+    if (!allGeneratedQs.length) throw new Error('No questions generated — check API connection');
+
+    // Step 3: Save questions to Firestore
+    setMsg(`Saving ${allGeneratedQs.length} questions to Firestore...`, 80);
+    const batchSize = 10;
+    for (let i = 0; i < allGeneratedQs.length; i += batchSize) {
+      const batch = allGeneratedQs.slice(i, i + batchSize);
+      await Promise.all(batch.map(q => addDoc(collection(db, 'questions'), q)));
+    }
+    setMsg(`✅ ${allGeneratedQs.length} questions saved`, 90);
+
+    // Step 4: Create/update mock_tests entry
+    setMsg('Creating mock_tests entry...', 95);
+    const mockData = {
+      exam, tier, seriesNum, title,
+      totalQuestions: allGeneratedQs.length,
+      duration,
+      totalMarks,
+      isPaid,
+      isPublished: true,
+      mockId,
+      sourcePaperId: paperId,
+      generatedAt: new Date(),
+      createdAt: new Date(),
+    };
+
+    // Check if exists
+    const existSnap = await getDocs(query(
+      collection(db, 'mock_tests'),
+      where('exam', '==', exam),
+      where('seriesNum', '==', seriesNum),
+      where('tier', '==', tier)
+    ));
+
+    if (!existSnap.empty) {
+      await updateDoc(doc(db, 'mock_tests', existSnap.docs[0].id), { ...mockData, updatedAt: new Date() });
+    } else {
+      await addDoc(collection(db, 'mock_tests'), mockData);
+    }
+
+    setMsg(`🎉 Mock Test "${title}" published with ${allGeneratedQs.length} questions!`, 100);
+    showToast(`✅ Mock generated: ${allGeneratedQs.length} questions saved!`, 'success');
+
+  } catch(e) {
+    setMsg(`❌ Error: ${e.message}`, 100);
+    document.getElementById('genProgressBar').style.background = '#EF4444';
+    showToast('Error: ' + e.message, 'error');
+  }
+
+  btn.disabled = false;
+  btn.textContent = '🤖 Generate Mock Test';
 };
 </script>
 </body>

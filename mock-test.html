@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Mock Test — TrickySSC</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-3MMDNVBJQN"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-3MMDNVBJQN');</script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{--orange:#FF6B00;--dark:#0F172A;--card:#1E293B;--border:#334155;--text:#E2E8F0;--muted:#94A3B8;}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--dark);color:var(--text);min-height:100vh;}
+
+/* ── Loading ── */
+#loadScreen{position:fixed;inset:0;background:var(--dark);z-index:1000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.25rem;text-align:center;padding:1rem;}
+.logo-txt{font-family:'Rajdhani';font-size:2rem;font-weight:700;color:var(--orange);}
+.load-bar{width:260px;height:4px;background:#1E293B;border-radius:100px;overflow:hidden;}
+.load-fill{height:100%;background:linear-gradient(90deg,var(--orange),#FF8C38);border-radius:100px;width:0;transition:width 0.4s;}
+#loadMsg{font-size:0.82rem;color:var(--muted);}
+
+/* ── Instructions ── */
+#instrScreen{display:none;min-height:100vh;overflow-y:auto;padding:1.5rem 1rem 3rem;}
+.instr-wrap{max-width:680px;margin:0 auto;}
+.instr-head{text-align:center;margin-bottom:1.5rem;}
+.instr-head h1{font-family:'Rajdhani';font-size:1.75rem;font-weight:700;color:var(--text);margin-bottom:0.35rem;}
+.instr-head p{color:var(--muted);font-size:0.85rem;}
+.meta-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:0.65rem;margin-bottom:1.25rem;}
+@media(max-width:500px){.meta-grid{grid-template-columns:repeat(2,1fr);}}
+.meta-box{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:0.85rem;text-align:center;}
+.meta-val{font-family:'Rajdhani';font-size:1.35rem;font-weight:700;color:var(--orange);}
+.meta-lbl{font-size:0.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-top:0.15rem;}
+.instr-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1rem 1.15rem;margin-bottom:0.85rem;}
+.instr-card h3{font-family:'Rajdhani';font-size:0.88rem;font-weight:700;color:var(--orange);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:0.6rem;}
+.instr-card ul{padding-left:1.1rem;}
+.instr-card li{font-size:0.8rem;color:var(--muted);line-height:1.7;margin-bottom:0.2rem;}
+.mark-grid{display:grid;grid-template-columns:1fr 1fr;gap:0.55rem;}
+.mark-item{border-radius:7px;padding:0.55rem 0.7rem;font-size:0.78rem;font-weight:600;}
+.mark-ok{background:rgba(22,163,74,0.15);border:1px solid rgba(22,163,74,0.3);color:#4ADE80;}
+.mark-no{background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);color:#FCA5A5;}
+.legend-row{display:flex;gap:0.75rem;flex-wrap:wrap;}
+.leg{display:flex;align-items:center;gap:0.4rem;font-size:0.75rem;color:var(--muted);}
+.leg-dot{width:22px;height:22px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:0.65rem;font-weight:700;}
+.start-btn{width:100%;padding:0.9rem;background:linear-gradient(135deg,var(--orange),#FF8C38);color:#fff;border:none;border-radius:10px;font-family:'Plus Jakarta Sans';font-weight:700;font-size:1rem;cursor:pointer;margin-top:0.75rem;transition:opacity 0.15s;}
+.start-btn:hover{opacity:0.9;}
+
+/* ── Test screen ── */
+#testScreen{display:none;}
+.top-bar{background:var(--card);border-bottom:1px solid var(--border);padding:0.6rem 1rem;display:flex;align-items:center;justify-content:space-between;gap:0.6rem;flex-wrap:wrap;position:sticky;top:0;z-index:100;}
+.test-name{font-family:'Rajdhani';font-size:0.95rem;font-weight:700;color:var(--text);flex-shrink:0;}
+.sec-tabs{display:flex;gap:0.3rem;flex-wrap:wrap;}
+.sec-tab{background:#0F172A;border:1px solid var(--border);color:var(--muted);padding:0.25rem 0.7rem;border-radius:6px;font-size:0.73rem;font-weight:600;cursor:pointer;transition:all 0.15s;}
+.sec-tab.active{background:var(--orange);color:#fff;border-color:var(--orange);}
+.timer-wrap{display:flex;align-items:center;gap:0.45rem;background:#0F172A;border:1px solid var(--border);border-radius:8px;padding:0.35rem 0.8rem;flex-shrink:0;}
+#timerDisp{font-family:'Rajdhani';font-size:1.05rem;font-weight:700;color:#4ADE80;letter-spacing:0.05em;}
+#timerDisp.warn{color:#FBBF24;}
+#timerDisp.danger{color:#EF4444;animation:blink 0.8s infinite;}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:0.3;}}
+.submit-top{background:linear-gradient(135deg,var(--orange),#FF8C38);color:#fff;border:none;border-radius:7px;padding:0.35rem 0.9rem;font-family:'Plus Jakarta Sans';font-weight:700;font-size:0.78rem;cursor:pointer;}
+
+.test-body{display:grid;grid-template-columns:1fr 260px;min-height:calc(100vh - 50px);}
+@media(max-width:860px){.test-body{grid-template-columns:1fr;}}
+
+/* ── Question panel ── */
+.q-panel{padding:1.25rem 1.25rem 5rem;overflow-y:auto;}
+.q-top{display:flex;align-items:center;gap:0.45rem;margin-bottom:0.85rem;flex-wrap:wrap;}
+.q-badge{background:var(--orange);color:#fff;border-radius:6px;padding:0.18rem 0.6rem;font-size:0.72rem;font-weight:700;}
+.q-subj{background:var(--card);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:0.18rem 0.5rem;font-size:0.68rem;font-weight:600;}
+.q-flag-ans{background:rgba(22,163,74,0.2);color:#4ADE80;border-radius:100px;padding:0.12rem 0.5rem;font-size:0.65rem;font-weight:700;}
+.q-flag-rev{background:rgba(168,85,247,0.2);color:#C084FC;border-radius:100px;padding:0.12rem 0.5rem;font-size:0.65rem;font-weight:700;}
+.q-text{font-size:0.9rem;color:var(--text);line-height:1.7;margin-bottom:1rem;font-weight:500;}
+.q-img{max-width:100%;border-radius:8px;margin-bottom:0.85rem;border:1px solid var(--border);}
+
+/* DI table */
+.di-passage{background:#0F172A;border:1px solid var(--border);border-radius:8px;padding:0.85rem 1rem;margin-bottom:1rem;font-size:0.82rem;color:var(--muted);line-height:1.8;}
+.di-table{width:100%;border-collapse:collapse;font-size:0.82rem;margin-bottom:0.5rem;}
+.di-table th{background:#FF6B0020;color:var(--orange);padding:0.45rem 0.65rem;text-align:left;border:1px solid #FF6B0033;font-weight:700;}
+.di-table td{padding:0.4rem 0.65rem;border:1px solid var(--border);color:var(--text);}
+.di-table tr:nth-child(even) td{background:#1E293B40;}
+
+/* Options */
+.opts-grid{display:flex;flex-direction:column;gap:0.5rem;margin-bottom:1.25rem;}
+.opt{display:flex;align-items:center;gap:0.75rem;background:#0F172A;border:1.5px solid var(--border);border-radius:9px;padding:0.65rem 0.85rem;cursor:pointer;transition:all 0.15s;font-size:0.85rem;color:var(--text);}
+.opt:hover{border-color:var(--orange);background:#1E293B;}
+.opt.selected{border-color:var(--orange);background:rgba(255,107,0,0.08);}
+.opt.correct-ans{border-color:#16A34A;background:rgba(22,163,74,0.12);color:#4ADE80;}
+.opt.wrong-ans{border-color:#EF4444;background:rgba(239,68,68,0.1);color:#FCA5A5;}
+.opt-letter{width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:0.73rem;font-weight:700;flex-shrink:0;background:var(--border);color:var(--muted);}
+.opt.selected .opt-letter{background:var(--orange);color:#fff;}
+.opt.correct-ans .opt-letter{background:#16A34A;color:#fff;}
+.opt.wrong-ans .opt-letter{background:#EF4444;color:#fff;}
+.opt-text{flex:1;line-height:1.5;}
+
+/* Nav buttons */
+.q-nav{display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;}
+.nav-btn{padding:0.55rem 1rem;border-radius:8px;font-family:'Plus Jakarta Sans';font-weight:600;font-size:0.82rem;cursor:pointer;border:none;transition:all 0.15s;}
+.nav-prev{background:var(--card);border:1px solid var(--border);color:var(--text);}
+.nav-next{background:var(--orange);color:#fff;}
+.nav-review{background:rgba(168,85,247,0.15);border:1px solid rgba(168,85,247,0.3);color:#C084FC;}
+.nav-clear{background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:#FCA5A5;}
+.nav-btn:hover{opacity:0.85;}
+
+/* Solution box */
+.sol-box{background:#0F172A;border:1px solid #FF6B0033;border-radius:8px;padding:0.85rem 1rem;margin-top:0.85rem;font-size:0.82rem;display:none;}
+.sol-box.show{display:block;}
+.sol-title{color:var(--orange);font-weight:700;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:0.5rem;}
+.sol-text{color:var(--muted);line-height:1.7;}
+.trick-box{background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.25);border-radius:6px;padding:0.4rem 0.65rem;margin-top:0.45rem;font-size:0.77rem;color:#FBBF24;}
+
+/* ── Side panel ── */
+.side-panel{background:var(--card);border-left:1px solid var(--border);padding:1rem;overflow-y:auto;position:sticky;top:50px;height:calc(100vh - 50px);}
+@media(max-width:860px){.side-panel{display:none;position:fixed;right:0;top:50px;height:calc(100vh - 50px);width:260px;z-index:50;transform:translateX(100%);transition:transform 0.25s;}.side-panel.open{transform:translateX(0);}}
+.side-title{font-family:'Rajdhani';font-size:0.82rem;font-weight:700;color:var(--orange);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:0.65rem;}
+.q-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:0.3rem;margin-bottom:1rem;}
+.q-dot{width:100%;aspect-ratio:1;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:0.68rem;font-weight:700;cursor:pointer;border:1.5px solid var(--border);color:var(--muted);background:#0F172A;transition:all 0.12s;}
+.q-dot:hover{border-color:var(--orange);}
+.q-dot.current{border-color:var(--orange);color:var(--orange);}
+.q-dot.answered{background:#16A34A;border-color:#16A34A;color:#fff;}
+.q-dot.marked{background:#8B5CF6;border-color:#8B5CF6;color:#fff;}
+.q-dot.visited{background:#334155;border-color:#475569;color:#94A3B8;}
+.side-legend{margin-bottom:0.85rem;}
+.leg-item{display:flex;align-items:center;gap:0.45rem;font-size:0.72rem;color:var(--muted);margin-bottom:0.3rem;}
+.leg-sq{width:14px;height:14px;border-radius:3px;flex-shrink:0;}
+.progress-bar{background:#0F172A;border-radius:100px;height:5px;overflow:hidden;margin:0.5rem 0;}
+.progress-fill{height:100%;background:linear-gradient(90deg,var(--orange),#FF8C38);border-radius:100px;transition:width 0.3s;}
+.summary-stats{display:grid;grid-template-columns:1fr 1fr;gap:0.4rem;margin-bottom:0.75rem;}
+.stat-box{background:#0F172A;border:1px solid var(--border);border-radius:7px;padding:0.5rem;text-align:center;}
+.stat-val{font-family:'Rajdhani';font-size:1.1rem;font-weight:700;}
+.stat-lbl{font-size:0.62rem;color:var(--muted);}
+.submit-side{width:100%;padding:0.65rem;background:linear-gradient(135deg,var(--orange),#FF8C38);color:#fff;border:none;border-radius:8px;font-family:'Plus Jakarta Sans';font-weight:700;font-size:0.85rem;cursor:pointer;margin-top:0.5rem;}
+.mob-panel-btn{display:none;position:fixed;bottom:1.25rem;right:1.25rem;background:var(--orange);color:#fff;border:none;border-radius:100px;padding:0.65rem 1.1rem;font-family:'Plus Jakarta Sans';font-weight:700;font-size:0.82rem;cursor:pointer;z-index:60;box-shadow:0 4px 16px rgba(255,107,0,0.35);}
+@media(max-width:860px){.mob-panel-btn{display:block;}}
+
+/* ── Results screen ── */
+#resultScreen{display:none;min-height:100vh;overflow-y:auto;padding:1.5rem 1rem 3rem;}
+.result-wrap{max-width:800px;margin:0 auto;}
+.result-head{text-align:center;margin-bottom:1.5rem;}
+.result-head h1{font-family:'Rajdhani';font-size:2rem;font-weight:700;margin-bottom:0.4rem;}
+.score-circle{width:130px;height:130px;border-radius:50%;border:5px solid var(--orange);display:flex;flex-direction:column;align-items:center;justify-content:center;margin:1rem auto;}
+.score-pct{font-family:'Rajdhani';font-size:2rem;font-weight:700;color:var(--orange);}
+.score-sub{font-size:0.72rem;color:var(--muted);}
+.result-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:0.65rem;margin-bottom:1.5rem;}
+@media(max-width:500px){.result-grid{grid-template-columns:repeat(2,1fr);}}
+.res-box{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:0.85rem;text-align:center;}
+.res-val{font-family:'Rajdhani';font-size:1.4rem;font-weight:700;}
+.res-lbl{font-size:0.65rem;color:var(--muted);margin-top:0.15rem;}
+.section-analysis{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1rem 1.15rem;margin-bottom:1rem;}
+.sec-analysis-row{display:flex;align-items:center;gap:0.75rem;padding:0.55rem 0;border-bottom:1px solid var(--border);}
+.sec-analysis-row:last-child{border:none;}
+.sec-name{font-size:0.82rem;font-weight:600;flex:1;}
+.sec-score{font-family:'Rajdhani';font-size:0.95rem;font-weight:700;color:var(--orange);min-width:60px;text-align:right;}
+.sec-bar-wrap{flex:1;background:#0F172A;border-radius:100px;height:6px;overflow:hidden;}
+.sec-bar-fill{height:100%;border-radius:100px;}
+.result-actions{display:flex;gap:0.65rem;flex-wrap:wrap;justify-content:center;margin:1rem 0;}
+.res-btn{padding:0.65rem 1.25rem;border-radius:8px;font-family:'Plus Jakarta Sans';font-weight:700;font-size:0.85rem;cursor:pointer;border:none;}
+.res-btn-primary{background:linear-gradient(135deg,var(--orange),#FF8C38);color:#fff;}
+.res-btn-secondary{background:var(--card);border:1px solid var(--border);color:var(--text);}
+.review-section{margin-top:1.5rem;}
+.review-q{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:1rem 1.1rem;margin-bottom:0.85rem;}
+.review-q-top{display:flex;align-items:center;gap:0.4rem;margin-bottom:0.6rem;flex-wrap:wrap;}
+.rev-badge-correct{background:rgba(22,163,74,0.2);color:#4ADE80;border-radius:6px;padding:0.15rem 0.55rem;font-size:0.7rem;font-weight:700;}
+.rev-badge-wrong{background:rgba(239,68,68,0.15);color:#FCA5A5;border-radius:6px;padding:0.15rem 0.55rem;font-size:0.7rem;font-weight:700;}
+.rev-badge-skip{background:rgba(100,116,139,0.2);color:#94A3B8;border-radius:6px;padding:0.15rem 0.55rem;font-size:0.7rem;font-weight:700;}
+
+/* Confirm modal */
+.modal-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:500;align-items:center;justify-content:center;padding:1rem;}
+.modal-ov.open{display:flex;}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:1.5rem;max-width:420px;width:100%;text-align:center;}
+.modal h3{font-family:'Rajdhani';font-size:1.2rem;font-weight:700;margin-bottom:0.75rem;}
+.modal p{font-size:0.85rem;color:var(--muted);line-height:1.6;margin-bottom:1.25rem;}
+.modal-btns{display:flex;gap:0.65rem;justify-content:center;}
+.modal-btn{padding:0.6rem 1.5rem;border-radius:8px;font-family:'Plus Jakarta Sans';font-weight:700;font-size:0.88rem;cursor:pointer;border:none;}
+</style>
+</head>
+<body>
+
+<!-- Loading -->
+<div id="loadScreen">
+  <div class="logo-txt">TrickySSC</div>
+  <div id="loadMsg">Loading mock test...</div>
+  <div class="load-bar"><div class="load-fill" id="loadFill"></div></div>
+</div>
+
+<!-- Instructions -->
+<div id="instrScreen">
+  <div class="instr-wrap">
+    <div class="instr-head">
+      <h1 id="instrTitle">Mock Test</h1>
+      <p id="instrSubtitle">Read instructions carefully before starting</p>
+    </div>
+    <div class="meta-grid">
+      <div class="meta-box"><div class="meta-val" id="instrQs">100</div><div class="meta-lbl">Questions</div></div>
+      <div class="meta-box"><div class="meta-val" id="instrTime">60</div><div class="meta-lbl">Minutes</div></div>
+      <div class="meta-box"><div class="meta-val" id="instrMarks">200</div><div class="meta-lbl">Max Marks</div></div>
+      <div class="meta-box"><div class="meta-val">4</div><div class="meta-lbl">Sections</div></div>
+    </div>
+    <div class="instr-card">
+      <h3>📋 Marking Scheme</h3>
+      <div class="mark-grid">
+        <div class="mark-item mark-ok">✅ Correct: +2 marks</div>
+        <div class="mark-item mark-no">❌ Wrong: −0.5 marks</div>
+      </div>
+    </div>
+    <div class="instr-card">
+      <h3>📌 Instructions</h3>
+      <ul>
+        <li>This test has 4 sections — Reasoning, Quant, English, GK</li>
+        <li>Switch between sections using the tabs at the top</li>
+        <li>Click an option to select it. Click again to deselect.</li>
+        <li>Use <strong>Mark for Review</strong> to revisit questions later</li>
+        <li>Timer starts once you click <strong>Start Test</strong></li>
+        <li>Test auto-submits when time runs out</li>
+        <li>Results and solutions shown immediately after submission</li>
+      </ul>
+    </div>
+    <div class="instr-card">
+      <h3>🎯 Question Status</h3>
+      <div class="legend-row">
+        <div class="leg"><div class="leg-dot" style="background:#16A34A;color:#fff;">5</div> Answered</div>
+        <div class="leg"><div class="leg-dot" style="background:#8B5CF6;color:#fff;">5</div> Marked for Review</div>
+        <div class="leg"><div class="leg-dot" style="background:#334155;color:#94A3B8;">5</div> Visited</div>
+        <div class="leg"><div class="leg-dot" style="background:#0F172A;color:#64748B;border:1.5px solid #334155;">5</div> Not Visited</div>
+      </div>
+    </div>
+    <button class="start-btn" onclick="startTest()">▶ Start Test</button>
+  </div>
+</div>
+
+<!-- Test Screen -->
+<div id="testScreen">
+  <div class="top-bar">
+    <span class="test-name" id="testTitle">Mock Test</span>
+    <div class="sec-tabs" id="secTabs"></div>
+    <div style="display:flex;align-items:center;gap:0.5rem;">
+      <div class="timer-wrap">⏱ <span id="timerDisp">60:00</span></div>
+      <button class="submit-top" onclick="confirmSubmit()">Submit</button>
+    </div>
+  </div>
+  <div class="test-body">
+    <!-- Question -->
+    <div class="q-panel" id="qPanel">
+      <div class="q-top">
+        <span class="q-badge" id="qBadge">Q1</span>
+        <span class="q-subj" id="qSubj"></span>
+        <span id="qFlagBadge"></span>
+      </div>
+      <div id="qDIBlock"></div>
+      <div class="q-text" id="qText"></div>
+      <div id="qImgBlock"></div>
+      <div class="opts-grid" id="optsGrid"></div>
+      <div class="q-nav">
+        <button class="nav-btn nav-prev" onclick="goQ(-1)">← Prev</button>
+        <button class="nav-btn nav-review" onclick="markReview()">🔖 Review</button>
+        <button class="nav-btn nav-clear" onclick="clearResponse()">✕ Clear</button>
+        <button class="nav-btn nav-next" onclick="goQ(1)">Next →</button>
+      </div>
+    </div>
+    <!-- Side panel -->
+    <div class="side-panel" id="sidePanel">
+      <div class="side-title">Question Palette</div>
+      <div class="summary-stats">
+        <div class="stat-box"><div class="stat-val" id="statAns" style="color:#4ADE80;">0</div><div class="stat-lbl">Answered</div></div>
+        <div class="stat-box"><div class="stat-val" id="statRev" style="color:#C084FC;">0</div><div class="stat-lbl">Marked</div></div>
+        <div class="stat-box"><div class="stat-val" id="statVis" style="color:#FBBF24;">0</div><div class="stat-lbl">Visited</div></div>
+        <div class="stat-box"><div class="stat-val" id="statLeft" style="color:#EF4444;">0</div><div class="stat-lbl">Remaining</div></div>
+      </div>
+      <div class="side-legend">
+        <div class="leg-item"><div class="leg-sq" style="background:#16A34A;"></div>Answered</div>
+        <div class="leg-item"><div class="leg-sq" style="background:#8B5CF6;"></div>Marked for Review</div>
+        <div class="leg-item"><div class="leg-sq" style="background:#334155;"></div>Visited, Not Answered</div>
+        <div class="leg-item"><div class="leg-sq" style="background:#0F172A;border:1.5px solid #334155;"></div>Not Visited</div>
+      </div>
+      <div class="q-grid" id="qGrid"></div>
+      <button class="submit-side" onclick="confirmSubmit()">🏁 Submit Test</button>
+    </div>
+  </div>
+</div>
+
+<!-- Mobile panel toggle -->
+<button class="mob-panel-btn" onclick="toggleSidePanel()">📋 Questions</button>
+
+<!-- Results -->
+<div id="resultScreen">
+  <div class="result-wrap">
+    <div class="result-head">
+      <h1>🎯 Test Completed!</h1>
+      <div class="score-circle">
+        <div class="score-pct" id="resPct">0%</div>
+        <div class="score-sub" id="resScore">0/200</div>
+      </div>
+      <div id="resGrade" style="font-family:'Rajdhani';font-size:1.1rem;font-weight:700;margin-top:0.5rem;"></div>
+    </div>
+    <div class="result-grid">
+      <div class="res-box"><div class="res-val" id="resCorrect" style="color:#4ADE80;">0</div><div class="res-lbl">Correct</div></div>
+      <div class="res-box"><div class="res-val" id="resWrong" style="color:#EF4444;">0</div><div class="res-lbl">Wrong</div></div>
+      <div class="res-box"><div class="res-val" id="resSkipped" style="color:#FBBF24;">0</div><div class="res-lbl">Skipped</div></div>
+      <div class="res-box"><div class="res-val" id="resTime" style="color:#60A5FA;">0</div><div class="res-lbl">Time Used</div></div>
+    </div>
+    <!-- Section analysis -->
+    <div class="section-analysis">
+      <div style="font-family:'Rajdhani';font-size:0.9rem;font-weight:700;color:var(--orange);margin-bottom:0.75rem;">📊 Section-wise Analysis</div>
+      <div id="secAnalysis"></div>
+    </div>
+    <div class="result-actions">
+      <button class="res-btn res-btn-primary" onclick="showReview()">📖 View Solutions</button>
+      <button class="res-btn res-btn-secondary" onclick="window.location.reload()">🔄 Retry</button>
+      <button class="res-btn res-btn-secondary" onclick="window.location.href='index.html'">🏠 Home</button>
+    </div>
+    <div id="reviewSection" style="display:none;" class="review-section">
+      <div style="font-family:'Rajdhani';font-size:1rem;font-weight:700;color:var(--orange);margin-bottom:1rem;">📖 Question-wise Solutions</div>
+      <div id="reviewList"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm submit modal -->
+<div class="modal-ov" id="confirmModal">
+  <div class="modal">
+    <h3>⚠️ Submit Test?</h3>
+    <p id="confirmMsg">Are you sure you want to submit?</p>
+    <div class="modal-btns">
+      <button class="modal-btn" style="background:linear-gradient(135deg,#FF6B00,#FF8C38);color:#fff;" onclick="submitTest()">Yes, Submit</button>
+      <button class="modal-btn" style="background:var(--border);color:var(--text);" onclick="closeModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Firebase -->
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+import { getFirestore, collection, query, where, getDocs, addDoc, orderBy } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+const app = initializeApp({
+  apiKey:'AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA',
+  authDomain:'trickyssc-17bb3.firebaseapp.com',
+  projectId:'trickyssc-17bb3',
+  storageBucket:'trickyssc-17bb3.firebasestorage.app',
+  messagingSenderId:'450627057220',
+  appId:'1:450627057220:web:366267bf437d94f20c6e11'
+});
+const db = getFirestore(app);
+
+// Parse URL params
+const params = new URLSearchParams(window.location.search);
+const mockId     = params.get('mockId');     // mockId field
+const exam       = params.get('exam');       // ssc-cgl
+const seriesNum  = parseInt(params.get('series') || '1');
+const tier       = params.get('tier') || 'Tier I';
+
+window._db = db;
+window._firestoreLoaded = true;
+window.dispatchEvent(new Event('fsReady'));
+
+window._loadQuestions = async () => {
+  setLoad(10,'Loading mock test info...');
+  let qList = [];
+
+  try {
+    // Load mock_tests metadata
+    let mockMeta = null;
+    if (mockId) {
+      const snap = await getDocs(query(collection(db,'mock_tests'), where('mockId','==',mockId)));
+      if (!snap.empty) mockMeta = { id: snap.docs[0].id, ...snap.docs[0].data() };
+    }
+    if (!mockMeta && exam) {
+      const snap = await getDocs(query(collection(db,'mock_tests'),
+        where('exam','==',exam), where('seriesNum','==',seriesNum), where('tier','==',tier)));
+      if (!snap.empty) mockMeta = { id: snap.docs[0].id, ...snap.docs[0].data() };
+    }
+    if (!mockMeta) throw new Error('Mock test not found. Check the URL params.');
+
+    window._mockMeta = mockMeta;
+    setLoad(25,'Loading questions...');
+
+    // Load questions by mockId or exam+type
+    let qSnap;
+    if (mockMeta.mockId) {
+      qSnap = await getDocs(query(collection(db,'questions'), where('mockId','==',mockMeta.mockId)));
+    } else {
+      qSnap = await getDocs(query(collection(db,'questions'),
+        where('exam','==',exam), where('type','==','mock'), where('mockSeriesNum','==',seriesNum)));
+    }
+
+    qList = qSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    if (!qList.length) throw new Error('No questions found for this mock test.');
+
+    setLoad(70,'Organizing sections...');
+
+    // Sort by subject then qNum
+    const ORDER = ['General Intelligence & Reasoning','Quantitative Aptitude','English Language','General Awareness'];
+    qList.sort((a,b) => {
+      const ai = ORDER.indexOf(a.subject); const bi = ORDER.indexOf(b.subject);
+      if (ai !== bi) return ai - bi;
+      return (a.qNum||0) - (b.qNum||0);
+    });
+    // Re-number
+    qList.forEach((q,i) => q._num = i+1);
+
+    setLoad(90,'Preparing test...');
+    window._questions = qList;
+    window._mockMeta  = mockMeta;
+    window._initTest(mockMeta, qList);
+
+  } catch(e) {
+    document.getElementById('loadMsg').textContent = '❌ '+e.message;
+    document.getElementById('loadMsg').style.color = '#EF4444';
+  }
+};
+
+window.addEventListener('fsReady', () => window._loadQuestions());
+window._saveResult = async (result) => {
+  try {
+    await addDoc(collection(db,'mock_results'), result);
+  } catch(e) { console.warn('Save result failed:', e.message); }
+};
+</script>
+
+<script>
+// ── State ─────────────────────────────────────────────────────────────────────
+let questions   = [];
+let answers     = {}; // {qIndex: 'A'|'B'|'C'|'D'}
+let reviewed    = {}; // {qIndex: true}
+let visited     = {}; // {qIndex: true}
+let currentQ    = 0;
+let currentSec  = 0;
+let sections    = [];
+let timerSecs   = 3600;
+let timerInt    = null;
+let testStarted = false;
+let timeUsed    = 0;
+
+const SUBJECTS = ['General Intelligence & Reasoning','Quantitative Aptitude','English Language','General Awareness'];
+const SEC_COLORS = ['#3B82F6','#F59E0B','#10B981','#8B5CF6'];
+const SEC_SHORT  = ['Reasoning','Quant','English','GK'];
+
+// ── Loader ────────────────────────────────────────────────────────────────────
+function setLoad(pct, msg) {
+  document.getElementById('loadFill').style.width = pct + '%';
+  document.getElementById('loadMsg').textContent  = msg;
+}
+
+// ── Init test ─────────────────────────────────────────────────────────────────
+window._initTest = (meta, qs) => {
+  questions = qs;
+  timerSecs = (meta.duration || 60) * 60;
+
+  // Build sections
+  sections = SUBJECTS.map((subj, i) => ({
+    subj,
+    short: SEC_SHORT[i],
+    color: SEC_COLORS[i],
+    qs: qs.filter(q => q.subject === subj),
+    startIdx: 0
+  }));
+  let idx = 0;
+  sections.forEach(s => { s.startIdx = idx; idx += s.qs.length; });
+
+  // Populate instruction screen
+  document.getElementById('instrTitle').textContent    = meta.title || 'Mock Test';
+  document.getElementById('instrSubtitle').textContent = `${meta.exam?.toUpperCase()} — ${meta.tier}`;
+  document.getElementById('instrQs').textContent       = qs.length;
+  document.getElementById('instrTime').textContent     = meta.duration || 60;
+  document.getElementById('instrMarks').textContent    = meta.totalMarks || qs.length * 2;
+  document.getElementById('testTitle').textContent     = meta.title || 'Mock Test';
+
+  setLoad(100,'Ready!');
+  setTimeout(() => {
+    document.getElementById('loadScreen').style.display = 'none';
+    document.getElementById('instrScreen').style.display = 'block';
+  }, 400);
+};
+
+// ── Start ─────────────────────────────────────────────────────────────────────
+window.startTest = () => {
+  document.getElementById('instrScreen').style.display = 'none';
+  document.getElementById('testScreen').style.display  = 'block';
+  testStarted = true;
+
+  // Build section tabs
+  const tabs = document.getElementById('secTabs');
+  tabs.innerHTML = sections.map((s,i) => `
+    <button class="sec-tab ${i===0?'active':''}" onclick="goSection(${i})">${s.short} (${s.qs.length})</button>
+  `).join('');
+
+  renderQGrid();
+  goSection(0);
+  startTimer();
+};
+
+// ── Timer ─────────────────────────────────────────────────────────────────────
+function startTimer() {
+  timerInt = setInterval(() => {
+    timerSecs--;
+    timeUsed++;
+    const m = Math.floor(timerSecs/60);
+    const s = timerSecs % 60;
+    const disp = document.getElementById('timerDisp');
+    disp.textContent = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    if (timerSecs <= 300) disp.className = 'warn';
+    if (timerSecs <= 60)  disp.className = 'danger';
+    if (timerSecs <= 0) { clearInterval(timerInt); submitTest(); }
+  }, 1000);
+}
+
+// ── Navigation ────────────────────────────────────────────────────────────────
+window.goSection = (idx) => {
+  currentSec = idx;
+  document.querySelectorAll('.sec-tab').forEach((t,i) => t.classList.toggle('active', i===idx));
+  const firstQ = sections[idx].startIdx;
+  goToQ(firstQ);
+};
+
+window.goQ = (dir) => {
+  const next = currentQ + dir;
+  if (next >= 0 && next < questions.length) goToQ(next);
+};
+
+window.goToQ = (idx) => {
+  currentQ = idx;
+  visited[idx] = true;
+  renderQuestion();
+  renderQGrid();
+  updateStats();
+
+  // Sync section tab
+  for (let i = sections.length-1; i >= 0; i--) {
+    if (idx >= sections[i].startIdx) { currentSec = i; break; }
+  }
+  document.querySelectorAll('.sec-tab').forEach((t,i) => t.classList.toggle('active', i===currentSec));
+};
+
+// ── Render question ───────────────────────────────────────────────────────────
+function renderQuestion() {
+  const q = questions[currentQ];
+  if (!q) return;
+
+  document.getElementById('qBadge').textContent = `Q${q._num}`;
+  document.getElementById('qSubj').textContent  = q.subject?.replace('General Intelligence & Reasoning','Reasoning').replace('Quantitative Aptitude','Quant').replace('General Awareness','GK') || '';
+
+  // Flag badge
+  const fb = document.getElementById('qFlagBadge');
+  if (answers[currentQ] !== undefined && reviewed[currentQ]) { fb.className='q-flag-rev'; fb.textContent='🔖 Marked & Answered'; }
+  else if (answers[currentQ] !== undefined) { fb.className='q-flag-ans'; fb.textContent='✅ Answered'; }
+  else if (reviewed[currentQ]) { fb.className='q-flag-rev'; fb.textContent='🔖 Marked for Review'; }
+  else fb.className='', fb.textContent='';
+
+  // DI / table passage
+  const diBlock = document.getElementById('qDIBlock');
+  if (q.diPassage) {
+    diBlock.innerHTML = `<div class="di-passage">${q.diPassage}</div>`;
+  } else if (q.diTable) {
+    diBlock.innerHTML = buildDITable(q.diTable);
+  } else {
+    diBlock.innerHTML = '';
+  }
+
+  // Question text
+  document.getElementById('qText').textContent = q.text || '';
+
+  // Image
+  const imgBlock = document.getElementById('qImgBlock');
+  imgBlock.innerHTML = q.imageUrl ? `<img src="${q.imageUrl}" class="q-img" alt="Q${q._num}">` : '';
+
+  // Options
+  const opts = document.getElementById('optsGrid');
+  const sel  = answers[currentQ];
+  opts.innerHTML = ['A','B','C','D'].map(l => {
+    const txt = q.options ? q.options[l] : q[`option_${l}`] || '';
+    const cls = sel === l ? 'opt selected' : 'opt';
+    const imgUrl = q[`opt${l}Img`] || q.options?.[`${l}_img`] || '';
+    return `<div class="${cls}" onclick="selectOpt('${l}')">
+      <span class="opt-letter">${l}</span>
+      <span class="opt-text">${txt}${imgUrl?`<br><img src="${imgUrl}" style="max-height:60px;margin-top:0.3rem;border-radius:4px;">`:''}</span>
+    </div>`;
+  }).join('');
+}
+
+function buildDITable(tableData) {
+  if (!tableData) return '';
+  try {
+    const data = typeof tableData === 'string' ? JSON.parse(tableData) : tableData;
+    const headers = data.headers || [];
+    const rows    = data.rows    || [];
+    return `<div class="di-passage">
+      <div style="font-size:0.75rem;font-weight:700;color:var(--orange);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:0.5rem;">${data.title||'Data Interpretation'}</div>
+      <table class="di-table">
+        <thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+        <tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody>
+      </table>
+    </div>`;
+  } catch(e) { return `<div class="di-passage">${tableData}</div>`; }
+}
+
+// ── Answer ────────────────────────────────────────────────────────────────────
+window.selectOpt = (letter) => {
+  if (answers[currentQ] === letter) {
+    delete answers[currentQ];
+  } else {
+    answers[currentQ] = letter;
+  }
+  renderQuestion();
+  renderQGrid();
+  updateStats();
+};
+
+window.markReview = () => {
+  reviewed[currentQ] = !reviewed[currentQ];
+  renderQuestion();
+  renderQGrid();
+};
+
+window.clearResponse = () => {
+  delete answers[currentQ];
+  delete reviewed[currentQ];
+  renderQuestion();
+  renderQGrid();
+  updateStats();
+};
+
+// ── Q Grid ────────────────────────────────────────────────────────────────────
+function renderQGrid() {
+  const grid = document.getElementById('qGrid');
+  if (!grid) return;
+  grid.innerHTML = questions.map((q,i) => {
+    let cls = 'q-dot';
+    if (i === currentQ) cls += ' current';
+    else if (answers[i] !== undefined && reviewed[i]) cls += ' marked';
+    else if (answers[i] !== undefined) cls += ' answered';
+    else if (reviewed[i]) cls += ' marked';
+    else if (visited[i]) cls += ' visited';
+    return `<div class="${cls}" onclick="goToQ(${i})">${q._num}</div>`;
+  }).join('');
+}
+
+function updateStats() {
+  const ans = Object.keys(answers).length;
+  const rev = Object.values(reviewed).filter(Boolean).length;
+  const vis = Object.keys(visited).length;
+  document.getElementById('statAns').textContent  = ans;
+  document.getElementById('statRev').textContent  = rev;
+  document.getElementById('statVis').textContent  = vis;
+  document.getElementById('statLeft').textContent = questions.length - ans;
+  const pct = Math.round(ans/questions.length*100);
+  // update tab counts
+  sections.forEach((s,i) => {
+    const answeredInSec = s.qs.filter((_,qi) => answers[s.startIdx+qi] !== undefined).length;
+    const tabs = document.querySelectorAll('.sec-tab');
+    if (tabs[i]) tabs[i].textContent = `${s.short} (${answeredInSec}/${s.qs.length})`;
+  });
+}
+
+// ── Submit ────────────────────────────────────────────────────────────────────
+window.confirmSubmit = () => {
+  const ans = Object.keys(answers).length;
+  const left= questions.length - ans;
+  document.getElementById('confirmMsg').innerHTML = `
+    <strong style="color:#4ADE80;">${ans}</strong> answered &nbsp;|&nbsp;
+    <strong style="color:#FBBF24;">${Object.values(reviewed).filter(Boolean).length}</strong> marked &nbsp;|&nbsp;
+    <strong style="color:#EF4444;">${left}</strong> unanswered<br><br>
+    Are you sure you want to submit?`;
+  document.getElementById('confirmModal').classList.add('open');
+};
+
+window.closeModal = () => document.getElementById('confirmModal').classList.remove('open');
+
+window.submitTest = () => {
+  clearInterval(timerInt);
+  closeModal();
+  document.getElementById('testScreen').style.display  = 'none';
+  document.getElementById('resultScreen').style.display = 'block';
+
+  let correct=0, wrong=0, skipped=0, score=0;
+  const secStats = sections.map(s => ({ subj:s.subj, short:s.short, color:s.color, correct:0, wrong:0, total:s.qs.length }));
+
+  questions.forEach((q, i) => {
+    const secIdx = sections.findIndex((s,si) => i >= s.startIdx && (si===sections.length-1 || i < sections[si+1].startIdx));
+    if (answers[i] === undefined) { skipped++; }
+    else if (answers[i] === q.correct) { correct++; score+=2; if(secIdx>=0) secStats[secIdx].correct++; }
+    else { wrong++; score-=0.5; if(secIdx>=0) secStats[secIdx].wrong++; }
+  });
+
+  const totalMarks = questions.length * 2;
+  const pct = Math.round(score/totalMarks*100);
+  const grade = pct>=90?'🏆 Excellent':pct>=75?'⭐ Very Good':pct>=60?'👍 Good':pct>=45?'📈 Average':'📚 Needs Practice';
+  const mins  = Math.floor(timeUsed/60);
+  const secs  = timeUsed%60;
+
+  document.getElementById('resPct').textContent    = pct+'%';
+  document.getElementById('resScore').textContent  = `${score.toFixed(1)}/${totalMarks}`;
+  document.getElementById('resGrade').textContent  = grade;
+  document.getElementById('resCorrect').textContent= correct;
+  document.getElementById('resWrong').textContent  = wrong;
+  document.getElementById('resSkipped').textContent= skipped;
+  document.getElementById('resTime').textContent   = `${mins}m ${secs}s`;
+
+  // Section analysis
+  const secDiv = document.getElementById('secAnalysis');
+  secDiv.innerHTML = secStats.map(s => {
+    const secPct = Math.round(s.correct/s.total*100);
+    return `<div class="sec-analysis-row">
+      <div class="sec-name">${s.short}</div>
+      <div class="sec-bar-wrap"><div class="sec-bar-fill" style="width:${secPct}%;background:${s.color};"></div></div>
+      <div class="sec-score">${s.correct}/${s.total}</div>
+    </div>`;
+  }).join('');
+
+  // Save result
+  if (window._saveResult) window._saveResult({
+    mockId: window._mockMeta?.mockId || '',
+    exam: window._mockMeta?.exam || '',
+    seriesNum: window._mockMeta?.seriesNum || 1,
+    score, correct, wrong, skipped, pct, timeUsed,
+    answers: {...answers},
+    submittedAt: new Date()
+  });
+};
+
+// ── Review solutions ──────────────────────────────────────────────────────────
+window.showReview = () => {
+  const div = document.getElementById('reviewSection');
+  div.style.display = div.style.display === 'none' ? 'block' : 'none';
+  if (div.style.display === 'none') return;
+
+  div.querySelector('#reviewList').innerHTML = questions.map((q,i) => {
+    const userAns = answers[i];
+    const isCorrect = userAns === q.correct;
+    const isSkipped = userAns === undefined;
+    const badgeCls  = isSkipped ? 'rev-badge-skip' : isCorrect ? 'rev-badge-correct' : 'rev-badge-wrong';
+    const badgeTxt  = isSkipped ? 'Skipped' : isCorrect ? '✅ Correct' : `❌ Wrong (You: ${userAns})`;
+    const opts = ['A','B','C','D'].map(l => {
+      const txt = q.options?q.options[l]:q[`option_${l}`]||'';
+      const isC = l === q.correct;
+      const isU = l === userAns;
+      let bg = 'background:#1E293B;color:#94A3B8;';
+      if (isC) bg = 'background:rgba(22,163,74,0.15);color:#4ADE80;border:1px solid rgba(22,163,74,0.3);';
+      else if (isU && !isC) bg = 'background:rgba(239,68,68,0.1);color:#FCA5A5;border:1px solid rgba(239,68,68,0.3);';
+      return `<div style="padding:0.35rem 0.6rem;border-radius:6px;font-size:0.78rem;${bg}">${l}. ${txt}</div>`;
+    }).join('');
+    const sol = q.explanation || '';
+    const trk = q.trick || '';
+    return `<div class="review-q">
+      <div class="review-q-top">
+        <span class="q-badge">Q${q._num}</span>
+        <span class="q-subj">${q.subject?.replace('General Intelligence & Reasoning','Reasoning').replace('Quantitative Aptitude','Quant').replace('General Awareness','GK')||''}</span>
+        <span class="${badgeCls}">${badgeTxt}</span>
+      </div>
+      <div style="font-size:0.85rem;color:var(--text);line-height:1.6;margin-bottom:0.6rem;">${q.text||''}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.3rem;margin-bottom:0.6rem;">${opts}</div>
+      ${sol?`<div class="sol-box show"><div class="sol-title">📖 Explanation</div><div class="sol-text">${sol.replace(/<[^>]+>/g,'')}</div>${trk?`<div class="trick-box">⚡ Trick: ${trk}</div>`:''}</div>`:''}
+    </div>`;
+  }).join('');
+};
+
+// ── Mobile side panel ─────────────────────────────────────────────────────────
+window.toggleSidePanel = () => {
+  document.getElementById('sidePanel').classList.toggle('open');
+};
+
+// ── If Firebase not ready yet ─────────────────────────────────────────────────
+window.addEventListener('fsReady', () => {});
+// If module already fired
+if (window._firestoreLoaded) window._loadQuestions?.();
+</script>
+</body>
+</html>
