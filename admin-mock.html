@@ -3033,13 +3033,9 @@ window.generateMock = async () => {
 
       // Build topic list from source
       const topics = [...new Set(sourceForSection.map(q => q.chapter).filter(Boolean))];
-      const sampleQs = sourceForSection.slice(0, 5).map(q =>
-        `Q: ${q.text}
-Options: A)${q.option_A||q.options?.A} B)${q.option_B||q.options?.B} C)${q.option_C||q.options?.C} D)${q.option_D||q.options?.D}
-Answer: ${q.correct}`
-      ).join('
-
-');
+      const sampleQs = sourceForSection.slice(0, 5).map(function(q) {
+        return 'Q: '+(q.text||'')+' | A: '+(q.option_A||'')+'  B: '+(q.option_B||'')+'  C: '+(q.option_C||'')+'  D: '+(q.option_D||'')+'  Ans: '+(q.correct||'');
+      }).join(' || ');
 
       const prompt = `You are an SSC exam expert. Generate ${qPerSec} NEW ${sec.subject} questions for an SSC mock test.
 
