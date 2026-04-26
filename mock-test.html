@@ -517,6 +517,7 @@ function setLoad(pct, msg) {
   document.getElementById('loadFill').style.width = pct + '%';
   document.getElementById('loadMsg').textContent  = msg;
 }
+window.setLoad = setLoad;
 
 // ── Init test ─────────────────────────────────────────────────────────────────
 window._initTest = (meta, qs) => {
@@ -666,7 +667,7 @@ function renderQuestion() {
     const imgUrl = q[`opt${l}Img`] || q.options?.[`${l}_img`] || '';
     return `<div class="${cls}" onclick="selectOpt('${l}')">
       <span class="opt-letter">${l}</span>
-      <span class="opt-text">${txt}${imgUrl?`<br><img src="${imgUrl}" style="max-height:60px;margin-top:0.3rem;border-radius:4px;">`:''}</span>
+      <span class="opt-text">${txt}${imgUrl ? '<br><img src="'+imgUrl+'" style="max-height:60px;margin-top:0.3rem;border-radius:4px;">' : ''}</span>
     </div>`;
   }).join('');
 }
@@ -841,10 +842,10 @@ window.showReview = () => {
         <span class="q-subj">${q.subject?.replace('General Intelligence & Reasoning','Reasoning').replace('Quantitative Aptitude','Quant').replace('General Awareness','GK')||''}</span>
         <span class="${badgeCls}">${badgeTxt}</span>
       </div>
-      ${q.diTable?`<div style="margin-bottom:0.6rem;">${buildDITable(q.diTable)}</div>`:''}
+      ${q.diTable ? '<div style="margin-bottom:0.6rem;">'+buildDITable(q.diTable)+'</div>' : ''}
       <div style="font-size:0.85rem;color:var(--text);line-height:1.6;margin-bottom:0.6rem;">${q.text||''}</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.3rem;margin-bottom:0.6rem;">${opts}</div>
-      ${sol?`<div class="sol-box show"><div class="sol-title">📖 Explanation</div><div class="sol-text">${sol${trk?`<div class="trick-box">⚡ Trick: ${trk}</div>`:''}</div>`:''}
+      ${sol ? '<div class="sol-box show"><div class="sol-title">📖 Explanation</div><div class="sol-text">'+sol+'</div>'+(trk?'<div class="trick-box">⚡ Trick: '+trk+'</div>':'')+'</div>' : ''}</div>`:''}
     </div>`;
   }).join('');
 };
