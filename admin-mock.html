@@ -3281,17 +3281,18 @@ Rules:
 - Final Answer line is MANDATORY in green color
 - Return ONLY the JSON array, nothing else`;
 
+          const reqBody = {
+              model: 'claude-sonnet-4-20250514',
+              max_tokens: 8000,
+              messages: [{ role: 'user', content: SYSTEM_PROMPT + '\n\nNow generate the questions:\n\n' + batchPrompt }]
+            };
+          console.log('Calling Worker:', WORKER, 'body size:', JSON.stringify(reqBody).length);
           const resp = await fetch(WORKER, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              model: 'claude-sonnet-4-20250514',
-              max_tokens: 8000,
-              messages: [
-                { role: 'user', content: SYSTEM_PROMPT + '\n\nNow generate the questions:\n\n' + batchPrompt }
-              ]
-            })
+            body: JSON.stringify(reqBody)
           });
+          console.log('Worker response status:', resp.status, resp.statusText);
 
           if (!resp.ok) {
             const errText = await resp.text().catch(()=>'');
