@@ -252,7 +252,8 @@ pre{font-family:monospace;font-size:0.78rem;color:#A78BFA;line-height:1.7;white-
     <!-- CSV Mode -->
     <div id="mode-csv" style="display:none;">
       <div class="info-box">
-        Upload a CSV with columns: <code>qNum</code>, <code>explanation</code>, <code>trick</code>, <code>concept</code>. Only include rows for questions you want to update.
+        Upload a CSV with columns: <code>qNum</code>, <code>explanation</code>, <code>trick</code>, <code>concept</code>. Only include rows for questions you want to update.<br>
+        <strong style="color:#00A86B;">✨ Auto-converts:</strong> <code>[BR]</code> step format is automatically converted to HTML before saving — no pre-processing needed.
       </div>
       <div class="upload-area" onclick="document.getElementById('csvInput').click()">
         <input type="file" id="csvInput" accept=".csv" style="display:none;" onchange="handleCSV(event)">
@@ -266,10 +267,10 @@ pre{font-family:monospace;font-size:0.78rem;color:#A78BFA;line-height:1.7;white-
         <button class="btn btn-secondary" onclick="clearCSVMode()">✕ Clear</button>
       </div>
       <div class="format-card">
-        <h4>CSV Format (first 3 columns required)</h4>
+        <h4>CSV Format (first 3 columns required — use [BR] for line breaks)</h4>
         <pre>qNum,explanation,trick,concept
-1,"Step 1: Find value.[BR]∴ Answer = A.","Step 1: Shortcut.","Arithmetic: profit"
-2,"Step 1: Identify pattern.[BR]Step 2: Apply rule.","Memory: VIBGYOR","GK: History"</pre>
+1,"Step 1: Find value.[BR]- Answer = A.[BR]∴ Final Answer = A","Step 1: Shortcut.","Arithmetic: profit"
+2,"Step 1: Identify pattern.[BR]Step 2: Apply rule.[BR]- Result follows.","Memory: VIBGYOR","GK: History"</pre>
       </div>
     </div>
 
@@ -744,6 +745,33 @@ window.handleCSV = (evt) => {
   reader.readAsText(file, 'UTF-8');
 };
 
+// ── BR-to-HTML converter (used by CSV mode) ──
+function brToHtml(text) {
+  if (!text || !text.trim()) return text;
+  // Already HTML? (starts with <div or <span) — skip conversion
+  if (/^\s*<(div|span|strong|b)\b/i.test(text)) return text;
+  const lines = text.split('[BR]');
+  return lines.map(line => {
+    line = line.trim();
+    if (!line) return '';
+    // ∴ Final Answer line
+    if (/^∴/.test(line)) {
+      return `<div style="margin-top:8px;font-weight:700;color:#00A86B;font-size:0.88rem;">${line}</div>`;
+    }
+    // Step title: "Step N: Title."
+    if (/^Step \d+:/i.test(line)) {
+      return `<div style="margin-top:8px;"><strong style="color:#155724;font-size:0.88rem;">${line}</strong></div>`;
+    }
+    // Substep: "- content"
+    if (line.startsWith('- ')) {
+      const content = line.slice(2);
+      return `<div style="margin-left:14px;color:#374151;font-size:0.87rem;line-height:1.7;"><span style="color:#FF6B00;font-weight:700;margin-right:4px;">—</span>${content}</div>`;
+    }
+    // Plain line
+    return `<div style="margin-left:14px;color:#374151;font-size:0.87rem;line-height:1.7;">${line}</div>`;
+  }).join('');
+}
+
 function parseCSVtoUpdates(text) {
   text = text.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
   const rows = [];
@@ -776,9 +804,9 @@ function parseCSVtoUpdates(text) {
 
   return rows.slice(1).map(r => ({
     qNum:        parseInt(r[iQ]) || 0,
-    explanation: iE >= 0 ? (r[iE] || '') : '',
-    trick:       iT >= 0 ? (r[iT] || '') : '',
-    concept:     iC >= 0 ? (r[iC] || '') : ''
+    explanation: iE >= 0 ? brToHtml(r[iE] || '') : '',
+    trick:       iT >= 0 ? brToHtml(r[iT] || '') : '',
+    concept:     iC >= 0 ? brToHtml(r[iC] || '') : ''
   })).filter(r => r.qNum > 0);
 }
 
