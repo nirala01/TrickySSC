@@ -89,11 +89,33 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 .progress-bar{height:4px;background:var(--border);border-radius:2px;margin-top:0.75rem;overflow:hidden;display:none;}
 .progress-fill{height:100%;background:linear-gradient(135deg,var(--orange),var(--orange2));border-radius:2px;transition:width 0.3s;}
 
+/* CHECKLIST */
+.checklist-card{background:var(--surface);border:1px solid #00C47A44;border-radius:14px;padding:1.25rem 1.5rem;margin-bottom:1.25rem;display:none;}
+.checklist-card.visible{display:block;}
+.checklist-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;}
+.checklist-title{font-family:'Rajdhani',sans-serif;font-weight:700;color:var(--green);font-size:1rem;}
+.checklist-paper{font-size:0.78rem;color:var(--muted);font-family:monospace;background:var(--surface2);padding:0.25rem 0.6rem;border-radius:6px;border:1px solid var(--border);}
+.checklist-progress{font-size:0.8rem;color:var(--muted);}
+.checklist-items{display:grid;grid-template-columns:repeat(5,1fr);gap:0.75rem;}
+.checklist-item{background:var(--surface2);border:2px solid var(--border);border-radius:12px;padding:1rem 0.85rem;cursor:pointer;transition:all 0.2s;user-select:none;text-align:center;}
+.checklist-item:hover{border-color:var(--green);background:#00C47A0A;}
+.checklist-item.checked{border-color:var(--green);background:#00C47A15;}
+.checklist-item .ci-icon{font-size:1.5rem;margin-bottom:0.4rem;display:block;}
+.checklist-item .ci-label{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.82rem;color:var(--text);}
+.checklist-item .ci-status{font-size:0.7rem;margin-top:0.3rem;font-weight:600;}
+.checklist-item.checked .ci-status{color:var(--green);}
+.checklist-item:not(.checked) .ci-status{color:var(--muted);}
+.checklist-item .ci-tick{font-size:1.1rem;display:block;margin-bottom:0.15rem;}
+.checklist-bar{height:6px;background:var(--border);border-radius:3px;margin-top:1rem;overflow:hidden;}
+.checklist-bar-fill{height:100%;background:linear-gradient(90deg,var(--green),#00E58A);border-radius:3px;transition:width 0.4s ease;}
+.checklist-save-indicator{font-size:0.75rem;color:var(--muted);text-align:right;margin-top:0.5rem;min-height:1rem;}
+
 @media(max-width:900px){
   .filters-grid{grid-template-columns:1fr 1fr 1fr;}
   .stats-row{grid-template-columns:repeat(3,1fr);}
   .table-head,.table-row{grid-template-columns:60px 1fr 50px 80px 60px;}
   .table-head span:last-child,.table-row>*:last-child{display:none;}
+  .checklist-items{grid-template-columns:repeat(3,1fr);}
 }
 </style>
 </head>
@@ -203,6 +225,53 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- CHECKLIST CARD -->
+  <div class="checklist-card" id="checklistCard">
+    <div class="checklist-header">
+      <div>
+        <div class="checklist-title">✅ Paper QC Checklist</div>
+        <div class="checklist-paper" id="checklistPaperId">—</div>
+      </div>
+      <div style="text-align:right;">
+        <div class="checklist-progress" id="checklistProgress">0 / 5 completed</div>
+      </div>
+    </div>
+    <div class="checklist-items" id="checklistItems">
+      <div class="checklist-item" id="ci-questions" onclick="toggleCheck('questions')">
+        <span class="ci-tick" id="tick-questions">⬜</span>
+        <span class="ci-icon">📝</span>
+        <div class="ci-label">Questions</div>
+        <div class="ci-status" id="status-questions">Not checked</div>
+      </div>
+      <div class="checklist-item" id="ci-options" onclick="toggleCheck('options')">
+        <span class="ci-tick" id="tick-options">⬜</span>
+        <span class="ci-icon">🔤</span>
+        <div class="ci-label">Options</div>
+        <div class="ci-status" id="status-options">Not checked</div>
+      </div>
+      <div class="checklist-item" id="ci-images" onclick="toggleCheck('images')">
+        <span class="ci-tick" id="tick-images">⬜</span>
+        <span class="ci-icon">🖼️</span>
+        <div class="ci-label">Images</div>
+        <div class="ci-status" id="status-images">Not checked</div>
+      </div>
+      <div class="checklist-item" id="ci-correct" onclick="toggleCheck('correct')">
+        <span class="ci-tick" id="tick-correct">⬜</span>
+        <span class="ci-icon">🎯</span>
+        <div class="ci-label">Correct Option</div>
+        <div class="ci-status" id="status-correct">Not checked</div>
+      </div>
+      <div class="checklist-item" id="ci-solution" onclick="toggleCheck('solution')">
+        <span class="ci-tick" id="tick-solution">⬜</span>
+        <span class="ci-icon">💡</span>
+        <div class="ci-label">Solution</div>
+        <div class="ci-status" id="status-solution">Not checked</div>
+      </div>
+    </div>
+    <div class="checklist-bar"><div class="checklist-bar-fill" id="checklistBarFill" style="width:0%"></div></div>
+    <div class="checklist-save-indicator" id="checklistSaveIndicator"></div>
   </div>
 
   <!-- STATS ROW -->
@@ -399,6 +468,9 @@ window.runScan=async()=>{
     renderStats();
     applyFilter();
     setStatus(`✅ Scanned ${qs.length} questions`);
+    // Show checklist for this paper
+    const scannedPaperId=document.getElementById('fPaperId').value.trim();
+    if(scannedPaperId) showChecklist(scannedPaperId);
   }catch(e){
     setStatus('❌ Error: '+e.message);
     document.getElementById('progressBar').style.display='none';
@@ -503,6 +575,7 @@ window.filterPapers=(search)=>{
 window.selectPaper=(pid)=>{
   document.getElementById('fPaperId').value=pid;
   document.getElementById('paperPickerModal').style.display='none';
+  showChecklist(pid);
   runScan();
 };
 
@@ -696,6 +769,97 @@ function strSim(a,b){
 }
 
 function setStatus(msg){document.getElementById('statusMsg').textContent=msg;}
+
+// ── QC Checklist ──
+const CHECKLIST_KEYS=['questions','options','images','correct','solution'];
+const CHECKLIST_LABELS={questions:'Questions checked',options:'Options checked',images:'Images checked',correct:'Correct option checked',solution:'Solution checked'};
+let currentChecklistPaperId='';
+let checklistState={questions:false,options:false,images:false,correct:false,solution:false};
+let checklistSaveTimer=null;
+
+function showChecklist(paperId){
+  if(!paperId)return;
+  currentChecklistPaperId=paperId;
+  document.getElementById('checklistPaperId').textContent=paperId;
+  document.getElementById('checklistCard').classList.add('visible');
+  loadChecklist(paperId);
+}
+
+async function loadChecklist(paperId){
+  try{
+    const {doc,getDoc}=await import("https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js");
+    const ref=doc(db,'qc_checklist',paperId.replace(/[^a-zA-Z0-9_-]/g,'_'));
+    const snap=await getDoc(ref);
+    if(snap.exists()){
+      const data=snap.data();
+      CHECKLIST_KEYS.forEach(k=>{checklistState[k]=!!data[k];});
+    } else {
+      CHECKLIST_KEYS.forEach(k=>{checklistState[k]=false;});
+    }
+    renderChecklist();
+  }catch(e){
+    CHECKLIST_KEYS.forEach(k=>{checklistState[k]=false;});
+    renderChecklist();
+  }
+}
+
+window.toggleCheck=(key)=>{
+  if(!currentChecklistPaperId)return;
+  checklistState[key]=!checklistState[key];
+  renderChecklist();
+  scheduleSaveChecklist();
+};
+
+function renderChecklist(){
+  const done=CHECKLIST_KEYS.filter(k=>checklistState[k]).length;
+  CHECKLIST_KEYS.forEach(k=>{
+    const item=document.getElementById('ci-'+k);
+    const tick=document.getElementById('tick-'+k);
+    const status=document.getElementById('status-'+k);
+    if(checklistState[k]){
+      item.classList.add('checked');
+      tick.textContent='✅';
+      status.textContent='✓ Checked';
+    } else {
+      item.classList.remove('checked');
+      tick.textContent='⬜';
+      status.textContent='Not checked';
+    }
+  });
+  document.getElementById('checklistProgress').textContent=done+' / 5 completed';
+  document.getElementById('checklistBarFill').style.width=(done/5*100)+'%';
+  if(done===5){
+    document.getElementById('checklistProgress').style.color='var(--green)';
+    document.getElementById('checklistProgress').textContent='🎉 All checks complete!';
+  } else {
+    document.getElementById('checklistProgress').style.color='var(--muted)';
+  }
+}
+
+function scheduleSaveChecklist(){
+  document.getElementById('checklistSaveIndicator').textContent='⏳ Saving...';
+  if(checklistSaveTimer)clearTimeout(checklistSaveTimer);
+  checklistSaveTimer=setTimeout(saveChecklist,800);
+}
+
+async function saveChecklist(){
+  if(!currentChecklistPaperId)return;
+  try{
+    const {doc,setDoc}=await import("https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js");
+    const safeId=currentChecklistPaperId.replace(/[^a-zA-Z0-9_-]/g,'_');
+    const ref=doc(db,'qc_checklist',safeId);
+    await setDoc(ref,{
+      paperId:currentChecklistPaperId,
+      ...checklistState,
+      updatedAt:new Date().toISOString()
+    });
+    const done=CHECKLIST_KEYS.filter(k=>checklistState[k]).length;
+    document.getElementById('checklistSaveIndicator').textContent='✅ Saved — '+done+'/5 checks done';
+    setTimeout(()=>{document.getElementById('checklistSaveIndicator').textContent='';},3000);
+  }catch(e){
+    document.getElementById('checklistSaveIndicator').textContent='❌ Save failed: '+e.message;
+  }
+}
 
 // Enter key on password
 document.getElementById('adminPass').addEventListener('keydown',e=>{if(e.key==='Enter')checkAuth();});
