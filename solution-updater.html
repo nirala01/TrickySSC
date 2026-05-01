@@ -839,9 +839,12 @@ function showPreview() {
       const isReplace = (hasExpl || hasTrick) && override;
       if (isReplace) replaceCount++; else newCount++;
 
-      const exprPreview = upd.explanation ? upd.explanation.replace(/\[BR\]/g, ' ').slice(0, 50) + (upd.explanation.length > 50 ? '…' : '') : '—';
-      const trickPreview = upd.trick ? upd.trick.replace(/\[BR\]/g, ' ').slice(0, 40) + (upd.trick.length > 40 ? '…' : '') : '—';
-      const conceptPreview = upd.concept || '—';
+      const stripHtml = s => s.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+      const exprText  = upd.explanation ? stripHtml(upd.explanation) : '';
+      const trickText = upd.trick       ? stripHtml(upd.trick)       : '';
+      const exprPreview  = exprText  ? exprText.slice(0, 50)  + (exprText.length  > 50  ? '…' : '') : '—';
+      const trickPreview = trickText ? trickText.slice(0, 40) + (trickText.length > 40  ? '…' : '') : '—';
+      const conceptPreview = upd.concept ? stripHtml(upd.concept).slice(0, 40) : '—';
 
       const statusHtml = isReplace
         ? '<span class="badge will-replace" style="background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.3);">Replace</span>'
