@@ -160,11 +160,25 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:10
   border-left:3px solid #FF6B00;
   border-radius:0 8px 8px 0;
 }
-#qImgWrap{margin-top:14px;text-align:center;}
+#qImgWrap{margin-top:14px;text-align:center;position:relative;}
 #qImg{
   max-width:100%;max-height:280px;border-radius:10px;
   border:1px solid #E2E8F0;object-fit:contain;background:#F8FAFC;
 }
+#qImgLoader{
+  display:none;
+  align-items:center;justify-content:center;gap:8px;
+  background:#F8FAFC;border:1px solid #E2E8F0;
+  border-radius:10px;padding:28px 20px;
+  color:#94A3B8;font-size:13px;font-weight:500;
+  min-height:80px;
+}
+#qImgLoader .img-spin{
+  width:18px;height:18px;border:2.5px solid #E2E8F0;
+  border-top-color:#FF6B00;border-radius:50%;
+  animation:imgSpin 0.7s linear infinite;flex-shrink:0;
+}
+@keyframes imgSpin{to{transform:rotate(360deg);}}
 
 /* ─── Options ─── */
 .options-wrap{display:flex;flex-direction:column;gap:10px;}
@@ -528,7 +542,11 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:10
         <div class="q-card">
           <div class="qText" id="qText"></div>
           <div id="qImgWrap" style="display:none;">
-            <img id="qImg" alt="Question figure">
+            <div id="qImgLoader" style="display:flex;">
+              <div class="img-spin"></div>
+              Image is loading…
+            </div>
+            <img id="qImg" alt="Question figure" style="display:none;">
           </div>
         </div>
 
@@ -1064,8 +1082,18 @@ function renderQ(){
   // Image
   const imgWrap=document.getElementById('qImgWrap');
   const imgEl=document.getElementById('qImg');
-  if(q.imageUrl){imgEl.src=q.imageUrl;imgWrap.style.display='block';}
-  else{imgWrap.style.display='none';imgEl.src='';}
+  const imgLoader=document.getElementById('qImgLoader');
+  if(q.imageUrl){
+    imgWrap.style.display='block';
+    imgLoader.style.display='flex';
+    imgEl.style.display='none';
+    imgEl.onload=function(){imgLoader.style.display='none';imgEl.style.display='';};
+    imgEl.onerror=function(){imgLoader.style.display='none';imgEl.style.display='none';};
+    imgEl.src=q.imageUrl;
+  } else {
+    imgWrap.style.display='none';
+    imgEl.src='';
+  }
 
   // Options — support all storage formats (A/B/C/D or a/b/c/d keys, or option_A fields)
   const opts=['A','B','C','D'];
