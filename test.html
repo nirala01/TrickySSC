@@ -710,6 +710,13 @@ const SUBJECT_SHORT={
   'English Language':'English',
   'English':'English',
   'reasoning':'Reasoning','quant':'Quant','gk':'Gen. Awareness','english':'English',
+  // Hindi subject names → English short labels
+  'सामान्य बुद्धि एवं तर्कशक्ति':'Reasoning',
+  'सामान्य जागरूकता':'Gen. Awareness',
+  'मात्रात्मक योग्यता':'Quant',
+  'अंग्रेजी भाषा':'English',
+  'सामान्य बुद्धि और तर्क शक्ति':'Reasoning',
+  'सामान्य बुद्धि':'Reasoning',
 };
 let isSubmitting=false,lastResultPayload=null;
 const params=new URLSearchParams(window.location.search);
@@ -1032,12 +1039,11 @@ async function loadTest(){
         try{
           let enDocs=[];
           if(paperId){
-            // paperId for Hindi papers often ends in _hi or _hindi — try _en / _english variants
-            const enIds=[paperId.replace(/_hi$/,'_en').replace(/_hindi$/,'_english'),paperId+'_en'];
-            for(const eid of enIds){
-              if(eid===paperId) continue;
-              const snap=await getDocs(query(collection(db,'questions'),where('paperId','==',eid)));
-              if(snap.size){snap.forEach(d=>enDocs.push({id:d.id,...d.data()}));break;}
+            // Swap _hi → _en  (e.g. ssc-cgl_2024_sep9_s1_hi → ssc-cgl_2024_sep9_s1_en)
+            const enId=paperId.replace(/_hi$/,'_en').replace(/_hindi$/,'_english');
+            if(enId!==paperId){
+              const snap=await getDocs(query(collection(db,'questions'),where('paperId','==',enId)));
+              if(snap.size) snap.forEach(d=>enDocs.push({id:d.id,...d.data()}));
             }
           }
           // Fallback: fetch by exam+year+heldOn+shift with language=en
