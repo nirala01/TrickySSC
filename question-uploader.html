@@ -117,6 +117,27 @@ tr:hover td{background:rgba(255,107,0,0.03);}
 
 /* paperId preview */
 .paperid-preview{background:#0F172A;border:1px solid #334155;border-radius:8px;padding:0.6rem 0.85rem;font-family:monospace;font-size:0.82rem;color:#A78BFA;margin-top:0.5rem;word-break:break-all;}
+
+/* Input mode tabs */
+.mode-tabs{display:flex;gap:0;border:1px solid #334155;border-radius:10px;overflow:hidden;margin-bottom:1rem;width:fit-content;}
+.mode-tab{padding:0.5rem 1.1rem;font-size:0.82rem;font-weight:600;cursor:pointer;border:none;background:#0F172A;color:#64748B;font-family:'Inter',sans-serif;transition:all 0.18s;}
+.mode-tab.active{background:linear-gradient(135deg,#FF6B00,#FF8C38);color:#fff;}
+.mode-tab:hover:not(.active){background:#1E293B;color:#CBD5E1;}
+
+/* CSV drop zone */
+.csv-drop{border:2px dashed #334155;border-radius:10px;padding:2rem;text-align:center;cursor:pointer;transition:all 0.2s;background:#0F172A;position:relative;}
+.csv-drop:hover,.csv-drop.dragging{border-color:#FF6B00;background:rgba(255,107,0,0.04);}
+.csv-drop input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+.csv-drop-icon{font-size:2rem;margin-bottom:0.5rem;}
+.csv-drop-label{font-size:0.9rem;font-weight:600;color:#94A3B8;margin-bottom:0.25rem;}
+.csv-drop-sub{font-size:0.78rem;color:#475569;}
+.csv-file-chosen{font-size:0.82rem;color:#00A86B;margin-top:0.75rem;font-weight:600;display:none;}
+
+/* CSV options */
+.csv-options{display:flex;gap:1rem;flex-wrap:wrap;align-items:center;margin-top:0.85rem;}
+.csv-option-label{display:flex;align-items:center;gap:0.4rem;font-size:0.82rem;color:#94A3B8;cursor:pointer;font-weight:500;}
+.csv-option-label input[type=checkbox]{accent-color:#FF6B00;width:15px;height:15px;cursor:pointer;}
+.csv-col-hint{background:#0F172A;border:1px solid #334155;border-radius:8px;padding:0.65rem 0.9rem;font-size:0.75rem;color:#64748B;margin-top:0.75rem;line-height:1.7;font-family:monospace;}
 </style>
 </head>
 <body>
@@ -222,10 +243,19 @@ tr:hover td{background:rgba(255,107,0,0.03);}
     </div>
   </div>
 
-  <!-- STEP 2 — Paste JSON & edit -->
+  <!-- STEP 2 — Input: JSON or CSV -->
   <div class="card">
-    <h3>③ Paste AI Output JSON</h3>
-    <textarea id="jsonPaste" rows="10" placeholder='[
+    <h3>③ Load Questions</h3>
+
+    <!-- Mode tabs -->
+    <div class="mode-tabs">
+      <button class="mode-tab active" id="tabJson" onclick="switchMode('json')">📋 Paste JSON</button>
+      <button class="mode-tab" id="tabCsv"  onclick="switchMode('csv')">📂 Upload CSV</button>
+    </div>
+
+    <!-- JSON panel -->
+    <div id="panelJson">
+      <textarea id="jsonPaste" rows="10" placeholder='[
   {
     "qNum": 1,
     "text": "If 2x + 3 = 11, find x.",
@@ -234,21 +264,54 @@ tr:hover td{background:rgba(255,107,0,0.03);}
     "option_C": "3",
     "option_D": "5",
     "correct": "B"
-  },
-  {
-    "qNum": 2,
-    "text": "...",
-    "option_A": "...",
-    "option_B": "...",
-    "option_C": "...",
-    "option_D": "...",
-    "correct": "A"
   }
 ]'></textarea>
-    <div class="textarea-hint">Paste the full JSON array from AI. explanation / trick / concept can be empty — add them later via Solution Updater.</div>
-    <div class="btn-row">
-      <button class="btn btn-primary" onclick="parseAndPreview()">👁 Parse &amp; Preview</button>
-      <button class="btn btn-secondary" onclick="clearAll()">✕ Clear</button>
+      <div class="textarea-hint">Paste the full JSON array from AI. explanation / trick / concept can be empty — add them later via Solution Updater.</div>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="parseAndPreview()">👁 Parse &amp; Preview</button>
+        <button class="btn btn-secondary" onclick="clearAll()">✕ Clear</button>
+      </div>
+    </div>
+
+    <!-- CSV panel -->
+    <div id="panelCsv" style="display:none;">
+      <div class="info-box" style="margin-bottom:0.85rem;">
+        Upload a CSV exported from Claude (TrickySSC format). Questions are loaded into the preview table below — <strong>existing images and solution fields are preserved</strong> on update.
+      </div>
+
+      <div class="csv-drop" id="csvDrop"
+           ondragover="event.preventDefault();this.classList.add('dragging')"
+           ondragleave="this.classList.remove('dragging')"
+           ondrop="handleCsvDrop(event)">
+        <input type="file" id="csvFileInput" accept=".csv,text/csv" onchange="handleCsvFile(this.files[0])">
+        <div class="csv-drop-icon">📂</div>
+        <div class="csv-drop-label">Drop CSV here or click to browse</div>
+        <div class="csv-drop-sub">Accepts TrickySSC 13-column CSV · UTF-8</div>
+        <div class="csv-file-chosen" id="csvFileChosen"></div>
+      </div>
+
+      <div class="csv-col-hint">
+Expected columns (order matters): <strong>qNum, subject, exam, year, text, option_A, option_B, option_C, option_D, correct, explanation, trick, concept</strong><br>
+• Paper metadata (exam, year, shift, language) is taken from the <strong>Paper Details</strong> form above — not from CSV columns.<br>
+• Rows with <code>qNum</code> already in Firestore will be <strong>updated</strong> (text + options + correct only — explanation/trick/concept/images untouched unless overwrite is checked).<br>
+• Empty explanation/trick/concept cells are silently skipped.
+      </div>
+
+      <div class="csv-options">
+        <label class="csv-option-label">
+          <input type="checkbox" id="csvOverwriteSolutions">
+          Overwrite explanation / trick / concept if CSV has values
+        </label>
+        <label class="csv-option-label">
+          <input type="checkbox" id="csvSkipEmpty" checked>
+          Skip rows where text is empty
+        </label>
+      </div>
+
+      <div class="btn-row" style="margin-top:0.85rem;">
+        <button class="btn btn-primary" id="csvParseBtn" onclick="parseCsvAndPreview()" disabled>👁 Preview CSV</button>
+        <button class="btn btn-secondary" onclick="clearAll()">✕ Clear</button>
+      </div>
     </div>
   </div>
 
@@ -508,23 +571,31 @@ window.uploadAll = async () => {
 
     try {
       if (existingDoc) {
-        // UPDATE — preserve existing explanation/trick/concept
-        await updateDoc(existingDoc.ref, {
+        // UPDATE — always update question fields
+        const updatePayload = {
           text:     payload.text,
           option_A: payload.option_A,
           option_B: payload.option_B,
           option_C: payload.option_C,
           option_D: payload.option_D,
           correct:  payload.correct
-        });
+        };
+        // Only overwrite solution fields if checkbox is on AND CSV had values
+        const overwriteSolutions = document.getElementById('csvOverwriteSolutions')?.checked;
+        if (overwriteSolutions) {
+          if (r.explanation) updatePayload.explanation = r.explanation;
+          if (r.trick)       updatePayload.trick       = r.trick;
+          if (r.concept)     updatePayload.concept     = r.concept;
+        }
+        await updateDoc(existingDoc.ref, updatePayload);
         updated++;
       } else {
-        // ADD new — include blank solution fields
+        // ADD new — include solution fields from CSV if present
         await addDoc(collection(db,'questions'), {
           ...payload,
-          explanation: '',
-          trick:       '',
-          concept:     ''
+          explanation: r.explanation || '',
+          trick:       r.trick       || '',
+          concept:     r.concept     || ''
         });
         added++;
       }
@@ -572,6 +643,127 @@ window.showToast = (msg,type='success') => {
 <!-- Non-module JS -->
 <script>
 let parsedRows = [];
+let csvRawText  = '';
+
+// ── Mode switcher ─────────────────────────────────────────────────────────
+window.switchMode = (mode) => {
+  document.getElementById('panelJson').style.display = mode === 'json' ? '' : 'none';
+  document.getElementById('panelCsv').style.display  = mode === 'csv'  ? '' : 'none';
+  document.getElementById('tabJson').classList.toggle('active', mode === 'json');
+  document.getElementById('tabCsv').classList.toggle('active',  mode === 'csv');
+};
+
+// ── CSV Drop handler ──────────────────────────────────────────────────────
+window.handleCsvDrop = (e) => {
+  e.preventDefault();
+  document.getElementById('csvDrop').classList.remove('dragging');
+  const file = e.dataTransfer.files[0];
+  if (file) handleCsvFile(file);
+};
+
+window.handleCsvFile = (file) => {
+  if (!file) return;
+  const label = document.getElementById('csvFileChosen');
+  label.textContent = `📄 ${file.name}  (${(file.size/1024).toFixed(1)} KB)`;
+  label.style.display = 'block';
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    csvRawText = e.target.result;
+    document.getElementById('csvParseBtn').disabled = false;
+    showToast(`File loaded: ${file.name}`, 'info');
+  };
+  reader.readAsText(file, 'UTF-8');
+};
+
+// ── CSV parser (handles RFC 4180: quoted fields, escaped quotes) ──────────
+function parseCsvLine(line) {
+  const fields = [];
+  let cur = '', inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inQ) {
+      if (ch === '"') {
+        if (line[i+1] === '"') { cur += '"'; i++; }   // escaped quote
+        else inQ = false;
+      } else {
+        cur += ch;
+      }
+    } else {
+      if (ch === '"')      { inQ = true; }
+      else if (ch === ',') { fields.push(cur); cur = ''; }
+      else                  cur += ch;
+    }
+  }
+  fields.push(cur);
+  return fields;
+}
+
+function parseCsv(text) {
+  // normalise line endings
+  const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter(l => l.trim());
+  if (!lines.length) return [];
+
+  const header = parseCsvLine(lines[0]).map(h => h.trim().toLowerCase()
+    .replace(/option_/,'option_').replace(/\s+/g,'_'));
+
+  // expected column order (positions may vary — use header index)
+  const idx = (name) => header.indexOf(name);
+  const iQ    = idx('qnum');
+  const iText = idx('text');
+  const iA    = idx('option_a');
+  const iB    = idx('option_b');
+  const iC    = idx('option_c');
+  const iD    = idx('option_d');
+  const iCorr = idx('correct');
+  const iExp  = idx('explanation');
+  const iTrk  = idx('trick');
+  const iCon  = idx('concept');
+
+  if (iQ < 0 || iText < 0) {
+    showToast('CSV missing required columns (qNum, text)', 'error');
+    return [];
+  }
+
+  const rows = [];
+  for (let i = 1; i < lines.length; i++) {
+    const f = parseCsvLine(lines[i]);
+    const get = (j) => (j >= 0 && j < f.length) ? f[j].trim() : '';
+    const qNum = parseInt(get(iQ));
+    if (!qNum) continue;
+    const skipEmpty = document.getElementById('csvSkipEmpty')?.checked;
+    const text = get(iText);
+    if (skipEmpty && !text) continue;
+
+    rows.push({
+      qNum,
+      text,
+      option_A:    get(iA),
+      option_B:    get(iB),
+      option_C:    get(iC),
+      option_D:    get(iD),
+      correct:     get(iCorr).toUpperCase().replace(/^([ABCD]).*/,'$1'),
+      explanation: get(iExp),
+      trick:       get(iTrk),
+      concept:     get(iCon)
+    });
+  }
+  return rows;
+}
+
+// ── Parse CSV & load into preview table ───────────────────────────────────
+window.parseCsvAndPreview = () => {
+  if (!csvRawText) { showToast('No CSV loaded', 'error'); return; }
+  const rows = parseCsv(csvRawText);
+  if (!rows.length) { showToast('No valid rows found in CSV', 'error'); return; }
+
+  parsedRows = rows;
+  renderTable(parsedRows);
+  document.getElementById('step2').style.display = 'block';
+  document.getElementById('step2').scrollIntoView({ behavior: 'smooth' });
+  showToast(`Parsed ${parsedRows.length} questions from CSV — review below`, 'info');
+};
+
+
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -591,11 +783,19 @@ function validateRow(r) {
 function collectTableData() {
   const tbody = document.getElementById('previewBody');
   const rows  = Array.from(tbody.querySelectorAll('tr[data-idx]'));
+  // Build a lookup from parsedRows so solution fields survive table round-trip
+  const solutionMap = {};
+  (parsedRows||[]).forEach(r => {
+    if (r.qNum) solutionMap[r.qNum] = { explanation: r.explanation||'', trick: r.trick||'', concept: r.concept||'' };
+  });
   return rows.map(tr => {
     const idx = tr.dataset.idx;
     const get = (cls) => tr.querySelector('.cell-input[data-f="'+cls+'"]')?.value.trim() || '';
     const cor = tr.querySelector('.cell-select')?.value || '';
-    const r   = { qNum: parseInt(get('qNum'))||0, text: get('text'), option_A: get('option_A'), option_B: get('option_B'), option_C: get('option_C'), option_D: get('option_D'), correct: cor };
+    const qNum = parseInt(get('qNum'))||0;
+    const sol  = solutionMap[qNum] || { explanation:'', trick:'', concept:'' };
+    const r = { qNum, text: get('text'), option_A: get('option_A'), option_B: get('option_B'), option_C: get('option_C'), option_D: get('option_D'), correct: cor,
+                explanation: sol.explanation, trick: sol.trick, concept: sol.concept };
     r._errors = validateRow(r);
     r._idx    = idx;
     return r;
@@ -766,7 +966,15 @@ window.clearAll = () => {
   document.getElementById('loadExistingStatus').textContent = 'Load to enable smart add/update mode';
   document.getElementById('loadExistingStatus').style.color = '';
   parsedRows = [];
+  csvRawText  = '';
   window.loadedDocMap = {};
+  // Reset CSV UI
+  const chosen = document.getElementById('csvFileChosen');
+  if (chosen) { chosen.style.display = 'none'; chosen.textContent = ''; }
+  const fi = document.getElementById('csvFileInput');
+  if (fi) fi.value = '';
+  const btn = document.getElementById('csvParseBtn');
+  if (btn) btn.disabled = true;
 };
 
 // ── Copy prompt ───────────────────────────────────────────────────────────
