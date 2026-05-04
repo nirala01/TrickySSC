@@ -210,7 +210,41 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:10
 .option.correct .opt-body{color:#15803D;font-weight:600;}
 .option.wrong   .opt-body{color:#DC2626;}
 
-/* ─── Nav buttons ─── */
+/* ─── English toggle (Hindi tests) ─── */
+#enToggleBtn{
+  display:none;
+  align-items:center;gap:6px;
+  margin-top:14px;
+  background:#EFF6FF;border:1.5px solid #BFDBFE;
+  color:#1D4ED8;border-radius:8px;
+  padding:7px 14px;font-size:12.5px;font-weight:600;
+  cursor:pointer;font-family:'Plus Jakarta Sans';
+  transition:all 0.15s;width:fit-content;
+}
+#enToggleBtn:hover{background:#DBEAFE;border-color:#93C5FD;}
+#enToggleBtn.active{background:#1D4ED8;color:#fff;border-color:#1D4ED8;}
+#enViewPanel{
+  display:none;
+  margin-top:12px;
+  background:#F0F7FF;
+  border:1.5px solid #BFDBFE;
+  border-radius:12px;
+  padding:16px 18px;
+}
+.en-panel-label{
+  font-size:10.5px;font-weight:700;color:#3B82F6;
+  text-transform:uppercase;letter-spacing:0.07em;margin-bottom:10px;
+}
+.en-qtext{font-size:14.5px;font-weight:500;color:#1E3A5F;line-height:1.8;}
+.en-opts{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px;}
+.en-opt{
+  padding:7px 10px;border-radius:8px;font-size:13px;
+  border:1.5px solid #BFDBFE;background:#fff;color:#1E3A5F;
+}
+.en-opt-lbl{font-weight:700;margin-right:5px;color:#3B82F6;}
+@media(max-width:640px){
+  .en-opts{grid-template-columns:1fr;}
+}
 .nav-btns{
   display:flex;align-items:center;gap:12px;
   margin-top:28px;padding-bottom:16px;
@@ -548,6 +582,13 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:10
             </div>
             <img id="qImg" alt="Question figure" style="display:none;">
           </div>
+          <!-- English toggle — shown only on Q1-75 in Hindi tests -->
+          <button id="enToggleBtn" onclick="toggleEnglishView()">🇬🇧 View in English</button>
+          <div id="enViewPanel">
+            <div class="en-panel-label">🇬🇧 English Version</div>
+            <div class="en-qtext" id="enQText"></div>
+            <div class="en-opts" id="enOpts"></div>
+          </div>
         </div>
 
         <!-- Options -->
@@ -695,6 +736,9 @@ let exam=params.get('exam');
 const year=params.get('year');
 // mockMeta is populated when mockId is present
 let mockMeta=null;
+// English question map for Hindi tests (qNum → en question object), Q1-75 only
+let enQMap={};
+let showEnglishQ={}; // per-question toggle state
 
 /* ── Auth ── */
 let testStarted=false;
@@ -981,6 +1025,35 @@ async function loadTest(){
     questions.sort((a,b)=>(parseInt(a.qNum)||0)-(parseInt(b.qNum)||0));
     questions.forEach(q=>normaliseQ(q));
 
+    // ── Fetch English counterpart for Hindi tests (Q1-75) ──
+    enQMap={};showEnglishQ={};
+    if(lang==='hi' && !mockId){
+      (async()=>{
+        try{
+          let enDocs=[];
+          if(paperId){
+            // paperId for Hindi papers often ends in _hi or _hindi — try _en / _english variants
+            const enIds=[paperId.replace(/_hi$/,'_en').replace(/_hindi$/,'_english'),paperId+'_en'];
+            for(const eid of enIds){
+              if(eid===paperId) continue;
+              const snap=await getDocs(query(collection(db,'questions'),where('paperId','==',eid)));
+              if(snap.size){snap.forEach(d=>enDocs.push({id:d.id,...d.data()}));break;}
+            }
+          }
+          // Fallback: fetch by exam+year+heldOn+shift with language=en
+          if(!enDocs.length && (year||mNum)){
+            const yv=year||mNum;
+            let allEn=await fetchByYearSDK(exam,yv,heldOn)||await fetchByYearREST(exam,yv,heldOn)||[];
+            enDocs=filterDocs(allEn,'en',shift,heldOn);
+          }
+          enDocs.forEach(q=>{normaliseQ(q);const n=parseInt(q.qNum)||0;if(n>=1&&n<=75)enQMap[n]=q;});
+          console.log('[TrickySSC] English map built:',Object.keys(enQMap).length,'entries');
+          // Re-render to show toggle if user is still on Q1-75
+          if(lang==='hi'&&currentQ<75) renderQ();
+        }catch(e){console.warn('[TrickySSC] English fetch failed:',e.message);}
+      })();
+    }
+
     // ── Build title ──
     const examNames={'ssc-cgl':'SSC CGL','ssc-chsl':'SSC CHSL','ssc-mts':'SSC MTS','ssc-cpo':'SSC CPO','ssc-gd':'SSC GD Constable','ssc-je':'SSC JE','ssc-jht':'SSC JHT'};
     const tierLabels={'tier1':'Tier I','tier-1':'Tier I','tier2':'Tier II','tier-2':'Tier II'};
@@ -1113,6 +1186,35 @@ function renderQ(){
     </div>`;
   }).join('');
 
+  // ── English toggle (Hindi tests, Q1-75 only) ──
+  const enBtn=document.getElementById('enToggleBtn');
+  const enPanel=document.getElementById('enViewPanel');
+  const qNum=parseInt(q.qNum)||0;
+  const isHindiTest=(new URLSearchParams(window.location.search).get('lang')==='hi');
+  const hasEnglish=isHindiTest && qNum>=1 && qNum<=75 && !!enQMap[qNum];
+  if(enBtn){
+    if(hasEnglish){
+      enBtn.style.display='flex';
+      const isOn=!!showEnglishQ[currentQ];
+      enBtn.classList.toggle('active',isOn);
+      enBtn.textContent=isOn?'✕ Hide English':'🇬🇧 View in English';
+      if(isOn && enPanel){
+        const eq=enQMap[qNum];
+        document.getElementById('enQText').innerHTML=formatQText(eq.text||eq.question||'');
+        const opts=['A','B','C','D'];
+        document.getElementById('enOpts').innerHTML=opts.map(o=>{
+          const lo=o.toLowerCase();
+          const txt=(eq.options&&(eq.options[o]||eq.options[lo]))||(eq['option'+o]||eq['option_'+o]||'');
+          return txt?`<div class="en-opt"><span class="en-opt-lbl">${o})</span>${txt}</div>`:'';
+        }).join('');
+        enPanel.style.display='block';
+      } else if(enPanel){enPanel.style.display='none';}
+    } else {
+      enBtn.style.display='none';
+      if(enPanel){enPanel.style.display='none';}
+    }
+  }
+
   // Mark btn
   const markBtn=document.getElementById('markBtn');
   if(markBtn) markBtn.style.background=markedForReview[currentQ]?'#EEF2FF':'';
@@ -1126,6 +1228,7 @@ window.nextQ=()=>{if(currentQ<questions.length-1){currentQ++;renderQ();}};
 window.prevQ=()=>{if(currentQ>0){currentQ--;renderQ();}};
 window.goQ=i=>{currentQ=i;renderQ();};
 window.markForReview=()=>{markedForReview[currentQ]=!markedForReview[currentQ];renderQ();};
+window.toggleEnglishView=()=>{showEnglishQ[currentQ]=!showEnglishQ[currentQ];renderQ();};
 
 // ── Section metadata ──
 function buildSections(){
