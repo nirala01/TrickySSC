@@ -1478,55 +1478,45 @@ function applyBR(text){
   return text.split('[BR]').join('<br>');
 }
 
-/* buildDITable — converts pipe-delimited [BR]-separated rows into an HTML table.
-   Returns '' if no table rows found. */
+/* buildDITable — converts pipe-delimited rows into a proper HTML table.
+   Receives an array of [BR]-split segments (already trimmed).
+   Returns HTML string, or null if no pipe rows found. */
 function buildDITable(parts){
-  // parts = array of [BR]-split segments already trimmed
-  var tableRows=[], captionParts=[], afterParts=[], inTable=false, pastTable=false;
+  var tableRows=[],captionParts=[],afterParts=[],inTable=false,pastTable=false;
   for(var i=0;i<parts.length;i++){
     var seg=parts[i].trim();
-    if(!seg){ if(inTable){pastTable=true;inTable=false;} continue; }
+    if(!seg){if(inTable){pastTable=true;inTable=false;}continue;}
     if(seg.charAt(0)==='|'){
-      // skip pure separator rows |---|---|
-      if(/^\|[\s\-|]+\|$/.test(seg)) continue;
-      inTable=true; pastTable=false;
+      if(/^\|[\s\-|:]+\|$/.test(seg))continue; // skip |---|---| separators
+      inTable=true;pastTable=false;
       tableRows.push(seg);
-    } else if(pastTable || (tableRows.length && !inTable)){
+    }else if(pastTable||(tableRows.length&&!inTable)){
       afterParts.push(seg);
-    } else {
-      // Before table: treat as caption if it looks like a DI intro, else regular text
+    }else{
       captionParts.push(seg);
     }
   }
-  if(!tableRows.length) return null; // no table found
+  if(!tableRows.length)return null;
   var html='';
-  // Caption lines
-  if(captionParts.length){
-    html+='<p class="di-caption">'+captionParts.join(' ')+'</p>';
-  }
+  if(captionParts.length)html+='<p class="di-caption">'+captionParts.join(' ')+'</p>';
   html+='<div class="di-table-wrap"><table class="di-table">';
   tableRows.forEach(function(row,idx){
     var cols=row.split('|').map(function(c){return c.trim();}).filter(function(c){return c!=='';});
     if(idx===0){
       html+='<thead><tr>'+cols.map(function(c){return '<th>'+c+'</th>';}).join('')+'</tr></thead><tbody>';
-    } else {
+    }else{
       html+='<tr>'+cols.map(function(c){return '<td>'+c+'</td>';}).join('')+'</tr>';
     }
   });
   html+='</tbody></table></div>';
-  // Any text after the table
-  if(afterParts.length){
-    html+='<p style="font-size:15px;font-weight:500;color:#1E293B;margin:8px 0 0;line-height:1.7;">'+afterParts.join('<br>')+'</p>';
-  }
+  if(afterParts.length)html+='<p style="font-size:15px;font-weight:500;color:#1E293B;margin:8px 0 0;line-height:1.7;">'+afterParts.join('<br>')+'</p>';
   return html;
 }
 
-/* renderContent — used for explanation / trick / concept fields */
+/* renderContent — explanation / trick / concept fields */
 function renderContent(text){
-  if(!text) return '';
-  // Already HTML (rich editor output) — pass through
-  if(text.indexOf('<')!==-1&&text.indexOf('>')!==-1&&/<[a-z]/i.test(text)) return text;
-  // Literal newlines (\n) — from AI/CSV — convert to lines
+  if(!text)return'';
+  if(text.indexOf('<')!==-1&&text.indexOf('>')!==-1&&/<[a-z]/i.test(text))return text;
   if(text.indexOf('\n')!==-1){
     return text
       .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
@@ -1534,61 +1524,54 @@ function renderContent(text){
       .replace(/\*([^*]+?)\*/g,'<em>$1</em>')
       .split('\n').filter(function(l){return l.trim();}).join('<br>');
   }
-  // [BR]-delimited plain text — render steps
   return formatSteps(text);
 }
 
-/* formatQText — used for the question text field during the test */
+/* formatQText — live question display during the test */
 function formatQText(raw){
-  if(!raw) return '';
-  // Split on || first (instruction || body)
+  if(!raw)return'';
+  // instruction || body split
   if(raw.indexOf('||')!==-1){
     var halves=raw.split('||');
     var instr=halves[0].trim();
     var body=halves.slice(1).join('').trim();
-    // Check if body contains a table
     var bodyParts=body.split('[BR]').map(function(s){return s.trim();});
-    var tbl=buildDITable(bodyParts);
-    if(tbl){
-      return '<span class="q-instruction">'+applyBR(instr)+'</span>'+tbl;
+    if(bodyParts.some(function(p){return p.charAt(0)==='|';})){
+      var tbl=buildDITable(bodyParts);
+      if(tbl)return'<span class="q-instruction">'+applyBR(instr)+'</span>'+tbl;
     }
-    return '<span class="q-instruction">'+applyBR(instr)+'</span>'
-          +'<span class="q-sentence">'+applyBR(body)+'</span>';
+    return'<span class="q-instruction">'+applyBR(instr)+'</span><span class="q-sentence">'+applyBR(body)+'</span>';
   }
-  // No || — check for inline table in [BR]-split content
+  // plain [BR] text — check for table
   if(raw.indexOf('[BR]')!==-1){
     var parts=raw.split('[BR]').map(function(s){return s.trim();});
-    var hasPipe=parts.some(function(p){return p.charAt(0)==='|';});
-    if(hasPipe){
+    if(parts.some(function(p){return p.charAt(0)==='|';})){
       var tbl2=buildDITable(parts);
-      if(tbl2) return tbl2;
+      if(tbl2)return tbl2;
     }
     return applyBR(raw);
   }
   return raw;
 }
 
-/* formatSteps — renders explanation / trick / concept step lines */
+/* formatSteps — renders step-by-step explanation / trick lines */
 function formatSteps(text){
-  if(!text) return '';
+  if(!text)return'';
   var t=applyBR(text);
   var lines=t.split('<br>');
   var out=[];
   for(var i=0;i<lines.length;i++){
     var line=lines[i];
-    var stepMatch=line.match(/^(Step \d+:\s*)(.*)/);
-    if(stepMatch){
-      var stepLabel=stepMatch[1].trim();
-      var stepBody=stepMatch[2].trim();
-      out.push('<div style="margin-top:8px;"><strong style="color:#1E293B;font-size:0.88rem;">'+stepLabel+'</strong>'+(stepBody?' <span style="color:#374151;">'+stepBody+'</span>':'' )+'</div>');
-    } else if(line.match(/^- /)){
-      var sub=line.slice(2);
-      out.push('<div style="margin-left:16px;color:#475569;font-size:0.87rem;line-height:1.7;"><span style="color:#FF6B00;font-weight:700;margin-right:5px;">—</span>'+sub+'</div>');
-    } else if(line.match(/^Final Answer/)){
+    var sm=line.match(/^(Step \d+:\s*)(.*)/);
+    if(sm){
+      out.push('<div style="margin-top:8px;"><strong style="color:#1E293B;font-size:0.88rem;">'+sm[1].trim()+'</strong>'+(sm[2].trim()?' <span style="color:#374151;">'+sm[2].trim()+'</span>':'' )+'</div>');
+    }else if(line.match(/^- /)){
+      out.push('<div style="margin-left:16px;color:#475569;font-size:0.87rem;line-height:1.7;"><span style="color:#FF6B00;font-weight:700;margin-right:5px;">—</span>'+line.slice(2)+'</div>');
+    }else if(line.match(/^Final Answer/)){
       out.push('<div style="margin-top:8px;font-weight:700;color:#00A86B;font-size:0.88rem;">∴ '+line+'</div>');
-    } else if(line.match(/^∴/)){
+    }else if(line.match(/^∴/)){
       out.push('<div style="margin-top:4px;font-weight:700;color:#00A86B;font-size:0.88rem;">'+line+'</div>');
-    } else if(line.trim()){
+    }else if(line.trim()){
       out.push('<div style="color:#374151;font-size:0.87rem;line-height:1.7;">'+line+'</div>');
     }
   }
@@ -1598,32 +1581,30 @@ function formatSteps(text){
   return t2;
 }
 
-/* formatQTextReview — question display in the results review section */
-function formatQTextReview(raw, qNum){
-  if(!raw) return '';
+/* formatQTextReview — question display in the results review panel */
+function formatQTextReview(raw,qNum){
+  if(!raw)return'';
   if(raw.indexOf('||')!==-1){
     var halves=raw.split('||');
     var instr=halves[0].trim();
     var body=halves.slice(1).join('').trim();
     var bodyParts=body.split('[BR]').map(function(s){return s.trim();});
-    var hasPipe=bodyParts.some(function(p){return p.charAt(0)==='|';});
-    if(hasPipe){
+    if(bodyParts.some(function(p){return p.charAt(0)==='|';})){
       var tbl=buildDITable(bodyParts);
-      return '<div style="font-size:13px;font-weight:500;color:#64748B;margin-bottom:8px;line-height:1.6;">Q'+qNum+'. '+applyBR(instr)+'</div>'+(tbl||applyBR(body));
+      if(tbl)return'<div style="font-size:13px;font-weight:500;color:#64748B;margin-bottom:8px;line-height:1.6;">Q'+qNum+'. '+applyBR(instr)+'</div>'+tbl;
     }
-    return '<div style="font-size:13px;font-weight:500;color:#64748B;margin-bottom:8px;line-height:1.6;">Q'+qNum+'. '+applyBR(instr)+'</div>'
-          +'<div style="font-size:14px;font-weight:600;color:#1E293B;padding:10px 14px;background:#F8FAFC;border-left:3px solid #FF6B00;border-radius:0 8px 8px 0;margin-bottom:10px;line-height:1.9;">'+applyBR(body)+'</div>';
+    return'<div style="font-size:13px;font-weight:500;color:#64748B;margin-bottom:8px;line-height:1.6;">Q'+qNum+'. '+applyBR(instr)+'</div>'
+         +'<div style="font-size:14px;font-weight:600;color:#1E293B;padding:10px 14px;background:#F8FAFC;border-left:3px solid #FF6B00;border-radius:0 8px 8px 0;margin-bottom:10px;line-height:1.9;">'+applyBR(body)+'</div>';
   }
   if(raw.indexOf('[BR]')!==-1){
     var parts=raw.split('[BR]').map(function(s){return s.trim();});
-    var hasPipe2=parts.some(function(p){return p.charAt(0)==='|';});
-    if(hasPipe2){
+    if(parts.some(function(p){return p.charAt(0)==='|';})){
       var tbl2=buildDITable(parts);
-      return '<div style="font-size:13px;font-weight:600;color:#1F2937;margin-bottom:8px;">Q'+qNum+'.</div>'+(tbl2||applyBR(raw));
+      if(tbl2)return'<div style="font-size:13px;font-weight:600;color:#1F2937;margin-bottom:8px;">Q'+qNum+'.</div>'+tbl2;
     }
-    return '<div style="font-size:15px;font-weight:600;color:#1F2937;margin-bottom:8px;line-height:1.5;">Q'+qNum+'. '+applyBR(raw)+'</div>';
+    return'<div style="font-size:15px;font-weight:600;color:#1F2937;margin-bottom:8px;line-height:1.5;">Q'+qNum+'. '+applyBR(raw)+'</div>';
   }
-  return '<div style="font-size:15px;font-weight:600;color:#1F2937;margin-bottom:8px;line-height:1.5;">Q'+qNum+'. '+raw+'</div>';
+  return'<div style="font-size:15px;font-weight:600;color:#1F2937;margin-bottom:8px;line-height:1.5;">Q'+qNum+'. '+raw+'</div>';
 }
 
 window.openDrawer=()=>{
