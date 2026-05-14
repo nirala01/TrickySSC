@@ -1138,8 +1138,9 @@ function normaliseQ(q) {
     }
   });
 
-  // Convert [BR] tokens in text fields
-  ['text','question','explanation','trick','concept','option_A','option_B','option_C','option_D'].forEach(function(f){
+  // Convert [BR] tokens in solution/option fields only.
+  // text/question are left raw so formatQText can detect pipe-tables before rendering.
+  ['explanation','trick','concept','option_A','option_B','option_C','option_D'].forEach(function(f){
     if (q[f] && typeof q[f] === 'string') q[f] = q[f].split('[BR]').join('<br>');
   });
   // Also fix options map values
@@ -1478,8 +1479,13 @@ function applyBR(text){
   return text.split('[BR]').join('<br>');
 }
 
+/* splitLines — splits on [BR] or <br> (normaliseQ may have already converted) */
+function splitLines(raw){
+  return raw.split(/\[BR\]|<br\s*\/?>/i).map(function(s){return s.trim();});
+}
+
 /* buildDITable — converts pipe-delimited rows into a proper HTML table.
-   Receives an array of [BR]-split segments (already trimmed).
+   Receives an array of line segments (already trimmed).
    Returns HTML string, or null if no pipe rows found. */
 function buildDITable(parts){
   var tableRows=[],captionParts=[],afterParts=[],inTable=false,pastTable=false;
@@ -1503,17 +1509,19 @@ function buildDITable(parts){
   tableRows.forEach(function(row,idx){
     var cols=row.split('|').map(function(c){return c.trim();}).filter(function(c){return c!=='';});
     if(idx===0){
-      html+='<thead><tr>'+cols.map(function(c){return '<th>'+c+'</th>';}).join('')+'</tr></thead><tbody>';
+      html+='<thead><tr>'+cols.map(function(c){return'<th>'+c+'</th>';}).join('')+'</tr></thead><tbody>';
     }else{
-      html+='<tr>'+cols.map(function(c){return '<td>'+c+'</td>';}).join('')+'</tr>';
+      html+='<tr>'+cols.map(function(c){return'<td>'+c+'</td>';}).join('')+'</tr>';
     }
   });
   html+='</tbody></table></div>';
-  if(afterParts.length)html+='<p style="font-size:15px;font-weight:500;color:#1E293B;margin:8px 0 0;line-height:1.7;">'+afterParts.join('<br>')+'</p>';
+  if(afterParts.length){
+    html+='<p style="font-size:15px;font-weight:500;color:#1E293B;margin:8px 0 0;line-height:1.7;">'+afterParts.join('<br>')+'</p>';
+  }
   return html;
 }
 
-/* renderContent — explanation / trick / concept fields */
+/* renderContent — explanation / trick / concept fields (already have <br> from normaliseQ) */
 function renderContent(text){
   if(!text)return'';
   if(text.indexOf('<')!==-1&&text.indexOf('>')!==-1&&/<[a-z]/i.test(text))return text;
@@ -1527,7 +1535,7 @@ function renderContent(text){
   return formatSteps(text);
 }
 
-/* formatQText — live question display during the test */
+/* formatQText — live question display; raw text still has [BR] tokens */
 function formatQText(raw){
   if(!raw)return'';
   // instruction || body split
@@ -1535,22 +1543,21 @@ function formatQText(raw){
     var halves=raw.split('||');
     var instr=halves[0].trim();
     var body=halves.slice(1).join('').trim();
-    var bodyParts=body.split('[BR]').map(function(s){return s.trim();});
-    if(bodyParts.some(function(p){return p.charAt(0)==='|';})){
-      var tbl=buildDITable(bodyParts);
+    var bodyLines=splitLines(body);
+    if(bodyLines.some(function(p){return p.charAt(0)==='|';})){
+      var tbl=buildDITable(bodyLines);
       if(tbl)return'<span class="q-instruction">'+applyBR(instr)+'</span>'+tbl;
     }
     return'<span class="q-instruction">'+applyBR(instr)+'</span><span class="q-sentence">'+applyBR(body)+'</span>';
   }
-  // plain [BR] text — check for table
-  if(raw.indexOf('[BR]')!==-1){
-    var parts=raw.split('[BR]').map(function(s){return s.trim();});
-    if(parts.some(function(p){return p.charAt(0)==='|';})){
-      var tbl2=buildDITable(parts);
-      if(tbl2)return tbl2;
-    }
-    return applyBR(raw);
+  // no || — check for pipe table
+  var lines=splitLines(raw);
+  if(lines.some(function(p){return p.charAt(0)==='|';})){
+    var tbl2=buildDITable(lines);
+    if(tbl2)return tbl2;
   }
+  // plain text
+  if(raw.indexOf('[BR]')!==-1)return applyBR(raw);
   return raw;
 }
 
@@ -1564,7 +1571,7 @@ function formatSteps(text){
     var line=lines[i];
     var sm=line.match(/^(Step \d+:\s*)(.*)/);
     if(sm){
-      out.push('<div style="margin-top:8px;"><strong style="color:#1E293B;font-size:0.88rem;">'+sm[1].trim()+'</strong>'+(sm[2].trim()?' <span style="color:#374151;">'+sm[2].trim()+'</span>':'' )+'</div>');
+      out.push('<div style="margin-top:8px;"><strong style="color:#1E293B;font-size:0.88rem;">'+sm[1].trim()+'</strong>'+(sm[2].trim()?' <span style="color:#374151;">'+sm[2].trim()+'</span>':'')+'</div>');
     }else if(line.match(/^- /)){
       out.push('<div style="margin-left:16px;color:#475569;font-size:0.87rem;line-height:1.7;"><span style="color:#FF6B00;font-weight:700;margin-right:5px;">—</span>'+line.slice(2)+'</div>');
     }else if(line.match(/^Final Answer/)){
@@ -1581,29 +1588,27 @@ function formatSteps(text){
   return t2;
 }
 
-/* formatQTextReview — question display in the results review panel */
+/* formatQTextReview — question display in results review panel */
 function formatQTextReview(raw,qNum){
   if(!raw)return'';
   if(raw.indexOf('||')!==-1){
     var halves=raw.split('||');
     var instr=halves[0].trim();
     var body=halves.slice(1).join('').trim();
-    var bodyParts=body.split('[BR]').map(function(s){return s.trim();});
-    if(bodyParts.some(function(p){return p.charAt(0)==='|';})){
-      var tbl=buildDITable(bodyParts);
+    var bodyLines=splitLines(body);
+    if(bodyLines.some(function(p){return p.charAt(0)==='|';})){
+      var tbl=buildDITable(bodyLines);
       if(tbl)return'<div style="font-size:13px;font-weight:500;color:#64748B;margin-bottom:8px;line-height:1.6;">Q'+qNum+'. '+applyBR(instr)+'</div>'+tbl;
     }
     return'<div style="font-size:13px;font-weight:500;color:#64748B;margin-bottom:8px;line-height:1.6;">Q'+qNum+'. '+applyBR(instr)+'</div>'
          +'<div style="font-size:14px;font-weight:600;color:#1E293B;padding:10px 14px;background:#F8FAFC;border-left:3px solid #FF6B00;border-radius:0 8px 8px 0;margin-bottom:10px;line-height:1.9;">'+applyBR(body)+'</div>';
   }
-  if(raw.indexOf('[BR]')!==-1){
-    var parts=raw.split('[BR]').map(function(s){return s.trim();});
-    if(parts.some(function(p){return p.charAt(0)==='|';})){
-      var tbl2=buildDITable(parts);
-      if(tbl2)return'<div style="font-size:13px;font-weight:600;color:#1F2937;margin-bottom:8px;">Q'+qNum+'.</div>'+tbl2;
-    }
-    return'<div style="font-size:15px;font-weight:600;color:#1F2937;margin-bottom:8px;line-height:1.5;">Q'+qNum+'. '+applyBR(raw)+'</div>';
+  var lines=splitLines(raw);
+  if(lines.some(function(p){return p.charAt(0)==='|';})){
+    var tbl2=buildDITable(lines);
+    if(tbl2)return'<div style="font-size:13px;font-weight:600;color:#1F2937;margin-bottom:8px;">Q'+qNum+'.</div>'+tbl2;
   }
+  if(raw.indexOf('[BR]')!==-1)return'<div style="font-size:15px;font-weight:600;color:#1F2937;margin-bottom:8px;line-height:1.5;">Q'+qNum+'. '+applyBR(raw)+'</div>';
   return'<div style="font-size:15px;font-weight:600;color:#1F2937;margin-bottom:8px;line-height:1.5;">Q'+qNum+'. '+raw+'</div>';
 }
 
