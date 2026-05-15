@@ -418,29 +418,7 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:10
 
 /* ── DI Table ── */
 .di-caption{font-size:13px;color:#64748B;font-style:italic;margin:6px 0 3px;line-height:1.5;}
-.di-outer{position:relative;margin:4px 0 6px;}
-.di-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
-/* Swipe badge — sits over top-left of table, hidden until .has-overflow is set */
-.di-swipe-badge{
-  display:none;
-  position:absolute;
-  top:6px;left:6px;
-  background:rgba(15,23,42,0.72);
-  backdrop-filter:blur(4px);
-  -webkit-backdrop-filter:blur(4px);
-  color:#CBD5E1;
-  font-size:10px;
-  font-weight:600;
-  letter-spacing:.03em;
-  padding:3px 7px;
-  border-radius:20px;
-  pointer-events:none;
-  z-index:2;
-  white-space:nowrap;
-  gap:3px;
-  align-items:center;
-}
-.di-outer.has-overflow .di-swipe-badge{display:flex;}
+.di-table-wrap{overflow-x:auto;margin:4px 0 6px;-webkit-overflow-scrolling:touch;}
 .di-table{width:100%;border-collapse:collapse;font-size:13.5px;}
 .di-table thead tr{background:#FFF3E8;}
 .di-table th{color:#C2410C;font-weight:700;text-align:center;padding:8px 12px;border:1px solid #FDDCBD;font-size:12.5px;white-space:nowrap;}
@@ -468,15 +446,19 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:10
 }
 .di-toggle-icon{font-size:16px;line-height:1;}
 
-/* Mobile: hide table by default, show toggle button */
+/* Mobile: table always visible, scrollable horizontally */
 @media(max-width:600px){
-  .di-toggle{display:flex;}
+  .di-toggle{display:none !important;}
   .di-table-wrap{
-    display:none;           /* hidden until expanded */
+    display:block;
     overflow-x:auto;
     -webkit-overflow-scrolling:touch;
+    border-radius:8px;
+    border:1px solid #FDDCBD;
   }
-  .di-table-wrap.di-expanded{display:block;}
+  .di-table{font-size:12px;}
+  .di-table th{padding:5px 8px;font-size:11px;}
+  .di-table td{padding:5px 8px;font-size:12px;}
 }
 
 
@@ -1575,9 +1557,7 @@ function buildDITable(parts){
   html+='<button class="di-toggle" onclick="diToggle(\''+tid+'\')" aria-expanded="false">'
        +'<span class="di-toggle-icon">⊞</span> View Full Table</button>';
 
-  html+='<div class="di-outer" id="outer-'+tid+'">'
-       +'<span class="di-swipe-badge">&#x1F44A; swipe</span>'
-       +'<div class="di-table-wrap" id="'+tid+'">'
+  html+='<div class="di-table-wrap" id="'+tid+'">'
        +'<table class="di-table">'
        +'<thead><tr>'+headers.map(function(c){return'<th>'+c+'</th>';}).join('')+'</tr></thead>'
        +'<tbody>';
@@ -1587,12 +1567,11 @@ function buildDITable(parts){
     cols.forEach(function(c,ci){html+='<td data-label="'+(headers[ci]||'')+'">'+c+'</td>';});
     html+='</tr>';
   }
-  html+='</tbody></table></div></div>';  /* close di-table-wrap + di-outer */
+  html+='</tbody></table></div>';
 
   if(afterParts.length){
     html+='<p style="font-size:15px;font-weight:500;color:#1E293B;margin:8px 0 0;line-height:1.7;">'+afterParts.join('<br>')+'</p>';
   }
-  html+='<script>setTimeout(function(){var w=document.getElementById("'+tid+'");var o=document.getElementById("outer-'+tid+'");if(w&&o&&w.scrollWidth>w.clientWidth+4)o.classList.add("has-overflow");},150);<\/script>';
   return html;
 }
 
