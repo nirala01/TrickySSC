@@ -414,6 +414,7 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:10
 .review-item.correct{border-left-color:#22C55E;}
 .review-item.wrong  {border-left-color:#EF4444;}
 .review-item.skip   {border-left-color:#EAB308;}
+.q-figure-img{max-width:100%;border-radius:8px;margin:6px 0;border:1px solid #334155;display:block;}
 
 /* ── DI Table ── */
 .di-caption{font-size:13px;color:#64748B;font-style:italic;margin:6px 0 3px;line-height:1.5;}
@@ -1512,6 +1513,14 @@ function applyBR(text){
   return text.split('[BR]').join('<br>');
 }
 
+/* resolveImg — converts [IMG]url[/IMG] tokens to <img> tags */
+function resolveImg(text){
+  if(!text||text.indexOf('[IMG]')===-1) return text;
+  return text.replace(/\[IMG\](.*?)\[\/IMG\]/g, function(_,url){
+    return '<img src="'+url+'" class="q-figure-img" alt="Figure" loading="lazy">';
+  });
+}
+
 function splitLines(raw){
   return raw.split(/\[BR\]|<br\s*\/?>/i).map(function(s){return s.trim();});
 }
@@ -1577,6 +1586,7 @@ function renderContent(text){
 
 function formatQText(raw){
   if(!raw)return'';
+  raw = resolveImg(raw);
   if(raw.indexOf('||')!==-1){
     var halves=raw.split('||');
     var instr=halves[0].trim();
@@ -1625,6 +1635,7 @@ function formatSteps(text){
 
 function formatQTextReview(raw,qNum){
   if(!raw)return'';
+  raw = resolveImg(raw);
   if(raw.indexOf('||')!==-1){
     var halves=raw.split('||');
     var instr=halves[0].trim();
