@@ -415,13 +415,46 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:10
 .review-item.wrong  {border-left-color:#EF4444;}
 .review-item.skip   {border-left-color:#EAB308;}
 
-/* ── DI Table rendering ── */
-.di-table-wrap{overflow-x:auto;margin:8px 0 4px;-webkit-overflow-scrolling:touch;}
-.di-table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:280px;}
-.di-table th{background:#FFF3E8;color:#C2410C;font-weight:700;text-align:center;padding:7px 12px;border:1px solid #FDDCBD;font-size:12.5px;white-space:nowrap;}
-.di-table td{padding:6px 12px;border:1px solid #F1F5F9;text-align:center;color:#334155;}
-.di-table tr:nth-child(even) td{background:#F8FAFC;}
-.di-caption{font-size:13px;color:#64748B;font-style:italic;margin:6px 0 2px;line-height:1.5;}
+/* ── DI Table ── */
+.di-caption{font-size:13px;color:#64748B;font-style:italic;margin:6px 0 3px;line-height:1.5;}
+.di-table-wrap{overflow-x:auto;margin:4px 0 6px;-webkit-overflow-scrolling:touch;}
+.di-table{width:100%;border-collapse:collapse;font-size:13.5px;}
+.di-table thead tr{background:#FFF3E8;}
+.di-table th{color:#C2410C;font-weight:700;text-align:center;padding:8px 12px;border:1px solid #FDDCBD;font-size:12.5px;white-space:nowrap;}
+.di-table td{padding:7px 12px;border:1px solid #F1F5F9;text-align:center;color:#334155;font-size:13px;}
+.di-table tbody tr:nth-child(even) td{background:#F8FAFC;}
+
+/* Toggle button — hidden on desktop, shown on mobile */
+.di-toggle{
+  display:none;
+  align-items:center;
+  gap:6px;
+  margin:6px 0 4px;
+  padding:7px 14px;
+  background:#FFF3E8;
+  border:1.5px solid #FDDCBD;
+  border-radius:8px;
+  color:#C2410C;
+  font-family:inherit;
+  font-size:13px;
+  font-weight:700;
+  cursor:pointer;
+  width:100%;
+  justify-content:center;
+  letter-spacing:.01em;
+}
+.di-toggle-icon{font-size:16px;line-height:1;}
+
+/* Mobile: hide table by default, show toggle button */
+@media(max-width:600px){
+  .di-toggle{display:flex;}
+  .di-table-wrap{
+    display:none;           /* hidden until expanded */
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+  }
+  .di-table-wrap.di-expanded{display:block;}
+}
 
 
 /* ═══════════════════════════════════
@@ -1139,7 +1172,7 @@ function normaliseQ(q) {
   });
 
   // Convert [BR] tokens in solution/option fields only.
-  // text/question are left raw so formatQText can detect pipe-tables before rendering.
+  // text/question stay raw so formatQText can detect pipe-tables before rendering.
   ['explanation','trick','concept','option_A','option_B','option_C','option_D'].forEach(function(f){
     if (q[f] && typeof q[f] === 'string') q[f] = q[f].split('[BR]').join('<br>');
   });
@@ -1479,21 +1512,18 @@ function applyBR(text){
   return text.split('[BR]').join('<br>');
 }
 
-/* splitLines — splits on [BR] or <br> (normaliseQ may have already converted) */
 function splitLines(raw){
   return raw.split(/\[BR\]|<br\s*\/?>/i).map(function(s){return s.trim();});
 }
 
-/* buildDITable — converts pipe-delimited rows into a proper HTML table.
-   Receives an array of line segments (already trimmed).
-   Returns HTML string, or null if no pipe rows found. */
+var _diTableCounter=0;
 function buildDITable(parts){
   var tableRows=[],captionParts=[],afterParts=[],inTable=false,pastTable=false;
   for(var i=0;i<parts.length;i++){
     var seg=parts[i].trim();
     if(!seg){if(inTable){pastTable=true;inTable=false;}continue;}
     if(seg.charAt(0)==='|'){
-      if(/^\|[\s\-|:]+\|$/.test(seg))continue; // skip |---|---| separators
+      if(/^\|[\s\-|:]+\|$/.test(seg))continue;
       inTable=true;pastTable=false;
       tableRows.push(seg);
     }else if(pastTable||(tableRows.length&&!inTable)){
@@ -1503,25 +1533,35 @@ function buildDITable(parts){
     }
   }
   if(!tableRows.length)return null;
+
+  var tid='di-tbl-'+(++_diTableCounter);
+  var headers=tableRows[0].split('|').map(function(c){return c.trim();}).filter(function(c){return c!=='';});
+
   var html='';
   if(captionParts.length)html+='<p class="di-caption">'+captionParts.join(' ')+'</p>';
-  html+='<div class="di-table-wrap"><table class="di-table">';
-  tableRows.forEach(function(row,idx){
-    var cols=row.split('|').map(function(c){return c.trim();}).filter(function(c){return c!=='';});
-    if(idx===0){
-      html+='<thead><tr>'+cols.map(function(c){return'<th>'+c+'</th>';}).join('')+'</tr></thead><tbody>';
-    }else{
-      html+='<tr>'+cols.map(function(c){return'<td>'+c+'</td>';}).join('')+'</tr>';
-    }
-  });
+
+  // Expand toggle button (mobile only via CSS)
+  html+='<button class="di-toggle" onclick="diToggle(\''+tid+'\')" aria-expanded="false">'
+       +'<span class="di-toggle-icon">⊞</span> View Full Table</button>';
+
+  html+='<div class="di-table-wrap" id="'+tid+'">'
+       +'<table class="di-table">'
+       +'<thead><tr>'+headers.map(function(c){return'<th>'+c+'</th>';}).join('')+'</tr></thead>'
+       +'<tbody>';
+  for(var r=1;r<tableRows.length;r++){
+    var cols=tableRows[r].split('|').map(function(c){return c.trim();}).filter(function(c){return c!=='';});
+    html+='<tr>';
+    cols.forEach(function(c,ci){html+='<td data-label="'+(headers[ci]||'')+'">'+c+'</td>';});
+    html+='</tr>';
+  }
   html+='</tbody></table></div>';
+
   if(afterParts.length){
     html+='<p style="font-size:15px;font-weight:500;color:#1E293B;margin:8px 0 0;line-height:1.7;">'+afterParts.join('<br>')+'</p>';
   }
   return html;
 }
 
-/* renderContent — explanation / trick / concept fields (already have <br> from normaliseQ) */
 function renderContent(text){
   if(!text)return'';
   if(text.indexOf('<')!==-1&&text.indexOf('>')!==-1&&/<[a-z]/i.test(text))return text;
@@ -1535,10 +1575,8 @@ function renderContent(text){
   return formatSteps(text);
 }
 
-/* formatQText — live question display; raw text still has [BR] tokens */
 function formatQText(raw){
   if(!raw)return'';
-  // instruction || body split
   if(raw.indexOf('||')!==-1){
     var halves=raw.split('||');
     var instr=halves[0].trim();
@@ -1550,18 +1588,15 @@ function formatQText(raw){
     }
     return'<span class="q-instruction">'+applyBR(instr)+'</span><span class="q-sentence">'+applyBR(body)+'</span>';
   }
-  // no || — check for pipe table
   var lines=splitLines(raw);
   if(lines.some(function(p){return p.charAt(0)==='|';})){
     var tbl2=buildDITable(lines);
     if(tbl2)return tbl2;
   }
-  // plain text
   if(raw.indexOf('[BR]')!==-1)return applyBR(raw);
   return raw;
 }
 
-/* formatSteps — renders step-by-step explanation / trick lines */
 function formatSteps(text){
   if(!text)return'';
   var t=applyBR(text);
@@ -1588,7 +1623,6 @@ function formatSteps(text){
   return t2;
 }
 
-/* formatQTextReview — question display in results review panel */
 function formatQTextReview(raw,qNum){
   if(!raw)return'';
   if(raw.indexOf('||')!==-1){
@@ -1610,6 +1644,16 @@ function formatQTextReview(raw,qNum){
   }
   if(raw.indexOf('[BR]')!==-1)return'<div style="font-size:15px;font-weight:600;color:#1F2937;margin-bottom:8px;line-height:1.5;">Q'+qNum+'. '+applyBR(raw)+'</div>';
   return'<div style="font-size:15px;font-weight:600;color:#1F2937;margin-bottom:8px;line-height:1.5;">Q'+qNum+'. '+raw+'</div>';
+}
+
+function diToggle(tid){
+  var wrap=document.getElementById(tid);
+  var btn=wrap?wrap.previousElementSibling:null;
+  if(!wrap||!btn)return;
+  var expanded=wrap.classList.toggle('di-expanded');
+  btn.setAttribute('aria-expanded',expanded);
+  btn.querySelector('.di-toggle-icon').textContent=expanded?'⊟':'⊞';
+  btn.childNodes[1].textContent=expanded?' Collapse Table':' View Full Table';
 }
 
 window.openDrawer=()=>{
