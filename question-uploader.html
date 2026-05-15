@@ -124,6 +124,16 @@ tr:hover td{background:rgba(255,107,0,0.03);}
 .mode-tab.active{background:linear-gradient(135deg,#FF6B00,#FF8C38);color:#fff;}
 .mode-tab:hover:not(.active){background:#1E293B;color:#CBD5E1;}
 
+/* Figure uploader */
+#figWorkspace{display:flex;}
+#figPdfNav{display:none;}
+.fig-q-item{background:#0F172A;border:1px solid #334155;border-radius:8px;padding:0.5rem 0.75rem;cursor:pointer;font-size:0.78rem;color:#94A3B8;transition:all 0.15s;line-height:1.4;}
+.fig-q-item:hover{border-color:#FF6B00;color:#E2E8F0;}
+.fig-q-item.active{border-color:#FF6B00;background:rgba(255,107,0,0.08);color:#FF6B00;}
+.fig-q-item.done{border-color:#00A86B;background:rgba(0,168,107,0.06);color:#00A86B;}
+.fig-q-num{font-weight:700;font-size:0.85rem;margin-bottom:0.15rem;}
+.fig-q-preview{color:#475569;font-size:0.72rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:230px;}
+
 /* CSV drop zone */
 .csv-drop{border:2px dashed #334155;border-radius:10px;padding:2rem;text-align:center;cursor:pointer;transition:all 0.2s;background:#0F172A;position:relative;}
 .csv-drop:hover,.csv-drop.dragging{border-color:#FF6B00;background:rgba(255,107,0,0.04);}
@@ -251,6 +261,7 @@ tr:hover td{background:rgba(255,107,0,0.03);}
     <div class="mode-tabs">
       <button class="mode-tab active" id="tabJson" onclick="switchMode('json')">📋 Paste JSON</button>
       <button class="mode-tab" id="tabCsv"  onclick="switchMode('csv')">📂 Upload CSV</button>
+      <button class="mode-tab" id="tabFig"  onclick="switchMode('fig')">🖼 Figure Uploader</button>
     </div>
 
     <!-- JSON panel -->
@@ -315,6 +326,65 @@ Expected columns (order matters): <strong>qNum, subject, exam, year, text, optio
     </div>
   </div>
 
+    <!-- Figure Uploader panel -->
+    <div id="panelFig" style="display:none;">
+      <div class="info-box" id="figInfoBox">
+        <strong>Two ways to attach figures:</strong><br>
+        • <strong>From preview table</strong> — load your CSV/JSON first (tab above), then switch here.<br>
+        • <strong>From existing Firestore questions</strong> — click <em>"Load Existing Questions"</em> on the Paper Details card, then switch here.
+      </div>
+
+      <!-- Source paper upload -->
+      <div class="csv-drop" id="figDrop" style="margin-bottom:1rem;"
+           ondragover="event.preventDefault();this.classList.add('dragging')"
+           ondragleave="this.classList.remove('dragging')"
+           ondrop="handleFigDrop(event)">
+        <input type="file" id="figFileInput" accept="image/*,.pdf" onchange="handleFigFile(this.files[0])">
+        <div class="csv-drop-icon">🖼</div>
+        <div class="csv-drop-label">Drop question paper (image or PDF) here</div>
+        <div class="csv-drop-sub">Accepts JPG · PNG · WebP · PDF — upload once, crop all figures</div>
+        <div class="csv-file-chosen" id="figFileChosen"></div>
+      </div>
+
+      <!-- PDF page nav -->
+      <div id="figPdfNav" style="display:none;align-items:center;gap:0.75rem;margin-bottom:0.75rem;">
+        <button class="btn btn-secondary" style="padding:0.4rem 0.9rem;" onclick="figChangePage(-1)">← Prev</button>
+        <span id="figPageLabel" style="font-size:0.85rem;color:#94A3B8;">Page 1 / 1</span>
+        <button class="btn btn-secondary" style="padding:0.4rem 0.9rem;" onclick="figChangePage(1)">Next →</button>
+      </div>
+
+      <!-- Workspace: canvas left, question list right -->
+      <div id="figWorkspace" style="display:none;gap:1rem;align-items:flex-start;">
+
+        <!-- Canvas -->
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:0.78rem;color:#64748B;margin-bottom:0.4rem;">
+            👆 <strong style="color:#FF6B00;">Click a question on the right first</strong>, then draw a box around its figure below.
+          </div>
+          <div style="position:relative;display:inline-block;max-width:100%;border:1px solid #334155;border-radius:8px;overflow:hidden;cursor:crosshair;" id="figCanvasWrap">
+            <canvas id="figCanvas"></canvas>
+            <canvas id="figOverlay" style="position:absolute;top:0;left:0;"></canvas>
+          </div>
+        </div>
+
+        <!-- Question list -->
+        <div style="width:270px;flex-shrink:0;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem;">
+            <div style="font-size:0.78rem;font-weight:600;color:#94A3B8;text-transform:uppercase;letter-spacing:.05em;">Figure Questions</div>
+            <button class="btn btn-secondary" style="padding:0.25rem 0.6rem;font-size:0.72rem;" onclick="figRefreshList()">↺ Refresh</button>
+          </div>
+          <div id="figQList" style="display:flex;flex-direction:column;gap:0.4rem;max-height:520px;overflow-y:auto;"></div>
+          <div style="font-size:0.75rem;color:#475569;margin-top:0.75rem;line-height:1.6;">
+            ✅ Green = image attached<br>🟠 Orange = needs figure
+          </div>
+        </div>
+      </div>
+
+      <!-- Status -->
+      <div id="figStatus" style="margin-top:0.75rem;font-size:0.85rem;color:#94A3B8;min-height:1.4rem;"></div>
+    </div>
+  </div>
+
   <!-- STEP 3 — Editable preview table -->
   <div id="step2">
     <div class="card">
@@ -375,6 +445,8 @@ import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChang
                                from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
 import { getFirestore, collection, addDoc, getDocs, updateDoc, query, where, doc, setDoc }
                                from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+import { getStorage, ref as storageRef, uploadBytes, getDownloadURL }
+                               from "https://www.gstatic.com/firebasejs/11.0.0/firebase-storage.js";
 
 const firebaseConfig = {
   apiKey:            "AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",
@@ -386,9 +458,14 @@ const firebaseConfig = {
 };
 const ADMIN_EMAILS = ['nirala01@gmail.com','ashish@trickyssc.com'];
 
-const app  = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db   = getFirestore(app);
+const app     = initializeApp(firebaseConfig);
+const auth    = getAuth(app);
+const db      = getFirestore(app);
+const storage = getStorage(app);
+window._fbStorage  = storage;
+window._fbStorageRef = storageRef;
+window._fbUploadBytes = uploadBytes;
+window._fbGetDownloadURL = getDownloadURL;
 
 let currentUser = null;
 window.loadedDocMap = {}; // qNum → Firestore doc snapshot — shared with non-module script
@@ -633,6 +710,9 @@ window.uploadAll = async () => {
   showToast(`✅ ${added} added · ${updated} updated`,'success');
 };
 
+// Expose Firestore updateDoc for figure uploader non-module script
+window._figFirestoreUpdate = (ref, data) => updateDoc(ref, data);
+
 window.showToast = (msg,type='success') => {
   const t=document.getElementById('toast');
   t.textContent=msg; t.className='toast '+type; t.style.display='block';
@@ -649,8 +729,11 @@ let csvRawText  = '';
 window.switchMode = (mode) => {
   document.getElementById('panelJson').style.display = mode === 'json' ? '' : 'none';
   document.getElementById('panelCsv').style.display  = mode === 'csv'  ? '' : 'none';
+  document.getElementById('panelFig').style.display  = mode === 'fig'  ? '' : 'none';
   document.getElementById('tabJson').classList.toggle('active', mode === 'json');
   document.getElementById('tabCsv').classList.toggle('active',  mode === 'csv');
+  document.getElementById('tabFig').classList.toggle('active',  mode === 'fig');
+  if (mode === 'fig') figRefreshList();
 };
 
 // ── CSV Drop handler ──────────────────────────────────────────────────────
@@ -982,6 +1065,280 @@ window.copyPrompt = () => {
   const text = document.getElementById('promptText').textContent;
   navigator.clipboard.writeText(text).then(()=>showToast('Prompt copied!','success'));
 };
+
+
+// ══════════════════════════════════════════════════════════════════
+// FIGURE UPLOADER — crop & upload figures from question paper
+// ══════════════════════════════════════════════════════════════════
+
+const FIG = {
+  pdfDoc:null, pageNum:1, totalPages:1, imgEl:null,
+  activeQNum:null, cropping:false,
+  startX:0, startY:0, endX:0, endY:0
+};
+
+// Lazy-load PDF.js
+function ensurePdfJs(cb){
+  if(window.pdfjsLib){cb();return;}
+  const s=document.createElement('script');
+  s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+  s.onload=()=>{
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    cb();
+  };
+  document.head.appendChild(s);
+}
+
+window.handleFigDrop = (e)=>{
+  e.preventDefault();
+  document.getElementById('figDrop').classList.remove('dragging');
+  const file=e.dataTransfer.files[0];
+  if(file) handleFigFile(file);
+};
+
+window.handleFigFile = (file)=>{
+  if(!file) return;
+  const chosen=document.getElementById('figFileChosen');
+  chosen.textContent='📄 '+file.name+' ('+(file.size/1024).toFixed(0)+' KB)';
+  chosen.style.display='block';
+
+  if(file.type==='application/pdf'){
+    ensurePdfJs(()=>{
+      const reader=new FileReader();
+      reader.onload=(ev)=>{
+        pdfjsLib.getDocument(new Uint8Array(ev.target.result)).promise.then(pdf=>{
+          FIG.pdfDoc=pdf; FIG.totalPages=pdf.numPages; FIG.pageNum=1; FIG.imgEl=null;
+          const nav=document.getElementById('figPdfNav');
+          nav.style.display=pdf.numPages>1?'flex':'none';
+          figRenderPage(1);
+          figOpenWorkspace();
+        });
+      };
+      reader.readAsArrayBuffer(file);
+    });
+  } else {
+    const url=URL.createObjectURL(file);
+    const img=new Image();
+    img.onload=()=>{
+      FIG.imgEl=img; FIG.pdfDoc=null; FIG.totalPages=1; FIG.pageNum=1;
+      document.getElementById('figPdfNav').style.display='none';
+      figDrawImg(img);
+      figOpenWorkspace();
+    };
+    img.src=url;
+  }
+};
+
+function figRenderPage(num){
+  if(!FIG.pdfDoc) return;
+  FIG.pdfDoc.getPage(num).then(page=>{
+    const vp=page.getViewport({scale:1.8});
+    const cv=document.getElementById('figCanvas');
+    const ov=document.getElementById('figOverlay');
+    cv.width=vp.width; cv.height=vp.height;
+    ov.width=vp.width; ov.height=vp.height;
+    page.render({canvasContext:cv.getContext('2d'),viewport:vp}).promise.then(()=>{
+      document.getElementById('figPageLabel').textContent='Page '+num+' / '+FIG.totalPages;
+    });
+  });
+}
+
+function figDrawImg(img){
+  const cv=document.getElementById('figCanvas');
+  const ov=document.getElementById('figOverlay');
+  const maxW=860;
+  const sc=img.width>maxW?maxW/img.width:1;
+  cv.width=Math.round(img.width*sc); cv.height=Math.round(img.height*sc);
+  ov.width=cv.width; ov.height=cv.height;
+  cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
+}
+
+window.figChangePage = (d)=>{
+  const n=FIG.pageNum+d;
+  if(n<1||n>FIG.totalPages) return;
+  FIG.pageNum=n; figRenderPage(n);
+};
+
+function figOpenWorkspace(){
+  document.getElementById('figWorkspace').style.display='flex';
+  figSetupCrop();
+  figRefreshList();
+}
+
+// ── Build the question list ────────────────────────────────────────
+// Sources (in priority order):
+//   1. Preview table (if rows are loaded)
+//   2. window.loadedDocMap (Firestore-loaded questions)
+window.figRefreshList = ()=>{
+  const list=document.getElementById('figQList');
+  const items=[];
+
+  // Source 1: preview table
+  const tbody=document.getElementById('previewBody');
+  if(tbody){
+    Array.from(tbody.querySelectorAll('tr[data-idx]')).forEach(tr=>{
+      const qNum=tr.querySelector('.cell-input[data-f="qNum"]')?.value||'';
+      const txt=tr.querySelector('.cell-input[data-f="text"]')?.value||'';
+      if(txt.includes('[FIGURE-BASED]')){
+        items.push({qNum, txt, source:'table', hasFig:txt.includes('[IMG]')});
+      }
+    });
+  }
+
+  // Source 2: loadedDocMap (only add qNums not already from table)
+  const tableQNums=new Set(items.map(i=>String(i.qNum)));
+  const docMap=window.loadedDocMap||{};
+  Object.values(docMap).forEach(snap=>{
+    const d=snap.data();
+    const txt=d.text||d.question||'';
+    const qNum=String(d.qNum||'');
+    if(txt.includes('[FIGURE-BASED]')&&!tableQNums.has(qNum)){
+      items.push({qNum, txt, source:'firestore', hasFig:txt.includes('[IMG]'), snap});
+    }
+  });
+
+  // Sort by qNum
+  items.sort((a,b)=>parseInt(a.qNum)-parseInt(b.qNum));
+
+  if(!items.length){
+    list.innerHTML='<div style="font-size:0.8rem;color:#64748B;line-height:1.6;">No [FIGURE-BASED] questions found.<br>Load questions via CSV/JSON <em>or</em> click <strong>Load Existing Questions</strong> on the Paper Details card first.</div>';
+    return;
+  }
+
+  list.innerHTML=items.map(item=>{
+    const preview=item.txt.replace('[FIGURE-BASED]','').replace(/\[IMG\][^\]]*\[\/IMG\]/g,'[img]').trim().slice(0,55);
+    const srcBadge=item.source==='firestore'
+      ? '<span style="font-size:0.65rem;background:#1E293B;color:#64748B;padding:1px 5px;border-radius:4px;margin-left:4px;">Firestore</span>'
+      : '<span style="font-size:0.65rem;background:#1E293B;color:#A78BFA;padding:1px 5px;border-radius:4px;margin-left:4px;">Table</span>';
+    return `<div class="fig-q-item${item.hasFig?' done':''}" data-qnum="${item.qNum}" data-src="${item.source}" onclick="figSelectQ('${item.qNum}','${item.source}')">
+      <div class="fig-q-num">Q${item.qNum} ${item.hasFig?'✅':''}${srcBadge}</div>
+      <div class="fig-q-preview">${preview}</div>
+    </div>`;
+  }).join('');
+};
+
+window.figSelectQ = (qNum, source)=>{
+  FIG.activeQNum=qNum; FIG.activeSource=source;
+  document.querySelectorAll('.fig-q-item').forEach(el=>{
+    el.classList.toggle('active', el.dataset.qnum===String(qNum));
+  });
+  document.getElementById('figStatus').textContent='Q'+qNum+' selected ('+source+') — draw a box around the figure on the paper.';
+  document.getElementById('figOverlay').getContext('2d').clearRect(0,0,9999,9999);
+};
+
+// ── Crop interaction ───────────────────────────────────────────────
+function figSetupCrop(){
+  const ov=document.getElementById('figOverlay');
+  // Remove old listeners by cloning
+  const newOv=ov.cloneNode(true);
+  ov.parentNode.replaceChild(newOv,ov);
+
+  function pos(e){
+    const r=newOv.getBoundingClientRect();
+    const cx=e.touches?e.touches[0].clientX:e.clientX;
+    const cy=e.touches?e.touches[0].clientY:e.clientY;
+    return{x:cx-r.left,y:cy-r.top};
+  }
+  newOv.addEventListener('mousedown',e=>{
+    if(!FIG.activeQNum){showToast('Select a question first','error');return;}
+    const p=pos(e); FIG.startX=p.x;FIG.startY=p.y;FIG.endX=p.x;FIG.endY=p.y;FIG.cropping=true;
+  });
+  newOv.addEventListener('mousemove',e=>{
+    if(!FIG.cropping)return;
+    const p=pos(e);FIG.endX=p.x;FIG.endY=p.y;figDrawBox(newOv);
+  });
+  newOv.addEventListener('mouseup',()=>{
+    if(!FIG.cropping)return; FIG.cropping=false;
+    if(Math.abs(FIG.endX-FIG.startX)<20||Math.abs(FIG.endY-FIG.startY)<20){showToast('Box too small — try again','error');return;}
+    figCropAndUpload(newOv);
+  });
+  // Touch
+  newOv.addEventListener('touchstart',e=>{e.preventDefault();const p=pos(e);FIG.startX=p.x;FIG.startY=p.y;FIG.endX=p.x;FIG.endY=p.y;FIG.cropping=true;},{passive:false});
+  newOv.addEventListener('touchmove',e=>{e.preventDefault();if(!FIG.cropping)return;const p=pos(e);FIG.endX=p.x;FIG.endY=p.y;figDrawBox(newOv);},{passive:false});
+  newOv.addEventListener('touchend',()=>{if(!FIG.cropping)return;FIG.cropping=false;figCropAndUpload(newOv);});
+}
+
+function figDrawBox(ov){
+  const ctx=ov.getContext('2d');
+  ctx.clearRect(0,0,ov.width,ov.height);
+  const x=Math.min(FIG.startX,FIG.endX),y=Math.min(FIG.startY,FIG.endY);
+  const w=Math.abs(FIG.endX-FIG.startX),h=Math.abs(FIG.endY-FIG.startY);
+  ctx.strokeStyle='#FF6B00';ctx.lineWidth=2;ctx.setLineDash([6,3]);
+  ctx.strokeRect(x,y,w,h);
+  ctx.fillStyle='rgba(255,107,0,0.08)';ctx.fillRect(x,y,w,h);
+}
+
+async function figCropAndUpload(ov){
+  const cv=document.getElementById('figCanvas');
+  const x=Math.round(Math.min(FIG.startX,FIG.endX));
+  const y=Math.round(Math.min(FIG.startY,FIG.endY));
+  const w=Math.round(Math.abs(FIG.endX-FIG.startX));
+  const h=Math.round(Math.abs(FIG.endY-FIG.startY));
+
+  const tmp=document.createElement('canvas');
+  tmp.width=w;tmp.height=h;
+  tmp.getContext('2d').drawImage(cv,x,y,w,h,0,0,w,h);
+
+  document.getElementById('figStatus').innerHTML='<span style="color:#F59E0B;">⏳ Uploading figure for Q'+FIG.activeQNum+'...</span>';
+
+  tmp.toBlob(async(blob)=>{
+    try{
+      const paperId=document.getElementById('paperIdDisplay').textContent.trim()||'unknown';
+      const fname=paperId+'_q'+FIG.activeQNum+'_'+Date.now()+'.png';
+      // Use exposed firebase helpers
+      const sRef=window._fbStorageRef(window._fbStorage,'figures/'+fname);
+      await window._fbUploadBytes(sRef,blob);
+      const url=await window._fbGetDownloadURL(sRef);
+
+      // Inject into both table row AND Firestore (if source is firestore)
+      figInjectToTable(FIG.activeQNum, url);
+      if(FIG.activeSource==='firestore'){
+        await figUpdateFirestore(FIG.activeQNum, url);
+      }
+
+      document.getElementById('figStatus').innerHTML='<span style="color:#00A86B;">✅ Q'+FIG.activeQNum+' figure uploaded & saved!</span>';
+      showToast('Figure saved for Q'+FIG.activeQNum,'success');
+      FIG.activeQNum=null; FIG.activeSource=null;
+      ov.getContext('2d').clearRect(0,0,ov.width,ov.height);
+      figRefreshList();
+    }catch(err){
+      document.getElementById('figStatus').innerHTML='<span style="color:#EF4444;">❌ Upload failed: '+err.message+'</span>';
+      showToast('Upload failed: '+err.message,'error');
+    }
+  },'image/png');
+}
+
+// Inject [IMG]url[/IMG] into preview table row
+function figInjectToTable(qNum, url){
+  const tbody=document.getElementById('previewBody');
+  if(!tbody) return;
+  Array.from(tbody.querySelectorAll('tr[data-idx]')).forEach(tr=>{
+    const qCell=tr.querySelector('.cell-input[data-f="qNum"]');
+    if(qCell&&qCell.value===String(qNum)){
+      const ta=tr.querySelector('.cell-input[data-f="text"]');
+      if(ta){
+        let txt=ta.value.replace(/\[IMG\][^\[]*\[\/IMG\]/g,'').trim();
+        txt=txt.includes('[FIGURE-BASED]')
+          ?txt.replace('[FIGURE-BASED]','[FIGURE-BASED][IMG]'+url+'[/IMG]')
+          :'[IMG]'+url+'[/IMG] '+txt;
+        ta.value=txt;
+      }
+    }
+  });
+}
+
+// Update directly in Firestore (for questions loaded from loadedDocMap)
+async function figUpdateFirestore(qNum, url){
+  const snap=(window.loadedDocMap||{})[parseInt(qNum)];
+  if(!snap) return;
+  const existingText=snap.data().text||snap.data().question||'';
+  let newText=existingText.replace(/\[IMG\][^\[]*\[\/IMG\]/g,'').trim();
+  newText=newText.includes('[FIGURE-BASED]')
+    ?newText.replace('[FIGURE-BASED]','[FIGURE-BASED][IMG]'+url+'[/IMG]')
+    :'[IMG]'+url+'[/IMG] '+newText;
+  // Use updateDoc via the module-exposed helper
+  await window._figFirestoreUpdate(snap.ref, {text:newText});
+}
 
 // Fallback toast
 window.showToast = window.showToast || ((msg,type='success')=>{
