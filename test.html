@@ -447,16 +447,16 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:10
 .di-toggle-icon{font-size:16px;line-height:1;}
 
 /* Mobile: hide table by default, show toggle button */
+/* Mobile: table always visible with scroll, no toggle button */
 @media(max-width:600px){
-  .di-toggle{display:flex;}
+  .di-toggle{display:none !important;}
   .di-table-wrap{
-    display:none;           /* hidden until expanded */
+    display:block;
     overflow-x:auto;
     -webkit-overflow-scrolling:touch;
-  }
-  .di-table-wrap.di-expanded{display:block;}
-}
-
+    border-radius:8px;
+  .di-table{font-size:12px;}
+  .di-table th{padding:5px 8px;font-size:11px;white-space:nowrap;}
 
 /* ═══════════════════════════════════
    MOBILE  ≤ 640px
@@ -1525,23 +1525,21 @@ function splitLines(raw){
   return raw.split(/\[BR\]|<br\s*\/?>|\n/i).map(function(s){return s.trim();}).filter(function(s){return s!=='';});
 }
 
-var _diTableCounter=0;
 
-/* isPipeRow — true if line looks like a table row (contains 2+ pipe chars) */
+/* isPipeRow: true if line has 2+ pipe chars (handles "A | B | C" and "| A | B |") */
 function isPipeRow(s){
-  if(!s) return false;
-  var pipes = 0;
-  for(var i=0;i<s.length;i++){ if(s[i]==='|') pipes++; }
-  return pipes >= 2;
+  if(!s)return false;
+  var p=0; for(var i=0;i<s.length;i++){if(s[i]==='|')p++;} return p>=2;
 }
 
+var _diTableCounter=0;
 function buildDITable(parts){
   var tableRows=[],captionParts=[],afterParts=[],inTable=false,pastTable=false;
   for(var i=0;i<parts.length;i++){
     var seg=parts[i].trim();
     if(!seg){if(inTable){pastTable=true;inTable=false;}continue;}
     if(isPipeRow(seg)){
-      if(/^\|[\s\-|:]+\|$/.test(seg)||/^[-\s|:]+$/.test(seg))continue;
+      if(/^\|[\s\-|:]+\|$/.test(seg))continue;
       inTable=true;pastTable=false;
       tableRows.push(seg);
     }else if(pastTable||(tableRows.length&&!inTable)){
