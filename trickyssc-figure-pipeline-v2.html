@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TrickySSC — Figure Pipeline v2</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Outfit:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --bg: #080b12;
+  --s1: #0e1320;
+  --s2: #141924;
+  --s3: #1c2333;
+  --border: #242d40;
+  --amber: #f59e0b;
+  --blue: #3b82f6;
+  --green: #10b981;
+  --red: #ef4444;
+  --orange: #f97316;
+  --purple: #8b5cf6;
+  --text: #dde4f0;
+  --muted: #5a6a85;
+  --mono: 'IBM Plex Mono', monospace;
+  --sans: 'Outfit', sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--sans); background: var(--bg); color: var(--text); height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+
+/* TOP BAR */
+.topbar {
+  height: 52px; background: var(--s1); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; padding: 0 20px; gap: 14px; flex-shrink: 0;
+}
+.logo-mark {
+  width: 30px; height: 30px;
+  background: linear-gradient(135deg, var(--amber), var(--orange));
+  border-radius: 7px; display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 14px; color: #000;
+}
+.topbar-title { font-size: 14px; font-weight: 700; }
+.topbar-subtitle { font-family: var(--mono); font-size: 10px; color: var(--muted); margin-top: 1px; }
+.pill {
+  font-family: var(--mono); font-size: 10px; padding: 3px 9px;
+  border-radius: 20px; border: 1px solid var(--border); color: var(--muted); background: var(--s2);
+}
+.pill.green { border-color: var(--green); color: var(--green); }
+.pill.amber { border-color: var(--amber); color: var(--amber); }
+.topbar-right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+
+/* LAYOUT */
+.workspace { flex: 1; display: flex; overflow: hidden; }
+
+/* LEFT PANEL */
+.left-panel {
+  width: 290px; min-width: 290px; background: var(--s1);
+  border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden;
+}
+.panel-section { padding: 14px 16px; border-bottom: 1px solid var(--border); }
+.section-label {
+  font-family: var(--mono); font-size: 9px; color: var(--muted);
+  letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 10px;
+}
+
+/* Upload */
+.upload-zone {
+  border: 2px dashed var(--border); border-radius: 10px; padding: 20px 12px;
+  text-align: center; cursor: pointer; transition: all .2s; position: relative; background: var(--s2);
+}
+.upload-zone:hover, .upload-zone.dragover { border-color: var(--amber); background: rgba(245,158,11,.06); }
+.upload-zone input { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
+.upload-icon { font-size: 26px; margin-bottom: 8px; }
+.upload-hint { font-size: 12px; color: var(--muted); line-height: 1.5; }
+.upload-hint strong { color: var(--amber); }
+.upload-file-name { font-family: var(--mono); font-size: 11px; color: var(--green); margin-top: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Fields */
+.field { margin-bottom: 8px; }
+.field label { display: block; font-family: var(--mono); font-size: 9px; color: var(--muted); letter-spacing: .8px; text-transform: uppercase; margin-bottom: 4px; }
+.field input, .field select {
+  width: 100%; padding: 7px 10px; background: var(--s2); border: 1px solid var(--border);
+  border-radius: 6px; color: var(--text); font-family: var(--mono); font-size: 11px; outline: none; transition: border-color .2s;
+}
+.field input:focus, .field select:focus { border-color: var(--blue); }
+.field input::placeholder { color: var(--muted); }
+
+/* Color preview */
+.color-row { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+.color-swatch {
+  width: 32px; height: 32px; border-radius: 6px;
+  border: 1px solid var(--border); flex-shrink: 0;
+}
+.color-label { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+
+/* Buttons */
+.btn-run {
+  width: 100%; padding: 10px; background: linear-gradient(135deg, var(--amber), var(--orange));
+  border: none; border-radius: 8px; color: #000; font-family: var(--sans); font-weight: 700;
+  font-size: 13px; cursor: pointer; transition: all .2s; display: flex; align-items: center; justify-content: center; gap: 7px;
+}
+.btn-run:hover { opacity: .9; transform: translateY(-1px); }
+.btn-run:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; transform: none; }
+
+/* Queue */
+.queue-scroll { flex: 1; overflow-y: auto; padding: 8px; }
+.queue-scroll::-webkit-scrollbar { width: 4px; }
+.queue-scroll::-webkit-scrollbar-thumb { background: var(--border); }
+.q-item {
+  display: flex; align-items: center; gap: 8px; padding: 8px 10px;
+  border-radius: 8px; border: 1px solid transparent; cursor: pointer;
+  margin-bottom: 3px; transition: all .15s;
+}
+.q-item:hover { background: var(--s2); }
+.q-item.active { background: var(--s2); border-color: var(--amber); }
+.q-num-badge {
+  width: 26px; height: 26px; border-radius: 6px; background: var(--s3);
+  border: 1px solid var(--border); display: flex; align-items: center; justify-content: center;
+  font-family: var(--mono); font-size: 10px; font-weight: 600; flex-shrink: 0;
+}
+.q-info { flex: 1; min-width: 0; }
+.q-name { font-size: 11px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.q-meta { font-family: var(--mono); font-size: 9px; color: var(--muted); margin-top: 1px; }
+.status-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.status-dot.pending { background: var(--muted); }
+.status-dot.processing { background: var(--amber); animation: blink 1s ease infinite; }
+.status-dot.done { background: var(--green); }
+.status-dot.error { background: var(--red); }
+.status-dot.pushed { background: var(--purple); }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.2} }
+
+/* CENTER */
+.center-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: var(--bg); }
+.center-toolbar {
+  height: 46px; background: var(--s1); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; padding: 0 16px; gap: 10px; flex-shrink: 0;
+}
+.center-title { font-size: 13px; font-weight: 600; }
+.center-right { margin-left: auto; display: flex; gap: 6px; }
+.btn {
+  padding: 5px 13px; border-radius: 6px; font-size: 12px; font-family: var(--sans);
+  font-weight: 600; cursor: pointer; border: 1px solid var(--border);
+  background: var(--s2); color: var(--text); transition: all .15s;
+}
+.btn:hover { border-color: var(--blue); color: var(--blue); }
+.btn.push { background: var(--purple); border-color: var(--purple); color: #fff; }
+.btn.push:hover { background: #7c3aed; }
+.btn.push:disabled { background: var(--border); border-color: var(--border); color: var(--muted); cursor: not-allowed; }
+
+/* Split */
+.split-view { flex: 1; display: flex; overflow: hidden; }
+.view-pane { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.view-pane + .view-pane { border-left: 1px solid var(--border); }
+.pane-header {
+  padding: 9px 14px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 8px; background: var(--s1); flex-shrink: 0;
+}
+.pane-label { font-family: var(--mono); font-size: 9px; color: var(--muted); letter-spacing: 1.2px; text-transform: uppercase; }
+.pane-tag { font-family: var(--mono); font-size: 9px; padding: 2px 8px; border-radius: 20px; margin-left: auto; }
+.pane-tag.orig { background: rgba(90,106,133,.2); color: var(--muted); border: 1px solid var(--border); }
+.pane-tag.clean { background: rgba(16,185,129,.1); color: var(--green); border: 1px solid rgba(16,185,129,.3); }
+.pane-body { flex: 1; overflow-y: auto; padding: 16px; }
+.pane-body::-webkit-scrollbar { width: 4px; }
+.pane-body::-webkit-scrollbar-thumb { background: var(--border); }
+
+/* Empty state */
+.empty-state {
+  height: 100%; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; text-align: center; gap: 10px; color: var(--muted);
+}
+.empty-icon { font-size: 40px; opacity: .4; }
+.empty-text { font-size: 13px; }
+.empty-sub { font-size: 11px; font-family: var(--mono); opacity: .6; }
+
+/* Image display */
+.img-card {
+  background: var(--s1); border: 1px solid var(--border); border-radius: 10px;
+  padding: 14px; margin-bottom: 12px;
+}
+.img-card-label {
+  font-family: var(--mono); font-size: 9px; color: var(--muted);
+  letter-spacing: 1px; text-transform: uppercase; margin-bottom: 10px;
+}
+.img-frame {
+  border-radius: 8px; overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+  padding: 4px;
+}
+.img-frame img { max-width: 100%; height: auto; display: block; border-radius: 6px; }
+
+/* Config card */
+.config-card {
+  background: var(--s1); border: 1px solid var(--border); border-radius: 10px;
+  padding: 14px; margin-bottom: 12px;
+}
+.config-card-label {
+  font-family: var(--mono); font-size: 9px; color: var(--muted);
+  letter-spacing: 1px; text-transform: uppercase; margin-bottom: 10px;
+}
+
+/* Spinner */
+.processing-box {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 12px; padding: 60px; text-align: center;
+}
+.spinner {
+  width: 36px; height: 36px; border: 3px solid var(--border);
+  border-top-color: var(--amber); border-radius: 50%; animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.processing-text { font-size: 13px; color: var(--muted); }
+
+/* Stats bar */
+.stats-bar {
+  height: 36px; background: var(--s1); border-top: 1px solid var(--border);
+  display: flex; align-items: center; padding: 0 16px; gap: 20px; flex-shrink: 0;
+}
+.stat { display: flex; align-items: center; gap: 5px; font-family: var(--mono); font-size: 10px; color: var(--muted); }
+.stat-dot { width: 6px; height: 6px; border-radius: 50%; }
+
+/* Log */
+.log-panel {
+  width: 240px; min-width: 240px; border-left: 1px solid var(--border);
+  background: var(--s1); display: flex; flex-direction: column; overflow: hidden;
+}
+.log-header {
+  padding: 9px 12px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 6px;
+}
+.log-title { font-family: var(--mono); font-size: 9px; color: var(--muted); letter-spacing: 1.2px; text-transform: uppercase; }
+.log-clear { margin-left: auto; font-family: var(--mono); font-size: 9px; color: var(--muted); cursor: pointer; border: none; background: none; padding: 2px 4px; }
+.log-clear:hover { color: var(--text); }
+.log-body { flex: 1; overflow-y: auto; padding: 8px; font-family: var(--mono); font-size: 10px; }
+.log-body::-webkit-scrollbar { width: 3px; }
+.log-body::-webkit-scrollbar-thumb { background: var(--border); }
+.log-entry { padding: 3px 0; border-bottom: 1px solid rgba(36,45,64,.5); line-height: 1.4; }
+.log-time { color: var(--muted); }
+.log-msg.info { color: var(--text); }
+.log-msg.success { color: var(--green); }
+.log-msg.error { color: var(--red); }
+.log-msg.warn { color: var(--orange); }
+.log-msg.push { color: var(--purple); }
+
+/* Toast */
+.toast {
+  position: fixed; bottom: 20px; right: 20px; background: var(--s2);
+  border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px;
+  font-size: 13px; display: flex; align-items: center; gap: 8px; z-index: 1000;
+  transform: translateY(80px); opacity: 0; transition: all .3s ease; pointer-events: none;
+}
+.toast.show { transform: translateY(0); opacity: 1; }
+.toast.success { border-color: var(--green); }
+.toast.error { border-color: var(--red); }
+.toast.push { border-color: var(--purple); }
+
+* { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo-mark">T</div>
+  <div>
+    <div class="topbar-title">TrickySSC — Figure Pipeline v2</div>
+    <div class="topbar-subtitle">docx → background change → Firebase Storage → Firestore</div>
+  </div>
+  <span class="pill" id="fb-pill">Firebase: Not configured</span>
+  <div class="topbar-right">
+    <span class="pill amber" id="queue-count">0 in queue</span>
+  </div>
+</div>
+
+<div class="workspace">
+
+  <!-- LEFT -->
+  <div class="left-panel">
+    <div class="panel-section">
+      <div class="section-label">Upload Document</div>
+      <div class="upload-zone" id="upload-zone">
+        <input type="file" id="docx-input" accept=".docx">
+        <div class="upload-icon">📄</div>
+        <div class="upload-hint">Drop <strong>.docx</strong> here<br>or click to browse</div>
+        <div class="upload-file-name" id="file-name-display" style="display:none"></div>
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <div class="section-label">Configuration</div>
+      <div class="field">
+        <label>Firebase Project ID</label>
+        <input type="text" id="fb-project" value="trickyssc-17bb3" />
+      </div>
+      <div class="field">
+        <label>Firebase API Key</label>
+        <input type="password" id="fb-apikey" value="AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA" />
+      </div>
+      <div class="field">
+        <label>Exam Paper ID</label>
+        <input type="text" id="paper-id" placeholder="cgl-2022-dec13-s1" />
+      </div>
+      <div class="field">
+        <label>Background Colour (replaces white)</label>
+        <input type="color" id="bg-color" value="#f0f0f0" style="width:100%;height:36px;padding:2px 4px;cursor:pointer;" />
+      </div>
+      <div class="field">
+        <label>White Threshold (0–60, higher = more white pixels replaced)</label>
+        <input type="range" id="threshold" min="0" max="60" value="30" style="width:100%;" oninput="document.getElementById('thresh-val').textContent=this.value" />
+        <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:3px;">Threshold: <span id="thresh-val">30</span></div>
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <button class="btn-run" id="run-btn" disabled onclick="processAll()">
+        ▶ Process & Change Background
+      </button>
+    </div>
+
+    <div class="section-label" style="padding:10px 16px 0;">Queue</div>
+    <div class="queue-scroll" id="queue-list">
+      <div style="padding:20px;text-align:center;color:var(--muted);font-size:11px;font-family:var(--mono);">
+        No images yet.<br>Upload a docx to begin.
+      </div>
+    </div>
+  </div>
+
+  <!-- CENTER -->
+  <div class="center-panel">
+    <div class="center-toolbar">
+      <div class="center-title" id="center-title">Select an image from the queue</div>
+      <div class="center-right">
+        <button class="btn push" id="push-btn" disabled onclick="pushSelected()">⬆ Push to Firebase</button>
+        <button class="btn push" id="push-all-btn" disabled onclick="pushAll()">⬆ Push All</button>
+      </div>
+    </div>
+
+    <div class="split-view">
+      <div class="view-pane">
+        <div class="pane-header">
+          <div class="pane-label">Original (from docx)</div>
+          <span class="pane-tag orig">white background</span>
+        </div>
+        <div class="pane-body" id="orig-pane">
+          <div class="empty-state">
+            <div class="empty-icon">🖼</div>
+            <div class="empty-text">Original image appears here</div>
+            <div class="empty-sub">extracted from docx</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="view-pane">
+        <div class="pane-header">
+          <div class="pane-label">Processed (background changed)</div>
+          <span class="pane-tag clean" id="clean-tag">grey background</span>
+        </div>
+        <div class="pane-body" id="clean-pane">
+          <div class="empty-state">
+            <div class="empty-icon">✨</div>
+            <div class="empty-text">Processed image appears here</div>
+            <div class="empty-sub">white → light grey background</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="stats-bar">
+      <div class="stat"><div class="stat-dot" style="background:var(--muted)"></div><span id="stat-pending">0 pending</span></div>
+      <div class="stat"><div class="stat-dot" style="background:var(--green)"></div><span id="stat-done">0 done</span></div>
+      <div class="stat"><div class="stat-dot" style="background:var(--purple)"></div><span id="stat-pushed">0 pushed</span></div>
+      <div class="stat"><div class="stat-dot" style="background:var(--red)"></div><span id="stat-error">0 errors</span></div>
+    </div>
+  </div>
+
+  <!-- LOG -->
+  <div class="log-panel">
+    <div class="log-header">
+      <div class="log-title">Activity Log</div>
+      <button class="log-clear" onclick="clearLog()">clear</button>
+    </div>
+    <div class="log-body" id="log-body"></div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Hidden canvas for image processing -->
+<canvas id="work-canvas" style="display:none"></canvas>
+
+<script>
+// ══════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════
+const state = {
+  images: [],      // { id, index, qNum, originalDataUrl, processedDataUrl, processedBlob, status }
+  selectedId: null,
+};
+
+// ══════════════════════════════════════════
+// LOG & TOAST
+// ══════════════════════════════════════════
+function log(msg, type = 'info') {
+  const body = document.getElementById('log-body');
+  const now = new Date().toLocaleTimeString('en-IN', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  const el = document.createElement('div');
+  el.className = 'log-entry';
+  el.innerHTML = '<div class="log-time">' + now + '</div><div class="log-msg ' + type + '">' + msg + '</div>';
+  body.insertBefore(el, body.firstChild);
+}
+function clearLog() { document.getElementById('log-body').innerHTML = ''; }
+function showToast(msg, type = 'info', icon = 'ℹ') {
+  const t = document.getElementById('toast');
+  t.className = 'toast ' + type;
+  t.innerHTML = '<span>' + icon + '</span> ' + msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ══════════════════════════════════════════
+// UPLOAD
+// ══════════════════════════════════════════
+const uploadZone = document.getElementById('upload-zone');
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('dragover'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'));
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault(); uploadZone.classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file && file.name.endsWith('.docx')) handleFile(file);
+  else showToast('Please drop a .docx file', 'error', '✕');
+});
+document.getElementById('docx-input').addEventListener('change', e => {
+  if (e.target.files[0]) handleFile(e.target.files[0]);
+});
+
+async function handleFile(file) {
+  log('Loading: ' + file.name, 'info');
+  document.getElementById('file-name-display').style.display = 'block';
+  document.getElementById('file-name-display').textContent = file.name;
+
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const zip = await JSZip.loadAsync(arrayBuffer);
+
+    // Parse relationships to get image order
+    const relsXml = await zip.file('word/_rels/document.xml.rels').async('string');
+    const parser = new DOMParser();
+    const relsDoc = parser.parseFromString(relsXml, 'text/xml');
+    const rels = {};
+    for (const rel of relsDoc.getElementsByTagName('Relationship')) {
+      const id = rel.getAttribute('Id');
+      const target = rel.getAttribute('Target');
+      const type = rel.getAttribute('Type') || '';
+      if (type.includes('image')) {
+        rels[id] = 'word/' + target.replace('../', '');
+      }
+    }
+
+    // Get ordered rIds from document.xml
+    const docXml = await zip.file('word/document.xml').async('string');
+    const xmlDoc = parser.parseFromString(docXml, 'text/xml');
+    const ns = 'http://schemas.openxmlformats.org/drawingml/2006/main';
+    const blips = xmlDoc.getElementsByTagNameNS(ns, 'blip');
+    const rIdOrder = [];
+    const rIdNS = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+    for (const blip of blips) {
+      const rId = blip.getAttribute('r:embed') || blip.getAttributeNS(rIdNS, 'embed');
+      if (rId && rels[rId]) rIdOrder.push(rels[rId]);
+    }
+
+    // Fallback: all media images
+    const allMedia = [];
+    for (const [path] of Object.entries(zip.files)) {
+      if (path.startsWith('word/media/') && !zip.files[path].dir) {
+        const ext = path.split('.').pop().toLowerCase();
+        if (['png','jpg','jpeg','gif','webp','bmp'].includes(ext)) allMedia.push(path);
+      }
+    }
+
+    const imagePaths = rIdOrder.length > 0 ? rIdOrder : allMedia;
+
+    if (imagePaths.length === 0) {
+      log('No images found in document!', 'error');
+      showToast('No images found', 'error', '✕');
+      return;
+    }
+
+    log('Found ' + imagePaths.length + ' image(s)', 'success');
+    state.images = [];
+
+    for (let i = 0; i < imagePaths.length; i++) {
+      const path = imagePaths[i];
+      const zipFile = zip.file(path);
+      if (!zipFile) continue;
+
+      const blob = await zipFile.async('blob');
+      const ext = path.split('.').pop().toLowerCase();
+      const mime = (ext === 'jpg' || ext === 'jpeg') ? 'image/jpeg' : 'image/' + ext;
+      const typedBlob = new Blob([blob], { type: mime });
+      const dataUrl = await blobToDataUrl(typedBlob);
+
+      state.images.push({
+        id: 'img-' + Date.now() + '-' + i,
+        index: i,
+        qNum: i + 1,
+        originalDataUrl: dataUrl,
+        originalBlob: typedBlob,
+        originalMime: mime,
+        processedDataUrl: null,
+        processedBlob: null,
+        status: 'pending',
+        firebaseUrl: null,
+      });
+    }
+
+    renderQueue();
+    updateStats();
+    document.getElementById('run-btn').disabled = false;
+    document.getElementById('push-all-btn').disabled = false;
+    showToast(imagePaths.length + ' image(s) loaded', 'success', '✓');
+
+  } catch (err) {
+    log('Error: ' + err.message, 'error');
+    showToast('Failed to read docx', 'error', '✕');
+    console.error(err);
+  }
+}
+
+function blobToDataUrl(blob) {
+  return new Promise((res, rej) => {
+    const reader = new FileReader();
+    reader.onload = () => res(reader.result);
+    reader.onerror = rej;
+    reader.readAsDataURL(blob);
+  });
+}
+
+// ══════════════════════════════════════════
+// BACKGROUND CHANGE (Canvas)
+// ══════════════════════════════════════════
+async function processAll() {
+  const items = state.images.filter(x => x.status === 'pending' || x.status === 'error');
+  if (items.length === 0) { showToast('Nothing to process', 'warn', '⚠'); return; }
+
+  document.getElementById('run-btn').disabled = true;
+  log('Processing ' + items.length + ' image(s)...', 'info');
+
+  for (const item of items) {
+    await processImage(item);
+  }
+
+  document.getElementById('run-btn').disabled = false;
+  updateStats();
+  showToast('All images processed!', 'success', '✓');
+  log('Done processing all images.', 'success');
+}
+
+async function processImage(item) {
+  item.status = 'processing';
+  renderQueue();
+  if (state.selectedId === item.id) renderPanes(item);
+
+  try {
+    const bgHex = document.getElementById('bg-color').value;
+    const threshold = parseInt(document.getElementById('threshold').value);
+    const bgRgb = hexToRgb(bgHex);
+
+    const processedDataUrl = await changeBackground(item.originalDataUrl, bgRgb, threshold);
+
+    // Convert data URL to blob
+    const res = await fetch(processedDataUrl);
+    const blob = await res.blob();
+
+    item.processedDataUrl = processedDataUrl;
+    item.processedBlob = blob;
+    item.status = 'done';
+    log('Image ' + (item.index + 1) + ' processed ✓', 'success');
+
+  } catch (err) {
+    item.status = 'error';
+    item.error = err.message;
+    log('Error processing image ' + (item.index + 1) + ': ' + err.message, 'error');
+  }
+
+  renderQueue();
+  if (state.selectedId === item.id) {
+    renderPanes(item);
+    document.getElementById('push-btn').disabled = item.status !== 'done';
+    document.getElementById('center-title').textContent = 'Image ' + (item.index + 1) + ' — ' + item.status;
+  }
+  updateStats();
+}
+
+function changeBackground(dataUrl, bgRgb, threshold) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.getElementById('work-canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+
+      // Fill with target background first
+      ctx.fillStyle = 'rgb(' + bgRgb.r + ',' + bgRgb.g + ',' + bgRgb.b + ')';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Draw original image on top
+      ctx.drawImage(img, 0, 0);
+
+      // Get pixel data
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imageData.data;
+
+      // Replace near-white pixels with target colour
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i], g = data[i+1], b = data[i+2], a = data[i+3];
+
+        if (a < 10) {
+          // Transparent → fill with bg colour
+          data[i]   = bgRgb.r;
+          data[i+1] = bgRgb.g;
+          data[i+2] = bgRgb.b;
+          data[i+3] = 255;
+          continue;
+        }
+
+        // Check if pixel is "near white"
+        const brightness = (r + g + b) / 3;
+        const isNearWhite = brightness > (255 - threshold) &&
+                            Math.abs(r - g) < 20 &&
+                            Math.abs(g - b) < 20 &&
+                            Math.abs(r - b) < 20;
+
+        if (isNearWhite) {
+          data[i]   = bgRgb.r;
+          data[i+1] = bgRgb.g;
+          data[i+2] = bgRgb.b;
+          data[i+3] = 255;
+        }
+      }
+
+      ctx.putImageData(imageData, 0, 0);
+      resolve(canvas.toDataURL('image/png'));
+    };
+    img.onerror = reject;
+    img.src = dataUrl;
+  });
+}
+
+function hexToRgb(hex) {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return result ? {
+    r: parseInt(result[1], 16),
+    g: parseInt(result[2], 16),
+    b: parseInt(result[3], 16)
+  } : { r: 240, g: 240, b: 240 };
+}
+
+// ══════════════════════════════════════════
+// RENDER QUEUE
+// ══════════════════════════════════════════
+function renderQueue() {
+  const list = document.getElementById('queue-list');
+  document.getElementById('queue-count').textContent = state.images.length + ' in queue';
+
+  if (state.images.length === 0) {
+    list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted);font-size:11px;font-family:var(--mono);">No images yet.<br>Upload a docx to begin.</div>';
+    return;
+  }
+
+  list.innerHTML = state.images.map(item => `
+    <div class="q-item ${state.selectedId === item.id ? 'active' : ''}" onclick="selectItem('${item.id}')">
+      <div class="q-num-badge">${item.index + 1}</div>
+      <div class="q-info">
+        <div class="q-name">Image ${item.index + 1}</div>
+        <div class="q-meta">Q${item.qNum} · ${item.status}</div>
+      </div>
+      <div class="status-dot ${item.status}"></div>
+    </div>
+  `).join('');
+}
+
+// ══════════════════════════════════════════
+// SELECT & RENDER PANES
+// ══════════════════════════════════════════
+function selectItem(id) {
+  state.selectedId = id;
+  const item = state.images.find(x => x.id === id);
+  if (!item) return;
+
+  renderQueue();
+  renderPanes(item);
+  document.getElementById('center-title').textContent = 'Image ' + (item.index + 1) + ' — ' + item.status;
+  document.getElementById('push-btn').disabled = item.status !== 'done';
+}
+
+function renderPanes(item) {
+  // Original pane
+  document.getElementById('orig-pane').innerHTML = `
+    <div class="img-card">
+      <div class="img-card-label">📥 Original — Image ${item.index + 1}</div>
+      <div class="img-frame" style="background:#fff;">
+        <img src="${item.originalDataUrl}" />
+      </div>
+    </div>
+    <div class="config-card">
+      <div class="config-card-label">⚙ Question Mapping</div>
+      <div class="field">
+        <label>Map to Question Number</label>
+        <input type="number" value="${item.qNum}" min="1" max="100"
+          onchange="updateQNum('${item.id}', parseInt(this.value))" />
+      </div>
+      <div class="field">
+        <label>Subject</label>
+        <select onchange="updateField('${item.id}','subject',this.value)">
+          <option value="General Intelligence &amp; Reasoning">General Intelligence &amp; Reasoning</option>
+          <option value="General Awareness">General Awareness</option>
+          <option value="Quantitative Aptitude">Quantitative Aptitude</option>
+          <option value="English">English</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Correct Answer</label>
+        <select onchange="updateField('${item.id}','correct',this.value)">
+          <option value="A">A</option>
+          <option value="B">B</option>
+          <option value="C">C</option>
+          <option value="D">D</option>
+        </select>
+      </div>
+    </div>
+  `;
+
+  // Processed pane
+  const cleanPane = document.getElementById('clean-pane');
+  const cleanTag  = document.getElementById('clean-tag');
+
+  if (!item.processedDataUrl) {
+    cleanTag.className = 'pane-tag orig';
+    cleanTag.textContent = item.status === 'pending' ? 'waiting' : item.status;
+    cleanPane.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">${item.status === 'error' ? '❌' : '⏳'}</div>
+        <div class="empty-text">${item.status === 'error' ? 'Error: ' + (item.error||'') : 'Click Process to change background'}</div>
+      </div>`;
+  } else {
+    cleanTag.className = 'pane-tag clean';
+    cleanTag.textContent = item.status === 'pushed' ? 'pushed ✓' : 'ready ✓';
+    cleanPane.innerHTML = `
+      <div class="img-card">
+        <div class="img-card-label">✨ Processed — background changed</div>
+        <div class="img-frame" style="background:${document.getElementById('bg-color').value};">
+          <img src="${item.processedDataUrl}" />
+        </div>
+      </div>
+      <div class="config-card">
+        <div class="config-card-label">🔥 Firebase Info</div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--muted);line-height:1.8;">
+          Storage path:<br>
+          <span style="color:var(--text);">figures/${document.getElementById('paper-id').value || 'paper-id'}/q${item.qNum}.png</span><br><br>
+          Firestore doc:<br>
+          <span style="color:var(--text);">questions/${document.getElementById('paper-id').value || 'paper-id'}_q${item.qNum}</span>
+          ${item.firebaseUrl ? '<br><br>URL:<br><span style="color:var(--green);word-break:break-all;">' + item.firebaseUrl + '</span>' : ''}
+        </div>
+      </div>
+    `;
+  }
+}
+
+function updateQNum(id, val) {
+  const item = state.images.find(x => x.id === id);
+  if (item) { item.qNum = val; renderPanes(item); }
+}
+function updateField(id, field, val) {
+  const item = state.images.find(x => x.id === id);
+  if (item) item[field] = val;
+}
+
+// ══════════════════════════════════════════
+// FIREBASE PUSH
+// ══════════════════════════════════════════
+async function pushSelected() {
+  const item = state.images.find(x => x.id === state.selectedId);
+  if (!item || item.status !== 'done') return;
+  await pushItem(item);
+}
+
+async function pushAll() {
+  const done = state.images.filter(x => x.status === 'done');
+  if (!done.length) { showToast('No processed images to push', 'warn', '⚠'); return; }
+  for (const item of done) await pushItem(item);
+}
+
+async function pushItem(item) {
+  const projectId = document.getElementById('fb-project').value.trim();
+  const apiKey    = document.getElementById('fb-apikey').value.trim();
+  const paperId   = document.getElementById('paper-id').value.trim();
+
+  if (!projectId || !apiKey || !paperId) {
+    showToast('Fill in Firebase Project ID, API Key, and Paper ID', 'error', '✕');
+    return;
+  }
+
+  log('Uploading Q' + item.qNum + ' to Firebase Storage...', 'info');
+
+  try {
+    // 1. Upload processed image to Firebase Storage
+    const fileName  = 'figures/' + paperId + '/q' + item.qNum + '.png';
+    const uploadUrl = 'https://firebasestorage.googleapis.com/v0/b/' + projectId + '.appspot.com/o/' +
+                      encodeURIComponent(fileName) + '?uploadType=media&key=' + apiKey;
+
+    const uploadRes = await fetch(uploadUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'image/png' },
+      body: item.processedBlob,
+    });
+
+    if (!uploadRes.ok) {
+      const err = await uploadRes.json();
+      throw new Error('Storage: ' + (err.error?.message || uploadRes.status));
+    }
+
+    const imageUrl = 'https://firebasestorage.googleapis.com/v0/b/' + projectId +
+                     '.appspot.com/o/' + encodeURIComponent(fileName) + '?alt=media';
+
+    item.firebaseUrl = imageUrl;
+    log('Q' + item.qNum + ' image uploaded to Storage ✓', 'success');
+
+    // 2. Update Firestore — PATCH the existing question document
+    const docId  = paperId + '_q' + item.qNum;
+    const docUrl = 'https://firestore.googleapis.com/v1/projects/' + projectId +
+                   '/databases/(default)/documents/questions/' + encodeURIComponent(docId) +
+                   '?updateMask.fieldPaths=figureImageUrl&updateMask.fieldPaths=figureType&key=' + apiKey;
+
+    const fsRes = await fetch(docUrl, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fields: {
+          figureImageUrl: { stringValue: imageUrl },
+          figureType:     { stringValue: 'IMAGE_URL' },
+        }
+      }),
+    });
+
+    if (!fsRes.ok) {
+      const err = await fsRes.json();
+      throw new Error('Firestore: ' + (err.error?.message || fsRes.status));
+    }
+
+    item.status = 'pushed';
+    renderQueue();
+    if (state.selectedId === item.id) renderPanes(item);
+    updateStats();
+    log('Q' + item.qNum + ' pushed to Firestore ✓', 'push');
+    showToast('Q' + item.qNum + ' pushed to Firebase!', 'push', '🔥');
+
+  } catch (err) {
+    log('Push failed Q' + item.qNum + ': ' + err.message, 'error');
+    showToast('Push failed: ' + err.message, 'error', '✕');
+  }
+}
+
+// ══════════════════════════════════════════
+// STATS
+// ══════════════════════════════════════════
+function updateStats() {
+  const c = { pending:0, done:0, pushed:0, error:0 };
+  for (const x of state.images) c[x.status] = (c[x.status]||0) + 1;
+  document.getElementById('stat-pending').textContent = c.pending + ' pending';
+  document.getElementById('stat-done').textContent    = c.done + ' done';
+  document.getElementById('stat-pushed').textContent  = c.pushed + ' pushed';
+  document.getElementById('stat-error').textContent   = c.error + ' errors';
+}
+
+// ══════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════
+log('Tool ready. Upload a .docx file to begin.', 'info');
+log('Images will have their white background replaced with your chosen colour — no AI needed.', 'info');
+</script>
+</body>
+</html>
