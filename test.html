@@ -362,14 +362,15 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:10
    MOBILE DRAWER
 ═══════════════════════════════════ */
 #sidebarOverlay{
-  display:none;position:fixed;inset:0;
-  background:rgba(15,23,42,0.5);z-index:200;
-  backdrop-filter:blur(2px);
+  display:none;position:fixed;inset:0;top:0;left:0;right:0;bottom:0;
+  background:rgba(15,23,42,0.55);z-index:9998;
+  backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);
 }
 #sidebarDrawer{
-  display:none;position:fixed;right:0;top:0;bottom:0;width:280px;
-  background:#fff;z-index:201;overflow-y:auto;
-  box-shadow:-8px 0 32px rgba(0,0,0,0.12);
+  display:none;position:fixed;right:0;top:0;bottom:0;
+  width:min(300px,85vw);
+  background:#fff;z-index:9999;overflow-y:auto;
+  box-shadow:-8px 0 32px rgba(0,0,0,0.18);
 }
 .drawer-header{
   display:flex;justify-content:space-between;align-items:center;
@@ -447,16 +448,16 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:10
 .di-toggle-icon{font-size:16px;line-height:1;}
 
 /* Mobile: hide table by default, show toggle button */
-/* Mobile: table always visible with scroll, no toggle button */
 @media(max-width:600px){
   .di-toggle{display:none !important;}
   .di-table-wrap{
     display:block;
     overflow-x:auto;
     -webkit-overflow-scrolling:touch;
-    border-radius:8px;
+  }
   .di-table{font-size:12px;}
-  .di-table th{padding:5px 8px;font-size:11px;white-space:nowrap;}
+}
+
 
 /* ═══════════════════════════════════
    MOBILE  ≤ 640px
@@ -1526,10 +1527,9 @@ function splitLines(raw){
 }
 
 
-/* isPipeRow: true if line has 2+ pipe chars (handles "A | B | C" and "| A | B |") */
+/* isPipeRow: true if line has 2+ pipe chars */
 function isPipeRow(s){
-  if(!s)return false;
-  var p=0; for(var i=0;i<s.length;i++){if(s[i]==='|')p++;} return p>=2;
+  if(!s)return false; var p=0; for(var i=0;i<s.length;i++){if(s[i]==='|')p++;} return p>=2;
 }
 
 var _diTableCounter=0;
@@ -1677,10 +1677,16 @@ function diToggle(tid){
 window.openDrawer=()=>{
   document.getElementById('sidebarOverlay').style.display='block';
   document.getElementById('sidebarDrawer').style.display='block';
+  document.body.style.overflow='hidden';
+  document.body.style.position='fixed';
+  document.body.style.width='100%';
 };
 window.closeDrawer=()=>{
   document.getElementById('sidebarOverlay').style.display='none';
   document.getElementById('sidebarDrawer').style.display='none';
+  document.body.style.overflow='';
+  document.body.style.position='';
+  document.body.style.width='';
 };
 window.doLogout=()=>{
   localStorage.removeItem('tssc_user');
