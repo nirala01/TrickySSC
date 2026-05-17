@@ -488,6 +488,1221 @@ main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
 // STATE
 // ═══════════════════════════════════════════════
 const S = {
+  pages: [],
+  fbQuestions: {},
+  currentPage: null,
+};
+
+// ═══════════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════════
+function log(msg, type='info') {
+  const b=document.getElementById('log');
+  const now=new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  const d=document.createElement('div');
+  d.className='le';
+  d.innerHTML='<div class="le-t">'+now+'</div><div class="le-m '+type+'">'+msg+'</div>';
+  b.insertBefore(d,b.firstChild);
+}
+function clearLog(){ document.getElementById('log').innerHTML=''; }
+
+function toast(msg,type='info',ico='ℹ'){
+  const t=document.getElementById('toast');
+  t.className='toast '+type;
+  t.innerHTML='<span>'+ico+'</span> '+msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),3000);
+}
+
+function blobToDataUrl(blob){
+  return new Promise((res,rej)=>{
+    const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(blob);
+  });
+}
+function blobToBase64(blob){
+  return new Promise((res,rej)=>{
+    const r=new FileReader(); r.onload=()=>res(r.result.split(',')[1]); r.onerror=rej; r.readAsDataURL(blob);
+  });
+}
+function setStep(n,state){ const el=document.getElementById('s'+n); if(el) el.className='step '+(state||''); }
+
+function hexRgb(hex){
+  const r=/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return r?{r:parseInt(r[1],16),g:parseInt(r[2],16),b:parseInt(r[3],16)}:{r:204,g:229,b:246};
+}
+
+function stripHtml(s){ return (s||'').replace(/<[^>]+>/g,'').replace(/\[BR\]/g,' ').replace(/\|\|/g,' ').replace(/\s+/g,' ').trim(); }
+
+function updateStats(){
+  let pending=0,matched=0,review=0,pushed=0,err=0;
+  for(const pg of S.pages) for(const q of pg.questions){
+    if(q.status==='pending') pending++;
+    else if(q.status==='matched') matched++;
+    else if(q.status==='review') review++;
+    else if(q.status==='pushed') pushed++;
+    else if(q.status==='error') err++;
+  }
+  document.getElementById('st-pending').textContent=pending+' pending';
+  document.getElementById('st-matched').textContent=matched+' matched';
+  document.getElementById('st-review').textContent=review+' needs review';
+  document.getElementById('st-pushed').textContent=pushed+' pushed';
+  document.getElementById('st-err').textContent=err+' errors';
+  const total=S.pages.reduce((a,p)=>a+p.questions.length,0);
+  document.getElementById('q-count').textContent=total+' questions';
+  document.getElementById('match-count').textContent=(matched+pushed)+' matched';
+}
+
+// ═══════════════════════════════════════════════
+// UPLOAD
+// ═══════════════════════════════════════════════
+const dz=document.getElementById('dz');
+dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('drag');});
+dz.addEventListener('dragleave',()=>dz.classList.remove('drag'));
+dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('drag');const f=e.dataTransfer.files[0];if(f&&f.name.endsWith('.docx'))loadDocx(f);});
+document.getElementById('fi').addEventListener('change',e=>{if(e.target.files[0])loadDocx(e.target.files[0]);});
+
+async function loadDocx(file){
+  log('Loading: '+file.name,'step');
+  document.getElementById('fn').style.display='block';
+  document.getElementById('fn').textContent=file.name;
+  document.getElementById('run-btn').disabled=false;
+  setStep(1,'active');
+  try{
+    const ab=await file.arrayBuffer();
+    const zip=await JSZip.loadAsync(ab);
+    const relsXml=await zip.file('word/_rels/document.xml.rels').async('string');
+    const parser=new DOMParser();
+    const relsDoc=parser.parseFromString(relsXml,'text/xml');
+    const rels={};
+    for(const rel of relsDoc.getElementsByTagName('Relationship')){
+      const id=rel.getAttribute('Id'),target=rel.getAttribute('Target'),type=rel.getAttribute('Type')||'';
+      if(type.includes('image')) rels[id]='word/'+target.replace('../','');
+    }
+    const docXml=await zip.file('word/document.xml').async('string');
+    const xmlDoc=parser.parseFromString(docXml,'text/xml');
+    const ns='http://schemas.openxmlformats.org/drawingml/2006/main';
+    const rIdNS='http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+    const blips=xmlDoc.getElementsByTagNameNS(ns,'blip');
+    const paths=[];
+    for(const b of blips){
+      const rId=b.getAttribute('r:embed')||b.getAttributeNS(rIdNS,'embed');
+      if(rId&&rels[rId]) paths.push(rels[rId]);
+    }
+    if(paths.length===0){
+      for(const [p] of Object.entries(zip.files)){
+        if(p.startsWith('word/media/')&&!zip.files[p].dir){
+          const ext=p.split('.').pop().toLowerCase();
+          if(['png','jpg','jpeg','gif','webp'].includes(ext)) paths.push(p);
+        }
+      }
+    }
+    if(paths.length===0){log('No images found!','err');return;}
+    S.pages=[];
+    for(let i=0;i<paths.length;i++){
+      const zf=zip.file(paths[i]); if(!zf) continue;
+      const blob=await zf.async('blob');
+      const ext=paths[i].split('.').pop().toLowerCase();
+      const mime=(ext==='jpg'||ext==='jpeg')?'image/jpeg':'image/'+ext;
+      const typed=new Blob([blob],{type:mime});
+      const dataUrl=await blobToDataUrl(typed);
+      S.pages.push({id:'pg-'+i,dataUrl,blob:typed,mime,questions:[],path:paths[i]});
+    }
+    setStep(1,'done');
+    log('Extracted '+S.pages.length+' page image(s)','ok');
+    toast(S.pages.length+' page(s) loaded','ok','✓');
+    updateStats();
+  } catch(e){
+    setStep(1,'error');
+    log('Error loading docx: '+e.message,'err');
+    toast('Failed to load docx','err','✕');
+    console.error(e);
+  }
+}
+
+// ═══════════════════════════════════════════════
+// PIPELINE
+// ═══════════════════════════════════════════════
+async function runPipeline(){
+  const apiKey=document.getElementById('api-key').value.trim();
+  const fbProj=document.getElementById('fb-proj').value.trim();
+  const fbKey=document.getElementById('fb-key').value.trim();
+  const exam=document.getElementById('exam').value.trim();
+  const year=document.getElementById('year').value.trim();
+  if(!apiKey){toast('Enter Claude API key','err','✕');return;}
+  if(!fbProj||!fbKey){toast('Enter Firebase credentials','err','✕');return;}
+  if(!exam||!year){toast('Enter exam and year','err','✕');return;}
+  if(S.pages.length===0){toast('Upload a docx first','err','✕');return;}
+  document.getElementById('run-btn').disabled=true;
+  document.getElementById('empty-state').style.display='none';
+  document.getElementById('review-wrap').style.display='flex';
+  try{
+    setStep(2,'active');
+    log('Step 2: OCR — reading questions from image...','step');
+    for(const pg of S.pages) await ocrPage(pg,apiKey);
+    setStep(2,'done');
+
+    setStep(3,'active');
+    log('Step 3: Fetching questions from Firebase...','step');
+    await fetchFirebaseQuestions(fbProj,fbKey,exam,year);
+    setStep(3,'done');
+
+    setStep(4,'active');
+    log('Step 4: Matching OCR to Firebase...','step');
+    matchQuestions();
+    setStep(4,'done');
+
+    setStep(5,'active');
+    log('Step 5: Cropping figures...','step');
+    for(const pg of S.pages) await cropFigures(pg);
+    setStep(5,'done');
+
+    setStep(6,'active');
+    renderReview();
+    setStep(6,'done');
+
+    document.getElementById('push-all-btn').disabled=false;
+    updateStats();
+    log('Pipeline complete — review and push!','ok');
+    toast('Done! Review and push.','ok','✓');
+  } catch(e){
+    log('Pipeline error: '+e.message,'err');
+    toast('Pipeline failed','err','✕');
+    console.error(e);
+  }
+  document.getElementById('run-btn').disabled=false;
+}
+
+// ═══════════════════════════════════════════════
+// STEP 2: OCR
+// ═══════════════════════════════════════════════
+async function ocrPage(pg,apiKey){
+  log('OCR: sending page to Claude Vision...','step');
+  const b64=await blobToBase64(pg.blob);
+  const prompt=`You are analyzing an SSC exam paper page image that may contain both English and Hindi text.
+
+Find ALL question blocks visible. For each question:
+1. Read the question NUMBER (integer like 4, 5, 6, 7)
+2. Read first 100 characters of question TEXT (English characters only, skip Hindi)
+3. Does the question STEM have a figure/diagram before the options? (hasStemFig true/false)
+4. Are the OPTIONS (1. 2. 3. 4. or A B C D) figures/images? (hasOptFigs true/false)
+5. Give TIGHT bounding box of the ENTIRE question block as % of full image height/width
+6. If hasStemFig: give tight bounding box of just the figure in the stem (not the text)
+7. If hasOptFigs: give tight bounding boxes of each of the 4 option figures
+
+IMPORTANT bounding box rules:
+- top/left/bottom/right are percentages (0 to 100) of the full image dimensions
+- Be PRECISE — crop tightly around figures only, not surrounding text
+- For option figures: each box should contain ONLY that one option's figure
+- stemFigBounds should NOT include the question text, only the figure portion
+
+Respond ONLY with a valid JSON array:
+[
+  {
+    "qNum": 4,
+    "textSnippet": "Select the Venn diagram that best illustrates",
+    "hasStemFig": false,
+    "hasOptFigs": true,
+    "bounds": {"top":2,"left":0,"bottom":18,"right":100},
+    "stemFigBounds": null,
+    "optBounds": {
+      "A": {"top":10,"left":2,"bottom":17,"right":24},
+      "B": {"top":10,"left":26,"bottom":17,"right":48},
+      "C": {"top":10,"left":50,"bottom":17,"right":72},
+      "D": {"top":10,"left":74,"bottom":17,"right":98}
+    }
+  }
+]`;
+
+  try{
+    const res=await claudeVision(b64,pg.mime,prompt,apiKey);
+    const clean=res.replace(/```json|```/g,'').trim();
+    const arr=JSON.parse(clean);
+    pg.questions=arr.map(q=>({
+      ...q,
+      id:'q-'+q.qNum,
+      status:'pending',
+      fbData:null,
+      matchScore:0,
+      croppedStem:null,
+      croppedOpts:{A:null,B:null,C:null,D:null},
+      processedStem:null,
+      processedOpts:{A:null,B:null,C:null,D:null},
+      firebaseUrls:{stem:null,A:null,B:null,C:null,D:null},
+    }));
+    log('OCR found '+pg.questions.length+' question(s)','ok');
+  } catch(e){
+    log('OCR parse error: '+e.message,'err');
+    pg.questions=[];
+  }
+}
+
+// ═══════════════════════════════════════════════
+// STEP 3: FETCH FIREBASE
+// ═══════════════════════════════════════════════
+async function fetchFirebaseQuestions(proj,key,exam,year){
+  S.fbQuestions={};
+  try{
+    // Structured query: filter by exam + year
+    const queryUrl='https://firestore.googleapis.com/v1/projects/'+proj+
+      '/databases/(default)/documents:runQuery?key='+key;
+    const queryBody={
+      structuredQuery:{
+        from:[{collectionId:'questions'}],
+        where:{
+          compositeFilter:{
+            op:'AND',
+            filters:[
+              {fieldFilter:{field:{fieldPath:'exam'},op:'EQUAL',value:{stringValue:exam.toLowerCase()}}},
+              {fieldFilter:{field:{fieldPath:'year'},op:'EQUAL',value:{stringValue:year}}},
+            ]
+          }
+        },
+        limit:200
+      }
+    };
+    const res=await fetch(queryUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(queryBody)});
+    if(!res.ok) throw new Error('Query failed: '+res.status);
+    const rows=await res.json();
+    for(const row of rows){
+      if(!row.document) continue;
+      const f=row.document.fields||{};
+      const qNum=parseInt(f.qNum?.integerValue||f.qNum?.stringValue||0);
+      if(qNum>0){
+        S.fbQuestions[qNum]={
+          qNum,
+          text: stripHtml(f.text?.stringValue||''),
+          subject: f.subject?.stringValue||'',
+          correct: f.correct?.stringValue||'',
+          docName: row.document.name,
+        };
+      }
+    }
+    log('Fetched '+Object.keys(S.fbQuestions).length+' questions (exam='+exam+' year='+year+')','ok');
+    if(Object.keys(S.fbQuestions).length===0){
+      log('0 results — trying fallback (no filter)...','warn');
+      await fetchFallback(proj,key);
+    }
+  } catch(e){
+    log('Query failed: '+e.message+' — fallback...','warn');
+    await fetchFallback(proj,key);
+  }
+}
+
+async function fetchFallback(proj,key){
+  try{
+    const url='https://firestore.googleapis.com/v1/projects/'+proj+'/databases/(default)/documents/questions?key='+key+'&pageSize=200';
+    const res=await fetch(url);
+    if(!res.ok) throw new Error('Fallback failed: '+res.status);
+    const data=await res.json();
+    for(const doc of (data.documents||[])){
+      const f=doc.fields||{};
+      const qNum=parseInt(f.qNum?.integerValue||f.qNum?.stringValue||0);
+      if(qNum>=1&&qNum<=100&&!S.fbQuestions[qNum]){
+        S.fbQuestions[qNum]={
+          qNum,
+          text: stripHtml(f.text?.stringValue||''),
+          subject: f.subject?.stringValue||'',
+          correct: f.correct?.stringValue||'',
+          docName: doc.name,
+        };
+      }
+    }
+    log('Fallback: '+Object.keys(S.fbQuestions).length+' questions loaded','ok');
+  } catch(e){
+    log('Fallback failed: '+e.message,'err');
+  }
+}
+
+// ═══════════════════════════════════════════════
+// STEP 4: MATCH
+// ═══════════════════════════════════════════════
+function matchQuestions(){
+  let matched=0;
+  for(const pg of S.pages) for(const q of pg.questions){
+    const fbQ=S.fbQuestions[q.qNum];
+    if(fbQ){
+      q.fbData=fbQ;
+      // Match by qNum — if we have the question in Firebase it's a match
+      // Also check text similarity for confidence
+      const score=textSimilarity(q.textSnippet||'',fbQ.text||'');
+      q.matchScore=Math.max(score, 0.5); // qNum match gives at least 50%
+      q.status='matched';
+      matched++;
+    } else {
+      q.status='review';
+      q.matchScore=0;
+    }
+  }
+  log('Matched '+matched+'/'+S.pages.reduce((a,p)=>a+p.questions.length,0)+' questions','ok');
+}
+
+function textSimilarity(a,b){
+  if(!a||!b) return 0;
+  // Only compare English words (skip Hindi)
+  const engOnly=s=>s.replace(/[^\x00-\x7F]/g,'');
+  const wordsA=engOnly(a).toLowerCase().split(/\s+/).filter(w=>w.length>3);
+  const wordsB=engOnly(b).toLowerCase().split(/\s+/).filter(w=>w.length>3);
+  if(wordsA.length===0) return 0.5; // can't compare, assume ok since qNum matched
+  let hits=0;
+  for(const w of wordsA) if(wordsB.some(wb=>wb.includes(w)||w.includes(wb))) hits++;
+  return hits/wordsA.length;
+}
+
+// ═══════════════════════════════════════════════
+// STEP 5: CROP
+// ═══════════════════════════════════════════════
+async function cropFigures(pg){
+  for(const q of pg.questions){
+    try{
+      if(q.hasStemFig&&q.stemFigBounds){
+        const c=await cropImage(pg.dataUrl,q.stemFigBounds);
+        q.croppedStem=c;
+        q.processedStem=await changeBg(c);
+      }
+      if(q.hasOptFigs&&q.optBounds){
+        for(const opt of ['A','B','C','D']){
+          const bounds=q.optBounds[opt];
+          if(bounds){
+            const c=await cropImage(pg.dataUrl,bounds);
+            q.croppedOpts[opt]=c;
+            q.processedOpts[opt]=await changeBg(c);
+          }
+        }
+      }
+      log('Q'+q.qNum+': figures cropped','ok');
+    } catch(e){
+      log('Q'+q.qNum+' crop error: '+e.message,'err');
+    }
+  }
+}
+
+async function cropImage(dataUrl,bounds){
+  return new Promise((res,rej)=>{
+    const img=new Image();
+    img.onload=()=>{
+      const W=img.naturalWidth,H=img.naturalHeight;
+      // Add small padding
+      const pad=4;
+      const x=Math.max(0,Math.floor(bounds.left/100*W)-pad);
+      const y=Math.max(0,Math.floor(bounds.top/100*H)-pad);
+      const w=Math.min(W-x,Math.floor((bounds.right-bounds.left)/100*W)+pad*2);
+      const h=Math.min(H-y,Math.floor((bounds.bottom-bounds.top)/100*H)+pad*2);
+      const c=document.createElement('canvas');
+      c.width=Math.max(w,1); c.height=Math.max(h,1);
+      const ctx=c.getContext('2d',{willReadFrequently:true});
+      ctx.imageSmoothingEnabled=false;
+      ctx.drawImage(img,x,y,w,h,0,0,c.width,c.height);
+      res(c.toDataURL('image/png'));
+    };
+    img.onerror=rej;
+    img.src=dataUrl;
+  });
+}
+
+async function changeBg(dataUrl){
+  const bgHex=document.getElementById('bg-col').value||'#cce5f6';
+  const bgRgb=hexRgb(bgHex);
+  const thresh=10;
+  return new Promise((res,rej)=>{
+    const img=new Image();
+    img.onload=()=>{
+      const c=document.createElement('canvas');
+      c.width=img.naturalWidth; c.height=img.naturalHeight;
+      const ctx=c.getContext('2d',{willReadFrequently:true});
+      ctx.imageSmoothingEnabled=false;
+      ctx.drawImage(img,0,0,c.width,c.height);
+      const id=ctx.getImageData(0,0,c.width,c.height);
+      const d=id.data;
+      for(let i=0;i<d.length;i+=4){
+        if(d[i+3]<10){d[i]=bgRgb.r;d[i+1]=bgRgb.g;d[i+2]=bgRgb.b;d[i+3]=255;continue;}
+        if(d[i]>(255-thresh)&&d[i+1]>(255-thresh)&&d[i+2]>(255-thresh)){
+          d[i]=bgRgb.r;d[i+1]=bgRgb.g;d[i+2]=bgRgb.b;d[i+3]=255;
+        }
+      }
+      ctx.putImageData(id,0,0);
+      res(c.toDataURL('image/png'));
+    };
+    img.onerror=rej;
+    img.src=dataUrl;
+  });
+}
+
+// ═══════════════════════════════════════════════
+// CLAUDE VISION
+// ═══════════════════════════════════════════════
+async function claudeVision(b64,mime,prompt,apiKey){
+  const res=await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{
+      'Content-Type':'application/json',
+      'x-api-key':apiKey,
+      'anthropic-version':'2023-06-01',
+      'anthropic-dangerous-direct-browser-access':'true',
+    },
+    body:JSON.stringify({
+      model:'claude-opus-4-5',
+      max_tokens:2048,
+      messages:[{role:'user',content:[
+        {type:'image',source:{type:'base64',media_type:mime,data:b64}},
+        {type:'text',text:prompt}
+      ]}]
+    })
+  });
+  if(!res.ok){const e=await res.json();throw new Error(e.error?.message||'API '+res.status);}
+  const data=await res.json();
+  return data.content[0]?.text||'';
+}
+
+// ═══════════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════════
+function renderReview(){
+  if(S.pages.length>0) showPage(S.pages[0]);
+  renderQueueSidebar();
+}
+
+function showPage(pg){
+  S.currentPage=pg;
+  document.getElementById('page-img').src=pg.dataUrl;
+  document.getElementById('page-tag').textContent=pg.questions.length+' questions';
+  document.getElementById('t-title').textContent='Page '+(S.pages.indexOf(pg)+1)+' — '+pg.questions.length+' questions detected';
+  renderQCards(pg);
+}
+
+function renderQueueSidebar(){
+  const el=document.getElementById('q-scroll');
+  if(S.pages.length===0){
+    el.innerHTML='<div style="padding:16px;text-align:center;color:var(--muted);font-size:10px;font-family:var(--mono);">No questions yet.</div>';
+    return;
+  }
+  let html='';
+  for(const pg of S.pages){
+    html+='<div style="font-family:var(--mono);font-size:8px;color:var(--muted);padding:6px 8px 2px;letter-spacing:1px;text-transform:uppercase;">Page '+(S.pages.indexOf(pg)+1)+'</div>';
+    for(const q of pg.questions){
+      html+=`<div class="q-row" id="qr-${q.qNum}" onclick="selectQ(${S.pages.indexOf(pg)},${pg.questions.indexOf(q)})">
+        <div class="q-badge">Q${q.qNum}</div>
+        <div class="q-info">
+          <div class="q-name">Question ${q.qNum}</div>
+          <div class="q-meta">${q.status} · ${Math.round((q.matchScore||0)*100)}% match</div>
+        </div>
+        <div class="dot ${q.status}"></div>
+      </div>`;
+    }
+  }
+  el.innerHTML=html;
+}
+
+function selectQ(pgIdx,qIdx){
+  const pg=S.pages[pgIdx];
+  showPage(pg);
+  const q=pg.questions[qIdx];
+  const card=document.getElementById('qcard-'+q.qNum);
+  if(card){card.classList.add('open','active');card.scrollIntoView({behavior:'smooth',block:'nearest'});}
+}
+
+function renderQCards(pg){
+  const el=document.getElementById('qs-scroll');
+  el.innerHTML='';
+  for(const q of pg.questions) el.appendChild(makeQCard(q,pg));
+}
+
+function makeQCard(q,pg){
+  const div=document.createElement('div');
+  div.className='q-card open'+(q.status==='pushed'?' pushed':q.status==='error'?' error':'');
+  div.id='qcard-'+q.qNum;
+  const score=Math.round((q.matchScore||0)*100);
+  const scoreColor=score>=60?'var(--green)':score>=30?'var(--orange)':'var(--red)';
+
+  // Header
+  const hd=document.createElement('div');
+  hd.className='q-card-hd';
+  hd.onclick=()=>div.classList.toggle('open');
+  hd.innerHTML=`
+    <div class="q-card-num">Q${q.qNum}</div>
+    <div class="q-card-info">
+      <div class="q-card-title">Question ${q.qNum}${q.fbData?' — '+q.fbData.subject:''}</div>
+      <div class="q-card-meta">${q.hasStemFig?'📐 stem fig ':''}${q.hasOptFigs?'🔢 figure options':'📝 text options'}</div>
+    </div>
+    <span class="q-card-status ${q.status==='matched'?'matched':q.status==='pushed'?'pushed':q.status==='error'?'error':'review'}">${q.status}</span>`;
+  div.appendChild(hd);
+
+  // Body
+  const body=document.createElement('div');
+  body.className='q-card-body';
+
+  // Match row
+  let html=`<div class="match-row">
+    <div class="match-col">
+      <div class="match-col-title">📷 OCR — from image</div>
+      <div class="match-text">${q.textSnippet||'(no text extracted)'}</div>
+    </div>
+    <div class="match-score">
+      <div class="score-val" style="color:${scoreColor}">${score}%</div>
+      <div class="score-lbl">match</div>
+    </div>
+    <div class="match-col">
+      <div class="match-col-title">🔥 Firebase text</div>
+      <div class="match-text">${q.fbData?(q.fbData.text.substring(0,140)||'—'):'⚠ Q'+q.qNum+' not found in Firebase'}</div>
+    </div>
+  </div>
+  <div class="override-row">
+    <span style="font-family:var(--mono);font-size:9px;color:var(--muted);">Override Q#:</span>
+    <input type="number" value="${q.qNum}" min="1" max="100"
+      style="width:70px;padding:4px 6px;background:var(--s2);border:1px solid var(--border);border-radius:5px;color:var(--text);font-family:var(--mono);font-size:11px;outline:none;"
+      onchange="overrideQNum(${q.qNum},'${pg.id}',parseInt(this.value))"/>
+    <button class="btn" style="padding:3px 9px;font-size:10px;" onclick="rematch(${q.qNum},'${pg.id}')">Re-match</button>
+    <button class="btn" style="padding:3px 9px;font-size:10px;" onclick="recropQ('${q.qNum}','${pg.id}')">↺ Re-crop</button>
+  </div>`;
+
+  // Crops
+  html+='<div class="crops-section">';
+  if(q.hasStemFig){
+    html+='<div class="crops-label">📐 Stem Figure</div><div class="crops-grid">';
+    if(q.croppedStem) html+=`<div class="crop-box question-fig"><span class="crop-tag">original</span><img src="${q.croppedStem}"/></div>`;
+    if(q.processedStem) html+=`<div class="crop-box question-fig"><span class="crop-tag" style="color:var(--blue);">processed</span><img src="${q.processedStem}"/></div>`;
+    if(!q.croppedStem&&!q.processedStem) html+='<div class="crop-box" style="min-height:60px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:10px;">not cropped yet</div>';
+    html+='</div>';
+  }
+  if(q.hasOptFigs){
+    html+='<div class="crops-label" style="margin-top:10px;">🔢 Option Figures</div><div class="crops-grid">';
+    for(const opt of ['A','B','C','D']){
+      if(q.processedOpts[opt])
+        html+=`<div class="crop-box option-fig"><span class="crop-tag">${opt}</span><img src="${q.processedOpts[opt]}"/></div>`;
+      else
+        html+=`<div class="crop-box" style="min-height:60px;display:flex;align-items:center;justify-content:center;"><span style="font-family:var(--mono);font-size:9px;color:var(--muted);">${opt}: missing</span></div>`;
+    }
+    html+='</div>';
+  }
+  html+='</div>';
+
+  // Actions
+  html+=`<div class="q-actions">
+    <button class="btn success" onclick="pushQuestion('${q.qNum}','${pg.id}')" ${q.status==='pushed'?'disabled':''}>
+      ${q.status==='pushed'?'✓ Pushed':'⬆ Push to Firebase'}
+    </button>
+    <button class="btn danger" onclick="skipQ('${q.qNum}','${pg.id}')">✕ Skip</button>
+  </div>`;
+
+  body.innerHTML=html;
+  div.appendChild(body);
+  return div;
+}
+
+// ═══════════════════════════════════════════════
+// OVERRIDE / REMATCH / RECROP
+// ═══════════════════════════════════════════════
+function findQ(qNum,pgId){
+  const pg=S.pages.find(p=>p.id===pgId);
+  return pg?pg.questions.find(q=>q.qNum===parseInt(qNum)):null;
+}
+
+function overrideQNum(oldNum,pgId,newNum){
+  const pg=S.pages.find(p=>p.id===pgId);
+  const q=pg?.questions.find(q=>q.qNum===parseInt(oldNum));
+  if(!q) return;
+  q.qNum=newNum;
+  rematch(newNum,pgId);
+}
+
+function rematch(qNum,pgId){
+  const q=findQ(qNum,pgId);
+  if(!q) return;
+  const fbQ=S.fbQuestions[q.qNum];
+  if(fbQ){
+    q.fbData=fbQ;
+    q.matchScore=Math.max(textSimilarity(q.textSnippet||'',fbQ.text||''),0.5);
+    q.status='matched';
+  } else {
+    q.fbData=null;
+    q.matchScore=0;
+    q.status='review';
+  }
+  const pg=S.pages.find(p=>p.id===pgId);
+  if(pg){renderQCards(pg);}
+  renderQueueSidebar();
+  updateStats();
+}
+
+async function recropQ(qNum,pgId){
+  const pg=S.pages.find(p=>p.id===pgId);
+  const q=findQ(qNum,pgId);
+  if(!q||!pg) return;
+  log('Re-cropping Q'+qNum+'...','step');
+  await cropFigures(pg);
+  renderQCards(pg);
+  toast('Re-cropped Q'+qNum,'ok','✓');
+}
+
+function skipQ(qNum,pgId){
+  const q=findQ(qNum,pgId);
+  if(q){q.status='error';q.error='Skipped';}
+  const pg=S.pages.find(p=>p.id===pgId);
+  if(pg){renderQCards(pg);}
+  renderQueueSidebar();
+  updateStats();
+}
+
+// ═══════════════════════════════════════════════
+// PUSH
+// ═══════════════════════════════════════════════
+async function pushAll(){
+  const done=[];
+  for(const pg of S.pages) for(const q of pg.questions) if(q.status==='matched') done.push({q,pg});
+  if(!done.length){toast('No matched questions to push','warn','⚠');return;}
+  for(const {q,pg} of done) await pushQuestion(q.qNum,pg.id);
+  toast('All pushed!','pu','🔥');
+}
+
+async function pushQuestion(qNum,pgId){
+  const q=findQ(qNum,pgId);
+  const pg=S.pages.find(p=>p.id===pgId);
+  if(!q||!pg) return;
+  const proj=document.getElementById('fb-proj').value.trim();
+  const key=document.getElementById('fb-key').value.trim();
+  const paperId=document.getElementById('paper-id').value.trim()||'paper';
+  if(!proj||!key){toast('Firebase not configured','err','✕');return;}
+  log('Pushing Q'+qNum+'...','step');
+  try{
+    const updates={};
+    if(q.processedStem){
+      const url=await uploadImage(q.processedStem,'figures/'+paperId+'/q'+qNum+'_stem.png',proj,key);
+      q.firebaseUrls.stem=url;
+      updates.figureImageUrl={stringValue:url};
+      updates.figureType={stringValue:'IMAGE_URL'};
+      log('Q'+qNum+' stem uploaded','ok');
+    }
+    for(const opt of ['A','B','C','D']){
+      if(q.processedOpts[opt]){
+        const url=await uploadImage(q.processedOpts[opt],'figures/'+paperId+'/q'+qNum+'_opt'+opt+'.png',proj,key);
+        q.firebaseUrls[opt]=url;
+        updates['option'+opt+'ImageUrl']={stringValue:url};
+        log('Q'+qNum+' opt '+opt+' uploaded','ok');
+      }
+    }
+    if(Object.keys(updates).length>0&&q.fbData?.docName){
+      const mask=Object.keys(updates).map(k=>'updateMask.fieldPaths='+k).join('&');
+      const docUrl='https://firestore.googleapis.com/v1/'+q.fbData.docName+'?'+mask+'&key='+key;
+      const fsRes=await fetch(docUrl,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({fields:updates})});
+      if(!fsRes.ok){const e=await fsRes.json();throw new Error('Firestore: '+(e.error?.message||fsRes.status));}
+    }
+    q.status='pushed';
+    renderQCards(pg);
+    renderQueueSidebar();
+    updateStats();
+    log('Q'+qNum+' pushed ✓','push');
+    toast('Q'+qNum+' pushed!','pu','🔥');
+  } catch(e){
+    q.status='error';
+    q.error=e.message;
+    log('Q'+qNum+' push failed: '+e.message,'err');
+    toast('Push failed: '+e.message,'err','✕');
+    renderQCards(pg);
+    renderQueueSidebar();
+    updateStats();
+  }
+}
+
+async function uploadImage(dataUrl,path,proj,key){
+  const res=await fetch(dataUrl);
+  const blob=await res.blob();
+  const up=await fetch('https://firebasestorage.googleapis.com/v0/b/'+proj+'.appspot.com/o/'+encodeURIComponent(path)+'?uploadType=media&key='+key,
+    {method:'POST',headers:{'Content-Type':'image/png'},body:blob});
+  if(!up.ok){const e=await up.json();throw new Error('Storage: '+(e.error?.message||up.status));}
+  return 'https://firebasestorage.googleapis.com/v0/b/'+proj+'.appspot.com/o/'+encodeURIComponent(path)+'?alt=media';
+}
+
+// ═══════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════
+log('Pipeline v3 ready.','ok');
+log('Fill in API key + exam + year, then upload docx and Run Pipeline.','step');
+document.getElementById('api-tag').textContent='Claude API: enter key above';
+document.getElementById('fb-tag').textContent='Firebase: trickyssc-17bb3';
+document.getElementById('fb-tag').className='tag g';
+</script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+:root {
+  --bg: #05070f;
+  --s1: #090d1a;
+  --s2: #0e1425;
+  --s3: #141c30;
+  --border: #1e2a42;
+  --border2: #263346;
+  --gold: #f0a500;
+  --gold2: #ffbe3d;
+  --blue: #4d9fff;
+  --blue2: #2979d4;
+  --green: #00d68f;
+  --red: #ff4d6d;
+  --orange: #ff7f3f;
+  --purple: #9f6fff;
+  --cyan: #00d4ff;
+  --text: #e0eaff;
+  --muted: #4a5a7a;
+  --muted2: #6a7a9a;
+  --mono: 'JetBrains Mono', monospace;
+  --sans: 'Space Grotesk', sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; }
+body { font-family: var(--sans); background: var(--bg); color: var(--text); display: flex; flex-direction: column; }
+
+/* scrollbars */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+/* ── HEADER ── */
+header {
+  height: 54px; flex-shrink: 0;
+  background: var(--s1);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; padding: 0 18px; gap: 14px;
+  position: relative;
+}
+header::after {
+  content: '';
+  position: absolute; bottom: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, var(--gold) 0%, transparent 60%);
+}
+.logo {
+  width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0;
+  background: linear-gradient(135deg, var(--gold), var(--orange));
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 15px; color: #000;
+}
+.hd-title { font-size: 15px; font-weight: 700; letter-spacing: -.2px; }
+.hd-sub { font-family: var(--mono); font-size: 9px; color: var(--muted2); margin-top: 1px; }
+.hd-sep { width: 1px; height: 26px; background: var(--border); margin: 0 4px; }
+.tag {
+  font-family: var(--mono); font-size: 9px; padding: 3px 8px;
+  border-radius: 20px; border: 1px solid var(--border); background: var(--s2); color: var(--muted2);
+}
+.tag.g { border-color: var(--green); color: var(--green); }
+.tag.b { border-color: var(--blue); color: var(--blue); }
+.tag.gold { border-color: var(--gold); color: var(--gold); }
+.hd-right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+
+/* ── LAYOUT ── */
+.shell { flex: 1; display: flex; overflow: hidden; }
+
+/* ── SIDEBAR ── */
+aside {
+  width: 280px; min-width: 280px; flex-shrink: 0;
+  background: var(--s1); border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.aside-sec { padding: 13px 14px; border-bottom: 1px solid var(--border); }
+.sec-lbl {
+  font-family: var(--mono); font-size: 8px; letter-spacing: 1.8px;
+  text-transform: uppercase; color: var(--muted); margin-bottom: 9px;
+}
+
+/* upload */
+.drop-zone {
+  border: 1.5px dashed var(--border2); border-radius: 10px;
+  padding: 18px 10px; text-align: center; cursor: pointer;
+  transition: all .2s; position: relative; background: var(--s2);
+}
+.drop-zone:hover, .drop-zone.drag { border-color: var(--gold); background: rgba(240,165,0,.05); }
+.drop-zone input { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
+.drop-icon { font-size: 22px; margin-bottom: 6px; }
+.drop-hint { font-size: 11px; color: var(--muted2); line-height: 1.5; }
+.drop-hint b { color: var(--gold); }
+.drop-fn { font-family: var(--mono); font-size: 10px; color: var(--green); margin-top: 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* fields */
+.fld { margin-bottom: 8px; }
+.fld label { display: block; font-family: var(--mono); font-size: 8px; letter-spacing: .8px; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+.fld input, .fld select {
+  width: 100%; padding: 7px 9px; background: var(--s2); border: 1px solid var(--border);
+  border-radius: 6px; color: var(--text); font-family: var(--mono); font-size: 11px; outline: none; transition: border-color .2s;
+}
+.fld input:focus, .fld select:focus { border-color: var(--blue2); }
+.fld input::placeholder { color: var(--muted); }
+
+/* pipeline steps */
+.steps { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+.step {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 8px; border-radius: 7px; border: 1px solid var(--border);
+  background: var(--s2); font-size: 11px;
+}
+.step-num {
+  width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--border2);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--mono); font-size: 9px; font-weight: 600; flex-shrink: 0; color: var(--muted2);
+}
+.step.active .step-num { background: var(--gold); border-color: var(--gold); color: #000; }
+.step.done .step-num { background: var(--green); border-color: var(--green); color: #000; }
+.step.error .step-num { background: var(--red); border-color: var(--red); color: #fff; }
+.step-txt { font-size: 11px; color: var(--muted2); }
+.step.active .step-txt { color: var(--text); }
+.step.done .step-txt { color: var(--green); }
+
+/* big run button */
+.run-btn {
+  width: 100%; padding: 10px; border: none; border-radius: 8px; cursor: pointer;
+  font-family: var(--sans); font-weight: 700; font-size: 13px;
+  background: linear-gradient(135deg, var(--gold), var(--orange));
+  color: #000; transition: all .2s; display: flex; align-items: center; justify-content: center; gap: 7px;
+}
+.run-btn:hover { opacity: .9; transform: translateY(-1px); }
+.run-btn:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; transform: none; }
+
+/* queue */
+.q-scroll { flex: 1; overflow-y: auto; padding: 8px; }
+.q-row {
+  display: flex; align-items: center; gap: 8px; padding: 7px 9px;
+  border-radius: 8px; border: 1px solid transparent; cursor: pointer; margin-bottom: 3px; transition: all .15s;
+}
+.q-row:hover { background: var(--s2); }
+.q-row.active { background: var(--s2); border-color: var(--gold); }
+.q-badge {
+  width: 24px; height: 24px; border-radius: 6px; background: var(--s3);
+  border: 1px solid var(--border); display: flex; align-items: center; justify-content: center;
+  font-family: var(--mono); font-size: 9px; font-weight: 600; flex-shrink: 0; color: var(--muted2);
+}
+.q-info { flex: 1; min-width: 0; }
+.q-name { font-size: 11px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.q-meta { font-family: var(--mono); font-size: 8px; color: var(--muted); margin-top: 1px; }
+.dot {
+  width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+}
+.dot.pending { background: var(--muted); }
+.dot.reading { background: var(--cyan); animation: pulse 1s infinite; }
+.dot.matching { background: var(--blue); animation: pulse 1s infinite; }
+.dot.cropping { background: var(--gold); animation: pulse 1s infinite; }
+.dot.review { background: var(--orange); }
+.dot.done { background: var(--green); }
+.dot.pushed { background: var(--purple); }
+.dot.error { background: var(--red); }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.25} }
+
+/* ── MAIN ── */
+main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+.toolbar {
+  height: 46px; flex-shrink: 0; background: var(--s1); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; padding: 0 16px; gap: 10px;
+}
+.t-title { font-size: 13px; font-weight: 600; }
+.t-right { margin-left: auto; display: flex; gap: 7px; }
+
+.btn {
+  padding: 5px 13px; border-radius: 6px; font-size: 12px; font-family: var(--sans); font-weight: 600;
+  cursor: pointer; border: 1px solid var(--border); background: var(--s2); color: var(--text); transition: all .15s;
+}
+.btn:hover { border-color: var(--blue2); color: var(--blue); }
+.btn:disabled { opacity: .4; cursor: not-allowed; }
+.btn.primary { background: var(--blue2); border-color: var(--blue2); color: #fff; }
+.btn.primary:hover { background: var(--blue); border-color: var(--blue); }
+.btn.success { background: var(--green); border-color: var(--green); color: #000; }
+.btn.success:hover { opacity: .85; }
+.btn.danger { background: var(--red); border-color: var(--red); color: #fff; }
+.btn.purple { background: var(--purple); border-color: var(--purple); color: #fff; }
+.btn.purple:hover { opacity: .85; }
+
+/* content */
+.content { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+
+/* empty state */
+.empty {
+  flex: 1; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 10px; text-align: center; color: var(--muted);
+}
+.empty-ico { font-size: 48px; opacity: .3; margin-bottom: 4px; }
+.empty-txt { font-size: 14px; color: var(--muted2); }
+.empty-sub { font-family: var(--mono); font-size: 10px; opacity: .5; }
+
+/* review layout */
+.review-wrap { flex: 1; display: flex; overflow: hidden; }
+
+/* left: full page */
+.page-pane {
+  width: 420px; min-width: 420px; border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; overflow: hidden; background: var(--bg);
+}
+.pane-hd {
+  padding: 8px 12px; border-bottom: 1px solid var(--border);
+  background: var(--s1); display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+}
+.pane-lbl { font-family: var(--mono); font-size: 8px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted); }
+.pane-body { flex: 1; overflow: auto; padding: 12px; }
+.page-img { width: 100%; height: auto; display: block; border-radius: 6px; border: 1px solid var(--border); }
+
+/* right: questions list */
+.qs-pane { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.qs-scroll { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 10px; }
+
+/* question card */
+.q-card {
+  background: var(--s1); border: 1px solid var(--border); border-radius: 10px; overflow: hidden;
+  transition: border-color .2s;
+}
+.q-card.active { border-color: var(--gold); }
+.q-card.pushed { border-color: var(--purple); }
+.q-card.error { border-color: var(--red); }
+
+.q-card-hd {
+  display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+  border-bottom: 1px solid var(--border); cursor: pointer; background: var(--s2);
+}
+.q-card-num {
+  width: 28px; height: 28px; border-radius: 7px; background: var(--s3);
+  border: 1px solid var(--border); display: flex; align-items: center; justify-content: center;
+  font-family: var(--mono); font-size: 11px; font-weight: 700; flex-shrink: 0;
+}
+.q-card-info { flex: 1; min-width: 0; }
+.q-card-title { font-size: 12px; font-weight: 600; }
+.q-card-meta { font-family: var(--mono); font-size: 9px; color: var(--muted); margin-top: 2px; }
+.q-card-status { font-family: var(--mono); font-size: 9px; padding: 2px 7px; border-radius: 20px; }
+.q-card-status.review { background: rgba(255,127,63,.15); color: var(--orange); border: 1px solid var(--orange); }
+.q-card-status.matched { background: rgba(0,214,143,.1); color: var(--green); border: 1px solid var(--green); }
+.q-card-status.pushed { background: rgba(159,111,255,.15); color: var(--purple); border: 1px solid var(--purple); }
+.q-card-status.error { background: rgba(255,77,109,.15); color: var(--red); border: 1px solid var(--red); }
+
+.q-card-body { padding: 12px; display: none; }
+.q-card.open .q-card-body { display: block; }
+
+/* match section */
+.match-row {
+  display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: start; margin-bottom: 12px;
+}
+.match-col { background: var(--s2); border: 1px solid var(--border); border-radius: 8px; padding: 10px; }
+.match-col-title { font-family: var(--mono); font-size: 8px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin-bottom: 7px; }
+.match-text { font-size: 11px; line-height: 1.6; color: var(--text); }
+.match-arrow { display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 16px; padding-top: 24px; }
+.match-score {
+  display: flex; align-items: center; justify-content: center; flex-direction: column;
+  gap: 3px; padding-top: 20px;
+}
+.score-val { font-family: var(--mono); font-size: 18px; font-weight: 700; }
+.score-lbl { font-family: var(--mono); font-size: 8px; color: var(--muted); }
+
+/* crops grid */
+.crops-section { margin-top: 10px; }
+.crops-label { font-family: var(--mono); font-size: 8px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+.crops-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
+.crop-box {
+  background: var(--s2); border: 1px solid var(--border); border-radius: 7px;
+  overflow: hidden; position: relative;
+}
+.crop-box img { width: 100%; height: auto; display: block; }
+.crop-tag {
+  position: absolute; top: 4px; left: 4px;
+  font-family: var(--mono); font-size: 8px; padding: 1px 5px;
+  border-radius: 4px; background: rgba(5,7,15,.8); color: var(--gold);
+}
+.crop-box.question-fig { border-color: var(--blue); }
+.crop-box.option-fig { border-color: var(--green); }
+
+/* actions */
+.q-actions { display: flex; gap: 7px; margin-top: 12px; flex-wrap: wrap; }
+
+/* stats bar */
+.stats-bar {
+  height: 34px; flex-shrink: 0; background: var(--s1); border-top: 1px solid var(--border);
+  display: flex; align-items: center; padding: 0 14px; gap: 18px;
+}
+.stat { display: flex; align-items: center; gap: 5px; font-family: var(--mono); font-size: 9px; color: var(--muted); }
+.sdot { width: 5px; height: 5px; border-radius: 50%; }
+
+/* log */
+.log-panel {
+  width: 230px; min-width: 230px; border-left: 1px solid var(--border);
+  background: var(--s1); display: flex; flex-direction: column;
+}
+.log-hd { padding: 8px 10px; border-bottom: 1px solid var(--border); display: flex; align-items: center; }
+.log-title { font-family: var(--mono); font-size: 8px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); }
+.log-clr { margin-left: auto; font-family: var(--mono); font-size: 9px; color: var(--muted); background: none; border: none; cursor: pointer; padding: 1px 4px; }
+.log-clr:hover { color: var(--text); }
+.log-body { flex: 1; overflow-y: auto; padding: 6px 8px; font-family: var(--mono); font-size: 9px; line-height: 1.5; }
+.le { padding: 3px 0; border-bottom: 1px solid rgba(30,42,66,.5); }
+.le-t { color: var(--muted); }
+.le-m { margin-top: 1px; }
+.le-m.info { color: var(--muted2); }
+.le-m.ok { color: var(--green); }
+.le-m.err { color: var(--red); }
+.le-m.warn { color: var(--orange); }
+.le-m.push { color: var(--purple); }
+.le-m.step { color: var(--cyan); }
+
+/* spinner */
+.spin { width: 14px; height: 14px; border: 2px solid var(--border2); border-top-color: var(--gold); border-radius: 50%; animation: rot .7s linear infinite; display: inline-block; }
+@keyframes rot { to { transform: rotate(360deg); } }
+
+/* toast */
+.toast {
+  position: fixed; bottom: 18px; right: 18px; z-index: 999;
+  background: var(--s2); border: 1px solid var(--border); border-radius: 10px;
+  padding: 10px 15px; font-size: 12px; display: flex; align-items: center; gap: 8px;
+  transform: translateY(60px); opacity: 0; transition: all .25s ease; pointer-events: none;
+}
+.toast.show { transform: translateY(0); opacity: 1; }
+.toast.ok { border-color: var(--green); }
+.toast.err { border-color: var(--red); }
+.toast.pu { border-color: var(--purple); }
+
+/* progress bar */
+.prog-bar { height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; margin-top: 6px; }
+.prog-fill { height: 100%; background: linear-gradient(90deg, var(--gold), var(--orange)); border-radius: 2px; transition: width .3s; }
+
+/* confirm override */
+.override-row { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
+.override-row input[type=number] { width: 70px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">T</div>
+  <div>
+    <div class="hd-title">TrickySSC — Smart Figure Pipeline v3</div>
+    <div class="hd-sub">OCR → Firebase match → Crop → Push</div>
+  </div>
+  <div class="hd-sep"></div>
+  <span class="tag" id="fb-tag">Firebase: not set</span>
+  <span class="tag b" id="api-tag">Claude API: not set</span>
+  <div class="hd-right">
+    <span class="tag gold" id="q-count">0 questions</span>
+  </div>
+</header>
+
+<div class="shell">
+
+  <!-- SIDEBAR -->
+  <aside>
+    <div class="aside-sec">
+      <div class="sec-lbl">Document</div>
+      <div class="drop-zone" id="dz">
+        <input type="file" id="fi" accept=".docx">
+        <div class="drop-icon">📄</div>
+        <div class="drop-hint">Drop <b>.docx</b> here<br>or click to browse</div>
+        <div class="drop-fn" id="fn" style="display:none"></div>
+      </div>
+    </div>
+
+    <div class="aside-sec">
+      <div class="sec-lbl">Configuration</div>
+      <div class="fld">
+        <label>Claude API Key</label>
+        <input type="password" id="api-key" placeholder="sk-ant-api03-..." />
+      </div>
+      <div class="fld">
+        <label>Firebase Project ID</label>
+        <input type="text" id="fb-proj" value="trickyssc-17bb3" />
+      </div>
+      <div class="fld">
+        <label>Firebase API Key</label>
+        <input type="password" id="fb-key" value="AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA" />
+      </div>
+      <div class="fld">
+        <label>Exam (exam field in Firestore)</label>
+        <input type="text" id="exam" placeholder="ssc-cgl" />
+      </div>
+      <div class="fld">
+        <label>Year</label>
+        <input type="text" id="year" placeholder="2022" />
+      </div>
+      <div class="fld">
+        <label>Paper ID (for Storage path)</label>
+        <input type="text" id="paper-id" placeholder="cgl-2022-dec13-s1" />
+      </div>
+      <div class="fld">
+        <label>Background colour</label>
+        <input type="color" id="bg-col" value="#cce5f6" style="width:100%;height:32px;padding:2px 4px;cursor:pointer;" />
+      </div>
+    </div>
+
+    <div class="aside-sec">
+      <div class="sec-lbl">Pipeline</div>
+      <div class="steps" id="steps">
+        <div class="step" id="s1"><div class="step-num">1</div><div class="step-txt">Extract images from docx</div></div>
+        <div class="step" id="s2"><div class="step-num">2</div><div class="step-txt">OCR: read question numbers</div></div>
+        <div class="step" id="s3"><div class="step-num">3</div><div class="step-txt">Fetch Firebase questions</div></div>
+        <div class="step" id="s4"><div class="step-num">4</div><div class="step-txt">Match OCR ↔ Firebase text</div></div>
+        <div class="step" id="s5"><div class="step-num">5</div><div class="step-txt">Crop question &amp; option figs</div></div>
+        <div class="step" id="s6"><div class="step-num">6</div><div class="step-txt">Review &amp; push to Firebase</div></div>
+      </div>
+      <button class="run-btn" id="run-btn" disabled onclick="runPipeline()">▶ Run Pipeline</button>
+    </div>
+
+    <div class="sec-lbl" style="padding:10px 14px 4px;">Queue</div>
+    <div class="q-scroll" id="q-scroll">
+      <div style="padding:16px;text-align:center;color:var(--muted);font-size:10px;font-family:var(--mono);">Upload a docx to begin.</div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main>
+    <div class="toolbar">
+      <div class="t-title" id="t-title">Upload a document to start</div>
+      <div class="t-right">
+        <button class="btn purple" id="push-all-btn" disabled onclick="pushAll()">⬆ Push All Matched</button>
+      </div>
+    </div>
+
+    <div class="content" id="content">
+      <div class="empty" id="empty-state">
+        <div class="empty-ico">🔬</div>
+        <div class="empty-txt">Smart Figure Pipeline</div>
+        <div class="empty-sub">Upload docx → pipeline auto-reads questions, matches Firebase, crops figures</div>
+      </div>
+
+      <!-- review wrapper (hidden until pipeline runs) -->
+      <div class="review-wrap" id="review-wrap" style="display:none">
+        <div class="page-pane">
+          <div class="pane-hd">
+            <div class="pane-lbl">Full page (from docx)</div>
+            <span class="tag" id="page-tag">—</span>
+          </div>
+          <div class="pane-body">
+            <img id="page-img" class="page-img" src="" alt="" />
+          </div>
+        </div>
+        <div class="qs-pane">
+          <div class="pane-hd">
+            <div class="pane-lbl">Detected questions — review &amp; push</div>
+            <span class="tag gold" id="match-count">0 matched</span>
+          </div>
+          <div class="qs-scroll" id="qs-scroll">
+            <!-- question cards injected here -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="stats-bar">
+      <div class="stat"><div class="sdot" style="background:var(--muted)"></div><span id="st-pending">0 pending</span></div>
+      <div class="stat"><div class="sdot" style="background:var(--green)"></div><span id="st-matched">0 matched</span></div>
+      <div class="stat"><div class="sdot" style="background:var(--orange)"></div><span id="st-review">0 needs review</span></div>
+      <div class="stat"><div class="sdot" style="background:var(--purple)"></div><span id="st-pushed">0 pushed</span></div>
+      <div class="stat"><div class="sdot" style="background:var(--red)"></div><span id="st-err">0 errors</span></div>
+    </div>
+  </main>
+
+  <!-- LOG -->
+  <div class="log-panel">
+    <div class="log-hd">
+      <div class="log-title">Activity Log</div>
+      <button class="log-clr" onclick="clearLog()">clear</button>
+    </div>
+    <div class="log-body" id="log"></div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════
+const S = {
   pages: [],       // { id, dataUrl, blob, mime, questions:[] }
   fbQuestions: {}, // { qNum: { text, subject, ... } }
   currentPage: null,
