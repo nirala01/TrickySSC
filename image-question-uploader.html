@@ -1,0 +1,1131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TrickySSC — Image Question Uploader</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+
+  :root {
+    --bg: #0f0f11;
+    --surface: #18181c;
+    --surface2: #222228;
+    --border: #2e2e38;
+    --accent: #6366f1;
+    --accent2: #22d3ee;
+    --green: #22c55e;
+    --red: #f43f5e;
+    --yellow: #f59e0b;
+    --text: #e4e4ef;
+    --muted: #6b7280;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    min-height: 100vh;
+  }
+
+  /* ── Header ── */
+  .header {
+    border-bottom: 1px solid var(--border);
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--surface);
+    position: sticky; top: 0; z-index: 100;
+  }
+  .header-logo {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--accent2);
+    letter-spacing: .05em;
+  }
+  .header-title {
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .header-sep { flex: 1; }
+  .badge {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--muted);
+  }
+
+  /* ── Layout ── */
+  .layout { display: flex; height: calc(100vh - 49px); }
+
+  /* ── Left panel: config + upload ── */
+  .left-panel {
+    width: 300px;
+    min-width: 300px;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    background: var(--surface);
+  }
+
+  /* ── Right panel: questions ── */
+  .right-panel {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 24px;
+    background: var(--bg);
+  }
+
+  /* ── Section label ── */
+  .section-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+
+  /* ── Form fields ── */
+  label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  select, input[type=text], input[type=date] {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    padding: 7px 10px;
+    font-family: var(--sans);
+    font-size: 13px;
+    outline: none;
+    transition: border-color .15s;
+  }
+  select:focus, input:focus { border-color: var(--accent); }
+  .field { margin-bottom: 12px; }
+
+  /* ── Drop zone ── */
+  .drop-zone {
+    border: 2px dashed var(--border);
+    border-radius: 10px;
+    padding: 28px 16px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color .2s, background .2s;
+    position: relative;
+  }
+  .drop-zone:hover, .drop-zone.drag-over {
+    border-color: var(--accent);
+    background: rgba(99,102,241,.05);
+  }
+  .drop-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+  .drop-zone-icon { font-size: 28px; margin-bottom: 8px; }
+  .drop-zone-text { font-size: 12px; color: var(--muted); line-height: 1.5; }
+  .drop-zone-text strong { color: var(--accent2); display: block; font-size: 13px; }
+
+  /* ── Buttons ── */
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 16px; border-radius: 6px;
+    font-family: var(--sans); font-size: 13px; font-weight: 500;
+    cursor: pointer; border: none; transition: all .15s;
+  }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: #4f46e5; }
+  .btn-primary:disabled { background: #2d2d3d; color: var(--muted); cursor: not-allowed; }
+  .btn-success { background: var(--green); color: #fff; }
+  .btn-success:hover { background: #16a34a; }
+  .btn-success:disabled { background: #1a2e1a; color: #4a7a4a; cursor: not-allowed; }
+  .btn-outline {
+    background: transparent; border: 1px solid var(--border);
+    color: var(--text);
+  }
+  .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-danger { background: var(--red); color: #fff; }
+  .btn-danger:hover { background: #e11d48; }
+  .btn-sm { padding: 5px 10px; font-size: 12px; }
+  .btn-full { width: 100%; justify-content: center; }
+
+  /* ── Progress ── */
+  .progress-wrap { margin-top: 12px; display: none; }
+  .progress-label { font-size: 11px; color: var(--muted); margin-bottom: 6px; font-family: var(--mono); }
+  .progress-bar { height: 3px; background: var(--surface2); border-radius: 2px; overflow: hidden; }
+  .progress-fill { height: 100%; background: var(--accent); transition: width .3s; border-radius: 2px; }
+
+  /* ── Stats bar ── */
+  .stats-bar {
+    display: flex; gap: 16px; margin-bottom: 20px;
+    padding: 12px 16px;
+    background: var(--surface);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+  }
+  .stat { display: flex; flex-direction: column; align-items: center; }
+  .stat-num { font-family: var(--mono); font-size: 20px; font-weight: 600; color: var(--text); }
+  .stat-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-top: 2px; }
+  .stat-num.green { color: var(--green); }
+  .stat-num.yellow { color: var(--yellow); }
+  .stat-num.red { color: var(--red); }
+  .stats-bar .sep { width: 1px; background: var(--border); margin: 0 4px; }
+
+  /* ── Question card ── */
+  .q-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 12px;
+    overflow: hidden;
+    transition: border-color .2s;
+  }
+  .q-card.pushed { border-color: var(--green); }
+  .q-card.error { border-color: var(--red); }
+  .q-card.pushing { border-color: var(--yellow); }
+
+  .q-card-header {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 16px;
+    cursor: pointer;
+    user-select: none;
+    border-bottom: 1px solid var(--border);
+  }
+  .q-card-header:hover { background: var(--surface2); }
+  .q-num {
+    font-family: var(--mono); font-size: 13px; font-weight: 600;
+    color: var(--accent2); min-width: 28px;
+  }
+  .q-text-preview {
+    flex: 1; font-size: 12px; color: var(--muted);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    max-width: 300px;
+  }
+  .q-status {
+    font-size: 11px; padding: 2px 8px; border-radius: 12px;
+    font-family: var(--mono);
+  }
+  .status-pending { background: var(--surface2); color: var(--muted); }
+  .status-pushing { background: rgba(245,158,11,.15); color: var(--yellow); }
+  .status-pushed  { background: rgba(34,197,94,.15);  color: var(--green); }
+  .status-error   { background: rgba(244,63,94,.15);  color: var(--red); }
+  .q-toggle { color: var(--muted); font-size: 11px; margin-left: 4px; transition: transform .2s; }
+  .q-toggle.open { transform: rotate(180deg); }
+
+  .q-card-body { padding: 16px; display: none; }
+  .q-card-body.open { display: block; }
+
+  /* ── Image grid ── */
+  .img-section { margin-bottom: 16px; }
+  .img-section-label {
+    font-size: 11px; color: var(--muted);
+    font-family: var(--mono); margin-bottom: 8px;
+    text-transform: uppercase; letter-spacing: .06em;
+  }
+  .img-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+  .img-slot {
+    position: relative;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    background: var(--surface2);
+    cursor: pointer;
+  }
+  .img-slot img {
+    display: block;
+    max-width: 160px;
+    max-height: 120px;
+    object-fit: contain;
+    padding: 6px;
+  }
+  .img-slot-label {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    background: rgba(0,0,0,.7);
+    font-size: 10px; text-align: center;
+    padding: 2px; font-family: var(--mono);
+    color: var(--muted);
+  }
+  .img-slot-remove {
+    position: absolute; top: 3px; right: 3px;
+    background: rgba(244,63,94,.8); border: none;
+    border-radius: 50%; width: 16px; height: 16px;
+    font-size: 9px; cursor: pointer; color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; transition: opacity .15s;
+  }
+  .img-slot:hover .img-slot-remove { opacity: 1; }
+  .img-add-btn {
+    border: 1px dashed var(--border); border-radius: 6px;
+    width: 80px; height: 60px;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    cursor: pointer; color: var(--muted); font-size: 18px;
+    background: transparent; transition: border-color .15s, color .15s;
+  }
+  .img-add-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .img-add-btn span { font-size: 10px; margin-top: 2px; }
+
+  /* ── Image type selector for "assign" ── */
+  .img-type-row {
+    display: flex; gap: 6px; flex-wrap: wrap; align-items: center;
+    margin-top: 8px;
+  }
+  .img-type-btn {
+    padding: 3px 10px; border-radius: 4px; font-size: 11px;
+    border: 1px solid var(--border); background: transparent;
+    color: var(--muted); cursor: pointer; font-family: var(--mono);
+    transition: all .15s;
+  }
+  .img-type-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(99,102,241,.1); }
+
+  /* ── Unassigned images strip ── */
+  .unassigned-strip {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 20px;
+  }
+  .unassigned-strip-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .unassigned-strip-title {
+    font-family: var(--mono); font-size: 11px;
+    color: var(--yellow); text-transform: uppercase; letter-spacing: .08em;
+  }
+  .unassigned-imgs {
+    display: flex; flex-wrap: wrap; gap: 8px;
+  }
+  .unassigned-img {
+    border: 1px solid var(--border); border-radius: 6px;
+    background: var(--surface2); cursor: grab;
+    position: relative; overflow: hidden;
+  }
+  .unassigned-img.selected { border-color: var(--accent); background: rgba(99,102,241,.1); }
+  .unassigned-img img {
+    display: block; max-width: 100px; max-height: 80px;
+    object-fit: contain; padding: 4px;
+  }
+  .unassigned-img-name {
+    font-size: 9px; text-align: center; color: var(--muted);
+    padding: 2px; font-family: var(--mono);
+    border-top: 1px solid var(--border);
+  }
+
+  /* ── Push all bar ── */
+  .push-bar {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  /* ── Log ── */
+  .log-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    max-height: 120px;
+    overflow-y: auto;
+    display: none;
+    margin-top: 12px;
+  }
+  .log-box.visible { display: block; }
+  .log-line { padding: 1px 0; }
+  .log-line.ok { color: var(--green); }
+  .log-line.err { color: var(--red); }
+  .log-line.info { color: var(--accent2); }
+
+  /* ── Toast ── */
+  .toast {
+    position: fixed; bottom: 24px; right: 24px;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 10px 16px;
+    font-size: 13px; color: var(--text);
+    box-shadow: 0 8px 24px rgba(0,0,0,.4);
+    transform: translateY(16px); opacity: 0;
+    transition: all .25s; pointer-events: none;
+    max-width: 320px; z-index: 999;
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+  .toast.success { border-color: var(--green); color: var(--green); }
+  .toast.error   { border-color: var(--red);   color: var(--red); }
+
+  /* ── Empty state ── */
+  .empty-state {
+    text-align: center; padding: 60px 20px; color: var(--muted);
+  }
+  .empty-state-icon { font-size: 40px; margin-bottom: 12px; }
+  .empty-state-text { font-size: 14px; }
+
+  /* ── Lightbox ── */
+  .lightbox {
+    position: fixed; inset: 0; background: rgba(0,0,0,.85);
+    display: none; align-items: center; justify-content: center;
+    z-index: 200;
+  }
+  .lightbox.open { display: flex; }
+  .lightbox img { max-width: 90vw; max-height: 90vh; border-radius: 8px; }
+  .lightbox-close {
+    position: absolute; top: 20px; right: 24px;
+    background: none; border: none; color: #fff; font-size: 24px; cursor: pointer;
+  }
+
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <span class="header-logo">TrickySSC</span>
+  <span class="header-sep"></span>
+  <span class="badge" id="badgeLoaded">0 questions loaded</span>
+  <span class="badge" id="badgePushed" style="color:var(--green)">0 pushed</span>
+</div>
+
+<div class="layout">
+
+  <!-- ── LEFT PANEL ── -->
+  <div class="left-panel">
+
+    <div>
+      <div class="section-label">Paper Details</div>
+      <div class="field">
+        <label>Exam</label>
+        <select id="cfgExam">
+          <option>SSC CGL</option><option>SSC CHSL</option>
+          <option>SSC MTS</option><option>SSC GD</option>
+          <option>SSC CPO</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Tier</label>
+        <select id="cfgTier">
+          <option value="Tier I (CBT)">Tier I (CBT)</option>
+          <option value="Tier II (CBT)">Tier II (CBT)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Year</label>
+        <select id="cfgYear">
+          <option>2024</option><option>2023</option><option>2022</option>
+          <option>2021</option><option>2020</option><option>2019</option>
+          <option>2018</option><option selected>2017</option><option>2016</option>
+          <option>2015</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Shift</label>
+        <select id="cfgShift">
+          <option>Shift 1</option><option selected>Shift 2</option><option>Shift 3</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Held On (date)</label>
+        <input type="date" id="cfgDate" value="2017-08-09">
+      </div>
+      <div class="field">
+        <label>Subject</label>
+        <select id="cfgSubject" style="display:none">
+          <option value="">All Subjects</option>
+          <option value="General Intelligence &amp; Reasoning">General Intelligence &amp; Reasoning</option>
+          <option value="Quantitative Aptitude">Quantitative Aptitude</option>
+          <option value="English Language">English Language</option>
+          <option value="General Awareness">General Awareness</option>
+        </select>
+        <div style="font-size:11px;color:var(--muted);padding:6px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;line-height:1.5">
+          Set per question ↓<br>
+          <span style="color:var(--accent2)">Expand each card to assign subject</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>Type</label>
+        <select id="cfgType">
+          <option value="PYQ (Previous Year)">PYQ</option>
+        </select>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-label">Upload DOCX</div>
+      <div class="drop-zone" id="dropZone">
+        <input type="file" id="fileInput" accept=".docx">
+        <div class="drop-zone-icon">📄</div>
+        <div class="drop-zone-text">
+          <strong>Click or drop DOCX here</strong>
+          The paper with inline images
+        </div>
+      </div>
+      <div class="progress-wrap" id="parseProgress">
+        <div class="progress-label" id="parseLabel">Parsing…</div>
+        <div class="progress-bar"><div class="progress-fill" id="parseFill" style="width:0%"></div></div>
+      </div>
+    </div>
+
+    <div id="unassignedWrap" style="display:none">
+      <div class="section-label">Unassigned Images</div>
+      <div id="unassignedList" class="unassigned-imgs"></div>
+      <div style="margin-top:8px; font-size:11px; color:var(--muted)">
+        Click an image here, then click the slot you want to assign it to
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── RIGHT PANEL ── -->
+  <div class="right-panel">
+
+    <div id="emptyState" class="empty-state">
+      <div class="empty-state-icon">🗂️</div>
+      <div class="empty-state-text">Upload a DOCX to extract questions</div>
+    </div>
+
+    <div id="mainContent" style="display:none">
+
+      <div class="stats-bar">
+        <div class="stat"><span class="stat-num" id="statTotal">0</span><span class="stat-label">Total</span></div>
+        <div class="sep"></div>
+        <div class="stat"><span class="stat-num yellow" id="statWithImg">0</span><span class="stat-label">Has Image</span></div>
+        <div class="sep"></div>
+        <div class="stat"><span class="stat-num green" id="statPushed">0</span><span class="stat-label">Pushed</span></div>
+        <div class="sep"></div>
+        <div class="stat"><span class="stat-num red" id="statPending">0</span><span class="stat-label">Pending</span></div>
+      </div>
+
+      <div class="push-bar">
+        <button class="btn btn-success" id="btnPushAll" onclick="pushAll()">
+          🚀 Push All to Firebase
+        </button>
+        <button class="btn btn-outline btn-sm" onclick="expandAll()">Expand All</button>
+        <button class="btn btn-outline btn-sm" onclick="collapseAll()">Collapse All</button>
+      </div>
+
+      <div class="log-box" id="logBox"></div>
+
+      <div id="qList"></div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Lightbox -->
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+  <button class="lightbox-close">✕</button>
+  <img id="lightboxImg" src="">
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Firebase SDK -->
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+import { getFirestore, collection, addDoc, doc, setDoc }
+  from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+const firebaseConfig = {
+  apiKey: "AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",
+  authDomain: "trickyssc-17bb3.firebaseapp.com",
+  projectId: "trickyssc-17bb3",
+  storageBucket: "trickyssc-17bb3.firebasestorage.app",
+  messagingSenderId: "450627057220",
+  appId: "1:450627057220:web:366267bf437d94f20c6e11"
+};
+
+const app = initializeApp(firebaseConfig);
+const db  = getFirestore(app);
+
+const IMGBB_API_KEY = '2d19f5c584081a80d383c682a9974d05';
+
+// ── State ──────────────────────────────────────────────────────────────────
+let questions = [];           // [{qNum, text, images:{q:blob, optA:blob,...,sol:blob}, status}]
+let allImgBlobs = {};         // {imageName: blob}  — all imgs from docx
+let selectedUnassigned = null; // name of clicked unassigned image
+let pushCount = 0;
+
+// ── Toast ─────────────────────────────────────────────────────────────────
+function toast(msg, type='info') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast show ' + type;
+  setTimeout(() => el.className = 'toast', 2800);
+}
+window.toast = toast;
+
+// ── Log ───────────────────────────────────────────────────────────────────
+function log(msg, type='info') {
+  const box = document.getElementById('logBox');
+  box.classList.add('visible');
+  const line = document.createElement('div');
+  line.className = 'log-line ' + type;
+  line.textContent = msg;
+  box.appendChild(line);
+  box.scrollTop = box.scrollHeight;
+}
+
+// ── DOCX Parser ───────────────────────────────────────────────────────────
+document.getElementById('fileInput').addEventListener('change', e => {
+  const f = e.target.files[0];
+  if (f) parseDOCX(f);
+});
+const dz = document.getElementById('dropZone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+dz.addEventListener('drop', e => {
+  e.preventDefault(); dz.classList.remove('drag-over');
+  const f = e.dataTransfer.files[0];
+  if (f && f.name.endsWith('.docx')) parseDOCX(f);
+});
+
+async function parseDOCX(file) {
+  const prog = document.getElementById('parseProgress');
+  const fill = document.getElementById('parseFill');
+  const label = document.getElementById('parseLabel');
+  prog.style.display = 'block';
+  fill.style.width = '10%';
+  label.textContent = 'Reading DOCX…';
+
+  try {
+    // Read as ArrayBuffer → JSZip
+    const buf = await file.arrayBuffer();
+    fill.style.width = '30%';
+
+    // Use JSZip (loaded below)
+    const zip = await JSZip.loadAsync(buf);
+    fill.style.width = '50%';
+    label.textContent = 'Extracting images…';
+
+    // ── Extract all media images ──
+    allImgBlobs = {};
+    const mediaFiles = Object.keys(zip.files).filter(f => f.startsWith('word/media/'));
+    for (const mf of mediaFiles) {
+      const blob = await zip.files[mf].async('blob');
+      const name = mf.split('/').pop();
+      allImgBlobs[name] = blob;
+    }
+
+    fill.style.width = '65%';
+    label.textContent = 'Parsing document structure…';
+
+    // ── Parse document.xml ──
+    const docXml = await zip.files['word/document.xml'].async('string');
+    const relsXml = await zip.files['word/_rels/document.xml.rels'].async('string');
+
+    const parser = new DOMParser();
+    const relsDoc = parser.parseFromString(relsXml, 'text/xml');
+    const docDOM  = parser.parseFromString(docXml,  'text/xml');
+
+    // rId → image filename
+    const ridMap = {};
+    relsDoc.querySelectorAll('Relationship').forEach(rel => {
+      const id  = rel.getAttribute('Id');
+      const tgt = rel.getAttribute('Target') || '';
+      if (tgt.includes('media/')) ridMap[id] = tgt.split('/').pop();
+    });
+
+    // ── Walk paragraphs ──
+    const NS_W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+    const NS_A = 'http://schemas.openxmlformats.org/drawingml/2006/main';
+    const NS_R = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+
+    const paragraphs = docDOM.getElementsByTagNameNS(NS_W, 'p');
+    const rawParas = [];
+
+    for (const para of paragraphs) {
+      // Extract text
+      let text = '';
+      for (const t of para.getElementsByTagNameNS(NS_W, 't')) {
+        text += t.textContent;
+      }
+      text = text.trim();
+
+      // Extract embedded images
+      const imgs = [];
+      for (const blip of para.getElementsByTagNameNS(NS_A, 'blip')) {
+        const rid = blip.getAttributeNS(NS_R, 'embed') || blip.getAttribute('r:embed');
+        if (rid && ridMap[rid]) imgs.push(ridMap[rid]);
+      }
+
+      if (text || imgs.length) rawParas.push({ text, imgs });
+    }
+
+    fill.style.width = '80%';
+    label.textContent = 'Building question map…';
+
+    // ── Group into questions ──
+    questions = [];
+    const usedImgs = new Set();
+    let current = null;
+
+    for (const para of rawParas) {
+      const qMatch = para.text.match(/^Q(\d+)\.\s*(.*)/i);
+
+      if (qMatch) {
+        if (current) questions.push(current);
+        current = {
+          qNum:   parseInt(qMatch[1]),
+          text:   qMatch[2].trim(),
+          imgs:   {},      // {q: name, optA: name, optB: name, optC: name, optD: name, sol: name}
+          optText: { A:'', B:'', C:'', D:'' },
+          correct: '',
+          status: 'pending',
+          docId: null,
+        };
+        // Images inline with Q line
+        para.imgs.forEach((img, i) => {
+          const key = i === 0 ? 'q' : `opt${String.fromCharCode(65+i-1)}`;
+          current.imgs[key] = img;
+          usedImgs.add(img);
+        });
+
+      } else if (current) {
+        // Option line: "(1) X(2) Y(3) Z(4) W"  or  "(1) [img](2) [img]..."
+        const optLine = para.text.match(/\(1\)|\(A\)/i);
+        if (optLine) {
+          // Parse text options
+          const opts = para.text.match(/\([1-4ABCD]\)\s*([^(]*)/gi) || [];
+          opts.forEach((o, i) => {
+            const letter = String.fromCharCode(65 + i);
+            const val = o.replace(/^\([^)]+\)\s*/, '').trim();
+            current.optText[letter] = val;
+          });
+          // Images in this paragraph = option images
+          para.imgs.forEach((img, i) => {
+            const key = `opt${String.fromCharCode(65+i)}`;
+            current.imgs[key] = img;
+            usedImgs.add(img);
+          });
+
+        } else if (para.text.startsWith('Correct Option:')) {
+          const m = para.text.match(/\((\d)\)/);
+          if (m) current.correct = String.fromCharCode(64 + parseInt(m[1]));
+
+        } else {
+          // Continuation of question text or standalone image paragraph
+          if (para.imgs.length && !current.imgs.q) {
+            current.imgs.q = para.imgs[0];
+            usedImgs.add(para.imgs[0]);
+            para.imgs.slice(1).forEach((img,i) => {
+              const key = `opt${String.fromCharCode(65+i)}`;
+              current.imgs[key] = img; usedImgs.add(img);
+            });
+          } else if (para.imgs.length) {
+            // Additional images — assign as remaining opts
+            para.imgs.forEach((img,i) => {
+              const letters = ['A','B','C','D'];
+              for (const l of letters) {
+                if (!current.imgs[`opt${l}`]) { current.imgs[`opt${l}`] = img; usedImgs.add(img); break; }
+              }
+            });
+          }
+          if (para.text && !para.text.match(/\[figure\]/i)) {
+            current.text += ' ' + para.text;
+          }
+        }
+      }
+    }
+    if (current) questions.push(current);
+
+    // ── Find unassigned images ──
+    const unassigned = Object.keys(allImgBlobs).filter(n => !usedImgs.has(n));
+
+    fill.style.width = '100%';
+    label.textContent = `✅ Done — ${questions.length} questions, ${Object.keys(allImgBlobs).length} images`;
+    setTimeout(() => { prog.style.display = 'none'; }, 2000);
+
+    renderAll(unassigned);
+    log(`Loaded ${questions.length} questions, ${Object.keys(allImgBlobs).length} images`, 'info');
+
+  } catch(err) {
+    label.textContent = '❌ Error: ' + err.message;
+    fill.style.width = '100%';
+    fill.style.background = 'var(--red)';
+    console.error(err);
+  }
+}
+
+// ── Render ────────────────────────────────────────────────────────────────
+function blobToURL(blob) {
+  return URL.createObjectURL(blob);
+}
+
+function renderAll(unassigned=[]) {
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('mainContent').style.display = 'block';
+
+  updateStats();
+  document.getElementById('badgeLoaded').textContent = questions.length + ' questions loaded';
+
+  // Unassigned
+  if (unassigned.length > 0) {
+    document.getElementById('unassignedWrap').style.display = 'block';
+    const ul = document.getElementById('unassignedList');
+    ul.innerHTML = '';
+    unassigned.forEach(name => {
+      const blob = allImgBlobs[name];
+      const url  = blobToURL(blob);
+      const el   = document.createElement('div');
+      el.className = 'unassigned-img';
+      el.dataset.name = name;
+      el.innerHTML = `<img src="${url}"><div class="unassigned-img-name">${name}</div>`;
+      el.addEventListener('click', () => selectUnassigned(name, el));
+      ul.appendChild(el);
+    });
+  }
+
+  // Question list
+  const list = document.getElementById('qList');
+  list.innerHTML = '';
+  questions.forEach((q, idx) => {
+    list.appendChild(makeCard(q, idx));
+  });
+}
+
+function makeCard(q, idx) {
+  const card = document.createElement('div');
+  card.className = 'q-card';
+  card.id = 'card-' + idx;
+
+  const imgKeys = Object.keys(q.imgs);
+  const hasImg = imgKeys.length > 0;
+
+  card.innerHTML = `
+    <div class="q-card-header" onclick="toggleCard(${idx})">
+      <span class="q-num">Q${q.qNum}</span>
+      <span class="q-text-preview">${q.text.slice(0,70) || '[image-based]'}…</span>
+      ${hasImg ? `<span style="font-size:11px;color:var(--accent2);margin-right:6px">🖼 ${imgKeys.length}</span>` : ''}
+      <span class="q-status status-pending" id="status-${idx}">pending</span>
+      <span class="q-toggle" id="toggle-${idx}">▼</span>
+    </div>
+    <div class="q-card-body" id="body-${idx}">
+      ${renderCardBody(q, idx)}
+    </div>
+  `;
+  return card;
+}
+
+function renderCardBody(q, idx) {
+  const imgSlots = ['q','optA','optB','optC','optD','sol'];
+  const slotLabels = { q:'Question Image', optA:'Option A', optB:'Option B',
+                       optC:'Option C', optD:'Option D', sol:'Solution Image' };
+
+  let imgHTML = '';
+
+  // Assigned images
+  const assignedKeys = Object.keys(q.imgs);
+  if (assignedKeys.length > 0) {
+    imgHTML += `<div class="img-section">
+      <div class="img-section-label">Assigned Images</div>
+      <div class="img-grid">`;
+    assignedKeys.forEach(key => {
+      const name = q.imgs[key];
+      const blob = allImgBlobs[name];
+      if (!blob) return;
+      const url = blobToURL(blob);
+      imgHTML += `
+        <div class="img-slot" onclick="openLightbox('${url}')" title="${slotLabels[key]||key}">
+          <img src="${url}">
+          <div class="img-slot-label">${slotLabels[key]||key}</div>
+          <button class="img-slot-remove" onclick="event.stopPropagation();removeImg(${idx},'${key}')" title="Remove">✕</button>
+        </div>`;
+    });
+    imgHTML += `</div></div>`;
+  }
+
+  // Add slot buttons
+  imgHTML += `<div class="img-section">
+    <div class="img-section-label">Add / Reassign</div>
+    <div class="img-type-row">`;
+  imgSlots.forEach(key => {
+    const active = q.imgs[key] ? 'active' : '';
+    imgHTML += `<button class="img-type-btn ${active}" id="typebtn-${idx}-${key}"
+      onclick="setSlotTarget(${idx},'${key}')">${slotLabels[key]||key}</button>`;
+  });
+  imgHTML += `</div>
+    <div style="font-size:11px;color:var(--muted);margin-top:6px" id="slothint-${idx}">
+      Click a slot above, then click an unassigned image — or upload directly:
+    </div>
+    <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
+      <input type="file" accept="image/*" id="directUpload-${idx}"
+        style="display:none" onchange="handleDirectUpload(event,${idx})">
+      <button class="btn btn-outline btn-sm" onclick="document.getElementById('directUpload-${idx}').click()">
+        📎 Upload image for selected slot
+      </button>
+    </div>
+  </div>`;
+
+  // Options text
+  const opts = q.optText;
+  const hasOptText = Object.values(opts).some(v => v);
+  if (hasOptText) {
+    imgHTML += `<div class="img-section">
+      <div class="img-section-label">Options (text)</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px">`;
+    ['A','B','C','D'].forEach(l => {
+      const active = q.correct === l ? 'style="color:var(--green)"' : '';
+      imgHTML += `<div ${active}><b>${l}:</b> ${opts[l]||'—'} ${q.correct===l?'✓':''}</div>`;
+    });
+    imgHTML += `</div></div>`;
+  }
+
+  // Subject selector
+  imgHTML += `<div class="img-section" style="margin-top:12px">
+    <div class="img-section-label">Subject</div>
+    <select id="qSubject-${idx}" style="background:var(--surface2);border:1px solid var(--accent);border-radius:6px;color:var(--text);padding:6px 10px;font-size:12px;width:100%;outline:none;" onchange="this.style.borderColor=this.value?'var(--green)':'var(--accent)'">
+      <option value="">⚠ Select subject…</option>
+      <option value="General Intelligence &amp; Reasoning">General Intelligence &amp; Reasoning</option>
+      <option value="Quantitative Aptitude">Quantitative Aptitude</option>
+      <option value="English Language">English Language</option>
+      <option value="General Awareness">General Awareness</option>
+    </select>
+  </div>`;
+
+  // Push button
+  imgHTML += `
+    <div style="margin-top:14px;display:flex;gap:8px;align-items:center">
+      <button class="btn btn-primary btn-sm" id="pushbtn-${idx}" onclick="pushOne(${idx})">
+        ⬆ Push to Firebase
+      </button>
+      <span style="font-size:11px;color:var(--muted)" id="pushmsg-${idx}"></span>
+    </div>`;
+
+  return imgHTML;
+}
+
+// ── Slot targeting ────────────────────────────────────────────────────────
+let activeSlot = null;  // {idx, key}
+
+window.setSlotTarget = (idx, key) => {
+  activeSlot = { idx, key };
+  document.querySelectorAll('.img-type-btn').forEach(b => b.style.outline = '');
+  const btn = document.getElementById(`typebtn-${idx}-${key}`);
+  if (btn) btn.style.outline = '2px solid var(--accent2)';
+  document.getElementById(`slothint-${idx}`).textContent =
+    `Ready — click an unassigned image to assign it to "${({q:'Question',optA:'Option A',optB:'Option B',optC:'Option C',optD:'Option D',sol:'Solution'})[key]}"`;
+};
+
+function selectUnassigned(name, el) {
+  if (activeSlot) {
+    // Assign to active slot
+    const { idx, key } = activeSlot;
+    questions[idx].imgs[key] = name;
+    refreshCard(idx);
+    el.remove();
+    if (!document.getElementById('unassignedList').children.length) {
+      document.getElementById('unassignedWrap').style.display = 'none';
+    }
+    activeSlot = null;
+    toast(`Assigned ${name} to Q${questions[idx].qNum} → ${key}`, 'success');
+  } else {
+    // Just highlight
+    document.querySelectorAll('.unassigned-img').forEach(e => e.classList.remove('selected'));
+    el.classList.add('selected');
+    selectedUnassigned = name;
+    toast(`Selected ${name} — now click a slot on a question card`, 'info');
+  }
+}
+
+window.handleDirectUpload = (e, idx) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  if (!activeSlot || activeSlot.idx !== idx) {
+    toast('First click a slot button (e.g. "Question Image") on this card', 'error');
+    return;
+  }
+  const key  = activeSlot.key;
+  const name = `upload_q${questions[idx].qNum}_${key}_${file.name}`;
+  allImgBlobs[name] = file;
+  questions[idx].imgs[key] = name;
+  refreshCard(idx);
+  activeSlot = null;
+  toast(`Uploaded and assigned to Q${questions[idx].qNum} → ${key}`, 'success');
+};
+
+window.removeImg = (idx, key) => {
+  delete questions[idx].imgs[key];
+  refreshCard(idx);
+};
+
+function refreshCard(idx) {
+  const body = document.getElementById(`body-${idx}`);
+  if (body) body.innerHTML = renderCardBody(questions[idx], idx);
+  updateStats();
+}
+
+// ── Toggle ────────────────────────────────────────────────────────────────
+window.toggleCard = (idx) => {
+  const body   = document.getElementById('body-'+idx);
+  const toggle = document.getElementById('toggle-'+idx);
+  const open   = body.classList.toggle('open');
+  toggle.classList.toggle('open', open);
+};
+window.expandAll   = () => questions.forEach((_,i) => { document.getElementById('body-'+i).classList.add('open'); document.getElementById('toggle-'+i).classList.add('open'); });
+window.collapseAll = () => questions.forEach((_,i) => { document.getElementById('body-'+i).classList.remove('open'); document.getElementById('toggle-'+i).classList.remove('open'); });
+
+// ── Lightbox ──────────────────────────────────────────────────────────────
+window.openLightbox = (url) => {
+  document.getElementById('lightboxImg').src = url;
+  document.getElementById('lightbox').classList.add('open');
+};
+window.closeLightbox = () => document.getElementById('lightbox').classList.remove('open');
+
+// ── ImgBB upload ──────────────────────────────────────────────────────────
+async function uploadImgBB(blob, filename) {
+  const fd = new FormData();
+  fd.append('image', blob, filename);
+  fd.append('key', IMGBB_API_KEY);
+  const r = await fetch('https://api.imgbb.com/1/upload', { method:'POST', body: fd });
+  const d = await r.json();
+  if (d.success) return d.data.url;
+  throw new Error('ImgBB: ' + (d.error?.message || 'failed'));
+}
+
+// ── Push one question ─────────────────────────────────────────────────────
+window.pushOne = async (idx) => {
+  const q   = questions[idx];
+  const btn = document.getElementById(`pushbtn-${idx}`);
+  const msg = document.getElementById(`pushmsg-${idx}`);
+  const statusEl = document.getElementById(`status-${idx}`);
+  const card = document.getElementById(`card-${idx}`);
+
+  btn.disabled = true;
+  btn.textContent = '⏳ Uploading…';
+  statusEl.className = 'q-status status-pushing';
+  statusEl.textContent = 'pushing…';
+  card.classList.add('pushing');
+  msg.textContent = '';
+
+  try {
+    // Upload all images
+    const urls = {};
+    for (const [key, name] of Object.entries(q.imgs)) {
+      const blob = allImgBlobs[name];
+      if (!blob) continue;
+      msg.textContent = `Uploading ${key}…`;
+      const url = await uploadImgBB(blob, name);
+      urls[key] = url;
+      log(`Q${q.qNum} ${key} → ${url}`, 'ok');
+    }
+
+    // Build Firestore doc matching your existing schema exactly
+    const doc = {
+      exam:    document.getElementById('cfgExam').value,
+      tier:    document.getElementById('cfgTier').value,
+      year:    document.getElementById('cfgYear').value,
+      heldOn:  document.getElementById('cfgDate').value,
+      type:    document.getElementById('cfgType').value,
+      subject: document.getElementById(`qSubject-${idx}`)?.value || '',
+      chapter: '',
+      difficulty: 'Medium',
+      qNum:    q.qNum,
+      text:    q.text.trim(),
+      options: {
+        A: q.optText.A || '',
+        B: q.optText.B || '',
+        C: q.optText.C || '',
+        D: q.optText.D || '',
+      },
+      optionImages: {
+        A: urls.optA || '',
+        B: urls.optB || '',
+        C: urls.optC || '',
+        D: urls.optD || '',
+      },
+      correct:      q.correct || '',
+      explanation:  '',
+      solutionImage: urls.sol || '',
+      trick:        '',
+      imageUrl:     urls.q  || '',
+      createdAt:    new Date(),
+    };
+
+    const ref = await addDoc(collection(db, 'questions'), doc);
+    q.docId  = ref.id;
+    q.status = 'pushed';
+
+    card.classList.remove('pushing');
+    card.classList.add('pushed');
+    statusEl.className = 'q-status status-pushed';
+    statusEl.textContent = '✅ pushed';
+    btn.textContent = '✅ Done';
+    msg.textContent = 'ID: ' + ref.id.slice(0,8) + '…';
+    pushCount++;
+    updateStats();
+    document.getElementById('badgePushed').textContent = pushCount + ' pushed';
+    log(`Q${q.qNum} saved → Firestore ${ref.id}`, 'ok');
+    toast(`Q${q.qNum} pushed ✓`, 'success');
+
+  } catch(err) {
+    q.status = 'error';
+    card.classList.remove('pushing');
+    card.classList.add('error');
+    statusEl.className = 'q-status status-error';
+    statusEl.textContent = 'error';
+    btn.disabled = false;
+    btn.textContent = '⬆ Retry';
+    msg.textContent = err.message;
+    log(`Q${q.qNum} ERROR: ${err.message}`, 'err');
+    toast(`Q${q.qNum} failed: ${err.message}`, 'error');
+  }
+};
+
+// ── Push all ──────────────────────────────────────────────────────────────
+window.pushAll = async () => {
+  const pending = questions.map((q,i) => ({q,i})).filter(({q}) => q.status !== 'pushed');
+  if (!pending.length) { toast('All already pushed!', 'success'); return; }
+
+  const btn = document.getElementById('btnPushAll');
+  btn.disabled = true;
+  btn.textContent = `⏳ Pushing 0 / ${pending.length}…`;
+
+  for (let n = 0; n < pending.length; n++) {
+    const { i } = pending[n];
+    btn.textContent = `⏳ Pushing ${n+1} / ${pending.length}…`;
+    // Open card so user can see progress
+    document.getElementById('body-'+i).classList.add('open');
+    document.getElementById('toggle-'+i).classList.add('open');
+    await pushOne(i);
+    // Small delay to avoid rate limits
+    await new Promise(r => setTimeout(r, 400));
+  }
+
+  btn.disabled = false;
+  btn.textContent = '✅ All Pushed!';
+  toast(`All ${pending.length} questions pushed!`, 'success');
+};
+
+// ── Stats ─────────────────────────────────────────────────────────────────
+function updateStats() {
+  const total    = questions.length;
+  const withImg  = questions.filter(q => Object.keys(q.imgs).length > 0).length;
+  const pushed   = questions.filter(q => q.status === 'pushed').length;
+  const pending  = total - pushed;
+  document.getElementById('statTotal').textContent  = total;
+  document.getElementById('statWithImg').textContent = withImg;
+  document.getElementById('statPushed').textContent = pushed;
+  document.getElementById('statPending').textContent = pending;
+}
+</script>
+
+<!-- JSZip for DOCX reading -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+</body>
+</html>
