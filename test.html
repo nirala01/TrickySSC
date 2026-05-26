@@ -1204,7 +1204,7 @@ function renderQ(){
   normaliseQ(q); // ensure options/text are clean regardless of fetch path
   document.getElementById('qNumCurrent').textContent=currentQ+1;
   document.getElementById('qNumTotal').textContent=questions.length;
-  const rawText=q.text||q.question||'';
+  const rawText=(q.text||q.question||'').replace(/^\[FIGURE-BASED\]\s*/i,'');
   document.getElementById('qText').innerHTML=formatQText(rawText);
 
   // Image
@@ -1494,7 +1494,7 @@ window.submitTest=async()=>{
     </div></div>`:'';
     const trickHtml=q.trick?`<div style="border-radius:8px;overflow:hidden;margin-top:6px;"><div style="background:#DBEAFE;color:#1D4ED8;padding:7px 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;">⚡ Quick Trick</div><div style="background:#EFF6FF;padding:10px 12px;font-size:13px;color:#1E40AF;line-height:1.9;">${renderContent(q.trick)}</div></div>`:'';
     const conceptHtml=q.concept?`<div style="border-radius:8px;overflow:hidden;margin-top:6px;"><div style="background:#FED7AA;color:#C2410C;padding:7px 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;">🧠 Concept</div><div style="background:#FFF7ED;padding:10px 12px;font-size:13px;color:#7C2D12;line-height:1.9;">${renderContent(q.concept)}</div></div>`:'';
-    const rawRT=q.text||q.question||'';
+    const rawRT=(q.text||q.question||'').replace(/^\[FIGURE-BASED\]\s*/i,'');
     const reviewQHtml=formatQTextReview(rawRT,i+1);
     return `<div class="review-item ${status}">${reviewQHtml}${q.imageUrl?`<div style="text-align:center;margin:8px 0;"><img src="${q.imageUrl}" style="max-width:100%;max-height:220px;border-radius:8px;border:1px solid #E2E8F0;object-fit:contain;background:#F9FAFB;" onerror="this.style.display='none'"></div>`:''}${optsHtml}<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;background:${vBg};color:${vClr};font-size:13px;font-weight:600;margin-bottom:4px;">${vIcon} ${vText}</div>${solHtml}${trickHtml}${conceptHtml}</div>`;
   }).join('');
