@@ -472,7 +472,15 @@
     </div>
 
     <div>
-      <div class="section-label">Upload DOCX</div>
+      <div class="section-label">Step 1 — Load Paper</div>
+      <button class="btn btn-outline btn-full" id="btnLoadPaper" onclick="loadPaper()">
+        🔍 Load from Firebase
+      </button>
+      <div id="loadPaperStatus" style="margin-top:8px;font-size:11px;color:var(--muted);line-height:1.5;display:none"></div>
+    </div>
+
+    <div id="uploadDocxSection" style="display:none">
+      <div class="section-label">Step 2 — Upload DOCX</div>
       <div class="drop-zone" id="dropZone">
         <input type="file" id="fileInput" accept=".docx">
         <div class="drop-zone-icon">📄</div>
@@ -486,6 +494,8 @@
         <div class="progress-bar"><div class="progress-fill" id="parseFill" style="width:0%"></div></div>
       </div>
     </div>
+
+    </div><!-- end uploadDocxSection -->
 
     <div id="unassignedWrap" style="display:none">
       <div class="section-label">Unassigned Images</div>
@@ -502,7 +512,7 @@
 
     <div id="emptyState" class="empty-state">
       <div class="empty-state-icon">🗂️</div>
-      <div class="empty-state-text">Upload a DOCX to extract questions</div>
+      <div class="empty-state-text">Fill in Paper Details and click<br><strong style="color:var(--accent2)">Load from Firebase</strong></div>
     </div>
 
     <div id="mainContent" style="display:none">
@@ -519,7 +529,7 @@
 
       <div class="push-bar">
         <button class="btn btn-success" id="btnPushAll" onclick="pushAll()">
-          🚀 Push All to Firebase
+          🚀 Push Image Questions Only
         </button>
         <button class="btn btn-outline btn-sm" onclick="expandAll()">Expand All</button>
         <button class="btn btn-outline btn-sm" onclick="collapseAll()">Collapse All</button>
@@ -545,7 +555,7 @@
 <!-- Firebase SDK -->
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js';
-import { getFirestore, collection, addDoc } from 'https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js';
+import { getFirestore, collection, addDoc, query, where, getDocs, updateDoc, doc } from 'https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
   from 'https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js';
 
@@ -616,6 +626,89 @@ function log(msg, type='info') {
   box.appendChild(line);
   box.scrollTop = box.scrollHeight;
 }
+
+// ── Load Paper from Firebase ──────────────────────────────────────────────
+
+window.loadPaper = async () => {
+  const btn    = document.getElementById('btnLoadPaper');
+  const status = document.getElementById('loadPaperStatus');
+  btn.disabled = true;
+  btn.textContent = '⏳ Loading…';
+  status.style.display = 'block';
+  status.style.color = 'var(--muted)';
+
+  const exam  = document.getElementById('cfgExam').value;
+  const tier  = document.getElementById('cfgTier').value;
+  const year  = document.getElementById('cfgYear').value;
+  const heldOn = document.getElementById('cfgDate').value;
+  const shift = document.getElementById('cfgShift').value;
+  const lang  = document.getElementById('cfgLang').value;
+
+  // Build paperId slug matching your URL format
+  const examSlug  = exam.toLowerCase().replace(/\s+/g,'-');
+  const tierSlug  = tier.toLowerCase().replace(/\s*\(.*\)\s*/,'').trim()
+                       .replace(/tier\s*ii/,'tier2').replace(/tier\s*i/,'tier1');
+  const shiftSlug = shift.toLowerCase().replace(/\s+/g,'-');
+  const langSlug  = lang.toLowerCase().slice(0,2);
+  const paperId   = `${examSlug}_${year}_${tierSlug}_${shiftSlug}_${heldOn}_${langSlug}`;
+
+  status.textContent = `Looking for: ${paperId}`;
+
+  try {
+    // Query by paperId first (fast)
+    let snap = await getDocs(query(collection(db,'questions'), where('paperId','==',paperId)));
+
+    // Fallback: query by heldOn if paperId not set yet
+    if (snap.empty) {
+      status.textContent = 'paperId not found, trying heldOn…';
+      snap = await getDocs(query(collection(db,'questions'), where('heldOn','==',heldOn)));
+    }
+
+    if (snap.empty) {
+      status.style.color = 'var(--red)';
+      status.textContent = '❌ No questions found. Check date/exam fields.';
+      btn.disabled = false; btn.textContent = '🔍 Load from Firebase';
+      return;
+    }
+
+    // Build questions array from Firestore docs
+    questions = [];
+    pushCount = 0;
+    snap.forEach(d => {
+      const data = d.data();
+      questions.push({
+        qNum:     parseInt(data.qNum) || 0,
+        text:     (data.text||'').replace(/^\[FIGURE-BASED\]\s*/i,''),
+        firestoreId: d.id,         // real Firestore doc ID — use for direct update
+        imgs:     {},              // will be filled from DOCX
+        optText:  { A: data.options?.A||'', B: data.options?.B||'', C: data.options?.C||'', D: data.options?.D||'' },
+        correct:  data.correct||'',
+        existingImageUrl: data.imageUrl||'',
+        status:   'pending',
+        docId:    null,
+      });
+    });
+
+    questions.sort((a,b) => a.qNum - b.qNum);
+
+    status.style.color = 'var(--green)';
+    status.textContent = `✅ ${questions.length} questions loaded`;
+    btn.textContent = '✅ Loaded';
+
+    // Show DOCX upload section
+    document.getElementById('uploadDocxSection').style.display = 'block';
+
+    // Render question list (no images yet)
+    renderAll([]);
+    log(`Loaded ${questions.length} questions from Firebase (${paperId})`, 'info');
+
+  } catch(err) {
+    status.style.color = 'var(--red)';
+    status.textContent = '❌ Error: ' + err.message;
+    btn.disabled = false; btn.textContent = '🔍 Load from Firebase';
+    console.error(err);
+  }
+};
 
 // ── DOCX Parser ───────────────────────────────────────────────────────────
 document.getElementById('fileInput').addEventListener('change', e => {
@@ -707,7 +800,7 @@ async function parseDOCX(file) {
     label.textContent = 'Building question map…';
 
     // ── Group into questions ──
-    questions = [];
+    const docQuestions = [];
     const usedImgs = new Set();
     let current = null;
 
@@ -715,7 +808,7 @@ async function parseDOCX(file) {
       const qMatch = para.text.match(/^Q(\d+)\.\s*(.*)/i);
 
       if (qMatch) {
-        if (current) questions.push(current);
+        if (current) docQuestions.push(current);
         current = {
           qNum:   parseInt(qMatch[1]),
           text:   qMatch[2].trim(),
@@ -778,17 +871,40 @@ async function parseDOCX(file) {
         }
       }
     }
-    if (current) questions.push(current);
+    if (current) docQuestions.push(current);
 
     // ── Find unassigned images ──
     const unassigned = Object.keys(allImgBlobs).filter(n => !usedImgs.has(n));
+    // Store docQuestions for merge step below
 
     fill.style.width = '100%';
     label.textContent = `✅ Done — ${questions.length} questions, ${Object.keys(allImgBlobs).length} images`;
     setTimeout(() => { prog.style.display = 'none'; }, 2000);
 
-    renderAll(unassigned);
-    log(`Loaded ${questions.length} questions, ${Object.keys(allImgBlobs).length} images`, 'info');
+    // ── Merge DOCX images into already-loaded Firebase questions ──
+    if (questions.length > 0) {
+      // Build qNum → index map of loaded questions
+      const qMap = {};
+      questions.forEach((q, i) => { qMap[q.qNum] = i; });
+
+      // Assign extracted images to matching questions
+      let matched = 0;
+      docQuestions.forEach(dq => {
+        const idx = qMap[dq.qNum];
+        if (idx !== undefined) {
+          questions[idx].imgs = dq.imgs;
+          matched++;
+        }
+      });
+
+      log(`Matched ${matched} questions with images from DOCX`, 'info');
+      renderAll(unassigned);
+    } else {
+      // No Firebase questions loaded yet — use DOCX questions directly
+      questions = docQuestions;
+      renderAll(unassigned);
+    }
+    log(`DOCX parsed: ${docQuestions.length} image-questions found`, 'info');
 
   } catch(err) {
     label.textContent = '❌ Error: ' + err.message;
@@ -842,13 +958,16 @@ function makeCard(q, idx) {
 
   const imgKeys = Object.keys(q.imgs);
   const hasImg = imgKeys.length > 0;
+  const hasExisting = !!q.existingImageUrl;
 
   card.innerHTML = `
     <div class="q-card-header" onclick="toggleCard(${idx})">
       <span class="q-num">Q${q.qNum}</span>
-      <span class="q-text-preview">${q.text.slice(0,70) || '[image-based]'}…</span>
-      ${hasImg ? `<span style="font-size:11px;color:var(--accent2);margin-right:6px">🖼 ${imgKeys.length}</span>` : ''}
-      <span class="q-status status-pending" id="status-${idx}">pending</span>
+      <span class="q-text-preview">${(q.text||'').slice(0,70) || '[image-based]'}…</span>
+      ${hasImg    ? `<span style="font-size:11px;color:var(--accent2);margin-right:4px">🖼 ${imgKeys.length} new</span>` : ''}
+      ${hasExisting && !hasImg ? `<span style="font-size:11px;color:var(--green);margin-right:4px">✅ has img</span>` : ''}
+      ${!hasImg && !hasExisting ? `<span style="font-size:11px;color:var(--muted);margin-right:4px">no image</span>` : ''}
+      <span class="q-status status-pending" id="status-${idx}">${q.status}</span>
       <span class="q-toggle" id="toggle-${idx}">▼</span>
     </div>
     <div class="q-card-body" id="body-${idx}">
@@ -865,7 +984,20 @@ function renderCardBody(q, idx) {
 
   let imgHTML = '';
 
-  // Assigned images
+  // Show existing Firebase image if no new one from DOCX
+  if (q.existingImageUrl && !q.imgs.q) {
+    imgHTML += `<div class="img-section">
+      <div class="img-section-label" style="color:var(--green)">Current Image in Firebase</div>
+      <div class="img-grid">
+        <div class="img-slot" onclick="openLightbox('${q.existingImageUrl}')">
+          <img src="${q.existingImageUrl}" onerror="this.src=''">
+          <div class="img-slot-label">existing</div>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  // Assigned images from DOCX
   const assignedKeys = Object.keys(q.imgs);
   if (assignedKeys.length > 0) {
     imgHTML += `<div class="img-section">
@@ -924,12 +1056,17 @@ function renderCardBody(q, idx) {
 
   // Push button
   imgHTML += `
+    ${Object.keys(q.imgs).length > 0 ? `
     <div style="margin-top:14px;display:flex;gap:8px;align-items:center">
       <button class="btn btn-primary btn-sm" id="pushbtn-${idx}" onclick="pushOne(${idx})">
-        ⬆ Push to Firebase
+        ⬆ Push Images to Firebase
       </button>
       <span style="font-size:11px;color:var(--muted)" id="pushmsg-${idx}"></span>
-    </div>`;
+    </div>` : `
+    <div style="margin-top:14px;padding:8px 12px;background:var(--surface2);border-radius:6px;font-size:11px;color:var(--muted)">
+      Upload DOCX with image for this question to enable push
+      <span id="pushmsg-${idx}"></span>
+    </div>`}`;
 
   return imgHTML;
 }
@@ -1049,14 +1186,30 @@ window.pushOne = async (idx) => {
       log(`Q${q.qNum} ${key} → ${url}`, 'ok');
     }
 
-    // Build Firestore doc matching your existing schema exactly
-    const doc = {
-      exam:    document.getElementById('cfgExam').value,
-      tier:    document.getElementById('cfgTier').value,
-      year:    document.getElementById('cfgYear').value,
-      heldOn:  document.getElementById('cfgDate').value,
-      type:    document.getElementById('cfgType').value,
-      language: document.getElementById('cfgLang').value,
+    // Build Firestore patch payload
+    const _exam    = document.getElementById('cfgExam').value;
+    const _tier    = document.getElementById('cfgTier').value;
+    const _year    = document.getElementById('cfgYear').value;
+    const _heldOn  = document.getElementById('cfgDate').value;
+    const _shift   = document.getElementById('cfgShift').value;
+    const _lang    = document.getElementById('cfgLang').value;
+
+    // paperId matches your URL format: ssc-cgl_2017_tier1_shift-2_2017-08-09_en
+    const _examSlug  = _exam.toLowerCase().replace(/\s+/g,'-');
+    const _tierSlug  = _tier.toLowerCase().replace(/\s*\(.*\)\s*/,'').trim().replace(/tier\s*i{2}/,'tier2').replace(/tier\s*i/,'tier1');
+    const _shiftSlug = _shift.toLowerCase().replace(/\s+/g,'-');
+    const _langSlug  = _lang.toLowerCase().slice(0,2);
+    const _paperId   = `${_examSlug}_${_year}_${_tierSlug}_${_shiftSlug}_${_heldOn}_${_langSlug}`;
+
+    const fireDoc = {
+      exam:    _examSlug,
+      tier:    _tierSlug,
+      year:    _year,
+      heldOn:  _heldOn,
+      shift:   _shift,
+      type:    'pyq',
+      language: _lang,
+      paperId: _paperId,
       chapter: '',
       difficulty: 'Medium',
       qNum:    q.qNum,
@@ -1081,8 +1234,26 @@ window.pushOne = async (idx) => {
       createdAt:    new Date(),
     };
 
-    const ref = await addDoc(collection(db, 'questions'), doc);
-    q.docId  = ref.id;
+    // Use firestoreId from loaded question for direct update (no query needed)
+    let docRef = null;
+
+    if (q.firestoreId) {
+      // Direct update — patch only image fields
+      docRef = doc(db, 'questions', q.firestoreId);
+      await updateDoc(docRef, {
+        imageUrl:      fireDoc.imageUrl,
+        optionImages:  fireDoc.optionImages,
+        solutionImage: fireDoc.solutionImage,
+        paperId:       fireDoc.paperId,
+      });
+      log(`Q${q.qNum} ✅ patched doc ${q.firestoreId}`, 'ok');
+    } else {
+      // No firestoreId — create new doc
+      const newRef = await addDoc(collection(db, 'questions'), fireDoc);
+      docRef = newRef;
+      log(`Q${q.qNum} ⚠ created new doc ${newRef.id}`, 'ok');
+    }
+    q.docId = q.firestoreId || docRef.id;
     q.status = 'pushed';
 
     card.classList.remove('pushing');
@@ -1113,7 +1284,8 @@ window.pushOne = async (idx) => {
 
 // ── Push all ──────────────────────────────────────────────────────────────
 window.pushAll = async () => {
-  const pending = questions.map((q,i) => ({q,i})).filter(({q}) => q.status !== 'pushed');
+  const pending = questions.map((q,i) => ({q,i})).filter(({q}) => q.status !== 'pushed' && Object.keys(q.imgs).length > 0);
+  if (!pending.length) { toast('No questions with new images to push!', 'error'); return; }
   if (!pending.length) { toast('All already pushed!', 'success'); return; }
 
   const btn = document.getElementById('btnPushAll');
@@ -1122,7 +1294,7 @@ window.pushAll = async () => {
 
   for (let n = 0; n < pending.length; n++) {
     const { i } = pending[n];
-    btn.textContent = `⏳ Pushing ${n+1} / ${pending.length}…`;
+    btn.textContent = `⏳ Pushing Q${pending[n].q.qNum} (${n+1}/${pending.length})…`;
     // Open card so user can see progress
     document.getElementById('body-'+i).classList.add('open');
     document.getElementById('toggle-'+i).classList.add('open');
@@ -1132,14 +1304,15 @@ window.pushAll = async () => {
   }
 
   btn.disabled = false;
-  btn.textContent = '✅ All Pushed!';
-  toast(`All ${pending.length} questions pushed!`, 'success');
+  btn.textContent = `✅ ${pending.length} image questions patched!`;
+  toast(`Done! ${pending.length} questions updated with images.`, 'success');
 };
 
 // ── Stats ─────────────────────────────────────────────────────────────────
 function updateStats() {
   const total    = questions.length;
   const withImg  = questions.filter(q => Object.keys(q.imgs).length > 0).length;
+  const withExisting = questions.filter(q => !!q.existingImageUrl).length;
   const pushed   = questions.filter(q => q.status === 'pushed').length;
   const pending  = total - pushed;
   document.getElementById('statTotal').textContent  = total;
