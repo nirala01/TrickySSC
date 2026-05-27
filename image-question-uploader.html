@@ -849,10 +849,20 @@ async function parseDOCX(file) {
 
         } else {
           // Is this image paragraph labelled as an option? (Diagram 1, Figure 1, etc.)
+          // Labelled image (Diagram N / Figure N) = always option image
           const isOptLabel = /^(Diagram|Figure|Option|Image)\s*\d/i.test(para.text);
 
-          if (para.imgs.length && !current.imgs.q && !isOptLabel) {
-            // Blank/unlabelled image before Options: = question figure
+          if (para.imgs.length && isOptLabel) {
+            // Labelled option image — assign to next available slot
+            para.imgs.forEach(img => {
+              usedImgs.add(img);
+              const letters = ['A','B','C','D'];
+              for (const l of letters) {
+                if (!current.imgs[`opt${l}`]) { current.imgs[`opt${l}`] = img; break; }
+              }
+            });
+          } else if (para.imgs.length && !current.imgs.q) {
+            // Unlabelled image, no question image yet = question figure
             current.imgs.q = para.imgs[0];
             usedImgs.add(para.imgs[0]);
             para.imgs.slice(1).forEach((img,i) => {
@@ -860,11 +870,12 @@ async function parseDOCX(file) {
               current.imgs[key] = img; usedImgs.add(img);
             });
           } else if (para.imgs.length) {
-            // Labelled image OR additional image = option image
+            // Already have question image — assign as option
             para.imgs.forEach(img => {
+              usedImgs.add(img);
               const letters = ['A','B','C','D'];
               for (const l of letters) {
-                if (!current.imgs[`opt${l}`]) { current.imgs[`opt${l}`] = img; usedImgs.add(img); break; }
+                if (!current.imgs[`opt${l}`]) { current.imgs[`opt${l}`] = img; break; }
               }
             });
           }
