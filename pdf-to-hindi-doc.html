@@ -377,7 +377,7 @@ async function extractQuestions(){
   try{
     // Render pages
     lbl.textContent='Rendering PDF pages…'; fill.style.width='5%';
-    pdfPages=await pdfToImages(pdfFile, 2.5);
+    pdfPages=await pdfToImages(pdfFile, 1.5);
     log(`PDF: ${pdfPages.length} pages rendered`,'info');
 
     // Render answer key if uploaded
@@ -415,7 +415,7 @@ async function extractQuestions(){
           renderQuestions(); updateStats();
         }
         log(`Q${n} extracted`,'ok');
-        await sleep(200); // avoid rate limit
+        await sleep(3000); // 3s delay to stay within 30k token/min rate limit
       } catch(err){
         log(`Q${n} error: ${err.message}`,'err');
         questions.push({num:n, enText:`Q${n}. [Extraction failed: ${err.message}]`, hiText:'', correct:'?', status:'error'});
@@ -461,7 +461,7 @@ async function extractOneQuestion(n, pages, akPgs, akMap){
     estPage = Math.max(0, Math.floor((n-1) * pagesPerQ));
   }
   estPage = Math.max(0, Math.min(pages.length - 2, estPage));
-  const scanPages = pages.slice(estPage, Math.min(pages.length, estPage + 2));
+  const scanPages = pages.slice(estPage, Math.min(pages.length, estPage + 1)); // 1 page per question to save tokens
   
   // Step 2: Ask GPT to crop JUST this one question from the page
   // This replicates your manual screenshot approach exactly
@@ -474,13 +474,13 @@ ${EXTRACT_PROMPT.replace(/{N}/g, displayNum).replace(/Q\{N\}/g, 'Q'+n)}`;
 
   const msgContent = [
     {type:'text', text: cropPrompt},
-    ...scanPages.map(b=>({type:'image_url',image_url:{url:'data:image/jpeg;base64,'+b,detail:'high'}}))
+    ...scanPages.map(b=>({type:'image_url',image_url:{url:'data:image/jpeg;base64,'+b,detail:'auto'}}))
   ];
 
   // Add answer key for correct option
   if(akPgs.length > 0){
     msgContent.push({type:'text', text:'Answer key below — use ONLY to identify the correct option number:'});
-    akPgs.forEach(b => msgContent.push({type:'image_url',image_url:{url:'data:image/jpeg;base64,'+b,detail:'high'}}));
+    akPgs.forEach(b => msgContent.push({type:'image_url',image_url:{url:'data:image/jpeg;base64,'+b,detail:'auto'}}));
   }
   if(akMap[n]){
     msgContent.push({type:'text', text:`Answer key confirms: Q${n} correct answer is option (${akMap[n]}). Use this for "Correct Option: (x)" line.`});
