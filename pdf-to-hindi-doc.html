@@ -204,6 +204,9 @@ pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/p
   }
 })();
 
+// ── OpenAI Key ───────────────────────────────────────────────────────────────
+const OPENAI_KEY = 'YOUR_OPENAI_API_KEY'; // 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
+
 // ── State ─────────────────────────────────────────────────────────────────
 let pdfFile=null, akFile=null, pdfPages=[], akPages=[], questions=[];
 
@@ -310,15 +313,15 @@ STRICT RULES:
 
 Translate this question:`;
 
-async function callClaude(messages, maxTokens=1000){
-  const r=await fetch('https://api.anthropic.com/v1/messages',{
+async function callAI(messages, maxTokens=1000){
+  const r=await fetch('https://api.openai.com/v1/chat/completions',{
     method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:maxTokens,messages})
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+OPENAI_KEY},
+    body:JSON.stringify({model:'gpt-4o',max_tokens:maxTokens,messages})
   });
   const d=await r.json();
   if(d.error) throw new Error(d.error.message);
-  return d.content?.[0]?.text||'';
+  return d.choices?.[0]?.message?.content||'';
 }
 
 async function extractQuestions(){
@@ -356,9 +359,9 @@ async function extractQuestions(){
     lbl.textContent='Detecting total question count…'; fill.style.width='8%';
     const countMsg=[{role:'user',content:[
       {type:'text',text:'Look at these exam paper pages. How many questions are there in total? Reply with ONLY a number (e.g. 100). Count all sections.'},
-      ...pdfPages.slice(0,3).map(b=>({type:'image',source:{type:'base64',media_type:'image/jpeg',data:b}}))
+      ...pdfPages.slice(0,3).map(b=>({type:'image_url',image_url:{url:'data:image/jpeg;base64,'+b,detail:'high'}}))
     ]}];
-    const countResp=await callClaude(countMsg,50);
+    const countResp=await callAI(countMsg,50);
     const totalQ=parseInt(countResp.match(/\d+/)?.[0])||100;
     log(`Detected ${totalQ} questions`,'info');
 
@@ -412,20 +415,20 @@ async function extractOneQuestion(n, pages, akPgs, akMap){
   const prompt = EXTRACT_PROMPT.replace(/{N}/g, n);
   const content=[
     {type:'text', text:prompt},
-    ...pageRange.map(b=>({type:'image',source:{type:'base64',media_type:'image/jpeg',data:b}}))
+    ...pageRange.map(b=>({type:'image_url',image_url:{url:'data:image/jpeg;base64,'+b,detail:'high'}}))
   ];
 
   // Add answer key pages if available
   if(akPgs.length>0){
     content.push({type:'text',text:'Answer key image(s) below — use to find the correct answer:'});
-    akPgs.forEach(b=>content.push({type:'image',source:{type:'base64',media_type:'image/jpeg',data:b}}));
+    akPgs.forEach(b=>content.push({type:'image_url',image_url:{url:'data:image/jpeg;base64,'+b,detail:'high'}}));
   }
   if(akMap[n]){
     content.push({type:'text',text:`Answer key text says: Correct answer for Q${n} is option (${akMap[n]})`});
   }
 
   const msgs=[{role:'user',content}];
-  return await callClaude(msgs, 800);
+  return await callAI(msgs, 800);
 }
 
 function extractCorrect(text){
@@ -488,7 +491,7 @@ async function translateAll(){
 async function translateBatch(batch){
   const combined=batch.map(q=>`${q.enText}`).join('\n\n---NEXT---\n\n');
   const prompt=`${TRANSLATE_PROMPT}\n\nTranslate each of the following ${batch.length} questions. Keep the ---NEXT--- separator between them.\n\n${combined}`;
-  const resp=await callClaude([{role:'user',content:prompt}], 3000);
+  const resp=await callAI([{role:'user',content:prompt}], 3000);
   // Split back
   const parts=resp.split(/---NEXT---/i);
   batch.forEach((q,i)=>{
@@ -504,7 +507,7 @@ async function translateOne(num){
     const enEl=document.getElementById('qen-'+num);
     if(enEl) q.enText=enEl.innerText;
     const prompt=`${TRANSLATE_PROMPT}\n\n${q.enText}`;
-    q.hiText=await callClaude([{role:'user',content:prompt}],800);
+    q.hiText=await callAI([{role:'user',content:prompt}],800);
     q.status='done'; refreshCard(num); updateStats();
     toast(`Q${num} translated ✓`,'success');
   } catch(err){
