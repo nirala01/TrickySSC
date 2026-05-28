@@ -114,6 +114,9 @@
     <div class="field"><label>Date (for filename)</label>
       <input type="text" id="cfgDate" value="09-Sep-2024">
     </div>
+    <div class="field"><label>Total Questions</label>
+      <input type="text" id="cfgTotalQ" value="100" placeholder="100">
+    </div>
   </div>
 
   <div>
@@ -296,8 +299,14 @@ STRICT FORMATTING RULES:
 11. Output ONLY the formatted question, nothing else
 
 Now extract question number {N} from the provided page images.
-IMPORTANT: Focus ONLY on Q{N}. Ignore all other questions on the page.
-If Q{N} spans multiple lines or has a figure below it, include everything that belongs to Q{N} only.`;
+
+CRITICAL RULES:
+- Focus ONLY on Q{N}. Ignore all other questions.
+- If the question contains ANY drawing, diagram, figure, matrix, pattern, shape, grid, table with symbols/letters arranged spatially, mirror image, paper folding, cube, dice, Venn diagram, or visual element → write [figure] in its place. Do NOT try to recreate it as text or ASCII art or markdown table.
+- For options: if any option contains an image/figure/diagram → write [figure] for that option value.
+- Only reproduce TEXT that is actual readable sentence content of the question.
+- Example of WRONG: trying to draw a matrix with | and --- characters
+- Example of CORRECT: write [figure] and move on`;
 
 const TRANSLATE_PROMPT=`You are translating SSC exam questions from English to Hindi for an exam preparation platform.
 
@@ -383,38 +392,11 @@ async function extractQuestions(){
     if(Object.keys(akTextMap).length>0) log(`Parsed ${Object.keys(akTextMap).length} answers from text`,'ok');
 
     // First: ask Claude how many questions total
-    lbl.textContent='Detecting total question count…'; fill.style.width='8%';
-    const countMsg=[{role:'user',content:[
-      {type:'text',text:'Look at these exam paper pages. How many questions are there in total? Reply with ONLY a number (e.g. 100). Count all sections.'},
-      ...pdfPages.slice(0,3).map(b=>({type:'image_url',image_url:{url:'data:image/jpeg;base64,'+b,detail:'high'}}))
-    ]}];
-    const countResp=await callAI(countMsg,50);
-    const totalQ=parseInt(countResp.match(/\d+/)?.[0])||100;
-    totalQCount = totalQ; qPageMap = {}; // reset map
-    log(`Detected ${totalQ} questions`,'info');
+    // Always extract all questions (default 100 for SSC)
+    const totalQ = parseInt(document.getElementById('cfgTotalQ').value) || 100;
+    totalQCount = totalQ; qPageMap = {};
+    log(`Extracting ${totalQ} questions`,'info');
 
-    questions=[];
-    document.getElementById('emptyState').style.display='none';
-    document.getElementById('mainContent').style.display='block';
-
-    // Pre-scan: build a page-to-questions map for faster lookup
-    log('Pre-scanning pages to map question locations…', 'info');
-    qPageMap = {}; // reset for this PDF
-    for(let p=0; p<pdfPages.length; p++){
-      try{
-        const scanResp = await callAI([{role:'user', content:[
-          {type:'text', text:'List ALL question numbers visible on this page. Reply with ONLY comma-separated numbers e.g.: 1,2,3,4,5. If no questions, reply: none'},
-          {type:'image_url', image_url:{url:'data:image/jpeg;base64,'+pdfPages[p], detail:'low'}}
-        ]}], 100);
-        const nums = scanResp.match(/\d+/g)||[];
-        nums.forEach(n => { if(!qPageMap[parseInt(n)]) qPageMap[parseInt(n)] = p; });
-        log(`Page ${p+1}: Q${nums.join(',')||'none'}`, 'info');
-        await sleep(150);
-      }catch(e){ /* skip */ }
-    }
-    log(`Page map built: ${Object.keys(qPageMap).length} questions located`, 'ok');
-
-    // Extract question by question
     for(let n=1;n<=totalQ;n++){
       lbl.textContent=`Extracting Q${n} of ${totalQ}…`;
       fill.style.width=Math.round((n/totalQ)*90)+'%';
