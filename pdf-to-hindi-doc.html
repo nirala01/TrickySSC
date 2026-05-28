@@ -117,6 +117,12 @@
     <div class="field"><label>Total Questions</label>
       <input type="text" id="cfgTotalQ" value="100" placeholder="100">
     </div>
+    <div class="field"><label>Question Numbering Format</label>
+      <select id="cfgNumFormat">
+        <option value="1to100">1–100 (continuous)</option>
+        <option value="4x25">1–25 × 4 sections</option>
+      </select>
+    </div>
   </div>
 
   <div>
@@ -431,22 +437,40 @@ async function extractQuestions(){
 }
 
 async function extractOneQuestion(n, pages, akPgs, akMap){
-  // Step 1: Find which page contains Q{n} by scanning page-by-page
-  // Estimate starting page, then verify
-  // Use pre-built page map if available, else estimate
-  const pagesPerQ = pages.length / totalQCount;
-  const estPage = qPageMap[n] !== undefined ? qPageMap[n] : Math.max(0, Math.floor((n-1) * pagesPerQ));
-  
-  // Send the exact page + 1 neighbor — like zooming into that page
+  const numFormat = document.getElementById('cfgNumFormat').value;
+
+  // For 4x25 format: Q26-50 in output = Q1-25 in section 2 of PDF
+  let displayNum = n;
+  let sectionHint = '';
+  if(numFormat === '4x25') {
+    const section = Math.ceil(n / 25);
+    displayNum = ((n - 1) % 25) + 1;
+    const sNames = ['','General Intelligence & Reasoning','General Awareness','Quantitative Aptitude','English Comprehension'];
+    sectionHint = `This question is in Section ${section} (${sNames[section]||'Section '+section}) of the paper. `;
+  }
+
+  // Page estimation — for 4x25, each section is ~pages.length/4 pages apart
+  let estPage;
+  if(numFormat === '4x25') {
+    const section = Math.ceil(n / 25);
+    const pagesPerSection = pages.length / 4;
+    const posInSection = ((n - 1) % 25) / 25;
+    estPage = Math.floor((section - 1) * pagesPerSection + posInSection * pagesPerSection);
+  } else {
+    const pagesPerQ = pages.length / totalQCount;
+    estPage = Math.max(0, Math.floor((n-1) * pagesPerQ));
+  }
+  estPage = Math.max(0, Math.min(pages.length - 2, estPage));
   const scanPages = pages.slice(estPage, Math.min(pages.length, estPage + 2));
   
   // Step 2: Ask GPT to crop JUST this one question from the page
   // This replicates your manual screenshot approach exactly
   const cropPrompt = `You are looking at an SSC exam paper page.
-Find question number ${n} on this page and extract ONLY that question.
-Treat this exactly as if you took a screenshot of just Q${n} — include the question text, any figure, and all 4 options.
+Find question number ${displayNum} on this page and extract ONLY that question.
+${sectionHint}Treat this exactly as if you took a screenshot of just question ${displayNum} — include the question text, any figure, and all 4 options.
+In your output, number it as Q${n}. (use ${n} not ${displayNum} in your output heading).
 
-${EXTRACT_PROMPT.replace(/{N}/g, n)}`;
+${EXTRACT_PROMPT.replace(/{N}/g, displayNum).replace(/Q\{N\}/g, 'Q'+n)}`;
 
   const msgContent = [
     {type:'text', text: cropPrompt},
