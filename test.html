@@ -332,7 +332,7 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:10
 
 /* Q-number grid */
 .grid{
-  display:grid;grid-template-columns:repeat(5,1fr);gap:5px;
+  display:block;
   width:100%;min-width:0;
 }
 .section-grid{
@@ -400,7 +400,7 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:10
 
 /* Subject buttons in drawer */
 
-#drawerGrid{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;width:100%;min-width:0;}
+#drawerGrid{display:block;width:100%;min-width:0;}
 
 /* ═══════════════════════════════════
    RESULT SCREEN
@@ -1351,7 +1351,7 @@ function buildGrid(){
   if(sections.length>1){
     grid.innerHTML=sections.map(s=>'<div class="section-block"><div class="sb-label" style="margin-bottom:6px;">'+s.label+'</div><div class="section-grid">'+Array.from({length:s.to-s.from+1},(_,j)=>{const i=s.from+j;return '<div class="dot" id="dot'+i+'" onclick="goQ('+i+')">'+(i+1)+'</div>';}).join('')+'</div></div>').join('');
   } else {
-    grid.innerHTML=questions.map((_,i)=>'<div class="dot" id="dot'+i+'" onclick="goQ('+i+')">'+(i+1)+'</div>').join('');
+    grid.innerHTML='<div class="section-grid">'+questions.map((_,i)=>'<div class="dot" id="dot'+i+'" onclick="goQ('+i+')">'+(i+1)+'</div>').join('')+'</div>';
   }
 }
 
@@ -1378,13 +1378,13 @@ function updateGrid(){
         return '<div class="section-block"><div class="sb-label" style="margin-bottom:6px;">'+s.label+'</div><div class="section-grid">'+dots+'</div></div>';
       }).join('');
     } else {
-      dg.innerHTML=questions.map((_,i)=>{
+      dg.innerHTML='<div class="section-grid">'+questions.map((_,i)=>{
         let cls='dot';
         if(markedForReview[i]) cls+=' marked';
         else if(answers[i]) cls+=' answered';
         if(i===currentQ) cls+=' current';
         return '<div class="'+cls+'" onclick="goQ('+i+');closeDrawer()">'+(i+1)+'</div>';
-      }).join('');
+      }).join('')+'</div>';
     }
   }
   buildSectionBar();
