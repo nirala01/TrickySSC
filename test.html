@@ -641,6 +641,39 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:10
   box-shadow:0 4px 16px rgba(255,107,0,0.35);transition:all 0.15s;
 }
 .instr-start-btn:hover{box-shadow:0 6px 20px rgba(255,107,0,0.45);transform:translateY(-1px);}
+/* Marking scheme */
+.instr-marking{display:flex;flex-direction:column;gap:8px;margin:10px 0 6px;}
+.instr-mark-row{
+  display:flex;align-items:center;gap:12px;
+  padding:11px 14px;border-radius:10px;border:1.5px solid;
+}
+.instr-mark-row.correct{background:#F0FDF4;border-color:#86EFAC;}
+.instr-mark-row.wrong{background:#FEF2F2;border-color:#FCA5A5;}
+.instr-mark-row.skipped{background:#F8FAFC;border-color:#E2E8F0;}
+.instr-mark-icon{
+  width:28px;height:28px;border-radius:8px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:14px;font-weight:700;flex-shrink:0;
+}
+.instr-mark-row.correct .instr-mark-icon{background:#22C55E;color:#fff;}
+.instr-mark-row.wrong .instr-mark-icon{background:#EF4444;color:#fff;}
+.instr-mark-row.skipped .instr-mark-icon{background:#94A3B8;color:#fff;font-size:16px;}
+.instr-mark-info{flex:1;min-width:0;}
+.instr-mark-label{font-size:13px;font-weight:700;color:#1E293B;}
+.instr-mark-desc{font-size:11.5px;color:#64748B;margin-top:1px;}
+.instr-mark-val{
+  font-family:'Rajdhani';font-size:22px;font-weight:700;flex-shrink:0;
+}
+.instr-mark-row.correct .instr-mark-val{color:#16A34A;}
+.instr-mark-row.wrong .instr-mark-val{color:#DC2626;}
+.instr-mark-row.skipped .instr-mark-val{color:#94A3B8;}
+.instr-marking-note{
+  font-size:12px;color:#64748B;
+  background:#F8FAFC;border:1px solid #E2E8F0;
+  border-radius:8px;padding:9px 12px;margin-top:4px;
+  line-height:1.5;
+}
+.instr-marking-note strong{color:#1E293B;}
 @media(max-width:640px){
   .instr-topbar{padding:12px 16px;}
   .instr-body{padding:12px 10px 32px;}
@@ -711,6 +744,37 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:10
           <li>Choose one answer from options A, B, C, D. Click the same option again to deselect. Click a different option to change your answer.</li>
           <li><strong>Only questions for which answers are saved or marked for review will be considered for evaluation.</strong></li>
         </ol>
+
+        <div class="instr-section-title">&#127775; Marking Scheme</div>
+        <div class="instr-marking">
+          <div class="instr-mark-row correct">
+            <div class="instr-mark-icon">&#10003;</div>
+            <div class="instr-mark-info">
+              <div class="instr-mark-label">Correct Answer</div>
+              <div class="instr-mark-desc">Full marks awarded for each correct response</div>
+            </div>
+            <div class="instr-mark-val">+2.00</div>
+          </div>
+          <div class="instr-mark-row wrong">
+            <div class="instr-mark-icon">&#10005;</div>
+            <div class="instr-mark-info">
+              <div class="instr-mark-label">Wrong Answer</div>
+              <div class="instr-mark-desc">Negative marking for each incorrect response</div>
+            </div>
+            <div class="instr-mark-val">&minus;0.50</div>
+          </div>
+          <div class="instr-mark-row skipped">
+            <div class="instr-mark-icon">&#8212;</div>
+            <div class="instr-mark-info">
+              <div class="instr-mark-label">Unattempted / Skipped</div>
+              <div class="instr-mark-desc">No marks awarded or deducted</div>
+            </div>
+            <div class="instr-mark-val">0</div>
+          </div>
+        </div>
+        <div class="instr-marking-note">
+          Total marks = (Correct &times; 2) &minus; (Wrong &times; 0.5) &nbsp;&bull;&nbsp; Maximum marks: <strong id="instrMaxMarks">200</strong>
+        </div>
 
         <div class="instr-section-title">&#128218; Sections</div>
         <ol class="instr-list" start="9">
@@ -1281,6 +1345,8 @@ async function loadTest(){
     const _instrUser=document.getElementById('instrUserName');
     if(_instrTitle) _instrTitle.textContent=document.getElementById('examTitle').textContent;
     if(_instrUser) _instrUser.textContent=currentUser?.displayName||'Student';
+    const _instrMax=document.getElementById('instrMaxMarks');
+    if(_instrMax) _instrMax.textContent=questions.length*2;
     document.getElementById('loader').style.display='none';
     document.getElementById('instrScreen').style.display='flex';
 
