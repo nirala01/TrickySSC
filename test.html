@@ -335,6 +335,11 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:10
   display:grid;grid-template-columns:repeat(5,1fr);gap:5px;
   width:100%;min-width:0;
 }
+.section-grid{
+  display:grid;grid-template-columns:repeat(5,1fr);gap:5px;
+  width:100%;min-width:0;
+}
+.section-block{margin-bottom:12px;}
 .dot{
   aspect-ratio:1;display:flex;align-items:center;justify-content:center;
   border:1.5px solid #E2E8F0;background:#FFFFFF;
@@ -1344,13 +1349,7 @@ function buildGrid(){
   const grid=document.getElementById('grid');
   if(!grid) return;
   if(sections.length>1){
-    grid.innerHTML=sections.map(s=>`
-      <div style="margin-bottom:10px;">
-        <div class="sb-label" style="margin-bottom:6px;">${s.label}</div>
-        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:5px;">
-          ${Array.from({length:s.to-s.from+1},(_,j)=>{const i=s.from+j;return '<div class="dot" id="dot'+i+'" onclick="goQ('+i+')">'+(i+1)+'</div>';}).join('')}
-        </div>
-      </div>`).join('');
+    grid.innerHTML=sections.map(s=>'<div class="section-block"><div class="sb-label" style="margin-bottom:6px;">'+s.label+'</div><div class="section-grid">'+Array.from({length:s.to-s.from+1},(_,j)=>{const i=s.from+j;return '<div class="dot" id="dot'+i+'" onclick="goQ('+i+')">'+(i+1)+'</div>';}).join('')+'</div></div>').join('');
   } else {
     grid.innerHTML=questions.map((_,i)=>'<div class="dot" id="dot'+i+'" onclick="goQ('+i+')">'+(i+1)+'</div>').join('');
   }
@@ -1376,7 +1375,7 @@ function updateGrid(){
           if(i===currentQ) cls+=' current';
           return '<div class="'+cls+'" onclick="goQ('+i+');closeDrawer()">'+(i+1)+'</div>';
         }).join('');
-        return '<div style="margin-bottom:12px;"><div class="sb-label" style="margin-bottom:6px;">'+s.label+'</div><div style="display:grid;grid-template-columns:repeat(5,1fr);gap:5px;">'+dots+'</div></div>';
+        return '<div class="section-block"><div class="sb-label" style="margin-bottom:6px;">'+s.label+'</div><div class="section-grid">'+dots+'</div></div>';
       }).join('');
     } else {
       dg.innerHTML=questions.map((_,i)=>{
