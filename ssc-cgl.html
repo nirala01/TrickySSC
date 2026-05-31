@@ -1556,11 +1556,15 @@
         yearPapers.forEach((p, pi) => {
           const shift = p.shift || '';
           const lang = p.language || '';
-          const qCount = p.questionCount || p.count || 100;
+          const isT2 = (tierId==='t2');
+          const qCount = p.questionCount || p.count || (isT2?150:100);
+          const timeLabel = isT2 ? '135 min' : '60 min';
+          const marksLabel = isT2 ? '450 marks' : '200 marks';
+          const engine = isT2 ? 'test-tier2.html' : 'test.html';
           const langLabel = lang==='hi' ? '🇮🇳 Hindi' : lang==='en' ? '🇬🇧 English' : lang;
           const langColor = lang==='hi' ? 'linear-gradient(135deg,#FF6B00,#FF8C38)' : 'linear-gradient(135deg,#0EA5E9,#6366F1)';
           const langBg   = lang==='hi' ? 'rgba(255,107,0,0.06)'  : 'rgba(14,165,233,0.05)';
-          const testUrl = 'test.html?exam='+EXAM+'&year='+encodeURIComponent(year)+'&tier='+encodeURIComponent(p.tier||'')+'&shift='+encodeURIComponent(shift)+'&heldOn='+encodeURIComponent(p.heldOn||'')+'&lang='+encodeURIComponent(lang)+(p.paperId?'&paperId='+encodeURIComponent(p.paperId):'');
+          const testUrl = engine+'?exam='+EXAM+'&year='+encodeURIComponent(year)+'&tier='+encodeURIComponent(p.tier||'')+'&shift='+encodeURIComponent(shift)+'&heldOn='+encodeURIComponent(p.heldOn||'')+'&lang='+encodeURIComponent(lang)+(p.paperId?'&paperId='+encodeURIComponent(p.paperId):'');
 
           const dateLabel = p.heldOn ? fmtDate(p.heldOn) : '';
           const isLast = pi === yearPapers.length - 1;
@@ -1587,9 +1591,9 @@
                   <div style="display:flex;align-items:center;gap:0.5rem;margin-top:0.2rem;">
                     <span style="font-size:0.72rem;color:#94A3B8;">📝 ${qCount} Qs</span>
                     <span style="font-size:0.72rem;color:#94A3B8;">·</span>
-                    <span style="font-size:0.72rem;color:#94A3B8;">⏱ 60 min</span>
+                    <span style="font-size:0.72rem;color:#94A3B8;">⏱ ${timeLabel}</span>
                     <span style="font-size:0.72rem;color:#94A3B8;">·</span>
-                    <span style="font-size:0.72rem;color:#94A3B8;">200 marks</span>
+                    <span style="font-size:0.72rem;color:#94A3B8;">${marksLabel}</span>
                   </div>
                 </div>
               </div>
