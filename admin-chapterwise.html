@@ -119,7 +119,6 @@ textarea{resize:vertical;min-height:80px;}
   <div class="tabs">
     <button class="tab active" onclick="switchTab('add')">➕ Add Question</button>
     <button class="tab" onclick="switchTab('import')">📥 Import CSV</button>
-    <button class="tab" onclick="switchTab('tag')">🏷️ Tag Existing PYQs</button>
     <button class="tab" onclick="switchTab('browse')">🗂️ Browse by Chapter</button>
     <button class="tab" onclick="switchTab('manage')">📋 Manage</button>
   </div>
@@ -374,66 +373,6 @@ textarea{resize:vertical;min-height:80px;}
           <div id="csvBar" style="height:100%;background:linear-gradient(135deg,#0EA5E9,#38BDF8);width:0%;transition:width 0.3s;"></div>
         </div>
         <div id="csvStatus" style="font-size:0.85rem;color:#94A3B8;"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- TAG EXISTING TAB -->
-  <div class="panel" id="panel-tag">
-    <div class="card">
-      <h3>🏷️ Tag Existing PYQ Questions as Chapterwise</h3>
-      <div class="info-box">
-        Your PYQ questions already have chapter info. Use this tool to <strong>bulk-mark</strong> them as <code>type: chapterwise</code> so the frontend can serve them in chapter practice sets — without duplicating any data.
-      </div>
-      <div class="form-row three">
-        <div>
-          <label>Exam</label>
-          <select id="tagExam" onchange="updateTagSubjects()">
-            <option value="">Select Exam</option>
-            <option value="ssc-cgl">SSC CGL</option>
-            <option value="ssc-chsl">SSC CHSL</option>
-            <option value="ssc-mts">SSC MTS</option>
-            <option value="ssc-gd">SSC GD</option>
-            <option value="ssc-cpo">SSC CPO</option>
-            <option value="ssc-jht">SSC JHT</option>
-            <option value="ssc-je">SSC JE</option>
-          </select>
-        </div>
-        <div>
-          <label>Subject</label>
-          <select id="tagSubject" onchange="updateTagChapters()">
-            <option value="">All Subjects</option>
-          </select>
-        </div>
-        <div>
-          <label>Chapter</label>
-          <select id="tagChapter">
-            <option value="">All Chapters</option>
-          </select>
-        </div>
-      </div>
-      <div class="form-row">
-        <div>
-          <label>Current Type (source)</label>
-          <select id="tagFromType">
-            <option value="pyq">PYQ only</option>
-            <option value="">Any type</option>
-          </select>
-        </div>
-        <div style="display:flex;align-items:flex-end;gap:0.75rem;">
-          <button class="btn btn-secondary" onclick="previewTag()">🔍 Preview Count</button>
-        </div>
-      </div>
-      <div id="tagPreview" style="display:none;background:#0F172A;border-radius:8px;padding:1rem;margin-bottom:1rem;">
-        <div id="tagPreviewText" style="color:#38BDF8;font-weight:600;margin-bottom:0.75rem;"></div>
-        <div id="tagPreviewList" style="max-height:200px;overflow-y:auto;font-size:0.8rem;color:#64748B;"></div>
-      </div>
-      <button class="btn btn-primary" id="tagBtn" onclick="bulkTag()" style="display:none;">🏷️ Tag as Chapterwise</button>
-      <div id="tagProgress" style="display:none;margin-top:1rem;">
-        <div style="background:#1E293B;border-radius:6px;height:8px;overflow:hidden;margin-bottom:0.5rem;">
-          <div id="tagBar" style="height:100%;background:linear-gradient(135deg,#0EA5E9,#38BDF8);width:0%;transition:width 0.3s;"></div>
-        </div>
-        <div id="tagStatus" style="font-size:0.85rem;color:#94A3B8;"></div>
       </div>
     </div>
   </div>
@@ -841,7 +780,7 @@ window.saveQuestion = async () => {
   } catch(e) { showToast('Error: '+e.message,'error'); }
 };
 
-// ── Tag Existing ──
+// ── Helpers ──
 function subjectOptsFor(exam) {
   return (EXAM_SUBJECTS[exam]||[]).map(s=>`<option value="${s.v}">${s.l}</option>`).join('');
 }
@@ -849,61 +788,6 @@ function chapterOptsFor(subj) {
   const labs = CHAPTERS[subj]||['Other'], vals = CHAPTER_VALS[subj]||['other'];
   return labs.map((l,i)=>`<option value="${vals[i]}">${l}</option>`).join('');
 }
-window.updateTagSubjects = () => {
-  const exam = document.getElementById('tagExam').value;
-  document.getElementById('tagSubject').innerHTML = '<option value="">All Subjects</option>' + subjectOptsFor(exam);
-  document.getElementById('tagChapter').innerHTML = '<option value="">All Chapters</option>';
-  document.getElementById('tagPreview').style.display='none';
-  document.getElementById('tagBtn').style.display='none';
-};
-window.updateTagChapters = () => {
-  const subj = document.getElementById('tagSubject').value;
-  document.getElementById('tagChapter').innerHTML = '<option value="">All Chapters</option>' + chapterOptsFor(subj);
-};
-
-window.previewTag = async () => {
-  const exam = document.getElementById('tagExam').value;
-  if (!exam) { showToast('Select an exam first','error'); return; }
-  const subj = document.getElementById('tagSubject').value;
-  const chap = document.getElementById('tagChapter').value;
-  const fromType = document.getElementById('tagFromType').value;
-  const snap = await getDocs(collection(db,'questions'));
-  let docs = snap.docs.map(d=>({id:d.id,...d.data()}));
-  docs = docs.filter(d=>d.exam===exam);
-  if (subj) docs = docs.filter(d=>d.subject===subj);
-  if (chap) docs = docs.filter(d=>d.chapter===chap);
-  if (fromType) docs = docs.filter(d=>d.type===fromType);
-  docs = docs.filter(d=>d.type!=='chapterwise'); // only un-tagged
-  const prev = document.getElementById('tagPreview');
-  document.getElementById('tagPreviewText').textContent = `${docs.length} questions will be tagged as chapterwise`;
-  document.getElementById('tagPreviewList').innerHTML = docs.slice(0,10).map(d=>
-    `<div style="margin-bottom:0.2rem;">• ${d.text?.substring(0,80)}… <span style="color:#475569;">[${d.subject} / ${d.chapter}]</span></div>`
-  ).join('') + (docs.length>10?`<div style="color:#475569;margin-top:0.25rem;">...and ${docs.length-10} more</div>`:'');
-  prev.style.display = 'block';
-  const btn = document.getElementById('tagBtn');
-  btn.style.display = docs.length ? 'inline-flex' : 'none';
-  btn.dataset.ids = JSON.stringify(docs.map(d=>d.id));
-};
-
-window.bulkTag = async () => {
-  const ids = JSON.parse(document.getElementById('tagBtn').dataset.ids || '[]');
-  if (!ids.length) return;
-  document.getElementById('tagProgress').style.display='block';
-  document.getElementById('tagBar').style.width='0%';
-  let done=0;
-  for (const id of ids) {
-    await updateDoc(doc(db,'questions',id),{type:'chapterwise'});
-    done++;
-    document.getElementById('tagBar').style.width = (done/ids.length*100)+'%';
-    document.getElementById('tagStatus').textContent = `Tagged ${done}/${ids.length}...`;
-  }
-  document.getElementById('tagStatus').textContent = `✅ Done! ${done} questions tagged.`;
-  document.getElementById('tagBtn').style.display='none';
-  document.getElementById('tagPreview').style.display='none';
-  showToast(`✅ ${done} questions tagged as chapterwise`,'success');
-  loadStats();
-};
-
 // ── Browse ──
 window.updateBrowseSubjects = () => {
   const exam = document.getElementById('browseExam').value;
@@ -920,7 +804,7 @@ window.loadChapterTree = async () => {
     if (subj) docs = docs.filter(d=>d.subject===subj);
     const map = {};
     docs.forEach(d=>{ map[d.chapter] = (map[d.chapter]||0)+1; });
-    if (!Object.keys(map).length) { tree.innerHTML='<div style="color:#64748B;padding:1rem;">No chapterwise questions found for this exam. Add some or tag PYQs above.</div>'; return; }
+    if (!Object.keys(map).length) { tree.innerHTML='<div style="color:#64748B;padding:1rem;">No chapterwise questions found for this exam. Add some via CSV Import or Add Question.</div>'; return; }
     tree.innerHTML = Object.entries(map).sort((a,b)=>b[1]-a[1]).map(([ch,cnt])=>`
       <div class="chapter-card">
         <div class="ch-name">${ch}</div>
