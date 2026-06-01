@@ -318,7 +318,7 @@ window.loadStats = async function() {
     snap.forEach(d => {
       total++;
       if (d.data().chapter) tagged++;
-      const key = normalize(d.data().question || '');
+      const key = normalize(d.data().text || '');
       if (key.length > 10) {
         if (textMap.has(key)) { dupl++; } else { textMap.set(key, d.id); }
       }
@@ -386,7 +386,7 @@ window.startTagging = async function() {
   const seenText = new Map();
   const toProcess = [];
   docs.forEach(d => {
-    const key = normalize(d.question || '');
+    const key = normalize(d.text || '');
     if (seenText.has(key)) {
       log(`⚠️ Duplicate text detected – skipping doc ${d.id}`, 'warn');
     } else {
@@ -407,7 +407,7 @@ window.startTagging = async function() {
 
     // Build prompt for batch
     const promptLines = batch.map((q, idx) =>
-      `${idx+1}. [Subject: ${q.subject || 'Unknown'}] ${stripHtml(q.question || '').slice(0,200)}`
+      `${idx+1}. [Subject: ${q.subject || 'Unknown'}] ${stripHtml(q.text || '').slice(0,200)}`
     ).join('\n');
 
     const subjectChapters = subject && CHAPTER_MAP[subject]
@@ -544,7 +544,7 @@ window.loadReview = async function() {
     const data = d.data();
     if (status === 'tagged' && !data.chapter) return;
     if (status === 'untagged' && data.chapter) return;
-    if (search && !stripHtml(data.question||'').toLowerCase().includes(search)) return;
+    if (search && !stripHtml(data.text||'').toLowerCase().includes(search)) return;
     rvAllDocs.push({ id: d.id, ...data });
   });
 
@@ -565,7 +565,7 @@ function renderReviewPage() {
   }
 
   body.innerHTML = pageDocs.map((d, i) => {
-    const qText = stripHtml(d.question || '').slice(0, 120);
+    const qText = stripHtml(d.text || '').slice(0, 120);
     const subBadge = getSubjectBadge(d.subject);
     const chapterOptions = buildChapterOptions(d.subject, d.chapter);
     return `<tr>
@@ -677,7 +677,7 @@ window.openModal = async function(docId) {
 
   document.getElementById('modalTitle').textContent = `Question – ${docId.slice(0,12)}`;
   document.getElementById('modalBody').innerHTML = `
-    <div style="background:#F7FAFC;border-radius:10px;padding:1rem;margin-bottom:1rem;font-size:0.9rem;line-height:1.6;">${d.question||'No text'}</div>
+    <div style="background:#F7FAFC;border-radius:10px;padding:1rem;margin-bottom:1rem;font-size:0.9rem;line-height:1.6;">${d.text||'No text'}</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-bottom:1rem;font-size:0.85rem;">
       ${['A','B','C','D'].map((l,i) => `<div style="background:#F0F4F8;padding:0.5rem 0.8rem;border-radius:8px;"><b>${l}.</b> ${d['option'+l]||d[`op${l.toLowerCase()}`]||'—'}</div>`).join('')}
     </div>
@@ -713,7 +713,7 @@ window.findDuplicates = async function() {
   const textMap = new Map();
 
   snap.forEach(d => {
-    const key = normalize(d.data().question || '');
+    const key = normalize(d.data().text || '');
     if (key.length < 10) return;
     if (!textMap.has(key)) textMap.set(key, []);
     textMap.get(key).push({ id: d.id, ...d.data() });
@@ -740,7 +740,7 @@ window.findDuplicates = async function() {
               ${i===0?'<b style="color:#00A86B;">KEEP</b>':'<b style="color:#E53E3E;">DUPLICATE</b>'} 
               &nbsp; ID: ${d.id.slice(0,12)} &nbsp;|&nbsp; ${d.subject||'?'} &nbsp;|&nbsp; Chapter: ${d.chapter||'Untagged'} &nbsp;|&nbsp; Paper: ${d.paperId||'?'}
             </div>
-            <div style="font-size:0.85rem;">${stripHtml(d.question||'').slice(0,150)}</div>
+            <div style="font-size:0.85rem;">${stripHtml(d.text||'').slice(0,150)}</div>
           </div>
           ${i > 0 ? `<button class="btn btn-red" style="margin-left:1rem;white-space:nowrap;padding:0.35rem 0.8rem;font-size:0.78rem;" onclick="deleteDupl('${d.id}',this)">🗑 Delete</button>` : ''}
         </div>
