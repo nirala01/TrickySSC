@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chapter Tagger Admin – TrickySSC</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Segoe UI',sans-serif;background:#F0F4F8;color:#1A202C;}
+.topbar{background:#1A202C;color:white;padding:1rem 2rem;display:flex;align-items:center;justify-content:space-between;}
+.topbar h1{font-size:1.2rem;font-weight:700;}
+.topbar span{font-size:0.8rem;color:#A0AEC0;}
+.container{max-width:1300px;margin:0 auto;padding:1.5rem;}
+
+/* TABS */
+.tabs{display:flex;gap:0.5rem;margin-bottom:1.5rem;background:white;padding:0.5rem;border-radius:12px;border:1px solid #E2E8F0;}
+.tab{padding:0.6rem 1.4rem;border-radius:8px;border:none;cursor:pointer;font-weight:600;font-size:0.9rem;transition:all 0.2s;background:transparent;color:#4A5568;}
+.tab.active{background:#FF6B00;color:white;}
+
+/* CARDS */
+.card{background:white;border-radius:14px;border:1px solid #E2E8F0;padding:1.5rem;margin-bottom:1.5rem;box-shadow:0 1px 6px rgba(0,0,0,0.05);}
+.card-title{font-size:1rem;font-weight:700;margin-bottom:1rem;color:#1A202C;display:flex;align-items:center;gap:0.5rem;}
+
+/* STATS ROW */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.5rem;}
+.stat-box{background:white;border-radius:12px;border:1px solid #E2E8F0;padding:1.2rem;text-align:center;}
+.stat-box .num{font-size:2rem;font-weight:800;color:#FF6B00;}
+.stat-box .lbl{font-size:0.78rem;color:#718096;margin-top:0.2rem;}
+
+/* FORM CONTROLS */
+select,input{padding:0.55rem 0.9rem;border:1px solid #E2E8F0;border-radius:8px;font-size:0.9rem;color:#1A202C;background:white;}
+select:focus,input:focus{outline:none;border-color:#FF6B00;}
+.btn{padding:0.6rem 1.3rem;border:none;border-radius:8px;font-weight:700;font-size:0.88rem;cursor:pointer;transition:all 0.2s;}
+.btn-orange{background:#FF6B00;color:white;}
+.btn-orange:hover{background:#e55a00;}
+.btn-blue{background:#0EA5E9;color:white;}
+.btn-blue:hover{background:#0284c7;}
+.btn-red{background:#EF4444;color:white;}
+.btn-red:hover{background:#dc2626;}
+.btn-green{background:#00A86B;color:white;}
+.btn-green:hover{background:#008a55;}
+.btn-gray{background:#E2E8F0;color:#4A5568;}
+.btn-gray:hover{background:#cbd5e0;}
+.btn:disabled{opacity:0.5;cursor:not-allowed;}
+
+/* PROGRESS */
+.progress-wrap{background:#E2E8F0;border-radius:100px;height:10px;overflow:hidden;margin:0.8rem 0;}
+.progress-bar{height:100%;background:linear-gradient(90deg,#FF6B00,#F59E0B);border-radius:100px;transition:width 0.3s;}
+.log-box{background:#1A202C;color:#A0AEC0;border-radius:10px;padding:1rem;font-family:monospace;font-size:0.8rem;height:200px;overflow-y:auto;margin-top:0.8rem;}
+.log-box .ok{color:#68D391;}
+.log-box .warn{color:#F6E05E;}
+.log-box .err{color:#FC8181;}
+
+/* TABLE */
+.tbl-wrap{overflow-x:auto;margin-top:1rem;}
+table{width:100%;border-collapse:collapse;font-size:0.85rem;}
+th{background:#F7FAFC;padding:0.7rem 1rem;text-align:left;font-weight:700;color:#4A5568;border-bottom:2px solid #E2E8F0;white-space:nowrap;}
+td{padding:0.65rem 1rem;border-bottom:1px solid #F7FAFC;vertical-align:top;}
+tr:hover td{background:#FFFAF5;}
+.q-text{max-width:420px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;}
+.q-text:hover{white-space:normal;overflow:visible;}
+.badge{display:inline-block;padding:0.18rem 0.55rem;border-radius:6px;font-size:0.72rem;font-weight:700;}
+.badge-green{background:rgba(0,168,107,0.1);color:#00A86B;}
+.badge-blue{background:rgba(14,165,233,0.1);color:#0EA5E9;}
+.badge-orange{background:rgba(255,107,0,0.1);color:#FF6B00;}
+.badge-purple{background:rgba(139,92,246,0.1);color:#8B5CF6;}
+.badge-yellow{background:rgba(245,158,11,0.1);color:#D97706;}
+
+/* CHAPTER SELECT in table */
+.ch-sel{padding:0.3rem 0.5rem;border:1px solid #E2E8F0;border-radius:6px;font-size:0.78rem;width:180px;}
+
+/* FILTERS ROW */
+.filters{display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap;margin-bottom:1rem;}
+.filters label{font-size:0.85rem;font-weight:600;color:#4A5568;}
+
+/* PAGINATION */
+.pagi{display:flex;gap:0.5rem;justify-content:center;margin-top:1.2rem;flex-wrap:wrap;}
+.pagi button{padding:0.4rem 0.9rem;border:1px solid #E2E8F0;border-radius:8px;background:white;cursor:pointer;font-size:0.85rem;}
+.pagi button.active{background:#FF6B00;color:white;border-color:#FF6B00;}
+.pagi button:hover:not(.active){background:#FFF7F0;border-color:#FF6B00;}
+
+/* MODAL */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:999;align-items:center;justify-content:center;}
+.modal-bg.open{display:flex;}
+.modal{background:white;border-radius:16px;padding:2rem;max-width:600px;width:90%;max-height:80vh;overflow-y:auto;}
+.modal h3{margin-bottom:1rem;font-size:1.1rem;}
+
+.empty{text-align:center;padding:3rem;color:#A0AEC0;font-size:0.95rem;}
+
+/* DUPL BADGE */
+.dupl-badge{background:rgba(239,68,68,0.1);color:#EF4444;padding:0.15rem 0.5rem;border-radius:6px;font-size:0.7rem;font-weight:700;margin-left:0.4rem;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>🏷️ Chapter Tagger Admin — TrickySSC</h1>
+  <span id="adminEmail">Loading...</span>
+</div>
+
+<div class="container">
+
+  <!-- STATS -->
+  <div class="stats">
+    <div class="stat-box"><div class="num" id="statTotal">—</div><div class="lbl">Total Questions</div></div>
+    <div class="stat-box"><div class="num" id="statTagged">—</div><div class="lbl">Tagged</div></div>
+    <div class="stat-box"><div class="num" id="statUntagged">—</div><div class="lbl">Untagged</div></div>
+    <div class="stat-box"><div class="num" id="statDupl">—</div><div class="lbl">Duplicates Found</div></div>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('tag')">🤖 AI Tag Questions</button>
+    <button class="tab" onclick="showTab('review')">🔍 Review Tagged</button>
+    <button class="tab" onclick="showTab('dupl')">⚠️ Duplicates</button>
+  </div>
+
+  <!-- ===== TAB 1: AI TAGGING ===== -->
+  <div id="tab-tag">
+    <div class="card">
+      <div class="card-title">⚙️ Tagging Settings</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:1rem;align-items:end;">
+        <div>
+          <label style="font-size:0.82rem;font-weight:600;color:#4A5568;display:block;margin-bottom:0.4rem;">Subject to Tag</label>
+          <select id="tagSubject" style="width:100%">
+            <option value="">— All Subjects —</option>
+            <option value="Quantitative Aptitude">Quantitative Aptitude</option>
+            <option value="English Language">English Language</option>
+            <option value="General Intelligence and Reasoning">General Intelligence & Reasoning</option>
+            <option value="General Awareness">General Awareness</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:0.82rem;font-weight:600;color:#4A5568;display:block;margin-bottom:0.4rem;">Groq API Key</label>
+          <input type="password" id="groqKey" placeholder="gsk_..." style="width:100%" value="">
+        </div>
+        <div>
+          <label style="font-size:0.82rem;font-weight:600;color:#4A5568;display:block;margin-bottom:0.4rem;">Batch Size</label>
+          <select id="batchSize" style="width:100%">
+            <option value="10">10 per batch</option>
+            <option value="20" selected>20 per batch</option>
+            <option value="50">50 per batch</option>
+          </select>
+        </div>
+        <div>
+          <button class="btn btn-orange" id="startBtn" onclick="startTagging()">▶ Start Tagging</button>
+        </div>
+      </div>
+      <div style="margin-top:1rem;display:flex;gap:1rem;">
+        <button class="btn btn-gray" onclick="stopTagging()">⏹ Stop</button>
+        <button class="btn btn-gray" onclick="loadStats()">🔄 Refresh Stats</button>
+        <span style="font-size:0.82rem;color:#718096;align-self:center;" id="tagStatus">Idle</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📊 Progress</div>
+      <div style="display:flex;justify-content:space-between;font-size:0.85rem;color:#4A5568;">
+        <span>Tagged: <b id="pTagged">0</b></span>
+        <span>Skipped (already tagged): <b id="pSkipped">0</b></span>
+        <span>Errors: <b id="pErrors">0</b></span>
+        <span>Total processed: <b id="pTotal">0</b> / <b id="pOf">0</b></span>
+      </div>
+      <div class="progress-wrap"><div class="progress-bar" id="progressBar" style="width:0%"></div></div>
+      <div class="log-box" id="logBox"><span style="color:#718096;">Waiting to start...</span></div>
+    </div>
+  </div>
+
+  <!-- ===== TAB 2: REVIEW ===== -->
+  <div id="tab-review" style="display:none;">
+    <div class="card">
+      <div class="card-title">🔍 Review & Edit Tagged Questions</div>
+      <div class="filters">
+        <label>Subject:</label>
+        <select id="rvSubject" onchange="loadReview()">
+          <option value="">All Subjects</option>
+          <option value="Quantitative Aptitude">Quantitative Aptitude</option>
+          <option value="English Language">English Language</option>
+          <option value="General Intelligence and Reasoning">General Intelligence & Reasoning</option>
+          <option value="General Awareness">General Awareness</option>
+        </select>
+        <label>Chapter:</label>
+        <select id="rvChapter" onchange="loadReview()">
+          <option value="">All Chapters</option>
+        </select>
+        <label>Status:</label>
+        <select id="rvStatus" onchange="loadReview()">
+          <option value="tagged">Tagged Only</option>
+          <option value="untagged">Untagged Only</option>
+          <option value="all">All</option>
+        </select>
+        <input type="text" id="rvSearch" placeholder="Search question text..." oninput="loadReview()" style="width:220px;">
+        <button class="btn btn-gray" onclick="loadReview()">🔄 Refresh</button>
+        <button class="btn btn-red" id="deleteSelectedBtn" onclick="deleteSelected()" style="display:none;">🗑 Delete Selected (<span id="selCount">0</span>)</button>
+      </div>
+
+      <div class="tbl-wrap">
+        <table id="rvTable">
+          <thead>
+            <tr>
+              <th><input type="checkbox" id="selAll" onchange="toggleSelectAll(this)"></th>
+              <th>#</th>
+              <th>Question</th>
+              <th>Subject</th>
+              <th>Chapter</th>
+              <th>Paper ID</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="rvBody">
+            <tr><td colspan="7" class="empty">Click Refresh to load questions</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="pagi" id="rvPagi"></div>
+    </div>
+  </div>
+
+  <!-- ===== TAB 3: DUPLICATES ===== -->
+  <div id="tab-dupl" style="display:none;">
+    <div class="card">
+      <div class="card-title">⚠️ Duplicate Question Manager</div>
+      <div style="display:flex;gap:1rem;align-items:center;margin-bottom:1rem;">
+        <button class="btn btn-orange" onclick="findDuplicates()">🔍 Scan for Duplicates</button>
+        <span style="font-size:0.85rem;color:#718096;" id="duplStatus">Not scanned yet</span>
+      </div>
+      <p style="font-size:0.85rem;color:#718096;margin-bottom:1rem;">Duplicates are detected by comparing question text (normalized). You can keep one and delete others.</p>
+      <div id="duplList"><div class="empty">Run scan to find duplicates</div></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- QUESTION DETAIL MODAL -->
+<div class="modal-bg" id="modalBg">
+  <div class="modal">
+    <h3 id="modalTitle">Question Detail</h3>
+    <div id="modalBody"></div>
+    <div style="margin-top:1.5rem;display:flex;gap:0.8rem;justify-content:flex-end;">
+      <button class="btn btn-gray" onclick="closeModal()">Close</button>
+      <button class="btn btn-green" id="modalSave" onclick="saveChapterEdit()">Save Chapter</button>
+    </div>
+  </div>
+</div>
+
+<!-- Firebase + Logic -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import {
+  getFirestore, collection, getDocs, getDoc, doc,
+  updateDoc, deleteDoc, query, where, orderBy, limit, startAfter
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+const app = initializeApp({
+  apiKey:"AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",
+  authDomain:"trickyssc-17bb3.firebaseapp.com",
+  projectId:"trickyssc-17bb3",
+  storageBucket:"trickyssc-17bb3.firebasestorage.app",
+  messagingSenderId:"450627057220",
+  appId:"1:450627057220:web:366267bf437d94f20c6e11"
+});
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+// ===== CHAPTER MAP =====
+const CHAPTER_MAP = {
+  "Quantitative Aptitude": [
+    "Percentage","Profit & Loss","Simple Interest","Compound Interest",
+    "Ratio & Proportion","Time & Work","Time Speed Distance","Averages",
+    "Mixture & Alligation","Number System","LCM & HCF","Algebra",
+    "Geometry","Mensuration","Trigonometry","Data Interpretation",
+    "Surds & Indices","Sequence & Series"
+  ],
+  "English Language": [
+    "Reading Comprehension","Fill in the Blanks","Error Spotting",
+    "Sentence Improvement","Para Jumbles","Cloze Test","Synonyms",
+    "Antonyms","One Word Substitution","Idioms & Phrases",
+    "Active & Passive Voice","Direct & Indirect Speech",
+    "Spelling Errors","Sentence Rearrangement"
+  ],
+  "General Intelligence and Reasoning": [
+    "Analogy","Classification","Series (Number & Letter)","Coding-Decoding",
+    "Blood Relations","Direction & Distance","Ranking & Order","Venn Diagrams",
+    "Syllogism","Matrix","Paper Folding","Mirror & Water Image",
+    "Embedded Figures","Missing Number","Statement & Conclusion","Dice & Cubes"
+  ],
+  "General Awareness": [
+    "History (Ancient & Medieval)","Modern History","Geography (India)",
+    "World Geography","Indian Polity & Constitution","Economics","Physics",
+    "Chemistry","Biology","Computer & Technology","Current Affairs",
+    "Static GK","Sports & Awards","Books & Authors","Important Days","Government Schemes"
+  ]
+};
+
+const ALL_CHAPTERS = Object.values(CHAPTER_MAP).flat();
+
+window.CHAPTER_MAP = CHAPTER_MAP;
+window.ALL_CHAPTERS = ALL_CHAPTERS;
+window.db = db;
+
+// Auth check
+onAuthStateChanged(auth, user => {
+  if (!user) { window.location.href = 'login.html'; return; }
+  document.getElementById('adminEmail').textContent = user.email || user.displayName;
+  loadStats();
+  populateChapterDropdowns();
+});
+
+// ===== STATS =====
+window.loadStats = async function() {
+  try {
+    const snap = await getDocs(collection(db, 'questions'));
+    let total = 0, tagged = 0;
+    const textMap = new Map();
+    let dupl = 0;
+
+    snap.forEach(d => {
+      total++;
+      if (d.data().chapter) tagged++;
+      const key = normalize(d.data().question || '');
+      if (key.length > 10) {
+        if (textMap.has(key)) { dupl++; } else { textMap.set(key, d.id); }
+      }
+    });
+
+    document.getElementById('statTotal').textContent = total;
+    document.getElementById('statTagged').textContent = tagged;
+    document.getElementById('statUntagged').textContent = total - tagged;
+    document.getElementById('statDupl').textContent = dupl;
+  } catch(e) { console.error(e); }
+};
+
+function normalize(text) {
+  return text.replace(/<[^>]*>/g,'').replace(/\s+/g,' ').trim().toLowerCase().slice(0,150);
+}
+
+function populateChapterDropdowns() {
+  const sel = document.getElementById('rvChapter');
+  ALL_CHAPTERS.forEach(ch => {
+    const o = document.createElement('option');
+    o.value = ch; o.textContent = ch;
+    sel.appendChild(o);
+  });
+}
+
+// ===== TAGGING =====
+let stopFlag = false;
+
+window.stopTagging = function() { stopFlag = true; log('⏹ Stop requested...','warn'); };
+
+window.startTagging = async function() {
+  const groqKey = document.getElementById('groqKey').value.trim();
+  const subject = document.getElementById('tagSubject').value;
+  const batchSize = parseInt(document.getElementById('batchSize').value);
+
+  if (!groqKey) { alert('Enter Groq API key'); return; }
+
+  stopFlag = false;
+  document.getElementById('startBtn').disabled = true;
+  document.getElementById('pTagged').textContent = '0';
+  document.getElementById('pSkipped').textContent = '0';
+  document.getElementById('pErrors').textContent = '0';
+  document.getElementById('logBox').innerHTML = '';
+
+  log('🔍 Loading questions from Firestore...','ok');
+
+  // Load all questions (or filtered by subject)
+  let q;
+  if (subject) {
+    q = query(collection(db,'questions'), where('subject','==',subject));
+  } else {
+    q = collection(db,'questions');
+  }
+
+  const snap = await getDocs(q);
+  const docs = [];
+  snap.forEach(d => {
+    if (!d.data().chapter) docs.push({ id: d.id, ...d.data() });
+  });
+
+  document.getElementById('pOf').textContent = docs.length;
+  log(`📦 Found ${docs.length} untagged questions. Starting...`, 'ok');
+
+  // Dedup check
+  const seenText = new Map();
+  const toProcess = [];
+  docs.forEach(d => {
+    const key = normalize(d.question || '');
+    if (seenText.has(key)) {
+      log(`⚠️ Duplicate text detected – skipping doc ${d.id}`, 'warn');
+    } else {
+      seenText.set(key, d.id);
+      toProcess.push(d);
+    }
+  });
+
+  log(`✅ After dedup: ${toProcess.length} unique questions to tag`, 'ok');
+
+  let tagged = 0, skipped = 0, errors = 0;
+
+  for (let i = 0; i < toProcess.length; i += batchSize) {
+    if (stopFlag) { log('🛑 Stopped by user.','warn'); break; }
+
+    const batch = toProcess.slice(i, i + batchSize);
+    document.getElementById('tagStatus').textContent = `Processing ${i+1}–${Math.min(i+batchSize, toProcess.length)} of ${toProcess.length}...`;
+
+    // Build prompt for batch
+    const promptLines = batch.map((q, idx) =>
+      `${idx+1}. [Subject: ${q.subject || 'Unknown'}] ${stripHtml(q.question || '').slice(0,200)}`
+    ).join('\n');
+
+    const subjectChapters = subject && CHAPTER_MAP[subject]
+      ? CHAPTER_MAP[subject]
+      : ALL_CHAPTERS;
+
+    const systemPrompt = `You are an SSC exam expert. Classify each question into exactly one chapter from this list:
+${subjectChapters.join(', ')}
+
+Reply ONLY with a JSON array of objects: [{"n":1,"chapter":"Chapter Name"}, ...]
+Use exact chapter names from the list. No explanation, no markdown.`;
+
+    try {
+      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${groqKey}` },
+        body: JSON.stringify({
+          model: 'llama3-8b-8192',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: promptLines }
+          ],
+          temperature: 0.1,
+          max_tokens: 800
+        })
+      });
+
+      if (!res.ok) {
+        const errText = await res.text();
+        log(`❌ Groq API error: ${errText}`, 'err');
+        errors += batch.length;
+        continue;
+      }
+
+      const data = await res.json();
+      const raw = data.choices?.[0]?.message?.content || '[]';
+
+      let parsed;
+      try {
+        const clean = raw.replace(/```json|```/g,'').trim();
+        parsed = JSON.parse(clean);
+      } catch(e) {
+        log(`❌ JSON parse error in batch ${i/batchSize+1}: ${raw.slice(0,100)}`, 'err');
+        errors += batch.length;
+        continue;
+      }
+
+      // Write to Firestore
+      for (const item of parsed) {
+        const idx = item.n - 1;
+        if (idx < 0 || idx >= batch.length) continue;
+        const qDoc = batch[idx];
+        const chapter = item.chapter;
+
+        if (!ALL_CHAPTERS.includes(chapter)) {
+          log(`⚠️ Unknown chapter "${chapter}" for Q ${qDoc.id} – skipping`, 'warn');
+          errors++;
+          continue;
+        }
+
+        try {
+          await updateDoc(doc(db, 'questions', qDoc.id), { chapter });
+          tagged++;
+          log(`✅ [${qDoc.id.slice(0,8)}] → ${chapter}`, 'ok');
+        } catch(e) {
+          log(`❌ Firestore write failed: ${qDoc.id}`, 'err');
+          errors++;
+        }
+      }
+
+    } catch(e) {
+      log(`❌ Network error: ${e.message}`, 'err');
+      errors += batch.length;
+    }
+
+    document.getElementById('pTagged').textContent = tagged;
+    document.getElementById('pSkipped').textContent = skipped;
+    document.getElementById('pErrors').textContent = errors;
+    document.getElementById('pTotal').textContent = i + batch.length;
+
+    const pct = Math.round(((i + batch.length) / toProcess.length) * 100);
+    document.getElementById('progressBar').style.width = pct + '%';
+
+    // Rate limit pause
+    await sleep(1200);
+  }
+
+  log(`🎉 Done! Tagged: ${tagged}, Errors: ${errors}`, 'ok');
+  document.getElementById('tagStatus').textContent = `Completed. Tagged ${tagged} questions.`;
+  document.getElementById('startBtn').disabled = false;
+  loadStats();
+};
+
+function log(msg, type='') {
+  const box = document.getElementById('logBox');
+  const line = document.createElement('div');
+  line.className = type;
+  line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+  box.appendChild(line);
+  box.scrollTop = box.scrollHeight;
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+function stripHtml(h) { return h.replace(/<[^>]*>/g,'').replace(/\[BR\]/g,' '); }
+
+// ===== REVIEW =====
+let rvPage = 0;
+const PAGE_SIZE = 50;
+let rvAllDocs = [];
+let selectedIds = new Set();
+
+window.loadReview = async function() {
+  const subject = document.getElementById('rvSubject').value;
+  const chapter = document.getElementById('rvChapter').value;
+  const status = document.getElementById('rvStatus').value;
+  const search = document.getElementById('rvSearch').value.toLowerCase();
+
+  document.getElementById('rvBody').innerHTML = '<tr><td colspan="7" class="empty">Loading...</td></tr>';
+
+  let q;
+  if (subject && chapter) {
+    q = query(collection(db,'questions'), where('subject','==',subject), where('chapter','==',chapter));
+  } else if (subject) {
+    q = query(collection(db,'questions'), where('subject','==',subject));
+  } else if (chapter) {
+    q = query(collection(db,'questions'), where('chapter','==',chapter));
+  } else {
+    q = collection(db,'questions');
+  }
+
+  const snap = await getDocs(q);
+  rvAllDocs = [];
+  snap.forEach(d => {
+    const data = d.data();
+    if (status === 'tagged' && !data.chapter) return;
+    if (status === 'untagged' && data.chapter) return;
+    if (search && !stripHtml(data.question||'').toLowerCase().includes(search)) return;
+    rvAllDocs.push({ id: d.id, ...data });
+  });
+
+  rvPage = 0;
+  selectedIds.clear();
+  renderReviewPage();
+};
+
+function renderReviewPage() {
+  const start = rvPage * PAGE_SIZE;
+  const pageDocs = rvAllDocs.slice(start, start + PAGE_SIZE);
+  const body = document.getElementById('rvBody');
+
+  if (!pageDocs.length) {
+    body.innerHTML = '<tr><td colspan="7" class="empty">No questions found</td></tr>';
+    document.getElementById('rvPagi').innerHTML = '';
+    return;
+  }
+
+  body.innerHTML = pageDocs.map((d, i) => {
+    const qText = stripHtml(d.question || '').slice(0, 120);
+    const subBadge = getSubjectBadge(d.subject);
+    const chapterOptions = buildChapterOptions(d.subject, d.chapter);
+    return `<tr>
+      <td><input type="checkbox" class="row-check" data-id="${d.id}" onchange="toggleSelect('${d.id}',this.checked)"></td>
+      <td style="color:#A0AEC0;font-size:0.8rem;">${start+i+1}</td>
+      <td><div class="q-text" title="${qText}" onclick="openModal('${d.id}')">${qText}</div></td>
+      <td>${subBadge}</td>
+      <td>
+        <select class="ch-sel" onchange="saveChapterDirect('${d.id}',this.value)">
+          <option value="">— Untagged —</option>
+          ${chapterOptions}
+        </select>
+      </td>
+      <td style="font-size:0.78rem;color:#718096;">${(d.paperId||'').slice(0,15)}</td>
+      <td>
+        <button class="btn btn-red" style="padding:0.3rem 0.7rem;font-size:0.78rem;" onclick="deleteSingle('${d.id}')">🗑</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  // Pagination
+  const totalPages = Math.ceil(rvAllDocs.length / PAGE_SIZE);
+  let pagi = '';
+  for (let p = 0; p < totalPages; p++) {
+    pagi += `<button onclick="goPage(${p})" class="${p===rvPage?'active':''}">${p+1}</button>`;
+  }
+  document.getElementById('rvPagi').innerHTML = pagi;
+  updateSelUI();
+}
+
+window.goPage = function(p) { rvPage = p; renderReviewPage(); };
+
+function getSubjectBadge(sub) {
+  const map = {
+    'Quantitative Aptitude': 'badge-green',
+    'English Language': 'badge-blue',
+    'General Intelligence and Reasoning': 'badge-purple',
+    'General Awareness': 'badge-yellow'
+  };
+  const cls = map[sub] || 'badge-orange';
+  const short = { 'Quantitative Aptitude':'QA','English Language':'ENG','General Intelligence and Reasoning':'GIR','General Awareness':'GA' };
+  return `<span class="badge ${cls}">${short[sub]||sub?.slice(0,4)||'?'}</span>`;
+}
+
+function buildChapterOptions(subject, selected) {
+  const chapters = subject && CHAPTER_MAP[subject] ? CHAPTER_MAP[subject] : ALL_CHAPTERS;
+  return chapters.map(ch =>
+    `<option value="${ch}" ${ch===selected?'selected':''}>${ch}</option>`
+  ).join('');
+}
+
+window.saveChapterDirect = async function(docId, chapter) {
+  if (!chapter) {
+    await updateDoc(doc(db,'questions',docId), { chapter: '' });
+    return;
+  }
+  await updateDoc(doc(db,'questions',docId), { chapter });
+  log(`✅ Updated ${docId.slice(0,8)} → ${chapter}`, 'ok');
+};
+
+window.toggleSelect = function(id, checked) {
+  if (checked) selectedIds.add(id); else selectedIds.delete(id);
+  updateSelUI();
+};
+
+window.toggleSelectAll = function(cb) {
+  document.querySelectorAll('.row-check').forEach(c => {
+    c.checked = cb.checked;
+    const id = c.dataset.id;
+    if (cb.checked) selectedIds.add(id); else selectedIds.delete(id);
+  });
+  updateSelUI();
+};
+
+function updateSelUI() {
+  const n = selectedIds.size;
+  const btn = document.getElementById('deleteSelectedBtn');
+  btn.style.display = n > 0 ? 'inline-flex' : 'none';
+  document.getElementById('selCount').textContent = n;
+}
+
+window.deleteSingle = async function(docId) {
+  if (!confirm('Delete this question permanently?')) return;
+  await deleteDoc(doc(db,'questions',docId));
+  rvAllDocs = rvAllDocs.filter(d => d.id !== docId);
+  renderReviewPage();
+  loadStats();
+};
+
+window.deleteSelected = async function() {
+  if (!confirm(`Delete ${selectedIds.size} selected questions permanently?`)) return;
+  for (const id of selectedIds) {
+    await deleteDoc(doc(db,'questions',id));
+  }
+  rvAllDocs = rvAllDocs.filter(d => !selectedIds.has(d.id));
+  selectedIds.clear();
+  renderReviewPage();
+  loadStats();
+};
+
+// ===== MODAL =====
+let modalDocId = null;
+
+window.openModal = async function(docId) {
+  modalDocId = docId;
+  const snap = await getDoc(doc(db,'questions',docId));
+  const d = snap.data();
+  const chapterOptions = buildChapterOptions(d.subject, d.chapter);
+
+  document.getElementById('modalTitle').textContent = `Question – ${docId.slice(0,12)}`;
+  document.getElementById('modalBody').innerHTML = `
+    <div style="background:#F7FAFC;border-radius:10px;padding:1rem;margin-bottom:1rem;font-size:0.9rem;line-height:1.6;">${d.question||'No text'}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-bottom:1rem;font-size:0.85rem;">
+      ${['A','B','C','D'].map((l,i) => `<div style="background:#F0F4F8;padding:0.5rem 0.8rem;border-radius:8px;"><b>${l}.</b> ${d['option'+l]||d[`op${l.toLowerCase()}`]||'—'}</div>`).join('')}
+    </div>
+    <div style="font-size:0.85rem;color:#4A5568;margin-bottom:1rem;">
+      <b>Subject:</b> ${d.subject||'—'} &nbsp;|&nbsp; <b>Paper:</b> ${d.paperId||'—'}
+    </div>
+    <div>
+      <label style="font-size:0.85rem;font-weight:600;display:block;margin-bottom:0.4rem;">Change Chapter:</label>
+      <select id="modalChapterSel" style="width:100%;padding:0.6rem;">
+        <option value="">— Untagged —</option>
+        ${chapterOptions}
+      </select>
+    </div>
+  `;
+  document.getElementById('modalBg').classList.add('open');
+};
+
+window.closeModal = function() { document.getElementById('modalBg').classList.remove('open'); };
+
+window.saveChapterEdit = async function() {
+  const chapter = document.getElementById('modalChapterSel').value;
+  await updateDoc(doc(db,'questions',modalDocId), { chapter });
+  closeModal();
+  loadReview();
+};
+
+// ===== DUPLICATES =====
+window.findDuplicates = async function() {
+  document.getElementById('duplStatus').textContent = 'Scanning...';
+  document.getElementById('duplList').innerHTML = '<div class="empty">Scanning all questions...</div>';
+
+  const snap = await getDocs(collection(db,'questions'));
+  const textMap = new Map();
+
+  snap.forEach(d => {
+    const key = normalize(d.data().question || '');
+    if (key.length < 10) return;
+    if (!textMap.has(key)) textMap.set(key, []);
+    textMap.get(key).push({ id: d.id, ...d.data() });
+  });
+
+  const groups = [...textMap.values()].filter(g => g.length > 1);
+  document.getElementById('statDupl').textContent = groups.reduce((s,g) => s + g.length - 1, 0);
+  document.getElementById('duplStatus').textContent = `Found ${groups.length} duplicate groups`;
+
+  if (!groups.length) {
+    document.getElementById('duplList').innerHTML = '<div class="empty">✅ No duplicates found!</div>';
+    return;
+  }
+
+  document.getElementById('duplList').innerHTML = groups.map((group, gi) => `
+    <div style="background:white;border:1px solid #FED7D7;border-radius:12px;padding:1.2rem;margin-bottom:1rem;">
+      <div style="font-size:0.82rem;font-weight:700;color:#E53E3E;margin-bottom:0.8rem;">
+        ⚠️ Group ${gi+1}: ${group.length} duplicates
+      </div>
+      ${group.map((d, i) => `
+        <div style="background:${i===0?'#F0FFF4':'#FFF5F5'};border-radius:8px;padding:0.8rem;margin-bottom:0.5rem;display:flex;justify-content:space-between;align-items:flex-start;">
+          <div style="flex:1;">
+            <div style="font-size:0.78rem;color:#718096;margin-bottom:0.3rem;">
+              ${i===0?'<b style="color:#00A86B;">KEEP</b>':'<b style="color:#E53E3E;">DUPLICATE</b>'} 
+              &nbsp; ID: ${d.id.slice(0,12)} &nbsp;|&nbsp; ${d.subject||'?'} &nbsp;|&nbsp; Chapter: ${d.chapter||'Untagged'} &nbsp;|&nbsp; Paper: ${d.paperId||'?'}
+            </div>
+            <div style="font-size:0.85rem;">${stripHtml(d.question||'').slice(0,150)}</div>
+          </div>
+          ${i > 0 ? `<button class="btn btn-red" style="margin-left:1rem;white-space:nowrap;padding:0.35rem 0.8rem;font-size:0.78rem;" onclick="deleteDupl('${d.id}',this)">🗑 Delete</button>` : ''}
+        </div>
+      `).join('')}
+    </div>
+  `).join('');
+};
+
+window.deleteDupl = async function(docId, btn) {
+  if (!confirm('Delete this duplicate?')) return;
+  await deleteDoc(doc(db,'questions',docId));
+  btn.closest('div[style*="FFF5F5"]').style.opacity = '0.4';
+  btn.disabled = true;
+  btn.textContent = '✅ Deleted';
+  loadStats();
+};
+
+// ===== TABS =====
+window.showTab = function(name) {
+  ['tag','review','dupl'].forEach(t => {
+    document.getElementById('tab-'+t).style.display = t===name?'block':'none';
+  });
+  document.querySelectorAll('.tab').forEach((b,i) => {
+    b.classList.toggle('active', ['tag','review','dupl'][i]===name);
+  });
+  if (name === 'review') loadReview();
+};
+
+</script>
+</body>
+</html>

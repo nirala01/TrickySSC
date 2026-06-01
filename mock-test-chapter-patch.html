@@ -1,0 +1,183 @@
+<!-- ============================================================
+  MOCK-TEST.HTML PATCH for Chapter Tests
+  Add this block at the TOP of your existing init logic in mock-test.html
+  (inside the DOMContentLoaded or firebase onAuthStateChanged callback)
+  ============================================================ -->
+
+<script>
+// ===== CHAPTER TEST MODE DETECTION =====
+// Add this BEFORE your regular mock test loading logic
+
+const urlParams = new URLSearchParams(window.location.search);
+const isChapterMode = urlParams.get('mode') === 'chapter';
+
+if (isChapterMode) {
+  const chData = JSON.parse(sessionStorage.getItem('chapterTestData') || 'null');
+
+  if (!chData || !chData.questions?.length) {
+    alert('Test data not found. Returning to chapters.');
+    history.back();
+  } else {
+    // Override your normal question loading
+    // Load actual question documents from Firestore by IDs
+    loadChapterTestQuestions(chData);
+  }
+}
+
+async function loadChapterTestQuestions(chData) {
+  // Show loading state (use your existing loading UI)
+  showLoading?.();
+
+  // Update page title / header to show chapter info
+  document.title = `${chData.chapter} – Test ${chData.testNum} | TrickySSC`;
+
+  // If you have a header element for test name:
+  const testTitleEl = document.getElementById('testTitle') || document.getElementById('mockTitle');
+  if (testTitleEl) testTitleEl.textContent = `${chData.chapter} – Test ${chData.testNum}`;
+
+  // Fetch questions from Firestore by their IDs
+  const questionDocs = [];
+  for (const qId of chData.questions) {
+    try {
+      const snap = await getDoc(doc(db, 'questions', qId));
+      if (snap.exists()) questionDocs.push({ id: snap.id, ...snap.data() });
+    } catch(e) { console.warn('Failed to load', qId); }
+  }
+
+  if (!questionDocs.length) {
+    alert('Could not load questions. Please try again.');
+    history.back();
+    return;
+  }
+
+  // ===== USE YOUR EXISTING TEST ENGINE =====
+  // Pass the loaded questions to your existing mock test renderer
+  // The key is to map them to the same format your mock test expects
+
+  // Set timer (20 min = 1200 seconds)
+  const TIME_LIMIT = chData.timeLimit * 60; // seconds
+  startTimer?.(TIME_LIMIT); // call your existing timer function
+
+  // Render questions using your existing function
+  // This depends on your mock-test.html structure, but typically:
+  renderQuestions?.(questionDocs);
+  // OR
+  window._questions = questionDocs;
+  window._timeLimit = TIME_LIMIT;
+  initMockTest?.(questionDocs, TIME_LIMIT);
+
+  // ===== ON TEST SUBMIT =====
+  // Hook into your existing submit/end flow to save score back
+  window._onTestComplete = function(results) {
+    // results = { score, total, correct, wrong, unattempted }
+    const pct = Math.round((results.score / (results.total * 2)) * 100);
+
+    // Save to localStorage history
+    const history = JSON.parse(localStorage.getItem(chData.historyKey) || '{}');
+    history[chData.testNum] = {
+      score: results.score,
+      pct: Math.max(0, pct),
+      correct: results.correct,
+      wrong: results.wrong,
+      date: new Date().toISOString()
+    };
+    localStorage.setItem(chData.historyKey, JSON.stringify(history));
+
+    // Clear sessionStorage
+    sessionStorage.removeItem('chapterTestData');
+  };
+}
+</script>
+
+<!-- ============================================================
+  PRACTICE BUTTON UPDATE for ssc-cgl.html
+  
+  Replace every  onclick="window.location='https://trickyssc.com/index.html#courses';showSection&&showSection('courses')"
+  on the Practice buttons in cgl-chapter-page section with the correct chapter link.
+  
+  Example for Percentage button:
+  ============================================================ -->
+
+<!-- BEFORE (current): -->
+<button onclick="window.location='https://trickyssc.com/index.html#courses';showSection&&showSection('courses')"
+  style="background:#00A86B;...">🎯 Practice</button>
+
+<!-- AFTER (new): -->
+<button onclick="window.location='chapter-test-list.html?chapter=Percentage&subject=Quantitative%20Aptitude'"
+  style="background:#00A86B;...">🎯 Practice</button>
+
+<!-- 
+  Full list of Practice button onclick values to use:
+  
+  QUANTITATIVE APTITUDE:
+  chapter-test-list.html?chapter=Percentage&subject=Quantitative%20Aptitude
+  chapter-test-list.html?chapter=Profit%20%26%20Loss&subject=Quantitative%20Aptitude
+  chapter-test-list.html?chapter=Simple%20Interest&subject=Quantitative%20Aptitude
+  chapter-test-list.html?chapter=Compound%20Interest&subject=Quantitative%20Aptitude
+  chapter-test-list.html?chapter=Ratio%20%26%20Proportion&subject=Quantitative%20Aptitude
+  chapter-test-list.html?chapter=Time%20%26%20Work&subject=Quantitative%20Aptitude
+  chapter-test-list.html?chapter=Time%20Speed%20Distance&subject=Quantitative%20Aptitude
+  chapter-test-list.html?chapter=Averages&subject=Quantitative%20Aptitude
+  chapter-test-list.html?chapter=Mixture%20%26%20Alligation&subject=Quantitative%20Aptitude
+  chapter-test-list.html?chapter=Number%20System&subject=Quantitative%20Aptitude
+  chapter-test-list.html?chapter=LCM%20%26%20HCF&subject=Quantitative%20Aptitude
+  chapter-test-list.html?chapter=Algebra&subject=Quantitative%20Aptitude
+  chapter-test-list.html?chapter=Geometry&subject=Quantitative%20Aptitude
+  chapter-test-list.html?chapter=Mensuration&subject=Quantitative%20Aptitude
+  chapter-test-list.html?chapter=Trigonometry&subject=Quantitative%20Aptitude
+  chapter-test-list.html?chapter=Data%20Interpretation&subject=Quantitative%20Aptitude
+  chapter-test-list.html?chapter=Surds%20%26%20Indices&subject=Quantitative%20Aptitude
+  chapter-test-list.html?chapter=Sequence%20%26%20Series&subject=Quantitative%20Aptitude
+
+  ENGLISH LANGUAGE:
+  chapter-test-list.html?chapter=Reading%20Comprehension&subject=English%20Language
+  chapter-test-list.html?chapter=Fill%20in%20the%20Blanks&subject=English%20Language
+  chapter-test-list.html?chapter=Error%20Spotting&subject=English%20Language
+  chapter-test-list.html?chapter=Sentence%20Improvement&subject=English%20Language
+  chapter-test-list.html?chapter=Para%20Jumbles&subject=English%20Language
+  chapter-test-list.html?chapter=Cloze%20Test&subject=English%20Language
+  chapter-test-list.html?chapter=Synonyms&subject=English%20Language
+  chapter-test-list.html?chapter=Antonyms&subject=English%20Language
+  chapter-test-list.html?chapter=One%20Word%20Substitution&subject=English%20Language
+  chapter-test-list.html?chapter=Idioms%20%26%20Phrases&subject=English%20Language
+  chapter-test-list.html?chapter=Active%20%26%20Passive%20Voice&subject=English%20Language
+  chapter-test-list.html?chapter=Direct%20%26%20Indirect%20Speech&subject=English%20Language
+  chapter-test-list.html?chapter=Spelling%20Errors&subject=English%20Language
+  chapter-test-list.html?chapter=Sentence%20Rearrangement&subject=English%20Language
+
+  GENERAL INTELLIGENCE & REASONING:
+  chapter-test-list.html?chapter=Analogy&subject=General%20Intelligence%20and%20Reasoning
+  chapter-test-list.html?chapter=Classification&subject=General%20Intelligence%20and%20Reasoning
+  chapter-test-list.html?chapter=Series%20(Number%20%26%20Letter)&subject=General%20Intelligence%20and%20Reasoning
+  chapter-test-list.html?chapter=Coding-Decoding&subject=General%20Intelligence%20and%20Reasoning
+  chapter-test-list.html?chapter=Blood%20Relations&subject=General%20Intelligence%20and%20Reasoning
+  chapter-test-list.html?chapter=Direction%20%26%20Distance&subject=General%20Intelligence%20and%20Reasoning
+  chapter-test-list.html?chapter=Ranking%20%26%20Order&subject=General%20Intelligence%20and%20Reasoning
+  chapter-test-list.html?chapter=Venn%20Diagrams&subject=General%20Intelligence%20and%20Reasoning
+  chapter-test-list.html?chapter=Syllogism&subject=General%20Intelligence%20and%20Reasoning
+  chapter-test-list.html?chapter=Matrix&subject=General%20Intelligence%20and%20Reasoning
+  chapter-test-list.html?chapter=Paper%20Folding&subject=General%20Intelligence%20and%20Reasoning
+  chapter-test-list.html?chapter=Mirror%20%26%20Water%20Image&subject=General%20Intelligence%20and%20Reasoning
+  chapter-test-list.html?chapter=Embedded%20Figures&subject=General%20Intelligence%20and%20Reasoning
+  chapter-test-list.html?chapter=Missing%20Number&subject=General%20Intelligence%20and%20Reasoning
+  chapter-test-list.html?chapter=Statement%20%26%20Conclusion&subject=General%20Intelligence%20and%20Reasoning
+  chapter-test-list.html?chapter=Dice%20%26%20Cubes&subject=General%20Intelligence%20and%20Reasoning
+
+  GENERAL AWARENESS:
+  chapter-test-list.html?chapter=History%20(Ancient%20%26%20Medieval)&subject=General%20Awareness
+  chapter-test-list.html?chapter=Modern%20History&subject=General%20Awareness
+  chapter-test-list.html?chapter=Geography%20(India)&subject=General%20Awareness
+  chapter-test-list.html?chapter=World%20Geography&subject=General%20Awareness
+  chapter-test-list.html?chapter=Indian%20Polity%20%26%20Constitution&subject=General%20Awareness
+  chapter-test-list.html?chapter=Economics&subject=General%20Awareness
+  chapter-test-list.html?chapter=Physics&subject=General%20Awareness
+  chapter-test-list.html?chapter=Chemistry&subject=General%20Awareness
+  chapter-test-list.html?chapter=Biology&subject=General%20Awareness
+  chapter-test-list.html?chapter=Computer%20%26%20Technology&subject=General%20Awareness
+  chapter-test-list.html?chapter=Current%20Affairs&subject=General%20Awareness
+  chapter-test-list.html?chapter=Static%20GK&subject=General%20Awareness
+  chapter-test-list.html?chapter=Sports%20%26%20Awards&subject=General%20Awareness
+  chapter-test-list.html?chapter=Books%20%26%20Authors&subject=General%20Awareness
+  chapter-test-list.html?chapter=Important%20Days&subject=General%20Awareness
+  chapter-test-list.html?chapter=Government%20Schemes&subject=General%20Awareness
+-->

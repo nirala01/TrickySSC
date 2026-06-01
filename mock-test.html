@@ -337,9 +337,10 @@ const db = getFirestore(app);
 
 // Parse URL params
 const params = new URLSearchParams(window.location.search);
-const mockId     = params.get('mockId') || '';   // mockId field on mock_tests doc
-const docId      = params.get('docId')  || '';   // Firestore document ID of mock_tests
-const exam       = params.get('exam')   || '';   // ssc-cgl
+const mode       = params.get('mode') || '';     // 'chapter' for chapter tests
+const mockId     = params.get('mockId') || '';
+const docId      = params.get('docId')  || '';
+const exam       = params.get('exam')   || '';
 const seriesNum  = parseInt(params.get('series') || '1');
 const tier       = params.get('tier') || 'Tier I';
 
@@ -347,17 +348,107 @@ window._db = db;
 window._getDoc = getDoc;
 window._fsDoc = (id) => fsDoc(db,'mock_tests',id);
 
+window._saveResult = async (result) => {
+  try {
+    await addDoc(collection(db,'mock_results'), result);
+  } catch(e) { console.warn('Save result failed:', e.message); }
+};
+
+window.setLoad = function(pct, msg) {
+  const fill = document.getElementById('loadFill');
+  const msgEl = document.getElementById('loadMsg');
+  if (fill) fill.style.width = pct + '%';
+  if (msgEl) msgEl.textContent = msg;
+};
+
+// ── CHAPTER TEST MODE ────────────────────────────────────────────────────────
+async function loadChapterTest() {
+  const chData = JSON.parse(sessionStorage.getItem('chapterTestData') || 'null');
+
+  if (!chData || !chData.questions?.length) {
+    const errEl = document.getElementById('loadMsg');
+    errEl.style.color = '#EF4444';
+    errEl.innerHTML = '❌ Chapter test data not found.<br><a href="ssc-cgl.html#cgl-chapter-page" style="color:#FF6B00;">← Back to Chapters</a>';
+    return;
+  }
+
+  setLoad(20, `Loading ${chData.chapter} — Test ${chData.testNum}...`);
+
+  // Fetch each question doc by ID
+  const qList = [];
+  const total = chData.questions.length;
+  for (let i = 0; i < total; i++) {
+    try {
+      const snap = await getDoc(fsDoc(db, 'questions', chData.questions[i]));
+      if (snap.exists()) qList.push({ id: snap.id, ...snap.data() });
+    } catch(e) { console.warn('Failed to load question:', chData.questions[i]); }
+    setLoad(20 + Math.round((i / total) * 65), `Loading question ${i+1} of ${total}...`);
+  }
+
+  if (!qList.length) {
+    const errEl = document.getElementById('loadMsg');
+    errEl.style.color = '#EF4444';
+    errEl.innerHTML = '❌ Could not load questions. Please try again.<br><a href="javascript:history.back()" style="color:#FF6B00;">← Go Back</a>';
+    return;
+  }
+
+  // Number questions
+  qList.forEach((q, i) => q._num = i + 1);
+
+  setLoad(90, 'Preparing chapter test...');
+
+  // Build a mock-meta-like object for _initTest
+  const chapterMeta = {
+    title: `${chData.chapter} — Test ${chData.testNum}`,
+    exam: 'Chapter Practice',
+    tier: chData.subject,
+    duration: chData.timeLimit || 20,
+    totalMarks: qList.length * 2,
+    isChapterTest: true,
+    chapterHistoryKey: chData.historyKey,
+    chapterTestNum: chData.testNum
+  };
+
+  window._mockMeta = chapterMeta;
+  window._chapterTestData = chData;
+
+  // Override _saveResult for chapter tests — save to localStorage instead
+  window._saveResult = (result) => {
+    try {
+      const history = JSON.parse(localStorage.getItem(chData.historyKey) || '{}');
+      history[chData.testNum] = {
+        score: result.score,
+        pct: Math.max(0, result.pct),
+        correct: result.correct,
+        wrong: result.wrong,
+        skipped: result.skipped,
+        timeUsed: result.timeUsed,
+        date: new Date().toISOString()
+      };
+      localStorage.setItem(chData.historyKey, JSON.stringify(history));
+      sessionStorage.removeItem('chapterTestData');
+    } catch(e) { console.warn('Chapter result save failed:', e); }
+  };
+
+  window._initTest(chapterMeta, qList);
+}
+
+// ── REGULAR MOCK TEST LOAD ───────────────────────────────────────────────────
 window._loadQuestions = async () => {
+  // ── Chapter mode: read from sessionStorage ──
+  if (mode === 'chapter') {
+    loadChapterTest();
+    return;
+  }
+
   setLoad(10,'Loading mock test info...');
   let qList = [];
 
   try {
     setLoad(10, `Loading: exam=${exam} series=${seriesNum} tier=${tier} mockId=${mockId||'none'}`);
 
-    // Load mock_tests metadata — try all available params
     let mockMeta = null;
 
-    // Try by Firestore document ID first (fastest, most reliable)
     if (docId && docId !== 'null' && docId !== '') {
       try {
         const docSnap = await window._getDoc(window._fsDoc(docId));
@@ -366,7 +457,6 @@ window._loadQuestions = async () => {
       } catch(e) { console.warn('docId fetch failed:', e.message); }
     }
 
-    // Try by mockId field
     if (!mockMeta && mockId && mockId !== 'null' && mockId !== '') {
       try {
         const snap = await getDocs(query(collection(db,'mock_tests'), where('mockId','==',mockId)));
@@ -374,13 +464,11 @@ window._loadQuestions = async () => {
       } catch(e) { console.warn('mockId lookup failed:', e.message); }
     }
 
-    // Try by exam+seriesNum+tier
     if (!mockMeta && exam) {
       try {
         const snap = await getDocs(query(collection(db,'mock_tests'),
           where('exam','==',exam), where('seriesNum','==',seriesNum)));
         if (!snap.empty) {
-          // Filter by tier if available
           const tierMatch = snap.docs.find(d => !tier || d.data().tier === tier);
           const picked = tierMatch || snap.docs[0];
           mockMeta = { id: picked.id, ...picked.data() };
@@ -395,55 +483,39 @@ window._loadQuestions = async () => {
     window._mockMeta = mockMeta;
     setLoad(30, `Found: "${mockMeta.title}" — loading questions...`);
 
-    // Load questions — try multiple strategies
     let qDocs = [];
 
-    // Strategy 1: by mockId (most reliable)
     if (mockMeta.mockId) {
       try {
-        const snap = await getDocs(query(
-          collection(db,'questions'),
-          where('mockId','==',mockMeta.mockId)
-        ));
+        const snap = await getDocs(query(collection(db,'questions'), where('mockId','==',mockMeta.mockId)));
         qDocs = snap.docs;
         setLoad(60, `Found ${qDocs.length} questions by mockId`);
       } catch(e) { console.warn('mockId query failed:', e.message); }
     }
 
-    // Strategy 2: by exam + mockSeriesNum (no index needed)
     if (!qDocs.length) {
       try {
-        const snap = await getDocs(query(
-          collection(db,'questions'),
+        const snap = await getDocs(query(collection(db,'questions'),
           where('exam','==',mockMeta.exam||exam),
-          where('mockSeriesNum','==',mockMeta.seriesNum||seriesNum)
-        ));
+          where('mockSeriesNum','==',mockMeta.seriesNum||seriesNum)));
         qDocs = snap.docs;
         setLoad(60, `Found ${qDocs.length} questions by exam+seriesNum`);
       } catch(e) { console.warn('exam+mockSeriesNum query failed:', e.message); }
     }
 
-    // Strategy 3: by type=mock + exam (broad fallback)
     if (!qDocs.length) {
       try {
-        const snap = await getDocs(query(
-          collection(db,'questions'),
-          where('exam','==',mockMeta.exam||exam),
-          where('type','==','mock')
-        ));
+        const snap = await getDocs(query(collection(db,'questions'),
+          where('exam','==',mockMeta.exam||exam), where('type','==','mock')));
         qDocs = snap.docs;
         setLoad(60, `Found ${qDocs.length} questions by type=mock`);
       } catch(e) { console.warn('type=mock query failed:', e.message); }
     }
 
-    // Strategy 4: by mockSeriesNum alone (last resort)
     if (!qDocs.length && (mockMeta.seriesNum||seriesNum)) {
       try {
-        const snap = await getDocs(query(
-          collection(db,'questions'),
-          where('mockSeriesNum','==', mockMeta.seriesNum||seriesNum),
-          limit(200)
-        ));
+        const snap = await getDocs(query(collection(db,'questions'),
+          where('mockSeriesNum','==', mockMeta.seriesNum||seriesNum)));
         qDocs = snap.docs;
         setLoad(60, `Found ${qDocs.length} questions by mockSeriesNum only`);
       } catch(e) { console.warn('mockSeriesNum-only query failed:', e.message); }
@@ -457,14 +529,12 @@ window._loadQuestions = async () => {
 
     setLoad(70,'Organizing sections...');
 
-    // Sort by subject then qNum
     const ORDER = ['General Intelligence & Reasoning','Quantitative Aptitude','English Language','General Awareness'];
     qList.sort((a,b) => {
       const ai = ORDER.indexOf(a.subject); const bi = ORDER.indexOf(b.subject);
       if (ai !== bi) return ai - bi;
       return (a.qNum||0) - (b.qNum||0);
     });
-    // Re-number
     qList.forEach((q,i) => q._num = i+1);
 
     setLoad(90,'Preparing test...');
@@ -484,22 +554,6 @@ window._loadQuestions = async () => {
   }
 };
 
-// fsReady handled in module
-window._saveResult = async (result) => {
-  try {
-    await addDoc(collection(db,'mock_results'), result);
-  } catch(e) { console.warn('Save result failed:', e.message); }
-};
-
-// Define setLoad inside module scope so it's available immediately
-window.setLoad = function(pct, msg) {
-  const fill = document.getElementById('loadFill');
-  const msgEl = document.getElementById('loadMsg');
-  if (fill) fill.style.width = pct + '%';
-  if (msgEl) msgEl.textContent = msg;
-};
-
-// Fire after everything is defined
 window._firestoreLoaded = true;
 window._loadQuestions();
 </script>
@@ -554,19 +608,32 @@ window._initTest = (meta, qs) => {
     questions = qs;
   }
 
-  sections = SUBJECTS.map((subj, i) => ({
-    subj,
-    short: SEC_SHORT[i],
-    color: SEC_COLORS[i],
-    qs: questions.filter(q => q.subject === subj),
-    startIdx: 0
-  }));
-  let idx = 0;
-  sections.forEach(s => { s.startIdx = idx; idx += s.qs.length; });
+  // Chapter test: single section, no subject splitting
+  if (meta.isChapterTest) {
+    sections = [{
+      subj: meta.tier || 'Chapter Practice',
+      short: 'Practice',
+      color: '#FF6B00',
+      qs: questions,
+      startIdx: 0
+    }];
+  } else {
+    sections = SUBJECTS.map((subj, i) => ({
+      subj,
+      short: SEC_SHORT[i],
+      color: SEC_COLORS[i],
+      qs: questions.filter(q => q.subject === subj),
+      startIdx: 0
+    }));
+    let idx = 0;
+    sections.forEach(s => { s.startIdx = idx; idx += s.qs.length; });
+  }
 
   // Populate instruction screen
   document.getElementById('instrTitle').textContent    = meta.title || 'Mock Test';
-  document.getElementById('instrSubtitle').textContent = `${meta.exam?.toUpperCase()} — ${meta.tier}`;
+  document.getElementById('instrSubtitle').textContent = meta.isChapterTest
+    ? meta.tier
+    : `${meta.exam?.toUpperCase()} — ${meta.tier}`;
   document.getElementById('instrQs').textContent = (langs.length > 1 ? qs.length/2 : qs.length) + (langs.length > 1 ? ' (×2 langs)' : '');
   document.getElementById('instrTime').textContent     = meta.duration || 60;
   document.getElementById('instrMarks').textContent    = meta.totalMarks || qs.length * 2;
@@ -889,14 +956,24 @@ window.toggleLang = () => {
 };
 
 function rebuildSections() {
-  sections = ['General Intelligence & Reasoning','Quantitative Aptitude','English Language','General Awareness']
-    .map((subj,i) => ({
-      subj, short: SEC_SHORT[i], color: SEC_COLORS[i],
-      qs: questions.filter(q => q.subject === subj),
+  if (window._mockMeta?.isChapterTest) {
+    sections = [{
+      subj: window._mockMeta.tier || 'Chapter Practice',
+      short: 'Practice',
+      color: '#FF6B00',
+      qs: questions,
       startIdx: 0
-    }));
-  let idx = 0;
-  sections.forEach(s => { s.startIdx = idx; idx += s.qs.length; });
+    }];
+  } else {
+    sections = ['General Intelligence & Reasoning','Quantitative Aptitude','English Language','General Awareness']
+      .map((subj,i) => ({
+        subj, short: SEC_SHORT[i], color: SEC_COLORS[i],
+        qs: questions.filter(q => q.subject === subj),
+        startIdx: 0
+      }));
+    let idx = 0;
+    sections.forEach(s => { s.startIdx = idx; idx += s.qs.length; });
+  }
 
   // Rebuild section tabs
   const tabs = document.getElementById('secTabs');
