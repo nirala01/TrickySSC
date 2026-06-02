@@ -536,7 +536,7 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:10
 ═══════════════════════════════════ */
 @media(max-width:640px){
   #sectionBar{ border-bottom:1px solid #E2E8F0; }
-  .sec-tab{ padding:8px 12px 7px; font-size:11px; min-width:72px; }
+  .sec-tab{ padding:6px 12px 5px; font-size:11px; min-width:72px; }
   .sec-tab-name{font-size:10.5px;}
   .sec-tab-count{font-size:9.5px;padding:1px 5px;}
   .sec-tab-progress{width:100%;}
@@ -545,17 +545,20 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:10
   #testScreen{height:100dvh;}
 
   .topbar{
-    background:#fff;height:52px;padding:0 12px;
-    box-shadow:0 1px 0 #E2E8F0;
+    background:#fff;height:46px;padding:0 10px;
+    box-shadow:0 1px 0 #E2E8F0;gap:6px;
   }
   .topbar-center{flex:0 0 auto;}
-  .brand-dot{width:28px;height:28px;font-size:13px;border-radius:8px;}
-  .exam-title{font-size:13px;}
+  .brand-dot{display:none;}
+  .exam-title{display:none;}
+  .topbar-left{gap:0;}
   .user-name{display:none;}
-  .timer-wrap{padding:4px 10px;gap:5px;}
-  .timer{font-size:20px;}
+  .timer-wrap{padding:3px 9px;gap:4px;border-radius:9px;}
+  .timer{font-size:18px;}
   .timer-icon{display:none;}
-  .logout-btn{padding:5px 10px;font-size:11px;}
+  .sec-timer-name{font-size:9px;margin-bottom:1px;}
+  .pause-btn{padding:5px 10px;font-size:12px;}
+  .logout-btn{padding:5px 9px;font-size:11px;}
 
   #gridToggleBtn{
     display:flex;align-items:center;gap:5px;
@@ -580,11 +583,11 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:10
   .q-inner{max-width:100%;padding:0;}
 
   .qNum-row{
-    padding:10px 14px 0;
-    margin-bottom:8px;
+    padding:7px 14px 0;
+    margin-bottom:6px;
   }
-  .qNum-badge{font-size:11px;padding:4px 12px;border-width:1px;box-shadow:none;}
-  .qNum-badge .qNum-accent{font-size:13px;}
+  .qNum-badge{font-size:10.5px;padding:3px 11px;border-width:1px;box-shadow:none;}
+  .qNum-badge .qNum-accent{font-size:12.5px;}
   
 
   .q-card{
@@ -1959,7 +1962,17 @@ window.submitTest=async()=>{
   // Build a readable exam name for dashboard display
   const _examNames={'ssc-cgl':'SSC CGL','ssc-chsl':'SSC CHSL','ssc-mts':'SSC MTS','ssc-cpo':'SSC CPO','ssc-gd':'SSC GD','ssc-jht':'SSC JHT','ssc-je':'SSC JE'};
   const _examLabel = mockMeta?.title || ((_examNames[exam]||(exam||'').toUpperCase().replace(/-/g,' '))+(year?' '+year:''));
-  const payload={uid:currentUser.uid,exam,year:year||'',examName:_examLabel,tier:'tier2',paperId:new URLSearchParams(window.location.search).get('paperId')||'',total:questions.length,correct,wrong,skip,marks:parseFloat(marks),percentage:pct,timestamp:serverTimestamp(),clientSubmittedAt:new Date().toISOString()};
+  const _pid=new URLSearchParams(window.location.search).get('paperId')||'';
+  const _mid=new URLSearchParams(window.location.search).get('mockId')||'';
+  const payload={uid:currentUser.uid,exam,year:year||'',examName:_examLabel,tier:'tier2',paperId:_pid,mockId:_mid,total:questions.length,correct,wrong,skip,marks:parseFloat(marks),percentage:pct,timestamp:serverTimestamp(),clientSubmittedAt:new Date().toISOString()};
+  // Mark this paper/mock as attempted on-device so listing pages can show status instantly
+  try{
+    const _aKey='tssc_attempted';
+    const _seen=JSON.parse(localStorage.getItem(_aKey)||'{}');
+    if(_pid) _seen['p:'+_pid]=1;
+    if(_mid) _seen['m:'+_mid]=1;
+    localStorage.setItem(_aKey,JSON.stringify(_seen));
+  }catch(e){}
   lastResultPayload={attemptId,payload};
   try{await persistWithRetry(payload,attemptId,3);localStorage.removeItem('pending_attempt_'+attemptId);setSaveUi('saved','✅ Result saved successfully.');}
   catch(e){console.warn('Save failed:',e);localStorage.setItem('pending_attempt_'+attemptId,JSON.stringify(lastResultPayload));setSaveUi('error','⚠️ Could not save. Check internet and tap Retry Save.');}
