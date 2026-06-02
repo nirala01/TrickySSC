@@ -219,6 +219,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdn.jsdelivr.net/npm/pdfjs-dist@
 // ── State ─────────────────────────────────────────────────────────────────
 let totalQCount=100;
 let qPageMap={};
+let sectionStarts=[]; // [{page:0-based index, name}] detected from the PDF text layer
 let pdfFile=null, akFile=null, pdfPages=[], akPages=[], questions=[];
 
 // ── Toast/Log ─────────────────────────────────────────────────────────────
@@ -260,6 +261,27 @@ async function setAK(f){
   toast('Answer key loaded','success');
 }
 
+// ── Detect section start pages from the text layer (no API, free) ─────────
+// SSC papers print a "Section : <name>" or "PART-X (<name>)" header at the
+// start of each of the 4 sections. Finding these gives the REAL page range of
+// each section, so 1-25×4 numbering maps correctly even when sections differ
+// in length. Returns [] for image-only PDFs (then we fall back to estimation).
+async function detectSectionStartPages(file){
+  try{
+    const buf=await file.arrayBuffer();
+    const pdf=await pdfjsLib.getDocument({data:buf}).promise;
+    const starts=[];
+    for(let i=1;i<=pdf.numPages;i++){
+      const tc=await (await pdf.getPage(i)).getTextContent();
+      const txt=tc.items.map(it=>it.str).join(' ');
+      const m=txt.match(/Section\s*:?\s*([A-Za-z][A-Za-z &/]+)/) ||
+              txt.match(/PART[-\s]?[A-D]\s*\(([^)]+)\)/i);
+      if(m) starts.push({page:i-1, name:m[1].trim()});
+    }
+    return starts;
+  }catch(e){ return []; }
+}
+
 // ── PDF → images ──────────────────────────────────────────────────────────
 async function pdfToImages(file,scale=2.0){
   const buf=await file.arrayBuffer();
@@ -296,17 +318,12 @@ STRICT FORMATTING RULES:
    (2) option text
    (3) option text
    (4) option text
-5. After options write: Correct Option: (x). The correct answer is NOT lettered — it is marked in ONE of two ways depending on the paper. Check for BOTH:
-
-   (A) TICK / CHECK MARK: some papers mark the correct option with a tick (✓ / ✔), a checkmark, a circle, an arrow, an asterisk, or a hand-drawn mark next to or on one option. If exactly one option carries such a mark, THAT is the correct answer — use it directly.
-
-   (B) BACKGROUND COLOUR: other papers (e.g. response-sheet / challenge-module style) use no tick at all and instead colour the option cell. Legend:
-   - A GREEN-highlighted option = the correct answer (candidate selected it and was right).
-   - A YELLOW-highlighted option = the correct answer (candidate selected a wrong one or left it blank, so the true answer is shown in yellow).
-   - A RED-highlighted option = a WRONG answer the candidate selected. NEVER treat red as correct.
-   - A GRAY bar = the question was not answered.
-
-   PRIORITY RULE: if a tick/check/circle mark (A) is present, trust it. Otherwise use colour (B): the correct option is the GREEN one; if none is green, it is the YELLOW one; ignore red entirely. If neither a mark nor a green/yellow highlight is visible for this question, write: Correct Option: (?)
+5. After options write: Correct Option: (x). The correct answer is NOT lettered — it is shown by a visual CUE that may be a tick/✗ mark, a coloured option text, or a coloured cell. In some papers ONLY the correct option is marked; in others (e.g. Adda247 style) EVERY option is marked — the correct one in green and the three wrong ones in red. Apply this single rule by COLOUR, not by counting marks:
+   - GREEN cue = the CORRECT answer. Green can appear as a green tick/checkmark (✓ / ✔), green-coloured option text, or a green-highlighted cell. Pick this option.
+   - RED cue = a WRONG option (a red cross ✗ / X, red text, or red highlight). NEVER pick a red option, even though it is marked.
+   - YELLOW highlight = the correct answer, used by some response-sheet papers when the candidate answered wrong or left it blank.
+   - GRAY bar = the question was not answered.
+   DECISION ORDER: choose the option with a GREEN cue (tick, text colour, or highlight). If nothing is green, choose the YELLOW one. Ignore all RED/✗ marks entirely. If none of these cues is visible for this question, write: Correct Option: (?)
 6. Figures/diagrams/images: write [figure]
 7. Tables: reproduce in plain text with | separators
 8. Math expressions: use proper symbols (², √, ÷, ×, ≠, ≤, ≥, π, α, β, θ)
@@ -342,6 +359,42 @@ STRICT RULES:
 
 Translate this question:`;
 
+// ── Rate limiter: keep input tokens under the tier limit (30k/min) ────────
+// Each rendered page image costs ~1800 input tokens; sending 4 images/question
+// blows past 30k/min instantly. This pacer tracks the tokens used in a rolling
+// 60-second window and waits just long enough to stay safely under the cap, so
+// the run slows down automatically instead of erroring out.
+const TOKEN_BUDGET_PER_MIN = 26000;   // headroom below the 30k hard limit
+const IMG_TOKEN_COST       = 1800;    // approx per page image at scale 1.5
+let tokenLog = [];                    // [{t, tokens}]
+function estimateInputTokens(converted){
+  let imgs=0, chars=0;
+  for(const m of converted){
+    if(Array.isArray(m.content)){
+      for(const p of m.content){
+        if(p.type==='image') imgs++;
+        else if(p.type==='text') chars += (p.text||'').length;
+      }
+    } else { chars += String(m.content||'').length; }
+  }
+  return imgs*IMG_TOKEN_COST + Math.ceil(chars/4) + 300;
+}
+async function throttle(tokens){
+  // never let a single call exceed the whole budget on its own
+  tokens = Math.min(tokens, TOKEN_BUDGET_PER_MIN);
+  for(;;){
+    const now=Date.now();
+    tokenLog = tokenLog.filter(e=> now-e.t < 60000);
+    const used = tokenLog.reduce((s,e)=>s+e.tokens,0);
+    if(used + tokens <= TOKEN_BUDGET_PER_MIN) break;
+    const oldest = tokenLog[0];
+    const waitMs = oldest ? (60000-(now-oldest.t)+250) : 1000;
+    try{ document.getElementById('pgExtractLbl').textContent=`⏳ Rate-limit pause ${Math.ceil(waitMs/1000)}s…`; }catch(e){}
+    await sleep(Math.max(500, waitMs));
+  }
+  tokenLog.push({t:Date.now(), tokens});
+}
+
 async function callAI(messages, maxTokens=1000){
   // Convert messages to Anthropic format
   // Images: {type:'image_url', image_url:{url:'data:...'}} → {type:'image', source:{type:'base64',...}}
@@ -360,6 +413,9 @@ async function callAI(messages, maxTokens=1000){
       })
     };
   });
+
+  // Pace ourselves to stay under the per-minute input-token limit
+  await throttle(estimateInputTokens(converted));
 
   const r = await fetch('https://trickyssc-ai.nirala01.workers.dev/', {
     method: 'POST',
@@ -389,6 +445,14 @@ async function extractQuestions(){
     lbl.textContent='Rendering PDF pages…'; fill.style.width='5%';
     pdfPages=await pdfToImages(pdfFile, 1.5);
     log(`PDF: ${pdfPages.length} pages rendered`,'info');
+
+    // Detect real section boundaries from the text layer (free, no API)
+    sectionStarts=await detectSectionStartPages(pdfFile);
+    if(sectionStarts.length){
+      log(`Sections found: ${sectionStarts.map(s=>`p${s.page+1} ${s.name}`).join(' | ')}`,'ok');
+    } else {
+      log('No section headers in text layer — using even-split estimate','info');
+    }
 
     // Render answer key if uploaded
     akPages=[];
@@ -425,7 +489,7 @@ async function extractQuestions(){
           renderQuestions(); updateStats();
         }
         log(`Q${n} extracted`,'ok');
-        await sleep(3000); // 3s delay to stay within 30k token/min rate limit
+        await sleep(400); // small gap; the token limiter (throttle) controls real pacing
       } catch(err){
         log(`Q${n} error: ${err.message}`,'err');
         questions.push({num:n, enText:`Q${n}. [Extraction failed: ${err.message}]`, hiText:'', correct:'?', status:'error'});
@@ -456,27 +520,36 @@ async function extractOneQuestion(n, pages, akPgs, akMap){
     const section = Math.ceil(n / 25);
     displayNum = ((n - 1) % 25) + 1;
     const sNames = ['','General Intelligence & Reasoning','General Awareness','Quantitative Aptitude','English Comprehension'];
-    sectionHint = `This question is in Section ${section} (${sNames[section]||'Section '+section}) of the paper. `;
+    const sName = (sectionStarts[section-1] && sectionStarts[section-1].name) || sNames[section] || ('Section '+section);
+    sectionHint = `This question belongs to the "${sName}" section (section ${section} of 4). NOTE: the number Q${displayNum} also appears in the OTHER sections — extract ONLY the Q${displayNum} that sits under the "${sName}" heading; ignore identically-numbered questions from other sections. `;
   }
 
-  // Page estimation — for 4x25, each section is ~pages.length/4 pages apart
+  // Page estimation
   let estPage;
   if(numFormat === '4x25') {
     const section = Math.ceil(n / 25);
-    const pagesPerSection = pages.length / 4;
     const posInSection = ((n - 1) % 25) / 25;
-    estPage = Math.floor((section - 1) * pagesPerSection + posInSection * pagesPerSection);
+    if(sectionStarts.length >= section){
+      // Use the REAL page range of this section (start header -> next header)
+      const start = sectionStarts[section-1].page;
+      const end   = (sectionStarts[section] ? sectionStarts[section].page : pages.length-1);
+      const span  = Math.max(1, end - start);
+      estPage = start + Math.floor(posInSection * span);
+    } else {
+      // Fallback: assume sections are evenly split across the PDF
+      const pagesPerSection = pages.length / 4;
+      estPage = Math.floor((section - 1) * pagesPerSection + posInSection * pagesPerSection);
+    }
   } else {
     const pagesPerQ = pages.length / totalQCount;
     estPage = Math.max(0, Math.floor((n-1) * pagesPerQ));
   }
   estPage = Math.max(0, Math.min(pages.length - 1, estPage));
-  // This paper splits each question's TEXT and its OPTIONS across consecutive
-  // pages, and banner/section pages shift the linear estimate. So scan a WINDOW
-  // (one page back, three forward) instead of a single page. The model is told
-  // to focus on Q{N} only and ignore the other questions in the window.
+  // Scan a small WINDOW (one page back, one forward) rather than a single page,
+  // because some papers split a question's stem and options across consecutive
+  // pages. Kept tight (3 pages) to limit per-call image tokens / rate-limit load.
   const winStart = Math.max(0, estPage - 1);
-  const winEnd   = Math.min(pages.length, estPage + 3);
+  const winEnd   = Math.min(pages.length, estPage + 2);
   const scanPages = pages.slice(winStart, winEnd);
   
   // Step 2: Ask GPT to crop JUST this one question from the page
