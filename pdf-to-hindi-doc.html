@@ -197,10 +197,10 @@
 </div>
 
 <div class="toast" id="toast"></div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script>
-pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
 
 // ── Year dropdown 2010-2040 ───────────────────────────────────────────────
 (function(){
@@ -296,7 +296,17 @@ STRICT FORMATTING RULES:
    (2) option text
    (3) option text
    (4) option text
-5. After options write: Correct Option: (x)  — use the marked/ticked answer. If no answer marked write: Correct Option: (?)
+5. After options write: Correct Option: (x). The correct answer is NOT lettered — it is marked in ONE of two ways depending on the paper. Check for BOTH:
+
+   (A) TICK / CHECK MARK: some papers mark the correct option with a tick (✓ / ✔), a checkmark, a circle, an arrow, an asterisk, or a hand-drawn mark next to or on one option. If exactly one option carries such a mark, THAT is the correct answer — use it directly.
+
+   (B) BACKGROUND COLOUR: other papers (e.g. response-sheet / challenge-module style) use no tick at all and instead colour the option cell. Legend:
+   - A GREEN-highlighted option = the correct answer (candidate selected it and was right).
+   - A YELLOW-highlighted option = the correct answer (candidate selected a wrong one or left it blank, so the true answer is shown in yellow).
+   - A RED-highlighted option = a WRONG answer the candidate selected. NEVER treat red as correct.
+   - A GRAY bar = the question was not answered.
+
+   PRIORITY RULE: if a tick/check/circle mark (A) is present, trust it. Otherwise use colour (B): the correct option is the GREEN one; if none is green, it is the YELLOW one; ignore red entirely. If neither a mark nor a green/yellow highlight is visible for this question, write: Correct Option: (?)
 6. Figures/diagrams/images: write [figure]
 7. Tables: reproduce in plain text with | separators
 8. Math expressions: use proper symbols (², √, ÷, ×, ≠, ≤, ≥, π, α, β, θ)
@@ -460,14 +470,21 @@ async function extractOneQuestion(n, pages, akPgs, akMap){
     const pagesPerQ = pages.length / totalQCount;
     estPage = Math.max(0, Math.floor((n-1) * pagesPerQ));
   }
-  estPage = Math.max(0, Math.min(pages.length - 2, estPage));
-  const scanPages = pages.slice(estPage, Math.min(pages.length, estPage + 1)); // 1 page per question to save tokens
+  estPage = Math.max(0, Math.min(pages.length - 1, estPage));
+  // This paper splits each question's TEXT and its OPTIONS across consecutive
+  // pages, and banner/section pages shift the linear estimate. So scan a WINDOW
+  // (one page back, three forward) instead of a single page. The model is told
+  // to focus on Q{N} only and ignore the other questions in the window.
+  const winStart = Math.max(0, estPage - 1);
+  const winEnd   = Math.min(pages.length, estPage + 3);
+  const scanPages = pages.slice(winStart, winEnd);
   
   // Step 2: Ask GPT to crop JUST this one question from the page
   // This replicates your manual screenshot approach exactly
-  const cropPrompt = `You are looking at an SSC exam paper page.
-Find question number ${displayNum} on this page and extract ONLY that question.
-${sectionHint}Treat this exactly as if you took a screenshot of just question ${displayNum} — include the question text, any figure, and all 4 options.
+  const cropPrompt = `You are looking at several consecutive pages of an SSC exam paper.
+Locate question number ${displayNum} and extract ONLY that question.
+${sectionHint}IMPORTANT: in this paper a question's STEM (the question text) and its FOUR OPTIONS are often printed on DIFFERENT consecutive pages — the options for Q${displayNum} frequently appear at the TOP of the page AFTER the stem. Stitch them together: find the stem for Q${displayNum}, then find its four options (they may be on the next page) and the colour highlight that marks the correct one.
+Treat the result exactly as if you took a clean screenshot of just question ${displayNum} — question text, any figure, and all 4 options.
 In your output, number it as Q${n}. (use ${n} not ${displayNum} in your output heading).
 
 ${EXTRACT_PROMPT.replace(/{N}/g, displayNum).replace(/Q\{N\}/g, 'Q'+n)}`;
