@@ -341,6 +341,41 @@ CRITICAL RULES:
 - Example of WRONG: trying to draw a matrix with | and --- characters
 - Example of CORRECT: write [figure] and move on`;
 
+// Prompt for PAGE-PAIR batch extraction: one call returns every question whose
+// number-label starts on the FIRST image. The SECOND image is context only, for
+// options that overflow onto the next page.
+const BATCH_PROMPT=`You are extracting questions from an SSC exam paper. You are given up to TWO page images IN ORDER.
+
+WHICH QUESTIONS TO EXTRACT:
+- Extract EVERY question whose question-number label (e.g. "Q.7", "Q.No: 7" or "Q.7") and stem BEGIN on the FIRST image.
+- The SECOND image (if present) is provided ONLY so you can read options/figures that overflow from a question that started on the first image. Do NOT extract questions whose number-label first appears on the second image.
+- If the first image contains NO question-number labels (e.g. a cover/banner/instructions page), output exactly: NONE
+
+OUTPUT FORMAT — for each extracted question, output a block that starts on its own line with the marker <<<Q>>> then:
+<<<Q>>>
+PRINTED: <the printed question number shown on the page, digits only>
+Q<printed>. <full question text exactly as written>
+(1) <option 1 text>
+(2) <option 2 text>
+(3) <option 3 text>
+(4) <option 4 text>
+Correct Option: (x)
+
+FORMATTING RULES (apply to every block):
+- Reproduce question text and options EXACTLY; do not paraphrase. Reproduce sub-items (series, equations, word lists, tables) in the same layout. Tables: plain text with | separators.
+- Math: use proper symbols (², √, ÷, ×, ≠, ≤, ≥, π, α, β, θ).
+- Comprehension/passage questions: reproduce the FULL passage before the question.
+- FIGURES: if the question or an option contains ANY drawing, diagram, matrix, pattern, shape, grid, mirror image, dice, Venn diagram, spatially-arranged letters/symbols, or other visual element, write [figure] in its place. NEVER redraw it as ASCII/markdown.
+
+CORRECT OPTION RULE (by COLOUR, not by counting marks):
+- GREEN cue = CORRECT (a green tick ✓/✔, green-coloured option text, or a green-highlighted cell).
+- RED cue = WRONG (red cross ✗/X, red text, or red highlight) — NEVER pick a red option even though it is marked.
+- YELLOW highlight = the correct answer (used by some papers when the candidate was wrong/blank).
+- GRAY = not answered.
+- Choose the GREEN option; if none is green, the YELLOW one; ignore all RED. If no cue is visible, write Correct Option: (?).
+
+Output ONLY the blocks (or NONE). No preamble, no commentary.`;
+
 const TRANSLATE_PROMPT=`You are translating SSC exam questions from English to Hindi for an exam preparation platform.
 
 STRICT RULES:
@@ -475,26 +510,83 @@ async function extractQuestions(){
     // Always extract all questions (default 100 for SSC)
     const totalQ = parseInt(document.getElementById('cfgTotalQ').value) || 100;
     totalQCount = totalQ; qPageMap = {};
-    log(`Extracting ${totalQ} questions`,'info');
+    const numFormat = document.getElementById('cfgNumFormat').value;
+    log(`Extracting ${totalQ} questions (page-pair batching)`,'info');
 
-    for(let n=1;n<=totalQ;n++){
-      lbl.textContent=`Extracting Q${n} of ${totalQ}…`;
-      fill.style.width=Math.round((n/totalQ)*90)+'%';
+    // ── Pass 1: page-pair batch, single linear pass over all pages ─────────
+    // For 1-25×4 papers the printed number resets to 1 at each section. We
+    // detect that wrap (a large drop in the printed number) to advance the
+    // section, so questions map to the right global number even on a page that
+    // straddles two sections. Each page is sent once as primary + once as the
+    // previous page's "+1" context, so ~2 uploads/page instead of ~7.
+    const np = pdfPages.length;
+    const sectionNameFor = p => {
+      if(numFormat!=='4x25') return '';
+      let name='';
+      for(let k=0;k<sectionStarts.length;k++){ if(sectionStarts[k].page<=p) name=sectionStarts[k].name; }
+      return name;
+    };
 
-      try{
-        const enText=await extractOneQuestion(n, pdfPages, akPages, akTextMap);
-        const correct=extractCorrect(enText) || akTextMap[n] || '?';
-        questions.push({num:n, enText, hiText:'', correct, status:'pending'});
-        if(n===1 || n%5===0){
-          renderQuestions(); updateStats();
+    const byNum={};            // global num -> {enText, correct}
+    let curSec=0, lastPrinted=0; // section-wrap tracking for 4x25
+    for(let p=0;p<np;p++){
+      lbl.textContent=`Scanning page ${p+1}/${np}…`;
+      fill.style.width=Math.round((p/np)*80)+'%';
+      let blocks=[];
+      try{ blocks=await extractPageBatch(p, pdfPages, sectionNameFor(p)); }
+      catch(err){ log(`Page ${p+1} batch error: ${err.message}`,'err'); }
+      for(const b of blocks){
+        let g;
+        if(numFormat==='4x25'){
+          if(b.printed<1 || b.printed>25) continue;
+          if(lastPrinted - b.printed >= 10) curSec=Math.min(3, curSec+1); // wrap (e.g. 25 -> 1) = next section
+          lastPrinted=b.printed;
+          g=curSec*25 + b.printed;
+        } else {
+          g=b.printed;
         }
-        log(`Q${n} extracted`,'ok');
-        await sleep(400); // small gap; the token limiter (throttle) controls real pacing
-      } catch(err){
-        log(`Q${n} error: ${err.message}`,'err');
-        questions.push({num:n, enText:`Q${n}. [Extraction failed: ${err.message}]`, hiText:'', correct:'?', status:'error'});
+        if(g<1 || g>totalQ) continue;
+        if(byNum[g]) continue; // keep first occurrence (stem page wins over overflow context)
+        const enText=b.body.replace(/^Q\d+\./, 'Q'+g+'.');
+        byNum[g]={enText, correct: b.correct || akTextMap[g] || '?'};
       }
+      log(`Page ${p+1}: +${blocks.length} (have ${Object.keys(byNum).length}/${totalQ})`,'ok');
+      // progressive render
+      questions = buildQuestionsArray(byNum, totalQ);
+      if(p%2===1){ renderQuestions(); updateStats(); }
+      await sleep(200);
     }
+
+    // ── Pass 2: gap re-check — re-extract any missing/malformed question ────
+    const needsFix = n => {
+      const q=byNum[n];
+      if(!q) return true;
+      const t=q.enText||'';
+      const hasOpts = /\(1\)/.test(t)&&/\(2\)/.test(t)&&/\(3\)/.test(t)&&/\(4\)/.test(t);
+      return !hasOpts; // missing options => batch slipped; re-do precisely
+    };
+    const fixList=[]; for(let n=1;n<=totalQ;n++) if(needsFix(n)) fixList.push(n);
+    if(fixList.length){
+      log(`Re-checking ${fixList.length} question(s): ${fixList.join(', ')}`,'info');
+      let fixed=0;
+      for(const n of fixList){
+        lbl.textContent=`Re-checking Q${n} (${++fixed}/${fixList.length})…`;
+        fill.style.width=(80+Math.round((fixed/fixList.length)*18))+'%';
+        try{
+          const enText=await extractOneQuestion(n, pdfPages, akPages, akTextMap);
+          byNum[n]={enText, correct: extractCorrect(enText) || akTextMap[n] || '?'};
+          log(`Q${n} repaired`,'ok');
+        }catch(err){
+          log(`Q${n} re-check failed: ${err.message}`,'err');
+          if(!byNum[n]) byNum[n]={enText:`Q${n}. [Extraction failed: ${err.message}]`, correct:'?'};
+        }
+        await sleep(200);
+      }
+    } else {
+      log('No gaps — batch captured every question','ok');
+    }
+
+    questions = buildQuestionsArray(byNum, totalQ);
 
     fill.style.width='100%';
     lbl.textContent=`✅ Extracted ${questions.length} questions`;
@@ -582,6 +674,60 @@ ${EXTRACT_PROMPT.replace(/{N}/g, displayNum).replace(/Q\{N\}/g, 'Q'+n)}`;
 function extractCorrect(text){
   const m=text.match(/Correct Option:\s*\(([1-4ABCD])\)/i);
   return m?m[1]:'?';
+}
+
+// Build the ordered questions[] from a {globalNum -> {enText,correct}} map.
+function buildQuestionsArray(byNum, totalQ){
+  const arr=[];
+  for(let n=1;n<=totalQ;n++){
+    if(byNum[n]){
+      const t=byNum[n].enText||'';
+      const ok=/\(1\)/.test(t)&&/\(2\)/.test(t)&&/\(3\)/.test(t)&&/\(4\)/.test(t);
+      arr.push({num:n, enText:t, hiText:'', correct:byNum[n].correct||'?', status: ok?'pending':'error'});
+    } else {
+      arr.push({num:n, enText:`Q${n}. [not captured]`, hiText:'', correct:'?', status:'error'});
+    }
+  }
+  return arr;
+}
+
+// Parse a batch response into [{printed, body}] blocks.
+function parseBatchBlocks(resp){
+  if(!resp || /^\s*NONE\s*$/i.test(resp.trim())) return [];
+  const out=[];
+  const parts=resp.split(/<<<Q>>>/g).map(s=>s.trim()).filter(Boolean);
+  for(const part of parts){
+    const pm=part.match(/PRINTED:\s*(\d{1,3})/i);
+    if(!pm) continue;
+    const printed=parseInt(pm[1],10);
+    // body = everything after the PRINTED line
+    let body=part.replace(/^[\s\S]*?PRINTED:\s*\d{1,3}\s*\n?/i,'').trim();
+    if(!body) body=part.trim();
+    out.push({printed, body});
+  }
+  return out;
+}
+
+// Extract every question whose stem starts on page index `p` (0-based).
+// Sends pages [p, p+1]; the +1 page is context for overflowing options.
+// Returns [{printed, enText, correct}].
+async function extractPageBatch(p, pages, sectionName){
+  const imgs=[pages[p]];
+  if(p+1 < pages.length) imgs.push(pages[p+1]);
+  let prompt=BATCH_PROMPT;
+  if(sectionName){
+    prompt+=`\n\nThis page is in the "${sectionName}" section. Question numbers restart each section, so only report the printed numbers exactly as shown on the page.`;
+  }
+  const msgContent=[
+    {type:'text', text:prompt},
+    ...imgs.map(b=>({type:'image_url',image_url:{url:'data:image/jpeg;base64,'+b,detail:'auto'}}))
+  ];
+  const resp=await callAI([{role:'user', content: msgContent}], 4000);
+  return parseBatchBlocks(resp).map(blk=>({
+    printed: blk.printed,
+    body: blk.body,
+    correct: extractCorrect(blk.body)
+  }));
 }
 
 function parseAKText(raw){
