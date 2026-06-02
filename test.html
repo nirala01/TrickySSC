@@ -314,6 +314,22 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:10
 .btn-clear:disabled{opacity:0.45;cursor:not-allowed;transform:none;}
 .skip-btn-row{flex:1;display:flex;justify-content:flex-end;gap:10px;}
 
+/* ── Sectional timer / submit-section ── */
+.btn-section{background:#1E293B;color:#fff;box-shadow:0 3px 12px rgba(30,41,59,0.2);}
+.dot.locked{opacity:0.4;cursor:not-allowed;background:#F1F5F9;border-color:#E2E8F0;color:#CBD5E1;pointer-events:none;}
+.dot.locked.answered{background:#DCFCE7;border-color:#BBF7D0;color:#86EFAC;}
+.sec-tab.locked{opacity:0.5;cursor:not-allowed;pointer-events:none;}
+.sec-tab.locked .sec-tab-name::after{content:" 🔒";font-size:9px;}
+.sec-timer-name{
+  font-family:'Rajdhani';font-size:11px;font-weight:700;
+  color:#FF6B00;letter-spacing:0.04em;text-transform:uppercase;
+  margin-bottom:2px;line-height:1;text-align:center;
+}
+.sb-submitted-note{
+  font-size:11px;color:#FF6B00;font-weight:600;
+  text-align:center;padding:8px 0 0;line-height:1.5;
+}
+
 /* ═══════════════════════════════════
    DESKTOP SIDEBAR
 ═══════════════════════════════════ */
@@ -760,8 +776,10 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:10
 
         <div class="instr-section-title">&#9201; Time &amp; Submission</div>
         <ol class="instr-list">
-          <li>The clock will be set at the server. The countdown timer at the top right corner of the screen will display the remaining time. When the timer reaches zero, the examination will end automatically.</li>
-          <li>You can submit the test at any time before the timer runs out by clicking the <strong>Submit Test</strong> button.</li>
+          <li>This test is <strong>sectional</strong>. Each section has its own <strong>15-minute</strong> timer shown at the top, along with the active section's name.</li>
+          <li>When a section's timer reaches zero, that section is submitted automatically and you move to the next section. On the final section, the test ends automatically.</li>
+          <li>You can submit a section early using the <strong>Submit Section</strong> button. Once a section is submitted, you <strong>cannot return to it</strong>, and its remaining time is lost. On the last section the button becomes <strong>Submit Test</strong>.</li>
+          <li>You may freely navigate only within the currently active section; other sections stay locked.</li>
         </ol>
 
         <div class="instr-section-title">&#128202; Question Palette</div>
@@ -847,9 +865,12 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:10
       </div>
     </div>
     <div class="topbar-center">
-      <div class="timer-wrap">
-        <span class="timer-icon">⏱</span>
-        <div class="timer" id="timer">60:00</div>
+      <div class="timer-wrap" style="flex-direction:column;align-items:center;gap:2px;padding-top:4px;padding-bottom:4px;">
+        <div class="sec-timer-name" id="secTimerName"></div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="timer-icon">⏱</span>
+          <div class="timer" id="timer">15:00</div>
+        </div>
       </div>
       <button class="pause-btn" id="pauseBtn" onclick="togglePause()">⏸ Pause</button>
     </div>
@@ -904,7 +925,7 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:10
             <button class="btn btn-clear" onclick="clearResponse()" id="clearBtn">✕ Clear</button>
             <button class="btn btn-mark" onclick="markForReview()" id="markBtn">🔖 Mark</button>
           </div>
-          <button class="btn btn-submit" onclick="confirmSubmit()">Submit Test</button>
+          <button class="btn btn-section" id="submitSectionBtn" onclick="confirmSubmitSection()">Submit Section →</button>
         </div>
 
       </div>
@@ -946,7 +967,8 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:10
       </div>
 
       <div class="sb-submit">
-        <button class="sidebar-submit-btn" onclick="confirmSubmit()">Submit Test</button>
+        <button class="sidebar-submit-btn" id="sidebarSubmitBtn" onclick="confirmSubmitSection()">Submit Section →</button>
+        <div class="sb-submitted-note" id="sbSubmittedNote"></div>
       </div>
     </div>
 
@@ -1014,6 +1036,8 @@ const db=getFirestore(app);
 const auth=getAuth(app);
 
 let questions=[],answers={},markedForReview={},currentQ=0,timeLeft=3600,timerInterval,currentUser=null,sections=[],paused=false;
+const SECTION_DUR=15*60; // 15 minutes per section
+let curTS=0, tsRemaining=[], tsSubmitted=[];
 const SUBJECT_SHORT={
   'General Intelligence & Reasoning':'Reasoning',
   'General Intelligence and Reasoning':'Reasoning',
@@ -1075,6 +1099,7 @@ async function startTest(user){
   // Reset question state for clean load
   questions.length=0; answers={}; markedForReview={}; currentQ=0;
   timeLeft=3600; if(timerInterval){clearInterval(timerInterval);timerInterval=null;}
+  curTS=0; tsRemaining=[]; tsSubmitted=[]; paused=false;
   currentUser=user;
   await loadTest();
 }
@@ -1390,6 +1415,8 @@ async function loadTest(){
     // ── Prepare test, show instructions first ──
     currentQ=0;
     buildSections();buildSectionBar();buildGrid();
+    currentQ=(sections[0]?sections[0].from:0);
+    updateSubmitBtn();
     document.getElementById('qNumTotal').textContent=questions.length;
     document.getElementById('qNumCurrent').textContent='1';
     document.getElementById('progressText').textContent='0 / '+questions.length;
@@ -1468,6 +1495,7 @@ window.beginTest=function(){
   document.getElementById('testScreen').style.display='flex';
   requestAnimationFrame(()=>requestAnimationFrame(()=>{
     renderQ();
+    updateSubmitBtn();
     if(!timerInterval) startTimer();
   }));
 };
@@ -1561,9 +1589,9 @@ function renderQ(){
 
 window.selectOpt=o=>{answers[currentQ]=o;renderQ();};
 window.clearResponse=()=>{ if(answers[currentQ]!==undefined){ delete answers[currentQ]; } renderQ(); };
-window.nextQ=()=>{if(currentQ<questions.length-1){currentQ++;renderQ();}};
-window.prevQ=()=>{if(currentQ>0){currentQ--;renderQ();}};
-window.goQ=i=>{currentQ=i;renderQ();};
+window.nextQ=()=>{const ts=sections[curTS];const lim=ts?ts.to:questions.length-1;if(currentQ<lim){currentQ++;renderQ();}};
+window.prevQ=()=>{const ts=sections[curTS];const lo=ts?ts.from:0;if(currentQ>lo){currentQ--;renderQ();}};
+window.goQ=i=>{if(!inActiveTS(i))return;currentQ=i;renderQ();};
 window.markForReview=()=>{markedForReview[currentQ]=!markedForReview[currentQ];renderQ();};
 window.toggleEnglishView=()=>{showEnglishQ[currentQ]=!showEnglishQ[currentQ];renderQ();};
 
@@ -1582,6 +1610,16 @@ function buildSections(){
   });
   if(sections.length===0&&questions.length>0)
     sections=[{name:'',label:'All Questions',from:0,to:questions.length-1}];
+  // Sectional timing: each subject section gets its own 15-min timer
+  tsRemaining=sections.map(()=>SECTION_DUR);
+  tsSubmitted=sections.map(()=>false);
+  curTS=0;
+}
+
+// True if question index i is inside the currently active (unlocked) section
+function inActiveTS(i){
+  const t=sections[curTS];
+  return !!t && i>=t.from && i<=t.to;
 }
 
 function activeSectionIdx(){
@@ -1600,7 +1638,8 @@ function buildSectionBar(){
     const total=s.to-s.from+1;
     const ans=Array.from({length:total},(_,j)=>answers[s.from+j]).filter(Boolean).length;
     const pct=total>0?Math.round(ans/total*100):0;
-    return '<div class="sec-tab'+(i===actIdx?' active':'')+'" onclick="jumpToSection('+i+')">'
+    const locked=!inActiveTS(s.from)||!inActiveTS(s.to);
+    return '<div class="sec-tab'+(i===actIdx?' active':'')+(locked?' locked':'')+'"'+(locked?'':' onclick="jumpToSection('+i+')"')+'>'
       +'<span class="sec-tab-name">'+s.label+'</span>'
       +'<span class="sec-tab-count">'+ans+'/'+total+'</span>'
       +'<div class="sec-tab-progress"><div class="sec-tab-progress-fill" style="width:'+pct+'%"></div></div>'
@@ -1613,6 +1652,7 @@ function buildSectionBar(){
 window.jumpToSection=function(sIdx){
   if(sIdx<0||sIdx>=sections.length) return;
   const s=sections[sIdx];
+  if(!inActiveTS(s.from)||!inActiveTS(s.to)) return; // locked section
   let target=s.from;
   for(let i=s.from;i<=s.to;i++){if(!answers[i]){target=i;break;}}
   currentQ=target;renderQ();closeDrawer();
@@ -1622,15 +1662,16 @@ function buildGrid(){
   const grid=document.getElementById('grid');
   if(!grid) return;
   if(sections.length>1){
-    grid.innerHTML=sections.map(s=>'<div class="section-block"><div class="sb-label" style="margin-bottom:6px;">'+s.label+'</div><div class="section-grid">'+Array.from({length:s.to-s.from+1},(_,j)=>{const i=s.from+j;return '<div class="dot" id="dot'+i+'" onclick="goQ('+i+')">'+(i+1)+'</div>';}).join('')+'</div></div>').join('');
+    grid.innerHTML=sections.map(s=>'<div class="section-block"><div class="sb-label" style="margin-bottom:6px;">'+s.label+'</div><div class="section-grid">'+Array.from({length:s.to-s.from+1},(_,j)=>{const i=s.from+j;const lk=!inActiveTS(i);return '<div class="dot'+(lk?' locked':'')+'" id="dot'+i+'"'+(lk?'':' onclick="goQ('+i+')"')+'>'+(i+1)+'</div>';}).join('')+'</div></div>').join('');
   } else {
-    grid.innerHTML='<div class="section-grid">'+questions.map((_,i)=>'<div class="dot" id="dot'+i+'" onclick="goQ('+i+')">'+(i+1)+'</div>').join('')+'</div>';
+    grid.innerHTML='<div class="section-grid">'+questions.map((_,i)=>{const lk=!inActiveTS(i);return '<div class="dot'+(lk?' locked':'')+'" id="dot'+i+'"'+(lk?'':' onclick="goQ('+i+')"')+'>'+(i+1)+'</div>';}).join('')+'</div>';
   }
 }
 
 function updateGrid(){
   questions.forEach((_,i)=>{
     let cls='dot';
+    if(!inActiveTS(i)) cls+=' locked';
     if(markedForReview[i]) cls+=' marked';
     else if(answers[i]) cls+=' answered';
     if(i===currentQ) cls+=' current';
@@ -1642,21 +1683,25 @@ function updateGrid(){
       dg.innerHTML=sections.map(s=>{
         const dots=Array.from({length:s.to-s.from+1},(_,j)=>{
           const i=s.from+j;
+          const lk=!inActiveTS(i);
           let cls='dot';
+          if(lk) cls+=' locked';
           if(markedForReview[i]) cls+=' marked';
           else if(answers[i]) cls+=' answered';
           if(i===currentQ) cls+=' current';
-          return '<div class="'+cls+'" onclick="goQ('+i+');closeDrawer()">'+(i+1)+'</div>';
+          return '<div class="'+cls+'"'+(lk?'':' onclick="goQ('+i+');closeDrawer()"')+'>'+(i+1)+'</div>';
         }).join('');
         return '<div class="section-block"><div class="sb-label" style="margin-bottom:6px;">'+s.label+'</div><div class="section-grid">'+dots+'</div></div>';
       }).join('');
     } else {
       dg.innerHTML='<div class="section-grid">'+questions.map((_,i)=>{
+        const lk=!inActiveTS(i);
         let cls='dot';
+        if(lk) cls+=' locked';
         if(markedForReview[i]) cls+=' marked';
         else if(answers[i]) cls+=' answered';
         if(i===currentQ) cls+=' current';
-        return '<div class="'+cls+'" onclick="goQ('+i+');closeDrawer()">'+(i+1)+'</div>';
+        return '<div class="'+cls+'"'+(lk?'':' onclick="goQ('+i+');closeDrawer()"')+'>'+(i+1)+'</div>';
       }).join('')+'</div>';
     }
   }
@@ -1671,14 +1716,67 @@ function updateProgress(){
 }
 
 function startTimer(){
+  if(timerInterval){clearInterval(timerInterval);timerInterval=null;}
   function tick(){
-    const m=Math.floor(timeLeft/60),s=timeLeft%60;
+    const t=tsRemaining[curTS]||0;
+    const m=Math.floor(t/60),s=t%60;
     document.getElementById('timer').textContent=String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
-    if(timeLeft<=300){document.querySelector('.timer-wrap').style.borderColor='#FCA5A5';document.getElementById('timer').style.color='#DC2626';}
-    if(timeLeft<=0){clearInterval(timerInterval);submitTest();}
+    const tw=document.querySelector('.timer-wrap');
+    const tEl=document.getElementById('timer');
+    if(t<=120){ if(tw)tw.style.borderColor='#FCA5A5'; if(tEl)tEl.style.color='#DC2626'; }
+    else { if(tw)tw.style.borderColor=''; if(tEl)tEl.style.color=''; }
+    const nameEl=document.getElementById('secTimerName');
+    if(nameEl) nameEl.textContent=(sections[curTS]?sections[curTS].label:'');
+    if(t<=0){clearInterval(timerInterval);timerInterval=null;onSectionTimeUp();}
   }
   tick(); // update display immediately, don't wait 1s
-  timerInterval=setInterval(()=>{timeLeft--;tick();},1000);
+  timerInterval=setInterval(()=>{ tsRemaining[curTS]=(tsRemaining[curTS]||0)-1; tick(); },1000);
+}
+
+function onSectionTimeUp(){
+  if(curTS>=sections.length-1){ submitTest(); }
+  else {
+    alert('⏱ Time is up for '+(sections[curTS]?sections[curTS].label:'this section')+'. Moving to the next section.');
+    advanceSection();
+  }
+}
+
+// Lock current section, move to the next one, restart its timer
+function advanceSection(){
+  if(curTS>=sections.length-1){ submitTest(); return; }
+  tsSubmitted[curTS]=true;
+  if(timerInterval){clearInterval(timerInterval);timerInterval=null;}
+  curTS++;
+  currentQ=sections[curTS].from;
+  buildGrid();
+  renderQ();
+  updateSubmitBtn();
+  startTimer();
+}
+
+window.confirmSubmitSection=()=>{
+  if(typeof isSubmitting!=='undefined' && isSubmitting) return;
+  const last=(curTS>=sections.length-1);
+  if(last){
+    if(confirm('Submit the test? This ends the exam and you cannot change any answers.')) submitTest();
+  } else {
+    const nm=sections[curTS]?sections[curTS].label:'this section';
+    if(confirm('Submit '+nm+'? You will NOT be able to return to it, and its remaining time will be lost.')) advanceSection();
+  }
+};
+
+function updateSubmitBtn(){
+  const last=(curTS>=sections.length-1);
+  const label=last?'Submit Test ✓':'Submit Section →';
+  const b1=document.getElementById('submitSectionBtn');
+  const b2=document.getElementById('sidebarSubmitBtn');
+  if(b1) b1.textContent=label;
+  if(b2) b2.textContent=label;
+  const note=document.getElementById('sbSubmittedNote');
+  if(note){
+    const done=tsSubmitted.filter(Boolean).length;
+    note.textContent=done>0?('Submitted: '+done+' of '+sections.length+' sections'):'';
+  }
 }
 
 window.togglePause=function(){
@@ -1687,10 +1785,11 @@ window.togglePause=function(){
   if(typeof isSubmitting!=='undefined' && isSubmitting) return;
 
   if(!paused){
-    // Pause: stop the clock and hide questions behind the overlay
+    // Pause: stop the section clock and hide questions behind the overlay
     paused=true;
     if(timerInterval){clearInterval(timerInterval);timerInterval=null;}
-    const m=Math.floor(timeLeft/60),s=timeLeft%60;
+    const t=tsRemaining[curTS]||0;
+    const m=Math.floor(t/60),s=t%60;
     document.getElementById('pauseTime').textContent=
       String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
     document.getElementById('pauseOverlay').style.display='flex';
