@@ -70,7 +70,7 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:10
 .user-name{font-size:11.5px;color:#94A3B8;line-height:1.2;font-weight:500;}
 
 .topbar-center{
-  flex:1;display:flex;justify-content:center;align-items:center;gap:10px;
+  flex:1;display:flex;justify-content:center;align-items:center;
 }
 .timer-wrap{
   display:flex;align-items:center;gap:8px;
@@ -91,43 +91,6 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:10
 }
 .logout-btn:hover{border-color:#CBD5E1;color:#334155;background:#F8FAFC;}
 #gridToggleBtn{display:none;}
-
-/* Pause button */
-.pause-btn{
-  display:flex;align-items:center;gap:6px;
-  background:#FFF7F0;border:1.5px solid #FFD4AD;color:#FF6B00;
-  padding:6px 14px;border-radius:10px;cursor:pointer;
-  font-size:13px;font-weight:700;font-family:'Plus Jakarta Sans';
-  transition:all 0.15s;white-space:nowrap;
-}
-.pause-btn:hover{background:#FFEEDD;border-color:#FFB877;}
-.pause-btn.paused{background:#FF6B00;border-color:#FF6B00;color:#fff;}
-.pause-btn.paused:hover{background:#E85F00;}
-
-/* Pause overlay */
-#pauseOverlay{
-  display:none;position:fixed;inset:0;z-index:10001;
-  background:rgba(15,23,42,0.92);
-  flex-direction:column;align-items:center;justify-content:center;
-  text-align:center;padding:24px;
-}
-#pauseOverlay .po-icon{font-size:56px;margin-bottom:10px;}
-#pauseOverlay .po-title{
-  font-family:'Plus Jakarta Sans';font-size:30px;font-weight:800;
-  color:#fff;letter-spacing:0.5px;margin-bottom:8px;
-}
-#pauseOverlay .po-sub{font-size:15px;color:#CBD5E1;margin-bottom:6px;}
-#pauseOverlay .po-time{
-  font-family:'Rajdhani';font-size:46px;font-weight:700;
-  color:#FF8A33;letter-spacing:2px;margin-bottom:26px;
-}
-#pauseOverlay .po-resume{
-  background:#FF6B00;border:none;color:#fff;
-  padding:14px 40px;border-radius:12px;cursor:pointer;
-  font-size:17px;font-weight:700;font-family:'Plus Jakarta Sans';
-  transition:all 0.15s;
-}
-#pauseOverlay .po-resume:hover{background:#E85F00;transform:translateY(-1px);}
 
 /* ═══════════════════════════════════
    SUBJECT TABS BAR  (Desktop — above Q panel)
@@ -845,7 +808,6 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:10
         <span class="timer-icon">⏱</span>
         <div class="timer" id="timer">60:00</div>
       </div>
-      <button class="pause-btn" id="pauseBtn" onclick="togglePause()">⏸ Pause</button>
     </div>
     <div class="topbar-right">
       <button id="gridToggleBtn" onclick="openDrawer()">☰ Questions</button>
@@ -948,15 +910,6 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:10
 
 <!-- Mobile overlay + drawer -->
 <div id="sidebarOverlay" onclick="closeDrawer()"></div>
-
-<!-- Pause overlay -->
-<div id="pauseOverlay">
-  <div class="po-icon">⏸</div>
-  <div class="po-title">Test Paused</div>
-  <div class="po-sub">Time remaining</div>
-  <div class="po-time" id="pauseTime">--:--</div>
-  <button class="po-resume" onclick="togglePause()">▶ Resume Test</button>
-</div>
 <div id="sidebarDrawer">
   <div class="drawer-header">
     <span>📋 Questions</span>
@@ -1006,7 +959,7 @@ const app=initializeApp({apiKey:"AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",authDo
 const db=getFirestore(app);
 const auth=getAuth(app);
 
-let questions=[],answers={},markedForReview={},currentQ=0,timeLeft=3600,timerInterval,currentUser=null,sections=[],paused=false;
+let questions=[],answers={},markedForReview={},currentQ=0,timeLeft=3600,timerInterval,currentUser=null,sections=[];
 const SUBJECT_SHORT={
   'General Intelligence & Reasoning':'Reasoning',
   'General Intelligence and Reasoning':'Reasoning',
@@ -1669,31 +1622,6 @@ function startTimer(){
   }
   tick(); // update display immediately, don't wait 1s
   timerInterval=setInterval(()=>{timeLeft--;tick();},1000);
-}
-
-function togglePause(){
-  // Don't allow pausing before the test has started or after submission
-  if(!paused && !timerInterval) return;
-  if(typeof isSubmitting!=='undefined' && isSubmitting) return;
-
-  if(!paused){
-    // Pause: stop the clock and hide questions behind the overlay
-    paused=true;
-    if(timerInterval){clearInterval(timerInterval);timerInterval=null;}
-    const m=Math.floor(timeLeft/60),s=timeLeft%60;
-    document.getElementById('pauseTime').textContent=
-      String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
-    document.getElementById('pauseOverlay').style.display='flex';
-    const b=document.getElementById('pauseBtn');
-    b.innerHTML='▶ Resume'; b.classList.add('paused');
-  }else{
-    // Resume: hide overlay and restart the clock from where it stopped
-    paused=false;
-    document.getElementById('pauseOverlay').style.display='none';
-    const b=document.getElementById('pauseBtn');
-    b.innerHTML='⏸ Pause'; b.classList.remove('paused');
-    startTimer();
-  }
 }
 
 /* ── Save helpers ── */
