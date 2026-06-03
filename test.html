@@ -752,6 +752,15 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:10
   .instr-start-btn,.instr-back-btn{width:100%;text-align:center;justify-content:center;}
 }
 </style>
+<style id="tssc-radical-style">
+/* TrickySSC — square-root vinculum (bar covers the whole radicand) */
+.rad{display:inline-block;white-space:nowrap;}
+.rad-sign{font-size:1.02em;line-height:1;}
+.rad-cand{border-top:1.6px solid currentColor;padding:0 .22em 0 .06em;margin-left:.03em;}
+</style>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
 </head>
 <body>
 
@@ -1520,6 +1529,7 @@ function renderQ(){
   document.getElementById('qNumTotal').textContent=questions.length;
   const rawText=(q.text||q.question||'').replace(/^\[FIGURE-BASED\]\s*/i,'');
   document.getElementById('qText').innerHTML=formatQText(rawText);
+  mathDress(document.getElementById('qText'));
 
   // Image
   const imgWrap=document.getElementById('qImgWrap');
@@ -1555,6 +1565,7 @@ function renderQ(){
       </div>
     </div>`;
   }).join('');
+  mathDress(document.getElementById('options'));
 
   // ── English toggle (Hindi tests, Q1-75 only) ──
   const enBtn=document.getElementById('enToggleBtn');
@@ -1571,12 +1582,14 @@ function renderQ(){
       if(isOn && enPanel){
         const eq=enQMap[qNum];
         document.getElementById('enQText').innerHTML=formatQText(eq.text||eq.question||'');
+        mathDress(document.getElementById('enQText'));
         const opts=['A','B','C','D'];
         document.getElementById('enOpts').innerHTML=opts.map(o=>{
           const lo=o.toLowerCase();
           const txt=(eq.options&&(eq.options[o]||eq.options[lo]))||(eq['option'+o]||eq['option_'+o]||'');
           return txt?`<div class="en-opt"><span class="en-opt-lbl">${o})</span>${txt}</div>`:'';
         }).join('');
+  mathDress(document.getElementById('enOpts'));
         enPanel.style.display='block';
       } else if(enPanel){enPanel.style.display='none';}
     } else {
@@ -1905,6 +1918,7 @@ window.submitTest=async()=>{
     const reviewQHtml=formatQTextReview(rawRT,i+1);
     return `<div class="review-item ${status}">${reviewQHtml}${q.imageUrl?`<div style="text-align:center;margin:8px 0;"><img src="${q.imageUrl}" style="max-width:100%;max-height:220px;border-radius:8px;border:1px solid #E2E8F0;object-fit:contain;background:#F9FAFB;" onerror="this.style.display='none'"></div>`:''}${optsHtml}<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;background:${vBg};color:${vClr};font-size:13px;font-weight:600;margin-bottom:4px;">${vIcon} ${vText}</div>${solHtml}${trickHtml}${conceptHtml}</div>`;
   }).join('');
+  mathDress(document.getElementById('review'));
 
   if(!currentUser||!currentUser.uid){setSaveUi('error','⚠️ Not logged in. Result cannot be saved.');isSubmitting=false;return;}
   const attemptId=`${currentUser.uid}_${exam||'exam'}_${year||'na'}_${Date.now()}`;
@@ -1935,6 +1949,93 @@ window.submitTest=async()=>{
 
 function applyBR(text){
   return text.split('[BR]').join('<br>');
+}
+
+/* ── TrickySSC: square-root dresser ─────────────────────────────
+   Draws a bar (vinculum) over the WHOLE radicand so it is always
+   clear how far the root extends. Works on existing Unicode "√"
+   content. Only touches text nodes, never tags/attributes. */
+function _radEsc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function _radHTML(cand){
+  return '<span class="rad"><span class="rad-sign">\u221A</span><span class="rad-cand">'+_radEsc(cand)+'</span></span>';
+}
+function _radExtract(str,start){
+  var i=start;
+  while(i<str.length && str[i]===' ') i++;
+  if(str[i]==='('){
+    var depth=0,j=i;
+    for(;j<str.length;j++){
+      if(str[j]==='(')depth++;
+      else if(str[j]===')'){depth--;if(depth===0){j++;break;}}
+    }
+    return {cand:str.slice(i+1,j-1),end:j};
+  }
+  var sup='\u2070\u00B9\u00B2\u00B3\u2074\u2075\u2076\u2077\u2078\u2079';
+  var j2=i;
+  while(j2<str.length){
+    var c=str[j2];
+    if((c>='0'&&c<='9')||c==='.'||(c>='A'&&c<='Z')||(c>='a'&&c<='z')||sup.indexOf(c)!==-1){j2++;}
+    else break;
+  }
+  if(j2===i) return null;
+  return {cand:str.slice(i,j2),end:j2};
+}
+/* ── TrickySSC: KaTeX renderer ───────────────────────────────────
+   Renders LaTeX written between \( ... \) (inline) or \[ ... \] (display).
+   IMPORTANT: $ and $$ are NOT delimiters — content uses "$" as a coding
+   operator (e.g. "6 $ 2 = 20"), so dollar delimiters are deliberately off. */
+function renderTrickyMath(root){
+  if(!root || !window.renderMathInElement) return;
+  try{
+    window.renderMathInElement(root,{
+      delimiters:[
+        {left:'\\(',right:'\\)',display:false},
+        {left:'\\[',right:'\\]',display:true}
+      ],
+      throwOnError:false,
+      errorColor:'#1f2933',
+      ignoredTags:['script','noscript','style','textarea','pre']
+    });
+  }catch(e){/* never break rendering */}
+}
+/* render LaTeX first, then draw bars over any remaining Unicode roots */
+function mathDress(el){ renderTrickyMath(el); dressRoots(el); }
+/* re-render math once KaTeX finishes loading (covers first paint) */
+window.addEventListener('load',function(){try{['qText','options','enQText','enOpts','review'].forEach(function(id){var el=document.getElementById(id);if(el)mathDress(el);});}catch(e){}});
+
+
+function dressRoots(root){
+  if(!root || typeof document==='undefined' || !document.createTreeWalker) return;
+  try{
+    var walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,{
+      acceptNode:function(n){
+        if(!n.nodeValue||n.nodeValue.indexOf('\u221A')===-1) return NodeFilter.FILTER_REJECT;
+        var p=n.parentNode;
+        if(p&&(p.nodeName==='SCRIPT'||p.nodeName==='STYLE'||p.nodeName==='TEXTAREA')) return NodeFilter.FILTER_REJECT;
+        var el=p;
+        while(el&&el!==root){if(el.classList&&(el.classList.contains('rad')||el.classList.contains('katex'))) return NodeFilter.FILTER_REJECT; el=el.parentNode;}
+        return NodeFilter.FILTER_ACCEPT;
+      }
+    });
+    var targets=[],node;
+    while(node=walker.nextNode()) targets.push(node);
+    targets.forEach(function(tn){
+      var str=tn.nodeValue,out='',i=0,changed=false;
+      while(i<str.length){
+        var k=str.indexOf('\u221A',i);
+        if(k===-1){out+=_radEsc(str.slice(i));break;}
+        out+=_radEsc(str.slice(i,k));
+        var r=_radExtract(str,k+1);
+        if(r){out+=_radHTML(r.cand);i=r.end;changed=true;}
+        else{out+=_radEsc('\u221A');i=k+1;}
+      }
+      if(changed){
+        var span=document.createElement('span');
+        span.innerHTML=out;
+        tn.parentNode.replaceChild(span,tn);
+      }
+    });
+  }catch(e){/* never break rendering */}
 }
 
 /* resolveImg — converts [IMG]url[/IMG] tokens to <img> tags */
