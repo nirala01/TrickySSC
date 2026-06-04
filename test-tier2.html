@@ -760,6 +760,12 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:10
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<style id="tssc-frac-style">
+/* TrickySSC — stacked (vertical) fractions for algebraic/parenthesised a/b */
+.vfrac{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;vertical-align:middle;text-align:center;line-height:1.15;margin:0 .12em;}
+.vfrac .vf-num{display:block;padding:0 .35em 1px;}
+.vfrac .vf-den{display:block;padding:1px .35em 0;border-top:1.5px solid currentColor;}
+</style>
 </head>
 <body>
 
@@ -2050,11 +2056,66 @@ function renderTrickyMath(root){
   }catch(e){/* never break rendering */}
 }
 /* render LaTeX first, then draw bars over any remaining Unicode roots */
-function mathDress(el){ renderTrickyMath(el); dressRoots(el); }
+function mathDress(el){ renderTrickyMath(el); dressFractions(el); dressRoots(el); }
 /* re-render math once KaTeX finishes loading (covers first paint) */
 window.addEventListener('load',function(){try{['qText','options','enQText','enOpts','review'].forEach(function(id){var el=document.getElementById(id);if(el)mathDress(el);});}catch(e){}});
 
 
+/* ── TrickySSC: stacked-fraction dresser ─────────────────────────
+   Renders NUM/DEN as a vertical fraction when it is clearly math:
+   when either side is a (parenthesised group), or contains a
+   superscript / decimal / pi / root. Plain integer fractions
+   (e.g. 45/1 addresses, 8/17) and word/word (and/or) are LEFT ALONE.
+   Display-only; never changes stored data. */
+var _FRAC_SUP='\u2070\u00B9\u00B2\u00B3\u2074\u2075\u2076\u2077\u2078\u2079';
+function _fracTerm(c){return (c>='0'&&c<='9')||c==='.'||(c>='A'&&c<='Z')||(c>='a'&&c<='z')||c==='\u03C0'||_FRAC_SUP.indexOf(c)!==-1;}
+function _fracStrong(s){for(var i=0;i<s.length;i++){var c=s[i];if(c==='.'||c==='\u03C0'||c==='\u221A'||_FRAC_SUP.indexOf(c)!==-1)return true;}return false;}
+function _fracLeft(str,slash){
+  var i=slash-1;while(i>=0&&str[i]===' ')i--;if(i<0)return null;
+  if(str[i]===')'){var d=0,j=i;for(;j>=0;j--){if(str[j]===')')d++;else if(str[j]==='('){d--;if(d===0)break;}}if(j<0)return null;return {start:j,text:str.slice(j+1,i),grouped:true};}
+  var j2=i;while(j2>=0&&_fracTerm(str[j2]))j2--;if(j2===i)return null;return {start:j2+1,text:str.slice(j2+1,i+1),grouped:false};
+}
+function _fracRight(str,slash){
+  var i=slash+1;while(i<str.length&&str[i]===' ')i++;if(i>=str.length)return null;
+  if(str[i]==='('){var d=0,j=i;for(;j<str.length;j++){if(str[j]==='(')d++;else if(str[j]===')'){d--;if(d===0){j++;break;}}}return {end:j,text:str.slice(i+1,j-1),grouped:true};}
+  var j2=i;while(j2<str.length&&_fracTerm(str[j2]))j2++;if(j2===i)return null;return {end:j2,text:str.slice(i,j2),grouped:false};
+}
+function _vfracHTML(num,den){return '<span class="vfrac"><span class="vf-num">'+_radEsc(num)+'</span><span class="vf-den">'+_radEsc(den)+'</span></span>';}
+function dressFractions(root){
+  if(!root||typeof document==='undefined'||!document.createTreeWalker)return;
+  try{
+    var skipTag={SCRIPT:1,STYLE:1,TEXTAREA:1},skipCls=['katex','vfrac','frac','mixed-frac','rad'];
+    var walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,{
+      acceptNode:function(n){
+        if(!n.nodeValue||n.nodeValue.indexOf('/')===-1)return NodeFilter.FILTER_REJECT;
+        var p=n.parentNode;if(p&&skipTag[p.nodeName])return NodeFilter.FILTER_REJECT;
+        var el=p;while(el&&el!==root){if(el.classList){for(var c=0;c<skipCls.length;c++)if(el.classList.contains(skipCls[c]))return NodeFilter.FILTER_REJECT;}el=el.parentNode;}
+        return NodeFilter.FILTER_ACCEPT;
+      }
+    });
+    var targets=[],node;while(node=walker.nextNode())targets.push(node);
+    targets.forEach(function(tn){
+      var str=tn.nodeValue,segs=[],last=0,changed=false,i=0;
+      while(i<str.length){
+        if(str[i]==='/'){
+          var L=_fracLeft(str,i),R=_fracRight(str,i);
+          if(L&&R){
+            var afterR=R.end<str.length?str[R.end]:'';
+            var beforeL=L.start>0?str[L.start-1]:'';
+            var trig=(L.grouped||R.grouped||_fracStrong(L.text)||_fracStrong(R.text));
+            if(trig&&afterR!=='/'&&beforeL!=='/'){
+              if(L.start>=last) segs.push(_radEsc(str.slice(last,L.start)));
+              segs.push(_vfracHTML(L.text.trim(),R.text.trim()));
+              last=R.end;i=R.end;changed=true;continue;
+            }
+          }
+        }
+        i++;
+      }
+      if(changed){segs.push(_radEsc(str.slice(last)));var span=document.createElement('span');span.innerHTML=segs.join('');tn.parentNode.replaceChild(span,tn);}
+    });
+  }catch(e){/* never break rendering */}
+}
 function dressRoots(root){
   if(!root || typeof document==='undefined' || !document.createTreeWalker) return;
   try{
