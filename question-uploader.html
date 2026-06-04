@@ -592,6 +592,7 @@ window.loadExisting = async () => {
     let q = query(collection(db,'questions'), where('exam','==',exam), where('year','==',year));
     const snap = await getDocs(q);
     let docs = snap.docs;
+    const rawCount = docs.length;            // matched on exam + year only (before strict filters)
     if (tier)   docs = docs.filter(d => d.data().tier   === tier);
     if (shift)  docs = docs.filter(d => d.data().shift  === shift);
     if (lang)   docs = docs.filter(d => (d.data().language||'en') === lang);
@@ -601,8 +602,16 @@ window.loadExisting = async () => {
     docs.forEach(d => { window.loadedDocMap[parseInt(d.data().qNum)] = d; });
 
     const count = Object.keys(window.loadedDocMap).length;
-    lbl.innerHTML = `✅ <strong style="color:#00A86B;">${count} existing questions loaded</strong> — preview will show New / Update status per row`;
-    lbl.style.color = '#00A86B';
+    if (count === 0 && rawCount > 0) {
+      // Questions exist for this exam+year but every one was filtered out by
+      // tier / shift / language / heldOn. Don't fail silently — uploading now
+      // would ADD duplicates instead of updating.
+      lbl.innerHTML = `⚠️ <strong style="color:#F59E0B;">0 matched — but ${rawCount} question(s) exist for ${exam} ${year}.</strong> Your Paper Details (tier / shift / language / held-on date) don't match what's stored. Fix them and Load again, or uploading will create duplicates instead of updating.`;
+      lbl.style.color = '#F59E0B';
+    } else {
+      lbl.innerHTML = `✅ <strong style="color:#00A86B;">${count} existing questions loaded</strong> — preview will show New / Update status per row`;
+      lbl.style.color = '#00A86B';
+    }
 
     // Re-render table if already showing to update badges
     if (document.getElementById('step2').style.display !== 'none') {
@@ -637,6 +646,17 @@ window.uploadAll = async () => {
 
   const toAdd    = rows.filter(r => !window.loadedDocMap[r.qNum]);
   const toUpdate = rows.filter(r =>  window.loadedDocMap[r.qNum]);
+
+  // Guard: an empty map means every row is treated as NEW → duplicates, not updates.
+  if (Object.keys(window.loadedDocMap).length === 0) {
+    const proceedNew = confirm(
+      `⚠️ No existing questions were loaded, so all ${rows.length} rows will be ADDED as NEW.\n\n` +
+      `If these questions already exist in Firestore this creates DUPLICATES — it will NOT update them.\n\n` +
+      `To update instead: click "Cancel", then press "🔍 Load Existing Questions" (with the correct Paper Details — especially the held-on date) before uploading.\n\n` +
+      `Add as new anyway?`
+    );
+    if (!proceedNew) return;
+  }
 
   const confirmed = confirm(
     `Ready to push ${rows.length} questions to Firestore.\n\n` +
