@@ -606,41 +606,71 @@ function renderPerformance(attempts) {
   // Score trend
   const recent = attempts.slice(0, 5).reverse();
   const trend = recent.map((a,i) => {
-    const pct = parseFloat(a.percentage)||0;
+    const maxM = (parseInt(a.total)||100)*2;
+    const hasMarks = a.marks!==undefined && a.marks!==null && a.marks!=='';
+    const score = hasMarks ? parseFloat(a.marks) : Math.round(((parseFloat(a.percentage)||0)/100)*maxM);
     const examName = (a.examName||a.exam||'Test').split('—')[0].trim();
-    return `${examName}: ${pct}%`;
+    return `${examName}: ${score}/${maxM}`;
   }).join(' → ');
   const first = parseFloat(recent[0]?.percentage)||0;
   const last = parseFloat(recent[recent.length-1]?.percentage)||0;
   const trendMsg = last > first ? '📈 Your scores are improving!' : last < first ? '📉 Scores have dipped — revise weak areas.' : '➡️ Scores are consistent.';
   document.getElementById('scoreTrend').innerHTML = `<div style="margin-bottom:6px;">${trend}</div><div style="font-weight:600;">${trendMsg}</div>`;
 
-  // Strong vs weak based on correct/wrong ratios per exam
-  const examStats = {};
+  // ── Strong vs weak by SUBJECT (Reasoning / GA / Quant / English) ──
+  // Prefer per-subject data saved with each attempt; fall back to exam-level.
+  const subjStats = {};   // subject -> {correct,wrong,skip,attempted}
+  let haveSubjectData = false;
   attempts.forEach(a => {
-    const exam = (a.examName||a.exam||'Unknown').split('—')[0].trim().split(' ').slice(0,2).join(' ');
-    if (!examStats[exam]) examStats[exam] = {correct:0, wrong:0, skip:0, count:0};
-    examStats[exam].correct += parseInt(a.correct)||0;
-    examStats[exam].wrong += parseInt(a.wrong)||0;
-    examStats[exam].skip += parseInt(a.skip)||0;
-    examStats[exam].count++;
+    const ss = a.subjectStats;
+    if (ss && typeof ss === 'object' && Object.keys(ss).length) {
+      haveSubjectData = true;
+      Object.entries(ss).forEach(([subj, s]) => {
+        const name = (subj || 'General').trim() || 'General';
+        if (!subjStats[name]) subjStats[name] = {correct:0, wrong:0, skip:0};
+        subjStats[name].correct += parseInt(s.correct)||0;
+        subjStats[name].wrong   += parseInt(s.wrong)||0;
+        subjStats[name].skip    += parseInt(s.skip)||0;
+      });
+    }
   });
 
-  const examList = Object.entries(examStats).map(([name, s]) => {
-    const total = s.correct + s.wrong + s.skip;
-    const accuracy = total > 0 ? Math.round((s.correct/total)*100) : 0;
-    return {name, accuracy, count: s.count};
-  }).sort((a,b) => b.accuracy - a.accuracy);
+  let areaList;
+  if (haveSubjectData) {
+    areaList = Object.entries(subjStats).map(([name, s]) => {
+      const attempted = s.correct + s.wrong;        // accuracy on attempted questions
+      const total = s.correct + s.wrong + s.skip;
+      const accuracy = attempted > 0 ? Math.round((s.correct/attempted)*100) : 0;
+      return {name, accuracy, correct:s.correct, total};
+    }).filter(e => e.total > 0).sort((a,b) => b.accuracy - a.accuracy);
+  } else {
+    // Fallback: group by exam (older attempts without subjectStats)
+    const examStats = {};
+    attempts.forEach(a => {
+      const exam = (a.examName||a.exam||'Unknown').split('—')[0].trim().split(' ').slice(0,2).join(' ');
+      if (!examStats[exam]) examStats[exam] = {correct:0, wrong:0, skip:0};
+      examStats[exam].correct += parseInt(a.correct)||0;
+      examStats[exam].wrong   += parseInt(a.wrong)||0;
+      examStats[exam].skip    += parseInt(a.skip)||0;
+    });
+    areaList = Object.entries(examStats).map(([name, s]) => {
+      const attempted = s.correct + s.wrong;
+      const total = s.correct + s.wrong + s.skip;
+      const accuracy = attempted > 0 ? Math.round((s.correct/attempted)*100) : 0;
+      return {name, accuracy, correct:s.correct, total};
+    }).filter(e => e.total > 0).sort((a,b) => b.accuracy - a.accuracy);
+  }
 
-  const strong = examList.filter(e => e.accuracy >= 60);
-  const weak = examList.filter(e => e.accuracy < 60);
+  const strong = areaList.filter(e => e.accuracy >= 60);
+  const weak   = areaList.filter(e => e.accuracy < 60);
+  const bar = (acc, color) => `<span style="display:inline-block;width:64px;height:6px;border-radius:3px;background:#E2E8F0;vertical-align:middle;margin-left:6px;overflow:hidden;"><span style="display:block;height:100%;width:${Math.max(4,acc)}%;background:${color};"></span></span>`;
 
   document.getElementById('strongAreas').innerHTML = strong.length > 0
-    ? strong.map(e => `✅ ${e.name} (${e.accuracy}% accuracy)`).join('<br>')
+    ? strong.map(e => `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:3px 0;"><span>✅ ${e.name}</span><span style="font-weight:600;white-space:nowrap;">${e.accuracy}%${bar(e.accuracy,'#22C55E')}</span></div>`).join('')
     : 'Keep attempting more tests to identify strong areas.';
 
   document.getElementById('weakAreas').innerHTML = weak.length > 0
-    ? weak.map(e => `⚠️ ${e.name} (${e.accuracy}% accuracy) — needs practice`).join('<br>')
+    ? weak.map(e => `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:3px 0;"><span>⚠️ ${e.name} — needs practice</span><span style="font-weight:600;white-space:nowrap;">${e.accuracy}%${bar(e.accuracy,'#F97316')}</span></div>`).join('')
     : '🎉 No weak areas found! Great performance.';
 }
 
@@ -656,11 +686,12 @@ function renderAttempts(attempts) {
     return;
   }
   const rows = attempts.map(a => {
-    const marks = parseFloat(a.marks)||0;
     const maxM = (parseInt(a.total)||100)*2;
     const pct = parseFloat(a.percentage)||0;
-    const displayScore = marks > 0 ? marks+'/'+maxM : pct+'%';
-    const cls = marks>=(maxM*0.7)||pct>=70?'score-high':marks>=(maxM*0.4)||pct>=40?'score-mid':'score-low';
+    const hasMarks = a.marks!==undefined && a.marks!==null && a.marks!=='';
+    const scoreVal = hasMarks ? (parseFloat(a.marks)||0) : Math.round((pct/100)*maxM);
+    const displayScore = scoreVal+'/'+maxM;
+    const cls = scoreVal>=(maxM*0.7)?'score-high':scoreVal>=(maxM*0.4)?'score-mid':'score-low';
     const date = a.timestamp?.toDate
       ? a.timestamp.toDate().toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})
       : '—';
