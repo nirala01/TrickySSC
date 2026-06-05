@@ -695,6 +695,31 @@ function renderPerformance(attempts) {
     : '🎉 No weak areas found! Great performance.';
 }
 
+function prettyPaper(id, fallback){
+  const raw = String(id||''); if(!raw) return fallback || 'Test';
+  const low = raw.toLowerCase();
+  let exam='';
+  if(/ssc[-_]?cgl/.test(low)) exam='SSC CGL';
+  else if(/ssc[-_]?chsl/.test(low)) exam='SSC CHSL';
+  else if(/ssc[-_]?cpo/.test(low)) exam='SSC CPO';
+  else if(/ssc[-_]?mts/.test(low)) exam='SSC MTS';
+  else if(/ssc[-_]?gd/.test(low)) exam='SSC GD';
+  else if(/ssc[-_]?je/.test(low)) exam='SSC JE';
+  else if(/ssc[-_]?steno/.test(low)) exam='SSC Stenographer';
+  else if(/ssc/.test(low)) exam='SSC';
+  const tier = low.match(/tier[-_]?(\d)/);
+  const shift = low.match(/shift[-_]?(\d)/);
+  const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  let dateStr=''; const dm = raw.match(/(20\d{2})[-_]?(\d{2})[-_]?(\d{2})/);
+  if(dm){ const mo=parseInt(dm[2],10), d=parseInt(dm[3],10);
+    if(mo>=1&&mo<=12&&d>=1&&d<=31) dateStr=String(d).padStart(2,'0')+' '+months[mo-1]+' '+dm[1]; }
+  let year=''; if(!dateStr){ const ym=raw.match(/(20\d{2})/); if(ym) year=ym[1]; }
+  if(!exam) return fallback || raw.replace(/_+/g,' ').replace(/-/g,' ').trim();
+  let head=exam; if(tier) head+=' Tier '+tier[1]; if(year) head+=' '+year;
+  const parts=[head]; if(shift) parts.push('Shift '+shift[1]); if(dateStr) parts.push(dateStr);
+  return parts.join(' · ');
+}
+
 async function renderRankPreview(attempts, uid) {
   const card = document.getElementById('rankCard');
   if (!card || !uid || !attempts || !attempts.length) return;
@@ -719,7 +744,7 @@ async function renderRankPreview(attempts, uid) {
     const topPct = total > 0 ? Math.max(1, Math.round((rank/total)*100)) : 100;
     const maxM = me.maxMarks ? '/'+me.maxMarks : '';
 
-    document.getElementById('rankCardTest').textContent = latest.examName || me.paperName || latest.exam || 'Latest Test';
+    document.getElementById('rankCardTest').textContent = prettyPaper(lbId, latest.examName || me.paperName || latest.exam);
     document.getElementById('rankCardSub').textContent = `${myMarks}${maxM} marks · ${total} candidate${total===1?'':'s'}`;
     document.getElementById('rankCardRank').textContent = '#'+rank;
     document.getElementById('rankCardPct').textContent = 'Top '+topPct+'%';

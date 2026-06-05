@@ -57,6 +57,7 @@
       <h1>🏆 Leaderboard</h1>
       <select id="paperSelect" onchange="onPaperChange()" style="display:none;"></select>
     </div>
+    <div id="boardName" style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:16px;color:#475569;margin:-6px 0 16px;"></div>
 
     <div id="content">
       <div class="empty"><div class="spin"></div><div style="margin-top:12px;">Loading…</div></div>
@@ -83,6 +84,34 @@ const auth = getAuth(app);
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+// Turn a paperId like "ssc-cgl_2024_tier1_shift-1_2024-09-09_en"
+// into a readable name: "SSC CGL Tier 1 · Shift 1 · 09 Sep 2024".
+function prettyPaper(id, fallback){
+  const raw = String(id||''); if(!raw) return fallback || 'Test';
+  const low = raw.toLowerCase();
+  let exam='';
+  if(/ssc[-_]?cgl/.test(low)) exam='SSC CGL';
+  else if(/ssc[-_]?chsl/.test(low)) exam='SSC CHSL';
+  else if(/ssc[-_]?cpo/.test(low)) exam='SSC CPO';
+  else if(/ssc[-_]?mts/.test(low)) exam='SSC MTS';
+  else if(/ssc[-_]?gd/.test(low)) exam='SSC GD';
+  else if(/ssc[-_]?je/.test(low)) exam='SSC JE';
+  else if(/ssc[-_]?steno/.test(low)) exam='SSC Stenographer';
+  else if(/ssc/.test(low)) exam='SSC';
+  const tier = low.match(/tier[-_]?(\d)/);
+  const shift = low.match(/shift[-_]?(\d)/);
+  const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  let dateStr=''; const dm = raw.match(/(20\d{2})[-_]?(\d{2})[-_]?(\d{2})/);
+  if(dm){ const mo=parseInt(dm[2],10), d=parseInt(dm[3],10);
+    if(mo>=1&&mo<=12&&d>=1&&d<=31) dateStr=String(d).padStart(2,'0')+' '+months[mo-1]+' '+dm[1]; }
+  let year=''; if(!dateStr){ const ym=raw.match(/(20\d{2})/); if(ym) year=ym[1]; }
+  if(!exam) return fallback || raw.replace(/_+/g,' ').replace(/-/g,' ').trim();
+  let head=exam; if(tier) head+=' Tier '+tier[1]; if(year) head+=' '+year;
+  const parts=[head]; if(shift) parts.push('Shift '+shift[1]); if(dateStr) parts.push(dateStr);
+  return parts.join(' · ');
+}
+
 const params = new URLSearchParams(location.search);
 let CURRENT_UID = null;
 let CURRENT_PAPER = params.get('paper') || '';
@@ -98,13 +127,13 @@ onAuthStateChanged(auth, async (user) => {
 async function buildPaperPicker(user){
   const sel = $('paperSelect');
   const seen = new Map(); // id -> label
-  if (CURRENT_PAPER) seen.set(CURRENT_PAPER, params.get('name') || CURRENT_PAPER);
+  if (CURRENT_PAPER) seen.set(CURRENT_PAPER, prettyPaper(CURRENT_PAPER, params.get('name')));
   if (user) {
     try {
       const qs = await getDocs(query(collection(db,'attempts'), where('uid','==',user.uid), limit(60)));
       qs.forEach(d=>{
         const a=d.data(); const id=a.paperId||a.mockId;
-        if(id && !seen.has(id)) seen.set(id, a.examName||a.exam||id);
+        if(id && !seen.has(id)) seen.set(id, prettyPaper(id, a.examName||a.exam));
       });
     } catch(_) { /* index may be missing; dropdown just stays minimal */ }
   }
@@ -122,6 +151,7 @@ window.onPaperChange = function(){
 };
 
 async function loadLeaderboard(paperId){
+  const bn=$('boardName'); if(bn) bn.textContent=prettyPaper(paperId);
   $('content').innerHTML = `<div class="empty"><div class="spin"></div><div style="margin-top:12px;">Loading leaderboard…</div></div>`;
   $('footNote').textContent = '';
   const scoresCol = collection(db,'leaderboards',paperId,'scores');
