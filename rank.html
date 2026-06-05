@@ -101,11 +101,10 @@ async function buildPaperPicker(user){
   if (CURRENT_PAPER) seen.set(CURRENT_PAPER, params.get('name') || CURRENT_PAPER);
   if (user) {
     try {
-      const qs = await getDocs(query(collection(db,'attempts'), where('uid','==',user.uid), orderBy('timestamp','desc'), limit(60)));
+      const qs = await getDocs(query(collection(db,'attempts'), where('uid','==',user.uid), limit(60)));
       qs.forEach(d=>{
-        const a = d.data();
-        const id = a.paperId || a.mockId;
-        if (id && !seen.has(id)) seen.set(id, a.examName || a.exam || id);
+        const a=d.data(); const id=a.paperId||a.mockId;
+        if(id && !seen.has(id)) seen.set(id, a.examName||a.exam||id);
       });
     } catch(_) { /* index may be missing; dropdown just stays minimal */ }
   }
@@ -129,11 +128,24 @@ async function loadLeaderboard(paperId){
 
   let rows = [];
   try {
-    const qs = await getDocs(query(scoresCol, orderBy('marks','desc'), orderBy('submittedAt','asc'), limit(100)));
+    const qs = await getDocs(query(scoresCol, orderBy('marks','desc'), limit(100)));
     qs.forEach(d => rows.push(d.data()));
+    // Tie-break by submittedAt (earlier = higher) in JS — avoids composite index
+    rows.sort((a,b) => {
+      if ((Number(b.marks)||0) !== (Number(a.marks)||0)) return (Number(b.marks)||0) - (Number(a.marks)||0);
+      const ta = a.submittedAt?.toDate ? a.submittedAt.toDate().getTime() : 0;
+      const tb = b.submittedAt?.toDate ? b.submittedAt.toDate().getTime() : 0;
+      return ta - tb;
+    });
   } catch (e) {
-    $('content').innerHTML = `<div class="empty">Couldn't load the leaderboard.<br><span style="font-size:12px;">If this is the first time, the database may still be building its index — try again in a minute.</span></div>`;
-    console.warn(e); return;
+    const msg = String(e.message||e).toLowerCase();
+    const isIndex = msg.includes('index') || msg.includes('failed-precondition');
+    $('content').innerHTML = `<div class="empty">
+      ${isIndex
+        ? `⚙️ <b>Index still building</b><br><span style="font-size:12px;">This usually takes 1–2 minutes on first use. Please wait and refresh.</span>`
+        : `Couldn't load the leaderboard.<br><span style="font-size:12px;">Check your connection and try refreshing.</span>`}
+    </div>`;
+    console.warn('[rank]', e); return;
   }
 
   if (rows.length === 0) {
