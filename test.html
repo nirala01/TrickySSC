@@ -812,10 +812,11 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:10
 }
 </style>
 <style id="tssc-radical-style">
-/* TrickySSC — square-root vinculum (bar covers the whole radicand) */
-.rad{display:inline-block;white-space:nowrap;}
-.rad-sign{font-size:1.02em;line-height:1;}
-.rad-cand{border-top:1.6px solid currentColor;padding:0 .22em 0 .06em;margin-left:.03em;}
+/* TrickySSC — square-root drawn as a scalable SVG so the rising stroke
+   always meets the vinculum (bar) with no gap, at any radicand height. */
+.rad{display:inline-flex;align-items:stretch;vertical-align:middle;white-space:nowrap;}
+.rad-svg{align-self:stretch;width:.72em;min-height:1.05em;flex:0 0 auto;overflow:visible;}
+.rad-cand{border-top:1.7px solid currentColor;padding:.16em .28em 0 .02em;}
 </style>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
@@ -2046,16 +2047,19 @@ function applyBR(text){
    content. Only touches text nodes, never tags/attributes. */
 function _radEsc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function _radHTML(cand){
-  return '<span class="rad"><span class="rad-sign">\u221A</span><span class="rad-cand">'+_radEsc(cand)+'</span></span>';
+  return '<span class="rad"><svg class="rad-svg" viewBox="0 0 12 100" preserveAspectRatio="none" aria-hidden="true">'
+    +'<path d="M0.5,62 L4,97 L11,1 L12,1" fill="none" stroke="currentColor" stroke-width="1.7" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/>'
+    +'</svg><span class="rad-cand">'+_radEsc(cand)+'</span></span>';
 }
 function _radExtract(str,start){
   var i=start;
   while(i<str.length && str[i]===' ') i++;
-  if(str[i]==='('){
+  var open=str[i], close=(open==='(')?')':(open==='[')?']':(open==='{')?'}':'';
+  if(close){
     var depth=0,j=i;
     for(;j<str.length;j++){
-      if(str[j]==='(')depth++;
-      else if(str[j]===')'){depth--;if(depth===0){j++;break;}}
+      if(str[j]===open)depth++;
+      else if(str[j]===close){depth--;if(depth===0){j++;break;}}
     }
     return {cand:str.slice(i+1,j-1),end:j};
   }
@@ -2088,7 +2092,7 @@ function renderTrickyMath(root){
   }catch(e){/* never break rendering */}
 }
 /* render LaTeX first, then draw bars over any remaining Unicode roots */
-function mathDress(el){ renderTrickyMath(el); dressFractions(el); dressRoots(el); }
+function mathDress(el){ renderTrickyMath(el); dressRoots(el); dressFractions(el); }
 /* re-render math once KaTeX finishes loading (covers first paint) */
 window.addEventListener('load',function(){try{['qText','options','enQText','enOpts','review'].forEach(function(id){var el=document.getElementById(id);if(el)mathDress(el);});}catch(e){}});
 
@@ -2116,7 +2120,7 @@ function _vfracHTML(num,den){return '<span class="vfrac"><span class="vf-num">'+
 function dressFractions(root){
   if(!root||typeof document==='undefined'||!document.createTreeWalker)return;
   try{
-    var skipTag={SCRIPT:1,STYLE:1,TEXTAREA:1},skipCls=['katex','vfrac','frac','mixed-frac','rad'];
+    var skipTag={SCRIPT:1,STYLE:1,TEXTAREA:1},skipCls=['katex','vfrac','frac','mixed-frac'];
     var walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,{
       acceptNode:function(n){
         if(!n.nodeValue||n.nodeValue.indexOf('/')===-1)return NodeFilter.FILTER_REJECT;
