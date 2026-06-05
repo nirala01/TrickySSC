@@ -1101,6 +1101,7 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:10
       <div class="stat" style="background:#FFF7ED;border-color:#FED7AA;"><div class="stat-val" style="color:#FF6B00;" id="statMarks">0</div><div class="stat-lbl">Marks</div></div>
     </div>
     <button class="btn btn-next" id="goDashboardBtn" style="margin-top:24px;padding:12px 32px;" onclick="window.location='https://trickyssc.com/dashboard.html'" disabled>Saving result...</button>
+    <a id="viewRankBtn" href="#" style="display:none;margin-top:12px;margin-left:8px;padding:12px 28px;border-radius:10px;background:#FFF3E8;color:#FF6B00;font-weight:700;font-size:14px;text-decoration:none;border:1.5px solid #FFD9B8;">🏆 View Rank &amp; Leaderboard</a>
     <div id="saveStatus" style="margin-top:10px;font-size:12px;color:#94A3B8;">⏳ Saving your result...</div>
     <button class="btn btn-submit" id="retrySaveBtn" style="margin-top:10px;display:none;" onclick="retrySaveResult()">Retry Save</button>
   </div>
@@ -1111,6 +1112,7 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:10
 import{initializeApp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import{getFirestore,collection,query,where,getDocs,doc,getDoc,setDoc,serverTimestamp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import{getAuth,onAuthStateChanged,signOut}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import{recordScore}from"./leaderboard.js";
 
 const app=initializeApp({apiKey:"AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",authDomain:"trickyssc-17bb3.firebaseapp.com",projectId:"trickyssc-17bb3",storageBucket:"trickyssc-17bb3.firebasestorage.app",messagingSenderId:"450627057220",appId:"1:450627057220:web:366267bf437d94f20c6e11"});
 const db=getFirestore(app);
@@ -2059,6 +2061,13 @@ window.submitTest=async()=>{
   const _pid=new URLSearchParams(window.location.search).get('paperId')||'';
   const _mid=new URLSearchParams(window.location.search).get('mockId')||'';
   const payload={uid:currentUser.uid,exam,year:year||'',examName:_examLabel,tier:'tier2',paperId:_pid,mockId:_mid,total:questions.length,correct,wrong,skip,marks:parseFloat(marks),percentage:pct,subjectStats,timestamp:serverTimestamp(),clientSubmittedAt:new Date().toISOString()};
+  // Leaderboard: record best score for this paper (non-blocking) + reveal Rank button
+  const _lbId=_pid||_mid;
+  if(_lbId){
+    recordScore({uid:currentUser.uid,displayName:currentUser?.displayName,paperId:_lbId,paperName:_examLabel,marks:parseFloat(marks),maxMarks:maxMarks,accuracy:pct}).catch(()=>{});
+    const _rb=document.getElementById('viewRankBtn');
+    if(_rb){_rb.href='rank.html?paper='+encodeURIComponent(_lbId);_rb.style.display='inline-block';}
+  }
   // Mark this paper/mock as attempted on-device so listing pages can show status instantly
   try{
     const _aKey='tssc_attempted';

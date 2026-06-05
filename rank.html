@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Rank & Leaderboard — TrickySSC</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Inter',sans-serif;background:#F1F5F9;color:#1E293B;}
+  a{color:inherit;}
+  .topbar{background:#fff;border-bottom:1px solid #E8EDF3;padding:14px 18px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:10;}
+  .brand{font-family:'Rajdhani';font-weight:700;font-size:20px;color:#FF6B00;}
+  .back{font-size:13px;font-weight:600;color:#64748B;text-decoration:none;}
+  .back:hover{color:#FF6B00;}
+  .wrap{max-width:760px;margin:0 auto;padding:18px 16px 60px;}
+  .pagehead{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px;}
+  .pagehead h1{font-family:'Rajdhani';font-weight:700;font-size:26px;margin:0;}
+  select{font-family:'Inter';font-size:13px;font-weight:600;color:#1E293B;background:#fff;border:1.5px solid #E2E8F0;border-radius:10px;padding:9px 12px;max-width:100%;}
+  /* hero */
+  .hero{background:linear-gradient(135deg,#FFF7ED,#FFFBF5);border:1px solid #FED7AA;border-radius:18px;padding:22px;text-align:center;margin-bottom:18px;box-shadow:0 3px 14px rgba(15,23,42,.05);}
+  .hero .rank-num{font-family:'Rajdhani';font-weight:700;font-size:58px;line-height:1;color:#FF6B00;}
+  .hero .rank-of{font-size:14px;color:#9A3412;font-weight:600;margin-top:2px;}
+  .hero .chips{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:16px;}
+  .chip{background:#fff;border:1px solid #FDE3CC;border-radius:12px;padding:10px 16px;min-width:96px;}
+  .chip .v{font-family:'Rajdhani';font-weight:700;font-size:24px;color:#0F172A;}
+  .chip .l{font-size:11px;color:#94A3B8;font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-top:2px;}
+  .pct-chip{display:inline-flex;align-items:center;gap:6px;margin-top:14px;background:#DCFCE7;color:#15803D;font-weight:700;font-size:13px;padding:7px 16px;border-radius:999px;}
+  /* table */
+  .board{background:#fff;border:1px solid #EDF1F6;border-radius:16px;overflow:hidden;box-shadow:0 3px 14px rgba(15,23,42,.05);}
+  .board-head{display:grid;grid-template-columns:64px 1fr 96px 76px;gap:8px;padding:12px 16px;background:#F8FAFC;border-bottom:1px solid #EDF1F6;font-size:11px;font-weight:800;color:#64748B;text-transform:uppercase;letter-spacing:.04em;}
+  .row{display:grid;grid-template-columns:64px 1fr 96px 76px;gap:8px;padding:13px 16px;border-bottom:1px solid #F1F5F9;align-items:center;font-size:14px;}
+  .row:last-child{border-bottom:none;}
+  .row .rk{font-family:'Rajdhani';font-weight:700;font-size:17px;color:#475569;}
+  .row .nm{font-weight:600;color:#0F172A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .row .mk{font-family:'Rajdhani';font-weight:700;font-size:16px;color:#FF6B00;text-align:right;}
+  .row .ac{font-weight:600;color:#64748B;text-align:right;font-size:13px;}
+  .row.me{background:#FFF7ED;}
+  .row.me .nm{color:#C2410C;}
+  .row.me .nm::after{content:' (You)';font-size:11px;font-weight:700;color:#FF6B00;}
+  .row.pinned{border-top:2px dashed #FED7AA;background:#FFFBF5;}
+  .medal{font-size:18px;}
+  .empty{background:#fff;border:1px solid #EDF1F6;border-radius:16px;padding:40px 20px;text-align:center;color:#94A3B8;font-size:14px;}
+  .muted{color:#94A3B8;font-size:12.5px;text-align:center;margin-top:14px;}
+  .spin{display:inline-block;width:26px;height:26px;border:3px solid #FFE3C9;border-top-color:#FF6B00;border-radius:50%;animation:sp 0.8s linear infinite;}
+  @keyframes sp{to{transform:rotate(360deg);}}
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <span class="brand">TrickySSC</span>
+    <a class="back" href="dashboard.html">← Dashboard</a>
+  </div>
+
+  <div class="wrap">
+    <div class="pagehead">
+      <h1>🏆 Leaderboard</h1>
+      <select id="paperSelect" onchange="onPaperChange()" style="display:none;"></select>
+    </div>
+
+    <div id="content">
+      <div class="empty"><div class="spin"></div><div style="margin-top:12px;">Loading…</div></div>
+    </div>
+    <div class="muted" id="footNote"></div>
+  </div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getFirestore, collection, doc, getDoc, getDocs, query, where, orderBy, limit, getCountFromServer }
+  from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+const app = initializeApp({
+  apiKey:"AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",
+  authDomain:"trickyssc-17bb3.firebaseapp.com",
+  projectId:"trickyssc-17bb3",
+  storageBucket:"trickyssc-17bb3.firebasestorage.app",
+  messagingSenderId:"450627057220",
+  appId:"1:450627057220:web:366267bf437d94f20c6e11"
+});
+const db = getFirestore(app);
+const auth = getAuth(app);
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const params = new URLSearchParams(location.search);
+let CURRENT_UID = null;
+let CURRENT_PAPER = params.get('paper') || '';
+
+onAuthStateChanged(auth, async (user) => {
+  CURRENT_UID = user ? user.uid : null;
+  await buildPaperPicker(user);
+  if (CURRENT_PAPER) loadLeaderboard(CURRENT_PAPER);
+  else $('content').innerHTML = `<div class="empty">Select a test above to view its leaderboard.</div>`;
+});
+
+// Build the paper dropdown from the signed-in user's own attempts (papers they've taken).
+async function buildPaperPicker(user){
+  const sel = $('paperSelect');
+  const seen = new Map(); // id -> label
+  if (CURRENT_PAPER) seen.set(CURRENT_PAPER, params.get('name') || CURRENT_PAPER);
+  if (user) {
+    try {
+      const qs = await getDocs(query(collection(db,'attempts'), where('uid','==',user.uid), orderBy('timestamp','desc'), limit(60)));
+      qs.forEach(d=>{
+        const a = d.data();
+        const id = a.paperId || a.mockId;
+        if (id && !seen.has(id)) seen.set(id, a.examName || a.exam || id);
+      });
+    } catch(_) { /* index may be missing; dropdown just stays minimal */ }
+  }
+  if (seen.size === 0) { sel.style.display='none'; return; }
+  sel.innerHTML = [...seen.entries()].map(([id,label]) =>
+    `<option value="${esc(id)}" ${id===CURRENT_PAPER?'selected':''}>${esc(label)}</option>`).join('');
+  sel.style.display='inline-block';
+  if (!CURRENT_PAPER) { CURRENT_PAPER = sel.value; }
+}
+
+window.onPaperChange = function(){
+  CURRENT_PAPER = $('paperSelect').value;
+  history.replaceState(null,'', 'rank.html?paper='+encodeURIComponent(CURRENT_PAPER));
+  loadLeaderboard(CURRENT_PAPER);
+};
+
+async function loadLeaderboard(paperId){
+  $('content').innerHTML = `<div class="empty"><div class="spin"></div><div style="margin-top:12px;">Loading leaderboard…</div></div>`;
+  $('footNote').textContent = '';
+  const scoresCol = collection(db,'leaderboards',paperId,'scores');
+
+  let rows = [];
+  try {
+    const qs = await getDocs(query(scoresCol, orderBy('marks','desc'), orderBy('submittedAt','asc'), limit(100)));
+    qs.forEach(d => rows.push(d.data()));
+  } catch (e) {
+    $('content').innerHTML = `<div class="empty">Couldn't load the leaderboard.<br><span style="font-size:12px;">If this is the first time, the database may still be building its index — try again in a minute.</span></div>`;
+    console.warn(e); return;
+  }
+
+  if (rows.length === 0) {
+    $('content').innerHTML = `<div class="empty">No scores yet for this test.<br>Be the first to attempt it! 🚀</div>`;
+    return;
+  }
+
+  // total participants (cheap server-side count)
+  let total = rows.length;
+  try { total = (await getCountFromServer(scoresCol)).data().count; } catch(_){}
+
+  // current user's standing
+  let myRow = null, myRank = null, myIndexInTop = rows.findIndex(r => r.uid === CURRENT_UID);
+  if (CURRENT_UID) {
+    if (myIndexInTop >= 0) { myRow = rows[myIndexInTop]; myRank = myIndexInTop + 1; }
+    else {
+      try {
+        const meSnap = await getDoc(doc(db,'leaderboards',paperId,'scores',CURRENT_UID));
+        if (meSnap.exists()) {
+          myRow = meSnap.data();
+          const ahead = await getCountFromServer(query(scoresCol, where('marks','>', Number(myRow.marks)||0)));
+          myRank = ahead.data().count + 1;
+        }
+      } catch(_){}
+    }
+  }
+
+  const maxMarks = rows[0].maxMarks || (myRow && myRow.maxMarks) || 0;
+  renderHero(myRow, myRank, total, maxMarks);
+  renderTable(rows, myRow, myRank, total);
+  $('footNote').textContent = 'Showing top ' + Math.min(100, total) + ' of ' + total + ' candidate' + (total===1?'':'s') + '. Best attempt per candidate is ranked.';
+}
+
+function renderHero(myRow, myRank, total, maxMarks){
+  let html;
+  if (!CURRENT_UID) {
+    html = `<div class="hero"><div style="font-size:15px;color:#9A3412;font-weight:600;">Log in to see your rank on this test.</div></div>`;
+  } else if (!myRow) {
+    html = `<div class="hero"><div style="font-size:15px;color:#9A3412;font-weight:600;">You haven't attempted this test yet.</div>
+      <div style="font-size:13px;color:#B45309;margin-top:6px;">Attempt it to claim your spot on the board!</div></div>`;
+  } else {
+    const topPct = Math.max(1, Math.round((myRank/total)*100));
+    const mk = (Number(myRow.marks)||0);
+    const acc = (myRow.accuracy!=null) ? Math.round(myRow.accuracy)+'%' : '—';
+    html = `<div class="hero">
+      <div class="rank-num">#${myRank}</div>
+      <div class="rank-of">out of ${total} candidate${total===1?'':'s'}</div>
+      <div class="chips">
+        <div class="chip"><div class="v">${mk}${maxMarks?'<span style="font-size:14px;color:#94A3B8;">/'+maxMarks+'</span>':''}</div><div class="l">Marks</div></div>
+        <div class="chip"><div class="v">${acc}</div><div class="l">Accuracy</div></div>
+      </div>
+      <div class="pct-chip">⭐ You're in the Top ${topPct}%</div>
+    </div>`;
+  }
+  $('content').innerHTML = html + `<div id="boardSlot"></div>`;
+}
+
+function renderTable(rows, myRow, myRank, total){
+  const medal = i => i===0?'🥇':i===1?'🥈':i===2?'🥉':'';
+  let body = rows.map((r,i) => {
+    const me = (r.uid === CURRENT_UID);
+    const mk = (Number(r.marks)||0);
+    const mx = r.maxMarks ? '<span style="font-size:12px;color:#CBD5E1;">/'+r.maxMarks+'</span>' : '';
+    const acc = (r.accuracy!=null) ? Math.round(r.accuracy)+'%' : '—';
+    const md = medal(i);
+    return `<div class="row ${me?'me':''}">
+      <div class="rk">${md?'<span class="medal">'+md+'</span>':('#'+(i+1))}</div>
+      <div class="nm">${esc(r.name||'Student')}</div>
+      <div class="mk">${mk}${mx}</div>
+      <div class="ac">${acc}</div>
+    </div>`;
+  }).join('');
+
+  // Pin the user's own row at the bottom if they're outside the visible top list
+  if (CURRENT_UID && myRow && myRank && myRank > rows.length) {
+    const mk = (Number(myRow.marks)||0);
+    const mx = myRow.maxMarks ? '<span style="font-size:12px;color:#CBD5E1;">/'+myRow.maxMarks+'</span>' : '';
+    const acc = (myRow.accuracy!=null) ? Math.round(myRow.accuracy)+'%' : '—';
+    body += `<div class="row me pinned">
+      <div class="rk">#${myRank}</div>
+      <div class="nm">${esc(myRow.name||'Student')}</div>
+      <div class="mk">${mk}${mx}</div>
+      <div class="ac">${acc}</div>
+    </div>`;
+  }
+
+  $('boardSlot').innerHTML = `<div class="board">
+    <div class="board-head"><div>Rank</div><div>Candidate</div><div style="text-align:right;">Marks</div><div style="text-align:right;">Acc.</div></div>
+    ${body}
+  </div>`;
+}
+</script>
+</body>
+</html>
