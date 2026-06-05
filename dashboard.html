@@ -283,6 +283,22 @@
     </div>
   </div>
 
+  <!-- Your Rank (latest test) -->
+  <a id="rankCard" href="rank.html" style="display:none;text-decoration:none;color:inherit;">
+    <div style="margin-top:1.25rem;background:linear-gradient(135deg,#FFF7ED,#FFFBF5);border:1px solid #FED7AA;border-radius:16px;padding:1.1rem 1.25rem;display:flex;align-items:center;gap:1rem;box-shadow:0 3px 14px rgba(15,23,42,.05);">
+      <div style="flex:0 0 auto;width:58px;height:58px;border-radius:14px;background:#FFF3E8;border:1px solid #FFD9B8;display:flex;align-items:center;justify-content:center;font-size:28px;">🏆</div>
+      <div style="flex:1 1 auto;min-width:0;">
+        <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#C2410C;">Your Rank · Latest Test</div>
+        <div id="rankCardTest" style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1rem;color:#0F172A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">—</div>
+        <div id="rankCardSub" style="font-size:0.8rem;color:#9A3412;font-weight:500;margin-top:1px;">—</div>
+      </div>
+      <div style="flex:0 0 auto;text-align:right;">
+        <div id="rankCardRank" style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:2rem;line-height:1;color:#FF6B00;">—</div>
+        <div id="rankCardPct" style="font-size:0.72rem;font-weight:700;color:#15803D;margin-top:3px;"></div>
+      </div>
+    </div>
+  </a>
+
   <!-- Recent Attempts -->
   <div class="section-head">
     <div class="section-title">📊 My Recent Attempts</div>
@@ -351,7 +367,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, collection, query, where, orderBy, limit, getDocs, doc, getDoc, setDoc, serverTimestamp }
+import { getFirestore, collection, query, where, orderBy, limit, getDocs, doc, getDoc, setDoc, serverTimestamp, getCountFromServer }
   from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { getAuth, signOut, onAuthStateChanged }
   from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
@@ -505,6 +521,9 @@ async function loadDashboard(user) {
 
     // Performance Analysis
     renderPerformance(attempts);
+
+    // Your Rank preview (latest test)
+    renderRankPreview(attempts, effectiveUid);
   } catch(e) {
     renderAttempts([]);
     console.error('Failed to load attempts:', e);
@@ -562,6 +581,7 @@ async function loadDashboardMobile(mUser) {
       document.getElementById('wSub').textContent = `${attempts.length} test${attempts.length>1?'s':''} attempted · ${totalCorrect} correct · Avg ${avgM2}/200 marks 💪`;
     }
     renderAttempts(attempts);
+    renderRankPreview(attempts, mUser.uid);
   } catch(e) { renderAttempts([]); }
 
   document.getElementById('pageLoader').style.display = 'none';
@@ -673,6 +693,39 @@ function renderPerformance(attempts) {
   document.getElementById('weakAreas').innerHTML = weak.length > 0
     ? weak.map(e => `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:3px 0;"><span>⚠️ ${e.name} — needs practice</span><span style="font-weight:600;white-space:nowrap;">${e.accuracy}%${bar(e.accuracy,'#F97316')}</span></div>`).join('')
     : '🎉 No weak areas found! Great performance.';
+}
+
+async function renderRankPreview(attempts, uid) {
+  const card = document.getElementById('rankCard');
+  if (!card || !uid || !attempts || !attempts.length) return;
+  // Most recent attempt that belongs to a leaderboard (has a paperId/mockId)
+  const sorted = attempts.slice().sort((a,b) => {
+    const ta = a.timestamp?.toDate ? a.timestamp.toDate().getTime() : (a.clientSubmittedAt ? new Date(a.clientSubmittedAt).getTime() : 0);
+    const tb = b.timestamp?.toDate ? b.timestamp.toDate().getTime() : (b.clientSubmittedAt ? new Date(b.clientSubmittedAt).getTime() : 0);
+    return tb - ta;
+  });
+  const latest = sorted.find(a => a.paperId || a.mockId);
+  if (!latest) return;
+  const lbId = latest.paperId || latest.mockId;
+  try {
+    const scoresCol = collection(db, 'leaderboards', lbId, 'scores');
+    const meSnap = await getDoc(doc(db, 'leaderboards', lbId, 'scores', uid));
+    if (!meSnap.exists()) return;           // no leaderboard entry yet
+    const me = meSnap.data();
+    const myMarks = Number(me.marks) || 0;
+    const total = (await getCountFromServer(scoresCol)).data().count;
+    const ahead = (await getCountFromServer(query(scoresCol, where('marks','>',myMarks)))).data().count;
+    const rank = ahead + 1;
+    const topPct = total > 0 ? Math.max(1, Math.round((rank/total)*100)) : 100;
+    const maxM = me.maxMarks ? '/'+me.maxMarks : '';
+
+    document.getElementById('rankCardTest').textContent = latest.examName || me.paperName || latest.exam || 'Latest Test';
+    document.getElementById('rankCardSub').textContent = `${myMarks}${maxM} marks · ${total} candidate${total===1?'':'s'}`;
+    document.getElementById('rankCardRank').textContent = '#'+rank;
+    document.getElementById('rankCardPct').textContent = 'Top '+topPct+'%';
+    card.href = 'rank.html?paper='+encodeURIComponent(lbId);
+    card.style.display = 'block';
+  } catch (e) { /* index building or no data — leave card hidden */ }
 }
 
 function renderAttempts(attempts) {
