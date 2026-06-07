@@ -1170,6 +1170,9 @@ let mockMeta=null;
 // English question map for Hindi tests (qNum → en question object), Q1-75 only
 let enQMap={};
 let showEnglishQ={}; // per-question toggle state
+let enMapLoaded=false;   // becomes true once the English counterpart has been fetched
+let enMapLoading=false;  // in-flight guard
+let enFetchParams=null;  // {exam, year, mNum, heldOn, shift, paperId} stashed for lazy fetch
 
 /* ── Auth ── */
 let testStarted=false;
@@ -1457,32 +1460,13 @@ async function loadTest(){
     questions.sort((a,b)=>(parseInt(a.qNum)||0)-(parseInt(b.qNum)||0));
     questions.forEach(q=>normaliseQ(q));
 
-    // ── Fetch English counterpart for Hindi tests (Q1-75) ──
-    enQMap={};showEnglishQ={};
+    // ── English counterpart for Hindi tests (Q1-75): LAZY ──
+    // Don't fetch the English paper on open (it doubles network work and
+    // competes for bandwidth on mobile). Instead stash what we'd need and
+    // fetch only the first time the user taps "View in English".
+    enQMap={};showEnglishQ={};enMapLoaded=false;enMapLoading=false;enFetchParams=null;
     if(lang==='hi' && !mockId){
-      (async()=>{
-        try{
-          let enDocs=[];
-          if(paperId){
-            // Swap _hi → _en  (e.g. ssc-cgl_2024_sep9_s1_hi → ssc-cgl_2024_sep9_s1_en)
-            const enId=paperId.replace(/_hi$/,'_en').replace(/_hindi$/,'_english');
-            if(enId!==paperId){
-              const snap=await getDocs(query(collection(db,'questions'),where('paperId','==',enId)));
-              if(snap.size) snap.forEach(d=>enDocs.push({id:d.id,...d.data()}));
-            }
-          }
-          // Fallback: fetch by exam+year+heldOn+shift with language=en
-          if(!enDocs.length && (year||mNum)){
-            const yv=year||mNum;
-            let allEn=await fetchByYearSDK(exam,yv,heldOn)||await fetchByYearREST(exam,yv,heldOn)||[];
-            enDocs=filterDocs(allEn,'en',shift,heldOn);
-          }
-          enDocs.forEach(q=>{normaliseQ(q);const n=parseInt(q.qNum)||0;if(n>=1&&n<=75)enQMap[n]=q;});
-          console.log('[TrickySSC] English map built:',Object.keys(enQMap).length,'entries');
-          // Re-render to show toggle if user is still on Q1-75
-          if(lang==='hi'&&currentQ<75) renderQ();
-        }catch(e){console.warn('[TrickySSC] English fetch failed:',e.message);}
-      })();
+      enFetchParams={exam,year,mNum,heldOn,shift,paperId};
     }
 
     // ── Build title ──
@@ -1643,15 +1627,17 @@ function renderQ(){
   const enPanel=document.getElementById('enViewPanel');
   const qNum=parseInt(q.qNum)||0;
   const isHindiTest=(new URLSearchParams(window.location.search).get('lang')==='hi');
-  const hasEnglish=isHindiTest && qNum>=1 && qNum<=75 && !!enQMap[qNum];
+  // Offer the toggle on Q1-75 for Hindi tests even before the English map is
+  // fetched — the map loads lazily on first tap.
+  const hasEnglish=isHindiTest && qNum>=1 && qNum<=75;
   if(enBtn){
     if(hasEnglish){
       enBtn.style.display='flex';
       const isOn=!!showEnglishQ[currentQ];
+      const eq=isOn?enQMap[qNum]:null;
       enBtn.classList.toggle('active',isOn);
       enBtn.textContent=isOn?'✕ Hide English':'🇬🇧 View in English';
-      if(isOn && enPanel){
-        const eq=enQMap[qNum];
+      if(isOn && eq && enPanel){
         document.getElementById('enQText').innerHTML=formatQText(eq.text||eq.question||'');
         mathDress(document.getElementById('enQText'));
         const opts=['A','B','C','D'];
@@ -1660,7 +1646,12 @@ function renderQ(){
           const txt=(eq.options&&(eq.options[o]||eq.options[lo]))||(eq['option'+o]||eq['option_'+o]||'');
           return txt?`<div class="en-opt"><span class="en-opt-lbl">${o})</span>${txt}</div>`:'';
         }).join('');
-  mathDress(document.getElementById('enOpts'));
+        mathDress(document.getElementById('enOpts'));
+        enPanel.style.display='block';
+      } else if(isOn && !eq && enPanel){
+        // Toggle is on but no English counterpart exists for this question
+        document.getElementById('enQText').innerHTML='<span style="opacity:0.7;">English version not available for this question.</span>';
+        document.getElementById('enOpts').innerHTML='';
         enPanel.style.display='block';
       } else if(enPanel){enPanel.style.display='none';}
     } else {
@@ -1685,7 +1676,45 @@ window.nextQ=()=>{const ts=sections[curTS];const lim=ts?ts.to:questions.length-1
 window.prevQ=()=>{const ts=sections[curTS];const lo=ts?ts.from:0;if(currentQ>lo){currentQ--;renderQ();}};
 window.goQ=i=>{if(!inActiveTS(i))return;currentQ=i;renderQ();};
 window.markForReview=()=>{markedForReview[currentQ]=!markedForReview[currentQ];renderQ();};
-window.toggleEnglishView=()=>{showEnglishQ[currentQ]=!showEnglishQ[currentQ];renderQ();};
+// Fetch the English counterpart on demand (first time the user taps "View in English")
+async function ensureEnglishMap(){
+  if(enMapLoaded || enMapLoading || !enFetchParams) return;
+  enMapLoading=true;
+  const {exam,year,mNum,heldOn,shift,paperId}=enFetchParams;
+  try{
+    let enDocs=[];
+    if(paperId){
+      // Swap _hi → _en  (e.g. ssc-cgl_2024_sep9_s1_hi → ssc-cgl_2024_sep9_s1_en)
+      const enId=paperId.replace(/_hi$/,'_en').replace(/_hindi$/,'_english');
+      if(enId!==paperId){
+        const snap=await getDocs(query(collection(db,'questions'),where('paperId','==',enId)));
+        if(snap.size) snap.forEach(d=>enDocs.push({id:d.id,...d.data()}));
+      }
+    }
+    // Fallback: fetch by exam+year+heldOn+shift with language=en
+    if(!enDocs.length && (year||mNum)){
+      const yv=year||mNum;
+      let allEn=await fetchByYearSDK(exam,yv,heldOn)||await fetchByYearREST(exam,yv,heldOn)||[];
+      enDocs=filterDocs(allEn,'en',shift,heldOn);
+    }
+    enDocs.forEach(q=>{normaliseQ(q);const n=parseInt(q.qNum)||0;if(n>=1&&n<=75)enQMap[n]=q;});
+    console.log('[TrickySSC] English map built (lazy):',Object.keys(enQMap).length,'entries');
+  }catch(e){console.warn('[TrickySSC] English fetch failed:',e.message);}
+  finally{ enMapLoaded=true; enMapLoading=false; }
+}
+
+window.toggleEnglishView=async()=>{
+  // Turning OFF — no fetch needed
+  if(showEnglishQ[currentQ]){ showEnglishQ[currentQ]=false; renderQ(); return; }
+  // Turning ON — make sure the English map is loaded first
+  if(!enMapLoaded){
+    const btn=document.getElementById('enToggleBtn');
+    if(btn) btn.textContent='⏳ Loading…';
+    await ensureEnglishMap();
+  }
+  showEnglishQ[currentQ]=true;
+  renderQ();
+};
 
 // ── Section metadata ──
 function buildSections(){
