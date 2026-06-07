@@ -1112,6 +1112,18 @@
   .weight-bar { height: 6px; background: #E2E8F0; border-radius: 100px; overflow: hidden; margin-top: 0.3rem; }
   .wb-fill { height: 100%; background: linear-gradient(90deg, var(--saffron), var(--gold)); border-radius: 100px; }
 </style>
+<style>
+/* ── Mobile optimisation for PYQ paper cards (≤560px) ──
+   On phones the two language buttons squeeze the info column and force the
+   metadata to wrap over many lines. Stack the card vertically instead:
+   info on top (single tidy lines), language buttons full-width below. */
+@media (max-width:560px){
+  .pyq-row{ flex-direction:column !important; align-items:stretch !important; gap:0.5rem !important; padding:0.7rem 0.9rem !important; }
+  .pyq-info{ width:100% !important; }
+  .pyq-btns{ width:100% !important; flex-wrap:nowrap !important; gap:0.5rem !important; justify-content:stretch !important; }
+  .pyq-btns .pyq-lang-btn{ flex:1 1 0 !important; width:auto !important; min-width:0 !important; padding:0.6rem 0 !important; font-size:0.85rem !important; }
+}
+</style>
 </head>
 <body>
 
@@ -1681,7 +1693,7 @@
             const vColor = vlang==='hi' ? 'linear-gradient(135deg,#FF6B00,#FF8C38)' : 'linear-gradient(135deg,#0EA5E9,#6366F1)';
             const vUrl = engine+'?exam='+EXAM+'&year='+encodeURIComponent(year)+'&tier='+encodeURIComponent(vp.tier||'')+'&shift='+encodeURIComponent(vp.shift||'')+'&heldOn='+encodeURIComponent(vp.heldOn||'')+'&lang='+encodeURIComponent(vlang)+(vp.paperId?'&paperId='+encodeURIComponent(vp.paperId):'');
             const vDone = !!(vp.paperId && window.__attempted && window.__attempted.papers.has(vp.paperId));
-            return `<button onclick="window.location='${vUrl}'"
+            return `<button class="pyq-lang-btn" onclick="window.location='${vUrl}'"
                 style="background:${vColor};color:white;border:none;cursor:pointer;padding:0.42rem 0;border-radius:8px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.78rem;white-space:nowrap;flex-shrink:0;letter-spacing:0.2px;transition:opacity 0.15s;box-shadow:0 2px 6px rgba(0,0,0,0.12);width:92px;text-align:center;"
                 onmouseenter="this.style.opacity='0.85'" onmouseleave="this.style.opacity='1'">
                 ${vLabel}${vDone?' ✓':''}
@@ -1693,11 +1705,11 @@
           Object.keys(grp.variants).forEach(lg => { if(lg!=='en' && lg!=='hi') btns += buildBtn(grp.variants[lg]); });
 
           html += `
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:0.6rem;padding:0.85rem 1.1rem;${borderBottom}background:white;transition:background 0.15s;"
+            <div class="pyq-row" style="display:flex;align-items:center;justify-content:space-between;gap:0.6rem;padding:0.85rem 1.1rem;${borderBottom}background:white;transition:background 0.15s;"
               onmouseenter="this.style.background='rgba(14,165,233,0.04)'"
               onmouseleave="this.style.background='white'">
               <!-- Left: info -->
-              <div style="display:flex;align-items:center;gap:0.7rem;min-width:0;">
+              <div class="pyq-info" style="display:flex;align-items:center;gap:0.7rem;min-width:0;">
                 <div style="min-width:0;">
                   <div style="display:flex;align-items:center;gap:0.45rem;flex-wrap:wrap;">
                     <span style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.95rem;color:#1A202C;">${shift || 'Full Paper'}</span>
@@ -1715,7 +1727,7 @@
                 </div>
               </div>
               <!-- Right: language buttons (English + Hindi side by side) -->
-              <div style="display:flex;align-items:center;gap:0.4rem;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;">
+              <div class="pyq-btns" style="display:flex;align-items:center;gap:0.4rem;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;">
                 ${btns}
               </div>
             </div>`;

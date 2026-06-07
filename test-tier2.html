@@ -1000,8 +1000,8 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:10
 
         <!-- Nav buttons -->
         <div class="nav-btns">
-          <button class="btn btn-prev" onclick="prevQ()">← Prev</button>
-          <button class="btn btn-next" onclick="nextQ()">Next →</button>
+          <button class="btn btn-prev" id="prevBtn" onclick="prevQ()">← Prev</button>
+          <button class="btn btn-next" id="nextBtn" onclick="nextQ()">Next →</button>
           <div class="skip-btn-row">
             <button class="btn btn-clear" onclick="clearResponse()" id="clearBtn">✕ Clear</button>
             <button class="btn btn-mark" onclick="markForReview()" id="markBtn">🔖 Mark</button>
@@ -1241,9 +1241,16 @@ setTimeout(()=>{
   if(loader) loader.innerHTML=`<div style="text-align:center;padding:2rem;max-width:300px;"><div style="font-size:2.5rem;margin-bottom:0.8rem;">⚡</div><div style="font-family:'Rajdhani',sans-serif;font-size:1.6rem;font-weight:700;margin-bottom:0.5rem;">TrickySSC</div><div style="font-size:0.85rem;font-weight:400;opacity:0.9;margin-bottom:1.5rem;line-height:1.6;">Session expired or not found.<br>Please log in to continue.</div><a href="login.html" onclick="localStorage.setItem('loginReturnTo',location.href)" style="display:inline-block;background:white;color:#FF6B00;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1rem;padding:0.7rem 2rem;border-radius:10px;text-decoration:none;margin-bottom:1rem;">🔐 Login to Continue</a><br><a href="javascript:location.reload()" style="font-size:0.8rem;opacity:0.7;color:white;">↺ Retry</a></div>`;
 },4000);
 
-/* ── Force full reload if page restored from bfcache (browser back/forward cache) ── */
+/* ── Force full reload if page restored from bfcache (browser back/forward cache) ──
+   EXCEPT when the result screen is on display: that means the candidate is coming
+   back from the leaderboard, so we keep their result/review instead of restarting. */
 window.addEventListener('pageshow', function(e) {
   if(e.persisted) {
+    var rs=document.getElementById('resultScreen');
+    if(rs && rs.style.display==='block'){
+      console.log('[TrickySSC] bfcache restore on result screen — keeping result');
+      return;
+    }
     console.log('[TrickySSC] bfcache restore detected — reloading');
     window.location.reload();
   }
@@ -1679,6 +1686,14 @@ function renderQ(){
   if(markBtn) markBtn.style.background=markedForReview[currentQ]?'#EEF2FF':'';
   const clearBtn=document.getElementById('clearBtn');
   if(clearBtn) clearBtn.disabled=(answers[currentQ]===undefined);
+
+  // Blur + disable Next on the last question of the section, Prev on the first.
+  const _ts=timedSections[curTS];
+  const _lo=_ts?_ts.from:0, _hi=_ts?_ts.to:questions.length-1;
+  const _nb=document.getElementById('nextBtn');
+  if(_nb){ const atEnd=currentQ>=_hi; _nb.disabled=atEnd; _nb.style.opacity=atEnd?'0.4':''; _nb.style.cursor=atEnd?'not-allowed':''; }
+  const _pb=document.getElementById('prevBtn');
+  if(_pb){ const atStart=currentQ<=_lo; _pb.disabled=atStart; _pb.style.opacity=atStart?'0.4':''; _pb.style.cursor=atStart?'not-allowed':''; }
 
   updateGrid();
   updateProgress();
