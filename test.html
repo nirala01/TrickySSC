@@ -1199,6 +1199,41 @@ async function startTest(user){
 document.getElementById('loader').style.display='flex';
 document.getElementById('testScreen').style.display='none';
 
+/* ── Restore a previously-shown result instead of restarting the test ──
+   When the candidate returns here via the browser's Back/Forward (e.g. tapping
+   "Back to Test Results" on the leaderboard), the page is reloaded (Firebase
+   blocks bfcache). We saved a snapshot of the result screen on submit, so we
+   re-display it and skip startTest entirely. A genuine fresh open / refresh /
+   reopening the paper still starts the test normally. */
+function _isBackNav(){
+  try{
+    const e = performance.getEntriesByType && performance.getEntriesByType('navigation')[0];
+    if(e && e.type) return e.type === 'back_forward';
+    if(performance.navigation) return performance.navigation.type === 2;
+  }catch(_){}
+  return false;
+}
+(function maybeRestoreResult(){
+  try{
+    if(!_isBackNav()) return;
+    const pp  = new URLSearchParams(location.search);
+    const rid = pp.get('paperId') || pp.get('mockId') || '';
+    let saved = rid ? sessionStorage.getItem('tssc_result_'+rid) : null;
+    if(!saved){ const lk = sessionStorage.getItem('tssc_result_lastKey'); if(lk) saved = sessionStorage.getItem(lk); }
+    if(!saved) return;
+    testStarted = true;                       // block every auto-start path below
+    const loaderEl = document.getElementById('loader');
+    const tsEl     = document.getElementById('testScreen');
+    const rs       = document.getElementById('resultScreen');
+    if(loaderEl) loaderEl.style.display='none';
+    if(tsEl)     tsEl.style.display='none';
+    rs.innerHTML = saved;
+    rs.style.display = 'block';
+    try{ mathDress(rs); }catch(_){}
+    window.scrollTo(0,0);
+  }catch(_){ /* fall through to a normal start */ }
+})();
+
 // Try localStorage IMMEDIATELY — no waiting
 const storedUser=getStoredUser();
 if(storedUser){
@@ -2076,6 +2111,13 @@ window.submitTest=async()=>{
   lastResultPayload={attemptId,payload};
   try{await persistWithRetry(payload,attemptId,3);localStorage.removeItem('pending_attempt_'+attemptId);setSaveUi('saved','✅ Result saved successfully.');}
   catch(e){console.warn('Save failed:',e);localStorage.setItem('pending_attempt_'+attemptId,JSON.stringify(lastResultPayload));setSaveUi('error','⚠️ Could not save. Check internet and tap Retry Save.');}
+  // Snapshot the finished result screen so returning via Back restores it (no restart)
+  try{
+    const _rs=document.getElementById('resultScreen');
+    const _rk='tssc_result_'+(_lbId||attemptId);
+    sessionStorage.setItem(_rk,_rs.innerHTML);
+    sessionStorage.setItem('tssc_result_lastKey',_rk);
+  }catch(_){}
   isSubmitting=false;
 };
 
