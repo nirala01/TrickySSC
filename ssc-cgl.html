@@ -1596,7 +1596,10 @@
         return;
       }
 
-      if(countEl) countEl.textContent = papers.length + ' Paper' + (papers.length!==1?'s':'');
+      // Count UNIQUE papers (merge en/hi of the same shift+date+tier into one)
+      const _uniqKey = p => (p.year||'') + '|' + (p.shift||'') + '|' + (p.heldOn||'') + '|' + (p.tier||'');
+      const uniqueCount = new Set(papers.map(_uniqKey)).size;
+      if(countEl) countEl.textContent = uniqueCount + ' Paper' + (uniqueCount!==1?'s':'');
 
       // Sort by year desc, then shift asc
       papers.sort((a,b) => (parseInt(b.year)||0)-(parseInt(a.year)||0) || (a.shift||'').localeCompare(b.shift||''));
@@ -1617,6 +1620,7 @@
       yearKeys.forEach((year, yi) => {
         const accentColor = yearColors[yi % yearColors.length];
         const yearPapers = grouped[year];
+        const yearUniqueCount = new Set(yearPapers.map(p => (p.shift||'')+'|'+(p.heldOn||'')+'|'+(p.tier||''))).size;
         const totalInYear = yearPapers.reduce((s,p)=>s+(p.questionCount||p.count||100),0);
 
         html += `
@@ -1625,28 +1629,39 @@
           <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.6rem;padding:0 0.25rem;">
             <div style="width:32px;height:32px;background:${accentColor};border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:'Rajdhani',sans-serif;font-weight:800;font-size:0.72rem;color:white;letter-spacing:-0.3px;flex-shrink:0;">${year}</div>
             <div style="font-family:'Rajdhani',sans-serif;font-weight:800;font-size:1rem;color:#1A202C;">SSC CGL ${tierLabel} ${year}</div>
-            <div style="margin-left:auto;background:#F1F5F9;border-radius:20px;padding:0.2rem 0.65rem;font-size:0.72rem;font-weight:700;color:#64748B;font-family:'Rajdhani',sans-serif;">${yearPapers.length} paper${yearPapers.length!==1?'s':''}</div>
+            <div style="margin-left:auto;background:#F1F5F9;border-radius:20px;padding:0.2rem 0.65rem;font-size:0.72rem;font-weight:700;color:#64748B;font-family:'Rajdhani',sans-serif;">${yearUniqueCount} paper${yearUniqueCount!==1?'s':''}</div>
           </div>
           <!-- Cards for this year -->
           <div style="background:#fff;border:1px solid #E2E8F0;border-radius:14px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.05);border-left:3px solid ${accentColor};">`;
 
-        yearPapers.forEach((p, pi) => {
-          const shift = p.shift || '';
-          const lang = p.language || '';
-          const isT2 = (tierId==='t2');
-          const qCount = p.questionCount || p.count || (isT2?150:100);
-          const timeLabel = isT2 ? '135 min' : '60 min';
-          const marksLabel = isT2 ? '450 marks' : '200 marks';
-          const engine = isT2 ? 'test-tier2.html' : 'test.html';
-          const langLabel = lang==='hi' ? '🇮🇳 Hindi' : lang==='en' ? '🇬🇧 English' : lang;
-          const langColor = lang==='hi' ? 'linear-gradient(135deg,#FF6B00,#FF8C38)' : 'linear-gradient(135deg,#0EA5E9,#6366F1)';
-          const langBg   = lang==='hi' ? 'rgba(255,107,0,0.06)'  : 'rgba(14,165,233,0.05)';
-          const testUrl = engine+'?exam='+EXAM+'&year='+encodeURIComponent(year)+'&tier='+encodeURIComponent(p.tier||'')+'&shift='+encodeURIComponent(shift)+'&heldOn='+encodeURIComponent(p.heldOn||'')+'&lang='+encodeURIComponent(lang)+(p.paperId?'&paperId='+encodeURIComponent(p.paperId):'');
+        const isT2 = (tierId==='t2');
+        const engine = isT2 ? 'test-tier2.html' : 'test.html';
+        const timeLabel = isT2 ? '135 min' : '60 min';
+        const marksLabel = isT2 ? '450 marks' : '200 marks';
 
+        // Merge the English + Hindi docs of the SAME paper into one row.
+        // Key = shift + date + tier (language ignored), so each unique
+        // paper is listed once with both language buttons side by side.
+        const mergedMap = {};
+        const mergedOrder = [];
+        yearPapers.forEach(p => {
+          const key = (p.shift||'') + '|' + (p.heldOn||'') + '|' + (p.tier||'');
+          if(!mergedMap[key]){ mergedMap[key] = { base:p, variants:{} }; mergedOrder.push(key); }
+          mergedMap[key].variants[(p.language||'na')] = p;
+        });
+
+        mergedOrder.forEach((key, pi) => {
+          const grp = mergedMap[key];
+          const p = grp.base;
+          const shift = p.shift || '';
+          const qCount = p.questionCount || p.count || (isT2?150:100);
           const dateLabel = p.heldOn ? fmtDate(p.heldOn) : '';
-          const isLast = pi === yearPapers.length - 1;
+          const isLast = pi === mergedOrder.length - 1;
           const borderBottom = isLast ? '' : 'border-bottom:1px solid #F1F5F9;';
-          const isDone = !!(p.paperId && window.__attempted && window.__attempted.papers.has(p.paperId));
+
+          // Attempted pill = done if ANY language version was attempted
+          const isDone = Object.values(grp.variants).some(v =>
+            v.paperId && window.__attempted && window.__attempted.papers.has(v.paperId));
 
           // Shift badge
           const shiftNum = shift.match(/Shift[- ]?(\d+)/i);
@@ -1654,9 +1669,27 @@
             ? `<span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:5px;background:#F1F5F9;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.7rem;color:#475569;">S${shiftNum[1]}</span>`
             : (shift ? `<span style="background:#F1F5F9;border-radius:5px;padding:0.1rem 0.35rem;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.7rem;color:#475569;">${shift}</span>` : '');
 
+          // Build one button per available language (English first, then Hindi)
+          const buildBtn = (vp) => {
+            const vlang = vp.language || '';
+            const vLabel = vlang==='hi' ? '🇮🇳 Hindi' : vlang==='en' ? '🇬🇧 English' : (vlang || '▶ Start');
+            const vColor = vlang==='hi' ? 'linear-gradient(135deg,#FF6B00,#FF8C38)' : 'linear-gradient(135deg,#0EA5E9,#6366F1)';
+            const vUrl = engine+'?exam='+EXAM+'&year='+encodeURIComponent(year)+'&tier='+encodeURIComponent(vp.tier||'')+'&shift='+encodeURIComponent(vp.shift||'')+'&heldOn='+encodeURIComponent(vp.heldOn||'')+'&lang='+encodeURIComponent(vlang)+(vp.paperId?'&paperId='+encodeURIComponent(vp.paperId):'');
+            const vDone = !!(vp.paperId && window.__attempted && window.__attempted.papers.has(vp.paperId));
+            return `<button onclick="window.location='${vUrl}'"
+                style="background:${vColor};color:white;border:none;cursor:pointer;padding:0.42rem 0;border-radius:8px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.78rem;white-space:nowrap;flex-shrink:0;letter-spacing:0.2px;transition:opacity 0.15s;box-shadow:0 2px 6px rgba(0,0,0,0.12);width:92px;text-align:center;"
+                onmouseenter="this.style.opacity='0.85'" onmouseleave="this.style.opacity='1'">
+                ${vLabel}${vDone?' ✓':''}
+              </button>`;
+          };
+          let btns = '';
+          if(grp.variants['en']) btns += buildBtn(grp.variants['en']);
+          if(grp.variants['hi']) btns += buildBtn(grp.variants['hi']);
+          Object.keys(grp.variants).forEach(lg => { if(lg!=='en' && lg!=='hi') btns += buildBtn(grp.variants[lg]); });
+
           html += `
-            <div style="display:flex;align-items:center;justify-content:space-between;padding:0.85rem 1.1rem;${borderBottom}background:white;transition:background 0.15s;"
-              onmouseenter="this.style.background='${langBg}'"
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:0.6rem;padding:0.85rem 1.1rem;${borderBottom}background:white;transition:background 0.15s;"
+              onmouseenter="this.style.background='rgba(14,165,233,0.04)'"
               onmouseleave="this.style.background='white'">
               <!-- Left: info -->
               <div style="display:flex;align-items:center;gap:0.7rem;min-width:0;">
@@ -1676,12 +1709,10 @@
                   </div>
                 </div>
               </div>
-              <!-- Right: language button -->
-              <button onclick="window.location='${testUrl}'"
-                style="background:${langColor};color:white;border:none;cursor:pointer;padding:0.42rem 0;border-radius:8px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.8rem;white-space:nowrap;flex-shrink:0;letter-spacing:0.2px;transition:opacity 0.15s;box-shadow:0 2px 6px rgba(0,0,0,0.12);width:96px;text-align:center;"
-                onmouseenter="this.style.opacity='0.85'" onmouseleave="this.style.opacity='1'">
-                ${langLabel || '▶ Start'}
-              </button>
+              <!-- Right: language buttons (English + Hindi side by side) -->
+              <div style="display:flex;align-items:center;gap:0.4rem;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;">
+                ${btns}
+              </div>
             </div>`;
         });
 
