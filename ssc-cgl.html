@@ -1601,8 +1601,13 @@
       const uniqueCount = new Set(papers.map(_uniqKey)).size;
       if(countEl) countEl.textContent = uniqueCount + ' Paper' + (uniqueCount!==1?'s':'');
 
-      // Sort by year desc, then shift asc
-      papers.sort((a,b) => (parseInt(b.year)||0)-(parseInt(a.year)||0) || (a.shift||'').localeCompare(b.shift||''));
+      // Sort: year desc, then date (heldOn) newest→oldest, then shift 1,2,3
+      const _shiftN = p => { const m=(p.shift||'').match(/Shift[- ]?(\d+)/i); return m?parseInt(m[1]):999; };
+      papers.sort((a,b) =>
+        ((parseInt(b.year)||0)-(parseInt(a.year)||0))   // year: newest first
+        || (b.heldOn||'').localeCompare(a.heldOn||'')    // date: newest first (YYYY-MM-DD)
+        || (_shiftN(a)-_shiftN(b))                       // shift: 1 → 2 → 3
+      );
 
       // Group by year
       const grouped = {};
