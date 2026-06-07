@@ -74,21 +74,28 @@
     <h2><span class="step-num">⚙</span> Setup</h2>
     <div class="row">
       <div>
-        <label>Gemini API key</label>
-        <input type="password" id="geminiKey" placeholder="AIza… (stored only in this browser)">
-        <div class="hint">Get one at <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a>. Saved to this browser's localStorage only — never uploaded.</div>
+        <label>Anthropic API key</label>
+        <input type="password" id="apiKey" placeholder="sk-ant-… (stored only in this browser)">
+        <div class="hint">From <a href="https://console.anthropic.com/settings/keys" target="_blank">console.anthropic.com</a>. Saved to this browser's localStorage only — never hardcoded. Leave blank if you use a worker proxy below.</div>
       </div>
       <div style="max-width:230px;">
         <label>Model</label>
-        <select id="geminiModel">
-          <option value="gemini-2.0-flash">gemini-2.0-flash (fast)</option>
-          <option value="gemini-2.5-flash">gemini-2.5-flash</option>
-          <option value="gemini-1.5-flash">gemini-1.5-flash</option>
+        <select id="apiModel">
+          <option value="claude-haiku-4-5-20251001">Haiku 4.5 (cheapest, fast)</option>
+          <option value="claude-sonnet-4-6">Sonnet 4.6 (best balance)</option>
+          <option value="claude-opus-4-8">Opus 4.8 (highest quality)</option>
         </select>
         <div class="hint">Firebase auth: <span id="authState" class="pill">not signed in</span></div>
       </div>
       <div style="max-width:170px;display:flex;align-items:flex-end;">
         <button class="btn ghost" id="signInBtn" style="width:100%;">🔑 Sign in (Google)</button>
+      </div>
+    </div>
+    <div class="row" style="margin-top:0.9rem;">
+      <div>
+        <label>API endpoint</label>
+        <input type="text" id="apiEndpoint" placeholder="https://api.anthropic.com/v1/messages">
+        <div class="hint">Default calls Anthropic directly from the browser. To keep your key server-side, point this at your Cloudflare worker (e.g. <span class="mono">https://trickyssc-ai.nirala01.workers.dev</span>) if it accepts the Messages API shape — then the key field can be blank.</div>
       </div>
     </div>
     <div class="hint" style="margin-top:0.7rem;">Sign-in is only needed if your Firestore rules require an authenticated admin to write. If your other uploaders write without signing in, you can skip it.</div>
@@ -129,10 +136,15 @@
         <input type="text" id="keepRange" value="76-100">
         <div class="hint">Your convention: the English section (Q76–100 in Tier 1) stays English. Use ranges/commas e.g. <span class="mono">76-100</span>. Leave blank to translate everything.</div>
       </div>
-      <div style="max-width:160px;">
+      <div style="max-width:150px;">
         <label>Batch size</label>
-        <input type="text" id="batchSize" value="8">
+        <input type="text" id="batchSize" value="12">
         <div class="hint">Questions per API call.</div>
+      </div>
+      <div style="max-width:170px;">
+        <label>Delay between calls</label>
+        <input type="text" id="batchDelay" value="1200">
+        <div class="hint">ms. Raise if you hit 429 rate limits.</div>
       </div>
       <div style="flex:1;min-width:220px;">
         <label>Options style</label>
@@ -144,6 +156,7 @@
     <div style="margin-top:1rem;display:flex;gap:0.7rem;flex-wrap:wrap;align-items:center;">
       <button class="btn green" id="translateBtn">✨ Translate</button>
       <button class="btn ghost" id="cancelBtn" style="display:none;">✕ Cancel</button>
+      <label class="toggle"><input type="checkbox" id="resumeMode" checked> Resume — only translate rows not done yet</label>
       <span id="trCount" class="muted"></span>
     </div>
     <div class="progress" id="trProgressWrap" style="display:none;"><span id="trProgress"></span></div>
@@ -195,11 +208,14 @@ const auth= getAuth(app);
 const $ = id => document.getElementById(id);
 const esc = s => (s==null?'':String(s)).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 
-// ── persist Gemini key / model ──
-$('geminiKey').value  = localStorage.getItem('tssc_gemini_key')   || '';
-$('geminiModel').value= localStorage.getItem('tssc_gemini_model') || 'gemini-2.0-flash';
-$('geminiKey').addEventListener('input', e=>localStorage.setItem('tssc_gemini_key', e.target.value.trim()));
-$('geminiModel').addEventListener('change', e=>localStorage.setItem('tssc_gemini_model', e.target.value));
+// ── persist Anthropic key / model / endpoint ──
+const DEFAULT_ENDPOINT='https://api.anthropic.com/v1/messages';
+$('apiKey').value     = localStorage.getItem('tssc_anthropic_key')   || '';
+$('apiModel').value   = localStorage.getItem('tssc_anthropic_model') || 'claude-haiku-4-5-20251001';
+$('apiEndpoint').value= localStorage.getItem('tssc_anthropic_endpoint') || DEFAULT_ENDPOINT;
+$('apiKey').addEventListener('input', e=>localStorage.setItem('tssc_anthropic_key', e.target.value.trim()));
+$('apiModel').addEventListener('change', e=>localStorage.setItem('tssc_anthropic_model', e.target.value));
+$('apiEndpoint').addEventListener('input', e=>localStorage.setItem('tssc_anthropic_endpoint', e.target.value.trim()));
 
 // ── auth (optional) ──
 onAuthStateChanged(auth, u=>{
@@ -296,11 +312,13 @@ $('fetchBtn').onclick = async ()=>{
   }catch(e){ out.innerHTML='<span class="pill err">Fetch error: '+esc(e.message)+'</span>'; }
 };
 
-// ── Gemini translate one batch (array of {id, payload}) → {id: {field: hindi}} ──
-async function geminiTranslateBatch(items){
-  const key=$('geminiKey').value.trim();
-  if(!key) throw new Error('Add your Gemini API key in Setup.');
-  const model=$('geminiModel').value;
+// ── Anthropic: translate one batch (array of {id,...}) → {id: {field: hindi}} ──
+async function llmTranslateBatch(items){
+  const key=$('apiKey').value.trim();
+  const model=$('apiModel').value;
+  const endpoint=($('apiEndpoint').value.trim()||DEFAULT_ENDPOINT);
+  const direct=/api\.anthropic\.com/.test(endpoint);
+  if(direct && !key) throw new Error('Add your Anthropic API key in Setup.');
   const biOpts=$('bilingualOpts').checked, biQ=$('bilingualQ').checked;
 
   const rules = [
@@ -320,23 +338,47 @@ async function geminiTranslateBatch(items){
     biOpts ? '• For each option A/B/C/D: keep the English term and append Hindi in parentheses, e.g. "Energy (ऊर्जा)".'
            : '• For each option A/B/C/D: translate to Hindi.',
     '• For "explanation"/"trick"/"concept": translate to Hindi but keep all formatting, numbers and symbols intact.',
-    'Return ONLY a JSON array. Each element: {"id": <same id>, "fields": { <only the fields that were provided>, "options": {<only provided option letters>} } }.',
-    'If a provided field is empty, omit it. Do not add commentary.'
+    'Return ONLY a JSON array — no prose, no markdown, no code fences. Each element: {"id": <same id>, "fields": { <only the fields that were provided>, "options": {<only provided option letters>} } }.',
+    'If a provided field is empty, omit it.'
   ].join('\n');
 
-  const body = {
-    contents:[{ parts:[{ text: rules + '\n\nINPUT:\n' + JSON.stringify(items) }] }],
-    generationConfig:{ temperature:0.2, responseMimeType:'application/json' }
+  const headers={'Content-Type':'application/json'};
+  if(direct){
+    headers['x-api-key']=key;
+    headers['anthropic-version']='2023-06-01';
+    headers['anthropic-dangerous-direct-browser-access']='true';
+  } else if(key){ headers['x-api-key']=key; } // worker proxy may forward this
+
+  const body={
+    model,
+    max_tokens:8192,
+    temperature:0.2,
+    system:rules,
+    messages:[
+      { role:'user', content:'INPUT:\n'+JSON.stringify(items) },
+      { role:'assistant', content:'[' }   // prefill forces a JSON array, no preamble
+    ]
   };
-  const url=`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`;
-  const res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-  if(!res.ok){ const t=await res.text(); throw new Error('Gemini HTTP '+res.status+': '+t.slice(0,200)); }
+
+  const res=await fetch(endpoint,{method:'POST',headers,body:JSON.stringify(body)});
+  if(!res.ok){
+    const t=await res.text();
+    const err=new Error('API HTTP '+res.status+': '+t.slice(0,200));
+    err.status=res.status;
+    if(res.status===429 || res.status===529){
+      const ra=res.headers.get('retry-after');
+      err.retryAfter = (ra && parseInt(ra)) || 20;
+    }
+    throw err;
+  }
   const data=await res.json();
-  let txt = data?.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('') || '';
-  txt = txt.replace(/^```json/i,'').replace(/^```/,'').replace(/```$/,'').trim();
+  // Anthropic Messages: data.content = array of blocks; collect text blocks
+  let txt = Array.isArray(data.content) ? data.content.filter(b=>b.type==='text').map(b=>b.text||'').join('') : '';
+  txt = '[' + txt;                               // re-add the prefilled '['
+  txt = txt.replace(/```json/gi,'').replace(/```/g,'').trim();
   let arr;
   try{ arr=JSON.parse(txt); }
-  catch(e){ const m=txt.match(/\[[\s\S]*\]/); if(m) arr=JSON.parse(m[0]); else throw new Error('Could not parse Gemini JSON'); }
+  catch(e){ const m=txt.match(/\[[\s\S]*\]/); if(m) arr=JSON.parse(m[0]); else throw new Error('Could not parse model JSON'); }
   const map={};
   (arr||[]).forEach(o=>{ if(o&&o.id!=null) map[String(o.id)]=o.fields||{}; });
   return map;
@@ -348,62 +390,92 @@ function trlog(msg){ const l=$('trLog'); l.style.display='block'; l.textContent+
 $('translateBtn').onclick = async ()=>{
   if(!enDocs.length){ alert('Fetch a paper first.'); return; }
   const keepSet = parseRange($('keepRange').value);
-  const batchSize = Math.max(1, Math.min(20, parseInt($('batchSize').value)||8));
+  const batchSize = Math.max(1, Math.min(25, parseInt($('batchSize').value)||15));
+  const batchDelay = Math.max(0, parseInt($('batchDelay').value)||0);
+  const resume = $('resumeMode').checked;
 
-  // Build rows from the English docs (clone each doc as the structural template)
-  rows = enDocs.map(d=>{
-    const qn = parseInt(d.qNum)||0;
-    const en = { options: readOptions(d) };
-    TEXT_FIELDS.forEach(f=>{ if(d[f]!=null && String(d[f]).trim()!=='') en[f]=String(d[f]); });
-    return {
-      qNum: qn,
-      keep: keepSet.has(qn),
-      en,
-      hi: { options:{}, ...{} },   // filled below
-      src: d                       // full English doc — the clone template
-    };
-  });
+  // Build rows ONCE (don't wipe prior translations when resuming)
+  if(!resume || !rows.length){
+    rows = enDocs.map(d=>{
+      const qn = parseInt(d.qNum)||0;
+      const en = { options: readOptions(d) };
+      TEXT_FIELDS.forEach(f=>{ if(d[f]!=null && String(d[f]).trim()!=='') en[f]=String(d[f]); });
+      return { qNum:qn, keep:keepSet.has(qn), en, hi:{options:{}}, src:d, translated:false };
+    });
+    // KEEP rows: Hindi = English verbatim, counts as done
+    rows.forEach(r=>{ if(r.keep){ r.hi={options:{...r.en.options}}; TEXT_FIELDS.forEach(f=>{ if(r.en[f]!=null) r.hi[f]=r.en[f]; }); r.translated=true; } });
+  }
 
-  // KEEP rows: Hindi = same English content (copied verbatim)
-  rows.forEach(r=>{ if(r.keep){ r.hi={ options:{...r.en.options} }; TEXT_FIELDS.forEach(f=>{ if(r.en[f]!=null) r.hi[f]=r.en[f]; }); } });
-
-  const toDo = rows.filter(r=>!r.keep);
-  $('trCount').textContent = `${rows.length} questions · ${toDo.length} to translate · ${rows.length-toDo.length} kept in English`;
+  // What still needs work
+  const toDo = rows.filter(r=>!r.keep && !(resume && r.translated));
+  $('trCount').textContent = `${rows.length} total · ${toDo.length} to translate now · ${rows.filter(r=>r.translated).length} already done`;
   $('trLog').textContent=''; $('trLog').style.display='block';
   $('trProgressWrap').style.display='block'; $('trProgress').style.width='0%';
   $('translateBtn').disabled=true; cancelFlag=false; $('cancelBtn').style.display='inline-flex';
 
-  let done=0, failed=0;
+  if(!toDo.length){ trlog('Nothing left to translate — all rows already done.'); renderPreview(); $('translateBtn').disabled=false; $('cancelBtn').style.display='none'; return; }
+
+  const sleep = ms => new Promise(r=>setTimeout(r,ms));
+  let done=0;
   try{
-    for(let i=0;i<toDo.length && !cancelFlag;i+=batchSize){
-      const slice=toDo.slice(i,i+batchSize);
+    const totalBatches = Math.ceil(toDo.length/batchSize);
+    for(let b=0;b<totalBatches && !cancelFlag;b++){
+      const slice=toDo.slice(b*batchSize,(b+1)*batchSize);
       const items=slice.map(r=>{
         const payload={ id:r.qNum };
         TEXT_FIELDS.forEach(f=>{ if(r.en[f]!=null) payload[f]=r.en[f]; });
         if(Object.keys(r.en.options).length) payload.options={...r.en.options};
         return payload;
       });
-      let map=null, attempt=0;
-      while(attempt<3 && !map){
-        try{ map=await geminiTranslateBatch(items); }
-        catch(e){ attempt++; trlog(`⚠ batch ${i/batchSize|0} attempt ${attempt} failed: ${e.message}`); if(attempt<3) await new Promise(r=>setTimeout(r,1200*attempt)); else { failed+=slice.length; } }
+
+      // attempt with 429-aware backoff; rate-limit waits do NOT burn normal attempts
+      let map=null, softAttempt=0, rlWaits=0;
+      while(map===null && !cancelFlag){
+        try{ map=await llmTranslateBatch(items); }
+        catch(e){
+          if((e.status===429||e.status===529) && rlWaits<6){
+            rlWaits++;
+            const w=Math.min(e.retryAfter||20, 90);
+            trlog(`⏳ rate limit / overloaded — waiting ${w}s… [${rlWaits}/6]`);
+            for(let s=w;s>0&&!cancelFlag;s--){ await sleep(1000); }
+            continue; // retry same batch
+          }
+          softAttempt++;
+          trlog(`⚠ batch ${b+1}/${totalBatches} attempt ${softAttempt} failed: ${e.message}`);
+          if(softAttempt>=3){ map={}; }      // give up on this batch → rows fall back
+          else { await sleep(1500*softAttempt); }
+        }
       }
+
       slice.forEach(r=>{
         const f = map && map[String(r.qNum)];
-        r.hi = { options:{} };
-        if(f){
+        if(f && Object.keys(f).length){
+          r.hi={options:{}};
           TEXT_FIELDS.forEach(k=>{ if(f[k]!=null) r.hi[k]=String(f[k]); });
           if(f.options) ['A','B','C','D'].forEach(L=>{ if(f.options[L]!=null) r.hi.options[L]=String(f.options[L]); });
+          // fill any gaps from English so nothing is blank
+          TEXT_FIELDS.forEach(k=>{ if(r.hi[k]==null && r.en[k]!=null) r.hi[k]=r.en[k]; });
+          ['A','B','C','D'].forEach(L=>{ if(r.hi.options[L]==null && r.en.options[L]!=null) r.hi.options[L]=r.en.options[L]; });
+          r.translated=true;   // ✅ real result — won't be re-done on resume
+        } else {
+          // failed batch → leave English fallback, keep translated=false so Resume retries it
+          r.hi={options:{...r.en.options}}; TEXT_FIELDS.forEach(k=>{ if(r.en[k]!=null) r.hi[k]=r.en[k]; });
+          r.translated=false;
         }
-        // any field Gemini omitted → fall back to English so nothing goes blank
-        TEXT_FIELDS.forEach(k=>{ if(r.hi[k]==null && r.en[k]!=null) r.hi[k]=r.en[k]; });
-        ['A','B','C','D'].forEach(L=>{ if(r.hi.options[L]==null && r.en.options[L]!=null) r.hi.options[L]=r.en.options[L]; });
       });
+
       done+=slice.length;
-      $('trProgress').style.width = Math.round(done/Math.max(1,toDo.length)*100)+'%';
-      trlog(`✓ translated ${Math.min(done,toDo.length)}/${toDo.length}`);
+      $('trProgress').style.width = Math.round(done/toDo.length*100)+'%';
+      trlog(`✓ batch ${b+1}/${totalBatches} (${rows.filter(r=>r.translated&&!r.keep).length} questions translated so far)`);
+
+      // throttle before the next call so we stay under the per-minute cap
+      if(b<totalBatches-1 && !cancelFlag && batchDelay) await sleep(batchDelay);
     }
-    trlog(cancelFlag?'■ cancelled':`done${failed?` (${failed} fell back to English — re-run or edit manually)`:''}.`);
+
+    const stillPending = rows.filter(r=>!r.keep && !r.translated).length;
+    trlog(cancelFlag ? '■ cancelled.' :
+      (stillPending ? `Done. ${stillPending} question(s) still on English fallback — wait a minute, then click Translate again (Resume is on) to finish them.`
+                    : '✅ All questions translated.'));
     renderPreview();
   }catch(e){ trlog('✕ '+e.message); alert('Translation error: '+e.message); }
   finally{ $('translateBtn').disabled=false; $('cancelBtn').style.display='none'; }
