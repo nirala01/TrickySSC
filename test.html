@@ -539,6 +539,21 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:10
 .sol-concept{border-color:#FED7AA;}
 .sol-concept .sol-head{background:linear-gradient(90deg,#FFEDD5,#FFF7ED);color:#C2410C;}
 .sol-concept .sol-body{background:#FFFBF5;color:#7C2D12;}
+/* Solution body — readable section headings, bullets & lines */
+.sol-panel .sol-body .sol-section{font-weight:800;font-size:15.5px;line-height:1.4;
+  color:#0F172A;margin:18px 0 8px;padding-bottom:5px;
+  border-bottom:1px solid rgba(15,23,42,.10);letter-spacing:.005em;}
+.sol-panel .sol-body .sol-section:first-child{margin-top:0;}
+.sol-panel .sol-body .sol-bullet{display:flex;gap:9px;align-items:flex-start;
+  margin:6px 0 6px 2px;font-size:14px;line-height:1.72;}
+.sol-panel .sol-body .sol-bullet-mk{flex:0 0 auto;color:#FF6B00;font-weight:800;line-height:1.72;}
+.sol-panel .sol-body .sol-line{font-size:14px;line-height:1.78;margin:5px 0;}
+.sol-sol .sol-body .sol-section{color:#166534;border-bottom-color:#BBF7D0;}
+.sol-trick .sol-body .sol-section{color:#1D4ED8;border-bottom-color:#BFDBFE;}
+.sol-trick .sol-body .sol-bullet-mk{color:#2563EB;}
+.sol-concept .sol-body .sol-section{color:#C2410C;border-bottom-color:#FED7AA;}
+.sol-concept .sol-body .sol-bullet-mk{color:#EA580C;}
+@media(max-width:560px){.sol-panel .sol-body .sol-section{font-size:14.5px;margin:14px 0 6px;}}
 
 /* Result hero verdict chip */
 .result-verdict{display:inline-flex;align-items:center;gap:8px;margin-top:16px;
@@ -2340,15 +2355,45 @@ function buildDITable(parts){
   return html;
 }
 
+/* Recognised section labels inside a solution body */
+var SOL_HEAD_SET={
+  'explanation':1,'information about other options':1,'about other options':1,'other options':1,
+  'why the other options are wrong':1,'why other options are wrong':1,
+  'why the other options are incorrect':1,'why other options are incorrect':1,
+  'exam fact':1,'exam facts':1,'key fact':1,'key facts':1,'fact':1,
+  'trick':1,'tricks':1,'quick trick':1,'memory trick':1,'shortcut':1,
+  'concept':1,'key concept':1,'note':1,'important':1,'key point':1,'key points':1,
+  'summary':1,'analysis':1,'statement analysis':1,'correct statement':1,'correct statements':1};
+function solHeadingLabel(line){
+  var plain=line.replace(/<[^>]+>/g,'').replace(/\*\*/g,'').trim();
+  var key=plain.replace(/[:：]\s*$/,'').toLowerCase().trim();
+  return SOL_HEAD_SET[key]?plain.replace(/[:：]\s*$/,''):null;
+}
+/* Turn a <br>-joined HTML solution into headings / bullets / lines */
+function enhanceSolHTML(html){
+  if(!html)return'';
+  var parts=html.split(/<br\s*\/?>/i),out=[];
+  for(var i=0;i<parts.length;i++){
+    var t=parts[i].replace(/^\s+|\s+$/g,'');
+    if(!t)continue;
+    if(/^<(div|table|thead|tbody|tr|td|th|ul|ol|li|h[1-6]|p|img|figure|blockquote|hr)\b/i.test(t)){out.push(parts[i]);continue;}
+    var hd=solHeadingLabel(t);
+    if(hd!==null){out.push('<div class="sol-section">'+hd+'</div>');continue;}
+    var bm=t.match(/^(?:[—–•*]|-)\s+([\s\S]*)$/);
+    if(bm){out.push('<div class="sol-bullet"><span class="sol-bullet-mk">—</span><span>'+bm[1]+'</span></div>');continue;}
+    out.push('<div class="sol-line">'+t+'</div>');
+  }
+  return out.join('');
+}
 function renderContent(text){
   if(!text)return'';
-  if(text.indexOf('<')!==-1&&text.indexOf('>')!==-1&&/<[a-z]/i.test(text))return text;
+  if(text.indexOf('<')!==-1&&text.indexOf('>')!==-1&&/<[a-z]/i.test(text))return enhanceSolHTML(text);
   if(text.indexOf('\n')!==-1){
-    return text
+    return enhanceSolHTML(text
       .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
       .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
       .replace(/\*([^*]+?)\*/g,'<em>$1</em>')
-      .split('\n').filter(function(l){return l.trim();}).join('<br>');
+      .split('\n').filter(function(l){return l.trim();}).join('<br>'));
   }
   return formatSteps(text);
 }
@@ -2407,16 +2452,19 @@ function formatSteps(text){
   for(var i=0;i<lines.length;i++){
     var line=lines[i];
     var sm=line.match(/^(Step \d+:\s*)(.*)/);
+    var hd=solHeadingLabel(line);
     if(sm){
       out.push('<div style="margin-top:10px;"><strong style="color:#0F172A;font-size:0.95rem;font-weight:800;">'+sm[1].trim()+'</strong>'+(sm[2].trim()?' <span style="color:#1F2937;font-weight:600;">'+sm[2].trim()+'</span>':'')+'</div>');
-    }else if(line.match(/^- /)){
-      out.push('<div style="margin-left:16px;color:#1F2937;font-size:0.92rem;font-weight:500;line-height:1.75;"><span style="color:#FF6B00;font-weight:800;margin-right:5px;">—</span>'+line.slice(2)+'</div>');
+    }else if(line.match(/^[-—–•]\s/)){
+      out.push('<div class="sol-bullet"><span class="sol-bullet-mk">—</span><span>'+line.replace(/^[-—–•]\s/,'')+'</span></div>');
     }else if(line.match(/^Final Answer/)){
       out.push('<div style="margin-top:10px;font-weight:800;color:#15803D;font-size:0.95rem;">∴ '+line+'</div>');
     }else if(line.match(/^∴/)){
       out.push('<div style="margin-top:6px;font-weight:800;color:#15803D;font-size:0.95rem;">'+line+'</div>');
+    }else if(hd!==null){
+      out.push('<div class="sol-section">'+hd+'</div>');
     }else if(line.trim()){
-      out.push('<div style="color:#1F2937;font-size:0.92rem;font-weight:500;line-height:1.75;">'+line+'</div>');
+      out.push('<div class="sol-line">'+line+'</div>');
     }
   }
   var t2=out.join('');
