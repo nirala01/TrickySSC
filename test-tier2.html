@@ -539,6 +539,35 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:10
 .sol-concept{border-color:#FED7AA;}
 .sol-concept .sol-head{background:linear-gradient(90deg,#FFEDD5,#FFF7ED);color:#C2410C;}
 .sol-concept .sol-body{background:#FFFBF5;color:#7C2D12;}
+/* Solution body — readable section headings, bullets & lines */
+.sol-panel .sol-body .sol-section{font-weight:800;font-size:15.5px;line-height:1.4;
+  color:#0F172A;margin:18px 0 8px;padding-bottom:5px;
+  border-bottom:1px solid rgba(15,23,42,.10);letter-spacing:.005em;}
+.sol-panel .sol-body .sol-section:first-child{margin-top:0;}
+.sol-panel .sol-body .sol-step{font-weight:800;font-size:14.5px;line-height:1.5;
+  color:#15803D;margin:15px 0 6px;}
+.sol-panel .sol-body .sol-step:first-child{margin-top:0;}
+.sol-panel .sol-body .sol-verdict{display:flex;gap:8px;align-items:flex-start;
+  margin:13px 0 8px;padding:9px 13px;border-radius:10px;
+  background:#ECFDF5;border:1px solid #A7F3D0;color:#15803D;
+  font-weight:800;font-size:14px;line-height:1.6;}
+.sol-panel .sol-body .sol-verdict .vmk{flex:0 0 auto;}
+.sol-panel .sol-body .sol-bullet{display:flex;gap:9px;align-items:flex-start;
+  margin:6px 0 6px 2px;font-size:14px;line-height:1.72;}
+.sol-panel .sol-body .sol-bullet-mk{flex:0 0 auto;color:#FF6B00;font-weight:800;line-height:1.72;}
+.sol-panel .sol-body .sol-bullet strong{color:#0F172A;}
+.sol-panel .sol-body .sol-line{font-size:14px;line-height:1.78;margin:5px 0;}
+.sol-sol .sol-body .sol-section{color:#166534;border-bottom-color:#BBF7D0;}
+.sol-sol .sol-body .sol-step{color:#166534;}
+.sol-trick .sol-body .sol-section{color:#1D4ED8;border-bottom-color:#BFDBFE;}
+.sol-trick .sol-body .sol-step{color:#1D4ED8;}
+.sol-trick .sol-body .sol-bullet-mk{color:#2563EB;}
+.sol-trick .sol-body .sol-bullet strong{color:#1E3A8A;}
+.sol-concept .sol-body .sol-section{color:#C2410C;border-bottom-color:#FED7AA;}
+.sol-concept .sol-body .sol-step{color:#C2410C;}
+.sol-concept .sol-body .sol-bullet-mk{color:#EA580C;}
+.sol-concept .sol-body .sol-bullet strong{color:#7C2D12;}
+@media(max-width:560px){.sol-panel .sol-body .sol-section{font-size:14.5px;margin:14px 0 6px;}}
 
 /* Result hero verdict chip */
 .result-verdict{display:inline-flex;align-items:center;gap:8px;margin-top:16px;
@@ -2384,15 +2413,83 @@ function buildDITable(parts){
   return html;
 }
 
+/* ── TrickySSC: solution body formatter ───────────────────────────
+   Auto-structures BOTH quant (Step/चरण + "- " bullets) and GK
+   (flat [BR] sentences) solutions, in English and Hindi, without
+   needing the source data to carry any bullet markup.            */
+var SOL_HEAD_SET={
+  'explanation':1,'information about other options':1,'about other options':1,'other options':1,
+  'why the other options are wrong':1,'why other options are wrong':1,
+  'why the other options are incorrect':1,'why other options are incorrect':1,
+  'exam fact':1,'exam facts':1,'key fact':1,'key facts':1,'fact':1,
+  'trick':1,'tricks':1,'quick trick':1,'memory trick':1,'shortcut':1,
+  'concept':1,'key concept':1,'note':1,'important':1,'key point':1,'key points':1,
+  'summary':1,'analysis':1,'statement analysis':1,'correct statement':1,'correct statements':1,
+  /* Hindi */
+  'व्याख्या':1,'परीक्षा तथ्य':1,'महत्वपूर्ण तथ्य':1,'मुख्य तथ्य':1,'तथ्य':1,
+  'अन्य विकल्पों के बारे में जानकारी':1,'अन्य विकल्प':1,'अन्य विकल्प क्यों गलत हैं':1,
+  'ट्रिक':1,'युक्ति':1,'शॉर्टकट':1,'अवधारणा':1,'मुख्य अवधारणा':1,'नोट':1,'ध्यान दें':1,
+  'मुख्य बिंदु':1,'सारांश':1,'विश्लेषण':1};
+function _solStrip(s){return s.replace(/<[^>]+>/g,'').replace(/\*\*/g,'').trim();}
+function solHeadingLabel(line){
+  var plain=_solStrip(line);
+  var key=plain.replace(/[:：]\s*$/,'').toLowerCase().trim();
+  return SOL_HEAD_SET[key]?plain.replace(/[:：]\s*$/,''):null;
+}
+/* Core: takes an array of (possibly HTML) lines → structured HTML */
+function coreSolFormat(lines){
+  var hasStep=false,nReal=0,i;
+  for(i=0;i<lines.length;i++){
+    var p=lines[i].replace(/<[^>]+>/g,'').trim();
+    if(!p)continue; nReal++;
+    if(/^(Step|चरण)\s+\d/.test(p))hasStep=true;
+  }
+  var out=[],optHeadDone=false;
+  for(i=0;i<lines.length;i++){
+    var raw=lines[i],line=raw.replace(/^\s+|\s+$/g,'');
+    if(!line)continue;
+    /* block-level html passes through untouched (tables, images…) */
+    if(/^<(div|table|thead|tbody|tr|td|th|ul|ol|li|h[1-6]|p|img|figure|blockquote|hr)\b/i.test(line)){out.push(raw);continue;}
+    var plain=_solStrip(line);
+    /* 1) Step / चरण heading — whole line, bold + accent colour */
+    if(/^(Step|चरण)\s+\d+\s*[:：]/.test(plain)){out.push('<div class="sol-step">'+plain+'</div>');continue;}
+    /* 2) existing explicit bullet ("- ", "— ", "• ") */
+    var bm=line.match(/^(?:[—–•]|-)\s+([\s\S]*)$/);
+    if(bm){out.push('<div class="sol-bullet"><span class="sol-bullet-mk">—</span><span>'+bm[1]+'</span></div>');continue;}
+    /* 3) conclusion / verdict line — highlighted */
+    var verdict=(/^(Therefore|Hence|Thus|So)\b/i.test(plain)&&/(correct|right answer|correct answer|correct option)/i.test(plain))
+              ||(/^(अतः|अत:|अंततः|अंतः|इसलिए)/.test(plain)&&/(सही है|सही हैं|सही उत्तर|सही विकल्प)/.test(plain))
+              ||/^(Final Answer|अंतिम उत्तर|∴)/i.test(plain);
+    if(verdict){out.push('<div class="sol-verdict"><span class="vmk">✓</span><span>'+line.replace(/^∴\s*/,'')+'</span></div>');continue;}
+    /* 4) known section heading */
+    var hd=solHeadingLabel(line);
+    if(hd!==null){out.push('<div class="sol-section">'+hd+'</div>');if(/option|विकल्प/i.test(hd))optHeadDone=true;continue;}
+    /* 5) option-wise analysis ("Option (1) …" / "विकल्प (1) …") */
+    var opt=line.match(/^(Option\s*\(?\s*\d+\)?)([\s\S]*)$/i)||line.match(/^(विकल्प\s*\(?\s*\d+\)?)([\s\S]*)$/);
+    if(opt){
+      if(!optHeadDone){
+        out.push('<div class="sol-section">'+(/विकल्प/.test(opt[1])?'अन्य विकल्प क्यों गलत हैं':'Why the other options are wrong')+'</div>');
+        optHeadDone=true;
+      }
+      out.push('<div class="sol-bullet"><span class="sol-bullet-mk">—</span><span><strong>'+opt[1]+'</strong>'+opt[2]+'</span></div>');
+      continue;
+    }
+    /* 6) plain narrative — auto-bullet in GK (no Step) solutions */
+    if(!hasStep&&nReal>1){out.push('<div class="sol-bullet"><span class="sol-bullet-mk">—</span><span>'+line+'</span></div>');}
+    else{out.push('<div class="sol-line">'+line+'</div>');}
+  }
+  return out.join('');
+}
+function enhanceSolHTML(html){return coreSolFormat((html||'').split(/<br\s*\/?>/i));}
 function renderContent(text){
   if(!text)return'';
-  if(text.indexOf('<')!==-1&&text.indexOf('>')!==-1&&/<[a-z]/i.test(text))return text;
+  if(text.indexOf('<')!==-1&&text.indexOf('>')!==-1&&/<[a-z]/i.test(text))return enhanceSolHTML(text);
   if(text.indexOf('\n')!==-1){
-    return text
+    return enhanceSolHTML(text
       .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
       .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
       .replace(/\*([^*]+?)\*/g,'<em>$1</em>')
-      .split('\n').filter(function(l){return l.trim();}).join('<br>');
+      .split('\n').filter(function(l){return l.trim();}).join('<br>'));
   }
   return formatSteps(text);
 }
@@ -2445,28 +2542,10 @@ function formatQText(raw){
 
 function formatSteps(text){
   if(!text)return'';
-  var t=applyBR(text);
-  var lines=t.split('<br>');
-  var out=[];
-  for(var i=0;i<lines.length;i++){
-    var line=lines[i];
-    var sm=line.match(/^(Step \d+:\s*)(.*)/);
-    if(sm){
-      out.push('<div style="margin-top:10px;"><strong style="color:#0F172A;font-size:0.95rem;font-weight:800;">'+sm[1].trim()+'</strong>'+(sm[2].trim()?' <span style="color:#1F2937;font-weight:600;">'+sm[2].trim()+'</span>':'')+'</div>');
-    }else if(line.match(/^- /)){
-      out.push('<div style="margin-left:16px;color:#1F2937;font-size:0.92rem;font-weight:500;line-height:1.75;"><span style="color:#FF6B00;font-weight:800;margin-right:5px;">—</span>'+line.slice(2)+'</div>');
-    }else if(line.match(/^Final Answer/)){
-      out.push('<div style="margin-top:10px;font-weight:800;color:#15803D;font-size:0.95rem;">∴ '+line+'</div>');
-    }else if(line.match(/^∴/)){
-      out.push('<div style="margin-top:6px;font-weight:800;color:#15803D;font-size:0.95rem;">'+line+'</div>');
-    }else if(line.trim()){
-      out.push('<div style="color:#1F2937;font-size:0.92rem;font-weight:500;line-height:1.75;">'+line+'</div>');
-    }
-  }
-  var t2=out.join('');
-  t2=t2.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
-  t2=t2.replace(/\*([^*]+?)\*/g,'<em>$1</em>');
-  return t2;
+  var html=coreSolFormat(applyBR(text).split('<br>'));
+  html=html.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
+  html=html.replace(/\*([^*]+?)\*/g,'<em>$1</em>');
+  return html;
 }
 
 function formatQTextReview(raw,qNum){
