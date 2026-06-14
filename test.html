@@ -2234,29 +2234,42 @@ window.submitTest=async()=>{
 };
 
 /* ── Section-wise review: tab switching & circle jump ── */
-window.rvSwitch=(si)=>{
+function _rvBarH(){const b=document.getElementById('rvTabs');return b?b.getBoundingClientRect().height:0;}
+function _rvActivate(si){
   document.querySelectorAll('#review .rv-panel').forEach(p=>{
     p.style.display=(p.getAttribute('data-sec')===String(si))?'block':'none';
   });
   document.querySelectorAll('#review .rv-tab').forEach((t,i)=>{
     t.classList.toggle('active',i===si);
   });
-  const tabs=document.getElementById('rvTabs');
-  if(tabs){const y=tabs.getBoundingClientRect().top+window.scrollY-6;window.scrollTo({top:y<0?0:y,behavior:'smooth'});}
+}
+window.rvSwitch=(si)=>{
+  _rvActivate(si);
+  // Reset scroll to the top of the section. Anchor on the non-sticky .rv-wrap:
+  // the tab bar is position:sticky, so once it's pinned its own rect.top reads ~0,
+  // which made the scroll target equal the current position (the reported bug).
+  const wrap=document.querySelector('#review .rv-wrap');
+  if(wrap){
+    const y=wrap.getBoundingClientRect().top+window.scrollY-6;
+    window.scrollTo({top:y<0?0:y,behavior:'auto'});
+  }
 };
 window.rvGoto=(i)=>{
   const el=document.getElementById('rvq'+i);
   if(!el)return;
   const panel=el.closest('.rv-panel');
-  if(panel&&panel.style.display==='none'){
+  const hidden=panel&&panel.style.display==='none';
+  if(hidden){
     const si=parseInt(panel.getAttribute('data-sec'),10);
-    if(!isNaN(si))window.rvSwitch(si);
+    if(!isNaN(si))_rvActivate(si);   // switch silently; we scroll to the item below
   }
   setTimeout(()=>{
-    el.scrollIntoView({behavior:'smooth',block:'start'});
+    // Offset by the sticky tab-bar height so the question header isn't hidden under it.
+    const y=el.getBoundingClientRect().top+window.scrollY-_rvBarH()-12;
+    window.scrollTo({top:y<0?0:y,behavior:'smooth'});
     el.classList.add('rv-flash');
     setTimeout(()=>el.classList.remove('rv-flash'),1200);
-  },panel&&panel.style.display==='none'?60:0);
+  },hidden?60:0);
 };
 
 
