@@ -1174,6 +1174,50 @@
   .pyq-btns{ width:100% !important; flex-wrap:nowrap !important; gap:0.5rem !important; justify-content:stretch !important; }
   .pyq-btns .pyq-lang-btn{ flex:1 1 0 !important; width:auto !important; min-width:0 !important; padding:0.6rem 0 !important; font-size:0.85rem !important; }
 }
+
+/* ── Single Attempt / Re-attempt button ── */
+.pyq-attempt-btn{ border:none;cursor:pointer;border-radius:9px;font-family:'Rajdhani',sans-serif;font-weight:800;
+  font-size:0.82rem;letter-spacing:0.2px;white-space:nowrap;padding:0.5rem 1.15rem;
+  transition:opacity .15s,transform .12s;box-shadow:0 2px 8px rgba(0,0,0,0.12);
+  display:inline-flex;align-items:center;justify-content:center;gap:0.35rem; }
+.pyq-attempt-btn.todo{ background:linear-gradient(135deg,#FF6B00,#FF8C38);color:#fff; }
+.pyq-attempt-btn.done{ background:#fff;color:#FF6B00;border:1.5px solid #FFD0A8;box-shadow:0 1px 4px rgba(0,0,0,0.06); }
+.pyq-attempt-btn:hover{ opacity:0.9; }
+.pyq-attempt-btn:active{ transform:scale(0.97); }
+
+/* ── Date emphasis (bold, like the shift label) ── */
+.pyq-date{ font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.9rem;color:#334155;letter-spacing:0.2px; }
+
+/* ── Language chooser overlay (matches site modals / pause screen) ── */
+@keyframes lcFade{ from{opacity:0;} to{opacity:1;} }
+@keyframes lcPop{ from{opacity:0;transform:translate(-50%,-46%) scale(.96);} to{opacity:1;transform:translate(-50%,-50%) scale(1);} }
+@keyframes lcSlide{ from{transform:translate(-50%,100%);} to{transform:translate(-50%,0);} }
+#langChooser{ display:none;position:fixed;inset:0;z-index:6000;background:rgba(15,23,42,0.58);backdrop-filter:blur(3px);animation:lcFade .18s ease; }
+.lc-card{ position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(420px,92vw);
+  background:#fff;border-radius:20px;box-shadow:0 24px 70px rgba(0,0,0,0.35);overflow:hidden;animation:lcPop .22s cubic-bezier(.2,.8,.3,1.2); }
+.lc-head{ padding:1.4rem 1.4rem 0.3rem;text-align:center; }
+.lc-icon{ width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,#0EA5E9,#6366F1);
+  display:flex;align-items:center;justify-content:center;font-size:1.5rem;margin:0 auto 0.7rem; }
+.lc-title{ font-family:'Rajdhani',sans-serif;font-weight:800;font-size:1.25rem;color:#1A202C;line-height:1.2; }
+.lc-sub{ font-size:0.8rem;color:#718096;margin-top:0.3rem;line-height:1.35; }
+.lc-body{ padding:1.1rem 1.4rem 1.4rem;display:flex;flex-direction:column;gap:0.7rem; }
+.lc-opt{ display:flex;align-items:center;gap:0.85rem;width:100%;border:1.5px solid #E2E8F0;background:#fff;
+  border-radius:13px;padding:0.85rem 1.1rem;cursor:pointer;text-align:left;transition:all .15s;font-family:'Rajdhani',sans-serif; }
+.lc-opt:hover{ border-color:#FF6B00;background:#FFF7F0;transform:translateY(-1px); }
+.lc-opt:active{ transform:scale(0.99); }
+.lc-flag{ font-size:1.5rem;flex-shrink:0; }
+.lc-opt-main{ flex:1;min-width:0; }
+.lc-opt-name{ font-weight:800;font-size:1.02rem;color:#1A202C; }
+.lc-opt-desc{ font-size:0.72rem;color:#94A3B8;font-weight:600; }
+.lc-arrow{ color:#CBD5E1;font-size:1.2rem;font-weight:700; }
+.lc-cancel{ margin-top:0.1rem;background:none;border:none;color:#94A3B8;font-family:'Rajdhani',sans-serif;
+  font-weight:700;font-size:0.85rem;cursor:pointer;padding:0.5rem; }
+@media (max-width:560px){
+  .lc-card{ width:100vw;border-radius:20px 20px 0 0;top:auto;bottom:0;left:50%;
+    transform:translate(-50%,0);animation:lcSlide .24s cubic-bezier(.2,.8,.3,1); }
+  .lc-opt{ padding:0.95rem 1.1rem; }
+  .lc-opt-name{ font-size:1.08rem; }
+}
 </style>
 </head>
 <body>
@@ -1637,6 +1681,42 @@
         : '<span class="attempt-pill todo">○ Not Attempted</span>';
     };
 
+    /* ── Language chooser overlay ──
+       Each paper/mock registers its language URLs here keyed by a stable id;
+       the single "Attempt Test" button opens the overlay to pick a language. */
+    window.__langPick = window.__langPick || {};
+    window.openLangChooser = function(id){
+      const d = window.__langPick[id];
+      if(!d) return;
+      // If only a single language exists, go straight in (no need to ask).
+      if(d.en && !d.hi){ window.location = d.en; return; }
+      if(d.hi && !d.en){ window.location = d.hi; return; }
+      if(!d.en && !d.hi) return;
+      const m = document.getElementById('langChooser');
+      if(!m) { window.location = d.en || d.hi; return; }
+      const head = document.getElementById('lcTitle');
+      const sub  = document.getElementById('lcSub');
+      const enB  = document.getElementById('lcEn');
+      const hiB  = document.getElementById('lcHi');
+      if(head) head.textContent = d.done ? 'Re-attempt — Choose Language' : 'Choose Your Language';
+      if(sub)  sub.textContent  = d.title || '';
+      if(enB){ enB.style.display = d.en ? 'flex' : 'none'; enB.onclick = ()=>{ window.location = d.en; }; }
+      if(hiB){ hiB.style.display = d.hi ? 'flex' : 'none'; hiB.onclick = ()=>{ window.location = d.hi; }; }
+      m.style.display = 'block';
+      document.body.style.overflow = 'hidden';
+    };
+    window.closeLangChooser = function(){
+      const m = document.getElementById('langChooser');
+      if(m) m.style.display = 'none';
+      document.body.style.overflow = '';
+    };
+    document.addEventListener('keydown', function(e){
+      if(e.key === 'Escape'){
+        const m = document.getElementById('langChooser');
+        if(m && m.style.display === 'block') window.closeLangChooser();
+      }
+    });
+
     // Tier key normalizer — maps DB tier values to t1/t2
     function tierKey(t) {
       if(!t) return 't1';
@@ -1744,23 +1824,15 @@
             ? `<span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:5px;background:#F1F5F9;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.7rem;color:#475569;">S${shiftNum[1]}</span>`
             : (shift ? `<span style="background:#F1F5F9;border-radius:5px;padding:0.1rem 0.35rem;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.7rem;color:#475569;">${shift}</span>` : '');
 
-          // Build one button per available language (English first, then Hindi)
-          const buildBtn = (vp) => {
-            const vlang = vp.language || '';
-            const vLabel = vlang==='hi' ? '🇮🇳 Hindi' : vlang==='en' ? '🇬🇧 English' : (vlang || '▶ Start');
-            const vColor = vlang==='hi' ? 'linear-gradient(135deg,#FF6B00,#FF8C38)' : 'linear-gradient(135deg,#0EA5E9,#6366F1)';
-            const vUrl = engine+'?exam='+EXAM+'&year='+encodeURIComponent(year)+'&tier='+encodeURIComponent(vp.tier||'')+'&shift='+encodeURIComponent(vp.shift||'')+'&heldOn='+encodeURIComponent(vp.heldOn||'')+'&lang='+encodeURIComponent(vlang)+(vp.paperId?'&paperId='+encodeURIComponent(vp.paperId):'');
-            const vDone = !!(vp.paperId && window.__attempted && window.__attempted.papers.has(vp.paperId));
-            return `<button class="pyq-lang-btn" onclick="window.location='${vUrl}'"
-                style="background:${vColor};color:white;border:none;cursor:pointer;padding:0.42rem 0;border-radius:8px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.78rem;white-space:nowrap;flex-shrink:0;letter-spacing:0.2px;transition:opacity 0.15s;box-shadow:0 2px 6px rgba(0,0,0,0.12);width:92px;text-align:center;"
-                onmouseenter="this.style.opacity='0.85'" onmouseleave="this.style.opacity='1'">
-                ${vLabel}${vDone?' ✓':''}
-              </button>`;
-          };
-          let btns = '';
-          if(grp.variants['en']) btns += buildBtn(grp.variants['en']);
-          if(grp.variants['hi']) btns += buildBtn(grp.variants['hi']);
-          Object.keys(grp.variants).forEach(lg => { if(lg!=='en' && lg!=='hi') btns += buildBtn(grp.variants[lg]); });
+          // Single "Attempt Test" button → opens the language-chooser overlay.
+          const _mkUrl = (vp) => engine+'?exam='+EXAM+'&year='+encodeURIComponent(year)+'&tier='+encodeURIComponent(vp.tier||'')+'&shift='+encodeURIComponent(vp.shift||'')+'&heldOn='+encodeURIComponent(vp.heldOn||'')+'&lang='+encodeURIComponent(vp.language||'')+(vp.paperId?'&paperId='+encodeURIComponent(vp.paperId):'');
+          let urlEn = grp.variants['en'] ? _mkUrl(grp.variants['en']) : '';
+          let urlHi = grp.variants['hi'] ? _mkUrl(grp.variants['hi']) : '';
+          if(!urlEn && !urlHi){ const _other = Object.values(grp.variants)[0]; if(_other) urlEn = _mkUrl(_other); }
+          const pickId = (EXAM+'-'+tierId+'-'+year+'-'+key).replace(/[^a-zA-Z0-9_-]/g,'_');
+          const pickTitle = 'SSC CGL '+tierLabel+' '+year+(shift?(' · '+shift):'')+(dateLabel?(' · '+dateLabel):'');
+          window.__langPick[pickId] = { en:urlEn, hi:urlHi, title:pickTitle, done:isDone };
+          const btns = `<button class="pyq-lang-btn pyq-attempt-btn ${isDone?'done':'todo'}" onclick="window.openLangChooser('${pickId}')">${isDone?'↻ Re-attempt':'▶ Attempt Test'}</button>`;
 
           html += `
             <div class="pyq-row" style="display:flex;align-items:center;justify-content:space-between;gap:0.6rem;padding:0.85rem 1.1rem;${borderBottom}background:white;transition:background 0.15s;"
@@ -1772,7 +1844,7 @@
                   <div style="display:flex;align-items:center;gap:0.45rem;flex-wrap:wrap;">
                     <span style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.95rem;color:#1A202C;">${shift || 'Full Paper'}</span>
                     ${shiftBadge}
-                    ${dateLabel ? `<span style="font-size:0.72rem;color:#94A3B8;font-weight:500;">· ${dateLabel}</span>` : ''}
+                    ${dateLabel ? `<span class="pyq-date">${dateLabel}</span>` : ''}
                   </div>
                   <div style="display:flex;align-items:center;gap:0.5rem;margin-top:0.2rem;flex-wrap:wrap;">
                     <span style="font-size:0.72rem;color:#94A3B8;">📝 ${qCount} Qs</span>
@@ -2068,20 +2140,18 @@
             const lockIcon=!isFree?'<span style="color:#94A3B8;font-size:1rem;margin-right:0.5rem;">🔒</span>':'';
             const pill=(window.attemptPill?window.attemptPill(isDone):'');
 
-            // Buttons: English + Hindi for free, Locked for paid
+            // Single "Attempt Test" button → language chooser (free); Locked for paid
+            const _mockPickId = ('mock-'+t.id).replace(/[^a-zA-Z0-9_-]/g,'_');
+            if(isFree){
+              window.__langPick[_mockPickId] = {
+                en:"test.html?mockId="+t.id+"&lang=en",
+                hi:"test.html?mockId="+t.id+"&lang=hi",
+                title:(t.title||'Mock Test'),
+                done:isDone
+              };
+            }
             const btns = isFree
-              ? `<div style="display:flex;gap:0.5rem;">
-                  <button onclick="window.location='test.html?mockId=${t.id}&lang=en'"
-                    style="background:linear-gradient(135deg,#0EA5E9,#6366F1);color:white;border:none;cursor:pointer;padding:0.45rem 0.9rem;border-radius:8px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.82rem;display:flex;align-items:center;gap:0.3rem;"
-                    onmouseenter="this.style.opacity='0.85'" onmouseleave="this.style.opacity='1'">
-                    🇬🇧 English
-                  </button>
-                  <button onclick="window.location='test.html?mockId=${t.id}&lang=hi'"
-                    style="background:linear-gradient(135deg,#FF6B00,#FF8C38);color:white;border:none;cursor:pointer;padding:0.45rem 0.9rem;border-radius:8px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.82rem;display:flex;align-items:center;gap:0.3rem;"
-                    onmouseenter="this.style.opacity='0.85'" onmouseleave="this.style.opacity='1'">
-                    🇮🇳 Hindi
-                  </button>
-                </div>`
+              ? `<button class="pyq-attempt-btn ${isDone?'done':'todo'}" onclick="window.openLangChooser('${_mockPickId}')">${isDone?'↻ Re-attempt':'▶ Attempt Test'}</button>`
               : `<button onclick="alert('This test requires a subscription.')"
                   style="background:#F1F5F9;color:#94A3B8;border:1px solid #E2E8F0;cursor:not-allowed;padding:0.5rem 1.2rem;border-radius:8px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.85rem;">
                   Locked
@@ -2800,6 +2870,38 @@ onAuthStateChanged(_auth, user=>{
 });
 </script>
 <!-- ============================================================= -->
+<!-- ============================================================= -->
+<!-- LANGUAGE CHOOSER OVERLAY (single Attempt button → pick language) -->
+<!-- ============================================================= -->
+<div id="langChooser" onclick="if(event.target===this)window.closeLangChooser()">
+  <div class="lc-card">
+    <div class="lc-head">
+      <div class="lc-icon">🌐</div>
+      <div class="lc-title" id="lcTitle">Choose Your Language</div>
+      <div class="lc-sub" id="lcSub"></div>
+    </div>
+    <div class="lc-body">
+      <button class="lc-opt" id="lcEn">
+        <span class="lc-flag">🇬🇧</span>
+        <span class="lc-opt-main">
+          <span class="lc-opt-name">English</span>
+          <span class="lc-opt-desc">Attempt the paper in English</span>
+        </span>
+        <span class="lc-arrow">→</span>
+      </button>
+      <button class="lc-opt" id="lcHi">
+        <span class="lc-flag">🇮🇳</span>
+        <span class="lc-opt-main">
+          <span class="lc-opt-name">हिंदी / Hindi</span>
+          <span class="lc-opt-desc">पेपर हिंदी में हल करें</span>
+        </span>
+        <span class="lc-arrow">→</span>
+      </button>
+      <button class="lc-cancel" onclick="window.closeLangChooser()">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <!-- CHAPTER-WISE PRACTICE ENGINE  (loads tagged PYQs from Firestore) -->
 <!-- ============================================================= -->
 <div id="chPracticeModal" style="display:none;position:fixed;inset:0;z-index:5000;background:rgba(15,23,42,0.55);backdrop-filter:blur(2px);">
