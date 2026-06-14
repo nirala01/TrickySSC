@@ -575,6 +575,60 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:10
 .result-verdict.great{background:#DCFCE7;color:#15803D;}
 .result-verdict.good {background:#FEF3C7;color:#B45309;}
 .result-verdict.low  {background:#FEE2E2;color:#DC2626;}
+
+/* ══ Tabbed section-wise review (mobile-optimized) ══ */
+.rv-wrap{margin-top:4px;}
+.rv-tabs{display:flex;gap:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;
+  padding:8px 2px 10px;margin-bottom:14px;scrollbar-width:none;
+  position:sticky;top:0;z-index:30;background:#F0F4F8;}
+.rv-tabs::-webkit-scrollbar{display:none;}
+.rv-tab{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:4px;
+  background:#fff;border:1.5px solid #E5E9F0;border-radius:13px;padding:8px 15px;
+  cursor:pointer;min-width:98px;transition:all .18s ease;font-family:inherit;}
+.rv-tab:hover{border-color:#FFD9B8;}
+.rv-tab.active{border-color:#FF6B00;background:#FFF7F0;box-shadow:0 3px 12px rgba(255,107,0,.16);}
+.rv-tab-name{font-size:13px;font-weight:800;color:#1E293B;white-space:nowrap;}
+.rv-tab.active .rv-tab-name{color:#FF6B00;}
+.rv-tab-mini{display:flex;gap:8px;font-size:11px;font-weight:800;line-height:1;}
+.rv-tab-mini span{display:inline-flex;align-items:center;gap:3px;}
+.rv-tab-mini span::before{content:"";width:7px;height:7px;border-radius:50%;display:inline-block;}
+.rv-tab-mini .c{color:#16A34A;} .rv-tab-mini .c::before{background:#22C55E;}
+.rv-tab-mini .w{color:#DC2626;} .rv-tab-mini .w::before{background:#EF4444;}
+.rv-tab-mini .k{color:#CA8A04;} .rv-tab-mini .k::before{background:#EAB308;}
+
+.rv-panel{animation:rvfade .25s ease;}
+@keyframes rvfade{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
+
+.rv-secsum{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
+.rv-lg{font-size:12px;font-weight:800;padding:5px 12px;border-radius:999px;display:inline-flex;align-items:center;gap:5px;}
+.rv-lg.correct{background:#DCFCE7;color:#15803D;}
+.rv-lg.wrong{background:#FEE2E2;color:#DC2626;}
+.rv-lg.skip{background:#FEF9C3;color:#A16207;}
+
+.rv-palette{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px;padding:14px;
+  background:#fff;border:1px solid #EDF1F6;border-radius:14px;box-shadow:0 3px 14px rgba(15,23,42,.05);}
+.rv-circle{width:34px;height:34px;border-radius:50%;border:none;cursor:pointer;
+  font-size:12.5px;font-weight:800;color:#fff;font-family:inherit;
+  display:flex;align-items:center;justify-content:center;transition:transform .12s ease;}
+.rv-circle:hover{transform:scale(1.12);}
+.rv-circle:active{transform:scale(.94);}
+.rv-circle.correct{background:#22C55E;}
+.rv-circle.wrong{background:#EF4444;}
+.rv-circle.skip{background:#EAB308;}
+
+.rv-flash{animation:rvflash 1.2s ease;}
+@keyframes rvflash{0%,100%{box-shadow:0 3px 14px rgba(15,23,42,.05);}28%{box-shadow:0 0 0 3px #FFB877,0 6px 22px rgba(255,107,0,.28);}}
+
+@media(max-width:560px){
+  .rv-tabs{gap:7px;}
+  .rv-tab{min-width:86px;padding:7px 12px;}
+  .rv-tab-name{font-size:12px;}
+  .rv-tab-mini{font-size:10px;gap:6px;}
+  .rv-circle{width:31px;height:31px;font-size:11.5px;}
+  .rv-palette{gap:7px;padding:11px;}
+  .rv-lg{font-size:11px;padding:4px 10px;}
+}
+
 .q-figure-img{max-width:100%;border-radius:8px;margin:6px 0;border:1px solid #334155;display:block;}
 
 /* ── DI Table ── */
@@ -2129,7 +2183,8 @@ window.submitTest=async()=>{
   document.getElementById('statSkip').textContent=skip;
   document.getElementById('statMarks').textContent=marks;
 
-  document.getElementById('review').innerHTML=questions.map((q,i)=>{
+  // Build the HTML for a single review item (returns {status, html})
+  function buildReviewItem(q,i){
     const a=answers[i];
     const status=!a?'skip':a===q.correct?'correct':'wrong';
     const opts=['A','B','C','D'];
@@ -2150,13 +2205,38 @@ window.submitTest=async()=>{
     const conceptHtml=q.concept?`<div class="sol-panel sol-concept"><div class="sol-head"><span class="sol-ic">🧠</span>Concept</div><div class="sol-body">${renderContent(q.concept)}</div></div>`:'';
     const verdictHtml=`<div class="verdict ${status}"><span class="v-ic">${vIcon}</span><span>${vText}</span></div>`;
     const rawRT=(q.text||q.question||'').replace(/^\[FIGURE-BASED\]\s*/i,'');
-    const _sec=sectionOf(i);
-    const _secLbl=_sec?_sec.label:'';
     const reviewQHtml=formatQTextReview(rawRT,localNum(i));
-    const secTag=_secLbl?`<div style="display:inline-block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:#7C3AED;background:#F3E8FF;border-radius:6px;padding:2px 8px;margin-bottom:6px;">${_secLbl}</div>`:'';
-    return `<div class="review-item ${status}">${headHtml}${secTag}${reviewQHtml}${q.imageUrl?`<div style="text-align:center;margin:8px 0;"><img src="${q.imageUrl}" style="max-width:100%;max-height:220px;border-radius:8px;border:1px solid #E2E8F0;object-fit:contain;background:#F9FAFB;" onerror="this.style.display='none'"></div>`:''}${optsHtml}${verdictHtml}${solHtml}${trickHtml}${conceptHtml}</div>`;
-  }).join('');
-  mathDress(document.getElementById('review'));
+    const html=`<div class="review-item ${status}" id="rvq${i}">${headHtml}${reviewQHtml}${q.imageUrl?`<div style="text-align:center;margin:8px 0;"><img src="${q.imageUrl}" style="max-width:100%;max-height:220px;border-radius:8px;border:1px solid #E2E8F0;object-fit:contain;background:#F9FAFB;" onerror="this.style.display='none'"></div>`:''}${optsHtml}${verdictHtml}${solHtml}${trickHtml}${conceptHtml}</div>`;
+    return {status,html};
+  }
+
+  // Group review section-wise into tabs, each with a color-coded circle palette
+  (function buildSectionedReview(){
+    const reviewEl=document.getElementById('review');
+    const secs=(sections&&sections.length)?sections:[{label:'All Questions',from:0,to:questions.length-1}];
+    let tabsHtml='',panelsHtml='';
+    secs.forEach((s,si)=>{
+      let c=0,w=0,k=0,circles='',items='';
+      for(let i=s.from;i<=s.to;i++){
+        const it=buildReviewItem(questions[i],i);
+        if(it.status==='correct')c++;else if(it.status==='wrong')w++;else k++;
+        circles+=`<button class="rv-circle ${it.status}" onclick="window.rvGoto(${i})">${i-s.from+1}</button>`;
+        items+=it.html;
+      }
+      tabsHtml+=`<button class="rv-tab${si===0?' active':''}" onclick="window.rvSwitch(${si})">`
+        +`<span class="rv-tab-name">${s.label}</span>`
+        +`<span class="rv-tab-mini"><span class="c">${c}</span><span class="w">${w}</span><span class="k">${k}</span></span>`
+        +`</button>`;
+      panelsHtml+=`<div class="rv-panel" data-sec="${si}"${si===0?'':' style="display:none"'}>`
+        +`<div class="rv-secsum"><span class="rv-lg correct">✓ ${c} Correct</span><span class="rv-lg wrong">✕ ${w} Incorrect</span><span class="rv-lg skip">⏭ ${k} Skipped</span></div>`
+        +`<div class="rv-palette">${circles}</div>`
+        +`<div class="rv-items">${items}</div>`
+        +`</div>`;
+    });
+    const tabBar=secs.length>1?`<div class="rv-tabs" id="rvTabs">${tabsHtml}</div>`:'';
+    reviewEl.innerHTML=`<div class="rv-wrap">${tabBar}${panelsHtml}</div>`;
+    mathDress(reviewEl);
+  })();
 
   if(!currentUser||!currentUser.uid){setSaveUi('error','⚠️ Not logged in. Result cannot be saved.');isSubmitting=false;return;}
   const attemptId=`${currentUser.uid}_${exam||'exam'}_${year||'na'}_${Date.now()}`;
@@ -2192,6 +2272,33 @@ window.submitTest=async()=>{
     sessionStorage.setItem('tssc_result_lastKey',_rk);
   }catch(_){}
   isSubmitting=false;
+};
+
+/* ── Section-wise review: tab switching & circle jump ── */
+window.rvSwitch=(si)=>{
+  document.querySelectorAll('#review .rv-panel').forEach(p=>{
+    p.style.display=(p.getAttribute('data-sec')===String(si))?'block':'none';
+  });
+  document.querySelectorAll('#review .rv-tab').forEach((t,i)=>{
+    t.classList.toggle('active',i===si);
+  });
+  const tabs=document.getElementById('rvTabs');
+  if(tabs){const y=tabs.getBoundingClientRect().top+window.scrollY-6;window.scrollTo({top:y<0?0:y,behavior:'smooth'});}
+};
+window.rvGoto=(i)=>{
+  const el=document.getElementById('rvq'+i);
+  if(!el)return;
+  const panel=el.closest('.rv-panel');
+  const hidden=panel&&panel.style.display==='none';
+  if(hidden){
+    const si=parseInt(panel.getAttribute('data-sec'),10);
+    if(!isNaN(si))window.rvSwitch(si);
+  }
+  setTimeout(()=>{
+    el.scrollIntoView({behavior:'smooth',block:'start'});
+    el.classList.add('rv-flash');
+    setTimeout(()=>el.classList.remove('rv-flash'),1200);
+  },hidden?60:0);
 };
 
 
