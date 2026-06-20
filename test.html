@@ -2195,6 +2195,10 @@ window.submitTest=async()=>{
     const tabBar=secs.length>1?`<div class="rv-tabs" id="rvTabs">${tabsHtml}</div>`:'';
     reviewEl.innerHTML=`<div class="rv-wrap">${tabBar}${panelsHtml}</div>`;
     mathDress(reviewEl);
+    // The first panel is visible, so the call above rendered its math; mark it
+    // so _rvActivate doesn't redo it. Other panels render lazily when shown.
+    var firstPanel=reviewEl.querySelector('.rv-panel');
+    if(firstPanel) firstPanel.__mathDone=true;
   })();
 
   if(!currentUser||!currentUser.uid){setSaveUi('error','⚠️ Not logged in. Result cannot be saved.');isSubmitting=false;return;}
@@ -2237,7 +2241,12 @@ window.submitTest=async()=>{
 function _rvBarH(){const b=document.getElementById('rvTabs');return b?b.getBoundingClientRect().height:0;}
 function _rvActivate(si){
   document.querySelectorAll('#review .rv-panel').forEach(p=>{
-    p.style.display=(p.getAttribute('data-sec')===String(si))?'block':'none';
+    var show=(p.getAttribute('data-sec')===String(si));
+    p.style.display=show?'block':'none';
+    // KaTeX cannot measure/render math inside a display:none element, so panels
+    // built hidden (every tab after the first) keep raw \( ... \) until shown.
+    // Render math the first time a panel actually becomes visible.
+    if(show && !p.__mathDone){ p.__mathDone=true; try{ mathDress(p); }catch(e){} }
   });
   document.querySelectorAll('#review .rv-tab').forEach((t,i)=>{
     t.classList.toggle('active',i===si);
