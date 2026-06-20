@@ -2318,7 +2318,24 @@ function _radExtract(str,start){
    IMPORTANT: $ and $$ are NOT delimiters — content uses "$" as a coding
    operator (e.g. "6 $ 2 = 20"), so dollar delimiters are deliberately off. */
 function renderTrickyMath(root){
-  if(!root || !window.renderMathInElement) return;
+  if(!root) return;
+  /* If KaTeX auto-render has not loaded yet, queue this element and render it
+     the moment KaTeX becomes available. Fixes the race where a dynamically
+     built panel (review/solution screen) is dressed before the deferred
+     auto-render.min.js finishes loading, which left \\( ... \\) as raw text. */
+  if(!window.renderMathInElement){
+    (window.__pendingMath=window.__pendingMath||[]).push(root);
+    if(!window.__mathWaiter){
+      window.__mathWaiter=setInterval(function(){
+        if(window.renderMathInElement){
+          clearInterval(window.__mathWaiter);window.__mathWaiter=null;
+          var q=window.__pendingMath||[];window.__pendingMath=[];
+          q.forEach(function(el){try{mathDress(el);}catch(e){}});
+        }
+      },120);
+    }
+    return;
+  }
   try{
     window.renderMathInElement(root,{
       delimiters:[
