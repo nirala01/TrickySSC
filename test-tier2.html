@@ -265,6 +265,12 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:10
 }
 #enToggleBtn:hover{background:#DBEAFE;border-color:#93C5FD;}
 #enToggleBtn.active{background:#1D4ED8;color:#fff;border-color:#1D4ED8;}
+/* Per-solution EN/HI toggle in the review screen */
+.sol-lang-btn{margin-left:auto;flex:0 0 auto;font:inherit;font-size:11px;
+  font-weight:700;letter-spacing:.02em;text-transform:none;cursor:pointer;
+  padding:3px 10px;border-radius:999px;border:1px solid currentColor;
+  background:rgba(255,255,255,.6);color:inherit;opacity:.85;}
+.sol-lang-btn:hover{opacity:1;background:#fff;}
 #enViewPanel{
   display:none;
   margin-top:12px;
@@ -1849,6 +1855,21 @@ async function ensureEnglishMap(){
   finally{ enMapLoaded=true; enMapLoading=false; }
 }
 
+// Per-solution EN/HI toggle (review screen). Swaps the .sol-body content of the
+// panel whose button was clicked, between its data-hi and data-en payloads.
+window.toggleSolLang=function(btn){
+  var head=btn.closest('.sol-head');
+  var body=head&&head.parentElement.querySelector('.sol-body');
+  if(!body) return;
+  var to=(body.getAttribute('data-lang')==='hi')?'en':'hi';
+  var raw=decodeURIComponent(body.getAttribute('data-'+to)||'');
+  var img=body.querySelector('img');
+  body.innerHTML=renderContent(raw)+(img?img.outerHTML:'');
+  body.setAttribute('data-lang',to);
+  try{ mathDress(body); }catch(e){}
+  btn.textContent=(to==='en')?'हिंदी में देखें':'View in English';
+};
+
 window.toggleEnglishView=async()=>{
   if(showEnglishQ[currentQ]){ showEnglishQ[currentQ]=false; renderQ(); return; }
   if(!enMapLoaded){
@@ -2183,6 +2204,11 @@ window.submitTest=async()=>{
   document.getElementById('statSkip').textContent=skip;
   document.getElementById('statMarks').textContent=marks;
 
+  // Load the English counterpart map (if any) before building the review, so
+  // each Hindi solution can offer a "View in English" toggle. Never block the
+  // result screen on it.
+  try{ if(typeof ensureEnglishMap==='function' && !enMapLoaded) await ensureEnglishMap(); }catch(e){}
+
   // Build the HTML for a single review item (returns {status, html})
   function buildReviewItem(q,i){
     const a=answers[i];
@@ -2200,8 +2226,20 @@ window.submitTest=async()=>{
       return `<div class="${cls}"><span class="rv-key">${o}</span><span>${txt}${marker}${optImg?`<span style="display:block;margin-top:6px;"><img src="${optImg}" style="max-width:100%;max-height:100px;border-radius:5px;object-fit:contain;" onerror="this.style.display='none'"></span>`:''}</span></div>`;
     }).join('')}</div>`;
     const solImg=q.solutionImage||'';
-    const solHtml=(q.explanation||solImg)?`<div class="sol-panel sol-sol"><div class="sol-head"><span class="sol-ic">💡</span>Step-by-Step Solution</div><div class="sol-body">${renderContent(q.explanation||'')}${solImg?`<img src="${solImg}" onerror="this.style.display='none'" alt="Solution">`:''}</div></div>`:'';
-    const trickHtml=q.trick?`<div class="sol-panel sol-trick"><div class="sol-head"><span class="sol-ic">⚡</span>Quick Trick</div><div class="sol-body">${renderContent(q.trick)}</div></div>`:'';
+    // Per-solution EN/HI toggle: available for Q1–75 when an English counterpart
+    // solution exists in enQMap. Q76–100 are English-only, so no toggle there.
+    const _qn=parseInt(q.qNum)||(i+1);
+    const _enDoc=(_qn>=1&&_qn<=75)?(enQMap&&enQMap[_qn]):null;
+    const _hasEnSol=!!(_enDoc&&(_enDoc.explanation||'').trim());
+    const _enExp=_hasEnSol?_enDoc.explanation:'';
+    const _enTrk=(_enDoc&&_enDoc.trick)||'';
+    const _enc=s=>encodeURIComponent(s||'');
+    const solToggleBtn=_hasEnSol
+      ?`<button class="sol-lang-btn" onclick="toggleSolLang(this)">View in English</button>`:'';
+    const solHtml=(q.explanation||solImg)?`<div class="sol-panel sol-sol"><div class="sol-head"><span class="sol-ic">💡</span>Step-by-Step Solution${solToggleBtn}</div><div class="sol-body" data-hi="${_enc(q.explanation||'')}" data-en="${_enc(_enExp)}" data-lang="hi">${renderContent(q.explanation||'')}${solImg?`<img src="${solImg}" onerror="this.style.display='none'" alt="Solution">`:''}</div></div>`:'';
+    const trickToggleBtn=(_hasEnSol&&_enTrk)
+      ?`<button class="sol-lang-btn" onclick="toggleSolLang(this)">View in English</button>`:'';
+    const trickHtml=q.trick?`<div class="sol-panel sol-trick"><div class="sol-head"><span class="sol-ic">⚡</span>Quick Trick${trickToggleBtn}</div><div class="sol-body" data-hi="${_enc(q.trick)}" data-en="${_enc(_enTrk)}" data-lang="hi">${renderContent(q.trick)}</div></div>`:'';
     const conceptHtml=q.concept?`<div class="sol-panel sol-concept"><div class="sol-head"><span class="sol-ic">🧠</span>Concept</div><div class="sol-body">${renderContent(q.concept)}</div></div>`:'';
     const verdictHtml=`<div class="verdict ${status}"><span class="v-ic">${vIcon}</span><span>${vText}</span></div>`;
     const rawRT=(q.text||q.question||'').replace(/^\[FIGURE-BASED\]\s*/i,'');
