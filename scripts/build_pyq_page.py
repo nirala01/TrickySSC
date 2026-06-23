@@ -214,59 +214,93 @@ def render(ordered):
     years_list = list(ordered.keys())
     updated = datetime.datetime.utcnow().strftime("%d %b %Y")
 
-    # ----- build year jump chips -----
-    chips = "".join(
-        f'<a class="yr-chip" href="#y{y}">{y}</a>' for y in years_list
+    # Split groups into Tier I and Tier II
+    def is_tier2(t):
+        t = str(t).lower()
+        return "2" in t or "ii" in t
+
+    tier1 = {}
+    tier2 = {}
+    for y, groups in ordered.items():
+        g1 = [g for g in groups if not is_tier2(g["tier"])]
+        g2 = [g for g in groups if is_tier2(g["tier"])]
+        if g1:
+            tier1[y] = g1
+        if g2:
+            tier2[y] = g2
+
+    t1_total = sum(len(v) for v in tier1.values())
+    t2_total = sum(len(v) for v in tier2.values())
+
+    def shift_badge(shift):
+        digits = "".join(ch for ch in str(shift) if ch.isdigit())
+        return f"S{digits}" if digits else "S"
+
+    def render_paper_rows(tier_map):
+        """Render the year-grouped accordion of paper rows for one tier."""
+        if not tier_map:
+            return (
+                '<div class="empty-note">Papers will appear here soon. '
+                'Check back shortly.</div>'
+            )
+        blocks = []
+        for y, groups in tier_map.items():
+            rows = []
+            for g in groups:
+                date_txt = pretty_date(g["heldOn"])
+                qc = g.get("questionCount") or 100
+                badge = shift_badge(g["shift"])
+                shift_name = g["shift"].replace("-", " ")
+
+                btns = []
+                if "en" in g["langs"]:
+                    btns.append(
+                        f'<a class="ppr-btn ppr-btn-en" '
+                        f'href="{html.escape(test_url(g, "en"))}">'
+                        f'English</a>'
+                    )
+                if "hi" in g["langs"]:
+                    btns.append(
+                        f'<a class="ppr-btn ppr-btn-hi" '
+                        f'href="{html.escape(test_url(g, "hi"))}">'
+                        f'हिंदी</a>'
+                    )
+                btns_html = "".join(btns)
+
+                rows.append(f"""
+          <div class="ppr-row">
+            <div class="ppr-info">
+              <div class="ppr-title">
+                <span class="ppr-shift">{html.escape(shift_name)}</span>
+                <span class="ppr-chip">{badge}</span>
+                <span class="ppr-date">{html.escape(date_txt)}</span>
+              </div>
+              <div class="ppr-meta">
+                <span>📄 {qc} Qs</span>
+                <span>⏱ 60 min</span>
+                <span>🎯 200 marks</span>
+              </div>
+            </div>
+            <div class="ppr-actions">{btns_html}</div>
+          </div>""")
+
+            blocks.append(f"""
+        <div class="yr-group">
+          <div class="yr-group-head">
+            <span class="yr-badge">{y}</span>
+            <span class="yr-label">SSC CGL Tier I {y}</span>
+            <span class="yr-count">{len(groups)} papers</span>
+          </div>
+          <div class="yr-rows">{''.join(rows)}</div>
+        </div>""")
+        return "".join(blocks)
+
+    tier1_html = render_paper_rows(tier1)
+    tier2_html = render_paper_rows(tier2) if tier2 else (
+        '<div class="empty-note">Tier II papers coming soon.</div>'
     )
 
-    # ----- build year sections -----
-    sections = []
-    for y, groups in ordered.items():
-        cards = []
-        for g in groups:
-            date_txt = pretty_date(g["heldOn"])
-            tlabel = tier_label(g["tier"])
-            qc = g.get("questionCount") or ""
-            qc_txt = f"{qc} Questions" if qc else ""
-            title = f"SSC CGL {date_txt} {g['shift'].replace('-', ' ')}"
-
-            # language buttons (only show languages that exist)
-            btns = []
-            if "en" in g["langs"]:
-                btns.append(
-                    f'<a class="btn btn-en" href="{html.escape(test_url(g, "en"))}" '
-                    f'rel="nofollow">Attempt in English</a>'
-                )
-            if "hi" in g["langs"]:
-                btns.append(
-                    f'<a class="btn btn-hi" href="{html.escape(test_url(g, "hi"))}" '
-                    f'rel="nofollow">हिंदी में हल करें</a>'
-                )
-            btns_html = "".join(btns)
-
-            meta_bits = " · ".join(
-                b for b in [tlabel, qc_txt, "Free"] if b
-            )
-
-            cards.append(f"""
-        <div class="paper-card">
-          <div class="paper-head">
-            <span class="paper-icon">📝</span>
-            <h3 class="paper-title">{html.escape(title)}</h3>
-          </div>
-          <p class="paper-meta">{html.escape(meta_bits)}</p>
-          <div class="paper-actions">{btns_html}</div>
-        </div>""")
-
-        sections.append(f"""
-      <section class="year-block" id="y{y}">
-        <h2 class="year-heading">SSC CGL {y} Previous Year Papers <span class="count">({len(groups)})</span></h2>
-        <div class="paper-grid">{''.join(cards)}</div>
-      </section>""")
-
-    sections_html = "".join(sections)
-
-    # ----- ItemList schema (helps Google understand the list) -----
+    # ---- schema (kept from before, good for SEO) ----
     item_list = []
     pos = 1
     for y, groups in ordered.items():
@@ -292,53 +326,32 @@ def render(ordered):
         "@context": "https://schema.org",
         "@type": "FAQPage",
         "mainEntity": [
-            {
-                "@type": "Question",
-                "name": "Are SSC CGL previous year papers free on TrickySSC?",
-                "acceptedAnswer": {
-                    "@type": "Answer",
-                    "text": "Yes. All SSC CGL Tier 1 previous year question papers (PYQ) on TrickySSC are completely free to attempt online. No payment or subscription is required.",
-                },
-            },
-            {
-                "@type": "Question",
-                "name": "Can I attempt SSC CGL PYQ papers in Hindi and English?",
-                "acceptedAnswer": {
-                    "@type": "Answer",
-                    "text": "Yes. Every SSC CGL previous year paper is available in both English and Hindi. You can choose your preferred language before starting the test.",
-                },
-            },
-            {
-                "@type": "Question",
-                "name": "Do the SSC CGL PYQ tests include answer keys and solutions?",
-                "acceptedAnswer": {
-                    "@type": "Answer",
-                    "text": "Yes. Each paper comes with the correct answer key and step-by-step solutions so you can review every question after submitting the test.",
-                },
-            },
-            {
-                "@type": "Question",
-                "name": "Which SSC CGL years are available for practice?",
-                "acceptedAnswer": {
-                    "@type": "Answer",
-                    "text": "TrickySSC provides shift-wise SSC CGL previous year papers across multiple years, including the most recent 2025 Tier 1 exam shifts, added regularly as new papers are processed.",
-                },
-            },
-            {
-                "@type": "Question",
-                "name": "Is the test interface similar to the real SSC CGL exam?",
-                "acceptedAnswer": {
-                    "@type": "Answer",
-                    "text": "Yes. The online test engine mirrors the real SSC CGL exam pattern with sectional layout, a question palette, a timer, and negative marking, so you practice in exam-like conditions.",
-                },
-            },
+            {"@type": "Question",
+             "name": "Are SSC CGL previous year papers free on TrickySSC?",
+             "acceptedAnswer": {"@type": "Answer",
+                "text": "Yes. All SSC CGL Tier 1 previous year question papers (PYQ) on TrickySSC are completely free to attempt online. No payment or subscription is required."}},
+            {"@type": "Question",
+             "name": "Can I attempt SSC CGL PYQ papers in Hindi and English?",
+             "acceptedAnswer": {"@type": "Answer",
+                "text": "Yes. Every SSC CGL previous year paper is available in both English and Hindi. You can choose your preferred language before starting the test."}},
+            {"@type": "Question",
+             "name": "Do the SSC CGL PYQ tests include answer keys and solutions?",
+             "acceptedAnswer": {"@type": "Answer",
+                "text": "Yes. Each paper comes with the correct answer key and step-by-step solutions so you can review every question after submitting the test."}},
+            {"@type": "Question",
+             "name": "Which SSC CGL years are available for practice?",
+             "acceptedAnswer": {"@type": "Answer",
+                "text": "TrickySSC provides shift-wise SSC CGL previous year papers across multiple years, including the most recent 2025 Tier 1 exam shifts, added regularly as new papers are processed."}},
+            {"@type": "Question",
+             "name": "Is the test interface similar to the real SSC CGL exam?",
+             "acceptedAnswer": {"@type": "Answer",
+                "text": "Yes. The online test engine mirrors the real SSC CGL exam pattern with sectional layout, a question palette, a timer, and negative marking, so you practice in exam-like conditions."}},
         ],
     }
 
-    # visible FAQ
     faq_visible = """
-      <section class="faq" id="faq">
-        <h2>Frequently Asked Questions</h2>
+      <section class="faq-sec" id="faq">
+        <h2 class="sec-h2">Frequently Asked Questions</h2>
         <details><summary>Are SSC CGL previous year papers free on TrickySSC?</summary>
           <p>Yes. All SSC CGL Tier 1 previous year question papers (PYQ) on TrickySSC are completely free to attempt online. No payment or subscription is required.</p></details>
         <details><summary>Can I attempt SSC CGL PYQ papers in Hindi and English?</summary>
@@ -374,6 +387,7 @@ def render(ordered):
 <meta property="og:site_name" content="TrickySSC">
 <meta property="og:image" content="{SITE}/og-pyq.png">
 <meta name="twitter:card" content="summary_large_image">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Baloo+2:wght@400;500;600;700;800&family=Hind:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script type="application/ld+json">
 {json.dumps(faq_schema, ensure_ascii=False, indent=2)}
 </script>
@@ -382,89 +396,190 @@ def render(ordered):
 </script>
 <style>
   :root {{
-    --bg:#0f1222; --card:#171a2e; --card2:#1d2138; --line:#2a2f4a;
-    --text:#e9ecf5; --muted:#9aa3c0; --accent:#5b8cff; --accent2:#22c55e;
-    --hi:#f59e0b;
+    --saffron:#FF6B00; --saffron-light:#FF8C38; --saffron-dark:#CC5500;
+    --bg:#F5F7FA; --card:#FFFFFF; --border:#E2E8F0;
+    --green:#00A86B; --green-dim:#00875A; --gold:#F59E0B;
+    --text-main:#1A202C; --text-dim:#4A5568; --text-muted:#718096;
   }}
-  * {{ box-sizing:border-box; }}
+  * {{ box-sizing:border-box; margin:0; padding:0; }}
   body {{
-    margin:0; background:var(--bg); color:var(--text);
-    font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
-    line-height:1.6;
+    font-family:'Hind',sans-serif; background:var(--bg);
+    color:var(--text-main); overflow-x:hidden;
   }}
-  a {{ color:inherit; text-decoration:none; }}
-  .wrap {{ max-width:1040px; margin:0 auto; padding:20px 16px 64px; }}
-  .crumbs {{ font-size:13px; color:var(--muted); margin-bottom:14px; }}
-  .crumbs a {{ color:var(--muted); }}
-  .crumbs a:hover {{ color:var(--text); }}
-  header.hero {{
-    background:linear-gradient(135deg,#202650 0%,#161930 100%);
-    border:1px solid var(--line); border-radius:18px;
-    padding:26px 22px; margin-bottom:22px;
+  a {{ text-decoration:none; color:inherit; }}
+
+  /* ---- NAV ---- */
+  nav {{
+    position:sticky; top:0; z-index:1000; background:#FFFFFF;
+    box-shadow:0 2px 12px rgba(0,0,0,.08); border-bottom:1px solid var(--border);
+    padding:0 1.5rem;
   }}
-  header.hero h1 {{ font-size:clamp(22px,4.4vw,34px); margin:0 0 8px; line-height:1.25; }}
-  header.hero p {{ margin:0; color:var(--muted); font-size:15px; }}
-  .stats {{ display:flex; flex-wrap:wrap; gap:10px; margin-top:16px; }}
-  .stat {{
-    background:var(--card2); border:1px solid var(--line);
-    padding:8px 13px; border-radius:999px; font-size:13px; color:var(--text);
+  .nav-inner {{
+    max-width:1280px; margin:0 auto; display:flex; align-items:center;
+    justify-content:space-between; height:64px;
   }}
-  .updated {{ font-size:12px; color:var(--muted); margin-top:12px; }}
-  .yr-nav {{ display:flex; flex-wrap:wrap; gap:8px; margin:4px 0 26px; }}
-  .yr-chip {{
-    background:var(--card); border:1px solid var(--line);
-    padding:7px 14px; border-radius:10px; font-size:14px; font-weight:600;
-    transition:.15s;
+  .logo {{
+    font-family:'Baloo 2',cursive; font-size:1.7rem; font-weight:800;
+    letter-spacing:-.5px; color:#1A202C;
   }}
-  .yr-chip:hover {{ border-color:var(--accent); color:#fff; }}
-  .year-block {{ margin-bottom:34px; scroll-margin-top:16px; }}
-  .year-heading {{ font-size:20px; margin:0 0 14px; }}
-  .year-heading .count {{ color:var(--muted); font-weight:500; font-size:15px; }}
-  .paper-grid {{
-    display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr));
-    gap:14px;
+  .logo span {{ color:var(--saffron); }}
+  .nav-links {{ display:flex; gap:.3rem; list-style:none; align-items:center; }}
+  .nav-links a {{
+    padding:.5rem .8rem; font-size:.9rem; font-weight:500;
+    color:var(--text-dim); border-radius:8px; transition:.15s;
   }}
-  .paper-card {{
-    background:var(--card); border:1px solid var(--line);
-    border-radius:14px; padding:16px 16px 14px; transition:.15s;
+  .nav-links a:hover {{ background:#FFF7F0; color:var(--saffron); }}
+  .nav-cta {{ background:var(--saffron); color:#fff !important; }}
+  .nav-cta:hover {{ background:var(--saffron-dark) !important; color:#fff !important; }}
+  .nav-toggle {{ display:none; font-size:1.5rem; background:none; border:none; cursor:pointer; color:var(--text-main); }}
+  @media (max-width:900px) {{
+    .nav-links {{ display:none; }}
+    .nav-toggle {{ display:block; }}
   }}
-  .paper-card:hover {{ border-color:var(--accent); transform:translateY(-2px); }}
-  .paper-head {{ display:flex; align-items:flex-start; gap:9px; margin-bottom:6px; }}
-  .paper-icon {{ font-size:18px; }}
-  .paper-title {{ font-size:15.5px; margin:0; line-height:1.35; }}
-  .paper-meta {{ font-size:12.5px; color:var(--muted); margin:0 0 12px; }}
-  .paper-actions {{ display:flex; flex-wrap:wrap; gap:8px; }}
-  .btn {{
-    flex:1 1 auto; text-align:center; padding:9px 10px; border-radius:9px;
-    font-size:13.5px; font-weight:600; border:1px solid transparent; transition:.15s;
-    min-width:130px;
+
+  /* ---- WRAP ---- */
+  .wrap {{ max-width:1080px; margin:0 auto; padding:1.5rem 1rem 4rem; }}
+  .crumbs {{ font-size:.8rem; color:var(--text-muted); margin-bottom:1rem; }}
+  .crumbs a:hover {{ color:var(--saffron); }}
+
+  /* ---- HERO ---- */
+  .hero {{
+    background:linear-gradient(135deg,#FFF3E9 0%,#FFFFFF 100%);
+    border:1px solid var(--border); border-left:4px solid var(--saffron);
+    border-radius:16px; padding:1.6rem 1.5rem; margin-bottom:1.5rem;
   }}
-  .btn-en {{ background:var(--accent); color:#fff; }}
-  .btn-en:hover {{ filter:brightness(1.1); }}
-  .btn-hi {{ background:transparent; color:var(--hi); border-color:var(--hi); }}
-  .btn-hi:hover {{ background:rgba(245,158,11,.12); }}
-  .intro {{ margin:6px 0 26px; }}
-  .intro h2 {{ font-size:18px; margin:0 0 8px; }}
-  .intro p {{ color:var(--muted); margin:0 0 10px; font-size:14.5px; }}
-  .faq {{ margin-top:34px; }}
-  .faq h2 {{ font-size:20px; margin:0 0 12px; }}
-  .faq details {{
-    background:var(--card); border:1px solid var(--line);
-    border-radius:11px; padding:13px 15px; margin-bottom:10px;
+  .hero h1 {{
+    font-family:'Rajdhani',sans-serif; font-weight:700;
+    font-size:clamp(1.4rem,4vw,2.1rem); line-height:1.2;
+    color:var(--text-main); margin-bottom:.5rem;
   }}
-  .faq summary {{ cursor:pointer; font-weight:600; font-size:14.5px; }}
-  .faq p {{ color:var(--muted); margin:9px 0 0; font-size:14px; }}
-  .backlinks {{ margin-top:30px; font-size:14px; }}
-  .backlinks a {{ color:var(--accent); }}
-  footer {{ margin-top:40px; padding-top:18px; border-top:1px solid var(--line);
-    color:var(--muted); font-size:13px; }}
+  .hero p {{ color:var(--text-dim); font-size:.95rem; max-width:760px; }}
+  .hero-stats {{ display:flex; flex-wrap:wrap; gap:.6rem; margin-top:1rem; }}
+  .hstat {{
+    background:#fff; border:1px solid var(--border); color:var(--text-dim);
+    padding:.4rem .9rem; border-radius:999px; font-size:.82rem; font-weight:500;
+  }}
+  .hstat strong {{ color:var(--saffron); }}
+  .updated {{ font-size:.75rem; color:var(--text-muted); margin-top:.8rem; }}
+
+  /* ---- TIER TABS ---- */
+  .tier-tabs {{ display:flex; gap:.8rem; margin-bottom:1.4rem; }}
+  .tier-tab {{
+    flex:1; text-align:center; padding:.9rem 1rem; border-radius:12px;
+    font-family:'Rajdhani',sans-serif; font-weight:600; font-size:1.05rem;
+    cursor:pointer; border:1px solid var(--border); background:#fff;
+    color:var(--text-dim); transition:.15s; user-select:none;
+  }}
+  .tier-tab.active {{
+    background:linear-gradient(135deg,var(--saffron) 0%,var(--saffron-light) 100%);
+    color:#fff; border-color:var(--saffron);
+    box-shadow:0 4px 14px rgba(255,107,0,.3);
+  }}
+
+  /* ---- SECTION HEAD ---- */
+  .sec-head {{
+    display:flex; align-items:center; justify-content:space-between;
+    border-left:3px solid var(--saffron); padding-left:.7rem; margin-bottom:1rem;
+  }}
+  .sec-head h2 {{
+    font-family:'Rajdhani',sans-serif; font-weight:600; font-size:1.15rem;
+    color:var(--text-main);
+  }}
+  .sec-head .total {{ font-size:.8rem; color:var(--text-muted); }}
+
+  /* ---- YEAR GROUP ---- */
+  .yr-group {{ margin-bottom:1.4rem; }}
+  .yr-group-head {{
+    display:flex; align-items:center; gap:.6rem; margin-bottom:.7rem;
+  }}
+  .yr-badge {{
+    background:var(--saffron); color:#fff; font-family:'Rajdhani',sans-serif;
+    font-weight:700; font-size:.85rem; padding:.25rem .7rem; border-radius:7px;
+  }}
+  .yr-label {{ font-weight:600; color:var(--text-main); font-size:.98rem; }}
+  .yr-count {{ margin-left:auto; font-size:.78rem; color:var(--text-muted); }}
+
+  /* ---- PAPER ROWS ---- */
+  .yr-rows {{ display:flex; flex-direction:column; gap:.6rem; }}
+  .ppr-row {{
+    background:var(--card); border:1px solid var(--border);
+    border-left:3px solid var(--saffron); border-radius:11px;
+    padding:.85rem 1.1rem; display:flex; align-items:center;
+    justify-content:space-between; gap:1rem; transition:.15s; flex-wrap:wrap;
+  }}
+  .ppr-row:hover {{ box-shadow:0 4px 16px rgba(0,0,0,.07); transform:translateY(-1px); }}
+  .ppr-title {{ display:flex; align-items:center; gap:.55rem; flex-wrap:wrap; }}
+  .ppr-shift {{ font-weight:600; font-size:1rem; color:var(--text-main); }}
+  .ppr-chip {{
+    background:#FFF0E5; color:var(--saffron-dark); font-size:.7rem;
+    font-weight:600; padding:.12rem .5rem; border-radius:5px;
+  }}
+  .ppr-date {{ font-size:.92rem; color:var(--text-dim); }}
+  .ppr-meta {{ display:flex; gap:.9rem; margin-top:.35rem; font-size:.78rem; color:var(--text-muted); flex-wrap:wrap; }}
+  .ppr-actions {{ display:flex; gap:.5rem; }}
+  .ppr-btn {{
+    padding:.5rem 1.1rem; border-radius:8px; font-size:.85rem; font-weight:600;
+    transition:.15s; white-space:nowrap;
+  }}
+  .ppr-btn-en {{ background:var(--saffron); color:#fff; }}
+  .ppr-btn-en:hover {{ background:var(--saffron-dark); }}
+  .ppr-btn-hi {{ background:#fff; color:var(--green-dim); border:1px solid var(--green); }}
+  .ppr-btn-hi:hover {{ background:#E8FBF3; }}
+
+  .empty-note {{
+    background:#fff; border:1px dashed var(--border); border-radius:11px;
+    padding:1.5rem; text-align:center; color:var(--text-muted); font-size:.9rem;
+  }}
+
+  /* ---- INTRO / FAQ ---- */
+  .intro {{ margin:2rem 0 1.5rem; }}
+  .sec-h2 {{
+    font-family:'Rajdhani',sans-serif; font-weight:600; font-size:1.25rem;
+    color:var(--text-main); margin-bottom:.7rem;
+    border-left:3px solid var(--saffron); padding-left:.7rem;
+  }}
+  .intro p {{ color:var(--text-dim); margin-bottom:.7rem; font-size:.92rem; }}
+  .faq-sec {{ margin-top:2rem; }}
+  .faq-sec details {{
+    background:#fff; border:1px solid var(--border); border-radius:11px;
+    padding:.85rem 1.1rem; margin-bottom:.6rem;
+  }}
+  .faq-sec summary {{ cursor:pointer; font-weight:600; font-size:.92rem; color:var(--text-main); }}
+  .faq-sec p {{ color:var(--text-dim); margin-top:.6rem; font-size:.88rem; }}
+
+  .more-link {{ margin-top:1.8rem; font-size:.9rem; }}
+  .more-link a {{ color:var(--saffron); font-weight:600; }}
+
+  footer {{
+    margin-top:2.5rem; padding:1.5rem 1rem; border-top:1px solid var(--border);
+    color:var(--text-muted); font-size:.82rem; text-align:center;
+  }}
+
   @media (max-width:560px) {{
-    .paper-grid {{ grid-template-columns:1fr; }}
-    .btn {{ min-width:0; }}
+    .ppr-row {{ flex-direction:column; align-items:stretch; }}
+    .ppr-actions {{ justify-content:stretch; }}
+    .ppr-btn {{ flex:1; text-align:center; }}
+    .tier-tabs {{ gap:.5rem; }}
   }}
 </style>
 </head>
 <body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="{SITE}/index.html" class="logo">Tricky<span>SSC</span></a>
+    <ul class="nav-links">
+      <li><a href="{SITE}/index.html">Home</a></li>
+      <li><a href="{SITE}/ssc-cgl.html">SSC CGL</a></li>
+      <li><a href="{SITE}/ssc-cgl-pyq.html">PYQ Bank</a></li>
+      <li><a href="{SITE}/ssc-cgl.html#mock">Mock Tests</a></li>
+      <li><a href="{SITE}/current-affairs.html">Current Affairs</a></li>
+      <li><a href="{SITE}/login.html" class="nav-cta">Login</a></li>
+    </ul>
+    <button class="nav-toggle" onclick="document.querySelector('.nav-links').style.display=(document.querySelector('.nav-links').style.display==='flex'?'none':'flex')">☰</button>
+  </div>
+</nav>
+
 <div class="wrap">
 
   <nav class="crumbs">
@@ -476,30 +591,46 @@ def render(ordered):
   <header class="hero">
     <h1>SSC CGL Previous Year Papers (PYQ) — Free Online Test</h1>
     <p>Shift-wise SSC CGL Tier 1 question papers in English &amp; Hindi, with answer keys and step-by-step solutions. 100% free, real exam-pattern interface.</p>
-    <div class="stats">
-      <span class="stat">📚 {total_papers}+ Papers</span>
-      <span class="stat">🌐 Hindi &amp; English</span>
-      <span class="stat">✅ Solutions Included</span>
-      <span class="stat">🆓 No Payment</span>
+    <div class="hero-stats">
+      <span class="hstat"><strong>{total_papers}+</strong> Papers</span>
+      <span class="hstat">🌐 Hindi &amp; English</span>
+      <span class="hstat">✅ Solutions Included</span>
+      <span class="hstat">🆓 No Payment</span>
     </div>
     <div class="updated">Last updated: {updated}</div>
   </header>
 
-  <nav class="yr-nav">{chips}</nav>
+  <div class="tier-tabs">
+    <div class="tier-tab active" id="tab-t1" onclick="showTier('t1')">🎯 Tier I</div>
+    <div class="tier-tab" id="tab-t2" onclick="showTier('t2')">📊 Tier II</div>
+  </div>
+
+  <div id="pane-t1">
+    <div class="sec-head">
+      <h2>SSC CGL Tier I — Previous Year Papers</h2>
+      <span class="total">{t1_total} papers</span>
+    </div>
+    {tier1_html}
+  </div>
+
+  <div id="pane-t2" style="display:none;">
+    <div class="sec-head">
+      <h2>SSC CGL Tier II — Previous Year Papers</h2>
+      <span class="total">{t2_total} papers</span>
+    </div>
+    {tier2_html}
+  </div>
 
   <section class="intro">
-    <h2>Practice Real SSC CGL Question Papers, Free</h2>
+    <h2 class="sec-h2">Practice Real SSC CGL Question Papers, Free</h2>
     <p>SSC CGL previous year papers (PYQ) are the most reliable way to understand the actual exam pattern, difficulty level, and the topics SSC repeats every year. Instead of downloading PDFs and checking answers manually, you can attempt complete shift-wise papers online in a real exam-like interface — track your score, review mistakes, and build speed.</p>
-    <p>Every paper below is free, available in both English and Hindi, and includes the correct answer key with detailed solutions. Pick any shift to begin.</p>
+    <p>Every paper above is free, available in both English and Hindi, and includes the correct answer key with detailed solutions. Pick any shift to begin.</p>
   </section>
-
-  {sections_html}
 
   {faq_visible}
 
-  <div class="backlinks">
-    Looking for more? Explore <a href="{SITE}/ssc-cgl.html">SSC CGL mock tests &amp; full course</a>,
-    or jump to <a href="#faq">FAQs</a>.
+  <div class="more-link">
+    Looking for more? Explore <a href="{SITE}/ssc-cgl.html">SSC CGL mock tests &amp; full course</a> →
   </div>
 
   <footer>
@@ -507,6 +638,22 @@ def render(ordered):
   </footer>
 
 </div>
+
+<script>
+  function showTier(t) {{
+    var t1 = document.getElementById('pane-t1');
+    var t2 = document.getElementById('pane-t2');
+    var b1 = document.getElementById('tab-t1');
+    var b2 = document.getElementById('tab-t2');
+    if (t === 't1') {{
+      t1.style.display=''; t2.style.display='none';
+      b1.classList.add('active'); b2.classList.remove('active');
+    }} else {{
+      t1.style.display='none'; t2.style.display='';
+      b2.classList.add('active'); b1.classList.remove('active');
+    }}
+  }}
+</script>
 </body>
 </html>
 """
