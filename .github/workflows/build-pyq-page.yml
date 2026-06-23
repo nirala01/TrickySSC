@@ -36,10 +36,12 @@ jobs:
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          if git diff --quiet -- ssc-cgl-pyq.html; then
+          # Stage the file FIRST. `git diff` alone ignores brand-new untracked
+          # files, which caused the page to never get committed on first run.
+          git add ssc-cgl-pyq.html
+          if git diff --cached --quiet; then
             echo "No change in ssc-cgl-pyq.html — nothing to commit."
           else
-            git add ssc-cgl-pyq.html
             git commit -m "Auto-update SSC CGL PYQ page [skip ci]"
             git push
             echo "Committed updated ssc-cgl-pyq.html."
