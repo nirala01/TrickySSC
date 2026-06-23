@@ -1,0 +1,46 @@
+name: Build SSC CGL PYQ Page
+
+# Auto-rebuilds ssc-cgl-pyq.html from the Firestore `papers` collection.
+# - Runs every 6 hours (catches newly uploaded papers).
+# - Can also be triggered manually from the Actions tab (Run workflow).
+on:
+  schedule:
+    - cron: "0 */6 * * *"   # every 6 hours, on the hour (UTC)
+  workflow_dispatch:        # manual "Run workflow" button
+
+# Allow the workflow to push the regenerated HTML back to the repo.
+permissions:
+  contents: write
+
+# Prevent two builds from running / committing at the same time.
+concurrency:
+  group: build-pyq-page
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Generate ssc-cgl-pyq.html
+        run: python3 scripts/build_pyq_page.py
+
+      - name: Commit changes if the page changed
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- ssc-cgl-pyq.html; then
+            echo "No change in ssc-cgl-pyq.html — nothing to commit."
+          else
+            git add ssc-cgl-pyq.html
+            git commit -m "Auto-update SSC CGL PYQ page [skip ci]"
+            git push
+            echo "Committed updated ssc-cgl-pyq.html."
+          fi
