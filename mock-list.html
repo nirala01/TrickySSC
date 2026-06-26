@@ -18715,5 +18715,91 @@ const EXAM="ssc-cgl";
   }
 })();
 </script>
+
+<!-- Auth + attempt tracking (mirrors PYQ page) -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import { getFirestore, doc, getDoc, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+const _app = initializeApp({
+  apiKey:"AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",
+  authDomain:"trickyssc-17bb3.firebaseapp.com",
+  projectId:"trickyssc-17bb3",
+  storageBucket:"trickyssc-17bb3.firebasestorage.app",
+  messagingSenderId:"450627057220",
+  appId:"1:450627057220:web:366267bf437d94f20c6e11"
+});
+const _auth = getAuth(_app);
+const _db   = getFirestore(_app);
+
+// Swap the Login link to the user's name when signed in
+function _setNavUser(name) {
+  document.querySelectorAll('a[href="https://trickyssc.com/login.html"], a[href="login.html"]').forEach(el => {
+    el.href = 'https://trickyssc.com/dashboard.html';
+    el.style.background = 'linear-gradient(135deg,#00A86B,#0EA5E9)';
+    el.innerHTML = '👤 ' + name.split(' ')[0];
+  });
+}
+
+const __attempted = new Set();
+function _loadLocalAttempts() {
+  try {
+    const seen = JSON.parse(localStorage.getItem('tssc_attempted') || '{}');
+    Object.keys(seen).forEach(k => {
+      if(k.startsWith('p:')) __attempted.add(k.slice(2));
+      else if(k.startsWith('m:')) __attempted.add(k.slice(2));
+    });
+  } catch(e) {}
+}
+function _applyPills() {
+  document.querySelectorAll('.mc-attempt').forEach(btn => {
+    if(btn.closest('.mock-card').classList.contains('locked')) return;
+    const pe = btn.getAttribute('data-pid-en');
+    const ph = btn.getAttribute('data-pid-hi');
+    const done = (pe && __attempted.has(pe)) || (ph && __attempted.has(ph));
+    if(done) btn.innerHTML = '↻ Re-attempt';
+  });
+}
+function _resetPills() {
+  __attempted.clear();
+  document.querySelectorAll('.mc-attempt').forEach(btn => {
+    if(!btn.closest('.mock-card').classList.contains('locked')) btn.innerHTML = '▶ Attempt Test';
+  });
+}
+async function _syncAttempts(uid) {
+  if(!uid) return;
+  const _ck = 'tssc_attempts_' + uid, _ttl = 10*60*1000;
+  try {
+    const _c = sessionStorage.getItem(_ck);
+    if(_c) {
+      const _o = JSON.parse(_c);
+      if(Date.now() - (_o.ts||0) < _ttl && Array.isArray(_o.p)) {
+        _o.p.forEach(id => __attempted.add(id)); _applyPills(); return;
+      }
+    }
+  } catch(e) {}
+  try {
+    const snap = await getDocs(query(collection(_db,'attempts'), where('uid','==',uid)));
+    snap.forEach(d => { const a = d.data()||{}; if(a.paperId) __attempted.add(a.paperId); if(a.mockId) __attempted.add(a.mockId); });
+    try { sessionStorage.setItem(_ck, JSON.stringify({ ts:Date.now(), p:[...__attempted] })); } catch(e) {}
+    _applyPills();
+  } catch(e) { console.warn('attempts sync failed:', e.message); }
+}
+
+onAuthStateChanged(_auth, async user => {
+  if(!user) { _resetPills(); return; }
+  _loadLocalAttempts(); _applyPills();
+  try { const s = localStorage.getItem('tssc_user'); if(s){ const u = JSON.parse(s); if(u.name && u.name!=='Student') _setNavUser(u.name); } } catch(e) {}
+  try {
+    const snap = await getDoc(doc(_db,'users',user.uid));
+    if(snap.exists() && snap.data().name && snap.data().name!=='Student') {
+      _setNavUser(snap.data().name);
+      try { const s=localStorage.getItem('tssc_user'); const u=s?JSON.parse(s):{}; localStorage.setItem('tssc_user',JSON.stringify({...u,name:snap.data().name,uid:user.uid})); } catch(e) {}
+    } else _setNavUser(user.displayName||user.email||'Student');
+  } catch(e) { _setNavUser(user.displayName||user.email||'Student'); }
+  _syncAttempts(user.uid);
+});
+</script>
 </body>
 </html>
