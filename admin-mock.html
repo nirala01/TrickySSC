@@ -2445,7 +2445,21 @@ window.importCSV = async () => {
     mockId = `${mockExam}_${mockTier}_mock${seriesNum}`.toLowerCase();
   }
 
-  let saved = 0, errors = 0;
+  // ── Duplicate guard (mock imports only) ──
+  // Pre-fetch existing questions for this mockId so re-running the import
+  // never creates duplicates. Key = mockId|qNum|language.
+  const existingKeys = new Set();
+  if (isMock && seriesNum && mockId) {
+    try {
+      const dupSnap = await getDocs(query(collection(db, 'questions'), where('mockId', '==', mockId)));
+      dupSnap.docs.forEach(d => {
+        const dd = d.data();
+        existingKeys.add(`${mockId}|${parseInt(dd.qNum)||0}|${dd.language||dd.lang||'en'}`);
+      });
+    } catch(e) { console.error('dup-check fetch failed:', e); }
+  }
+
+  let saved = 0, errors = 0, skipped = 0;
   for (let i = 0; i < csvParsedRows.length; i++) {
     const r = csvParsedRows[i];
     const exam = ovExam || r.exam || '';
@@ -2453,6 +2467,12 @@ window.importCSV = async () => {
     const year = ovYear || r.year || '';
     const language = ovLang || r.language || 'en';
     if (!r.text || !r.correct || !exam) { errors++; continue; }
+    // Skip if this exact mock+qNum+language already exists
+    if (isMock && seriesNum && mockId) {
+      const key = `${mockId}|${parseInt(r.qNum)||0}|${language}`;
+      if (existingKeys.has(key)) { skipped++; bar.style.width = ((i+1)/csvParsedRows.length*100) + '%'; continue; }
+      existingKeys.add(key); // guard against dupes within the same CSV too
+    }
     try {
       const docData = {
         text: r.text, exam, tier, year, language,
@@ -2486,17 +2506,25 @@ window.importCSV = async () => {
       const existing = await getDocs(query(collection(db, 'mock_tests'), where('mockId', '==', mockId)));
       const qSnap = await getDocs(query(collection(db, 'questions'), where('mockId', '==', mockId)));
       const totalQ = qSnap.docs.length;
+      // Derive which languages actually exist for this mock + per-language counts
+      const langCounts = {};
+      qSnap.docs.forEach(d => {
+        const L = (d.data().language || d.data().lang || 'en');
+        langCounts[L] = (langCounts[L] || 0) + 1;
+      });
+      const langs = Object.keys(langCounts).sort(); // e.g. ['en','hi']
       if (existing.empty) {
         const examName = mockExam.replace('ssc-', 'SSC ').toUpperCase();
         await addDoc(collection(db, 'mock_tests'), {
           mockId, exam: mockExam, tier: mockTier, seriesNum,
           title: `${examName} Mock Test ${seriesNum}`,
-          totalQuestions: totalQ, isPublished: false, createdAt: new Date()
+          totalQuestions: totalQ, languages: langs, langCounts,
+          isPublished: false, createdAt: new Date()
         });
-        mockNote = ` — created mock_tests entry "${mockId}"`;
+        mockNote = ` — created mock_tests entry "${mockId}" [${langs.join(', ')}]`;
       } else {
-        await updateDoc(existing.docs[0].ref, { totalQuestions: totalQ });
-        mockNote = ` — updated mock "${mockId}" (now ${totalQ} Qs)`;
+        await updateDoc(existing.docs[0].ref, { totalQuestions: totalQ, languages: langs, langCounts });
+        mockNote = ` — updated mock "${mockId}" (${totalQ} Qs · ${langs.join('+')})`;
       }
     } catch(e) {
       console.error('mock_tests sync error:', e);
@@ -2504,8 +2532,8 @@ window.importCSV = async () => {
     }
   }
 
-  status.textContent = `✅ Imported ${saved} questions${errors ? ' (' + errors + ' errors)' : ''}${mockNote}.`;
-  showToast(`✅ ${saved} questions imported!`, 'success');
+  status.textContent = `✅ Imported ${saved} questions${skipped ? ' · ' + skipped + ' skipped (already exist)' : ''}${errors ? ' · ' + errors + ' errors' : ''}${mockNote}.`;
+  showToast(`✅ ${saved} imported${skipped ? ', ' + skipped + ' skipped' : ''}!`, 'success');
   document.getElementById('csvImportBtn').disabled = false;
   loadStats();
 };
@@ -3736,6 +3764,10 @@ window.mmLoad = async () => {
             </div>
           </div>
           <div style="display:flex;gap:0.4rem;flex-wrap:wrap;">
+            <button onclick="mmTogglePublish('${m.id}',${!m.isPublished})"
+              style="background:${m.isPublished?'#F59E0B':'#00A86B'};color:#fff;border:none;border-radius:6px;padding:0.3rem 0.75rem;font-size:0.75rem;font-weight:600;cursor:pointer;">
+              ${m.isPublished?'⏸ Unpublish':'🚀 Publish'}
+            </button>
             <button onclick="mmViewQuestions('${m.id}','${m.mockId||''}','${(m.title||'').replace(/'/g,'')}',${m.seriesNum||0},'${m.exam||''}')"
               style="background:#3B82F6;color:#fff;border:none;border-radius:6px;padding:0.3rem 0.75rem;font-size:0.75rem;font-weight:600;cursor:pointer;">
               📋 View/Edit Questions
@@ -3751,6 +3783,14 @@ window.mmLoad = async () => {
   } catch(e) {
     list.innerHTML = '<div style="color:#EF4444;font-size:0.85rem;">Error: '+e.message+'</div>';
   }
+};
+
+window.mmTogglePublish = async (id, newState) => {
+  try {
+    await updateDoc(doc(db,'mock_tests',id), { isPublished: newState, updatedAt: new Date() });
+    showToast(newState ? '🚀 Mock is now LIVE on the site!' : '⏸ Mock unpublished (hidden)', newState ? 'success' : '');
+    mmLoad();
+  } catch(e) { showToast('Error: ' + e.message, 'error'); }
 };
 
 window.mmDeleteMock = async (docId, mockId, title) => {
