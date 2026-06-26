@@ -447,8 +447,20 @@ async function loadDashboard(user) {
 
   // ── Load user profile + attempts from Firestore ──
   try {
-    // Always use Firebase Auth uid for Google users
-    const effectiveUid = user.uid;
+    // Prefer the stored account identity (same one the rest of the site uses),
+    // so a stale Firebase session can't make the dashboard read the wrong
+    // account. login.html rewrites tssc_user on every login, so this is always
+    // as fresh as the live session. Skip phone_ placeholders (new mobile users).
+    let effectiveUid = user.uid;
+    try {
+      const _s = localStorage.getItem('tssc_user');
+      if (_s) {
+        const _u = JSON.parse(_s);
+        if (_u && _u.uid && !String(_u.uid).startsWith('phone_')) {
+          effectiveUid = _u.uid;
+        }
+      }
+    } catch(e) {}
     console.log('[Dashboard] Loading for uid:', effectiveUid);
 
     // Get user profile from Firestore
