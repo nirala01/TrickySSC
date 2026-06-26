@@ -371,6 +371,41 @@ function canonSubject(s){
   return SUBJECT_CANON[k] || s || '';
 }
 
+// ── Content normalization ──
+// The test player renders KaTeX with \( \) / \[ \] delimiters (dollar signs are
+// OFF on purpose). Mock CSVs often use $...$ — convert them. Also insert [BR]
+// line breaks before list items / Statements / Assertion-Reason so multi-part
+// questions don't render as one run-on paragraph.
+function convertMathDelims(s){
+  if(!s) return s;
+  // $$...$$  → \[ ... \]   (display)
+  s = s.replace(/\$\$([\s\S]+?)\$\$/g, (_,inner)=>'\\[' + inner + '\\]');
+  // $...$    → \( ... \)   (inline). Avoid matching empty $$ already handled.
+  s = s.replace(/\$([^$\n]+?)\$/g, (_,inner)=>'\\(' + inner + '\\)');
+  return s;
+}
+function autoLineBreaks(s){
+  if(!s) return s;
+  if(s.indexOf('[BR]')!==-1) return s; // already formatted, leave it
+  let out = s;
+  // Break before structural keywords
+  out = out.replace(/\s*(Statements?:)/g, '[BR][BR]$1');
+  out = out.replace(/\s*(Conclusions?:)/g, '[BR]$1');
+  out = out.replace(/\s*(Assertion\s*\(A\):)/g, '[BR][BR]$1');
+  out = out.replace(/\s*(Reason\s*\(R\):)/g, '[BR]$1');
+  // Break before numbered items "1." "2." ... and roman "I." "II." when mid-sentence
+  out = out.replace(/\s+(\d{1,2}\.\s)/g, '[BR]$1');
+  out = out.replace(/\s+((?:I|II|III|IV|V)\.\s)/g, '[BR]$1');
+  // Collapse leading breaks
+  out = out.replace(/^(\[BR\])+/, '');
+  return out;
+}
+function normalizeField(s, {breaks=false} = {}){
+  let v = convertMathDelims(s||'');
+  if(breaks) v = autoLineBreaks(v);
+  return v;
+}
+
 // ── Import ──
 window.importCSV = async () => {
   if(!csvParsedRows.length) return;
@@ -405,11 +440,15 @@ window.importCSV = async () => {
         mockNum:num, mockSeriesNum:num,
         subject: canonSubject(r.subject), chapter: r.chapter||'',
         difficulty: r.difficulty||'medium', qNum: parseInt(r.qNum)||(i+1),
-        text: r.text,
-        options:{A:r.option_A||'',B:r.option_B||'',C:r.option_C||'',D:r.option_D||''},
-        option_A:r.option_A||'',option_B:r.option_B||'',option_C:r.option_C||'',option_D:r.option_D||'',
+        text: normalizeField(r.text, {breaks:true}),
+        options:{
+          A:normalizeField(r.option_A),B:normalizeField(r.option_B),
+          C:normalizeField(r.option_C),D:normalizeField(r.option_D)
+        },
+        option_A:normalizeField(r.option_A),option_B:normalizeField(r.option_B),
+        option_C:normalizeField(r.option_C),option_D:normalizeField(r.option_D),
         correct: (r.correct||'').trim().toUpperCase(),
-        explanation: r.explanation||'', trick:r.trick||'', concept:r.concept||'',
+        explanation: normalizeField(r.explanation), trick:normalizeField(r.trick), concept:r.concept||'',
         imageUrl:r.imageUrl||'',
         createdAt:new Date()
       });
