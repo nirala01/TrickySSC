@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Mock Inspector — TrickySSC</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:system-ui,sans-serif;}
+body{background:#0F172A;color:#E2E8F0;padding:1.5rem;max-width:1000px;margin:0 auto;}
+h1{font-size:1.3rem;margin-bottom:0.25rem;}
+p.sub{color:#94A3B8;font-size:0.85rem;margin-bottom:1.5rem;}
+.row{display:flex;gap:0.6rem;flex-wrap:wrap;align-items:flex-end;margin-bottom:1rem;}
+label{display:block;font-size:0.72rem;color:#94A3B8;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.3rem;}
+input,select{background:#1E293B;border:1px solid #334155;border-radius:8px;padding:0.6rem 0.8rem;color:#E2E8F0;font-size:0.9rem;outline:none;}
+input{min-width:320px;}
+button{background:#7C3AED;color:#fff;border:none;border-radius:8px;padding:0.6rem 1.1rem;font-weight:600;font-size:0.9rem;cursor:pointer;}
+button.danger{background:#EF4444;}
+button:disabled{opacity:0.5;cursor:not-allowed;}
+.card{background:#1E293B;border:1px solid #334155;border-radius:12px;padding:1.1rem;margin-bottom:1rem;}
+.card h3{font-size:1rem;margin-bottom:0.75rem;}
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:0.6rem;}
+.stat{background:#0F172A;border:1px solid #334155;border-radius:8px;padding:0.7rem;text-align:center;}
+.stat .n{font-size:1.4rem;font-weight:700;}
+.stat .l{font-size:0.7rem;color:#94A3B8;}
+.ok{color:#4ADE80;}.bad{color:#F87171;}
+table{width:100%;border-collapse:collapse;font-size:0.8rem;margin-top:0.5rem;}
+th{background:#0F172A;color:#94A3B8;padding:0.5rem;text-align:left;font-size:0.72rem;text-transform:uppercase;}
+td{padding:0.45rem 0.5rem;border-bottom:1px solid #0F172A;}
+tr:hover td{background:#0F172A55;}
+.dup-row td{background:#7f1d1d33;}
+.muted{color:#64748B;}
+.pill{display:inline-block;background:#334155;border-radius:5px;padding:0.05rem 0.4rem;font-size:0.7rem;margin-left:0.3rem;}
+#log{font-family:monospace;font-size:0.78rem;color:#64748B;white-space:pre-wrap;margin-top:0.5rem;}
+.del-btn{background:#EF4444;color:#fff;border:none;border-radius:5px;padding:0.2rem 0.55rem;font-size:0.72rem;cursor:pointer;}
+</style>
+</head>
+<body>
+<h1>🔍 Mock Inspector</h1>
+<p class="sub">Loads every question for a mockId, shows per-subject counts and flags duplicate (subject + qNum + language) rows. Read-only unless you click a delete.</p>
+
+<div class="card">
+  <div class="row">
+    <div>
+      <label>Mock ID</label>
+      <input id="mockId" placeholder="e.g. ssc-cgl_tier1_mock1" value="ssc-cgl_tier1_mock1">
+    </div>
+    <div>
+      <label>Language filter</label>
+      <select id="langFilter">
+        <option value="">All languages</option>
+        <option value="en">English only</option>
+        <option value="hi">Hindi only</option>
+      </select>
+    </div>
+    <button id="loadBtn" onclick="run()">🔍 Inspect</button>
+  </div>
+  <div id="log"></div>
+</div>
+
+<div id="results"></div>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+import { getFirestore, collection, query, where, getDocs, deleteDoc, doc }
+  from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+const db = getFirestore(initializeApp({
+  apiKey:'AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA',
+  authDomain:'trickyssc-17bb3.firebaseapp.com',
+  projectId:'trickyssc-17bb3',
+  storageBucket:'trickyssc-17bb3.firebasestorage.app',
+  messagingSenderId:'450627057220',
+  appId:'1:450627057220:web:366267bf437d94f20c6e11'
+}));
+
+const SUBJECTS = ['General Intelligence & Reasoning','General Awareness','Quantitative Aptitude','English Language'];
+const log = (m) => { document.getElementById('log').textContent += m + '\n'; };
+
+let loadedDocs = [];
+
+window.run = async () => {
+  const mockId = document.getElementById('mockId').value.trim();
+  const langF  = document.getElementById('langFilter').value;
+  document.getElementById('log').textContent = '';
+  document.getElementById('results').innerHTML = '';
+  if (!mockId) { log('Enter a mockId.'); return; }
+
+  log(`Querying questions where mockId == "${mockId}" ...`);
+  try {
+    const snap = await getDocs(query(collection(db,'questions'), where('mockId','==',mockId)));
+    loadedDocs = snap.docs.map(d => ({ id:d.id, ...d.data() }));
+    log(`Found ${loadedDocs.length} questions total.`);
+  } catch(e) {
+    log('ERROR: ' + e.message);
+    return;
+  }
+
+  let rows = loadedDocs;
+  if (langF) rows = rows.filter(r => (r.language||r.lang||'en') === langF);
+
+  // Per-subject, per-language counts
+  const byLang = {};
+  rows.forEach(r => {
+    const L = r.language||r.lang||'en';
+    byLang[L] = byLang[L] || {};
+    const s = r.subject || 'Unknown';
+    byLang[L][s] = (byLang[L][s]||0) + 1;
+  });
+
+  // Duplicate detection: key = lang | subject | qNum
+  const seen = {};
+  const dups = [];
+  rows.forEach(r => {
+    const key = `${r.language||r.lang||'en'}|${r.subject||'?'}|${parseInt(r.qNum)||0}`;
+    if (seen[key]) { dups.push({ ...r, _key:key, _firstId: seen[key] }); }
+    else seen[key] = r.id;
+  });
+
+  // Render
+  let html = '';
+
+  // Subject count cards per language
+  Object.keys(byLang).sort().forEach(L => {
+    const flag = L==='hi' ? '🇮🇳 Hindi' : '🇬🇧 English';
+    html += `<div class="card"><h3>${flag} — subject counts</h3><div class="stat-grid">`;
+    SUBJECTS.forEach(s => {
+      const c = byLang[L][s] || 0;
+      const cls = c === 25 ? 'ok' : 'bad';
+      const short = s.replace('General Intelligence & Reasoning','Reasoning').replace('Quantitative Aptitude','Quant').replace('General Awareness','GK').replace('English Language','English');
+      html += `<div class="stat"><div class="n ${cls}">${c}</div><div class="l">${short}${c!==25?' (want 25)':''}</div></div>`;
+    });
+    // Any non-standard subjects
+    const extra = Object.keys(byLang[L]).filter(s => !SUBJECTS.includes(s));
+    extra.forEach(s => {
+      html += `<div class="stat"><div class="n bad">${byLang[L][s]}</div><div class="l">⚠️ ${s}</div></div>`;
+    });
+    const total = Object.values(byLang[L]).reduce((a,b)=>a+b,0);
+    html += `</div><p style="margin-top:0.6rem;font-size:0.85rem;">Total ${flag}: <strong class="${total===100?'ok':'bad'}">${total}</strong> ${total!==100?'(want 100)':''}</p></div>`;
+  });
+
+  // Duplicates table
+  if (dups.length) {
+    html += `<div class="card"><h3 class="bad">⚠️ ${dups.length} duplicate question(s) found</h3>
+      <p class="muted" style="font-size:0.82rem;margin-bottom:0.5rem;">These share the same language + subject + qNum as an earlier row. Delete the duplicate (keeps the first copy).</p>
+      <table><thead><tr><th>qNum</th><th>Lang</th><th>Subject</th><th>Text (start)</th><th>Action</th></tr></thead><tbody>`;
+    dups.forEach(d => {
+      const short = (d.subject||'?').replace('General Intelligence & Reasoning','Reasoning').replace('Quantitative Aptitude','Quant').replace('General Awareness','GK').replace('English Language','English');
+      html += `<tr class="dup-row">
+        <td>${d.qNum}</td>
+        <td>${d.language||d.lang||'en'}</td>
+        <td>${short}</td>
+        <td class="muted">${(d.text||'').slice(0,50)}…</td>
+        <td><button class="del-btn" onclick="delOne('${d.id}')">🗑 Delete dup</button></td>
+      </tr>`;
+    });
+    html += `</tbody></table>
+      <button class="danger" style="margin-top:0.75rem;" onclick="delAllDups()">🗑 Delete ALL ${dups.length} duplicates</button>
+      </div>`;
+    window._dups = dups;
+  } else {
+    html += `<div class="card"><h3 class="ok">✅ No duplicates found</h3><p class="muted" style="font-size:0.82rem;">Every language + subject + qNum is unique.</p></div>`;
+  }
+
+  document.getElementById('results').innerHTML = html;
+};
+
+window.delOne = async (id) => {
+  if (!confirm('Delete this duplicate question?')) return;
+  try { await deleteDoc(doc(db,'questions',id)); log(`Deleted ${id}`); run(); }
+  catch(e){ alert('Error: '+e.message); }
+};
+
+window.delAllDups = async () => {
+  const dups = window._dups || [];
+  if (!dups.length) return;
+  if (!confirm(`Delete all ${dups.length} duplicate questions? The first copy of each is kept. This cannot be undone.`)) return;
+  let ok=0, err=0;
+  for (const d of dups) {
+    try { await deleteDoc(doc(db,'questions',d.id)); ok++; }
+    catch(e){ err++; console.error(e); }
+  }
+  log(`Deleted ${ok} duplicates${err?', '+err+' errors':''}.`);
+  run();
+};
+</script>
+</body>
+</html>
