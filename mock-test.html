@@ -343,6 +343,8 @@ const docId      = params.get('docId')  || '';
 const exam       = params.get('exam')   || '';
 const seriesNum  = parseInt(params.get('series') || '1');
 const tier       = params.get('tier') || 'Tier I';
+const urlLang    = (params.get('lang') || '').toLowerCase();  // 'en' | 'hi' | '' (chooses up front)
+window.__urlLang = urlLang;
 
 window._db = db;
 window._getDoc = getDoc;
@@ -593,12 +595,19 @@ window._initTest = (meta, qs) => {
   // Build sections
   allQuestions = qs;
 
-  // Detect if bilingual
+  // Detect available languages
   const langs = [...new Set(qs.map(q => q.lang || 'en'))];
-  if (langs.length > 1) {
-    // Show language toggle
+  const chosen = window.__urlLang || '';  // 'en' | 'hi' from the chooser popup
+
+  if (chosen && langs.includes(chosen)) {
+    // Language was chosen up front (PYQ-style) — lock to it, no in-test toggle.
+    activeLang = chosen;
+    questions = qs.filter(q => (q.lang || 'en') === chosen);
+    document.getElementById('langToggleWrap').style.display = 'none';
+    questions.forEach((q,i) => q._num = i+1);
+  } else if (langs.length > 1) {
+    // No explicit choice but bilingual data present — fall back to in-test toggle.
     document.getElementById('langToggleWrap').style.display = 'block';
-    // Default to English
     activeLang = 'en';
     questions = qs.filter(q => (q.lang||'en') === 'en');
     if (!questions.length) { activeLang = langs[0]; questions = qs.filter(q => (q.lang||'en') === activeLang); }
@@ -607,6 +616,8 @@ window._initTest = (meta, qs) => {
     activeLang = langs[0] || 'en';
     questions = qs;
   }
+  // How many distinct languages we are actually showing (1 when locked/single)
+  const shownLangCount = (chosen && langs.includes(chosen)) ? 1 : langs.length;
 
   // Chapter test: single section, no subject splitting
   if (meta.isChapterTest) {
@@ -634,9 +645,9 @@ window._initTest = (meta, qs) => {
   document.getElementById('instrSubtitle').textContent = meta.isChapterTest
     ? meta.tier
     : `${meta.exam?.toUpperCase()} — ${meta.tier}`;
-  document.getElementById('instrQs').textContent = (langs.length > 1 ? qs.length/2 : qs.length) + (langs.length > 1 ? ' (×2 langs)' : '');
+  document.getElementById('instrQs').textContent = (shownLangCount > 1 ? qs.length/2 : questions.length) + (shownLangCount > 1 ? ' (×2 langs)' : '');
   document.getElementById('instrTime').textContent     = meta.duration || 60;
-  document.getElementById('instrMarks').textContent    = meta.totalMarks || qs.length * 2;
+  document.getElementById('instrMarks').textContent    = meta.totalMarks || questions.length * 2;
   document.getElementById('testTitle').textContent     = meta.title || 'Mock Test';
 
   setLoad(100,'Ready!');
