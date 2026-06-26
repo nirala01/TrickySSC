@@ -691,6 +691,20 @@ function _setNavUser(name) {{
 
 /* ---- Attempted tracking ---- */
 const __attempted = new Set();
+
+// Instant, device-local source (same as ssc-cgl.html): test.html writes
+// each attempted paper to localStorage 'tssc_attempted' keyed by paper id.
+// This shows "Attempted" immediately, without waiting on auth or network, and
+// works regardless of which account is currently signed in on this device.
+function _loadLocalAttempts() {{
+  try {{
+    const seen = JSON.parse(localStorage.getItem('tssc_attempted') || '{{}}');
+    Object.keys(seen).forEach(k => {{
+      if(k.startsWith('p:')) __attempted.add(k.slice(2));
+    }});
+  }} catch(e) {{}}
+}}
+
 function _applyPills() {{
   document.querySelectorAll('.pyq-attempt-btn').forEach(btn => {{
     const pe = btn.getAttribute('data-pid-en');
@@ -704,6 +718,11 @@ function _applyPills() {{
     }}
   }});
 }}
+
+// Load device-local attempts and paint pills right away (before auth).
+_loadLocalAttempts();
+_applyPills();
+
 async function _syncAttempts(uid) {{
   if(!uid) return;
   const _ck = 'tssc_attempts_' + uid, _ttl = 10*60*1000;
