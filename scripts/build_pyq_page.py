@@ -791,6 +791,73 @@ onAuthStateChanged(_auth, async user => {{
 # ---------------------------------------------------------------------------
 # MAIN
 # ---------------------------------------------------------------------------
+SITEMAP_FILE = "sitemap.xml"
+
+
+def update_sitemap_lastmod():
+    """Update only the <lastmod> of the ssc-cgl-pyq.html entry in sitemap.xml
+    to today's date. Leaves every other entry and the file's formatting
+    (including CRLF/LF line endings) untouched. Safe no-op if the sitemap or
+    the entry isn't found."""
+    import os
+    if not os.path.exists(SITEMAP_FILE):
+        print(f"  (sitemap: {SITEMAP_FILE} not found, skipping)", file=sys.stderr)
+        return
+
+    today = datetime.datetime.utcnow().strftime("%Y-%m-%d")
+    page_url = f"{SITE}/{OUTPUT_FILE}"
+
+    # Read in binary to preserve the file's exact line endings (CRLF vs LF).
+    with open(SITEMAP_FILE, "rb") as f:
+        raw = f.read()
+    uses_crlf = b"\r\n" in raw
+    content = raw.decode("utf-8")
+    if uses_crlf:
+        content = content.replace("\r\n", "\n")  # normalize for editing
+
+    # Locate the <url>…</url> block that contains our page's <loc>.
+    loc_pos = content.find(page_url)
+    if loc_pos == -1:
+        print(f"  (sitemap: {OUTPUT_FILE} entry not found, skipping)",
+              file=sys.stderr)
+        return
+
+    block_start = content.rfind("<url>", 0, loc_pos)
+    block_end = content.find("</url>", loc_pos)
+    if block_start == -1 or block_end == -1:
+        print("  (sitemap: malformed entry, skipping)", file=sys.stderr)
+        return
+    block = content[block_start:block_end]
+
+    # Replace the <lastmod>…</lastmod> inside just this block.
+    new_block, n = re.subn(
+        r"<lastmod>.*?</lastmod>",
+        f"<lastmod>{today}</lastmod>",
+        block,
+        count=1,
+    )
+
+    if n == 0:
+        # No <lastmod> present in the block — insert one right after </loc>.
+        new_block = block.replace(
+            "</loc>", f"</loc>\n    <lastmod>{today}</lastmod>", 1
+        )
+
+    if new_block == block:
+        print(f"  (sitemap: lastmod already {today}, no change)",
+              file=sys.stderr)
+        return
+
+    content = content[:block_start] + new_block + content[block_end:]
+    # Restore the file's original line-ending style.
+    if uses_crlf:
+        content = content.replace("\n", "\r\n")
+    with open(SITEMAP_FILE, "wb") as f:
+        f.write(content.encode("utf-8"))
+    print(f"  updated {SITEMAP_FILE}: {OUTPUT_FILE} lastmod → {today}",
+          file=sys.stderr)
+
+
 def main():
     import urllib.parse  # noqa (used in helpers)
     print("Fetching papers from Firestore…", file=sys.stderr)
@@ -806,6 +873,10 @@ def main():
     years = ", ".join(ordered.keys()) or "(none)"
     print(f"  wrote {OUTPUT_FILE} — {total} papers across years: {years}",
           file=sys.stderr)
+
+    # Keep the sitemap's "last updated" date for this page in sync, so Google
+    # re-crawls it promptly after new papers are added.
+    update_sitemap_lastmod()
 
 
 # urllib.parse needed at module level for helpers
