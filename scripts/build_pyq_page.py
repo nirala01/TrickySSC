@@ -719,9 +719,20 @@ function _applyPills() {{
   }});
 }}
 
-// Load device-local attempts and paint pills right away (before auth).
-_loadLocalAttempts();
-_applyPills();
+// Attempted status is applied only AFTER we know the user is logged in
+// (see onAuthStateChanged below). Logged-out visitors see plain
+// "Attempt Test" on every paper.
+
+// Reset every paper to the not-attempted state (used on logout).
+function _resetPills() {{
+  __attempted.clear();
+  document.querySelectorAll('.pyq-attempt-btn').forEach(btn => {{
+    const pick = btn.getAttribute('data-pick');
+    const pill = document.querySelector('.attempt-pill[data-pill="'+pick+'"]');
+    if(pill) {{ pill.className = 'attempt-pill todo'; pill.textContent = '○ Not Attempted'; }}
+    btn.innerHTML = '▶ Attempt Test';
+  }});
+}}
 
 async function _syncAttempts(uid) {{
   if(!uid) return;
@@ -746,7 +757,14 @@ async function _syncAttempts(uid) {{
 }}
 
 onAuthStateChanged(_auth, async user => {{
-  if(!user) return;
+  if(!user) {{
+    // Logged out → show plain "Attempt Test" everywhere, no attempted status.
+    _resetPills();
+    return;
+  }}
+  // Logged in → show attempted status. Device-local first (instant)...
+  _loadLocalAttempts();
+  _applyPills();
   // name from local cache first (instant)
   try {{ const s = localStorage.getItem('tssc_user'); if(s){{ const u = JSON.parse(s); if(u.name && u.name!=='Student') _setNavUser(u.name); }} }} catch(e) {{}}
   // then authoritative name from `users` collection
@@ -760,7 +778,7 @@ onAuthStateChanged(_auth, async user => {{
       }} else _setNavUser(user.displayName||user.email||'Student');
     }} else _setNavUser(user.displayName||user.email||'Student');
   }} catch(e) {{ _setNavUser(user.displayName||user.email||'Student'); }}
-  // attempts → pills
+  // ...then authoritative attempts from Firestore for this account.
   _syncAttempts(user.uid);
 }});
 </script>
