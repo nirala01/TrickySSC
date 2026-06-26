@@ -141,6 +141,11 @@
   .tag-gray{background:#F1F5F9;color:var(--gray);}
 
   /* ── ATTEMPTS TABLE ── */
+  .attempts-tabs{display:flex;gap:0.4rem;margin-bottom:0.85rem;flex-wrap:wrap;}
+  .att-tab{padding:0.5rem 1rem;border-radius:10px;border:1px solid var(--border);background:#fff;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.88rem;color:var(--gray);cursor:pointer;display:flex;align-items:center;gap:0.35rem;}
+  .att-tab.active{background:linear-gradient(135deg,#FF6B00,#FF8C38);color:#fff;border-color:transparent;}
+  .att-count{background:#F1F5F9;color:var(--gray);border-radius:100px;padding:0.02rem 0.45rem;font-size:0.72rem;}
+  .att-tab.active .att-count{background:rgba(255,255,255,0.25);color:#fff;}
   .attempts-card{
     background:#fff;border-radius:16px;
     border:1px solid var(--border);overflow:hidden;
@@ -302,6 +307,11 @@
   <!-- Recent Attempts -->
   <div class="section-head">
     <div class="section-title">📊 My Recent Attempts</div>
+  </div>
+  <div class="attempts-tabs">
+    <button class="att-tab active" id="atab-all" onclick="switchAttTab('all')">All <span class="att-count" id="acnt-all">0</span></button>
+    <button class="att-tab" id="atab-pyq" onclick="switchAttTab('pyq')">📄 PYQ <span class="att-count" id="acnt-pyq">0</span></button>
+    <button class="att-tab" id="atab-mock" onclick="switchAttTab('mock')">🧪 Mock Tests <span class="att-count" id="acnt-mock">0</span></button>
   </div>
   <div class="attempts-card">
     <div id="attemptsBody"></div>
@@ -528,8 +538,18 @@ async function loadDashboard(user) {
       }, {merge: true});
     }
 
-    // Render attempts table
-    renderAttempts(attempts);
+    // Store globally and split PYQ vs Mock for the tabs.
+    // A mock attempt has a mockId (set by mock-test.html); otherwise it's a PYQ.
+    _allAttempts = attempts;
+    const isMock = a => !!(a.mockId || a.type==='mock' || (a.paperId||'').includes('_mock'));
+    _mockAttempts = attempts.filter(isMock);
+    _pyqAttempts  = attempts.filter(a => !isMock(a));
+    document.getElementById('acnt-all').textContent  = attempts.length;
+    document.getElementById('acnt-pyq').textContent  = _pyqAttempts.length;
+    document.getElementById('acnt-mock').textContent = _mockAttempts.length;
+
+    // Render attempts table (active tab)
+    renderAttempts(_attemptsFor(_attTab));
 
     // Performance Analysis
     renderPerformance(attempts);
@@ -765,6 +785,20 @@ async function renderRankPreview(attempts, uid) {
   } catch (e) { /* index building or no data — leave card hidden */ }
 }
 
+let _allAttempts = [], _pyqAttempts = [], _mockAttempts = [], _attTab = 'all';
+function _attemptsFor(tab){
+  if(tab==='pyq')  return _pyqAttempts;
+  if(tab==='mock') return _mockAttempts;
+  return _allAttempts;
+}
+window.switchAttTab = (tab) => {
+  _attTab = tab;
+  ['all','pyq','mock'].forEach(t=>{
+    document.getElementById('atab-'+t).classList.toggle('active', t===tab);
+  });
+  renderAttempts(_attemptsFor(tab));
+};
+
 function renderAttempts(attempts) {
   const el = document.getElementById('attemptsBody');
   if (attempts.length === 0) {
@@ -787,9 +821,22 @@ function renderAttempts(attempts) {
       ? a.timestamp.toDate().toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})
       : '—';
     const examName = a.examName || ((EXAM_NAMES[a.exam]||a.exam||'—') + (a.year?' '+a.year:''));
-    const retryUrl = 'test.html?exam='+a.exam+(a.year?'&year='+a.year:'')+(a.paperId?'&paperId='+a.paperId:'');
+    const _isMock = !!(a.mockId || a.type==='mock' || (a.paperId||'').includes('_mock'));
+    let retryUrl;
+    if(_isMock){
+      const mid = a.mockId || a.paperId || '';
+      const t2 = (a.tier==='tier2') || (mid.includes('_tier2_'));
+      const player = t2 ? 'mock-test-tier2.html' : 'mock-test.html';
+      const lang = mid.endsWith('_hi') ? 'hi' : 'en';
+      retryUrl = player+'?exam='+(a.exam||'')+'&mockId='+encodeURIComponent(mid)+'&lang='+lang;
+    } else {
+      retryUrl = 'test.html?exam='+a.exam+(a.year?'&year='+a.year:'')+(a.paperId?'&paperId='+a.paperId:'');
+    }
+    const typeTag = _isMock
+      ? '<span style="background:#EDE9FE;color:#7C3AED;border-radius:5px;padding:0.05rem 0.4rem;font-size:0.66rem;font-weight:700;margin-left:0.4rem;">MOCK</span>'
+      : '<span style="background:#FFF7ED;color:#FF6B00;border-radius:5px;padding:0.05rem 0.4rem;font-size:0.66rem;font-weight:700;margin-left:0.4rem;">PYQ</span>';
     return `<tr>
-      <td><b>${examName}</b></td>
+      <td><b>${examName}</b>${typeTag}</td>
       <td>${a.total||'—'} Qs</td>
       <td><span class="score-pill ${cls}">${displayScore}</span></td>
       <td style="color:var(--green);font-weight:600;">✅ ${a.correct||0}</td>
