@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Question Cleaner — TrickySSC</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:system-ui,sans-serif;}
+body{background:#0F172A;color:#E2E8F0;padding:1.5rem;max-width:1000px;margin:0 auto;}
+h1{font-size:1.3rem;margin-bottom:0.25rem;}
+p.sub{color:#94A3B8;font-size:0.85rem;margin-bottom:1.25rem;}
+button{background:#7C3AED;color:#fff;border:none;border-radius:8px;padding:0.6rem 1.1rem;font-weight:600;font-size:0.9rem;cursor:pointer;}
+button.danger{background:#EF4444;}
+button:disabled{opacity:0.5;cursor:not-allowed;}
+.q{background:#1E293B;border:1px solid #334155;border-radius:10px;padding:0.9rem 1rem;margin-bottom:0.7rem;}
+.q-top{display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;}
+.q-meta{display:flex;gap:0.35rem;flex-wrap:wrap;margin-bottom:0.4rem;}
+.tag{background:#334155;color:#CBD5E1;border-radius:5px;padding:0.1rem 0.45rem;font-size:0.7rem;font-weight:600;}
+.tag.warn{background:#7f1d1d;color:#FCA5A5;}
+.q-text{font-size:0.85rem;line-height:1.5;color:#E2E8F0;}
+.q-fields{font-family:monospace;font-size:0.72rem;color:#64748B;margin-top:0.4rem;word-break:break-all;}
+.del{background:#EF4444;color:#fff;border:none;border-radius:6px;padding:0.35rem 0.7rem;font-size:0.78rem;font-weight:600;cursor:pointer;flex-shrink:0;}
+#log{font-family:monospace;font-size:0.78rem;color:#64748B;white-space:pre-wrap;margin:0.75rem 0;}
+.bar{display:flex;gap:0.6rem;align-items:center;margin-bottom:1rem;flex-wrap:wrap;}
+</style>
+</head>
+<body>
+<h1>🧹 Question Cleaner</h1>
+<p class="sub">Lists EVERY question in the database (no filters), so stuck/orphan questions can't hide. Shows each question's key fields. Delete individually or all at once. Use this to clean up the last few rogue questions.</p>
+
+<div class="bar">
+  <button id="loadBtn" onclick="loadAll()">📋 Load ALL Questions</button>
+  <button class="danger" id="nukeBtn" onclick="deleteAll()" disabled>🗑 Delete ALL Shown</button>
+  <span id="count" style="color:#94A3B8;font-size:0.85rem;"></span>
+</div>
+<div id="log"></div>
+<div id="list"></div>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+import { getFirestore, collection, getDocs, deleteDoc, doc }
+  from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+const db = getFirestore(initializeApp({
+  apiKey:'AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA',
+  authDomain:'trickyssc-17bb3.firebaseapp.com',
+  projectId:'trickyssc-17bb3',
+  storageBucket:'trickyssc-17bb3.firebasestorage.app',
+  messagingSenderId:'450627057220',
+  appId:'1:450627057220:web:366267bf437d94f20c6e11'
+}));
+
+const log = (m) => { document.getElementById('log').textContent += m + '\n'; };
+let all = [];
+
+window.loadAll = async () => {
+  document.getElementById('log').textContent = '';
+  document.getElementById('list').innerHTML = '';
+  log('Loading entire questions collection...');
+  try {
+    const snap = await getDocs(collection(db,'questions'));
+    all = snap.docs.map(d => ({ id:d.id, ...d.data() }));
+    log(`Found ${all.length} questions total.`);
+    document.getElementById('count').textContent = `${all.length} questions`;
+    document.getElementById('nukeBtn').disabled = all.length === 0;
+    render();
+  } catch(e) { log('ERROR: ' + e.message); }
+};
+
+function render() {
+  const list = document.getElementById('list');
+  if (!all.length) { list.innerHTML = '<p style="color:#4ADE80;">✅ Database is empty — nothing to clean.</p>'; return; }
+  list.innerHTML = all.map(q => {
+    const sub = (q.subject||'?');
+    const short = sub.replace('General Intelligence & Reasoning','Reasoning').replace('Quantitative Aptitude','Quant').replace('General Awareness','GK').replace('English Language','English');
+    const missingMock = (q.type==='mock' && (q.mockSeriesNum===undefined || q.mockId===undefined));
+    return `<div class="q" id="q-${q.id}">
+      <div class="q-top">
+        <div style="flex:1;">
+          <div class="q-meta">
+            <span class="tag">Q${q.qNum ?? '?'}</span>
+            <span class="tag">${short}</span>
+            <span class="tag">${q.type||'?'}</span>
+            <span class="tag">${q.language||q.lang||'en'}</span>
+            <span class="tag">${q.exam||'?'}</span>
+            <span class="tag">${q.tier||'?'}</span>
+            ${missingMock?'<span class="tag warn">⚠️ no mockId/seriesNum</span>':''}
+          </div>
+          <div class="q-text">${(q.text||'(no text)').slice(0,140)}${(q.text||'').length>140?'…':''}</div>
+          <div class="q-fields">id=${q.id} · mockId=${q.mockId ?? '∅'} · mockSeriesNum=${q.mockSeriesNum ?? '∅'} · year=${q.year ?? '∅'}</div>
+        </div>
+        <button class="del" onclick="delOne('${q.id}')">🗑 Delete</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+window.delOne = async (id) => {
+  if (!confirm('Delete this question permanently?')) return;
+  try {
+    await deleteDoc(doc(db,'questions',id));
+    all = all.filter(q => q.id !== id);
+    const el = document.getElementById('q-'+id); if (el) el.remove();
+    document.getElementById('count').textContent = `${all.length} questions`;
+    log('Deleted ' + id);
+    if (!all.length) render();
+  } catch(e){ alert('Error: '+e.message); }
+};
+
+window.deleteAll = async () => {
+  if (!all.length) return;
+  if (!confirm(`Delete ALL ${all.length} questions shown? This wipes the entire questions collection and cannot be undone.`)) return;
+  if (!confirm('Are you absolutely sure? This is irreversible.')) return;
+  let ok=0, err=0;
+  for (const q of [...all]) {
+    try { await deleteDoc(doc(db,'questions',q.id)); ok++; }
+    catch(e){ err++; console.error(e); }
+  }
+  log(`Deleted ${ok}${err?', '+err+' errors':''}.`);
+  loadAll();
+};
+</script>
+</body>
+</html>
