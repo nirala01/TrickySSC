@@ -61,6 +61,34 @@ td{padding:0.55rem 0.75rem;border-bottom:1px solid #1E293B;color:#CBD5E1;}
 .toast.error{background:#EF4444;color:#fff;}
 .toast.info{background:#7C3AED;color:#fff;}
 .pill{display:inline-block;background:rgba(124,58,237,0.15);color:#A855F7;border:1px solid rgba(124,58,237,0.3);border-radius:5px;padding:0.1rem 0.45rem;font-size:0.7rem;font-weight:700;font-family:monospace;}
+
+/* Question items */
+.q-item{background:#0F172A;border:1px solid #334155;border-radius:10px;padding:0.85rem 1rem;margin-bottom:0.7rem;}
+.q-head{display:flex;justify-content:space-between;gap:1rem;align-items:flex-start;}
+.q-text{flex:1;font-size:0.88rem;line-height:1.5;color:#E2E8F0;}
+.q-opts{display:grid;grid-template-columns:1fr 1fr;gap:0.4rem;margin-top:0.6rem;}
+@media(max-width:560px){.q-opts{grid-template-columns:1fr;}}
+.q-opt{font-size:0.8rem;color:#94A3B8;padding:0.35rem 0.55rem;border:1px solid #1E293B;border-radius:6px;}
+.q-opt.correct{border-color:#00A86B;color:#4ADE80;background:rgba(0,168,107,0.08);}
+.q-meta{display:flex;gap:0.35rem;flex-wrap:wrap;margin-top:0.55rem;}
+.q-tag{background:#334155;color:#94A3B8;border-radius:5px;padding:0.1rem 0.45rem;font-size:0.68rem;font-weight:600;}
+.q-btns{display:flex;gap:0.4rem;flex-shrink:0;}
+.q-btns button{border:none;border-radius:6px;padding:0.3rem 0.6rem;font-size:0.78rem;font-weight:600;cursor:pointer;}
+.b-edit{background:#3B82F6;color:#fff;}
+.b-del{background:#EF4444;color:#fff;}
+
+/* Edit modal */
+.modal{display:none;position:fixed;inset:0;z-index:7000;background:rgba(15,23,42,0.7);backdrop-filter:blur(4px);overflow-y:auto;padding:2rem 1rem;}
+.modal.show{display:block;}
+.modal-card{max-width:640px;margin:0 auto;background:#1E293B;border:1px solid #334155;border-radius:16px;padding:1.5rem;}
+.modal-card h3{font-family:'Rajdhani',sans-serif;font-size:1.2rem;color:#F1F5F9;margin-bottom:1rem;}
+.modal-card label{margin-top:0.85rem;}
+.modal-card textarea{width:100%;background:#0F172A;border:1px solid #334155;border-radius:8px;padding:0.6rem 0.8rem;color:#E2E8F0;font-size:0.88rem;outline:none;resize:vertical;min-height:60px;font-family:'Inter',sans-serif;}
+.modal-card textarea:focus{border-color:#7C3AED;}
+.opt-edit{display:flex;align-items:center;gap:0.5rem;margin-top:0.5rem;}
+.opt-edit input[type=radio]{width:auto;}
+.opt-edit .ol{font-weight:700;color:#94A3B8;width:18px;}
+.modal-actions{display:flex;gap:0.75rem;margin-top:1.25rem;justify-content:flex-end;}
 </style>
 </head>
 <body>
@@ -96,6 +124,7 @@ td{padding:0.55rem 0.75rem;border-bottom:1px solid #1E293B;color:#CBD5E1;}
 
   <div class="tabs">
     <button class="tab active" onclick="switchTab('import')" id="tab-import">📥 Import Mock CSV</button>
+    <button class="tab" onclick="switchTab('questions')" id="tab-questions">📝 Edit Questions</button>
     <button class="tab" onclick="switchTab('manage')" id="tab-manage">🗄 Manage Mocks</button>
   </div>
 
@@ -177,6 +206,53 @@ td{padding:0.55rem 0.75rem;border-bottom:1px solid #1E293B;color:#CBD5E1;}
     </div>
   </div>
 
+  <!-- EDIT QUESTIONS -->
+  <div class="panel" id="panel-questions">
+    <div class="card">
+      <h3>📝 Edit / Delete Mock Questions</h3>
+      <div class="info-box">Pick a mock paper to load all its questions. Edit or delete individually, or delete all at once.</div>
+      <div class="form-grid">
+        <div>
+          <label>Exam</label>
+          <select id="eqExam" onchange="eqLoadMocks()">
+            <option value="ssc-cgl">SSC CGL</option>
+            <option value="ssc-chsl">SSC CHSL</option>
+            <option value="ssc-mts">SSC MTS</option>
+            <option value="ssc-gd">SSC GD</option>
+            <option value="ssc-cpo">SSC CPO</option>
+            <option value="ssc-jht">SSC JHT</option>
+            <option value="ssc-je">SSC JE</option>
+          </select>
+        </div>
+        <div>
+          <label>Tier</label>
+          <select id="eqTier" onchange="eqLoadMocks()">
+            <option value="">All Tiers</option>
+            <option value="tier1">Tier I</option>
+            <option value="tier2">Tier II</option>
+          </select>
+        </div>
+        <div>
+          <label>Mock Paper</label>
+          <select id="eqMock" onchange="eqLoadQuestions()">
+            <option value="">— select —</option>
+          </select>
+        </div>
+        <div style="display:flex;align-items:flex-end;">
+          <button class="btn btn-secondary" onclick="eqLoadQuestions()" style="width:100%;">🔄 Load</button>
+        </div>
+      </div>
+
+      <div id="eqToolbar" style="display:none;align-items:center;gap:0.75rem;margin-bottom:0.75rem;flex-wrap:wrap;">
+        <span class="badge" id="eqCount">0 questions</span>
+        <input type="text" id="eqSearch" placeholder="🔍 filter by text / qNum" oninput="eqRender()" style="flex:1;min-width:160px;">
+        <button class="btn" style="background:#EF4444;color:#fff;font-size:0.8rem;padding:0.4rem 0.9rem;" onclick="eqDeleteAll()">🗑 Delete ALL in this mock</button>
+      </div>
+
+      <div id="eqList"></div>
+    </div>
+  </div>
+
   <!-- MANAGE -->
   <div class="panel" id="panel-manage">
     <div class="card">
@@ -213,12 +289,53 @@ td{padding:0.55rem 0.75rem;border-bottom:1px solid #1E293B;color:#CBD5E1;}
   </div>
 </div>
 
+<!-- Edit Question Modal -->
+<div class="modal" id="editModal" onclick="if(event.target===this)closeEdit()">
+  <div class="modal-card">
+    <h3>✏️ Edit Question <span id="editQLabel" class="pill"></span></h3>
+    <input type="hidden" id="editId">
+    <label>Question Text</label>
+    <textarea id="editText"></textarea>
+    <label>Options (select the correct one)</label>
+    <div class="opt-edit"><input type="radio" name="eCorrect" value="A" id="ec-A"><span class="ol">A</span><textarea id="eOptA" style="min-height:38px;"></textarea></div>
+    <div class="opt-edit"><input type="radio" name="eCorrect" value="B" id="ec-B"><span class="ol">B</span><textarea id="eOptB" style="min-height:38px;"></textarea></div>
+    <div class="opt-edit"><input type="radio" name="eCorrect" value="C" id="ec-C"><span class="ol">C</span><textarea id="eOptC" style="min-height:38px;"></textarea></div>
+    <div class="opt-edit"><input type="radio" name="eCorrect" value="D" id="ec-D"><span class="ol">D</span><textarea id="eOptD" style="min-height:38px;"></textarea></div>
+    <label>Explanation</label>
+    <textarea id="editExpl"></textarea>
+    <label>Trick</label>
+    <textarea id="editTrick" style="min-height:44px;"></textarea>
+    <div class="form-grid" style="margin-top:0.85rem;margin-bottom:0;">
+      <div>
+        <label style="margin-top:0;">Subject</label>
+        <input id="editSubject">
+      </div>
+      <div>
+        <label style="margin-top:0;">Difficulty</label>
+        <select id="editDifficulty">
+          <option value="easy">Easy</option>
+          <option value="medium">Medium</option>
+          <option value="hard">Hard</option>
+        </select>
+      </div>
+      <div>
+        <label style="margin-top:0;">Q Number</label>
+        <input type="number" id="editQNum">
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeEdit()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveEdit()">💾 Save</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
-import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, setDoc, query, where, getCountFromServer } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, setDoc, updateDoc, query, where, getCountFromServer } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",
@@ -253,11 +370,12 @@ window.googleLogin = async () => { try { await signInWithPopup(auth, new GoogleA
 window.logout = async () => { await signOut(auth); showToast('Logged out','info'); };
 
 window.switchTab = (t) => {
-  ['import','manage'].forEach(x => {
+  ['import','questions','manage'].forEach(x => {
     document.getElementById('panel-'+x).classList.toggle('active', x===t);
     document.getElementById('tab-'+x).classList.toggle('active', x===t);
   });
   if (t==='manage') mmLoad();
+  if (t==='questions') eqLoadMocks();
 };
 
 // Mock number dropdown depends on tier max
@@ -529,6 +647,150 @@ window.mmDelete = async (docId, mockId, title) => {
     await Promise.all(qsnap.docs.map(d=>deleteDoc(doc(db,'questions',d.id))));
     showToast(`✅ Deleted mock + ${qsnap.docs.length} questions`, 'success');
     mmLoad(); loadStats();
+  } catch(e){ showToast('Error: '+e.message,'error'); }
+};
+
+// ── EDIT QUESTIONS ──
+let eqDocs = [];
+
+window.eqLoadMocks = async () => {
+  const exam = document.getElementById('eqExam').value;
+  const tier = document.getElementById('eqTier').value;
+  const sel = document.getElementById('eqMock');
+  sel.innerHTML = '<option value="">⏳ loading...</option>';
+  try {
+    const snap = await getDocs(collection(db,'mock_tests'));
+    const mocks = snap.docs.map(d=>({id:d.id,...d.data()}))
+      .filter(m => (!exam||m.exam===exam) && (!tier||m.tier===tier))
+      .sort((a,b)=>{
+        if((a.seriesNum||0)!==(b.seriesNum||0)) return (a.seriesNum||0)-(b.seriesNum||0);
+        return (a.lang||'').localeCompare(b.lang||'');
+      });
+    if(!mocks.length){ sel.innerHTML='<option value="">— no mocks —</option>'; return; }
+    sel.innerHTML = '<option value="">— select —</option>' + mocks.map(m=>
+      `<option value="${m.mockId}">${m.title||m.mockId} [${m.lang==='hi'?'HI':'EN'}] · ${m.totalQuestions||0} Qs</option>`
+    ).join('');
+  } catch(e){ sel.innerHTML='<option value="">error</option>'; showToast('Error: '+e.message,'error'); }
+};
+
+window.eqLoadQuestions = async () => {
+  const mockId = document.getElementById('eqMock').value;
+  const listEl = document.getElementById('eqList');
+  if(!mockId){ listEl.innerHTML=''; document.getElementById('eqToolbar').style.display='none'; return; }
+  listEl.innerHTML = '<p style="color:#94A3B8;padding:1rem;">⏳ Loading questions...</p>';
+  try {
+    const snap = await getDocs(query(collection(db,'questions'), where('mockId','==',mockId)));
+    eqDocs = snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(parseInt(a.qNum)||0)-(parseInt(b.qNum)||0));
+    document.getElementById('eqToolbar').style.display = eqDocs.length?'flex':'none';
+    document.getElementById('eqCount').textContent = eqDocs.length+' questions';
+    eqRender();
+  } catch(e){ listEl.innerHTML='<p style="color:#EF4444;padding:1rem;">Error: '+e.message+'</p>'; }
+};
+
+window.eqRender = () => {
+  const q = (document.getElementById('eqSearch').value||'').trim().toLowerCase();
+  const listEl = document.getElementById('eqList');
+  let docs = eqDocs;
+  if(q) docs = docs.filter(d => (String(d.qNum)).includes(q) || (d.text||'').toLowerCase().includes(q));
+  if(!docs.length){ listEl.innerHTML='<p style="color:#64748B;padding:1rem;">No questions match.</p>'; return; }
+  const esc = s => (s||'').replace(/</g,'&lt;');
+  listEl.innerHTML = docs.map(d=>`
+    <div class="q-item">
+      <div class="q-head">
+        <div class="q-text"><strong style="color:#A855F7;">Q${d.qNum}.</strong> ${esc(d.text)}</div>
+        <div class="q-btns">
+          <button class="b-edit" onclick="eqEdit('${d.id}')">✏️ Edit</button>
+          <button class="b-del" onclick="eqDelete('${d.id}',${d.qNum})">🗑</button>
+        </div>
+      </div>
+      <div class="q-opts">
+        ${['A','B','C','D'].map(l=>{
+          const t = d.options?.[l] ?? d['option_'+l] ?? '';
+          return `<div class="q-opt ${d.correct===l?'correct':''}">${l}) ${esc(t)}</div>`;
+        }).join('')}
+      </div>
+      <div class="q-meta">
+        <span class="q-tag">${d.subject||'?'}</span>
+        <span class="q-tag">${d.difficulty||'medium'}</span>
+        <span class="q-tag">${d.lang||d.language||'en'}</span>
+        ${d.explanation?'<span class="q-tag" style="color:#4ADE80;">has solution</span>':'<span class="q-tag" style="color:#F87171;">no solution</span>'}
+      </div>
+    </div>`).join('');
+};
+
+window.eqDelete = async (id, qNum) => {
+  if(!confirm(`Delete Q${qNum}? This cannot be undone.`)) return;
+  try {
+    await deleteDoc(doc(db,'questions',id));
+    eqDocs = eqDocs.filter(d=>d.id!==id);
+    document.getElementById('eqCount').textContent = eqDocs.length+' questions';
+    eqRender();
+    showToast(`✅ Q${qNum} deleted`,'success');
+    loadStats();
+  } catch(e){ showToast('Error: '+e.message,'error'); }
+};
+
+window.eqDeleteAll = async () => {
+  if(!eqDocs.length) return;
+  const mockId = document.getElementById('eqMock').value;
+  if(!confirm(`Delete ALL ${eqDocs.length} questions in this mock?\n\nThe mock paper entry stays (re-import to refill). This cannot be undone.`)) return;
+  showToast('⏳ Deleting...','info');
+  try {
+    await Promise.all(eqDocs.map(d=>deleteDoc(doc(db,'questions',d.id))));
+    try { await updateDoc(doc(db,'mock_tests',mockId), { totalQuestions: 0 }); } catch(e){}
+    showToast(`✅ Deleted all questions`,'success');
+    eqDocs = []; eqRender();
+    document.getElementById('eqToolbar').style.display='none';
+    loadStats();
+  } catch(e){ showToast('Error: '+e.message,'error'); }
+};
+
+window.eqEdit = (id) => {
+  const d = eqDocs.find(x=>x.id===id); if(!d) return;
+  document.getElementById('editId').value = id;
+  document.getElementById('editQLabel').textContent = 'Q'+d.qNum;
+  document.getElementById('editText').value = d.text||'';
+  document.getElementById('eOptA').value = d.options?.A ?? d.option_A ?? '';
+  document.getElementById('eOptB').value = d.options?.B ?? d.option_B ?? '';
+  document.getElementById('eOptC').value = d.options?.C ?? d.option_C ?? '';
+  document.getElementById('eOptD').value = d.options?.D ?? d.option_D ?? '';
+  ['A','B','C','D'].forEach(l=>{ document.getElementById('ec-'+l).checked = (d.correct===l); });
+  document.getElementById('editExpl').value = d.explanation||'';
+  document.getElementById('editTrick').value = d.trick||'';
+  document.getElementById('editSubject').value = d.subject||'';
+  document.getElementById('editDifficulty').value = d.difficulty||'medium';
+  document.getElementById('editQNum').value = d.qNum||'';
+  document.getElementById('editModal').classList.add('show');
+  document.body.style.overflow='hidden';
+};
+window.closeEdit = () => {
+  document.getElementById('editModal').classList.remove('show');
+  document.body.style.overflow='';
+};
+window.saveEdit = async () => {
+  const id = document.getElementById('editId').value;
+  const correctEl = document.querySelector('input[name="eCorrect"]:checked');
+  if(!correctEl){ showToast('Select the correct option','error'); return; }
+  const A=document.getElementById('eOptA').value.trim();
+  const B=document.getElementById('eOptB').value.trim();
+  const C=document.getElementById('eOptC').value.trim();
+  const D=document.getElementById('eOptD').value.trim();
+  try {
+    await updateDoc(doc(db,'questions',id), {
+      text: document.getElementById('editText').value.trim(),
+      options:{A,B,C,D}, option_A:A, option_B:B, option_C:C, option_D:D,
+      correct: correctEl.value,
+      explanation: document.getElementById('editExpl').value.trim(),
+      trick: document.getElementById('editTrick').value.trim(),
+      subject: document.getElementById('editSubject').value.trim(),
+      difficulty: document.getElementById('editDifficulty').value,
+      qNum: parseInt(document.getElementById('editQNum').value)||0
+    });
+    const d = eqDocs.find(x=>x.id===id);
+    if(d){ Object.assign(d,{text:document.getElementById('editText').value.trim(),options:{A,B,C,D},option_A:A,option_B:B,option_C:C,option_D:D,correct:correctEl.value,explanation:document.getElementById('editExpl').value.trim(),trick:document.getElementById('editTrick').value.trim(),subject:document.getElementById('editSubject').value.trim(),difficulty:document.getElementById('editDifficulty').value,qNum:parseInt(document.getElementById('editQNum').value)||0});
+      eqDocs.sort((a,b)=>(parseInt(a.qNum)||0)-(parseInt(b.qNum)||0)); }
+    showToast('✅ Question updated','success');
+    closeEdit(); eqRender();
   } catch(e){ showToast('Error: '+e.message,'error'); }
 };
 
