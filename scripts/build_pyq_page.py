@@ -287,26 +287,55 @@ def render(ordered):
                 border_bottom = '' if is_last else 'border-bottom:1px solid #F1F5F9;'
 
                 # language buttons — direct links (static, crawlable)
-                btns = []
-                if "en" in g["langs"]:
-                    btns.append(
-                        f'<a href="{html.escape(test_url(g, "en"))}" '
-                        f'style="display:inline-flex;align-items:center;gap:0.3rem;'
-                        f'background:linear-gradient(135deg,#FF6B00,#FF8C38);'
-                        f'color:white;text-decoration:none;padding:0.5rem 0.9rem;'
-                        f'border-radius:9px;font-family:\'Rajdhani\',sans-serif;'
-                        f'font-weight:700;font-size:0.82rem;white-space:nowrap;">'
-                        f'English</a>')
-                if "hi" in g["langs"]:
-                    btns.append(
-                        f'<a href="{html.escape(test_url(g, "hi"))}" '
-                        f'style="display:inline-flex;align-items:center;gap:0.3rem;'
-                        f'background:#fff;color:#00875A;text-decoration:none;'
-                        f'padding:0.5rem 0.9rem;border-radius:9px;'
-                        f'border:1px solid #00A86B;'
-                        f"font-family:'Rajdhani',sans-serif;font-weight:700;"
-                        f'font-size:0.82rem;white-space:nowrap;">हिंदी</a>')
-                btns_html = "".join(btns)
+                # Unique id for this paper's language-chooser entry
+                pick_id = re.sub(r'[^a-zA-Z0-9_-]', '_',
+                                 f"{g['exam']}-{tier_id}-{year}-{g['shift']}-{g['heldOn']}")
+                url_en = test_url(g, "en") if "en" in g["langs"] else ""
+                url_hi = test_url(g, "hi") if "hi" in g["langs"] else ""
+                pid_en = g["langs"].get("en", "")
+                pid_hi = g["langs"].get("hi", "")
+                pick_title = f"SSC CGL {tier_label} {year}"
+                if shift:
+                    pick_title += f" · {shift}"
+                if date_label:
+                    pick_title += f" · {date_label}"
+
+                # Register this paper for the overlay (data-* attributes read by JS)
+                reg = (
+                    f'data-pick="{html.escape(pick_id)}" '
+                    f'data-en="{html.escape(url_en)}" '
+                    f'data-hi="{html.escape(url_hi)}" '
+                    f'data-pid-en="{html.escape(pid_en)}" '
+                    f'data-pid-hi="{html.escape(pid_hi)}" '
+                    f'data-title="{html.escape(pick_title)}"'
+                )
+
+                # Visible "Attempt Test" button → opens language overlay.
+                # Hidden crawlable <a> links keep the test URLs in the static
+                # HTML so Google can still discover every paper.
+                attempt_btn = (
+                    f'<button class="pyq-attempt-btn" {reg} '
+                    f'onclick="openLangChooser(this)" '
+                    f'style="display:inline-flex;align-items:center;gap:0.35rem;'
+                    f'background:linear-gradient(135deg,#FF6B00,#FF8C38);color:#fff;'
+                    f'border:none;padding:0.55rem 1.05rem;border-radius:9px;'
+                    f"font-family:'Rajdhani',sans-serif;font-weight:700;"
+                    f'font-size:0.85rem;cursor:pointer;white-space:nowrap;'
+                    f'box-shadow:0 3px 10px rgba(255,107,0,0.25);">'
+                    f'▶ Attempt Test</button>'
+                )
+                hidden_links = ''
+                if url_en:
+                    hidden_links += f'<a href="{html.escape(url_en)}" style="display:none" aria-hidden="true" tabindex="-1">English</a>'
+                if url_hi:
+                    hidden_links += f'<a href="{html.escape(url_hi)}" style="display:none" aria-hidden="true" tabindex="-1">हिंदी</a>'
+
+                # Attempted pill — JS flips it to "Attempted" after auth+sync.
+                pill = (
+                    f'<span class="attempt-pill todo" data-pill="{html.escape(pick_id)}">'
+                    f'○ Not Attempted</span>'
+                )
+                btns_html = attempt_btn + hidden_links
 
                 rows.append(f"""
             <div style="display:flex;align-items:center;justify-content:space-between;gap:0.6rem;padding:0.85rem 1.1rem;{border_bottom}background:white;">
@@ -323,6 +352,7 @@ def render(ordered):
                     <span style="font-size:0.72rem;color:#94A3B8;">⏱ {time_label}</span>
                     <span style="font-size:0.72rem;color:#94A3B8;">·</span>
                     <span style="font-size:0.72rem;color:#94A3B8;">{marks_label}</span>
+                    {pill}
                   </div>
                 </div>
               </div>
@@ -437,6 +467,31 @@ def render(ordered):
   .nav-toggle {{ display:none; font-size:1.5rem; background:none; border:none; cursor:pointer; }}
   @media (max-width:900px) {{ .nav-links {{ display:none; }} .nav-toggle {{ display:block; }} }}
   details summary::-webkit-details-marker {{ display:none; }}
+  .pyq-attempt-btn:hover {{ filter:brightness(1.05); }}
+  /* ---- Language chooser overlay (matches ssc-cgl.html) ---- */
+  #langChooser {{ display:none; position:fixed; inset:0; z-index:6000; background:rgba(15,23,42,0.55); backdrop-filter:blur(4px); animation:lcFade .18s ease; }}
+  .lc-card {{ position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:min(400px,92vw); background:#fff; border-radius:22px; box-shadow:0 30px 80px rgba(15,23,42,0.4); overflow:hidden; animation:lcPop .24s cubic-bezier(.2,.8,.3,1.2); }}
+  .lc-head {{ padding:1.6rem 1.5rem 0.4rem; text-align:center; background:linear-gradient(180deg,#FBFCFE 0%,#fff 100%); border-bottom:1px solid #F1F5F9; }}
+  .lc-icon {{ width:54px; height:54px; border-radius:16px; background:linear-gradient(135deg,#0EA5E9,#6366F1); display:flex; align-items:center; justify-content:center; font-size:1.6rem; margin:0 auto 0.8rem; box-shadow:0 8px 20px rgba(99,102,241,0.3); }}
+  .lc-title {{ font-family:'Rajdhani',sans-serif; font-weight:800; font-size:1.3rem; color:#1A202C; line-height:1.2; }}
+  .lc-sub {{ font-size:0.8rem; color:#94A3B8; margin-top:0.35rem; line-height:1.35; font-weight:600; }}
+  .lc-body {{ padding:1.2rem 1.4rem 1.5rem; display:flex; flex-direction:column; gap:0.75rem; }}
+  .lc-opt {{ display:flex; align-items:center; gap:0.95rem; width:100%; border:1.5px solid #EBEFF4; background:#fff; border-radius:15px; padding:0.85rem 1rem; cursor:pointer; text-align:left; transition:all .16s ease; font-family:'Rajdhani',sans-serif; }}
+  .lc-opt.en:hover {{ border-color:#6366F1; background:#F6F7FF; transform:translateY(-2px); box-shadow:0 8px 22px rgba(99,102,241,0.14); }}
+  .lc-opt.hi:hover {{ border-color:#FF6B00; background:#FFF8F2; transform:translateY(-2px); box-shadow:0 8px 22px rgba(255,107,0,0.14); }}
+  .lc-badge {{ width:48px; height:48px; border-radius:14px; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-family:'Rajdhani',sans-serif; font-weight:800; font-size:1.55rem; color:#fff; line-height:1; }}
+  .lc-opt.en .lc-badge {{ background:linear-gradient(135deg,#0EA5E9,#6366F1); box-shadow:0 5px 14px rgba(14,165,233,0.32); }}
+  .lc-opt.hi .lc-badge {{ background:linear-gradient(135deg,#FF6B00,#FF8C38); box-shadow:0 5px 14px rgba(255,107,0,0.32); }}
+  .lc-opt-main {{ flex:1; min-width:0; display:flex; flex-direction:column; gap:0.12rem; }}
+  .lc-opt-name {{ font-weight:800; font-size:1.08rem; color:#1A202C; line-height:1.2; }}
+  .lc-opt-desc {{ font-size:0.74rem; color:#94A3B8; font-weight:600; margin-top:0.1rem; }}
+  .lc-arrow {{ flex-shrink:0; width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; background:#F1F5F9; color:#94A3B8; font-size:0.95rem; font-weight:800; }}
+  .lc-cancel {{ margin-top:0.15rem; background:none; border:none; color:#94A3B8; font-family:'Rajdhani',sans-serif; font-weight:700; font-size:0.85rem; cursor:pointer; padding:0.55rem; border-radius:8px; }}
+  .attempt-pill {{ display:inline-flex; align-items:center; gap:0.25rem; white-space:nowrap; font-family:'Rajdhani',sans-serif; font-weight:700; font-size:0.68rem; padding:0.18rem 0.55rem; border-radius:100px; border:1px solid transparent; letter-spacing:0.2px; line-height:1.3; }}
+  .attempt-pill.done {{ background:#E8F5E9; color:#15803D; border-color:#BBF7D0; }}
+  .attempt-pill.todo {{ background:#F1F5F9; color:#64748B; border-color:#E2E8F0; }}
+  @keyframes lcFade {{ from{{opacity:0;}} to{{opacity:1;}} }}
+  @keyframes lcPop {{ from{{opacity:0;transform:translate(-50%,-46%) scale(.96);}} to{{opacity:1;transform:translate(-50%,-50%) scale(1);}} }}
 </style>
 </head>
 <body>
@@ -545,6 +600,150 @@ def render(ordered):
     if(t==='t1'){{ p1.style.display='block'; p2.style.display='none'; b1.style.cssText=on; b2.style.cssText=off; }}
     else {{ p2.style.display='block'; p1.style.display='none'; b2.style.cssText=on; b1.style.cssText=off; }}
   }}
+</script>
+
+<!-- Language chooser overlay -->
+<div id="langChooser" onclick="if(event.target===this)closeLangChooser()">
+  <div class="lc-card">
+    <div class="lc-head">
+      <div class="lc-icon">🌐</div>
+      <div class="lc-title" id="lcTitle">Choose Your Language</div>
+      <div class="lc-sub" id="lcSub"></div>
+    </div>
+    <div class="lc-body">
+      <button class="lc-opt en" id="lcEn">
+        <span class="lc-badge">A</span>
+        <span class="lc-opt-main">
+          <span class="lc-opt-name">English</span>
+          <span class="lc-opt-desc">Attempt the paper in English</span>
+        </span>
+        <span class="lc-arrow">→</span>
+      </button>
+      <button class="lc-opt hi" id="lcHi">
+        <span class="lc-badge">अ</span>
+        <span class="lc-opt-main">
+          <span class="lc-opt-name">हिंदी / Hindi</span>
+          <span class="lc-opt-desc">पेपर हिंदी में हल करें</span>
+        </span>
+        <span class="lc-arrow">→</span>
+      </button>
+      <button class="lc-cancel" onclick="closeLangChooser()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  /* ---- Language chooser ---- */
+  function openLangChooser(btn) {{
+    var en = btn.getAttribute('data-en');
+    var hi = btn.getAttribute('data-hi');
+    var title = btn.getAttribute('data-title') || '';
+    // single language → go straight in
+    if(en && !hi){{ window.location = en; return; }}
+    if(hi && !en){{ window.location = hi; return; }}
+    if(!en && !hi) return;
+    var m = document.getElementById('langChooser');
+    document.getElementById('lcSub').textContent = title;
+    var enB = document.getElementById('lcEn');
+    var hiB = document.getElementById('lcHi');
+    enB.style.display = en ? 'flex' : 'none';
+    hiB.style.display = hi ? 'flex' : 'none';
+    enB.onclick = function(){{ window.location = en; }};
+    hiB.onclick = function(){{ window.location = hi; }};
+    m.style.display = 'block';
+    document.body.style.overflow = 'hidden';
+  }}
+  function closeLangChooser() {{
+    var m = document.getElementById('langChooser');
+    if(m) m.style.display = 'none';
+    document.body.style.overflow = '';
+  }}
+  document.addEventListener('keydown', function(e){{
+    if(e.key === 'Escape') closeLangChooser();
+  }});
+</script>
+
+<!-- Firebase auth (name display) + attempts tracking (Attempted pills) -->
+<script type="module">
+import {{ initializeApp }} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import {{ getAuth, onAuthStateChanged }} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import {{ getFirestore, doc, getDoc, collection, query, where, getDocs }} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+const _app = initializeApp({{
+  apiKey: "{API_KEY}",
+  authDomain: "{PROJECT_ID}.firebaseapp.com",
+  projectId: "{PROJECT_ID}",
+  storageBucket: "{PROJECT_ID}.firebasestorage.app",
+  messagingSenderId: "450627057220",
+  appId: "1:450627057220:web:366267bf437d94f20c6e11"
+}});
+const _auth = getAuth(_app);
+const _db = getFirestore(_app);
+
+/* ---- Nav user display: read real name from `users` (same as index.html) ---- */
+function _setNavUser(name) {{
+  document.querySelectorAll('a[href="{SITE}/login.html"], a[href="login.html"]').forEach(el => {{
+    el.href = '{SITE}/dashboard.html';
+    el.style.background = 'linear-gradient(135deg,#00A86B,#0EA5E9)';
+    el.innerHTML = '👤 ' + name.split(' ')[0];
+  }});
+}}
+
+/* ---- Attempted tracking ---- */
+const __attempted = new Set();
+function _applyPills() {{
+  document.querySelectorAll('.pyq-attempt-btn').forEach(btn => {{
+    const pe = btn.getAttribute('data-pid-en');
+    const ph = btn.getAttribute('data-pid-hi');
+    const done = (pe && __attempted.has(pe)) || (ph && __attempted.has(ph));
+    if(done) {{
+      const pick = btn.getAttribute('data-pick');
+      const pill = document.querySelector('.attempt-pill[data-pill="'+pick+'"]');
+      if(pill) {{ pill.className = 'attempt-pill done'; pill.textContent = '✓ Attempted'; }}
+      btn.innerHTML = '↻ Re-attempt';
+    }}
+  }});
+}}
+async function _syncAttempts(uid) {{
+  if(!uid) return;
+  const _ck = 'tssc_attempts_' + uid, _ttl = 10*60*1000;
+  try {{
+    const _c = sessionStorage.getItem(_ck);
+    if(_c) {{
+      const _o = JSON.parse(_c);
+      if(Date.now() - (_o.ts||0) < _ttl && Array.isArray(_o.p)) {{
+        _o.p.forEach(id => __attempted.add(id));
+        _applyPills();
+        if(Date.now() - (_o.ts||0) < _ttl) return;
+      }}
+    }}
+  }} catch(e) {{}}
+  try {{
+    const snap = await getDocs(query(collection(_db,'attempts'), where('uid','==',uid)));
+    snap.forEach(d => {{ const a = d.data()||{{}}; if(a.paperId) __attempted.add(a.paperId); }});
+    try {{ sessionStorage.setItem(_ck, JSON.stringify({{ ts:Date.now(), p:[...__attempted] }})); }} catch(e) {{}}
+    _applyPills();
+  }} catch(e) {{ console.warn('[TrickySSC] attempts sync failed:', e.message); }}
+}}
+
+onAuthStateChanged(_auth, async user => {{
+  if(!user) return;
+  // name from local cache first (instant)
+  try {{ const s = localStorage.getItem('tssc_user'); if(s){{ const u = JSON.parse(s); if(u.name && u.name!=='Student') _setNavUser(u.name); }} }} catch(e) {{}}
+  // then authoritative name from `users` collection
+  try {{
+    const snap = await getDoc(doc(_db,'users',user.uid));
+    if(snap.exists()) {{
+      const name = snap.data().name;
+      if(name && name!=='Student') {{
+        _setNavUser(name);
+        try {{ const s=localStorage.getItem('tssc_user'); const u=s?JSON.parse(s):{{}}; localStorage.setItem('tssc_user',JSON.stringify({{...u,name,uid:user.uid}})); }} catch(e) {{}}
+      }} else _setNavUser(user.displayName||user.email||'Student');
+    }} else _setNavUser(user.displayName||user.email||'Student');
+  }} catch(e) {{ _setNavUser(user.displayName||user.email||'Student'); }}
+  // attempts → pills
+  _syncAttempts(user.uid);
+}});
 </script>
 </body>
 </html>
