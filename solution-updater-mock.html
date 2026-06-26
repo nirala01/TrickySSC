@@ -1,0 +1,1256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>TrickySSC — Mock Solution Updater</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Inter',sans-serif;background:#0F172A;color:#E2E8F0;min-height:100vh;}
+
+/* ── Topbar ── */
+.topbar{background:linear-gradient(135deg,#7C3AED,#A855F7);padding:1rem 2rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;}
+.topbar h1{font-family:'Rajdhani',sans-serif;font-size:1.4rem;font-weight:700;color:#fff;display:flex;align-items:center;gap:0.5rem;}
+.topbar-links{display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;}
+.topbar-links a{background:rgba(255,255,255,0.15);color:#fff;padding:0.3rem 0.85rem;border-radius:100px;font-size:0.75rem;font-weight:600;text-decoration:none;transition:background 0.2s;}
+.topbar-links a:hover{background:rgba(255,255,255,0.3);}
+#adminName{background:rgba(255,255,255,0.2);color:#fff;padding:0.25rem 0.75rem;border-radius:100px;font-size:0.75rem;font-weight:600;}
+
+/* ── Layout ── */
+#loginScreen{display:flex;align-items:center;justify-content:center;min-height:80vh;padding:2rem;}
+#mainScreen{display:none;max-width:900px;margin:0 auto;padding:2rem;}
+
+/* ── Login ── */
+.login-card{background:#1E293B;border:1px solid #334155;border-radius:16px;padding:2.5rem;width:100%;max-width:400px;text-align:center;}
+.login-card h2{font-family:'Rajdhani',sans-serif;font-size:1.75rem;font-weight:700;color:#7C3AED;margin-bottom:0.5rem;}
+.login-card p{color:#94A3B8;font-size:0.9rem;margin-bottom:1.5rem;}
+.google-btn{display:flex;align-items:center;justify-content:center;gap:0.75rem;background:#fff;color:#1A202C;border:none;padding:0.85rem 1.5rem;border-radius:10px;font-family:'Inter',sans-serif;font-weight:600;font-size:0.95rem;cursor:pointer;width:100%;transition:all 0.2s;}
+.google-btn:hover{box-shadow:0 4px 20px rgba(0,0,0,0.3);}
+
+/* ── Cards ── */
+.card{background:#1E293B;border:1px solid #334155;border-radius:16px;padding:1.5rem;margin-bottom:1.5rem;}
+.card h3{font-family:'Rajdhani',sans-serif;font-size:1.15rem;font-weight:700;color:#F1F5F9;margin-bottom:1rem;display:flex;align-items:center;gap:0.5rem;}
+
+/* ── Form elements ── */
+label{display:block;font-size:0.78rem;font-weight:600;color:#94A3B8;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.4rem;}
+select,input{width:100%;background:#0F172A;border:1px solid #334155;border-radius:8px;padding:0.65rem 0.9rem;color:#E2E8F0;font-family:'Inter',sans-serif;font-size:0.9rem;outline:none;transition:border 0.2s;}
+select:focus,input:focus{border-color:#7C3AED;}
+.form-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:0.75rem;margin-bottom:1rem;}
+
+/* ── Tabs ── */
+.mode-tabs{display:flex;gap:0.5rem;margin-bottom:1.5rem;background:#0F172A;padding:0.4rem;border-radius:10px;flex-wrap:wrap;}
+.mode-tab{padding:0.5rem 1.25rem;border-radius:8px;font-family:'Inter',sans-serif;font-weight:600;font-size:0.85rem;cursor:pointer;border:none;background:transparent;color:#64748B;transition:all 0.2s;}
+.mode-tab.active{background:#7C3AED;color:#fff;}
+
+/* ── Textarea ── */
+textarea{width:100%;background:#0F172A;border:1px solid #334155;border-radius:8px;padding:0.75rem;color:#E2E8F0;font-family:'Inter',sans-serif;font-size:0.85rem;outline:none;transition:border 0.2s;resize:vertical;min-height:200px;line-height:1.6;}
+textarea:focus{border-color:#7C3AED;}
+.textarea-hint{font-size:0.75rem;color:#64748B;margin-top:0.4rem;}
+
+/* ── Upload area ── */
+.upload-area{border:2px dashed #334155;border-radius:12px;padding:2rem;text-align:center;cursor:pointer;transition:all 0.2s;margin-bottom:1rem;}
+.upload-area:hover{border-color:#7C3AED;background:rgba(124,58,237,0.04);}
+.upload-area .icon{font-size:2rem;margin-bottom:0.5rem;}
+.upload-area p{color:#64748B;font-size:0.85rem;}
+.upload-area strong{color:#E2E8F0;}
+
+/* ── Buttons ── */
+.btn{padding:0.65rem 1.25rem;border-radius:8px;font-family:'Inter',sans-serif;font-weight:600;font-size:0.9rem;cursor:pointer;border:none;transition:all 0.2s;}
+.btn-primary{background:linear-gradient(135deg,#7C3AED,#A855F7);color:#fff;}
+.btn-primary:hover{opacity:0.9;transform:translateY(-1px);}
+.btn-secondary{background:#334155;color:#E2E8F0;}
+.btn-secondary:hover{background:#475569;}
+.btn:disabled{opacity:0.5;cursor:not-allowed;transform:none;}
+.btn-row{display:flex;gap:0.75rem;flex-wrap:wrap;align-items:center;margin-top:1rem;}
+
+/* ── Progress ── */
+.progress-wrap{display:none;margin-top:1rem;}
+.progress-bar-bg{background:#0F172A;border-radius:6px;height:8px;overflow:hidden;margin-bottom:0.5rem;}
+.progress-bar{height:100%;background:linear-gradient(135deg,#7C3AED,#A855F7);width:0%;transition:width 0.3s;}
+.progress-status{font-size:0.85rem;color:#94A3B8;}
+
+/* ── Mock list ── */
+.mock-list-item{background:#0F172A;border:1px solid #334155;border-radius:10px;padding:0.85rem 1rem;margin-bottom:0.5rem;cursor:pointer;transition:all 0.2s;}
+.mock-list-item:hover{border-color:#7C3AED;background:rgba(124,58,237,0.05);}
+.mock-list-item.selected{border-color:#7C3AED;background:rgba(124,58,237,0.1);}
+
+/* ── Preview table ── */
+.preview-wrap{display:none;margin-top:1.25rem;}
+.preview-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem;flex-wrap:wrap;gap:0.5rem;}
+.preview-header span{font-size:0.85rem;color:#94A3B8;}
+.badge{background:#334155;color:#94A3B8;padding:0.2rem 0.65rem;border-radius:100px;font-size:0.78rem;font-weight:600;}
+.badge-purple{background:rgba(124,58,237,0.15);color:#A855F7;border:1px solid rgba(124,58,237,0.3);}
+.badge-green{background:rgba(0,168,107,0.15);color:#00A86B;border:1px solid rgba(0,168,107,0.3);}
+.badge-red{background:rgba(239,68,68,0.15);color:#EF4444;border:1px solid rgba(239,68,68,0.3);}
+.table-wrap{overflow-x:auto;border:1px solid #334155;border-radius:8px;}
+table{width:100%;border-collapse:collapse;font-size:0.8rem;}
+th{background:#0F172A;color:#64748B;font-weight:600;padding:0.6rem 0.75rem;text-align:left;border-bottom:1px solid #334155;white-space:nowrap;}
+td{padding:0.55rem 0.75rem;border-bottom:1px solid #1E293B;vertical-align:top;color:#CBD5E1;}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:rgba(124,58,237,0.03);}
+.td-qnum{font-weight:700;color:#A855F7;width:50px;}
+.td-preview{max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#94A3B8;font-size:0.75rem;}
+.td-status{width:80px;}
+.has-content{color:#00A86B;}
+.no-content{color:#64748B;font-style:italic;}
+.will-replace{color:#F59E0B;}
+
+/* ── Info/Warn boxes ── */
+.info-box{background:rgba(14,165,233,0.08);border:1px solid rgba(14,165,233,0.2);border-radius:10px;padding:0.85rem 1rem;font-size:0.82rem;color:#7DD3FC;margin-bottom:1rem;line-height:1.6;}
+.warn-box{background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);border-radius:10px;padding:0.85rem 1rem;font-size:0.82rem;color:#FCD34D;margin-bottom:1rem;line-height:1.6;}
+
+/* ── Format guide ── */
+.format-card{background:#0F172A;border:1px solid #334155;border-radius:10px;padding:1rem;margin-top:0.75rem;}
+.format-card h4{font-size:0.8rem;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.6rem;}
+pre{font-family:monospace;font-size:0.78rem;color:#A78BFA;line-height:1.7;white-space:pre-wrap;word-break:break-all;}
+
+/* ── Toast ── */
+.toast{position:fixed;bottom:2rem;right:2rem;padding:0.85rem 1.25rem;border-radius:10px;font-weight:600;font-size:0.9rem;z-index:9999;display:none;max-width:360px;box-shadow:0 8px 32px rgba(0,0,0,0.4);}
+.toast.success{background:#00A86B;color:#fff;}
+.toast.error{background:#EF4444;color:#fff;}
+.toast.info{background:#7C3AED;color:#fff;}
+
+/* ── Override toggle ── */
+.toggle-row{display:flex;align-items:center;gap:0.75rem;margin-bottom:1rem;}
+.toggle{position:relative;width:44px;height:24px;flex-shrink:0;}
+.toggle input{opacity:0;width:0;height:0;}
+.toggle-slider{position:absolute;inset:0;background:#334155;border-radius:100px;cursor:pointer;transition:0.2s;}
+.toggle-slider:before{content:'';position:absolute;width:18px;height:18px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:0.2s;}
+.toggle input:checked + .toggle-slider{background:#7C3AED;}
+.toggle input:checked + .toggle-slider:before{transform:translateX(20px);}
+.toggle-label{font-size:0.85rem;color:#CBD5E1;}
+.toggle-label strong{color:#F59E0B;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>🧪 TrickySSC &nbsp;<span style="opacity:0.6;font-weight:500;font-size:1rem;">/ Mock Solution Updater</span></h1>
+  <div class="topbar-links">
+    <a href="admin-mock.html">← Mock Admin</a>
+    <a href="solution-updater.html">📄 PYQ Updater</a>
+    <span id="adminName">Loading...</span>
+    <button class="btn btn-secondary" style="padding:0.3rem 0.85rem;font-size:0.75rem;" onclick="logout()">Logout</button>
+  </div>
+</div>
+
+<!-- Login Screen -->
+<div id="loginScreen">
+  <div class="login-card">
+    <h2>Mock Solution Updater</h2>
+    <p>Bulk update explanations, tricks and concepts for mock test papers. Sign in to continue.</p>
+    <button class="google-btn" onclick="googleLogin()">
+      <svg width="20" height="20" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+      Sign in with Google
+    </button>
+  </div>
+</div>
+
+<!-- Main Screen -->
+<div id="mainScreen">
+
+  <!-- Mock Selector -->
+  <div class="card">
+    <h3>🧪 Select Mock Test</h3>
+    <div class="form-grid">
+      <div>
+        <label>Exam</label>
+        <select id="selExam" onchange="loadMockList()">
+          <option value="ssc-cgl">SSC CGL</option>
+          <option value="ssc-chsl">SSC CHSL</option>
+          <option value="ssc-mts">SSC MTS</option>
+          <option value="ssc-gd">SSC GD</option>
+          <option value="ssc-cpo">SSC CPO</option>
+          <option value="ssc-jht">SSC JHT</option>
+          <option value="ssc-je">SSC JE</option>
+        </select>
+      </div>
+      <div>
+        <label>Tier</label>
+        <select id="selTier" onchange="loadMockList()">
+          <option value="">All Tiers</option>
+          <option value="tier1">Tier I</option>
+          <option value="tier2">Tier II</option>
+        </select>
+      </div>
+      <div>
+        <label>Language</label>
+        <select id="selLang">
+          <option value="en">English</option>
+          <option value="hi">Hindi</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Mock list -->
+    <div id="mockListWrap" style="display:none;margin-bottom:1rem;">
+      <div style="font-size:0.78rem;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.5rem;">Available Mocks — click to select</div>
+      <div id="mockList" style="max-height:260px;overflow-y:auto;"></div>
+    </div>
+
+    <!-- Selected mock info -->
+    <div id="selectedMockInfo" style="display:none;background:#0F172A;border:1px solid #7C3AED44;border-radius:10px;padding:0.85rem 1rem;margin-bottom:1rem;">
+      <div style="font-size:0.72rem;font-weight:700;color:#7C3AED;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.3rem;">Selected Mock</div>
+      <div id="selectedMockTitle" style="font-weight:700;color:#E2E8F0;font-size:0.95rem;"></div>
+      <div id="selectedMockMeta" style="font-size:0.75rem;color:#64748B;margin-top:0.2rem;font-family:monospace;"></div>
+    </div>
+
+    <button class="btn btn-secondary" onclick="loadMockList()" style="margin-right:0.5rem;">🔄 Refresh List</button>
+    <button class="btn btn-primary" onclick="loadMockQuestions()" id="loadQBtn">📋 Load Questions</button>
+    <div id="paperStatus" style="margin-top:0.75rem;font-size:0.85rem;color:#94A3B8;"></div>
+  </div>
+
+  <!-- Update Mode -->
+  <div class="card" id="updateCard" style="display:none;">
+    <h3>✏️ Update Solutions</h3>
+
+    <div class="toggle-row">
+      <label class="toggle"><input type="checkbox" id="overrideToggle" checked><span class="toggle-slider"></span></label>
+      <span class="toggle-label">Override existing solutions &nbsp;<strong>⚠️ Will replace any existing explanation/trick/concept</strong></span>
+    </div>
+
+    <div class="mode-tabs">
+      <button class="mode-tab active" onclick="switchMode('json')" id="tab-json">📋 Paste JSON</button>
+      <button class="mode-tab" onclick="switchMode('csv')" id="tab-csv">📄 Upload CSV</button>
+      <button class="mode-tab" onclick="switchMode('qoptions')" id="tab-qoptions">📝 Fix Q &amp; Options</button>
+      <button class="mode-tab" onclick="switchMode('builder')" id="tab-builder">🔄 Build from JSON</button>
+      <button class="mode-tab" onclick="switchMode('mathconv')" id="tab-mathconv">🧮 Math Converter</button>
+    </div>
+
+    <!-- JSON Mode -->
+    <div id="mode-json">
+      <div class="info-box">
+        Paste a JSON array with <code>qNum</code>, <code>explanation</code>, <code>trick</code>, and/or <code>concept</code> fields.
+      </div>
+      <textarea id="jsonInput" placeholder='[&#10;  {&#10;    "qNum": 1,&#10;    "explanation": "Step 1: Title. Content.[BR]∴ Answer = X.",&#10;    "trick": "Step 1: Shortcut.[BR]Step 2: Apply.",&#10;    "concept": "Arithmetic: profit"&#10;  }&#10;]'></textarea>
+      <div class="textarea-hint">Use [BR] for line breaks. Step titles must end with a full stop.</div>
+      <div class="btn-row">
+        <button class="btn btn-secondary" onclick="parseJSON()">👁 Preview</button>
+        <button class="btn btn-primary" id="jsonUpdateBtn" onclick="runUpdate('json')" disabled>⚡ Update All</button>
+        <button class="btn btn-secondary" onclick="document.getElementById('jsonInput').value='';clearPreview()">✕ Clear</button>
+      </div>
+      <div class="format-card">
+        <h4>JSON Format</h4>
+        <pre>[
+  {
+    "qNum": 1,
+    "explanation": "Step 1: Find relation. Content.[BR]Step 2: Verify. Check.[BR]∴ Answer = D.",
+    "trick": "Step 1: Shortcut tip.[BR]Step 2: Elimination tip.",
+    "concept": "Arithmetic: profit through false weights"
+  }
+]</pre>
+      </div>
+    </div>
+
+    <!-- CSV Mode -->
+    <div id="mode-csv" style="display:none;">
+      <div class="info-box">
+        Upload a CSV with columns: <code>qNum</code>, <code>explanation</code>, <code>trick</code>, <code>concept</code>.<br>
+        <strong style="color:#00A86B;">✨ Auto-converts:</strong> <code>[BR]</code> step format is automatically converted to HTML before saving.
+      </div>
+      <div class="upload-area" onclick="document.getElementById('csvInput').click()">
+        <input type="file" id="csvInput" accept=".csv" style="display:none;" onchange="handleCSV(event)">
+        <div class="icon">📄</div>
+        <p><strong>Click to select CSV</strong> or drag &amp; drop</p>
+        <p style="margin-top:0.25rem;">Columns: qNum, explanation, trick, concept</p>
+      </div>
+      <div id="csvFileInfo" style="display:none;font-size:0.85rem;color:#94A3B8;margin-bottom:0.75rem;"></div>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="csvUpdateBtn" onclick="runUpdate('csv')" disabled>⚡ Update All</button>
+        <button class="btn btn-secondary" onclick="clearCSVMode()">✕ Clear</button>
+      </div>
+      <div class="format-card">
+        <h4>CSV Format (use [BR] for line breaks)</h4>
+        <pre>qNum,explanation,trick,concept
+1,"Step 1: Find value.[BR]- Answer = A.[BR]∴ Final Answer = A","Step 1: Shortcut.","Arithmetic: profit"</pre>
+      </div>
+    </div>
+
+    <!-- Builder Mode -->
+    <div id="mode-builder" style="display:none;">
+      <div class="info-box">
+        Paste a <strong>single-question JSON</strong>, set the Q number, convert to HTML — then push directly to DB.
+      </div>
+      <div style="display:flex;gap:0.75rem;align-items:flex-end;flex-wrap:wrap;margin-bottom:0.75rem;">
+        <div>
+          <label>Q Number</label>
+          <input type="number" id="bldQNum" value="1" min="1" max="200" style="width:90px;">
+        </div>
+        <div style="flex:1;min-width:160px;">
+          <label>JSON Format</label>
+          <select id="bldFmt">
+            <option value="auto">Auto-detect</option>
+            <option value="steps_expl">steps[].explanation[]</option>
+            <option value="steps_process">steps[].process[]</option>
+            <option value="expl_trick_concept">explanation + trick + concept (strings)</option>
+            <option value="solution_steps">solution_steps[].calculation</option>
+            <option value="description_steps">solution_steps[].description + data fields</option>
+          </select>
+        </div>
+        <button class="btn btn-secondary" onclick="bldLoadExample()" style="padding:0.55rem 0.9rem;font-size:0.82rem;">Load example</button>
+      </div>
+      <textarea id="bldJsonInput" style="min-height:180px;" placeholder='{&#10;  "steps": [&#10;    { "step": 1, "title": "Identify the pattern", "explanation": ["(1 × 2) + 1 = 3"] }&#10;  ]&#10;}'></textarea>
+      <div class="btn-row">
+        <button class="btn btn-secondary" onclick="bldConvert()">⚡ Convert &amp; Preview</button>
+        <button class="btn btn-primary" id="bldPushBtn" onclick="bldPush()" disabled>🚀 Push to DB</button>
+        <button class="btn btn-secondary" onclick="bldClear()">✕ Clear</button>
+      </div>
+      <div id="bldPreviewWrap" style="display:none;margin-top:1rem;">
+        <div style="font-size:0.78rem;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.5rem;">
+          HTML Preview — Q<span id="bldPreviewQLabel">—</span>
+          <span id="bldStatusBadge" style="margin-left:8px;"></span>
+        </div>
+        <div id="bldHtmlPreview" style="background:#0F172A;border:1px solid #334155;border-radius:8px;padding:1rem;font-size:0.85rem;line-height:1.7;min-height:60px;"></div>
+        <div style="margin-top:0.75rem;font-size:0.78rem;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.4rem;">Trick</div>
+        <div id="bldTrickPreview" style="background:#0F172A;border:1px solid #334155;border-radius:8px;padding:0.6rem 0.85rem;font-size:0.8rem;color:#94A3B8;min-height:32px;"></div>
+        <div style="margin-top:0.75rem;font-size:0.78rem;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.4rem;">Concept</div>
+        <div id="bldConceptPreview" style="background:#0F172A;border:1px solid #334155;border-radius:8px;padding:0.6rem 0.85rem;font-size:0.8rem;color:#94A3B8;min-height:32px;"></div>
+      </div>
+      <div class="progress-wrap" id="bldProgressWrap">
+        <div class="progress-bar-bg"><div class="progress-bar" id="bldProgressBar"></div></div>
+        <div class="progress-status" id="bldProgressStatus"></div>
+      </div>
+    </div>
+
+    <!-- Math Converter Mode -->
+    <div id="mode-mathconv" style="display:none;">
+      <div class="info-box">
+        Paste raw solution text (with x^2, \frac, \sin etc.) — converts to Unicode + <code>[BR]</code> step format, then push to DB.
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+        <div>
+          <label style="margin-bottom:0.4rem;">Raw Input (paste from ChatGPT/Claude)</label>
+          <textarea id="mcRawInput" style="min-height:280px;font-size:0.78rem;" placeholder="Step 1: Simplify.&#10;x^2 + 5x = x(x+5)&#10;&#10;Step 2: Solve.&#10;x = 0 or x = -5&#10;&#10;Final Answer = 0"></textarea>
+        </div>
+        <div>
+          <label style="margin-bottom:0.4rem;">Converted Output (ready for DB)</label>
+          <textarea id="mcConvertedOutput" style="min-height:280px;font-size:0.78rem;color:#00A86B;" readonly placeholder="Converted text will appear here..."></textarea>
+        </div>
+      </div>
+      <div style="margin-top:0.75rem;">
+        <label style="margin-bottom:0.4rem;">Live Preview</label>
+        <div id="mcLivePreview" style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px;padding:1rem;font-size:0.88rem;line-height:1.9;min-height:80px;color:#374151;">
+          <span style="color:#94A3B8;font-size:0.8rem;">Preview will appear after conversion...</span>
+        </div>
+      </div>
+      <div class="btn-row" style="margin-top:0.85rem;">
+        <button class="btn btn-primary" onclick="mcConvert()">⚡ Convert</button>
+        <button class="btn btn-secondary" onclick="mcCopyOutput()">📋 Copy Output</button>
+        <button class="btn btn-secondary" onclick="mcClear()">✕ Clear</button>
+      </div>
+      <hr style="border:none;border-top:1px solid #334155;margin:1rem 0;">
+      <div style="background:#0F172A;border:1px solid #334155;border-radius:10px;padding:1rem;">
+        <div style="font-size:0.8rem;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.75rem;">Push to DB</div>
+        <div style="display:flex;gap:0.75rem;align-items:flex-end;flex-wrap:wrap;margin-bottom:0.75rem;">
+          <div>
+            <label>Q Number</label>
+            <input type="number" id="mcQNum" value="1" min="1" max="200" style="width:90px;">
+          </div>
+          <div style="flex:1;min-width:120px;">
+            <label>Field</label>
+            <select id="mcField">
+              <option value="explanation">explanation</option>
+              <option value="trick">trick</option>
+              <option value="concept">concept</option>
+            </select>
+          </div>
+        </div>
+        <div class="btn-row" style="margin-top:0;">
+          <button class="btn btn-primary" id="mcPushBtn" onclick="mcPush()" disabled>🚀 Push to Firestore</button>
+          <span id="mcPushStatus" style="font-size:0.82rem;color:#94A3B8;"></span>
+        </div>
+        <div class="progress-wrap" id="mcProgressWrap">
+          <div class="progress-bar-bg"><div class="progress-bar" id="mcProgressBar"></div></div>
+          <div class="progress-status" id="mcProgressStatus"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Q & Options Fix Mode -->
+    <div id="mode-qoptions" style="display:none;">
+      <div class="info-box">
+        Upload a CSV with columns: <code>qNum</code>, <code>text</code>, <code>option_A</code>, <code>option_B</code>, <code>option_C</code>, <code>option_D</code>, <code>correct</code>.
+      </div>
+      <div class="warn-box">⚠️ <strong>correct</strong> must be A, B, C or D. Only non-empty cells will be written.</div>
+      <div class="upload-area" onclick="document.getElementById('qoptCsvInput').click()">
+        <input type="file" id="qoptCsvInput" accept=".csv" style="display:none;" onchange="handleQOptCSV(event)">
+        <div class="icon">📄</div>
+        <p><strong>Click to select CSV</strong></p>
+        <p style="margin-top:0.25rem;">Columns: qNum, text, option_A, option_B, option_C, option_D, correct</p>
+      </div>
+      <div id="qoptFileInfo" style="display:none;font-size:0.85rem;color:#94A3B8;margin-bottom:0.75rem;"></div>
+      <div class="preview-wrap" id="qoptPreviewWrap" style="display:none;margin-top:1.25rem;">
+        <div class="preview-header">
+          <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
+            <span>Preview</span>
+            <span class="badge badge-purple" id="qoptPreviewTotal">0 questions</span>
+            <span class="badge badge-green" id="qoptPreviewNew">0 ready</span>
+            <span class="badge badge-red" id="qoptPreviewMissing" style="display:none;">0 not found</span>
+          </div>
+          <button class="btn btn-primary" id="qoptConfirmBtn" onclick="confirmQOptUpdate()" style="padding:0.45rem 1rem;font-size:0.82rem;">✅ Confirm Update</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Q#</th><th>Question Text</th><th>Opt A</th><th>Opt B</th><th>Opt C</th><th>Opt D</th><th>Correct</th><th>Status</th></tr></thead>
+            <tbody id="qoptPreviewBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="progress-wrap" id="qoptProgressWrap">
+        <div class="progress-bar-bg"><div class="progress-bar" id="qoptProgressBar"></div></div>
+        <div class="progress-status" id="qoptProgressStatus">Updating...</div>
+      </div>
+    </div>
+
+    <!-- Shared Preview table (JSON / CSV modes) -->
+    <div class="preview-wrap" id="previewWrap">
+      <div class="preview-header">
+        <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
+          <span>Preview</span>
+          <span class="badge badge-purple" id="previewTotal">0 questions</span>
+          <span class="badge badge-green" id="previewNew">0 new</span>
+          <span class="badge" id="previewReplace" style="display:none;">0 replacing existing</span>
+        </div>
+        <button class="btn btn-primary" id="confirmUpdateBtn" onclick="confirmUpdate()" style="padding:0.45rem 1rem;font-size:0.82rem;">✅ Confirm Update</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Q#</th><th>Explanation</th><th>Trick</th><th>Concept</th><th>Status</th></tr></thead>
+          <tbody id="previewBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Progress -->
+    <div class="progress-wrap" id="progressWrap">
+      <div class="progress-bar-bg"><div class="progress-bar" id="progressBar"></div></div>
+      <div class="progress-status" id="progressStatus">Updating...</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Firebase -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
+import { getFirestore, collection, getDocs, updateDoc, query, where } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",
+  authDomain: "trickyssc-17bb3.firebaseapp.com",
+  projectId: "trickyssc-17bb3",
+  storageBucket: "trickyssc-17bb3.firebasestorage.app",
+  messagingSenderId: "450627057220",
+  appId: "1:450627057220:web:366267bf437d94f20c6e11"
+};
+
+const ADMIN_EMAILS = ['nirala01@gmail.com', 'ashish@trickyssc.com'];
+const app  = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db   = getFirestore(app);
+
+// ── Auth ──
+onAuthStateChanged(auth, user => {
+  if (user && (ADMIN_EMAILS.includes(user.email) || user.email.endsWith('@trickyssc.com'))) {
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('mainScreen').style.display  = 'block';
+    document.getElementById('adminName').textContent = user.displayName || user.email;
+    loadMockList();
+  } else {
+    document.getElementById('loginScreen').style.display = 'flex';
+    document.getElementById('mainScreen').style.display  = 'none';
+    document.getElementById('adminName').textContent = 'Not logged in';
+  }
+});
+
+window.googleLogin = async () => {
+  try { await signInWithPopup(auth, new GoogleAuthProvider()); }
+  catch(e) { showToast('Login failed: ' + e.message, 'error'); }
+};
+
+window.logout = async () => {
+  await signOut(auth);
+  showToast('Logged out', 'info');
+};
+
+// ── State ──
+let loadedDocs     = [];
+let parsedUpdates  = [];
+let currentMode    = 'json';
+let selectedMockId = null;
+let allMocks       = [];
+
+// ── Load mock list from mock_tests collection ──
+window.loadMockList = async () => {
+  const exam = document.getElementById('selExam').value;
+  const tier = document.getElementById('selTier').value;
+  const list = document.getElementById('mockList');
+  list.innerHTML = '<div style="color:#94A3B8;font-size:0.82rem;padding:0.5rem 0;">⏳ Loading...</div>';
+  document.getElementById('mockListWrap').style.display = 'block';
+
+  try {
+    let constraints = [where('exam', '==', exam)];
+    if (tier) constraints.push(where('tier', '==', tier));
+    const snap = await getDocs(query(collection(db, 'mock_tests'), ...constraints));
+    allMocks = snap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => (a.seriesNum || 99) - (b.seriesNum || 99));
+
+    if (!allMocks.length) {
+      list.innerHTML = '<div style="color:#64748B;font-size:0.82rem;padding:0.5rem 0;">No mocks found for this exam/tier.</div>';
+      return;
+    }
+
+    list.innerHTML = allMocks.map(m => `
+      <div class="mock-list-item" id="mock-item-${m.id}"
+           onclick="selectMock('${m.id}','${m.mockId||''}','${(m.title||'').replace(/'/g,'\\\'').replace(/"/g,'&quot;')}')">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;">
+          <div>
+            <div style="font-weight:700;color:#E2E8F0;font-size:0.88rem;">${m.title || 'Untitled Mock'}</div>
+            <div style="font-size:0.72rem;color:#64748B;margin-top:0.1rem;">
+              Mock #${m.seriesNum || '?'} &nbsp;·&nbsp;
+              <span style="color:#A855F7;">${m.totalQuestions || '?'} Qs</span> &nbsp;·&nbsp;
+              ${m.isPublished ? '<span style="color:#4ADE80;">✅ Live</span>' : '<span style="color:#94A3B8;">Draft</span>'}
+              ${m.mockId ? '&nbsp;·&nbsp;<span style="font-family:monospace;font-size:0.67rem;color:#475569;">' + m.mockId + '</span>' : ''}
+            </div>
+          </div>
+          <div style="font-size:1.2rem;color:#334155;">›</div>
+        </div>
+      </div>`).join('');
+  } catch(e) {
+    list.innerHTML = '<div style="color:#EF4444;font-size:0.82rem;">Error: ' + e.message + '</div>';
+  }
+};
+
+window.selectMock = (docId, mockId, title) => {
+  selectedMockId = mockId || null;
+  // Highlight selected
+  document.querySelectorAll('.mock-list-item').forEach(el => el.classList.remove('selected'));
+  const el = document.getElementById('mock-item-' + docId);
+  if (el) el.classList.add('selected');
+  // Show info
+  document.getElementById('selectedMockInfo').style.display = 'block';
+  document.getElementById('selectedMockTitle').textContent = title || 'Untitled Mock';
+  document.getElementById('selectedMockMeta').textContent = mockId ? 'mockId: ' + mockId : 'No mockId — will query by exam+seriesNum';
+  // Reset loaded state
+  loadedDocs = [];
+  document.getElementById('updateCard').style.display = 'none';
+  document.getElementById('paperStatus').textContent = '';
+  clearPreview();
+};
+
+// ── Load questions for selected mock ──
+window.loadMockQuestions = async () => {
+  const status = document.getElementById('paperStatus');
+
+  if (!selectedMockId && !allMocks.length) {
+    showToast('Select a mock first', 'error');
+    return;
+  }
+
+  // Find the selected mock object
+  const selectedEl = document.querySelector('.mock-list-item.selected');
+  if (!selectedEl) { showToast('Click a mock from the list first', 'error'); return; }
+
+  const lang = document.getElementById('selLang').value;
+  status.textContent = '🔄 Loading questions...';
+  status.style.color = '#94A3B8';
+
+  try {
+    let snap;
+    if (selectedMockId) {
+      // Primary: query by mockId field
+      snap = await getDocs(query(collection(db, 'questions'), where('mockId', '==', selectedMockId)));
+    } else {
+      // Fallback: query by exam + type + seriesNum
+      const mock = allMocks.find(m => !m.mockId && document.getElementById('selectedMockTitle').textContent === (m.title || 'Untitled Mock'));
+      if (!mock) { status.textContent = '❌ Could not identify mock — no mockId and title mismatch.'; return; }
+      snap = await getDocs(query(
+        collection(db, 'questions'),
+        where('exam', '==', mock.exam),
+        where('type', '==', 'mock'),
+        where('mockSeriesNum', '==', mock.seriesNum)
+      ));
+    }
+
+    let docs = snap.docs;
+
+    // Filter by language
+    if (lang) docs = docs.filter(d => (d.data().language || d.data().lang || 'en') === lang);
+
+    loadedDocs = docs;
+    if (!docs.length) {
+      status.textContent = '❌ No questions found. Check language filter or verify mockId on questions.';
+      status.style.color = '#EF4444';
+      document.getElementById('updateCard').style.display = 'none';
+      return;
+    }
+
+    // Count by subject for display
+    const subCounts = {};
+    docs.forEach(d => {
+      const s = (d.data().subject || 'Unknown')
+        .replace('General Intelligence & Reasoning', 'Reasoning')
+        .replace('Quantitative Aptitude', 'Quant')
+        .replace('General Awareness', 'GK');
+      subCounts[s] = (subCounts[s] || 0) + 1;
+    });
+    const subStr = Object.entries(subCounts).map(([s,c]) => `${s}: ${c}`).join(' | ');
+
+    status.innerHTML = `✅ <strong style="color:#00A86B;">${docs.length} questions loaded</strong> (${lang === 'hi' ? '🇮🇳 Hindi' : '🇬🇧 English'}) — ${subStr}`;
+    document.getElementById('updateCard').style.display = 'block';
+    clearPreview();
+  } catch(e) {
+    status.textContent = '❌ Error: ' + e.message;
+    status.style.color = '#EF4444';
+  }
+};
+
+// ── Mode switch ──
+window.switchMode = (mode) => {
+  currentMode = mode;
+  ['json','csv','builder','mathconv','qoptions'].forEach(m => {
+    document.getElementById('mode-' + m).style.display = m === mode ? 'block' : 'none';
+    document.getElementById('tab-' + m).className = 'mode-tab' + (m === mode ? ' active' : '');
+  });
+  clearPreview();
+};
+
+// ── JSON Parse ──
+window.parseJSON = () => {
+  const raw = document.getElementById('jsonInput').value.trim();
+  if (!raw) { showToast('Paste JSON first', 'error'); return; }
+  try {
+    let data = JSON.parse(raw);
+    if (!Array.isArray(data)) data = [data];
+    parsedUpdates = data.map(r => ({
+      qNum:        parseInt(r.qNum) || 0,
+      explanation: r.explanation || r.solution || '',
+      trick:       r.trick || '',
+      concept:     r.concept || ''
+    })).filter(r => r.qNum > 0);
+    if (!parsedUpdates.length) throw new Error('No valid entries with qNum found');
+    showPreview();
+    document.getElementById('jsonUpdateBtn').disabled = false;
+  } catch(e) {
+    showToast('JSON parse error: ' + e.message, 'error');
+  }
+};
+
+// ── CSV Parse ──
+window.handleCSV = (evt) => {
+  const file = evt.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      parsedUpdates = parseCSVtoUpdates(e.target.result);
+      if (!parsedUpdates.length) throw new Error('No valid rows found');
+      document.getElementById('csvFileInfo').style.display = 'block';
+      document.getElementById('csvFileInfo').textContent = `📄 ${file.name} — ${parsedUpdates.length} rows parsed`;
+      showPreview();
+      document.getElementById('csvUpdateBtn').disabled = false;
+    } catch(err) {
+      showToast('CSV error: ' + err.message, 'error');
+    }
+  };
+  reader.readAsText(file, 'UTF-8');
+};
+
+function brToHtml(text) {
+  if (!text || !text.trim()) return text;
+  if (/^\s*<(div|span|strong|b)\b/i.test(text)) return text;
+  const lines = text.split('[BR]');
+  return lines.map(line => {
+    line = line.trim();
+    if (!line) return '';
+    if (/^∴/.test(line))
+      return `<div style="margin-top:8px;font-weight:700;color:#00A86B;font-size:0.88rem;">${line}</div>`;
+    if (/^Step \d+:/i.test(line))
+      return `<div style="margin-top:8px;"><strong style="color:#155724;font-size:0.88rem;">${line}</strong></div>`;
+    if (line.startsWith('- '))
+      return `<div style="margin-left:14px;color:#374151;font-size:0.87rem;line-height:1.7;"><span style="color:#FF6B00;font-weight:700;margin-right:4px;">—</span>${line.slice(2)}</div>`;
+    return `<div style="margin-left:14px;color:#374151;font-size:0.87rem;line-height:1.7;">${line}</div>`;
+  }).join('');
+}
+
+function parseCSVtoUpdates(text) {
+  text = text.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const rows = [];
+  let row = [], cur = '', inQ = false, i = 0;
+  while (i < text.length) {
+    const ch = text[i];
+    if (inQ) {
+      if (ch === '"') { if (text[i+1] === '"') { cur += '"'; i += 2; } else { inQ = false; i++; } }
+      else { cur += ch; i++; }
+    } else {
+      if (ch === '"') { inQ = true; i++; }
+      else if (ch === ',') { row.push(cur.trim()); cur = ''; i++; }
+      else if (ch === '\n') {
+        row.push(cur.trim()); cur = '';
+        if (row.some(c => c !== '')) rows.push(row);
+        row = []; i++;
+      } else { cur += ch; i++; }
+    }
+  }
+  row.push(cur.trim());
+  if (row.some(c => c !== '')) rows.push(row);
+  if (rows.length < 2) return [];
+  const headers = rows[0].map(h => h.toLowerCase().trim());
+  const iQ = headers.indexOf('qnum');
+  const iE = headers.indexOf('explanation');
+  const iT = headers.indexOf('trick');
+  const iC = headers.indexOf('concept');
+  if (iQ === -1) throw new Error('Missing qNum column');
+  return rows.slice(1).map(r => ({
+    qNum:        parseInt(r[iQ]) || 0,
+    explanation: iE >= 0 ? brToHtml(r[iE] || '') : '',
+    trick:       iT >= 0 ? brToHtml(r[iT] || '') : '',
+    concept:     iC >= 0 ? brToHtml(r[iC] || '') : ''
+  })).filter(r => r.qNum > 0);
+}
+
+// ── Preview ──
+function showPreview() {
+  if (!loadedDocs.length) { showToast('Load questions first', 'error'); return; }
+  const override = document.getElementById('overrideToggle').checked;
+  const docMap = {};
+  loadedDocs.forEach(d => { docMap[parseInt(d.data().qNum)] = d; });
+
+  let newCount = 0, replaceCount = 0;
+  const tbody = document.getElementById('previewBody');
+  tbody.innerHTML = '';
+
+  parsedUpdates.forEach(upd => {
+    const doc = docMap[upd.qNum];
+    const tr = document.createElement('tr');
+    if (!doc) {
+      tr.innerHTML = `<td class="td-qnum">${upd.qNum}</td>
+        <td colspan="3" style="color:#64748B;font-style:italic;">Not found in loaded mock</td>
+        <td class="td-status"><span class="badge badge-red">Not found</span></td>`;
+    } else {
+      const data = doc.data();
+      const hasExpl = data.explanation && data.explanation.trim();
+      const hasTrick = data.trick && data.trick.trim();
+      const isReplace = (hasExpl || hasTrick) && override;
+      if (isReplace) replaceCount++; else newCount++;
+
+      const stripHtml = s => s.replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
+      const ep = upd.explanation ? stripHtml(upd.explanation).slice(0,50) + (stripHtml(upd.explanation).length > 50 ? '…':'') : '—';
+      const tp = upd.trick       ? stripHtml(upd.trick).slice(0,40) + (stripHtml(upd.trick).length > 40 ? '…':'') : '—';
+      const cp = upd.concept     ? upd.concept.slice(0,40) : '—';
+
+      const statusHtml = isReplace
+        ? '<span class="badge will-replace" style="background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.3);">Replace</span>'
+        : '<span class="badge badge-green">New</span>';
+      tr.innerHTML = `<td class="td-qnum">${upd.qNum}</td>
+        <td class="td-preview ${upd.explanation ? 'has-content':'no-content'}">${ep}</td>
+        <td class="td-preview ${upd.trick ? 'has-content':'no-content'}">${tp}</td>
+        <td class="td-preview ${upd.concept ? 'has-content':'no-content'}">${cp}</td>
+        <td class="td-status">${statusHtml}</td>`;
+    }
+    tbody.appendChild(tr);
+  });
+
+  document.getElementById('previewTotal').textContent = parsedUpdates.length + ' questions';
+  document.getElementById('previewNew').textContent = newCount + ' new';
+  const replBadge = document.getElementById('previewReplace');
+  if (replaceCount > 0) {
+    replBadge.style.display = 'inline-block';
+    replBadge.textContent = replaceCount + ' replacing existing';
+    replBadge.style.background = 'rgba(245,158,11,0.15)';
+    replBadge.style.border = '1px solid rgba(245,158,11,0.3)';
+    replBadge.style.color = '#F59E0B';
+  } else { replBadge.style.display = 'none'; }
+
+  document.getElementById('previewWrap').style.display = 'block';
+}
+
+window.clearPreview = () => {
+  parsedUpdates = [];
+  document.getElementById('previewWrap').style.display    = 'none';
+  document.getElementById('progressWrap').style.display   = 'none';
+  if (document.getElementById('jsonUpdateBtn')) document.getElementById('jsonUpdateBtn').disabled = true;
+  if (document.getElementById('csvUpdateBtn'))  document.getElementById('csvUpdateBtn').disabled  = true;
+};
+
+window.clearCSVMode = () => {
+  document.getElementById('csvInput').value = '';
+  document.getElementById('csvFileInfo').style.display = 'none';
+  clearPreview();
+};
+
+window.runUpdate = (mode) => {
+  if (!parsedUpdates.length) { if (mode === 'json') parseJSON(); return; }
+  showPreview();
+};
+
+// ── Confirm & Execute ──
+window.confirmUpdate = async () => {
+  if (!parsedUpdates.length || !loadedDocs.length) return;
+  const override = document.getElementById('overrideToggle').checked;
+  const docMap = {};
+  loadedDocs.forEach(d => { docMap[parseInt(d.data().qNum)] = d; });
+
+  const prog   = document.getElementById('progressWrap');
+  const bar    = document.getElementById('progressBar');
+  const status = document.getElementById('progressStatus');
+  prog.style.display = 'block';
+  document.getElementById('confirmUpdateBtn').disabled = true;
+
+  let updated = 0, skipped = 0, errors = 0;
+  for (let i = 0; i < parsedUpdates.length; i++) {
+    const upd     = parsedUpdates[i];
+    const docSnap = docMap[upd.qNum];
+    if (!docSnap) { skipped++; continue; }
+
+    const data    = docSnap.data();
+    const hasExpl = data.explanation && data.explanation.trim();
+    const hasTrick= data.trick && data.trick.trim();
+    if (!override && (hasExpl || hasTrick)) { skipped++; continue; }
+
+    const payload = {};
+    if (override) {
+      payload.explanation = upd.explanation;
+      payload.trick       = upd.trick;
+      if (upd.concept) payload.concept = upd.concept;
+    } else {
+      if (upd.explanation) payload.explanation = upd.explanation;
+      if (upd.trick)       payload.trick       = upd.trick;
+      if (upd.concept)     payload.concept     = upd.concept;
+    }
+    if (!Object.keys(payload).length) { skipped++; continue; }
+
+    try { await updateDoc(docSnap.ref, payload); updated++; }
+    catch(e) { errors++; console.error('Q' + upd.qNum + ' error:', e); }
+
+    bar.style.width = ((i + 1) / parsedUpdates.length * 100) + '%';
+    status.textContent = `Updating ${i + 1}/${parsedUpdates.length}...`;
+  }
+
+  status.innerHTML = `✅ <strong>${updated} updated</strong>${skipped ? ` · ${skipped} skipped` : ''}${errors ? ` · <span style="color:#EF4444">${errors} errors</span>` : ''}`;
+  document.getElementById('confirmUpdateBtn').disabled = false;
+  showToast(`✅ ${updated} questions updated!`, 'success');
+};
+
+// ── Q & Options Fix ──
+let parsedQOptUpdates = [];
+
+window.handleQOptCSV = (evt) => {
+  const file = evt.target.files[0];
+  if (!file) return;
+  if (!loadedDocs.length) { showToast('Load questions first', 'error'); return; }
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      parsedQOptUpdates = parseQOptCSV(e.target.result);
+      if (!parsedQOptUpdates.length) throw new Error('No valid rows found');
+      document.getElementById('qoptFileInfo').style.display = 'block';
+      document.getElementById('qoptFileInfo').textContent = `📄 ${file.name} — ${parsedQOptUpdates.length} rows parsed`;
+      showQOptPreview();
+    } catch(err) { showToast('CSV error: ' + err.message, 'error'); }
+  };
+  reader.readAsText(file, 'UTF-8');
+};
+
+function parseQOptCSV(text) {
+  text = text.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const rows = [];
+  let row = [], cur = '', inQ = false, i = 0;
+  while (i < text.length) {
+    const ch = text[i];
+    if (inQ) {
+      if (ch === '"') { if (text[i+1] === '"') { cur += '"'; i += 2; } else { inQ = false; i++; } }
+      else { cur += ch; i++; }
+    } else {
+      if (ch === '"') { inQ = true; i++; }
+      else if (ch === ',') { row.push(cur.trim()); cur = ''; i++; }
+      else if (ch === '\n') {
+        row.push(cur.trim()); cur = '';
+        if (row.some(c => c !== '')) rows.push(row);
+        row = []; i++;
+      } else { cur += ch; i++; }
+    }
+  }
+  row.push(cur.trim());
+  if (row.some(c => c !== '')) rows.push(row);
+  if (rows.length < 2) return [];
+  const headers = rows[0].map(h => h.toLowerCase().trim());
+  const idx = (n) => headers.indexOf(n);
+  const iQ = idx('qnum');
+  if (iQ === -1) throw new Error('Missing qNum column');
+  const valid = ['A','B','C','D'];
+  return rows.slice(1).map(r => {
+    const correctRaw = (r[idx('correct')] || '').trim().toUpperCase();
+    return {
+      qNum:     parseInt(r[iQ]) || 0,
+      text:     idx('text')     >= 0 ? r[idx('text')]     || '' : '',
+      option_A: idx('option_a') >= 0 ? r[idx('option_a')] || '' : '',
+      option_B: idx('option_b') >= 0 ? r[idx('option_b')] || '' : '',
+      option_C: idx('option_c') >= 0 ? r[idx('option_c')] || '' : '',
+      option_D: idx('option_d') >= 0 ? r[idx('option_d')] || '' : '',
+      correct:  valid.includes(correctRaw) ? correctRaw : ''
+    };
+  }).filter(r => r.qNum > 0);
+}
+
+function showQOptPreview() {
+  const docMap = {};
+  loadedDocs.forEach(d => { docMap[parseInt(d.data().qNum)] = d; });
+  let readyCount = 0, missingCount = 0;
+  const tbody = document.getElementById('qoptPreviewBody');
+  tbody.innerHTML = '';
+  parsedQOptUpdates.forEach(upd => {
+    const doc = docMap[upd.qNum];
+    const tr  = document.createElement('tr');
+    const clip = (s, n=30) => s ? (s.length > n ? s.slice(0,n)+'…' : s) : '—';
+    if (!doc) {
+      missingCount++;
+      tr.innerHTML = `<td class="td-qnum">${upd.qNum}</td>
+        <td colspan="6" style="color:#64748B;font-style:italic;">Not found in loaded mock</td>
+        <td class="td-status"><span class="badge badge-red">Not found</span></td>`;
+    } else {
+      readyCount++;
+      tr.innerHTML = `
+        <td class="td-qnum">${upd.qNum}</td>
+        <td class="td-preview ${upd.text?'has-content':'no-content'}">${clip(upd.text,40)}</td>
+        <td class="td-preview ${upd.option_A?'has-content':'no-content'}">${clip(upd.option_A)}</td>
+        <td class="td-preview ${upd.option_B?'has-content':'no-content'}">${clip(upd.option_B)}</td>
+        <td class="td-preview ${upd.option_C?'has-content':'no-content'}">${clip(upd.option_C)}</td>
+        <td class="td-preview ${upd.option_D?'has-content':'no-content'}">${clip(upd.option_D)}</td>
+        <td style="font-weight:700;color:${upd.correct?'#00A86B':'#64748B'}">${upd.correct||'—'}</td>
+        <td class="td-status"><span class="badge badge-green">Update</span></td>`;
+    }
+    tbody.appendChild(tr);
+  });
+  document.getElementById('qoptPreviewTotal').textContent = parsedQOptUpdates.length + ' questions';
+  document.getElementById('qoptPreviewNew').textContent   = readyCount + ' ready';
+  const mb = document.getElementById('qoptPreviewMissing');
+  if (missingCount > 0) { mb.style.display = 'inline-block'; mb.textContent = missingCount + ' not found'; }
+  else mb.style.display = 'none';
+  document.getElementById('qoptPreviewWrap').style.display = 'block';
+}
+
+window.confirmQOptUpdate = async () => {
+  if (!parsedQOptUpdates.length || !loadedDocs.length) return;
+  const docMap = {};
+  loadedDocs.forEach(d => { docMap[parseInt(d.data().qNum)] = d; });
+  const prog   = document.getElementById('qoptProgressWrap');
+  const bar    = document.getElementById('qoptProgressBar');
+  const status = document.getElementById('qoptProgressStatus');
+  prog.style.display = 'block'; bar.style.width = '0%';
+  document.getElementById('qoptConfirmBtn').disabled = true;
+  let updated = 0, skipped = 0, errors = 0;
+  for (let i = 0; i < parsedQOptUpdates.length; i++) {
+    const upd = parsedQOptUpdates[i];
+    const docSnap = docMap[upd.qNum];
+    if (!docSnap) { skipped++; continue; }
+    const payload = {};
+    if (upd.text)     payload.text     = upd.text;
+    if (upd.option_A) payload.option_A = upd.option_A;
+    if (upd.option_B) payload.option_B = upd.option_B;
+    if (upd.option_C) payload.option_C = upd.option_C;
+    if (upd.option_D) payload.option_D = upd.option_D;
+    if (upd.correct)  payload.correct  = upd.correct;
+    if (!Object.keys(payload).length) { skipped++; continue; }
+    try { await updateDoc(docSnap.ref, payload); updated++; }
+    catch(e) { errors++; }
+    bar.style.width = ((i + 1) / parsedQOptUpdates.length * 100) + '%';
+    status.textContent = `Updating ${i + 1}/${parsedQOptUpdates.length}...`;
+  }
+  status.innerHTML = `✅ <strong>${updated} updated</strong>${skipped ? ` · ${skipped} skipped` : ''}${errors ? ` · <span style="color:#EF4444">${errors} errors</span>` : ''}`;
+  document.getElementById('qoptConfirmBtn').disabled = false;
+  showToast(`✅ ${updated} questions updated!`, 'success');
+};
+
+// ══════════════════════════════════════════════════════════
+// ── Build-from-JSON tab ───────────────────────────────────
+// ══════════════════════════════════════════════════════════
+function bldStepDiv(n, title) {
+  if (!title.endsWith('.')) title += '.';
+  return `<div style="margin-top:8px;"><strong style="color:#155724;font-size:0.88rem;">Step ${n}: ${title}</strong></div>`;
+}
+function bldSubDiv(content) {
+  content = content.replace(/^→\s*/, '').replace(/→/g, ' = ').trim();
+  if (!content) return '';
+  return `<div style="margin-left:14px;color:#374151;font-size:0.87rem;line-height:1.7;"><span style="color:#FF6B00;font-weight:700;margin-right:4px;">—</span>${content}</div>`;
+}
+function bldFinalDiv(val) {
+  return `<div style="margin-top:8px;font-weight:700;color:#00A86B;font-size:0.88rem;">&#8756; Final Answer = ${val}</div>`;
+}
+function bldClean(s) {
+  return (s || '').replace(/👉/g,'').replace(/✔️/g,'').replace(/\*\*([^*]+)\*\*/g,'$1').replace(/\\'/g,"'").trim();
+}
+function bldParseStepsArray(steps, key) {
+  const html = []; let fa = null;
+  steps.forEach(s => {
+    const n = s.step || ''; const title = bldClean(s.title || s.stepTitle || 'Step ' + n);
+    html.push(bldStepDiv(n, title));
+    (s[key] || []).forEach(line => {
+      const c = bldClean(line);
+      if (/final\s+(answer|result)/i.test(c)) { const m = c.match(/[=:]\s*(.+)$/); if (m) fa = m[1].trim().replace(/^[=→ ]+/,'').trim(); }
+      const d = bldSubDiv(c); if (d) html.push(d);
+    });
+  });
+  if (!fa) { const last = steps[steps.length-1]; const lines = (last && last[key]) || []; if (lines.length) { const ll = bldClean(lines[lines.length-1]); const m = ll.match(/(?:Result|Answer|=)\s*:?\s*([A-Z0-9][^\s,\.]+)/i); if (m) fa = m[1]; } }
+  if (fa) html.push(bldFinalDiv(fa));
+  return html.join('');
+}
+function bldParseSolutionSteps(steps, root) {
+  const html = [];
+  steps.forEach(s => {
+    html.push(bldStepDiv(s.step || '', bldClean(s.title || s.description || 'Step ' + (s.step || ''))));
+    if (s.calculation) { const d = bldSubDiv(bldClean(s.calculation)); if (d) html.push(d); }
+  });
+  if (root && root.correct_answer && root.correct_answer.value) html.push(bldFinalDiv(root.correct_answer.value));
+  return html.join('');
+}
+function bldParseDescriptionSteps(steps, root) {
+  const html = []; let finalAns = null;
+  steps.forEach(s => {
+    html.push(bldStepDiv(s.step || '', bldClean(s.description || s.title || 'Step ' + (s.step || ''))));
+    if (s.data)     { const d = bldSubDiv(bldClean(s.data)); if (d) html.push(d); }
+    if (s.letters && Array.isArray(s.letters)) html.push(bldSubDiv('Original: ' + s.letters.join(', ')));
+    if (s.sorted  && Array.isArray(s.sorted))  html.push(bldSubDiv('Sorted: '   + s.sorted.join(', ')));
+    if (s.alignment) {
+      if (s.alignment.given) html.push(bldSubDiv('Given: ' + s.alignment.given));
+      if (s.alignment.new)   html.push(bldSubDiv('New: '   + s.alignment.new));
+    }
+    if (s.unchanged_positions && Array.isArray(s.unchanged_positions))
+      s.unchanged_positions.forEach(p => html.push(bldSubDiv('Position ' + p.position + ': ' + p.letter + ' (unchanged)')));
+    if (s.total_count !== undefined) { finalAns = String(s.total_count); html.push(bldSubDiv('Total unchanged = ' + s.total_count)); }
+    if (s.calculation) { const d = bldSubDiv(bldClean(s.calculation)); if (d) html.push(d); }
+    if (s.result) { const d = bldSubDiv(bldClean(String(s.result))); if (d) html.push(d); finalAns = finalAns || String(s.result); }
+    if (s.answer) finalAns = finalAns || String(s.answer);
+  });
+  if (root && root.correct_answer) { const v = root.correct_answer.value !== undefined ? root.correct_answer.value : root.correct_answer; if (v !== undefined) finalAns = finalAns || String(v); }
+  if (finalAns) html.push(bldFinalDiv(finalAns));
+  return html.join('');
+}
+function bldParseExplTrickConcept(obj) {
+  function procExpl(raw) {
+    if (!raw) return '';
+    raw = bldClean(raw.replace(/\\n/g,'\n'));
+    const lines = raw.split('\n').map(l=>l.trim()).filter(Boolean);
+    let start = 0; while (start < lines.length && /^Question\s*\d+/i.test(lines[start])) start++;
+    let body = lines.slice(start);
+    const fs = body.findIndex(l => /^Step\s+\d+/i.test(l)); if (fs > 0) body = body.slice(fs);
+    const merged = []; let i = 0;
+    while (i < body.length) {
+      const l = body[i];
+      if (/^Step\s+\d+\s*[:.]\s*$/i.test(l) && i+1 < body.length && !/^(Step\s+\d+|→)/i.test(body[i+1])) { merged.push(l.replace(/[:.]\s*$/,': ')+body[i+1]); i+=2; }
+      else { merged.push(l); i++; }
+    }
+    const html = [];
+    merged.forEach(line => {
+      const sm = line.match(/^Step\s+(\d+)\s*[:.]\s*(.*)/i);
+      if (sm) { let rest = sm[2].trim(), sub=''; if (rest.includes('→')) { [rest,sub]=rest.split('→',2); sub=sub.trim(); } html.push(bldStepDiv(sm[1],rest.trim())); if (sub) { const d=bldSubDiv(sub); if(d) html.push(d); } }
+      else if (line.startsWith('→')) { const d=bldSubDiv(line.slice(1)); if(d) html.push(d); }
+      else { const d=bldSubDiv(line); if(d) html.push(d); }
+    });
+    const full = merged.join(' '); const fam = full.match(/(?:Final\s+(?:Answer|Result))\s*[=:→]\s*([^\.\n]+)/i);
+    if (fam) html.push(bldFinalDiv(fam[1].trim().replace(/^[=→ ]+/,'').trim()));
+    return html.join('');
+  }
+  const cp = t => bldClean((t||'').replace(/\\n/g,' ').replace(/→/g,' = ')).replace(/\s+/g,' ').trim();
+  return { explanation: procExpl(obj.explanation), trick: cp(obj.trick), concept: cp(obj.concept) };
+}
+function bldDetectFormat(obj) {
+  if (obj.steps && Array.isArray(obj.steps)) return Array.isArray((obj.steps[0]||{}).process) ? 'steps_process' : 'steps_expl';
+  if (obj.solution_steps && Array.isArray(obj.solution_steps)) { const first = obj.solution_steps[0]||{}; return (first.description !== undefined && first.title === undefined) ? 'description_steps' : 'solution_steps'; }
+  if (obj.explanation !== undefined) return 'expl_trick_concept';
+  return null;
+}
+
+let _bldExpl = '', _bldTrick = '', _bldConcept = '', _bldQNum = 0;
+
+window.bldConvert = () => {
+  const raw = document.getElementById('bldJsonInput').value.trim();
+  const qnum = parseInt(document.getElementById('bldQNum').value) || 0;
+  const fmtSel = document.getElementById('bldFmt').value;
+  if (!raw)  { showToast('Paste JSON first', 'error'); return; }
+  if (!qnum) { showToast('Enter a Q number', 'error'); return; }
+  let obj; try { obj = JSON.parse(raw); } catch(e) { showToast('Invalid JSON: '+e.message,'error'); return; }
+  const fmt = fmtSel === 'auto' ? bldDetectFormat(obj) : fmtSel;
+  if (!fmt) { showToast('Cannot detect format — select manually','error'); return; }
+  let explanation='', trick='', concept='';
+  try {
+    if      (fmt==='steps_expl')        explanation = bldParseStepsArray(obj.steps,'explanation');
+    else if (fmt==='steps_process')     explanation = bldParseStepsArray(obj.steps,'process');
+    else if (fmt==='solution_steps')    explanation = bldParseSolutionSteps(obj.solution_steps,obj);
+    else if (fmt==='description_steps') explanation = bldParseDescriptionSteps(obj.solution_steps,obj);
+    else if (fmt==='expl_trick_concept'){ const r=bldParseExplTrickConcept(obj); explanation=r.explanation; trick=r.trick; concept=r.concept; }
+  } catch(e) { showToast('Parse error: '+e.message,'error'); return; }
+  _bldExpl=explanation; _bldTrick=trick; _bldConcept=concept; _bldQNum=qnum;
+  document.getElementById('bldPreviewQLabel').textContent  = qnum;
+  document.getElementById('bldHtmlPreview').innerHTML      = explanation || '<span style="color:#475569;">No HTML generated</span>';
+  document.getElementById('bldTrickPreview').textContent   = trick   || '(empty)';
+  document.getElementById('bldConceptPreview').textContent = concept || '(empty)';
+  document.getElementById('bldPreviewWrap').style.display  = 'block';
+  document.getElementById('bldStatusBadge').innerHTML = '<span class="badge badge-purple">Ready to push</span>';
+  document.getElementById('bldPushBtn').disabled = false;
+  showToast('Converted Q' + qnum + ' — check preview then push', 'info');
+};
+
+window.bldPush = async () => {
+  if (!_bldExpl)         { showToast('Convert a question first','error'); return; }
+  if (!loadedDocs.length){ showToast('Load questions first','error'); return; }
+  const override = document.getElementById('overrideToggle').checked;
+  const docMap = {};
+  loadedDocs.forEach(d => { docMap[parseInt(d.data().qNum)] = d; });
+  const docSnap = docMap[_bldQNum];
+  if (!docSnap) { showToast(`Q${_bldQNum} not found in loaded mock`,'error'); document.getElementById('bldStatusBadge').innerHTML='<span class="badge badge-red">Not found</span>'; return; }
+  const data = docSnap.data();
+  const hasExpl = data.explanation && data.explanation.trim();
+  const hasTrick= data.trick && data.trick.trim();
+  if (!override && (hasExpl || hasTrick)) { showToast(`Q${_bldQNum} already has a solution. Enable Override to replace.`,'error'); return; }
+  const prog=document.getElementById('bldProgressWrap'), bar=document.getElementById('bldProgressBar'), status=document.getElementById('bldProgressStatus');
+  prog.style.display='block'; bar.style.width='0%'; document.getElementById('bldPushBtn').disabled=true;
+  status.textContent = `Pushing Q${_bldQNum}...`;
+  const payload = { explanation: _bldExpl, trick: _bldTrick };
+  if (_bldConcept) payload.concept = _bldConcept;
+  try {
+    await updateDoc(docSnap.ref, payload);
+    bar.style.width='100%';
+    status.innerHTML = `✅ <strong>Q${_bldQNum} updated successfully!</strong>`;
+    document.getElementById('bldStatusBadge').innerHTML = '<span class="badge badge-green">✅ Pushed</span>';
+    showToast(`✅ Q${_bldQNum} solution saved!`,'success');
+  } catch(e) {
+    status.innerHTML = `<span style="color:#EF4444;">❌ Error: ${e.message}</span>`;
+    document.getElementById('bldStatusBadge').innerHTML='<span class="badge badge-red">Error</span>';
+    showToast('Push failed: '+e.message,'error');
+  }
+  document.getElementById('bldPushBtn').disabled=false;
+};
+
+window.bldClear = () => {
+  document.getElementById('bldJsonInput').value = '';
+  document.getElementById('bldPreviewWrap').style.display  = 'none';
+  document.getElementById('bldProgressWrap').style.display = 'none';
+  document.getElementById('bldPushBtn').disabled = true;
+  _bldExpl=''; _bldTrick=''; _bldConcept=''; _bldQNum=0;
+};
+
+window.bldLoadExample = () => {
+  document.getElementById('bldJsonInput').value = JSON.stringify({
+    "steps": [
+      { "step": 1, "title": "Identify the mathematical progression", "explanation": ["(1 × 2) + 1 = 3", "(3 × 3) + 1 = 10", "(10 × 4) + 1 = 41"] },
+      { "step": 2, "title": "Apply logic to find the missing term",  "explanation": ["(41 × 5) + 1 = 205 + 1 = 206"] },
+      { "step": 3, "title": "Verify with the final term",            "explanation": ["(206 × 6) + 1 = 1236 + 1 = 1237"] }
+    ]
+  }, null, 2);
+  document.getElementById('bldQNum').value = 25;
+  showToast('Example loaded — click Convert & Preview', 'info');
+};
+
+// ══════════════════════════════════════════════════════════
+// ── Math Converter tab ────────────────────────────────────
+// ══════════════════════════════════════════════════════════
+const MC_SUP = {'0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹','+':'⁺','-':'⁻','n':'ⁿ','x':'ˣ','a':'ᵃ','b':'ᵇ'};
+const MC_SUB = {'0':'₀','1':'₁','2':'₂','3':'₃','4':'₄','5':'₅','6':'₆','7':'₇','8':'₈','9':'₉'};
+function mcToSup(s){ return s.split('').map(c=>MC_SUP[c]||c).join(''); }
+function mcToSub(s){ return s.split('').map(c=>MC_SUB[c]||c).join(''); }
+function mcConvertMath(text) {
+  text=text.replace(/\$\$[\s\S]*?\$\$/g,s=>s.slice(2,-2)).replace(/\$([^$]+)\$/g,'$1').replace(/\\\[[\s\S]*?\\\]/g,s=>s.slice(2,-2)).replace(/\\\([\s\S]*?\\\)/g,s=>s.slice(2,-2));
+  text=text.replace(/\\text\{([^}]*)\}/g,'$1').replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g,'$1/$2').replace(/\\sqrt\{([^}]+)\}/g,'√($1)').replace(/\\sqrt\s*/g,'√');
+  text=text.replace(/\\sin/g,'sin').replace(/\\cos/g,'cos').replace(/\\tan/g,'tan').replace(/\\cot/g,'cot').replace(/\\sec/g,'sec').replace(/\\cosec/g,'cosec').replace(/\\log/g,'log').replace(/\\ln/g,'ln').replace(/\\lim/g,'lim');
+  text=text.replace(/\\theta/g,'θ').replace(/\\alpha/g,'α').replace(/\\beta/g,'β').replace(/\\gamma/g,'γ').replace(/\\delta/g,'δ').replace(/\\phi/g,'φ').replace(/\\pi/g,'π').replace(/\\infty/g,'∞').replace(/\\sigma/g,'σ').replace(/\\mu/g,'μ').replace(/\\lambda/g,'λ');
+  text=text.replace(/\\times/g,'×').replace(/\\div/g,'÷').replace(/\\pm/g,'±').replace(/\\mp/g,'∓').replace(/\\geq/g,'≥').replace(/\\leq/g,'≤').replace(/\\neq/g,'≠').replace(/\\approx/g,'≈').replace(/\\equiv/g,'≡').replace(/\\cdot/g,'·').replace(/\\ldots/g,'...').replace(/\\degree/g,'°').replace(/\\circ/g,'°').replace(/\^\\circ/g,'°').replace(/\\%/g,'%').replace(/\\&/g,'&');
+  text=text.replace(/\^\{([^}]+)\}/g,(_,e)=>mcToSup(e)).replace(/\^([0-9a-zA-Z+\-])/g,(_,c)=>mcToSup(c));
+  text=text.replace(/\_\{([^}]+)\}/g,(_,s)=>mcToSub(s)).replace(/\_([0-9])/g,(_,c)=>mcToSub(c));
+  text=text.replace(/\\/g,'');
+  return text;
+}
+function mcFormatSteps(raw) {
+  const lines = raw.split('\n'), out = [];
+  for (let i = 0; i < lines.length; i++) {
+    let line = lines[i].trim(); if (!line) continue;
+    line = mcConvertMath(line);
+    line = line.replace(/\*\*(.+?)\*\*/g,'$1').replace(/\*([^*]+?)\*/g,'$1');
+    const stepM = line.match(/^Step\s+(\d+)\s*[:.]\s*(.*)/i);
+    if (stepM) { let title=stepM[2].trim(); if (title && !title.endsWith('.')) title+='.'; out.push('Step '+stepM[1]+': '+title); continue; }
+    const bulletM = line.match(/^[•\-\*]\s+(.+)/);
+    if (bulletM) { out.push('- '+bulletM[1].trim()); continue; }
+    if (/^(final\s+answer|∴\s*final)/i.test(line)) { const valM=line.match(/[=:]\s*(.+)$/i); out.push('∴ Final Answer = '+(valM?valM[1].trim():line)); continue; }
+    if (line.startsWith('∴')) { out.push(line); continue; }
+    out.push('- '+line);
+  }
+  return out.join('[BR]');
+}
+function mcRenderPreview(text) {
+  if (!text) return '';
+  const lines = text.split('[BR]'), out = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const stepM = line.match(/^(Step \d+:\s*)(.*)/);
+    if (stepM) out.push('<div style="margin-top:8px;"><strong style="color:#15803D;font-size:0.88rem;">'+stepM[1].trim()+'</strong>'+(stepM[2]?' <span style="color:#374151;">'+stepM[2].trim()+'</span>':'')+  '</div>');
+    else if (line.match(/^- /)) out.push('<div style="margin-left:16px;color:#374151;font-size:0.87rem;line-height:1.7;"><span style="color:#FF6B00;font-weight:700;margin-right:5px;">—</span>'+line.slice(2)+'</div>');
+    else if (/^∴/.test(line)) out.push('<div style="margin-top:6px;font-weight:700;color:#00A86B;font-size:0.88rem;">'+line+'</div>');
+    else if (line.trim()) out.push('<div style="color:#374151;font-size:0.87rem;line-height:1.7;">'+line+'</div>');
+  }
+  return out.join('');
+}
+let _mcConverted = '';
+window.mcConvert = () => {
+  const raw = document.getElementById('mcRawInput').value;
+  if (!raw.trim()) { showToast('Paste solution text first','error'); return; }
+  _mcConverted = mcFormatSteps(raw);
+  document.getElementById('mcConvertedOutput').value = _mcConverted;
+  document.getElementById('mcLivePreview').innerHTML = mcRenderPreview(_mcConverted) || '<span style="color:#94A3B8;">Nothing to preview</span>';
+  document.getElementById('mcPushBtn').disabled = false;
+  showToast('Converted — check preview then push','info');
+};
+window.mcCopyOutput = () => {
+  const val = document.getElementById('mcConvertedOutput').value;
+  if (!val) { showToast('Convert first','error'); return; }
+  navigator.clipboard.writeText(val).then(() => showToast('Copied!','success'));
+};
+window.mcClear = () => {
+  document.getElementById('mcRawInput').value='';
+  document.getElementById('mcConvertedOutput').value='';
+  document.getElementById('mcLivePreview').innerHTML='<span style="color:#94A3B8;font-size:0.8rem;">Preview will appear after conversion...</span>';
+  document.getElementById('mcPushBtn').disabled=true;
+  document.getElementById('mcPushStatus').textContent='';
+  document.getElementById('mcProgressWrap').style.display='none';
+  _mcConverted='';
+};
+window.mcPush = async () => {
+  if (!_mcConverted)      { showToast('Convert first','error'); return; }
+  if (!loadedDocs.length) { showToast('Load questions first','error'); return; }
+  const qnum  = parseInt(document.getElementById('mcQNum').value) || 0;
+  const field = document.getElementById('mcField').value;
+  if (!qnum) { showToast('Enter a Q number','error'); return; }
+  const docMap = {};
+  loadedDocs.forEach(d => { docMap[parseInt(d.data().qNum)] = d; });
+  const docSnap = docMap[qnum];
+  if (!docSnap) { showToast('Q'+qnum+' not found in loaded mock','error'); document.getElementById('mcPushStatus').textContent='❌ Q'+qnum+' not found'; return; }
+  const override = document.getElementById('overrideToggle').checked;
+  const data = docSnap.data();
+  if (!override && data[field] && data[field].trim()) { showToast('Q'+qnum+' already has '+field+'. Enable Override to replace.','error'); return; }
+  const prog=document.getElementById('mcProgressWrap'), bar=document.getElementById('mcProgressBar'), status=document.getElementById('mcProgressStatus');
+  prog.style.display='block'; bar.style.width='0%'; document.getElementById('mcPushBtn').disabled=true; document.getElementById('mcPushStatus').textContent='';
+  status.textContent = 'Pushing Q'+qnum+'...';
+  try {
+    const payload = {}; payload[field] = _mcConverted;
+    await updateDoc(docSnap.ref, payload);
+    bar.style.width='100%'; status.innerHTML='✅ <strong>Q'+qnum+' '+field+' updated!</strong>'; document.getElementById('mcPushStatus').textContent='✅ Done';
+    showToast('✅ Q'+qnum+' '+field+' saved!','success');
+  } catch(e) { status.innerHTML='<span style="color:#EF4444;">❌ '+e.message+'</span>'; showToast('Push failed: '+e.message,'error'); }
+  document.getElementById('mcPushBtn').disabled=false;
+};
+
+// ── Toast ──
+window.showToast = (msg, type='success') => {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast ' + type; t.style.display = 'block';
+  setTimeout(() => { t.style.display='none'; }, 3500);
+};
+
+</script>
+</body>
+</html>
