@@ -2427,8 +2427,24 @@ window.importCSV = async () => {
   // Read override dropdowns (empty string = use CSV value)
   const ovExam = document.getElementById('csvExam')?.value || '';
   const ovTier = document.getElementById('csvTier')?.value || '';
-  const ovYear = document.getElementById('csvYear')?.value || '';
+  const ovYear = document.getElementById('csvYear')?.value || '';   // = Mock Number
   const ovLang = document.getElementById('csvLang')?.value || '';
+
+  // ── MOCK MODE detection ──
+  // This is the mock admin. If a Mock Number is chosen (or CSV rows declare
+  // type=mock), stamp full mock linkage so questions are findable by the mock
+  // loader and the solution-updater-mock page.
+  const seriesNum = parseInt(ovYear || csvParsedRows[0]?.year || '0') || 0;
+  const firstType = (csvParsedRows[0]?.type || '').toLowerCase();
+  const isMock = !!ovYear || firstType === 'mock';
+  const mockExam = ovExam || csvParsedRows[0]?.exam || 'ssc-cgl';
+  const mockTier = ovTier || csvParsedRows[0]?.tier || 'tier1';
+  // One mockId shared across BOTH languages of the same mock number.
+  let mockId = null;
+  if (isMock && seriesNum) {
+    mockId = `${mockExam}_${mockTier}_mock${seriesNum}`.toLowerCase();
+  }
+
   let saved = 0, errors = 0;
   for (let i = 0; i < csvParsedRows.length; i++) {
     const r = csvParsedRows[i];
@@ -2438,23 +2454,57 @@ window.importCSV = async () => {
     const language = ovLang || r.language || 'en';
     if (!r.text || !r.correct || !exam) { errors++; continue; }
     try {
-      await addDoc(collection(db, 'questions'), {
+      const docData = {
         text: r.text, exam, tier, year, language,
-        type: r.type || 'pyq',
+        type: isMock ? 'mock' : (r.type || 'pyq'),
         subject: r.subject || '', chapter: r.chapter || '',
         difficulty: r.difficulty || 'medium', qNum: parseInt(r.qNum) || 0,
         options: { A: r.option_A||'', B: r.option_B||'', C: r.option_C||'', D: r.option_D||'' },
+        option_A: r.option_A||'', option_B: r.option_B||'',
+        option_C: r.option_C||'', option_D: r.option_D||'',
         correct: r.correct,
         explanation: r.explanation || '', trick: r.trick || '',
         imageUrl: r.imageUrl || '', concept: r.concept || '',
         createdAt: new Date()
-      });
+      };
+      if (isMock && seriesNum) {
+        docData.mockSeriesNum = seriesNum;
+        docData.mockId = mockId;
+        docData.lang = language;
+      }
+      await addDoc(collection(db, 'questions'), docData);
       saved++;
     } catch(e) { errors++; console.error(e); }
     bar.style.width = ((i+1)/csvParsedRows.length*100) + '%';
     status.textContent = `Importing ${i+1}/${csvParsedRows.length}...`;
   }
-  status.textContent = `✅ Imported ${saved} questions${errors ? ' (' + errors + ' errors)' : ''}.`;
+
+  // ── Create / update mock_tests entry so this mock is discoverable ──
+  let mockNote = '';
+  if (isMock && seriesNum && mockId) {
+    try {
+      const existing = await getDocs(query(collection(db, 'mock_tests'), where('mockId', '==', mockId)));
+      const qSnap = await getDocs(query(collection(db, 'questions'), where('mockId', '==', mockId)));
+      const totalQ = qSnap.docs.length;
+      if (existing.empty) {
+        const examName = mockExam.replace('ssc-', 'SSC ').toUpperCase();
+        await addDoc(collection(db, 'mock_tests'), {
+          mockId, exam: mockExam, tier: mockTier, seriesNum,
+          title: `${examName} Mock Test ${seriesNum}`,
+          totalQuestions: totalQ, isPublished: false, createdAt: new Date()
+        });
+        mockNote = ` — created mock_tests entry "${mockId}"`;
+      } else {
+        await updateDoc(existing.docs[0].ref, { totalQuestions: totalQ });
+        mockNote = ` — updated mock "${mockId}" (now ${totalQ} Qs)`;
+      }
+    } catch(e) {
+      console.error('mock_tests sync error:', e);
+      mockNote = ' — ⚠️ questions saved but mock_tests sync failed (see console)';
+    }
+  }
+
+  status.textContent = `✅ Imported ${saved} questions${errors ? ' (' + errors + ' errors)' : ''}${mockNote}.`;
   showToast(`✅ ${saved} questions imported!`, 'success');
   document.getElementById('csvImportBtn').disabled = false;
   loadStats();
