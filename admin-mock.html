@@ -2438,7 +2438,14 @@ window.importCSV = async () => {
   const firstType = (csvParsedRows[0]?.type || '').toLowerCase();
   const isMock = !!ovYear || firstType === 'mock';
   const mockExam = ovExam || csvParsedRows[0]?.exam || 'ssc-cgl';
-  const mockTier = ovTier || csvParsedRows[0]?.tier || 'tier1';
+  // Normalize tier to canonical tier1/tier2 — admin has two conventions
+  // ('tier1' vs 'Tier I'); both must produce the SAME mockId or you get dupes.
+  function canonTier(t) {
+    const k = (t || '').toLowerCase().replace(/[\s\-_]/g, '');
+    if (k === 'tier2' || k === 'tierii' || k === 't2' || k === 'ii' || k === '2') return 'tier2';
+    return 'tier1';
+  }
+  const mockTier = canonTier(ovTier || csvParsedRows[0]?.tier || 'tier1');
   // One mockId shared across BOTH languages of the same mock number.
   let mockId = null;
   if (isMock && seriesNum) {
@@ -2463,7 +2470,7 @@ window.importCSV = async () => {
   for (let i = 0; i < csvParsedRows.length; i++) {
     const r = csvParsedRows[i];
     const exam = ovExam || r.exam || '';
-    const tier = ovTier || r.tier || 'tier1';
+    const tier = isMock ? mockTier : (ovTier || r.tier || 'tier1');
     const year = ovYear || r.year || '';
     const language = ovLang || r.language || 'en';
     if (!r.text || !r.correct || !exam) { errors++; continue; }
@@ -3736,11 +3743,13 @@ window.mmLoad = async () => {
 
   try {
     let q = collection(db,'mock_tests');
-    let constraints = [];
-    if (exam) constraints.push(where('exam','==',exam));
-    if (tier) constraints.push(where('tier','==',tier));
-    const snap = await getDocs(constraints.length ? query(q,...constraints) : q);
+    // Only filter by exam server-side; tier filtered client-side because the DB
+    // has mixed tier conventions ('tier1' vs 'Tier I').
+    const snap = await getDocs(exam ? query(q, where('exam','==',exam)) : q);
+    const ct = (t) => { const k=(t||'').toLowerCase().replace(/[\s\-_]/g,''); return (k==='tier2'||k==='tierii'||k==='t2'||k==='ii'||k==='2')?'tier2':'tier1'; };
+    const wantTier = tier ? ct(tier) : '';
     mmAllMocks = snap.docs.map(d=>({id:d.id,...d.data()}))
+      .filter(m => !wantTier || ct(m.tier) === wantTier)
       .sort((a,b)=>{
         if(a.exam!==b.exam) return (a.exam||'').localeCompare(b.exam||'');
         return (a.seriesNum||99)-(b.seriesNum||99);
@@ -3798,21 +3807,48 @@ window.mmDeleteMock = async (docId, mockId, title) => {
 
   showToast('⏳ Deleting...', '');
   try {
+    // Grab the mock entry first so we know its exam/seriesNum for the fallback
+    const mockObj = mmAllMocks.find(m => m.id === docId) || {};
+
     // Delete mock_tests entry
     await deleteDoc(doc(db,'mock_tests',docId));
 
-    // Delete all questions with this mockId
-    let deletedCount = 0;
+    // Collect question docs to delete — dedupe by id across strategies
+    const toDelete = new Map();
+
+    // (1) by mockId (preferred)
     if (mockId) {
-      const qSnap = await getDocs(query(collection(db,'questions'), where('mockId','==',mockId)));
-      const batchDeletes = qSnap.docs.map(d => deleteDoc(doc(db,'questions',d.id)));
-      await Promise.all(batchDeletes);
-      deletedCount = qSnap.docs.length;
+      const snap = await getDocs(query(collection(db,'questions'), where('mockId','==',mockId)));
+      snap.docs.forEach(d => toDelete.set(d.id, d));
     }
+
+    // (2) fallback for legacy/orphan questions with NO mockId:
+    //     match exam + type=mock + mockSeriesNum
+    const exam = mockObj.exam;
+    const seriesNum = mockObj.seriesNum;
+    if (exam && seriesNum) {
+      try {
+        const snap = await getDocs(query(collection(db,'questions'),
+          where('exam','==',exam),
+          where('type','==','mock'),
+          where('mockSeriesNum','==',seriesNum)));
+        // Only sweep ones that DON'T belong to a different surviving mockId
+        snap.docs.forEach(d => {
+          const dd = d.data();
+          if (!dd.mockId || dd.mockId === mockId) toDelete.set(d.id, d);
+        });
+      } catch(e) { console.warn('fallback delete query failed:', e.message); }
+    }
+
+    const batchDeletes = [...toDelete.values()].map(d => deleteDoc(doc(db,'questions',d.id)));
+    await Promise.all(batchDeletes);
+    const deletedCount = batchDeletes.length;
 
     showToast(`✅ Mock deleted — ${deletedCount} questions removed`, 'success');
     mmLoad();
-    document.getElementById('mmQCard').style.display = 'none';
+    const qcard = document.getElementById('mmQCard');
+    if (qcard) qcard.style.display = 'none';
+    loadStats();
   } catch(e) {
     showToast('Error: '+e.message, 'error');
   }
