@@ -153,7 +153,9 @@ pre{font-family:monospace;font-size:0.78rem;color:#A78BFA;line-height:1.7;white-
   <!-- Mock Selector -->
   <div class="card">
     <h3>🧪 Select Mock Test</h3>
-    <div class="form-grid">
+
+    <!-- Step 1: Filters -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:0.75rem;margin-bottom:1rem;">
       <div>
         <label>Exam</label>
         <select id="selExam" onchange="loadMockList()">
@@ -183,21 +185,25 @@ pre{font-family:monospace;font-size:0.78rem;color:#A78BFA;line-height:1.7;white-
       </div>
     </div>
 
-    <!-- Mock list -->
+    <!-- Step 2: Mock list -->
     <div id="mockListWrap" style="display:none;margin-bottom:1rem;">
-      <div style="font-size:0.78rem;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.5rem;">Available Mocks — click to select</div>
-      <div id="mockList" style="max-height:260px;overflow-y:auto;"></div>
+      <div style="font-size:0.78rem;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.5rem;">
+        Available Mocks — click to select
+      </div>
+      <div id="mockList" style="max-height:280px;overflow-y:auto;border:1px solid #1E293B;border-radius:8px;padding:0.25rem;"></div>
     </div>
 
-    <!-- Selected mock info -->
+    <!-- Step 3: Selected mock + mock number picker -->
     <div id="selectedMockInfo" style="display:none;background:#0F172A;border:1px solid #7C3AED44;border-radius:10px;padding:0.85rem 1rem;margin-bottom:1rem;">
-      <div style="font-size:0.72rem;font-weight:700;color:#7C3AED;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.3rem;">Selected Mock</div>
-      <div id="selectedMockTitle" style="font-weight:700;color:#E2E8F0;font-size:0.95rem;"></div>
-      <div id="selectedMockMeta" style="font-size:0.75rem;color:#64748B;margin-top:0.2rem;font-family:monospace;"></div>
+      <div style="font-size:0.72rem;font-weight:700;color:#7C3AED;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.4rem;">Selected Mock</div>
+      <div id="selectedMockTitle" style="font-weight:700;color:#E2E8F0;font-size:0.95rem;margin-bottom:0.2rem;"></div>
+      <div id="selectedMockMeta" style="font-size:0.72rem;color:#64748B;font-family:monospace;"></div>
     </div>
 
-    <button class="btn btn-secondary" onclick="loadMockList()" style="margin-right:0.5rem;">🔄 Refresh List</button>
-    <button class="btn btn-primary" onclick="loadMockQuestions()" id="loadQBtn">📋 Load Questions</button>
+    <div style="display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap;">
+      <button class="btn btn-secondary" onclick="loadMockList()">🔄 Refresh List</button>
+      <button class="btn btn-primary" onclick="loadMockQuestions()" id="loadQBtn">📋 Load Questions</button>
+    </div>
     <div id="paperStatus" style="margin-top:0.75rem;font-size:0.85rem;color:#94A3B8;"></div>
   </div>
 
@@ -490,54 +496,74 @@ window.loadMockList = async () => {
   const exam = document.getElementById('selExam').value;
   const tier = document.getElementById('selTier').value;
   const list = document.getElementById('mockList');
-  list.innerHTML = '<div style="color:#94A3B8;font-size:0.82rem;padding:0.5rem 0;">⏳ Loading...</div>';
+  list.innerHTML = '<div style="color:#94A3B8;font-size:0.82rem;padding:0.5rem;">⏳ Loading...</div>';
   document.getElementById('mockListWrap').style.display = 'block';
+  // Reset selection when filters change
+  selectedMockId = null;
+  document.getElementById('selectedMockInfo').style.display = 'none';
+  document.getElementById('updateCard').style.display = 'none';
+  document.getElementById('paperStatus').textContent = '';
 
   try {
-    let constraints = [where('exam', '==', exam)];
-    if (tier) constraints.push(where('tier', '==', tier));
-    const snap = await getDocs(query(collection(db, 'mock_tests'), ...constraints));
+    // Single-field query only (no composite index needed). Tier filtered client-side.
+    let snap;
+    try {
+      snap = await getDocs(query(collection(db, 'mock_tests'), where('exam', '==', exam)));
+    } catch(permErr) {
+      // Fallback: fetch all, filter entirely client-side
+      snap = await getDocs(collection(db, 'mock_tests'));
+    }
     allMocks = snap.docs
       .map(d => ({ id: d.id, ...d.data() }))
+      .filter(m => (!exam || (m.exam || '') === exam) && (!tier || (m.tier || '') === tier))
       .sort((a, b) => (a.seriesNum || 99) - (b.seriesNum || 99));
 
     if (!allMocks.length) {
-      list.innerHTML = '<div style="color:#64748B;font-size:0.82rem;padding:0.5rem 0;">No mocks found for this exam/tier.</div>';
+      list.innerHTML = '<div style="color:#64748B;font-size:0.82rem;padding:0.5rem;">No mocks found for this exam/tier.</div>';
       return;
     }
 
-    list.innerHTML = allMocks.map(m => `
-      <div class="mock-list-item" id="mock-item-${m.id}"
-           onclick="selectMock('${m.id}','${m.mockId||''}','${(m.title||'').replace(/'/g,'\\\'').replace(/"/g,'&quot;')}')">
+    list.innerHTML = allMocks.map(m => {
+      const safeTitle = (m.title || 'Untitled Mock').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+      const safeMockId = (m.mockId || '').replace(/'/g,"\\'");
+      return `<div class="mock-list-item" id="mock-item-${m.id}"
+           onclick="selectMock('${m.id}','${safeMockId}','${safeTitle}','${m.seriesNum||''}','${m.exam||''}','${m.tier||''}')">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;">
-          <div>
-            <div style="font-weight:700;color:#E2E8F0;font-size:0.88rem;">${m.title || 'Untitled Mock'}</div>
-            <div style="font-size:0.72rem;color:#64748B;margin-top:0.1rem;">
-              Mock #${m.seriesNum || '?'} &nbsp;·&nbsp;
-              <span style="color:#A855F7;">${m.totalQuestions || '?'} Qs</span> &nbsp;·&nbsp;
-              ${m.isPublished ? '<span style="color:#4ADE80;">✅ Live</span>' : '<span style="color:#94A3B8;">Draft</span>'}
-              ${m.mockId ? '&nbsp;·&nbsp;<span style="font-family:monospace;font-size:0.67rem;color:#475569;">' + m.mockId + '</span>' : ''}
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;margin-bottom:0.15rem;">
+              <span style="background:#7C3AED22;color:#A855F7;border-radius:4px;padding:0.1rem 0.4rem;font-size:0.7rem;font-weight:700;flex-shrink:0;">
+                #${m.seriesNum || '?'}
+              </span>
+              <span style="font-weight:700;color:#E2E8F0;font-size:0.88rem;">
+                ${m.title || 'Untitled Mock'}
+              </span>
+            </div>
+            <div style="font-size:0.71rem;color:#64748B;">
+              ${m.tier || '—'}&nbsp;·&nbsp;<span style="color:#A855F7;">${m.totalQuestions || '?'} Qs</span>&nbsp;·&nbsp;${m.isPublished ? '<span style="color:#4ADE80;">✅ Live</span>' : '<span style="color:#64748B;">Draft</span>'}${m.mockId ? '&nbsp;·&nbsp;<span style="font-family:monospace;font-size:0.65rem;color:#475569;">' + m.mockId + '</span>' : ''}
             </div>
           </div>
-          <div style="font-size:1.2rem;color:#334155;">›</div>
+          <div style="color:#475569;flex-shrink:0;">›</div>
         </div>
-      </div>`).join('');
+      </div>`;
+    }).join('');
   } catch(e) {
-    list.innerHTML = '<div style="color:#EF4444;font-size:0.82rem;">Error: ' + e.message + '</div>';
+    list.innerHTML = '<div style="color:#EF4444;font-size:0.82rem;padding:0.5rem;">Error: ' + e.message + '</div>';
   }
 };
 
-window.selectMock = (docId, mockId, title) => {
+window.selectMock = (docId, mockId, title, seriesNum, exam, tier) => {
   selectedMockId = mockId || null;
-  // Highlight selected
   document.querySelectorAll('.mock-list-item').forEach(el => el.classList.remove('selected'));
   const el = document.getElementById('mock-item-' + docId);
   if (el) el.classList.add('selected');
-  // Show info
   document.getElementById('selectedMockInfo').style.display = 'block';
   document.getElementById('selectedMockTitle').textContent = title || 'Untitled Mock';
-  document.getElementById('selectedMockMeta').textContent = mockId ? 'mockId: ' + mockId : 'No mockId — will query by exam+seriesNum';
-  // Reset loaded state
+  const parts = [];
+  if (exam)      parts.push(exam);
+  if (tier)      parts.push(tier);
+  if (seriesNum) parts.push('Mock #' + seriesNum);
+  if (mockId)    parts.push('mockId: ' + mockId);
+  document.getElementById('selectedMockMeta').textContent = parts.join('  ·  ');
   loadedDocs = [];
   document.getElementById('updateCard').style.display = 'none';
   document.getElementById('paperStatus').textContent = '';
@@ -547,13 +573,6 @@ window.selectMock = (docId, mockId, title) => {
 // ── Load questions for selected mock ──
 window.loadMockQuestions = async () => {
   const status = document.getElementById('paperStatus');
-
-  if (!selectedMockId && !allMocks.length) {
-    showToast('Select a mock first', 'error');
-    return;
-  }
-
-  // Find the selected mock object
   const selectedEl = document.querySelector('.mock-list-item.selected');
   if (!selectedEl) { showToast('Click a mock from the list first', 'error'); return; }
 
@@ -564,12 +583,11 @@ window.loadMockQuestions = async () => {
   try {
     let snap;
     if (selectedMockId) {
-      // Primary: query by mockId field
       snap = await getDocs(query(collection(db, 'questions'), where('mockId', '==', selectedMockId)));
     } else {
-      // Fallback: query by exam + type + seriesNum
-      const mock = allMocks.find(m => !m.mockId && document.getElementById('selectedMockTitle').textContent === (m.title || 'Untitled Mock'));
-      if (!mock) { status.textContent = '❌ Could not identify mock — no mockId and title mismatch.'; return; }
+      const titleText = document.getElementById('selectedMockTitle').textContent;
+      const mock = allMocks.find(m => (m.title || 'Untitled Mock') === titleText);
+      if (!mock) { status.textContent = '❌ Could not identify mock — no mockId found.'; return; }
       snap = await getDocs(query(
         collection(db, 'questions'),
         where('exam', '==', mock.exam),
@@ -579,8 +597,7 @@ window.loadMockQuestions = async () => {
     }
 
     let docs = snap.docs;
-
-    // Filter by language
+    // Filter by language (handles both 'language' and 'lang' field names)
     if (lang) docs = docs.filter(d => (d.data().language || d.data().lang || 'en') === lang);
 
     loadedDocs = docs;
@@ -591,7 +608,6 @@ window.loadMockQuestions = async () => {
       return;
     }
 
-    // Count by subject for display
     const subCounts = {};
     docs.forEach(d => {
       const s = (d.data().subject || 'Unknown')
@@ -601,7 +617,6 @@ window.loadMockQuestions = async () => {
       subCounts[s] = (subCounts[s] || 0) + 1;
     });
     const subStr = Object.entries(subCounts).map(([s,c]) => `${s}: ${c}`).join(' | ');
-
     status.innerHTML = `✅ <strong style="color:#00A86B;">${docs.length} questions loaded</strong> (${lang === 'hi' ? '🇮🇳 Hindi' : '🇬🇧 English'}) — ${subStr}`;
     document.getElementById('updateCard').style.display = 'block';
     clearPreview();
