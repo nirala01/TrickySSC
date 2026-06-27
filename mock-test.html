@@ -2325,6 +2325,13 @@ window.rvGoto=(i)=>{
 function applyBR(text){
   return text.split('[BR]').join('<br>');
 }
+// Question text: convert [BR]→<br> AND **bold**→<strong> / *italic*→<em>
+function applyBRBold(text){
+  var s = text.split('[BR]').join('<br>');
+  s = s.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
+  s = s.replace(/(^|[^*])\*([^*\n]+?)\*(?!\*)/g,'$1<em>$2</em>');
+  return s;
+}
 
 /* ── TrickySSC: square-root dresser ─────────────────────────────
    Draws a bar (vinculum) over the WHOLE radicand so it is always
@@ -2667,17 +2674,17 @@ function formatQText(raw){
     var bodyLines=splitLines(body);
     if(bodyLines.some(function(p){return isPipeRow(p);})){
       var tbl=buildDITable(bodyLines);
-      if(tbl)return'<span class="q-instruction">'+applyBR(instr)+'</span>'+tbl;
+      if(tbl)return'<span class="q-instruction">'+applyBRBold(instr)+'</span>'+tbl;
     }
-    return'<span class="q-instruction">'+applyBR(instr)+'</span><span class="q-sentence">'+applyBR(body)+'</span>';
+    return'<span class="q-instruction">'+applyBRBold(instr)+'</span><span class="q-sentence">'+applyBRBold(body)+'</span>';
   }
   var lines=splitLines(raw);
   if(lines.some(function(p){return isPipeRow(p);})){
     var tbl2=buildDITable(lines);
     if(tbl2)return tbl2;
   }
-  if(raw.indexOf('[BR]')!==-1)return applyBR(raw);
-  return raw;
+  if(raw.indexOf('[BR]')!==-1)return applyBRBold(raw);
+  return applyBRBold(raw);
 }
 
 function formatSteps(text){
@@ -2698,10 +2705,10 @@ function formatQTextReview(raw,qNum){
     var bodyLines=splitLines(body);
     if(bodyLines.some(function(p){return isPipeRow(p);})){
       var tbl=buildDITable(bodyLines);
-      if(tbl)return'<div style="font-size:13.5px;font-weight:600;color:#475569;margin-bottom:8px;line-height:1.6;">Q'+qNum+'. '+applyBR(instr)+'</div>'+tbl;
+      if(tbl)return'<div style="font-size:13.5px;font-weight:600;color:#475569;margin-bottom:8px;line-height:1.6;">Q'+qNum+'. '+applyBRBold(instr)+'</div>'+tbl;
     }
-    return'<div style="font-size:13.5px;font-weight:600;color:#475569;margin-bottom:8px;line-height:1.6;">Q'+qNum+'. '+applyBR(instr)+'</div>'
-         +'<div style="font-size:15px;font-weight:700;color:#0F172A;padding:11px 14px;background:#F1F5F9;border-left:4px solid #FF6B00;border-radius:0 8px 8px 0;margin-bottom:10px;line-height:1.9;">'+applyBR(body)+'</div>';
+    return'<div style="font-size:13.5px;font-weight:600;color:#475569;margin-bottom:8px;line-height:1.6;">Q'+qNum+'. '+applyBRBold(instr)+'</div>'
+         +'<div style="font-size:15px;font-weight:700;color:#0F172A;padding:11px 14px;background:#F1F5F9;border-left:4px solid #FF6B00;border-radius:0 8px 8px 0;margin-bottom:10px;line-height:1.9;">'+applyBRBold(body)+'</div>';
   }
   var lines=splitLines(raw);
   if(lines.some(function(p){return isPipeRow(p);})){
