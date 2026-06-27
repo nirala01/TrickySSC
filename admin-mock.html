@@ -261,12 +261,11 @@ td{padding:0.55rem 0.75rem;border-bottom:1px solid #1E293B;color:#CBD5E1;}
           <span class="badge" id="upMissCount" style="display:none;"></span>
           <span id="upCols" style="font-size:0.72rem;color:#94A3B8;"></span>
         </div>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>qNum</th><th>Question (new)</th><th>Updates</th><th>Status</th></tr></thead>
-            <tbody id="upPreviewBody"></tbody>
-          </table>
+        <div style="display:flex;gap:0.5rem;margin-bottom:0.6rem;flex-wrap:wrap;">
+          <input type="text" id="upFilter" placeholder="🔍 filter by qNum / text" oninput="upRenderPreview()" style="flex:1;min-width:160px;font-size:0.85rem;">
+          <button class="btn btn-secondary" style="font-size:0.78rem;padding:0.4rem 0.8rem;" onclick="upToggleCompact()" id="upToggleBtn">📋 Compact view</button>
         </div>
+        <div id="upPreviewBody"></div>
       </div>
 
       <div style="display:flex;gap:0.75rem;margin-top:1rem;flex-wrap:wrap;">
@@ -934,33 +933,87 @@ function upParsePreview(text, filename){
   document.getElementById('upCols').textContent = 'columns: '+present.join(', ');
 
   const byNum = {}; upExistingDocs.forEach(d=>{ byNum[parseInt(d.qNum)] = d; });
+  upByNum = byNum;
+  upPresentCols = present;
 
   let matched=0, missing=0;
-  const esc = s => (s||'').replace(/</g,'&lt;');
-  const body = document.getElementById('upPreviewBody');
-  body.innerHTML = upRows.map(r=>{
-    const n = parseInt(r.qNum);
-    const exists = byNum[n];
-    const cols = present.filter(c=>r[c]!=='' && r[c]!==undefined);
-    if(exists) matched++; else missing++;
-    const newText = r.text!==undefined && r.text!=='' ? esc(r.text).slice(0,70) : '<span style="color:#64748B;">(unchanged)</span>';
-    const stat = exists
-      ? '<span class="badge" style="background:rgba(0,168,107,0.15);color:#4ADE80;border:1px solid rgba(0,168,107,0.3);">update</span>'
-      : '<span class="badge" style="background:rgba(239,68,68,0.15);color:#F87171;border:1px solid rgba(239,68,68,0.3);">not in mock</span>';
-    return `<tr>
-      <td><b style="color:#A855F7;">${n}</b></td>
-      <td style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${newText}</td>
-      <td style="font-size:0.72rem;color:#94A3B8;">${cols.join(', ')||'—'}</td>
-      <td>${stat}</td>
-    </tr>`;
-  }).join('');
+  upRows.forEach(r=>{ if(byNum[parseInt(r.qNum)]) matched++; else missing++; });
 
   document.getElementById('upMatchCount').textContent = matched+' matched';
   const nb=document.getElementById('upMissCount');
   if(missing){ nb.style.display='inline-block'; nb.textContent=missing+' not in mock'; nb.style.background='rgba(239,68,68,0.15)'; nb.style.color='#F87171'; nb.style.border='1px solid rgba(239,68,68,0.3)'; }
   else nb.style.display='none';
+
+  upRenderPreview();
   document.getElementById('upPreview').style.display='block';
   document.getElementById('upApplyBtn').disabled = matched===0;
+}
+
+let upByNum = {}, upPresentCols = [], upCompact = false;
+
+window.upToggleCompact = () => {
+  upCompact = !upCompact;
+  document.getElementById('upToggleBtn').textContent = upCompact ? '🗂 Detailed view' : '📋 Compact view';
+  upRenderPreview();
+};
+
+window.upRenderPreview = () => {
+  const q = (document.getElementById('upFilter')?.value||'').trim().toLowerCase();
+  const esc = s => (s||'').replace(/</g,'&lt;');
+  let rows = upRows;
+  if(q) rows = rows.filter(r => String(r.qNum).includes(q) || (r.text||'').toLowerCase().includes(q));
+  const body = document.getElementById('upPreviewBody');
+
+  if(upCompact){
+    body.innerHTML = `<div class="table-wrap"><table>
+      <thead><tr><th>qNum</th><th>Question (new)</th><th>Updates</th><th>Status</th></tr></thead><tbody>` +
+      rows.map(r=>{
+        const n=parseInt(r.qNum); const ex=upByNum[n];
+        const cols=upPresentCols.filter(c=>r[c]!=='' && r[c]!==undefined);
+        const nt = r.text? esc(r.text).slice(0,70) : '<span style="color:#64748B;">(unchanged)</span>';
+        const st = ex? '<span class="badge" style="background:rgba(0,168,107,0.15);color:#4ADE80;border:1px solid rgba(0,168,107,0.3);">update</span>'
+                     : '<span class="badge" style="background:rgba(239,68,68,0.15);color:#F87171;border:1px solid rgba(239,68,68,0.3);">not in mock</span>';
+        return `<tr><td><b style="color:#A855F7;">${n}</b></td>
+          <td style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${nt}</td>
+          <td style="font-size:0.72rem;color:#94A3B8;">${cols.join(', ')||'—'}</td><td>${st}</td></tr>`;
+      }).join('') + `</tbody></table></div>`;
+    return;
+  }
+
+  // Detailed cards — show full question + all options (correct highlighted)
+  body.innerHTML = rows.map(r=>{
+    const n=parseInt(r.qNum); const ex=upByNum[n];
+    const has = c => r[c]!==undefined && r[c]!=='';
+    // correct letter: from CSV if present, else from existing doc
+    const correct = (has('correct') ? r.correct : (ex?ex.correct:'')||'').trim().toUpperCase();
+    const optHtml = ['A','B','C','D'].map(L=>{
+      const key='option_'+L;
+      const val = has(key) ? r[key] : (ex ? (ex.options?.[L] ?? ex['option_'+L] ?? '') : '');
+      const changed = has(key);
+      const isCorrect = correct===L;
+      return `<div style="font-size:0.8rem;padding:0.3rem 0.55rem;border-radius:6px;margin-top:0.25rem;
+        border:1px solid ${isCorrect?'#00A86B':'#1E293B'};
+        background:${isCorrect?'rgba(0,168,107,0.08)':'#0F172A'};
+        color:${isCorrect?'#4ADE80':'#CBD5E1'};">
+        <b>${L})</b> ${esc(val)||'<span style=\"color:#64748B;\">(empty)</span>'}
+        ${changed?'<span style="float:right;font-size:0.62rem;color:#A855F7;">✎ changed</span>':''}
+      </div>`;
+    }).join('');
+    const qText = has('text') ? esc(r.text) : (ex? '<span style="color:#64748B;">'+esc(ex.text||'')+' (unchanged)</span>' : '');
+    const cols = upPresentCols.filter(c=>has(c));
+    const status = ex
+      ? '<span class="badge" style="background:rgba(0,168,107,0.15);color:#4ADE80;border:1px solid rgba(0,168,107,0.3);">will update</span>'
+      : '<span class="badge" style="background:rgba(239,68,68,0.15);color:#F87171;border:1px solid rgba(239,68,68,0.3);">not in mock — skipped</span>';
+    return `<div style="background:#0F172A;border:1px solid #334155;border-radius:10px;padding:0.85rem 1rem;margin-bottom:0.6rem;${ex?'':'opacity:0.55;'}">
+      <div style="display:flex;justify-content:space-between;gap:1rem;align-items:flex-start;">
+        <div style="font-size:0.88rem;color:#E2E8F0;line-height:1.5;"><b style="color:#A855F7;">Q${n}.</b> ${qText}</div>
+        <div style="flex-shrink:0;">${status}</div>
+      </div>
+      ${optHtml}
+      ${(has('explanation')||has('trick')||has('subject')||has('correct')||has('difficulty')||has('concept'))?
+        `<div style="margin-top:0.5rem;font-size:0.7rem;color:#64748B;">also updating: ${cols.filter(c=>!c.startsWith('option_')&&c!=='text').join(', ')||'—'}${has('correct')?' · answer → '+correct:''}</div>`:''}
+    </div>`;
+  }).join('');
 }
 
 window.upApply = async () => {
