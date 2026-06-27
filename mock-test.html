@@ -1738,7 +1738,7 @@ function renderQ(){
       ||(q['option'+o]||q['option_'+o]||q['option'+lo]||'');
     const optImg=q.optionImages?.[o]||'';
     const sel=answers[currentQ]===o?'selected':'';
-    const fmtTxt=renderFraction(txt);
+    const fmtTxt=renderFraction(txt).replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
     return `<div class="option ${sel}" onclick="selectOpt('${o}')">
       <span class="opt-label">${o}</span>
       <div class="opt-body">
@@ -2179,7 +2179,7 @@ window.submitTest=async()=>{
       const isCorrect=o===q.correct;const isWrong=o===a&&a!==q.correct;
       const cls=isCorrect?'rv-opt c':isWrong?'rv-opt w':'rv-opt';
       const marker=isCorrect?'<span class="rv-mk">✓</span>':isWrong?'<span class="rv-mk">✕</span>':'';
-      return `<div class="${cls}"><span class="rv-key">${o}</span><span>${txt}${marker}${optImg?`<span style="display:block;margin-top:6px;"><img src="${optImg}" style="max-width:100%;max-height:100px;border-radius:5px;object-fit:contain;" onerror="this.style.display='none'"></span>`:''}</span></div>`;
+      return `<div class="${cls}"><span class="rv-key">${o}</span><span>${applyBRBold(txt)}${marker}${optImg?`<span style="display:block;margin-top:6px;"><img src="${optImg}" style="max-width:100%;max-height:100px;border-radius:5px;object-fit:contain;" onerror="this.style.display='none'"></span>`:''}</span></div>`;
     }).join('')}</div>`;
     const solImg=q.solutionImage||'';
     // Per-solution EN/HI toggle: available for Q1–75 when an English counterpart
@@ -2715,8 +2715,8 @@ function formatQTextReview(raw,qNum){
     var tbl2=buildDITable(lines);
     if(tbl2)return'<div style="font-size:15px;font-weight:700;color:#0F172A;margin-bottom:8px;">Q'+qNum+'.</div>'+tbl2;
   }
-  if(raw.indexOf('[BR]')!==-1)return'<div style="font-size:15.5px;font-weight:700;color:#0F172A;margin-bottom:8px;line-height:1.55;">Q'+qNum+'. '+applyBR(raw)+'</div>';
-  return'<div style="font-size:15.5px;font-weight:700;color:#0F172A;margin-bottom:8px;line-height:1.55;">Q'+qNum+'. '+raw+'</div>';
+  if(raw.indexOf('[BR]')!==-1)return'<div style="font-size:15.5px;font-weight:700;color:#0F172A;margin-bottom:8px;line-height:1.55;">Q'+qNum+'. '+applyBRBold(raw)+'</div>';
+  return'<div style="font-size:15.5px;font-weight:700;color:#0F172A;margin-bottom:8px;line-height:1.55;">Q'+qNum+'. '+applyBRBold(raw)+'</div>';
 }
 
 function diToggle(tid){
