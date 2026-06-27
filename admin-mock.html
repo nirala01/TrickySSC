@@ -124,6 +124,7 @@ td{padding:0.55rem 0.75rem;border-bottom:1px solid #1E293B;color:#CBD5E1;}
 
   <div class="tabs">
     <button class="tab active" onclick="switchTab('import')" id="tab-import">📥 Import Mock CSV</button>
+    <button class="tab" onclick="switchTab('update')" id="tab-update">♻️ Update via CSV</button>
     <button class="tab" onclick="switchTab('questions')" id="tab-questions">📝 Edit Questions</button>
     <button class="tab" onclick="switchTab('manage')" id="tab-manage">🗄 Manage Mocks</button>
   </div>
@@ -202,6 +203,80 @@ td{padding:0.55rem 0.75rem;border-bottom:1px solid #1E293B;color:#CBD5E1;}
       <div class="progress-wrap" id="csvProgress">
         <div class="progress-bar-bg"><div class="progress-bar" id="csvBar"></div></div>
         <div class="progress-status" id="csvStatus"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- UPDATE VIA CSV -->
+  <div class="panel" id="panel-update">
+    <div class="card">
+      <h3>♻️ Update Mock Questions via CSV</h3>
+      <div class="info-box">
+        Re-upload a corrected CSV to update questions <strong>in place</strong> — no need to delete the mock.
+        Questions are matched by <code>qNum</code>. Only the columns present in your CSV are updated; anything you leave out is preserved.<br>
+        Same formatting applies (<code>$…$</code> → math, <code>||</code>/<code>[BR]</code> breaks, <code>**bold**</code>).
+      </div>
+      <div class="form-grid">
+        <div>
+          <label>Exam</label>
+          <select id="upExam" onchange="upLoadMocks()">
+            <option value="ssc-cgl">SSC CGL</option>
+            <option value="ssc-chsl">SSC CHSL</option>
+            <option value="ssc-mts">SSC MTS</option>
+            <option value="ssc-gd">SSC GD</option>
+            <option value="ssc-cpo">SSC CPO</option>
+            <option value="ssc-jht">SSC JHT</option>
+            <option value="ssc-je">SSC JE</option>
+          </select>
+        </div>
+        <div>
+          <label>Tier</label>
+          <select id="upTier" onchange="upLoadMocks()">
+            <option value="">All Tiers</option>
+            <option value="tier1">Tier I</option>
+            <option value="tier2">Tier II</option>
+          </select>
+        </div>
+        <div>
+          <label>Mock Paper</label>
+          <select id="upMock" onchange="upMockChosen()">
+            <option value="">— select —</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="upload-area" onclick="document.getElementById('upCsvInput').click()">
+        <input type="file" id="upCsvInput" accept=".csv" style="display:none;" onchange="upHandleCSV(event)">
+        <div class="icon">♻️</div>
+        <p><strong>Click to select corrected CSV</strong></p>
+        <p style="margin-top:0.25rem;" id="upCsvFileName">No file selected</p>
+      </div>
+
+      <div id="upValidation" style="margin-bottom:1rem;"></div>
+
+      <div id="upPreview" style="display:none;">
+        <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem;flex-wrap:wrap;">
+          <span class="badge" id="upMatchCount">0 matched</span>
+          <span class="badge" id="upNewCount" style="display:none;"></span>
+          <span class="badge" id="upMissCount" style="display:none;"></span>
+          <span id="upCols" style="font-size:0.72rem;color:#94A3B8;"></span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>qNum</th><th>Question (new)</th><th>Updates</th><th>Status</th></tr></thead>
+            <tbody id="upPreviewBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:0.75rem;margin-top:1rem;flex-wrap:wrap;">
+        <button class="btn btn-primary" id="upApplyBtn" onclick="upApply()" disabled>♻️ Apply Updates</button>
+        <button class="btn btn-secondary" onclick="upClear()">✕ Clear</button>
+      </div>
+
+      <div class="progress-wrap" id="upProgress">
+        <div class="progress-bar-bg"><div class="progress-bar" id="upBar"></div></div>
+        <div class="progress-status" id="upStatus"></div>
       </div>
     </div>
   </div>
@@ -370,12 +445,13 @@ window.googleLogin = async () => { try { await signInWithPopup(auth, new GoogleA
 window.logout = async () => { await signOut(auth); showToast('Logged out','info'); };
 
 window.switchTab = (t) => {
-  ['import','questions','manage'].forEach(x => {
+  ['import','update','questions','manage'].forEach(x => {
     document.getElementById('panel-'+x).classList.toggle('active', x===t);
     document.getElementById('tab-'+x).classList.toggle('active', x===t);
   });
   if (t==='manage') mmLoad();
   if (t==='questions') eqLoadMocks();
+  if (t==='update') upLoadMocks();
 };
 
 // Mock number dropdown depends on tier max
@@ -792,6 +868,155 @@ window.saveEdit = async () => {
     showToast('✅ Question updated','success');
     closeEdit(); eqRender();
   } catch(e){ showToast('Error: '+e.message,'error'); }
+};
+
+// ── UPDATE VIA CSV ──
+let upExistingDocs = [];
+let upRows = [];
+let upHeaders = [];
+
+window.upLoadMocks = async () => {
+  const exam = document.getElementById('upExam').value;
+  const tier = document.getElementById('upTier').value;
+  const sel = document.getElementById('upMock');
+  sel.innerHTML = '<option value="">⏳ loading...</option>';
+  try {
+    const snap = await getDocs(collection(db,'mock_tests'));
+    const mocks = snap.docs.map(d=>({id:d.id,...d.data()}))
+      .filter(m => (!exam||m.exam===exam) && (!tier||m.tier===tier))
+      .sort((a,b)=>{
+        if((a.seriesNum||0)!==(b.seriesNum||0)) return (a.seriesNum||0)-(b.seriesNum||0);
+        return (a.lang||'').localeCompare(b.lang||'');
+      });
+    if(!mocks.length){ sel.innerHTML='<option value="">— no mocks —</option>'; return; }
+    sel.innerHTML = '<option value="">— select —</option>' + mocks.map(m=>
+      `<option value="${m.mockId}">${m.title||m.mockId} [${m.lang==='hi'?'HI':'EN'}] · ${m.totalQuestions||0} Qs</option>`
+    ).join('');
+  } catch(e){ sel.innerHTML='<option value="">error</option>'; showToast('Error: '+e.message,'error'); }
+};
+
+window.upMockChosen = async () => {
+  upExistingDocs = [];
+  upClearPreviewOnly();
+  const mockId = document.getElementById('upMock').value;
+  if(!mockId) return;
+  try {
+    const snap = await getDocs(query(collection(db,'questions'), where('mockId','==',mockId)));
+    upExistingDocs = snap.docs.map(d=>({id:d.id,...d.data()}));
+  } catch(e){ showToast('Error loading mock: '+e.message,'error'); }
+};
+
+window.upHandleCSV = (event) => {
+  const file = event.target.files[0]; if(!file) return;
+  if(!document.getElementById('upMock').value){ showToast('Choose a mock first','error'); event.target.value=''; return; }
+  const reader = new FileReader();
+  reader.onload = (e) => upParsePreview(e.target.result, file.name);
+  reader.readAsText(file,'UTF-8');
+};
+
+function upParsePreview(text, filename){
+  const allRows = parseCSVFull(text.replace(/^\uFEFF/,''));
+  if(allRows.length<2){ showToast('CSV needs a header + at least one row','error'); return; }
+  upHeaders = allRows[0].map(h=>h.trim().replace(/^\uFEFF/,''));
+  if(!upHeaders.includes('qNum')){
+    document.getElementById('upValidation').innerHTML =
+      '<div style="background:#EF444422;border:1px solid #EF444444;border-radius:8px;padding:0.75rem;color:#EF4444;font-size:0.85rem;">❌ CSV must include a <b>qNum</b> column to match questions.</div>';
+    return;
+  }
+  upRows = allRows.slice(1).map(vals=>{ const o={}; upHeaders.forEach((h,i)=>o[h]=(vals[i]||'').trim()); return o; })
+                  .filter(o=>o.qNum);
+
+  const updatable = ['text','option_A','option_B','option_C','option_D','correct','subject','difficulty','chapter','explanation','trick','concept'];
+  const present = updatable.filter(c=>upHeaders.includes(c));
+  document.getElementById('upValidation').innerHTML =
+    `<div style="background:#00A86B22;border:1px solid #00A86B44;border-radius:8px;padding:0.75rem;color:#00A86B;font-size:0.85rem;">✅ Will update columns: <b>${present.join(', ')||'(none — only qNum found)'}</b></div>`;
+  document.getElementById('upCsvFileName').textContent = '♻️ '+filename;
+  document.getElementById('upCols').textContent = 'columns: '+present.join(', ');
+
+  const byNum = {}; upExistingDocs.forEach(d=>{ byNum[parseInt(d.qNum)] = d; });
+
+  let matched=0, missing=0;
+  const esc = s => (s||'').replace(/</g,'&lt;');
+  const body = document.getElementById('upPreviewBody');
+  body.innerHTML = upRows.map(r=>{
+    const n = parseInt(r.qNum);
+    const exists = byNum[n];
+    const cols = present.filter(c=>r[c]!=='' && r[c]!==undefined);
+    if(exists) matched++; else missing++;
+    const newText = r.text!==undefined && r.text!=='' ? esc(r.text).slice(0,70) : '<span style="color:#64748B;">(unchanged)</span>';
+    const stat = exists
+      ? '<span class="badge" style="background:rgba(0,168,107,0.15);color:#4ADE80;border:1px solid rgba(0,168,107,0.3);">update</span>'
+      : '<span class="badge" style="background:rgba(239,68,68,0.15);color:#F87171;border:1px solid rgba(239,68,68,0.3);">not in mock</span>';
+    return `<tr>
+      <td><b style="color:#A855F7;">${n}</b></td>
+      <td style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${newText}</td>
+      <td style="font-size:0.72rem;color:#94A3B8;">${cols.join(', ')||'—'}</td>
+      <td>${stat}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('upMatchCount').textContent = matched+' matched';
+  const nb=document.getElementById('upMissCount');
+  if(missing){ nb.style.display='inline-block'; nb.textContent=missing+' not in mock'; nb.style.background='rgba(239,68,68,0.15)'; nb.style.color='#F87171'; nb.style.border='1px solid rgba(239,68,68,0.3)'; }
+  else nb.style.display='none';
+  document.getElementById('upPreview').style.display='block';
+  document.getElementById('upApplyBtn').disabled = matched===0;
+}
+
+window.upApply = async () => {
+  const mockId = document.getElementById('upMock').value;
+  if(!mockId || !upRows.length) return;
+  const byNum = {}; upExistingDocs.forEach(d=>{ byNum[parseInt(d.qNum)] = d; });
+
+  const prog=document.getElementById('upProgress'), bar=document.getElementById('upBar'), status=document.getElementById('upStatus');
+  prog.style.display='block'; bar.style.width='0%';
+  document.getElementById('upApplyBtn').disabled=true;
+
+  const mathOnlyCols  = {option_A:1,option_B:1,option_C:1,option_D:1,explanation:1,trick:1};
+  const plainCols     = {difficulty:1,chapter:1,concept:1};
+
+  let updated=0, skipped=0, errors=0;
+  for(let i=0;i<upRows.length;i++){
+    const r=upRows[i]; const n=parseInt(r.qNum); const ex=byNum[n];
+    if(!ex){ skipped++; continue; }
+    const payload={};
+    upHeaders.forEach(col=>{
+      if(col==='qNum') return;
+      const v=r[col];
+      if(v===undefined || v==='') return;       // empty cell = leave unchanged
+      if(col==='text') payload.text = normalizeField(v,{breaks:true});
+      else if(mathOnlyCols[col]){
+        const nv = normalizeField(v);
+        payload[col]=nv;
+        if(col.startsWith('option_')){ payload.options = payload.options||{...(ex.options||{})}; payload.options[col.slice(-1)]=nv; }
+      }
+      else if(col==='subject') payload.subject = canonSubject(v);
+      else if(col==='correct') payload.correct = v.trim().toUpperCase();
+      else if(plainCols[col]) payload[col]=v;
+    });
+    if(!Object.keys(payload).length){ skipped++; continue; }
+    try { await updateDoc(doc(db,'questions',ex.id), payload); updated++; }
+    catch(e){ errors++; console.error('Q'+n,e); }
+    bar.style.width=((i+1)/upRows.length*100)+'%';
+    status.textContent=`Updating ${i+1}/${upRows.length}...`;
+  }
+  status.textContent = `✅ Updated ${updated} questions${skipped?' · '+skipped+' skipped':''}${errors?' · '+errors+' errors':''}.`;
+  showToast(`✅ ${updated} questions updated`,'success');
+  document.getElementById('upApplyBtn').disabled=false;
+  upMockChosen();
+};
+
+function upClearPreviewOnly(){
+  upRows=[]; upHeaders=[];
+  document.getElementById('upPreview').style.display='none';
+  document.getElementById('upValidation').innerHTML='';
+  document.getElementById('upApplyBtn').disabled=true;
+}
+window.upClear = () => {
+  upClearPreviewOnly();
+  document.getElementById('upCsvInput').value='';
+  document.getElementById('upCsvFileName').textContent='No file selected';
+  document.getElementById('upProgress').style.display='none';
 };
 
 window.showToast = (msg,type='success') => {
