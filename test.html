@@ -485,6 +485,26 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:10
 .stat{background:#F8FAFC;border-radius:14px;padding:16px 20px;text-align:center;border:1px solid #F1F5F9;min-width:80px;}
 .stat-val{font-family:'Rajdhani';font-size:32px;font-weight:700;}
 .stat-lbl{font-size:11px;color:#94A3B8;margin-top:2px;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;}
+/* Estimated CGL rank card */
+.rank-est-title{font-family:'Rajdhani';font-size:20px;font-weight:700;color:#1E293B;margin-bottom:4px;}
+.rank-est-sub{font-size:12px;color:#94A3B8;margin-bottom:18px;}
+.rank-est-grid{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;}
+.rank-est-box{background:#FFF7ED;border:1px solid #FED7AA;border-radius:14px;padding:18px 22px;min-width:150px;text-align:center;}
+.rank-est-num{font-family:'Rajdhani';font-size:30px;font-weight:700;color:#FF6B00;line-height:1.1;}
+.rank-est-lbl{font-size:11px;color:#94A3B8;margin-top:6px;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;}
+.rank-est-box.chance.good{background:#F0FDF4;border-color:#BBF7D0;}
+.rank-est-box.chance.good .rank-est-num{color:#15803D;font-size:22px;}
+.rank-est-box.chance.mid{background:#FFFBEB;border-color:#FDE68A;}
+.rank-est-box.chance.mid .rank-est-num{color:#B45309;font-size:22px;}
+.rank-est-box.chance.low{background:#FEF2F2;border-color:#FECACA;}
+.rank-est-box.chance.low .rank-est-num{color:#DC2626;font-size:22px;}
+.rank-est-notes{margin-top:18px;text-align:left;}
+.rank-est-notes summary{cursor:pointer;font-size:13px;font-weight:600;color:#FF6B00;list-style:none;}
+.rank-est-notes summary::-webkit-details-marker{display:none;}
+.rank-est-notes summary::before{content:'\25B8  ';}
+.rank-est-notes[open] summary::before{content:'\25BE  ';}
+.rank-est-notes ul{margin:10px 0 0;padding-left:18px;font-size:12px;color:#64748B;line-height:1.6;}
+.rank-est-notes li{margin-bottom:6px;}
 .review-item{
   background:#fff;border-radius:16px;padding:18px 18px 16px;margin-bottom:16px;
   border:1px solid #EDF1F6;border-left:5px solid #E2E8F0;
@@ -1199,6 +1219,28 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:10
     <div id="saveStatus" style="margin-top:10px;font-size:12px;color:#94A3B8;">⏳ Saving your result...</div>
     <button class="btn btn-submit" id="retrySaveBtn" style="margin-top:10px;display:none;" onclick="retrySaveResult()">Retry Save</button>
   </div>
+  <div class="result-card" id="rankEstCard" style="display:none;">
+    <div class="rank-est-title">📊 Estimated CGL Rank</div>
+    <div class="rank-est-sub">Where your Tier&nbsp;I marks place you among all candidates</div>
+    <div class="rank-est-grid">
+      <div class="rank-est-box">
+        <div class="rank-est-num" id="rankEstRank">—</div>
+        <div class="rank-est-lbl">Estimated Overall Rank</div>
+      </div>
+      <div class="rank-est-box chance good" id="rankEstChanceBox">
+        <div class="rank-est-num" id="rankEstChance">—</div>
+        <div class="rank-est-lbl">Tier&nbsp;II Chance</div>
+      </div>
+    </div>
+    <details class="rank-est-notes">
+      <summary>How is this estimated?</summary>
+      <ul>
+        <li>Tier&nbsp;I rank is only an estimate — SSC normalizes scores across multiple shifts, so your exact rank can vary.</li>
+        <li>Final selection depends on Tier&nbsp;II score, post preference, category, vacancies and qualifying modules — not Tier&nbsp;I rank alone.</li>
+        <li>In recent cycles roughly 1.3–1.9 lakh candidates were shortlisted from Tier&nbsp;I for Tier&nbsp;II, while final recommendations were around 88,000 (all categories &amp; posts, 2024 cycle).</li>
+      </ul>
+    </details>
+  </div>
   <div id="review"></div>
 </div>
 
@@ -1597,7 +1639,17 @@ async function loadTest(){
     // fetch only the first time the user taps "View in English".
     enQMap={};showEnglishQ={};enMapLoaded=false;enMapLoading=false;enFetchParams=null;
     if(lang==='hi' && !mockId){
-      enFetchParams={exam,year,mNum,heldOn,shift,paperId};
+      // Backfill from the loaded Hindi docs so the English fetch can still run
+      // when the test was opened via paperId only (no exam/year/shift in the URL).
+      const q0=questions.find(q=>q.exam||q.year||q.heldOn||q.paperId)||questions[0]||{};
+      enFetchParams={
+        exam:    exam    || q0.exam    || '',
+        year:    year    || q0.year    || '',
+        mNum:    mNum    || '',
+        heldOn:  heldOn  || q0.heldOn  || '',
+        shift:   shift   || q0.shift   || '',
+        paperId: paperId || q0.paperId || ''
+      };
     }
 
     // ── Build title ──
@@ -1781,7 +1833,11 @@ function renderQ(){
         enPanel.style.display='block';
       } else if(isOn && !eq && enPanel){
         // Toggle is on but no English counterpart exists for this question
-        document.getElementById('enQText').innerHTML='<span style="opacity:0.7;">English version not available for this question.</span>';
+        const wholePaperMissing = enMapLoaded && Object.keys(enQMap).length===0;
+        document.getElementById('enQText').innerHTML='<span style="opacity:0.7;">'+
+          (wholePaperMissing
+            ? "The English version of this paper hasn't been uploaded yet."
+            : 'English version not available for this question.')+'</span>';
         document.getElementById('enOpts').innerHTML='';
         enPanel.style.display='block';
       } else if(enPanel){enPanel.style.display='none';}
@@ -2082,6 +2138,35 @@ window.togglePause=function(){
   }
 }
 
+/* ── Estimated CGL rank (Tier I, marks out of 200) ── */
+function renderEstimatedRank(marks,maxMarks){
+  const card=document.getElementById('rankEstCard');
+  if(!card||isNaN(marks))return;
+  // Normalize to the roadmap's 200-mark Tier I scale (handles shorter mocks too)
+  if(maxMarks&&maxMarks>0&&maxMarks!==200) marks=marks/maxMarks*200;
+  // marks → estimated overall rank (descending thresholds)
+  const rankTable=[
+    [195,'Top 50'],[190,'Top 150'],[185,'Top 400'],[180,'Top 800'],
+    [175,'Top 1,500'],[170,'Top 3,000'],[165,'Top 6,000'],[160,'Top 10,000'],
+    [155,'Top 16,000'],[150,'Top 24,000'],[145,'Top 35,000'],[140,'Top 50,000'],
+    [135,'Top 70,000'],[130,'Top 95,000'],[125,'Top 1.25 lakh'],[120,'Top 1.6 lakh'],
+    [115,'Top 2.0 lakh'],[110,'Top 2.5 lakh'],[100,'Top 3.5 lakh'],[90,'Top 5 lakh'],[80,'Top 6.5 lakh']
+  ];
+  const chanceTable=[
+    [175,'Almost certain','good'],[165,'Very High','good'],[155,'High','good'],
+    [145,'Moderate','mid'],[135,'Borderline','mid'],[0,'Difficult for UR','low']
+  ];
+  let rankLabel='Outside top 6.5 lakh';
+  for(const r of rankTable){ if(marks>=r[0]){ rankLabel=r[1]; break; } }
+  let chLabel='Difficult for UR', chCls='low';
+  for(const c of chanceTable){ if(marks>=c[0]){ chLabel=c[1]; chCls=c[2]; break; } }
+  document.getElementById('rankEstRank').textContent=rankLabel;
+  document.getElementById('rankEstChance').textContent=chLabel;
+  const box=document.getElementById('rankEstChanceBox');
+  if(box) box.className='rank-est-box chance '+chCls;
+  card.style.display='block';
+}
+
 /* ── Save helpers ── */
 function setSaveUi(state,msg){
   const goBtn=document.getElementById('goDashboardBtn');
@@ -2163,6 +2248,9 @@ window.submitTest=async()=>{
   document.getElementById('statWrong').textContent=wrong;
   document.getElementById('statSkip').textContent=skip;
   document.getElementById('statMarks').textContent=marks;
+
+  // Estimated CGL rank (CGL papers/mocks only — roadmap is CGL-specific)
+  if(String(exam||'').toLowerCase().indexOf('cgl')>=0) renderEstimatedRank(parseFloat(marks),maxMarks);
 
   // Load the English counterpart map (if any) before building the review, so
   // each Hindi solution can offer a "View in English" toggle. Never block the
