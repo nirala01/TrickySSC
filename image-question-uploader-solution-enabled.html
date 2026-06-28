@@ -423,6 +423,13 @@
     <div>
       <div class="section-label">Paper Details</div>
       <div class="field">
+        <label>Source</label>
+        <select id="cfgSource" onchange="toggleSource()">
+          <option value="pyq">PYQ Paper</option>
+          <option value="mock">Mock Test</option>
+        </select>
+      </div>
+      <div class="field">
         <label>Exam</label>
         <select id="cfgExam">
           <option>SSC CGL</option><option>SSC CHSL</option>
@@ -437,6 +444,7 @@
           <option value="Tier II (CBT)">Tier II (CBT)</option>
         </select>
       </div>
+      <div id="pyqOnlyFields">
       <div class="field">
         <label>Year</label>
         <select id="cfgYear">
@@ -466,6 +474,13 @@
           <option value="PYQ (Previous Year)">PYQ</option>
         </select>
       </div>
+      </div><!-- end pyqOnlyFields -->
+      <div id="mockOnlyFields" style="display:none">
+      <div class="field">
+        <label>Mock Number</label>
+        <input type="number" id="cfgMockNum" min="1" value="1" placeholder="e.g. 5">
+      </div>
+      </div><!-- end mockOnlyFields -->
       <div class="field">
         <label>Language</label>
         <select id="cfgLang">
@@ -631,6 +646,51 @@ function log(msg, type='info') {
   box.scrollTop = box.scrollHeight;
 }
 
+// ── Source toggle: PYQ vs Mock ────────────────────────────────────────────
+window.toggleSource = () => {
+  const src = document.getElementById('cfgSource').value;
+  const isMock = src === 'mock';
+  document.getElementById('pyqOnlyFields').style.display  = isMock ? 'none' : '';
+  document.getElementById('mockOnlyFields').style.display = isMock ? '' : 'none';
+  const lbl = document.querySelector('#btnLoadPaper');
+  if (lbl) lbl.innerHTML = isMock ? '🔍 Load Mock from Firebase' : '🔍 Load from Firebase';
+};
+
+// ── Build the matching key+value for the selected source ──────────────────
+// PYQ  → { key:'paperId', value:'ssc-cgl_2017_tier1_shift-2_2017-08-09_en' }
+// Mock → { key:'mockId',  value:'ssc-cgl_tier1_mock5_en' }
+function buildTargetId() {
+  const exam = document.getElementById('cfgExam').value;
+  const tier = document.getElementById('cfgTier').value;
+  const lang = document.getElementById('cfgLang').value;
+
+  const examSlug = exam.toLowerCase().replace(/\s+/g,'-');
+  const tierSlug = tier.toLowerCase().replace(/\s*\(.*\)\s*/,'').trim()
+                       .replace(/tier\s*i{2}/,'tier2').replace(/tier\s*i/,'tier1');
+  const langSlug = lang.toLowerCase().slice(0,2);
+
+  if (document.getElementById('cfgSource').value === 'mock') {
+    const n = parseInt(document.getElementById('cfgMockNum').value) || 1;
+    return {
+      mode: 'mock',
+      key: 'mockId',
+      value: `${examSlug}_${tierSlug}_mock${n}_${langSlug}`,
+      seriesNum: n,
+    };
+  }
+
+  const year   = document.getElementById('cfgYear').value;
+  const heldOn = document.getElementById('cfgDate').value;
+  const shift  = document.getElementById('cfgShift').value;
+  const shiftSlug = shift.toLowerCase().replace(/\s+/g,'-');
+  return {
+    mode: 'pyq',
+    key: 'paperId',
+    value: `${examSlug}_${year}_${tierSlug}_${shiftSlug}_${heldOn}_${langSlug}`,
+    heldOn,
+  };
+}
+
 // ── Load Paper from Firebase ──────────────────────────────────────────────
 
 window.loadPaper = async () => {
@@ -641,36 +701,25 @@ window.loadPaper = async () => {
   status.style.display = 'block';
   status.style.color = 'var(--muted)';
 
-  const exam  = document.getElementById('cfgExam').value;
-  const tier  = document.getElementById('cfgTier').value;
-  const year  = document.getElementById('cfgYear').value;
-  const heldOn = document.getElementById('cfgDate').value;
-  const shift = document.getElementById('cfgShift').value;
-  const lang  = document.getElementById('cfgLang').value;
+  const tgt = buildTargetId();   // {mode, key, value, heldOn?/seriesNum?}
 
-  // Build paperId slug matching your URL format
-  const examSlug  = exam.toLowerCase().replace(/\s+/g,'-');
-  const tierSlug  = tier.toLowerCase().replace(/\s*\(.*\)\s*/,'').trim()
-                       .replace(/tier\s*ii/,'tier2').replace(/tier\s*i/,'tier1');
-  const shiftSlug = shift.toLowerCase().replace(/\s+/g,'-');
-  const langSlug  = lang.toLowerCase().slice(0,2);
-  const paperId   = `${examSlug}_${year}_${tierSlug}_${shiftSlug}_${heldOn}_${langSlug}`;
-
-  status.textContent = `Looking for: ${paperId}`;
+  status.textContent = `Looking for: ${tgt.value}`;
 
   try {
-    // Query by paperId first (fast)
-    let snap = await getDocs(query(collection(db,'questions'), where('paperId','==',paperId)));
+    // Query by the primary key (paperId or mockId)
+    let snap = await getDocs(query(collection(db,'questions'), where(tgt.key,'==',tgt.value)));
 
-    // Fallback: query by heldOn if paperId not set yet
-    if (snap.empty) {
+    // Fallback only for PYQ: query by heldOn if paperId not set yet
+    if (snap.empty && tgt.mode === 'pyq') {
       status.textContent = 'paperId not found, trying heldOn…';
-      snap = await getDocs(query(collection(db,'questions'), where('heldOn','==',heldOn)));
+      snap = await getDocs(query(collection(db,'questions'), where('heldOn','==',tgt.heldOn)));
     }
 
     if (snap.empty) {
       status.style.color = 'var(--red)';
-      status.textContent = '❌ No questions found. Check date/exam fields.';
+      status.textContent = tgt.mode === 'mock'
+        ? '❌ No questions found. Check mock number / tier / language.'
+        : '❌ No questions found. Check date/exam fields.';
       btn.disabled = false; btn.textContent = '🔍 Load from Firebase';
       return;
     }
@@ -704,7 +753,7 @@ window.loadPaper = async () => {
 
     // Render question list (no images yet)
     renderAll([]);
-    log(`Loaded ${questions.length} questions from Firebase (${paperId})`, 'info');
+    log(`Loaded ${questions.length} questions from Firebase (${tgt.value})`, 'info');
 
   } catch(err) {
     status.style.color = 'var(--red)';
@@ -1217,30 +1266,22 @@ window.pushOne = async (idx) => {
       log(`Q${q.qNum} ${key} → ${url}`, 'ok');
     }
 
-    // Build Firestore patch payload
+    // Build Firestore patch payload (mode-aware: PYQ vs Mock)
     const _exam    = document.getElementById('cfgExam').value;
     const _tier    = document.getElementById('cfgTier').value;
-    const _year    = document.getElementById('cfgYear').value;
-    const _heldOn  = document.getElementById('cfgDate').value;
-    const _shift   = document.getElementById('cfgShift').value;
     const _lang    = document.getElementById('cfgLang').value;
 
-    // paperId matches your URL format: ssc-cgl_2017_tier1_shift-2_2017-08-09_en
     const _examSlug  = _exam.toLowerCase().replace(/\s+/g,'-');
     const _tierSlug  = _tier.toLowerCase().replace(/\s*\(.*\)\s*/,'').trim().replace(/tier\s*i{2}/,'tier2').replace(/tier\s*i/,'tier1');
-    const _shiftSlug = _shift.toLowerCase().replace(/\s+/g,'-');
-    const _langSlug  = _lang.toLowerCase().slice(0,2);
-    const _paperId   = `${_examSlug}_${_year}_${_tierSlug}_${_shiftSlug}_${_heldOn}_${_langSlug}`;
+
+    const tgt = buildTargetId();   // {mode, key, value, ...}
 
     const fireDoc = {
       exam:    _examSlug,
       tier:    _tierSlug,
-      year:    _year,
-      heldOn:  _heldOn,
-      shift:   _shift,
-      type:    'pyq',
+      type:    tgt.mode === 'mock' ? 'mock' : 'pyq',
       language: _lang,
-      paperId: _paperId,
+      [tgt.key]: tgt.value,        // paperId (PYQ) or mockId (Mock)
       chapter: '',
       difficulty: 'Medium',
       qNum:    q.qNum,
@@ -1264,18 +1305,25 @@ window.pushOne = async (idx) => {
       imageUrl:     urls.q  || '',
       createdAt:    new Date(),
     };
+    if (tgt.mode === 'mock') {
+      fireDoc.mockSeriesNum = tgt.seriesNum;
+    } else {
+      fireDoc.year   = document.getElementById('cfgYear').value;
+      fireDoc.heldOn = document.getElementById('cfgDate').value;
+      fireDoc.shift  = document.getElementById('cfgShift').value;
+    }
 
     // Use firestoreId from loaded question for direct update (no query needed)
     let docRef = null;
 
     if (q.firestoreId) {
-      // Direct update — patch only image fields
+      // Direct update — patch only image fields (+ re-stamp the id key)
       docRef = doc(db, 'questions', q.firestoreId);
       await updateDoc(docRef, {
         imageUrl:      fireDoc.imageUrl,
         optionImages:  fireDoc.optionImages,
         solutionImage: fireDoc.solutionImage,
-        paperId:       fireDoc.paperId,
+        [tgt.key]:     tgt.value,
       });
       log(`Q${q.qNum} ✅ patched doc ${q.firestoreId}`, 'ok');
     } else {
