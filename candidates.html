@@ -231,6 +231,12 @@ body{font-family:'Noto Sans',sans-serif;background:var(--bg);color:var(--text);m
       <option value="active">Attempted Tests</option>
       <option value="inactive">No Tests Yet</option>
     </select>
+    <select class="filter-select" id="sortBy" onchange="filterTable()">
+      <option value="joined_desc">Joined: Newest first</option>
+      <option value="joined_asc">Joined: Oldest first</option>
+      <option value="best_desc">Best Marks: High → Low</option>
+      <option value="best_asc">Best Marks: Low → High</option>
+    </select>
     <button class="export-btn" onclick="exportCSV()">⬇ Export CSV</button>
     <button id="deleteSelectedBtn" onclick="deleteSelected()" style="background:var(--red);color:#fff;border:none;border-radius:10px;padding:0.65rem 1.25rem;font-family:'Rajdhani',sans-serif;font-size:0.9rem;font-weight:700;cursor:pointer;display:none;white-space:nowrap;">🗑 Delete Selected</button>
     <button onclick="deleteAll()" style="background:transparent;color:var(--red);border:1px solid var(--red);border-radius:10px;padding:0.65rem 1.25rem;font-family:'Rajdhani',sans-serif;font-size:0.9rem;font-weight:700;cursor:pointer;white-space:nowrap;">⚠ Delete ALL Users</button>
@@ -406,6 +412,20 @@ window.filterTable = () => {
     const matchLogin = !loginFilter || loginType===loginFilter;
     const matchAct = !actFilter || (actFilter==='active'?(u.liveTests>0):(u.liveTests===0));
     return matchSearch && matchLogin && matchAct;
+  });
+
+  // Sort
+  const sortBy = document.getElementById('sortBy')?.value || 'joined_desc';
+  const joinedMs = u => (u.createdAt?.toDate ? u.createdAt.toDate().getTime() : 0);
+  const bestNum  = u => (u.liveBest!==null && u.liveBest!==undefined ? parseFloat(u.liveBest) : -1);
+  filtered.sort((a,b)=>{
+    switch(sortBy){
+      case 'joined_asc':  return joinedMs(a)-joinedMs(b);
+      case 'best_desc':   return bestNum(b)-bestNum(a);
+      case 'best_asc':    return bestNum(a)-bestNum(b);
+      case 'joined_desc':
+      default:            return joinedMs(b)-joinedMs(a);
+    }
   });
 
   renderTable(filtered);
