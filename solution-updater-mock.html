@@ -218,6 +218,7 @@ pre{font-family:monospace;font-size:0.78rem;color:#A78BFA;line-height:1.7;white-
 
     <div class="mode-tabs">
       <button class="mode-tab active" onclick="switchMode('json')" id="tab-json">📋 Paste JSON</button>
+      <button class="mode-tab" onclick="switchMode('single')" id="tab-single">🎯 Single Q JSON</button>
       <button class="mode-tab" onclick="switchMode('csv')" id="tab-csv">📄 Upload CSV</button>
       <button class="mode-tab" onclick="switchMode('qoptions')" id="tab-qoptions">📝 Fix Q &amp; Options</button>
       <button class="mode-tab" onclick="switchMode('builder')" id="tab-builder">🔄 Build from JSON</button>
@@ -246,6 +247,57 @@ pre{font-family:monospace;font-size:0.78rem;color:#A78BFA;line-height:1.7;white-
     "concept": "Arithmetic: profit through false weights"
   }
 ]</pre>
+      </div>
+    </div>
+
+    <!-- Single-Question JSON Mode -->
+    <div id="mode-single" style="display:none;">
+      <div class="info-box">
+        Paste a <strong>single-question JSON</strong> in <code>{qNum, explanation, trick, concept}</code> format.
+        <code>[BR]</code> step format is auto-converted to HTML and you can preview exactly how it will render before pushing.
+      </div>
+      <div style="display:flex;gap:0.75rem;align-items:flex-end;flex-wrap:wrap;margin-bottom:0.75rem;">
+        <div>
+          <label>Q Number</label>
+          <input type="number" id="sglQNum" min="1" max="200" placeholder="auto" style="width:110px;">
+        </div>
+        <div style="flex:1;min-width:160px;font-size:0.74rem;color:#64748B;align-self:center;line-height:1.5;">
+          Leave blank to use the <code>qNum</code> field from the JSON. A value here overrides it.
+        </div>
+      </div>
+      <textarea id="sglJsonInput" placeholder='{&#10;  "qNum": 1,&#10;  "explanation": "Step 1: Title. Content.[BR]&#8756; Final Answer = X.",&#10;  "trick": "Step 1: Shortcut.",&#10;  "concept": "Arithmetic: profit"&#10;}'></textarea>
+      <div class="textarea-hint">Use [BR] for line breaks. Step titles must end with a full stop.</div>
+      <div class="btn-row">
+        <button class="btn btn-secondary" onclick="sglPreview()">👁 Convert &amp; Preview</button>
+        <button class="btn btn-primary" id="sglPushBtn" onclick="sglPush()" disabled>🚀 Push to DB</button>
+        <button class="btn btn-secondary" onclick="sglClear()">✕ Clear</button>
+      </div>
+      <div id="sglPreviewWrap" style="display:none;margin-top:1rem;">
+        <div style="font-size:0.78rem;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.5rem;">
+          Solution Preview — Q<span id="sglPreviewQLabel">—</span>
+          <span id="sglStatusBadge" style="margin-left:8px;"></span>
+        </div>
+        <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:1rem;">
+          <div style="font-size:0.7rem;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.4rem;">Explanation</div>
+          <div id="sglExplPreview" style="font-size:0.86rem;line-height:1.7;min-height:36px;color:#374151;"></div>
+          <div style="font-size:0.7rem;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;margin:0.85rem 0 0.4rem;">Trick</div>
+          <div id="sglTrickPreview" style="font-size:0.86rem;line-height:1.7;min-height:24px;color:#374151;"></div>
+          <div style="font-size:0.7rem;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;margin:0.85rem 0 0.4rem;">Concept</div>
+          <div id="sglConceptPreview" style="font-size:0.86rem;color:#374151;"></div>
+        </div>
+      </div>
+      <div class="progress-wrap" id="sglProgressWrap">
+        <div class="progress-bar-bg"><div class="progress-bar" id="sglProgressBar"></div></div>
+        <div class="progress-status" id="sglProgressStatus"></div>
+      </div>
+      <div class="format-card">
+        <h4>JSON Format</h4>
+        <pre>{
+  "qNum": 1,
+  "explanation": "Step 1: Find relation. Content.[BR]Step 2: Verify. Check.[BR]&#8756; Final Answer = D.",
+  "trick": "Step 1: Shortcut tip.[BR]Step 2: Elimination tip.",
+  "concept": "Arithmetic: profit through false weights"
+}</pre>
       </div>
     </div>
 
@@ -629,7 +681,7 @@ window.loadMockQuestions = async () => {
 // ── Mode switch ──
 window.switchMode = (mode) => {
   currentMode = mode;
-  ['json','csv','builder','mathconv','qoptions'].forEach(m => {
+  ['json','single','csv','builder','mathconv','qoptions'].forEach(m => {
     document.getElementById('mode-' + m).style.display = m === mode ? 'block' : 'none';
     document.getElementById('tab-' + m).className = 'mode-tab' + (m === mode ? ' active' : '');
   });
@@ -1257,6 +1309,118 @@ window.mcPush = async () => {
     showToast('✅ Q'+qnum+' '+field+' saved!','success');
   } catch(e) { status.innerHTML='<span style="color:#EF4444;">❌ '+e.message+'</span>'; showToast('Push failed: '+e.message,'error'); }
   document.getElementById('mcPushBtn').disabled=false;
+};
+
+// ══════════════════════════════════════════════════════════
+// ── Single-Question JSON tab ──────────────────────────────
+// ══════════════════════════════════════════════════════════
+let _sglExpl = '', _sglTrick = '', _sglConcept = '', _sglQNum = 0;
+
+window.sglPreview = () => {
+  const raw = document.getElementById('sglJsonInput').value.trim();
+  if (!raw) { showToast('Paste JSON first', 'error'); return; }
+  let obj;
+  try { obj = JSON.parse(raw); } catch(e) { showToast('Invalid JSON: ' + e.message, 'error'); return; }
+  if (Array.isArray(obj)) {
+    if (obj.length !== 1) { showToast('This tab is for one question — use Paste JSON for arrays', 'error'); return; }
+    obj = obj[0] || {};
+  }
+  const inputQ = parseInt(document.getElementById('sglQNum').value);
+  const qnum = inputQ || parseInt(obj.qNum) || 0;
+  if (!qnum) { showToast('No Q number — set it above or add "qNum" to the JSON', 'error'); return; }
+
+  const explRaw  = obj.explanation || obj.solution || '';
+  const trickRaw = obj.trick || '';
+  const concept  = obj.concept || '';
+
+  _sglExpl    = brToHtml(explRaw);
+  _sglTrick   = brToHtml(trickRaw);
+  _sglConcept = concept;
+  _sglQNum    = qnum;
+
+  document.getElementById('sglPreviewQLabel').textContent = qnum;
+  document.getElementById('sglExplPreview').innerHTML    = _sglExpl    || '<span style="color:#94A3B8;font-style:italic;">(no explanation)</span>';
+  document.getElementById('sglTrickPreview').innerHTML   = _sglTrick   || '<span style="color:#94A3B8;font-style:italic;">(empty)</span>';
+  document.getElementById('sglConceptPreview').textContent = concept   || '(empty)';
+  document.getElementById('sglPreviewWrap').style.display = 'block';
+  document.getElementById('sglProgressWrap').style.display = 'none';
+
+  // flag whether this Q exists / already has a solution
+  const docMap = {}; loadedDocs.forEach(d => { docMap[parseInt(d.data().qNum)] = d; });
+  const docSnap = docMap[qnum];
+  if (!docSnap) {
+    document.getElementById('sglStatusBadge').innerHTML = '<span class="badge badge-red">Q' + qnum + ' not in loaded mock</span>';
+  } else {
+    const d = docSnap.data();
+    const has = (d.explanation && d.explanation.trim()) || (d.trick && d.trick.trim());
+    const override = document.getElementById('overrideToggle').checked;
+    document.getElementById('sglStatusBadge').innerHTML = has
+      ? (override ? '<span class="badge will-replace" style="background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.3);">Will replace existing</span>'
+                  : '<span class="badge badge-red">Has solution — enable Override</span>')
+      : '<span class="badge badge-green">New — ready to push</span>';
+  }
+  document.getElementById('sglPushBtn').disabled = false;
+  showToast('Converted Q' + qnum + ' — check preview then push', 'info');
+};
+
+window.sglPush = async () => {
+  if (!_sglExpl && !_sglTrick && !_sglConcept) { showToast('Convert &amp; preview first', 'error'); return; }
+  if (!loadedDocs.length) { showToast('Load questions first', 'error'); return; }
+  const override = document.getElementById('overrideToggle').checked;
+  const docMap = {}; loadedDocs.forEach(d => { docMap[parseInt(d.data().qNum)] = d; });
+  const docSnap = docMap[_sglQNum];
+  if (!docSnap) {
+    showToast('Q' + _sglQNum + ' not found in loaded mock', 'error');
+    document.getElementById('sglStatusBadge').innerHTML = '<span class="badge badge-red">Not found</span>';
+    return;
+  }
+  const data = docSnap.data();
+  const hasExpl  = data.explanation && data.explanation.trim();
+  const hasTrick = data.trick && data.trick.trim();
+  if (!override && (hasExpl || hasTrick)) {
+    showToast('Q' + _sglQNum + ' already has a solution. Enable Override to replace.', 'error');
+    return;
+  }
+
+  const prog = document.getElementById('sglProgressWrap'),
+        bar  = document.getElementById('sglProgressBar'),
+        status = document.getElementById('sglProgressStatus');
+  prog.style.display = 'block'; bar.style.width = '0%';
+  document.getElementById('sglPushBtn').disabled = true;
+  status.textContent = 'Pushing Q' + _sglQNum + '...';
+
+  const payload = {};
+  if (override) {
+    payload.explanation = _sglExpl;
+    payload.trick       = _sglTrick;
+    if (_sglConcept) payload.concept = _sglConcept;
+  } else {
+    if (_sglExpl)    payload.explanation = _sglExpl;
+    if (_sglTrick)   payload.trick       = _sglTrick;
+    if (_sglConcept) payload.concept     = _sglConcept;
+  }
+
+  try {
+    await updateDoc(docSnap.ref, payload);
+    bar.style.width = '100%';
+    status.innerHTML = '✅ <strong>Q' + _sglQNum + ' updated successfully!</strong>';
+    document.getElementById('sglStatusBadge').innerHTML = '<span class="badge badge-green">✅ Pushed</span>';
+    showToast('✅ Q' + _sglQNum + ' solution saved!', 'success');
+  } catch(e) {
+    status.innerHTML = '<span style="color:#EF4444;">❌ Error: ' + e.message + '</span>';
+    document.getElementById('sglStatusBadge').innerHTML = '<span class="badge badge-red">Error</span>';
+    showToast('Push failed: ' + e.message, 'error');
+  }
+  document.getElementById('sglPushBtn').disabled = false;
+};
+
+window.sglClear = () => {
+  document.getElementById('sglJsonInput').value = '';
+  document.getElementById('sglQNum').value = '';
+  document.getElementById('sglPreviewWrap').style.display  = 'none';
+  document.getElementById('sglProgressWrap').style.display = 'none';
+  document.getElementById('sglPushBtn').disabled = true;
+  _sglExpl = ''; _sglTrick = ''; _sglConcept = ''; _sglQNum = 0;
 };
 
 // ── Toast ──
