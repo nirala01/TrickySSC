@@ -202,12 +202,19 @@ function estimatedRankCard(paperId, marks, maxMarks){
   </div>`;
 }
 
+// Language-agnostic leaderboard key: drop a trailing hi/en/hindi/english token
+// so Hindi and English candidates for the same paper share one ranking.
+function lbBaseId(id){
+  return String(id||'').replace(/([_\-])(hi|en|hindi|english)$/i,'');
+}
+
 const params = new URLSearchParams(location.search);
 let CURRENT_UID = null;
 let CURRENT_PAPER = params.get('paper') || '';
 
 onAuthStateChanged(auth, async (user) => {
   CURRENT_UID = user ? user.uid : null;
+  CURRENT_PAPER = lbBaseId(CURRENT_PAPER);   // collapse hi/en → one board up front
   await buildPaperPicker(user);
   if (CURRENT_PAPER) loadLeaderboard(CURRENT_PAPER);
   else $('content').innerHTML = `<div class="empty">Select a test above to view its leaderboard.</div>`;
@@ -216,13 +223,13 @@ onAuthStateChanged(auth, async (user) => {
 // Build the paper dropdown from the signed-in user's own attempts (papers they've taken).
 async function buildPaperPicker(user){
   const sel = $('paperSelect');
-  const seen = new Map(); // id -> label
+  const seen = new Map(); // base id -> label
   if (CURRENT_PAPER) seen.set(CURRENT_PAPER, prettyPaper(CURRENT_PAPER, params.get('name')));
   if (user) {
     try {
       const qs = await getDocs(query(collection(db,'attempts'), where('uid','==',user.uid), limit(60)));
       qs.forEach(d=>{
-        const a=d.data(); const id=a.paperId||a.mockId;
+        const a=d.data(); const id=lbBaseId(a.paperId||a.mockId);  // one entry per paper, not per language
         if(id && !seen.has(id)) seen.set(id, prettyPaper(id, a.examName||a.exam));
       });
     } catch(_) { /* index may be missing; dropdown just stays minimal */ }
@@ -235,68 +242,93 @@ async function buildPaperPicker(user){
 }
 
 window.onPaperChange = function(){
-  CURRENT_PAPER = $('paperSelect').value;
+  CURRENT_PAPER = lbBaseId($('paperSelect').value);
   history.replaceState(null,'', 'rank.html?paper='+encodeURIComponent(CURRENT_PAPER));
   loadLeaderboard(CURRENT_PAPER);
 };
 
-async function loadLeaderboard(paperId){
+async function loadLeaderboard(rawPaper){
+  const paperId = lbBaseId(rawPaper);          // language-agnostic board key
+  CURRENT_PAPER = paperId;
   const bn=$('boardName'); if(bn) bn.textContent=prettyPaper(paperId);
   $('content').innerHTML = `<div class="empty"><div class="spin"></div><div style="margin-top:12px;">Loading leaderboard…</div></div>`;
   $('footNote').textContent = '';
-  const scoresCol = collection(db,'leaderboards',paperId,'scores');
 
-  let rows = [];
-  try {
-    const qs = await getDocs(query(scoresCol, orderBy('marks','desc'), limit(100)));
-    qs.forEach(d => rows.push(d.data()));
-    // Tie-break by submittedAt (earlier = higher) in JS — avoids composite index
-    rows.sort((a,b) => {
-      if ((Number(b.marks)||0) !== (Number(a.marks)||0)) return (Number(b.marks)||0) - (Number(a.marks)||0);
-      const ta = a.submittedAt?.toDate ? a.submittedAt.toDate().getTime() : 0;
-      const tb = b.submittedAt?.toDate ? b.submittedAt.toDate().getTime() : 0;
-      return ta - tb;
-    });
-  } catch (e) {
-    const msg = String(e.message||e).toLowerCase();
-    const isIndex = msg.includes('index') || msg.includes('failed-precondition');
-    $('content').innerHTML = `<div class="empty">
-      ${isIndex
-        ? `⚙️ <b>Index still building</b><br><span style="font-size:12px;">This usually takes 1–2 minutes on first use. Please wait and refresh.</span>`
-        : `Couldn't load the leaderboard.<br><span style="font-size:12px;">Check your connection and try refreshing.</span>`}
-    </div>`;
-    console.warn('[rank]', e); return;
+  // Read the merged board (base) plus any legacy language-suffixed boards, so
+  // scores written before the merge still count. New scores all land on `base`.
+  const variants = [...new Set([paperId, paperId+'_hi', paperId+'_en'])];
+  const scoresColOf = v => collection(db,'leaderboards',v,'scores');
+
+  let rows = [], anyOk=false, anyIndexErr=false;
+  for (const v of variants){
+    try {
+      const qs = await getDocs(query(scoresColOf(v), orderBy('marks','desc'), limit(100)));
+      qs.forEach(d => rows.push(d.data()));
+      anyOk = true;
+    } catch (e) {
+      const msg = String(e.message||e).toLowerCase();
+      if (msg.includes('index') || msg.includes('failed-precondition')) anyIndexErr = true;
+      // otherwise: variant collection simply doesn't exist — ignore
+    }
   }
+
+  if (!anyOk && anyIndexErr) {
+    $('content').innerHTML = `<div class="empty">⚙️ <b>Index still building</b><br><span style="font-size:12px;">This usually takes 1–2 minutes on first use. Please wait and refresh.</span></div>`;
+    return;
+  }
+
+  // Dedupe by uid — a candidate who attempted both languages is ranked once, by best marks
+  const byUid = new Map();
+  rows.forEach(r => {
+    const k = r.uid || ('anon_'+Math.random());
+    const cur = byUid.get(k);
+    if (!cur || (Number(r.marks)||0) > (Number(cur.marks)||0)) byUid.set(k, r);
+  });
+  rows = [...byUid.values()].sort((a,b) => {
+    if ((Number(b.marks)||0) !== (Number(a.marks)||0)) return (Number(b.marks)||0) - (Number(a.marks)||0);
+    const ta = a.submittedAt?.toDate ? a.submittedAt.toDate().getTime() : 0;
+    const tb = b.submittedAt?.toDate ? b.submittedAt.toDate().getTime() : 0;
+    return ta - tb;
+  }).slice(0, 100);
 
   if (rows.length === 0) {
     $('content').innerHTML = `<div class="empty">No scores yet for this test.<br>Be the first to attempt it! 🚀</div>`;
     return;
   }
 
-  // total participants (cheap server-side count)
-  let total = rows.length;
-  try { total = (await getCountFromServer(scoresCol)).data().count; } catch(_){}
+  // Total participants — summed across variants (server-side counts)
+  let total = 0, gotCount = false;
+  for (const v of variants){
+    try { total += (await getCountFromServer(scoresColOf(v))).data().count; gotCount = true; } catch(_){}
+  }
+  if (!gotCount) total = rows.length;
 
-  // current user's standing
-  let myRow = null, myRank = null, myIndexInTop = rows.findIndex(r => r.uid === CURRENT_UID);
+  // Current user's standing — best score across variants
+  let myRow = null, myRank = null;
+  const idxTop = rows.findIndex(r => r.uid === CURRENT_UID);
   if (CURRENT_UID) {
-    if (myIndexInTop >= 0) { myRow = rows[myIndexInTop]; myRank = myIndexInTop + 1; }
+    if (idxTop >= 0) { myRow = rows[idxTop]; myRank = idxTop + 1; }
     else {
-      try {
-        const meSnap = await getDoc(doc(db,'leaderboards',paperId,'scores',CURRENT_UID));
-        if (meSnap.exists()) {
-          myRow = meSnap.data();
-          const ahead = await getCountFromServer(query(scoresCol, where('marks','>', Number(myRow.marks)||0)));
-          myRank = ahead.data().count + 1;
+      for (const v of variants){
+        try {
+          const me = await getDoc(doc(db,'leaderboards',v,'scores',CURRENT_UID));
+          if (me.exists()) { const d=me.data(); if(!myRow || (Number(d.marks)||0)>(Number(myRow.marks)||0)) myRow=d; }
+        } catch(_){}
+      }
+      if (myRow) {
+        let ahead = 0;
+        for (const v of variants){
+          try { ahead += (await getCountFromServer(query(scoresColOf(v), where('marks','>', Number(myRow.marks)||0)))).data().count; } catch(_){}
         }
-      } catch(_){}
+        myRank = ahead + 1;
+      }
     }
   }
 
   const maxMarks = rows[0].maxMarks || (myRow && myRow.maxMarks) || 0;
   renderHero(myRow, myRank, total, maxMarks);
   renderTable(rows, myRow, myRank, total);
-  $('footNote').textContent = 'Showing top ' + Math.min(100, total) + ' of ' + total + ' candidate' + (total===1?'':'s') + '. Best attempt per candidate is ranked.';
+  $('footNote').textContent = 'Showing top ' + Math.min(100, rows.length) + ' of ' + total + ' candidate' + (total===1?'':'s') + ' · Hindi + English combined. Best attempt per candidate is ranked.';
 }
 
 function renderHero(myRow, myRank, total, maxMarks){
