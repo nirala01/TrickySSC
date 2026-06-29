@@ -1936,12 +1936,31 @@ window.toggleEnglishView=async()=>{
   renderQ();
 };
 
+// Map any subject spelling (EN/HI variants, extra spaces) to one canonical
+// section label, so a paper can't split into duplicate tabs just because a few
+// rows use a different wording for the same subject.
+function canonSubject(raw){
+  let s=String(raw==null?'':raw).replace(/\s+/g,' ').trim();
+  if(!s) return '';
+  if(SUBJECT_SHORT[s]) return SUBJECT_SHORT[s];           // exact known match
+  const low=s.toLowerCase();
+  if(/\benglish\b|comprehension/.test(low)) return 'English';
+  if(/quant|aptitude|numerical|\bmath/.test(low)) return 'Quant';
+  if(/aware|general studies|\bg\.?k\.?\b|current affairs/.test(low)) return 'Gen. Awareness';
+  if(/reason|intelligence|mental ability/.test(low)) return 'Reasoning';
+  if(/अंग्रे/.test(s)) return 'English';
+  if(/मात्रात्मक|संख्यात्मक|गणित|अंकगण/.test(s)) return 'Quant';
+  if(/जागरूक|अध्ययन|सामान्य ज्ञान|करंट|समसामयिक/.test(s)) return 'Gen. Awareness';
+  if(/बुद्धि|तर्क|रीजनिंग/.test(s)) return 'Reasoning';
+  return s; // unknown — keep as-is rather than mis-bucket
+}
+
 // ── Section metadata ──
 function buildSections(){
   sections=[];
   let prev=null;
   questions.forEach((q,i)=>{
-    const subj=q.subject||q.section||'';
+    const subj=canonSubject(q.subject||q.section||'');
     if(subj!==prev){
       if(prev!==null) sections[sections.length-1].to=i-1;
       const label=SUBJECT_SHORT[subj]||subj||('Part '+(sections.length+1));
