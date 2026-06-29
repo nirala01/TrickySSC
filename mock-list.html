@@ -125,6 +125,25 @@ nav.tssc-nav .hamburger span{ display:block; width:24px; height:2px; background:
 .mc-lock span{background:rgba(30,41,59,0.82);color:#fff;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.78rem;padding:0.35rem 0.9rem;border-radius:100px;}
 .mock-card.live .mc-lock{display:none;}
 
+/* ── Availability not yet checked: show a loading shimmer instead of "Coming Soon" ── */
+/* Cards carry .locked from static HTML; the real lock only appears once .resolved is set. */
+.mock-card:not(.resolved) .mc-top{
+  background:linear-gradient(100deg,#CBD5E1 30%,#EEF2F6 50%,#CBD5E1 70%);
+  background-size:200% 100%;animation:mcShimmer 1.15s linear infinite;
+}
+.mock-card:not(.resolved){opacity:1;}
+.mock-card:not(.resolved) .mc-body{filter:none;}            /* loading, not locked */
+.mock-card:not(.resolved) .mc-attempt{background:#CBD5E1;cursor:default;}
+.mock-card:not(.resolved) .mc-lock{display:flex;background:rgba(255,255,255,0.45);}
+.mock-card:not(.resolved) .mc-lock span{display:none;}      /* hide the "Coming Soon" pill */
+.mock-card:not(.resolved) .mc-lock::after{
+  content:'';position:absolute;width:22px;height:22px;border-radius:50%;
+  border:3px solid rgba(148,163,184,0.45);border-top-color:#FF6B00;
+  animation:mcSpin .8s linear infinite;
+}
+@keyframes mcSpin{to{transform:rotate(360deg);}}
+@keyframes mcShimmer{from{background-position:200% 0;}to{background-position:-200% 0;}}
+
 /* Language chooser overlay (matches PYQ page) */
 #langChooser{display:none;position:fixed;inset:0;z-index:6000;background:rgba(15,23,42,0.55);backdrop-filter:blur(4px);animation:lcFade .18s ease;}
 .lc-card{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(400px,92vw);background:#fff;border-radius:22px;box-shadow:0 30px 80px rgba(15,23,42,0.4);overflow:hidden;animation:lcPop .24s cubic-bezier(.2,.8,.3,1.2);}
@@ -18747,6 +18766,10 @@ const db = getFirestore(initializeApp({
 
 const EXAM="ssc-cgl";
 
+// Safety net: if the availability check hangs, stop the loading shimmer after
+// 10s so cards don't spin forever (they fall back to their static state).
+setTimeout(()=>{document.querySelectorAll('.mock-card:not(.resolved)').forEach(c=>c.classList.add('resolved'));},10000);
+
 (async () => {
   try {
     const snap = await getDocs(query(collection(db,'mock_tests'), where('exam','==',EXAM)));
@@ -18766,7 +18789,8 @@ const EXAM="ssc-cgl";
     document.querySelectorAll('.mock-card').forEach(card => {
       const base = card.getAttribute('data-mock');
       const info = live[base];
-      if(!info) return;
+      card.classList.add('resolved');          // availability now known → stop the loading state
+      if(!info){ card.classList.add('locked'); return; }  // confirmed unavailable → "Coming Soon"
       card.classList.remove('locked');
       card.classList.add('live');
       const btn = card.querySelector('.mc-attempt');
@@ -18803,6 +18827,9 @@ const EXAM="ssc-cgl";
     }
   } catch(e) {
     console.warn('mock unlock failed:', e.message);
+    // Network/permission error: stop the loading state and fall back to the
+    // static locked ("Coming Soon") appearance rather than spinning forever.
+    document.querySelectorAll('.mock-card:not(.resolved)').forEach(c=>c.classList.add('resolved'));
   }
 })();
 </script>
