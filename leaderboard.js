@@ -8,7 +8,7 @@
 // same name they set while logging in — falling back to displayName, then 'Student'.
 
 import { getApps, getApp, initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, doc, getDoc, runTransaction, serverTimestamp }
+import { getFirestore, initializeFirestore, doc, getDoc, runTransaction, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 const FB_CONFIG = {
@@ -22,7 +22,13 @@ const FB_CONFIG = {
 
 // Reuse the app the test page already initialised; otherwise create one.
 const app = getApps().length ? getApp() : initializeApp(FB_CONFIG);
-const db  = getFirestore(app);
+// leaderboard.js loads (via import) BEFORE the test page's own init, so it is
+// usually the FIRST to touch Firestore. Initialise with long-polling auto-detect
+// here so flaky networks don't stall on the WebChannel stream. The test pages
+// request the SAME options, so their later call just reuses this instance.
+let db;
+try { db = initializeFirestore(app, { experimentalAutoDetectLongPolling: true }); }
+catch(_) { db = getFirestore(app); }   // already initialised — reuse it
 
 // Resolve the candidate's login name from their profile document.
 async function resolveName(uid, fallback) {
