@@ -55,6 +55,30 @@ const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&l
 const u = new URLSearchParams(location.search);
 if (u.get('paper')) { $('pid').value = u.get('paper'); }
 
+// Accept either a raw paperId/mockId OR a full test/mock URL pasted from the
+// address bar — pull the real id and the exam/year/etc. fields out of the URL.
+function parseInput(raw){
+  raw = (raw||'').trim();
+  let id = raw, fields = {};
+  if (/^https?:\/\//i.test(raw) || raw.indexOf('?') >= 0){
+    let qs;
+    try { qs = new URL(raw).searchParams; }
+    catch(_) { const i = raw.indexOf('?'); qs = new URLSearchParams(i>=0 ? raw.slice(i+1) : raw); }
+    id = (qs.get('paperId') || qs.get('mockId') || '').trim() || id;
+    fields = {
+      exam:   qs.get('exam')   || '',
+      year:   qs.get('year')   || '',
+      heldOn: qs.get('heldOn') || '',
+      shift:  qs.get('shift')  || '',
+      tier:   qs.get('tier')   || '',
+      lang:   qs.get('lang')   || '',
+      mockId: qs.get('mockId') || '',
+      paperId:qs.get('paperId')|| ''
+    };
+  }
+  return { id, fields, isMock: /mock/i.test(id) || !!fields.mockId };
+}
+
 function candidates(pid){
   const base = pid.replace(/([_\-])(hi|hindi)$/i,'');
   return [...new Set([
@@ -71,28 +95,35 @@ async function countFor(paperId){
 }
 
 window.run = async function(){
-  const pid = $('pid').value.trim();
+  const parsed = parseInput($('pid').value);
+  const pid = parsed.id;
+  const F = parsed.fields;
   if(!pid){ return; }
   $('go').disabled = true;
   $('out').innerHTML = `<div class="card muted">Reading database…</div>`;
   let html = '';
 
   try {
+    html += `<div class="card muted">Querying with extracted id: <code>${esc(pid)}</code>${parsed.isMock?' <span class="pill">mock</span>':''}</div>`;
+
     // 1) The Hindi paper itself
     const hi = await countFor(pid);
     const sampleSnap = await getDocs(query(collection(db,'questions'), where('paperId','==',pid), limit(1)));
     let sample = {};
-    sampleSnap.forEach(d=>{ const x=d.data(); sample={exam:x.exam,year:x.year,heldOn:x.heldOn,shift:x.shift,language:x.language}; });
+    sampleSnap.forEach(d=>{ const x=d.data(); sample={exam:x.exam,year:x.year,heldOn:x.heldOn,shift:x.shift,language:x.language,tier:x.tier}; });
+    // fall back to URL fields when the docs don't carry them
+    const exam = sample.exam || F.exam, year = (sample.year!=null&&sample.year!=='')?sample.year:F.year;
+    const tier = sample.tier || F.tier, heldOn = sample.heldOn || F.heldOn, shift = sample.shift || F.shift;
     html += `<div class="card"><h2>1 · The Hindi paper you entered</h2>
       <div class="big"><code>${esc(pid)}</code> → <b>${hi.count}</b> questions
       <span class="pill">lang: ${esc(Object.keys(hi.langs).join(', ')||'—')}</span></div>
-      <table style="margin-top:8px;"><tr><th>exam</th><th>year</th><th>heldOn</th><th>shift</th><th>language</th></tr>
-      <tr><td>${esc(sample.exam)}</td><td>${esc(sample.year)}</td><td>${esc(sample.heldOn)}</td><td>${esc(sample.shift)}</td><td>${esc(sample.language)}</td></tr></table></div>`;
+      <table style="margin-top:8px;"><tr><th>exam</th><th>year</th><th>tier</th><th>heldOn</th><th>shift</th></tr>
+      <tr><td>${esc(exam)}</td><td>${esc(year)}</td><td>${esc(tier)}</td><td>${esc(heldOn)}</td><td>${esc(shift)}</td></tr></table>
+      ${hi.count===0?'<p class="no" style="margin:8px 0 0;">0 docs for this id — double-check the paperId/mockId is correct.</p>':''}</div>`;
 
     // 2) Candidate English ids the app currently tries
     const cands = candidates(pid);
-    let rows = '';
-    let foundEnId = '';
+    let rows = '', foundEnId = '';
     for(const c of cands){
       const r = await countFor(c);
       const hit = r.count>0;
@@ -101,30 +132,40 @@ window.run = async function(){
     }
     html += `<div class="card"><h2>2 · Candidate English ids the test page tries</h2>
       <table><tr><th>candidate paperId</th><th>questions</th><th>language</th></tr>${rows}</table>
-      ${foundEnId ? `<p class="ok" style="margin:10px 0 0;">A candidate matched: <code>${esc(foundEnId)}</code> — the lookup SHOULD work once deployed.</p>`
-                  : `<p class="no" style="margin:10px 0 0;">No candidate matched. The real English id is something else — see section 3.</p>`}</div>`;
+      ${foundEnId ? `<p class="ok" style="margin:10px 0 0;">Matched: <code>${esc(foundEnId)}</code> — the lookup SHOULD work once the widened files are deployed.</p>`
+                  : `<p class="no" style="margin:10px 0 0;">No candidate matched — the real English id is something else. See section 3.</p>`}</div>`;
 
-    // 3) Every paperId for the same exam + year, with languages — reveals the real English id
-    if (sample.exam && (sample.year || sample.year===0)) {
-      const yvs = [...new Set([sample.year, String(sample.year), parseInt(sample.year)].filter(v=>v!==undefined&&v!==null&&v!==''&&!Number.isNaN(v)))];
-      const byPaper = {};
-      for (const yv of yvs){
-        try{
-          const qs = await getDocs(query(collection(db,'questions'), where('exam','==',sample.exam), where('year','==',yv), limit(1500)));
-          qs.forEach(d=>{ const x=d.data(); const p=x.paperId||'(no paperId)'; const l=x.language||'(none)';
-            byPaper[p]=byPaper[p]||{n:0,langs:{}}; byPaper[p].n++; byPaper[p].langs[l]=(byPaper[p].langs[l]||0)+1; });
-        }catch(e){ /* index may be missing for this combo */ }
-      }
-      const keys = Object.keys(byPaper).sort();
-      let prows = keys.map(p=>`<tr><td><code>${esc(p)}</code></td><td>${byPaper[p].n}</td><td>${esc(Object.entries(byPaper[p].langs).map(([k,v])=>k+':'+v).join(', '))}</td></tr>`).join('');
-      html += `<div class="card"><h2>3 · All papers for <code>${esc(sample.exam)}</code> · year <code>${esc(sample.year)}</code></h2>
-        <p class="muted">Find the row that's the English version of your paper — its <code>paperId</code> is what I need.</p>
-        <table><tr><th>paperId</th><th>#</th><th>languages</th></tr>${prows||'<tr><td colspan=3 class="muted">No rows (exam/year query may need an index, or fields differ).</td></tr>'}</table></div>`;
-    } else {
-      html += `<div class="card no">Couldn't read exam/year from the Hindi paper's questions, so section 3 was skipped. The Hindi docs may not store <code>exam</code>/<code>year</code>.</div>`;
+    // 3) Sibling papers — reveals the real English id
+    const byPaper = {};
+    async function scan(qBuilder, label){
+      try{ const qs = await qBuilder(); qs.forEach(d=>{ const x=d.data(); const p=x.paperId||x.mockId||'(none)'; const l=x.language||'(none)';
+        byPaper[p]=byPaper[p]||{n:0,langs:{}}; byPaper[p].n++; byPaper[p].langs[l]=(byPaper[p].langs[l]||0)+1; }); return true; }
+      catch(e){ console.warn(label, e.message); return false; }
     }
+    let scanned = false, scanLabel = '';
+    if (parsed.isMock){
+      // mocks: scan exam(+tier), keep only ids sharing this mock's number (e.g. mock1)
+      const mockNo = (pid.match(/mock\s*\d+/i)||[])[0] || '';
+      scanLabel = `exam ${exam}${tier?(' · '+tier):''}${mockNo?(' · '+mockNo):''}`;
+      if (exam){
+        scanned = await scan(()=>getDocs(query(collection(db,'questions'), where('exam','==',exam), limit(1500))), 'mock-scan');
+        if (mockNo){ Object.keys(byPaper).forEach(p=>{ if(!new RegExp(mockNo.replace(/\s+/,'\\s*'),'i').test(p)) delete byPaper[p]; }); }
+      }
+    } else if (exam && year!=='' && year!=null){
+      scanLabel = `exam ${exam} · year ${year}`;
+      const yvs = [...new Set([year, String(year), parseInt(year)].filter(v=>v!==undefined&&v!==null&&v!==''&&!Number.isNaN(v)))];
+      for (const yv of yvs){ scanned = (await scan(()=>getDocs(query(collection(db,'questions'), where('exam','==',exam), where('year','==',yv), limit(1500))), 'pyq-scan')) || scanned; }
+    }
+    const keys = Object.keys(byPaper).sort();
+    const prows = keys.map(p=>{
+      const isThis = p===pid;
+      return `<tr><td><code>${esc(p)}</code>${isThis?' <span class="pill">this Hindi paper</span>':''}</td><td>${byPaper[p].n}</td><td>${esc(Object.entries(byPaper[p].langs).map(([k,v])=>k+':'+v).join(', '))}</td></tr>`;
+    }).join('');
+    html += `<div class="card"><h2>3 · Sibling papers · <span class="muted">${esc(scanLabel||'—')}</span></h2>
+      <p class="muted">The English version of your paper is one of these rows — its <code>paperId</code> is the answer.</p>
+      <table><tr><th>paperId</th><th>#</th><th>languages</th></tr>${prows||'<tr><td colspan=3 class="muted">No rows — exam/year(/tier) query may need a Firestore index, or fields differ.</td></tr>'}</table></div>`;
 
-    html += `<div class="card muted">Screenshot sections 2 and 3 and send them over — that pins down the exact matching rule.</div>`;
+    html += `<div class="card muted">Screenshot section 3 (and 2) and send them — that's the exact answer.</div>`;
   } catch(e){
     html = `<div class="card no">Error: ${esc(e.message||e)}<br><span class="muted">If this is a permissions error, the questions collection may require login to read.</span></div>`;
   }
