@@ -1851,6 +1851,19 @@ function enMockCandidates(hiId){
   return [...out];
 }
 
+// Resilient English fetch: query Firestore over REST (the SDK getDocs stalls on
+// some networks/WebChannel, but REST with the API key works reliably).
+async function _enRest(field,value){
+  const url='https://firestore.googleapis.com/v1/projects/trickyssc-17bb3/databases/(default)/documents:runQuery?key=AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA';
+  const body={structuredQuery:{from:[{collectionId:'questions'}],where:{fieldFilter:{field:{fieldPath:field},op:'EQUAL',value:{stringValue:value}}}}};
+  const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const j=await r.json(); const out=[];
+  if(Array.isArray(j)) for(const row of j){ const fl=row.document&&row.document.fields; if(!fl) continue; const d={};
+    for(const k in fl){ const v=fl[k]; d[k]=('stringValue'in v)?v.stringValue:('integerValue'in v)?v.integerValue:('doubleValue'in v)?v.doubleValue:('booleanValue'in v)?v.booleanValue:('nullValue'in v)?null:undefined; }
+    out.push(d); }
+  return out;
+}
+
 async function ensureEnglishMap(){
   if(enMapLoaded || enMapLoading || !enFetchParams) return;
   enMapLoading=true; enFetchError=false;
@@ -1858,11 +1871,12 @@ async function ensureEnglishMap(){
   try{
     let enDocs=[];
     if(mockId){
+      // REST first — the SDK getDocs stalls on some networks (WebChannel), REST doesn't.
       for(const cand of enMockCandidates(mockId)){
-        try{
-          const snap=await getDocs(query(collection(db,'questions'),where('mockId','==',cand)));
-          if(snap.size){ snap.forEach(d=>enDocs.push({id:d.id,...d.data()})); console.log('[TrickySSC] EN mock matched:',cand,snap.size); break; }
-        }catch(_){}
+        let docs=[];
+        try{ docs=await _enRest('mockId',cand); }catch(_){}        // REST (resilient)
+        if(!docs.length){ try{ const snap=await getDocs(query(collection(db,'questions'),where('mockId','==',cand))); snap.forEach(d=>docs.push({id:d.id,...d.data()})); }catch(_){} }
+        if(docs.length){ enDocs=docs; console.log('[TrickySSC] EN mock matched:',cand,docs.length); break; }
       }
     }
     if(!enDocs.length && paperId){
