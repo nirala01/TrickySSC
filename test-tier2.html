@@ -1256,7 +1256,9 @@ import{getAuth,onAuthStateChanged,signOut}from"https://www.gstatic.com/firebasej
 import{recordScore}from"./leaderboard.js";
 
 const app=initializeApp({apiKey:"AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",authDomain:"trickyssc-17bb3.firebaseapp.com",projectId:"trickyssc-17bb3",storageBucket:"trickyssc-17bb3.firebasestorage.app",messagingSenderId:"450627057220",appId:"1:450627057220:web:366267bf437d94f20c6e11"});
-const db=initializeFirestore(app,{experimentalAutoDetectLongPolling:true});
+let db;
+try { db = initializeFirestore(app,{experimentalAutoDetectLongPolling:true}); }
+catch(_){ db = getFirestore(app); }   // Firestore already initialized elsewhere (e.g. leaderboard.js) — reuse it
 const auth=getAuth(app);
 
 let questions=[],answers={},markedForReview={},currentQ=0,timeLeft=3600,timerInterval,currentUser=null,sections=[],paused=false;
