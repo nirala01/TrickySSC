@@ -1893,8 +1893,20 @@ async function _enRest(field,value){
   const body={structuredQuery:{from:[{collectionId:'questions'}],where:{fieldFilter:{field:{fieldPath:field},op:'EQUAL',value:{stringValue:value}}}}};
   const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   const j=await r.json(); const out=[];
+  // Recursive unwrap so option MAPS and arrays survive (not just scalar fields)
+  const uw=v=>{
+    if(v==null) return '';
+    if('stringValue'in v) return v.stringValue;
+    if('integerValue'in v) return v.integerValue;
+    if('doubleValue'in v) return v.doubleValue;
+    if('booleanValue'in v) return v.booleanValue;
+    if('nullValue'in v) return '';
+    if('arrayValue'in v) return (v.arrayValue.values||[]).map(uw);
+    if('mapValue'in v){ const m={}; const fm=v.mapValue.fields||{}; for(const k in fm) m[k]=uw(fm[k]); return m; }
+    return v;
+  };
   if(Array.isArray(j)) for(const row of j){ const fl=row.document&&row.document.fields; if(!fl) continue; const d={};
-    for(const k in fl){ const v=fl[k]; d[k]=('stringValue'in v)?v.stringValue:('integerValue'in v)?v.integerValue:('doubleValue'in v)?v.doubleValue:('booleanValue'in v)?v.booleanValue:('nullValue'in v)?null:undefined; }
+    for(const k in fl) d[k]=uw(fl[k]);
     out.push(d); }
   return out;
 }
