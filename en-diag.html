@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>English-paper diagnostic — TrickySSC</title>
+<style>
+  body{font-family:system-ui,Segoe UI,Roboto,sans-serif;background:#0F172A;color:#E2E8F0;margin:0;padding:18px;}
+  h1{font-size:18px;margin:0 0 4px;color:#FF8C42;}
+  p.sub{font-size:12px;color:#94A3B8;margin:0 0 16px;}
+  .row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;}
+  input{flex:1;min-width:220px;font-size:14px;padding:10px 12px;border-radius:8px;border:1px solid #334155;background:#1E293B;color:#E2E8F0;}
+  button{font-size:14px;font-weight:700;padding:10px 18px;border-radius:8px;border:0;background:#FF6B00;color:#fff;cursor:pointer;}
+  button:disabled{opacity:.5;cursor:default;}
+  .card{background:#1E293B;border:1px solid #334155;border-radius:10px;padding:14px 16px;margin-bottom:12px;}
+  .card h2{font-size:14px;margin:0 0 8px;color:#FBBF24;}
+  code{background:#0B1220;padding:2px 6px;border-radius:5px;color:#7DD3FC;word-break:break-all;}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #334155;vertical-align:top;}
+  th{color:#94A3B8;font-weight:600;}
+  .ok{color:#34D399;font-weight:700;}
+  .no{color:#F87171;font-weight:700;}
+  .pill{display:inline-block;font-size:11px;padding:1px 7px;border-radius:99px;background:#334155;color:#CBD5E1;margin-left:6px;}
+  .muted{color:#94A3B8;font-size:12px;}
+  .big{font-size:15px;}
+</style>
+</head>
+<body>
+  <h1>🔎 English-paper diagnostic</h1>
+  <p class="sub">Paste the <b>Hindi</b> paper's <code>paperId</code> and press Diagnose. This only reads data — it changes nothing.</p>
+  <div class="row">
+    <input id="pid" placeholder="e.g. ssc-cgl_2025_tier1_24sep_s2_hi" />
+    <button id="go" onclick="run()">Diagnose</button>
+  </div>
+  <div id="out"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getFirestore, collection, query, where, getDocs, limit }
+  from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+const app = initializeApp({
+  apiKey:"AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",
+  authDomain:"trickyssc-17bb3.firebaseapp.com",
+  projectId:"trickyssc-17bb3",
+  storageBucket:"trickyssc-17bb3.firebasestorage.app",
+  messagingSenderId:"450627057220",
+  appId:"1:450627057220:web:366267bf437d94f20c6e11"
+});
+const db = getFirestore(app);
+const $ = id => document.getElementById(id);
+const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+// Prefill from ?paper=
+const u = new URLSearchParams(location.search);
+if (u.get('paper')) { $('pid').value = u.get('paper'); }
+
+function candidates(pid){
+  const base = pid.replace(/([_\-])(hi|hindi)$/i,'');
+  return [...new Set([
+    pid.replace(/_hi$/,'_en').replace(/_hindi$/,'_english'),
+    base+'_en', base+'_english', base+'-en', base
+  ])].filter(id => id && id !== pid);
+}
+
+async function countFor(paperId){
+  const qs = await getDocs(query(collection(db,'questions'), where('paperId','==',paperId), limit(1000)));
+  const langs = {};
+  qs.forEach(d=>{ const l=(d.data().language||'(none)'); langs[l]=(langs[l]||0)+1; });
+  return { count: qs.size, langs };
+}
+
+window.run = async function(){
+  const pid = $('pid').value.trim();
+  if(!pid){ return; }
+  $('go').disabled = true;
+  $('out').innerHTML = `<div class="card muted">Reading database…</div>`;
+  let html = '';
+
+  try {
+    // 1) The Hindi paper itself
+    const hi = await countFor(pid);
+    const sampleSnap = await getDocs(query(collection(db,'questions'), where('paperId','==',pid), limit(1)));
+    let sample = {};
+    sampleSnap.forEach(d=>{ const x=d.data(); sample={exam:x.exam,year:x.year,heldOn:x.heldOn,shift:x.shift,language:x.language}; });
+    html += `<div class="card"><h2>1 · The Hindi paper you entered</h2>
+      <div class="big"><code>${esc(pid)}</code> → <b>${hi.count}</b> questions
+      <span class="pill">lang: ${esc(Object.keys(hi.langs).join(', ')||'—')}</span></div>
+      <table style="margin-top:8px;"><tr><th>exam</th><th>year</th><th>heldOn</th><th>shift</th><th>language</th></tr>
+      <tr><td>${esc(sample.exam)}</td><td>${esc(sample.year)}</td><td>${esc(sample.heldOn)}</td><td>${esc(sample.shift)}</td><td>${esc(sample.language)}</td></tr></table></div>`;
+
+    // 2) Candidate English ids the app currently tries
+    const cands = candidates(pid);
+    let rows = '';
+    let foundEnId = '';
+    for(const c of cands){
+      const r = await countFor(c);
+      const hit = r.count>0;
+      if(hit && !foundEnId) foundEnId = c;
+      rows += `<tr><td><code>${esc(c)}</code></td><td class="${hit?'ok':'no'}">${hit?('✓ '+r.count):'—'}</td><td>${esc(Object.keys(r.langs).join(', ')||'')}</td></tr>`;
+    }
+    html += `<div class="card"><h2>2 · Candidate English ids the test page tries</h2>
+      <table><tr><th>candidate paperId</th><th>questions</th><th>language</th></tr>${rows}</table>
+      ${foundEnId ? `<p class="ok" style="margin:10px 0 0;">A candidate matched: <code>${esc(foundEnId)}</code> — the lookup SHOULD work once deployed.</p>`
+                  : `<p class="no" style="margin:10px 0 0;">No candidate matched. The real English id is something else — see section 3.</p>`}</div>`;
+
+    // 3) Every paperId for the same exam + year, with languages — reveals the real English id
+    if (sample.exam && (sample.year || sample.year===0)) {
+      const yvs = [...new Set([sample.year, String(sample.year), parseInt(sample.year)].filter(v=>v!==undefined&&v!==null&&v!==''&&!Number.isNaN(v)))];
+      const byPaper = {};
+      for (const yv of yvs){
+        try{
+          const qs = await getDocs(query(collection(db,'questions'), where('exam','==',sample.exam), where('year','==',yv), limit(1500)));
+          qs.forEach(d=>{ const x=d.data(); const p=x.paperId||'(no paperId)'; const l=x.language||'(none)';
+            byPaper[p]=byPaper[p]||{n:0,langs:{}}; byPaper[p].n++; byPaper[p].langs[l]=(byPaper[p].langs[l]||0)+1; });
+        }catch(e){ /* index may be missing for this combo */ }
+      }
+      const keys = Object.keys(byPaper).sort();
+      let prows = keys.map(p=>`<tr><td><code>${esc(p)}</code></td><td>${byPaper[p].n}</td><td>${esc(Object.entries(byPaper[p].langs).map(([k,v])=>k+':'+v).join(', '))}</td></tr>`).join('');
+      html += `<div class="card"><h2>3 · All papers for <code>${esc(sample.exam)}</code> · year <code>${esc(sample.year)}</code></h2>
+        <p class="muted">Find the row that's the English version of your paper — its <code>paperId</code> is what I need.</p>
+        <table><tr><th>paperId</th><th>#</th><th>languages</th></tr>${prows||'<tr><td colspan=3 class="muted">No rows (exam/year query may need an index, or fields differ).</td></tr>'}</table></div>`;
+    } else {
+      html += `<div class="card no">Couldn't read exam/year from the Hindi paper's questions, so section 3 was skipped. The Hindi docs may not store <code>exam</code>/<code>year</code>.</div>`;
+    }
+
+    html += `<div class="card muted">Screenshot sections 2 and 3 and send them over — that pins down the exact matching rule.</div>`;
+  } catch(e){
+    html = `<div class="card no">Error: ${esc(e.message||e)}<br><span class="muted">If this is a permissions error, the questions collection may require login to read.</span></div>`;
+  }
+
+  $('out').innerHTML = html;
+  $('go').disabled = false;
+};
+</script>
+</body>
+</html>
