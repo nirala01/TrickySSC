@@ -319,6 +319,37 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:10
 .btn-clear:hover{background:#F1F5F9;color:#475569;}
 .btn-clear:disabled{opacity:0.45;cursor:not-allowed;transform:none;}
 .skip-btn-row{flex:1;display:flex;justify-content:flex-end;gap:10px;}
+/* ── Report a question ── */
+.report-link{background:none;border:0;color:#94A3B8;font-size:12px;font-weight:600;cursor:pointer;text-decoration:underline;padding:4px 2px;}
+.report-link:hover{color:#DC2626;}
+.report-modal-bg{position:fixed;inset:0;background:rgba(15,23,42,.55);display:none;align-items:center;justify-content:center;z-index:9999;padding:16px;}
+.report-modal{background:#fff;border-radius:16px;max-width:440px;width:100%;padding:22px;box-shadow:0 12px 40px rgba(0,0,0,.25);}
+.report-modal h3{font-family:'Rajdhani';font-size:20px;margin:0 0 4px;color:#1E293B;}
+.rm-sub{font-size:12px;color:#94A3B8;margin-bottom:14px;}
+.rm-reasons{display:flex;flex-direction:column;gap:8px;margin-bottom:12px;}
+.rm-reason{text-align:left;padding:10px 14px;border-radius:10px;border:1.5px solid #E2E8F0;background:#F8FAFC;color:#334155;font-size:14px;font-weight:600;cursor:pointer;}
+.rm-reason.sel{border-color:#FF6B00;background:#FFF7ED;color:#C2410C;}
+.rm-note{width:100%;border:1.5px solid #E2E8F0;border-radius:10px;padding:10px;font-size:14px;font-family:inherit;resize:vertical;min-height:60px;margin-bottom:12px;box-sizing:border-box;}
+.rm-actions{display:flex;gap:10px;justify-content:flex-end;}
+.rm-btn{padding:10px 20px;border-radius:10px;font-weight:700;font-size:14px;border:0;cursor:pointer;}
+.rm-cancel{background:#F1F5F9;color:#475569;}
+.rm-submit{background:#FF6B00;color:#fff;}
+.rm-submit:disabled{opacity:.5;cursor:default;}
+.rm-done{text-align:center;color:#15803D;font-weight:700;padding:14px 0;}
+/* ── Post-test rating ── */
+.rate-card{background:#fff;border:1px solid #EDF1F6;border-radius:16px;padding:20px;margin-top:16px;box-shadow:0 3px 14px rgba(15,23,42,.05);}
+.rate-card h3{font-family:'Rajdhani';font-size:18px;margin:0 0 2px;color:#1E293B;}
+.rate-card .rc-sub{font-size:12px;color:#94A3B8;margin-bottom:14px;}
+.rc-stars{display:flex;gap:6px;justify-content:center;margin-bottom:16px;}
+.rc-star{font-size:34px;line-height:1;cursor:pointer;color:#CBD5E1;transition:transform .1s;}
+.rc-star.on{color:#F59E0B;}
+.rc-star:active{transform:scale(.9);}
+.rc-diff{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:16px;}
+.rc-chip{padding:8px 16px;border-radius:999px;border:1.5px solid #E2E8F0;background:#F8FAFC;color:#334155;font-size:13px;font-weight:600;cursor:pointer;}
+.rc-chip.sel{border-color:#FF6B00;background:#FFF7ED;color:#C2410C;}
+.rc-submit{display:block;margin:0 auto;padding:11px 28px;border-radius:10px;background:#FF6B00;color:#fff;font-weight:700;font-size:14px;border:0;cursor:pointer;}
+.rc-submit:disabled{opacity:.5;cursor:default;}
+.rc-done{text-align:center;color:#15803D;font-weight:700;}
 
 /* ── Sectional timer / submit-section ── */
 .btn-section{background:#1E293B;color:#fff;box-shadow:0 3px 12px rgba(30,41,59,0.2);}
@@ -1090,6 +1121,9 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:10
 
         <!-- Options -->
         <div id="options" class="options-wrap"></div>
+        <div style="text-align:right;margin-top:4px;">
+          <button class="report-link" id="reportBtn" onclick="openReport()">⚠ Report a problem with this question</button>
+        </div>
 
         <!-- Nav buttons -->
         <div class="nav-btns">
@@ -1181,6 +1215,26 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:10
 </div>
 
 <!-- Result Screen -->
+<div class="report-modal-bg" id="reportModalBg">
+  <div class="report-modal" id="reportModal">
+    <h3>Report a problem</h3>
+    <div class="rm-sub" id="reportQLabel">Question</div>
+    <div class="rm-reasons" id="reportReasons">
+      <button class="rm-reason" data-r="Wrong answer key">Wrong answer key</button>
+      <button class="rm-reason" data-r="Question is incorrect">Question is incorrect</button>
+      <button class="rm-reason" data-r="Options wrong or incomplete">Options are wrong / incomplete</button>
+      <button class="rm-reason" data-r="Typo or formatting">Typo / formatting issue</button>
+      <button class="rm-reason" data-r="Image not visible">Image not visible</button>
+      <button class="rm-reason" data-r="Other">Other</button>
+    </div>
+    <textarea class="rm-note" id="reportNote" placeholder="Add details (optional)…"></textarea>
+    <div class="rm-actions">
+      <button class="rm-btn rm-cancel" onclick="closeReport()">Cancel</button>
+      <button class="rm-btn rm-submit" id="reportSubmitBtn" onclick="submitReport()">Submit report</button>
+    </div>
+  </div>
+</div>
+
 <div id="resultScreen">
   <div class="result-card">
     <div style="font-family:'Rajdhani';font-size:22px;font-weight:700;color:#1E293B;margin-bottom:14px;" id="resultExamName"></div>
@@ -1198,6 +1252,26 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:10
     <a id="viewRankBtn" href="#" style="display:none;margin-top:12px;margin-left:8px;padding:12px 28px;border-radius:10px;background:#FFF3E8;color:#FF6B00;font-weight:700;font-size:14px;text-decoration:none;border:1.5px solid #FFD9B8;">🏆 View Rank &amp; Leaderboard</a>
     <div id="saveStatus" style="margin-top:10px;font-size:12px;color:#94A3B8;">⏳ Saving your result...</div>
     <button class="btn btn-submit" id="retrySaveBtn" style="margin-top:10px;display:none;" onclick="retrySaveResult()">Retry Save</button>
+  </div>
+  <div class="rate-card" id="rateCard">
+    <h3>⭐ Rate this test</h3>
+    <div class="rc-sub">Your feedback helps us improve the mock tests.</div>
+    <div class="rc-stars" id="rcStars">
+      <span class="rc-star" data-s="1">★</span>
+      <span class="rc-star" data-s="2">★</span>
+      <span class="rc-star" data-s="3">★</span>
+      <span class="rc-star" data-s="4">★</span>
+      <span class="rc-star" data-s="5">★</span>
+    </div>
+    <div class="rc-sub" style="text-align:center;margin-bottom:10px;">How did you find the difficulty?</div>
+    <div class="rc-diff" id="rcDiff">
+      <button class="rc-chip" data-d="Same as CGL">Same as CGL</button>
+      <button class="rc-chip" data-d="Easy">Easy</button>
+      <button class="rc-chip" data-d="Difficult">Difficult</button>
+      <button class="rc-chip" data-d="Very Difficult">Very Difficult</button>
+    </div>
+    <button class="rc-submit" id="rcSubmit" onclick="submitRating()" disabled>Submit rating</button>
+    <div class="rc-done" id="rcDone" style="display:none;">✓ Thanks for your feedback!</div>
   </div>
   <div id="review"></div>
 </div>
@@ -1254,6 +1328,7 @@ const params=new URLSearchParams(window.location.search);
 })();
 // Support both ?mockId=<firestoreId>  AND  legacy ?exam=ssc-cgl&year=1
 const mockId=params.get('mockId');
+const _reportTestId = mockId || params.get('paperId') || '';   // module-scope id for reports/ratings
 let exam=params.get('exam');
 const year=params.get('year');
 // mockMeta is populated when mockId is present
@@ -1830,6 +1905,85 @@ window.nextQ=()=>{const ts=sections[curTS];const lim=ts?ts.to:questions.length-1
 window.prevQ=()=>{const ts=sections[curTS];const lo=ts?ts.from:0;if(currentQ>lo){currentQ--;renderQ();}};
 window.goQ=i=>{if(!inActiveTS(i))return;currentQ=i;renderQ();};
 window.markForReview=()=>{markedForReview[currentQ]=!markedForReview[currentQ];renderQ();};
+
+// ── Report a question (writes to question_reports) ──
+let _reportReason='';
+window.openReport=function(){
+  const q=questions[currentQ]||{};
+  _reportReason='';
+  document.querySelectorAll('#reportReasons .rm-reason').forEach(b=>b.classList.remove('sel'));
+  const note=document.getElementById('reportNote'); if(note) note.value='';
+  const lbl=document.getElementById('reportQLabel');
+  if(lbl) lbl.textContent='Question '+(currentQ+1)+(q.qNum!=null?(' · Q'+q.qNum):'')+(q.subject?(' · '+q.subject):'');
+  const sb=document.getElementById('reportSubmitBtn'); if(sb){sb.disabled=false;sb.textContent='Submit report';}
+  document.getElementById('reportModalBg').style.display='flex';
+};
+window.closeReport=function(){ const bg=document.getElementById('reportModalBg'); if(bg) bg.style.display='none'; };
+document.addEventListener('click',function(e){
+  const r=e.target.closest('#reportReasons .rm-reason');
+  if(r){ document.querySelectorAll('#reportReasons .rm-reason').forEach(b=>b.classList.remove('sel')); r.classList.add('sel'); _reportReason=r.getAttribute('data-r'); }
+});
+window.submitReport=async function(){
+  if(!_reportReason){ alert('Please choose what is wrong with this question.'); return; }
+  const sb=document.getElementById('reportSubmitBtn'); if(sb){sb.disabled=true;sb.textContent='Submitting…';}
+  const q=questions[currentQ]||{};
+  try{
+    await setDoc(doc(collection(db,'question_reports')),{
+      mockId: _reportTestId,
+      qNum: (q.qNum!=null?String(q.qNum):''),
+      position: currentQ+1,
+      subject: q.subject||'',
+      reason: _reportReason,
+      note: ((document.getElementById('reportNote')||{}).value||'').slice(0,1000),
+      uid: (currentUser&&currentUser.uid)||'',
+      name: (currentUser&&currentUser.displayName)||'',
+      testName: (mockMeta&&mockMeta.title)||exam||'',
+      createdAt: serverTimestamp()
+    });
+    const m=document.getElementById('reportModal');
+    if(m) m.innerHTML='<div class="rm-done">✓ Thanks! This question has been sent to our team for review.</div>';
+    setTimeout(window.closeReport,1500);
+  }catch(err){
+    if(sb){sb.disabled=false;sb.textContent='Submit report';}
+    alert('Could not send the report. Please check your connection and try again.');
+  }
+};
+
+// ── Post-test rating (writes to mock_ratings; one per user per test) ──
+let _rateStars=0,_rateDiff='';
+document.addEventListener('click',function(e){
+  const st=e.target.closest('#rcStars .rc-star');
+  if(st){ _rateStars=parseInt(st.getAttribute('data-s'))||0;
+    document.querySelectorAll('#rcStars .rc-star').forEach(s=>s.classList.toggle('on',(parseInt(s.getAttribute('data-s'))||0)<=_rateStars));
+    const sb=document.getElementById('rcSubmit'); if(sb) sb.disabled=(_rateStars<1);
+  }
+  const ch=e.target.closest('#rcDiff .rc-chip');
+  if(ch){ document.querySelectorAll('#rcDiff .rc-chip').forEach(c=>c.classList.remove('sel')); ch.classList.add('sel'); _rateDiff=ch.getAttribute('data-d'); }
+});
+window.submitRating=async function(){
+  if(_rateStars<1) return;
+  const sb=document.getElementById('rcSubmit'); if(sb){sb.disabled=true;sb.textContent='Submitting…';}
+  try{
+    const rid=(_reportTestId||'test')+'_'+((currentUser&&currentUser.uid)||('anon_'+Date.now()));
+    await setDoc(doc(db,'mock_ratings',rid),{
+      mockId: _reportTestId,
+      uid: (currentUser&&currentUser.uid)||'',
+      name: (currentUser&&currentUser.displayName)||'',
+      stars: _rateStars,
+      difficulty: _rateDiff||'',
+      testName: (mockMeta&&mockMeta.title)||exam||'',
+      createdAt: serverTimestamp()
+    },{merge:true});
+    const sn=document.getElementById('rcStars'); if(sn) sn.style.display='none';
+    const dn=document.getElementById('rcDiff'); if(dn) dn.style.display='none';
+    if(sb) sb.style.display='none';
+    document.querySelectorAll('#rateCard .rc-sub').forEach(el=>el.style.display='none');
+    const d=document.getElementById('rcDone'); if(d) d.style.display='block';
+  }catch(err){
+    if(sb){sb.disabled=false;sb.textContent='Submit rating';}
+    alert('Could not submit your rating. Please try again.');
+  }
+};
 // Fetch the English counterpart on demand (first time the user taps "View in English")
 // Derive candidate English mock ids from a Hindi mock id by swapping the
 // language token wherever it appears (suffix, prefix or middle; _ or - sep).

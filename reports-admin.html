@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Reports &amp; Ratings — TrickySSC Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Inter',sans-serif;background:#F1F5F9;color:#1E293B;}
+  .topbar{background:#fff;border-bottom:1px solid #E8EDF3;padding:14px 18px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;position:sticky;top:0;z-index:10;}
+  .brand{font-family:'Rajdhani';font-weight:700;font-size:20px;color:#FF6B00;}
+  .who{margin-left:auto;font-size:12px;color:#64748B;}
+  .btn{font-size:13px;font-weight:700;padding:9px 16px;border-radius:9px;border:0;cursor:pointer;}
+  .btn-orange{background:#FF6B00;color:#fff;}
+  .btn-ghost{background:#F1F5F9;color:#475569;border:1.5px solid #E2E8F0;}
+  .wrap{max-width:1000px;margin:0 auto;padding:18px 16px 60px;}
+  .tabs{display:flex;gap:8px;margin-bottom:16px;}
+  .tab{padding:9px 18px;border-radius:10px;border:1.5px solid #E2E8F0;background:#fff;color:#475569;font-weight:700;font-size:14px;cursor:pointer;}
+  .tab.active{background:#FF6B00;color:#fff;border-color:#FF6B00;}
+  .card{background:#fff;border:1px solid #EDF1F6;border-radius:14px;padding:16px 18px;margin-bottom:14px;box-shadow:0 3px 14px rgba(15,23,42,.05);}
+  .card h2{font-family:'Rajdhani';font-size:18px;margin:0 0 10px;}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;}
+  input.filter{flex:1;min-width:200px;font-size:13px;padding:9px 12px;border-radius:9px;border:1.5px solid #E2E8F0;}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid #F1F5F9;vertical-align:top;}
+  th{color:#64748B;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.04em;background:#F8FAFC;position:sticky;top:0;}
+  tr:hover td{background:#FFFCF8;}
+  code{background:#0B1220;color:#7DD3FC;padding:1px 6px;border-radius:5px;font-size:12px;word-break:break-all;}
+  .pill{display:inline-block;font-size:11px;padding:1px 8px;border-radius:99px;background:#FEE2E2;color:#B91C1C;font-weight:700;margin:1px 3px 1px 0;}
+  .pill.b{background:#E0E7FF;color:#3730A3;}
+  .stars{color:#F59E0B;letter-spacing:1px;}
+  .muted{color:#94A3B8;font-size:12px;}
+  .big{font-family:'Rajdhani';font-weight:700;font-size:22px;}
+  .kpis{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px;}
+  .kpi{flex:1;min-width:120px;background:#FFF7ED;border:1px solid #FED7AA;border-radius:12px;padding:12px 14px;text-align:center;}
+  .kpi .v{font-family:'Rajdhani';font-weight:700;font-size:24px;color:#FF6B00;}
+  .kpi .l{font-size:11px;color:#94A3B8;font-weight:600;text-transform:uppercase;}
+  .gate{max-width:420px;margin:60px auto;text-align:center;}
+  .spin{display:inline-block;width:26px;height:26px;border:3px solid #FFE3C9;border-top-color:#FF6B00;border-radius:50%;animation:sp .8s linear infinite;}
+  @keyframes sp{to{transform:rotate(360deg);}}
+  .hidden{display:none;}
+  .diffbar{display:flex;height:10px;border-radius:6px;overflow:hidden;background:#F1F5F9;min-width:120px;}
+  .diffbar i{display:block;height:100%;}
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <span class="brand">TrickySSC · Admin</span>
+    <span class="who" id="who"></span>
+    <button class="btn btn-ghost hidden" id="signOutBtn" onclick="doSignOut()">Sign out</button>
+  </div>
+
+  <div class="wrap">
+    <div id="gate" class="gate">
+      <div class="spin"></div>
+      <div style="margin-top:14px;color:#64748B;">Checking access…</div>
+    </div>
+
+    <div id="app" class="hidden">
+      <div class="tabs">
+        <button class="tab active" id="tabReports" onclick="showTab('reports')">⚠ Question Reports</button>
+        <button class="tab" id="tabRatings" onclick="showTab('ratings')">⭐ Test Ratings</button>
+      </div>
+
+      <div id="reportsView">
+        <div class="kpis" id="reportKpis"></div>
+        <div class="card">
+          <div class="row">
+            <input class="filter" id="reportFilter" placeholder="Filter by test id, subject or reason…" oninput="renderReports()">
+            <button class="btn btn-ghost" onclick="downloadCsv('reports')">Download CSV</button>
+          </div>
+          <h2>Most-flagged questions</h2>
+          <div id="reportAgg" class="muted">Loading…</div>
+        </div>
+        <div class="card">
+          <h2>All reports (newest first)</h2>
+          <div id="reportList" class="muted">Loading…</div>
+        </div>
+      </div>
+
+      <div id="ratingsView" class="hidden">
+        <div class="kpis" id="ratingKpis"></div>
+        <div class="card">
+          <div class="row">
+            <input class="filter" id="ratingFilter" placeholder="Filter by test id…" oninput="renderRatings()">
+            <button class="btn btn-ghost" onclick="downloadCsv('ratings')">Download CSV</button>
+          </div>
+          <h2>Ratings by test</h2>
+          <div id="ratingAgg" class="muted">Loading…</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getFirestore, initializeFirestore, collection, getDocs }
+  from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut }
+  from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+// ── Admins allowed to view this page (must also be allowed by Firestore rules) ──
+const ADMIN_EMAILS = ["nirala01@gmail.com","ashish@trickyssc.com"];
+
+const app = initializeApp({
+  apiKey:"AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",
+  authDomain:"trickyssc-17bb3.firebaseapp.com",
+  projectId:"trickyssc-17bb3",
+  storageBucket:"trickyssc-17bb3.firebasestorage.app",
+  messagingSenderId:"450627057220",
+  appId:"1:450627057220:web:366267bf437d94f20c6e11"
+});
+let db; try{ db = initializeFirestore(app,{experimentalAutoDetectLongPolling:true}); }catch(_){ db = getFirestore(app); }
+const auth = getAuth(app);
+const $ = id => document.getElementById(id);
+const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmtTime = ts => { try{ const d=ts?.toDate?ts.toDate():(ts?new Date(ts):null); return d?d.toLocaleString():''; }catch(_){ return ''; } };
+
+let REPORTS = [], RATINGS = [];
+
+onAuthStateChanged(auth, async (user) => {
+  if(!user){
+    $('gate').innerHTML = `<div class="big" style="margin-bottom:10px;">Admin sign-in</div>
+      <button class="btn btn-orange" id="si" style="padding:11px 22px;">Sign in with Google</button>`;
+    $('si').onclick = ()=>signInWithPopup(auth, new GoogleAuthProvider()).catch(e=>alert(e.message));
+    return;
+  }
+  $('who').textContent = user.email || user.uid;
+  $('signOutBtn').classList.remove('hidden');
+  if(!ADMIN_EMAILS.includes((user.email||'').toLowerCase())){
+    $('gate').innerHTML = `<div class="big" style="color:#DC2626;margin-bottom:8px;">Not authorized</div>
+      <div class="muted">Signed in as ${esc(user.email||user.uid)}. This account isn't an admin.</div>`;
+    return;
+  }
+  await loadAll();
+});
+
+window.doSignOut = ()=>signOut(auth);
+
+async function loadAll(){
+  $('gate').classList.add('hidden');
+  $('app').classList.remove('hidden');
+  try{
+    const [rs, qs] = await Promise.all([
+      getDocs(collection(db,'question_reports')),
+      getDocs(collection(db,'mock_ratings'))
+    ]);
+    REPORTS = []; rs.forEach(d=>REPORTS.push(d.data()));
+    RATINGS = []; qs.forEach(d=>RATINGS.push(d.data()));
+    renderReports(); renderRatings();
+  }catch(e){
+    $('app').innerHTML = `<div class="card" style="color:#DC2626;">Couldn't read the collections: ${esc(e.message||e)}<br>
+      <span class="muted">If this is a permissions error, update your Firestore rules so admins can read <code>question_reports</code> and <code>mock_ratings</code> (see the notes I shared).</span></div>`;
+  }
+}
+
+function tsMs(r){ const t=r.createdAt; try{ return t?.toDate?t.toDate().getTime():(t?new Date(t).getTime():0); }catch(_){ return 0; } }
+
+window.renderReports = function(){
+  const f = ($('reportFilter').value||'').toLowerCase();
+  const rows = REPORTS.filter(r => !f || (`${r.mockId} ${r.subject} ${r.reason} ${r.note} ${r.testName}`).toLowerCase().includes(f));
+
+  $('reportKpis').innerHTML =
+    `<div class="kpi"><div class="v">${REPORTS.length}</div><div class="l">Total reports</div></div>
+     <div class="kpi"><div class="v">${new Set(REPORTS.map(r=>r.mockId+'|'+r.qNum)).size}</div><div class="l">Distinct questions</div></div>
+     <div class="kpi"><div class="v">${new Set(REPORTS.map(r=>r.mockId)).size}</div><div class="l">Tests affected</div></div>`;
+
+  // Aggregate by test + question
+  const agg = {};
+  rows.forEach(r=>{
+    const k = r.mockId+' · Q'+(r.qNum||'?');
+    agg[k] = agg[k] || {mockId:r.mockId, qNum:r.qNum, count:0, reasons:{}, last:0, note:''};
+    agg[k].count++;
+    agg[k].reasons[r.reason||'—'] = (agg[k].reasons[r.reason||'—']||0)+1;
+    const ms = tsMs(r); if(ms>agg[k].last){ agg[k].last=ms; if(r.note) agg[k].note=r.note; }
+  });
+  const aggArr = Object.entries(agg).sort((a,b)=>b[1].count-a[1].count);
+  $('reportAgg').innerHTML = aggArr.length ? `<table><tr><th>Test · Q</th><th>#</th><th>Reasons</th><th>Latest note</th></tr>` +
+    aggArr.map(([k,v])=>`<tr><td><code>${esc(v.mockId)}</code><br><b>Q${esc(v.qNum)}</b></td>
+      <td><span class="pill">${v.count}</span></td>
+      <td>${Object.entries(v.reasons).map(([rn,c])=>`<span class="pill b">${esc(rn)} ×${c}</span>`).join('')}</td>
+      <td class="muted">${esc(v.note||'')}</td></tr>`).join('') + `</table>`
+    : `<div class="muted">No reports${f?' match this filter':''}.</div>`;
+
+  // Raw list
+  const list = rows.slice().sort((a,b)=>tsMs(b)-tsMs(a));
+  $('reportList').innerHTML = list.length ? `<table><tr><th>When</th><th>Test · Q</th><th>Reason</th><th>Note</th><th>By</th></tr>` +
+    list.map(r=>`<tr><td class="muted">${esc(fmtTime(r.createdAt))}</td>
+      <td><code>${esc(r.mockId)}</code> · Q${esc(r.qNum)}</td>
+      <td><span class="pill">${esc(r.reason||'—')}</span></td>
+      <td>${esc(r.note||'')}</td>
+      <td class="muted">${esc(r.name||r.uid||'')}</td></tr>`).join('') + `</table>`
+    : `<div class="muted">No reports${f?' match this filter':''}.</div>`;
+};
+
+window.renderRatings = function(){
+  const f = ($('ratingFilter').value||'').toLowerCase();
+  const rows = RATINGS.filter(r => !f || (`${r.mockId} ${r.testName}`).toLowerCase().includes(f));
+
+  const allStars = RATINGS.map(r=>Number(r.stars)||0).filter(Boolean);
+  const overall = allStars.length ? (allStars.reduce((a,b)=>a+b,0)/allStars.length) : 0;
+  $('ratingKpis').innerHTML =
+    `<div class="kpi"><div class="v">${RATINGS.length}</div><div class="l">Total ratings</div></div>
+     <div class="kpi"><div class="v">${overall.toFixed(2)}</div><div class="l">Avg stars (all)</div></div>
+     <div class="kpi"><div class="v">${new Set(RATINGS.map(r=>r.mockId)).size}</div><div class="l">Tests rated</div></div>`;
+
+  const DIFFS = ["Same as CGL","Easy","Difficult","Very Difficult"];
+  const COLORS = {"Same as CGL":"#6366F1","Easy":"#22C55E","Difficult":"#F59E0B","Very Difficult":"#EF4444"};
+  const agg = {};
+  rows.forEach(r=>{
+    const k=r.mockId||'(none)';
+    agg[k]=agg[k]||{count:0,sum:0,diff:{}};
+    agg[k].count++; agg[k].sum+=(Number(r.stars)||0);
+    if(r.difficulty){ agg[k].diff[r.difficulty]=(agg[k].diff[r.difficulty]||0)+1; }
+  });
+  const arr = Object.entries(agg).sort((a,b)=>b[1].count-a[1].count);
+  $('ratingAgg').innerHTML = arr.length ? `<table><tr><th>Test</th><th>#</th><th>Avg</th><th>Difficulty</th></tr>` +
+    arr.map(([k,v])=>{
+      const avg=v.count?(v.sum/v.count):0;
+      const total=Object.values(v.diff).reduce((a,b)=>a+b,0)||1;
+      const bar = DIFFS.map(d=>{ const c=v.diff[d]||0; const pct=Math.round(c/total*100); return c?`<i style="width:${pct}%;background:${COLORS[d]}" title="${d}: ${c}"></i>`:''; }).join('');
+      const legend = DIFFS.map(d=>v.diff[d]?`<span class="pill b" style="background:#F1F5F9;color:#475569">${d}: ${v.diff[d]}</span>`:'').join('');
+      return `<tr><td><code>${esc(k)}</code></td>
+        <td>${v.count}</td>
+        <td><span class="stars">${'★'.repeat(Math.round(avg))}${'☆'.repeat(5-Math.round(avg))}</span> ${avg.toFixed(2)}</td>
+        <td><div class="diffbar">${bar}</div><div style="margin-top:4px;">${legend}</div></td></tr>`;
+    }).join('') + `</table>`
+    : `<div class="muted">No ratings${f?' match this filter':''}.</div>`;
+};
+
+window.showTab = function(t){
+  $('tabReports').classList.toggle('active', t==='reports');
+  $('tabRatings').classList.toggle('active', t==='ratings');
+  $('reportsView').classList.toggle('hidden', t!=='reports');
+  $('ratingsView').classList.toggle('hidden', t!=='ratings');
+};
+
+window.downloadCsv = function(which){
+  let rows, name;
+  const q = s => '"'+String(s==null?'':s).replace(/"/g,'""')+'"';
+  if(which==='reports'){
+    name='question_reports.csv';
+    rows=[['when','mockId','qNum','position','subject','reason','note','name','uid','testName']];
+    REPORTS.slice().sort((a,b)=>tsMs(b)-tsMs(a)).forEach(r=>rows.push([fmtTime(r.createdAt),r.mockId,r.qNum,r.position,r.subject,r.reason,r.note,r.name,r.uid,r.testName]));
+  } else {
+    name='mock_ratings.csv';
+    rows=[['when','mockId','stars','difficulty','name','uid','testName']];
+    RATINGS.slice().sort((a,b)=>tsMs(b)-tsMs(a)).forEach(r=>rows.push([fmtTime(r.createdAt),r.mockId,r.stars,r.difficulty,r.name,r.uid,r.testName]));
+  }
+  const csv = rows.map(r=>r.map(q).join(',')).join('\n');
+  const blob = new Blob([csv],{type:'text/csv'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; a.click();
+};
+</script>
+</body>
+</html>
