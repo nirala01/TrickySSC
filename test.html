@@ -1254,12 +1254,12 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:10
 
 <script type="module">
 import{initializeApp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import{getFirestore,collection,query,where,getDocs,doc,getDoc,setDoc,serverTimestamp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import{getFirestore,initializeFirestore,collection,query,where,getDocs,doc,getDoc,setDoc,serverTimestamp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import{getAuth,onAuthStateChanged,signOut}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import{recordScore}from"./leaderboard.js";
 
 const app=initializeApp({apiKey:"AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",authDomain:"trickyssc-17bb3.firebaseapp.com",projectId:"trickyssc-17bb3",storageBucket:"trickyssc-17bb3.firebasestorage.app",messagingSenderId:"450627057220",appId:"1:450627057220:web:366267bf437d94f20c6e11"});
-const db=getFirestore(app);
+const db=initializeFirestore(app,{experimentalAutoDetectLongPolling:true});
 const auth=getAuth(app);
 
 let questions=[],answers={},markedForReview={},currentQ=0,timeLeft=3600,timerInterval,currentUser=null,sections=[],paused=false;
@@ -1310,6 +1310,7 @@ let mockMeta=null;
 let enQMap={};
 let showEnglishQ={}; // per-question toggle state
 let enMapLoaded=false;   // becomes true once the English counterpart has been fetched
+let enFetchError=false;  // true if the last English fetch errored (allows retry on next toggle)
 let enMapLoading=false;  // in-flight guard
 let enFetchParams=null;  // {exam, year, mNum, heldOn, shift, paperId} stashed for lazy fetch
 
@@ -1546,7 +1547,7 @@ async function loadTest(){
 
     // ── JS filter with 3-level fallback ──
     function filterDocs(all,langVal,shiftVal,heldOnVal){
-      const normLang=q=>(q.language||'').trim()||'en';
+      const normLang=q=>{let l=(q.language||'').trim().toLowerCase();if(l==='english'||l==='eng')l='en';if(l==='hindi'||l==='हिंदी'||l==='हिन्दी')l='hi';return l||'en';};
       // L1: all filters
       let out=all.filter(q=>{
         if(langVal&&normLang(q)!==langVal) return false;
@@ -1842,10 +1843,12 @@ function renderQ(){
       } else if(isOn && !eq && enPanel){
         // Toggle is on but no English counterpart exists for this question
         const wholePaperMissing = enMapLoaded && Object.keys(enQMap).length===0;
-        document.getElementById('enQText').innerHTML='<span style="opacity:0.7;">'+
-          (wholePaperMissing
-            ? "The English version of this paper hasn't been uploaded yet."
-            : 'English version not available for this question.')+'</span>';
+        const _msg = enFetchError
+          ? "Couldn't load the English version — check your connection and tap \u201cView in English\u201d again."
+          : (wholePaperMissing
+              ? "The English version of this paper hasn't been uploaded yet."
+              : 'English version not available for this question.');
+        document.getElementById('enQText').innerHTML='<span style="opacity:0.7;">'+_msg+'</span>';
         document.getElementById('enOpts').innerHTML='';
         enPanel.style.display='block';
       } else if(enPanel){enPanel.style.display='none';}
@@ -1883,28 +1886,45 @@ window.markForReview=()=>{markedForReview[currentQ]=!markedForReview[currentQ];r
 // Fetch the English counterpart on demand (first time the user taps "View in English")
 async function ensureEnglishMap(){
   if(enMapLoaded || enMapLoading || !enFetchParams) return;
-  enMapLoading=true;
+  enMapLoading=true; enFetchError=false;
   const {exam,year,mNum,heldOn,shift,paperId}=enFetchParams;
   try{
     let enDocs=[];
+    const _isHi=q=>{let l=(q.language||'').trim().toLowerCase();return l==='hi'||l==='hindi'||l==='हिंदी'||l==='हिन्दी';};
     if(paperId){
-      // Swap _hi → _en  (e.g. ssc-cgl_2024_sep9_s1_hi → ssc-cgl_2024_sep9_s1_en)
-      const enId=paperId.replace(/_hi$/,'_en').replace(/_hindi$/,'_english');
-      if(enId!==paperId){
-        const snap=await getDocs(query(collection(db,'questions'),where('paperId','==',enId)));
-        if(snap.size) snap.forEach(d=>enDocs.push({id:d.id,...d.data()}));
+      // The English paper may sit at _en, _english, a "-en" variant, or even the
+      // bare base id (common when English was uploaded BEFORE the Hindi one). Try each.
+      const base=paperId.replace(/([_\-])(hi|hindi)$/i,'');
+      const cands=[...new Set([
+        paperId.replace(/_hi$/,'_en').replace(/_hindi$/,'_english'),
+        base+'_en', base+'_english', base+'-en', base
+      ])].filter(id=>id && id!==paperId);
+      for(const enId of cands){
+        try{
+          const snap=await getDocs(query(collection(db,'questions'),where('paperId','==',enId)));
+          if(snap.size){
+            const docs=[];snap.forEach(d=>docs.push({id:d.id,...d.data()}));
+            const eng=docs.filter(d=>!_isHi(d));      // never pull the Hindi set back in
+            if(eng.length){ enDocs=eng; console.log('[TrickySSC] EN paper matched:',enId,eng.length); break; }
+          }
+        }catch(_){}
       }
     }
-    // Fallback: fetch by exam+year+heldOn+shift with language=en
-    if(!enDocs.length && (year||mNum)){
-      const yv=year||mNum;
-      let allEn=await fetchByYearSDK(exam,yv,heldOn)||await fetchByYearREST(exam,yv,heldOn)||[];
-      enDocs=filterDocs(allEn,'en',shift,heldOn);
+    // Fallback: fetch by exam+year (+heldOn/shift) and keep the English docs.
+    if(!enDocs.length){
+      let yv=year||mNum;
+      if(!yv){ const ym=String(paperId||'').match(/(20\d{2})/); if(ym) yv=ym[1]; }   // derive year from the paperId
+      if(yv){
+        let allEn=await fetchByYearSDK(exam,yv,heldOn)||await fetchByYearREST(exam,yv,heldOn)||[];
+        enDocs=filterDocs(allEn,'en',shift,heldOn);
+        if(enDocs.length) console.log('[TrickySSC] EN via year-fallback:',enDocs.length);
+      }
     }
     enDocs.forEach(q=>{normaliseQ(q);const n=parseInt(q.qNum)||0;if(n>=1&&n<=75)enQMap[n]=q;});
     console.log('[TrickySSC] English map built (lazy):',Object.keys(enQMap).length,'entries');
-  }catch(e){console.warn('[TrickySSC] English fetch failed:',e.message);}
-  finally{ enMapLoaded=true; enMapLoading=false; }
+    enMapLoaded=true;          // mark loaded only after a successful fetch
+  }catch(e){console.warn('[TrickySSC] English fetch failed:',e.message); enFetchError=true;}
+  finally{ enMapLoading=false; }
 }
 
 // Per-solution EN/HI toggle (review screen). Swaps the .sol-body content of the
