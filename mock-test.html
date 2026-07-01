@@ -1908,20 +1908,6 @@ window.markForReview=()=>{markedForReview[currentQ]=!markedForReview[currentQ];r
 
 // ── Report a question (writes to question_reports) ──
 let _reportReason='';
-// Write to Firestore over REST using the user's ID token — reliable where the SDK write
-// transport stalls on some networks (same reason the English fetch uses REST).
-async function _restWrite(coll, docId, data){
-  const KEY='AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA';
-  const token = currentUser ? await currentUser.getIdToken() : null;
-  const toField=v=>{ if(v==null)return{nullValue:null}; if(v instanceof Date)return{timestampValue:v.toISOString()}; if(typeof v==='number')return Number.isInteger(v)?{integerValue:String(v)}:{doubleValue:v}; if(typeof v==='boolean')return{booleanValue:v}; return{stringValue:String(v)}; };
-  const fields={}; for(const k in data) fields[k]=toField(data[k]);
-  const base=`https://firestore.googleapis.com/v1/projects/trickyssc-17bb3/databases/(default)/documents/${coll}`;
-  const url = docId ? `${base}/${encodeURIComponent(docId)}?key=${KEY}` : `${base}?key=${KEY}`;
-  const headers={'Content-Type':'application/json'}; if(token) headers['Authorization']='Bearer '+token;
-  const r=await fetch(url,{method:docId?'PATCH':'POST',headers,body:JSON.stringify({fields})});
-  if(!r.ok){ const t=await r.text().catch(()=>''); const e=new Error('HTTP '+r.status+' '+t.slice(0,200)); e.status=r.status; throw e; }
-  return r.json();
-}
 window.openReport=function(){
   const q=questions[currentQ]||{};
   _reportReason='';
@@ -1942,7 +1928,7 @@ window.submitReport=async function(){
   const sb=document.getElementById('reportSubmitBtn'); if(sb){sb.disabled=true;sb.textContent='Submitting…';}
   const q=questions[currentQ]||{};
   try{
-    await _restWrite('question_reports', null, {
+    await setDoc(doc(collection(db,'question_reports')),{
       mockId: _reportTestId,
       qNum: (q.qNum!=null?String(q.qNum):''),
       position: currentQ+1,
@@ -1952,17 +1938,17 @@ window.submitReport=async function(){
       uid: (currentUser&&currentUser.uid)||'',
       name: (currentUser&&currentUser.displayName)||'',
       testName: (mockMeta&&mockMeta.title)||exam||'',
-      createdAt: new Date()
+      createdAt: serverTimestamp()
     });
     const m=document.getElementById('reportModal');
     if(m) m.innerHTML='<div class="rm-done">✓ Thanks! This question has been sent to our team for review.</div>';
     setTimeout(window.closeReport,1500);
   }catch(err){
     if(sb){sb.disabled=false;sb.textContent='Submit report';}
-    const code=(err&&err.status)||'';
-    alert((code===403||code===401)
-      ? 'Report blocked by permissions ('+code+'). The Firestore rules for question_reports may not be published yet.'
-      : 'Could not send the report ('+(code||'network')+'). Please check your connection and try again.');
+    const code=''+((err&&(err.code||err.status))||'');
+    alert(code.indexOf('permission')>=0
+      ? 'Report blocked by Firestore rules. Please ensure the question_reports rules are published.'
+      : 'Could not send the report'+(code?(' ('+code+')'):'')+'. Please check your connection and try again.');
   }
 };
 
@@ -1982,15 +1968,15 @@ window.submitRating=async function(){
   const sb=document.getElementById('rcSubmit'); if(sb){sb.disabled=true;sb.textContent='Submitting…';}
   try{
     const rid=(_reportTestId||'test')+'_'+((currentUser&&currentUser.uid)||('anon_'+Date.now()));
-    await _restWrite('mock_ratings', rid, {
+    await setDoc(doc(db,'mock_ratings',rid),{
       mockId: _reportTestId,
       uid: (currentUser&&currentUser.uid)||'',
       name: (currentUser&&currentUser.displayName)||'',
       stars: _rateStars,
       difficulty: _rateDiff||'',
       testName: (mockMeta&&mockMeta.title)||exam||'',
-      createdAt: new Date()
-    });
+      createdAt: serverTimestamp()
+    },{merge:true});
     const sn=document.getElementById('rcStars'); if(sn) sn.style.display='none';
     const dn=document.getElementById('rcDiff'); if(dn) dn.style.display='none';
     if(sb) sb.style.display='none';
@@ -1998,10 +1984,10 @@ window.submitRating=async function(){
     const d=document.getElementById('rcDone'); if(d) d.style.display='block';
   }catch(err){
     if(sb){sb.disabled=false;sb.textContent='Submit rating';}
-    const code=(err&&err.status)||'';
-    alert((code===403||code===401)
-      ? 'Rating blocked by permissions ('+code+'). The Firestore rules for mock_ratings may not be published yet.'
-      : 'Could not submit your rating ('+(code||'network')+'). Please try again.');
+    const code=''+((err&&(err.code||err.status))||'');
+    alert(code.indexOf('permission')>=0
+      ? 'Rating blocked by Firestore rules. Please ensure the mock_ratings rules are published.'
+      : 'Could not submit your rating'+(code?(' ('+code+')'):'')+'. Please try again.');
   }
 };
 // Fetch the English counterpart on demand (first time the user taps "View in English")
