@@ -42,6 +42,9 @@
   .hidden{display:none;}
   .diffbar{display:flex;height:10px;border-radius:6px;overflow:hidden;background:#F1F5F9;min-width:120px;}
   .diffbar i{display:block;height:100%;}
+  .del{background:#FEF2F2;color:#DC2626;border:1.5px solid #FECACA;border-radius:8px;font-size:12px;font-weight:700;padding:6px 10px;cursor:pointer;white-space:nowrap;}
+  .del:hover{background:#FEE2E2;}
+  .del:disabled{opacity:.5;cursor:default;}
 </style>
 </head>
 <body>
@@ -95,7 +98,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, initializeFirestore, collection, getDocs }
+import { getFirestore, initializeFirestore, collection, getDocs, doc, deleteDoc }
   from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut }
   from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
@@ -146,8 +149,8 @@ async function loadAll(){
       getDocs(collection(db,'question_reports')),
       getDocs(collection(db,'mock_ratings'))
     ]);
-    REPORTS = []; rs.forEach(d=>REPORTS.push(d.data()));
-    RATINGS = []; qs.forEach(d=>RATINGS.push(d.data()));
+    REPORTS = []; rs.forEach(d=>REPORTS.push({id:d.id, ...d.data()}));
+    RATINGS = []; qs.forEach(d=>RATINGS.push({id:d.id, ...d.data()}));
     renderReports(); renderRatings();
   }catch(e){
     $('app').innerHTML = `<div class="card" style="color:#DC2626;">Couldn't read the collections: ${esc(e.message||e)}<br>
@@ -176,21 +179,23 @@ window.renderReports = function(){
     const ms = tsMs(r); if(ms>agg[k].last){ agg[k].last=ms; if(r.note) agg[k].note=r.note; }
   });
   const aggArr = Object.entries(agg).sort((a,b)=>b[1].count-a[1].count);
-  $('reportAgg').innerHTML = aggArr.length ? `<table><tr><th>Test · Q</th><th>#</th><th>Reasons</th><th>Latest note</th></tr>` +
+  $('reportAgg').innerHTML = aggArr.length ? `<table><tr><th>Test · Q</th><th>#</th><th>Reasons</th><th>Latest note</th><th></th></tr>` +
     aggArr.map(([k,v])=>`<tr><td><code>${esc(v.mockId)}</code><br><b>Q${esc(v.qNum)}</b></td>
       <td><span class="pill">${v.count}</span></td>
       <td>${Object.entries(v.reasons).map(([rn,c])=>`<span class="pill b">${esc(rn)} ×${c}</span>`).join('')}</td>
-      <td class="muted">${esc(v.note||'')}</td></tr>`).join('') + `</table>`
+      <td class="muted">${esc(v.note||'')}</td>
+      <td><button class="del" data-act="delq" data-mockid="${esc(v.mockId)}" data-qnum="${esc(v.qNum)}" title="Fixed — clear all reports for this question">🗑 Clear ${v.count}</button></td></tr>`).join('') + `</table>`
     : `<div class="muted">No reports${f?' match this filter':''}.</div>`;
 
   // Raw list
   const list = rows.slice().sort((a,b)=>tsMs(b)-tsMs(a));
-  $('reportList').innerHTML = list.length ? `<table><tr><th>When</th><th>Test · Q</th><th>Reason</th><th>Note</th><th>By</th></tr>` +
+  $('reportList').innerHTML = list.length ? `<table><tr><th>When</th><th>Test · Q</th><th>Reason</th><th>Note</th><th>By</th><th></th></tr>` +
     list.map(r=>`<tr><td class="muted">${esc(fmtTime(r.createdAt))}</td>
       <td><code>${esc(r.mockId)}</code> · Q${esc(r.qNum)}</td>
       <td><span class="pill">${esc(r.reason||'—')}</span></td>
       <td>${esc(r.note||'')}</td>
-      <td class="muted">${esc(r.name||r.uid||'')}</td></tr>`).join('') + `</table>`
+      <td class="muted">${esc(r.name||r.uid||'')}</td>
+      <td><button class="del" data-act="delr" data-id="${esc(r.id)}" title="Delete this report">🗑</button></td></tr>`).join('') + `</table>`
     : `<div class="muted">No reports${f?' match this filter':''}.</div>`;
 };
 
@@ -215,7 +220,7 @@ window.renderRatings = function(){
     if(r.difficulty){ agg[k].diff[r.difficulty]=(agg[k].diff[r.difficulty]||0)+1; }
   });
   const arr = Object.entries(agg).sort((a,b)=>b[1].count-a[1].count);
-  $('ratingAgg').innerHTML = arr.length ? `<table><tr><th>Test</th><th>#</th><th>Avg</th><th>Difficulty</th></tr>` +
+  $('ratingAgg').innerHTML = arr.length ? `<table><tr><th>Test</th><th>#</th><th>Avg</th><th>Difficulty</th><th></th></tr>` +
     arr.map(([k,v])=>{
       const avg=v.count?(v.sum/v.count):0;
       const total=Object.values(v.diff).reduce((a,b)=>a+b,0)||1;
@@ -224,10 +229,55 @@ window.renderRatings = function(){
       return `<tr><td><code>${esc(k)}</code></td>
         <td>${v.count}</td>
         <td><span class="stars">${'★'.repeat(Math.round(avg))}${'☆'.repeat(5-Math.round(avg))}</span> ${avg.toFixed(2)}</td>
-        <td><div class="diffbar">${bar}</div><div style="margin-top:4px;">${legend}</div></td></tr>`;
+        <td><div class="diffbar">${bar}</div><div style="margin-top:4px;">${legend}</div></td>
+        <td><button class="del" data-act="delt" data-mockid="${esc(k)}" title="Delete all ratings for this test">🗑 Clear ${v.count}</button></td></tr>`;
     }).join('') + `</table>`
     : `<div class="muted">No ratings${f?' match this filter':''}.</div>`;
 };
+
+// ── Delete actions (admin only; enforced by Firestore rules too) ──
+async function delMany(coll, ids){
+  await Promise.all(ids.map(id=>deleteDoc(doc(db, coll, id)).catch(e=>{ throw e; })));
+}
+document.addEventListener('click', async (e)=>{
+  const b = e.target.closest('button.del'); if(!b) return;
+  const act = b.dataset.act;
+  const orig = b.textContent;
+  try{
+    if(act==='delr'){
+      const id = b.dataset.id;
+      if(!confirm('Delete this single report?')) return;
+      b.disabled=true; b.textContent='…';
+      await delMany('question_reports', [id]);
+      REPORTS = REPORTS.filter(r=>r.id!==id);
+      renderReports();
+    } else if(act==='delq'){
+      const mid=b.dataset.mockid, qn=String(b.dataset.qnum);
+      const ids = REPORTS.filter(r=>String(r.mockId)===mid && String(r.qNum)===qn).map(r=>r.id);
+      if(!ids.length) return;
+      if(!confirm(`Question fixed?\n\nThis will delete ${ids.length} report(s) for ${mid} · Q${qn}. This cannot be undone.`)) return;
+      b.disabled=true; b.textContent='…';
+      await delMany('question_reports', ids);
+      REPORTS = REPORTS.filter(r=>!(String(r.mockId)===mid && String(r.qNum)===qn));
+      renderReports();
+    } else if(act==='delt'){
+      const mid=b.dataset.mockid;
+      const ids = RATINGS.filter(r=>String(r.mockId)===mid).map(r=>r.id);
+      if(!ids.length) return;
+      if(!confirm(`Delete all ${ids.length} rating(s) for ${mid}? This cannot be undone.`)) return;
+      b.disabled=true; b.textContent='…';
+      await delMany('mock_ratings', ids);
+      RATINGS = RATINGS.filter(r=>String(r.mockId)!==mid);
+      renderRatings();
+    }
+  }catch(err){
+    b.disabled=false; b.textContent=orig;
+    const code=''+((err&&(err.code||err.message))||'');
+    alert(code.indexOf('permission')>=0
+      ? 'Delete blocked by Firestore rules. Make sure admin delete is allowed for this collection (see the rules note).'
+      : 'Could not delete: '+(code||'unknown error'));
+  }
+});
 
 window.showTab = function(t){
   $('tabReports').classList.toggle('active', t==='reports');
