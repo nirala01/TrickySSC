@@ -336,6 +336,9 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:10
 .rm-submit{background:#FF6B00;color:#fff;}
 .rm-submit:disabled{opacity:.5;cursor:default;}
 .rm-done{text-align:center;color:#15803D;font-weight:700;padding:14px 0;}
+.report-modal{position:relative;}
+.rm-x{position:absolute;top:8px;right:10px;background:none;border:0;font-size:26px;line-height:1;color:#94A3B8;cursor:pointer;padding:2px 8px;border-radius:8px;}
+.rm-x:hover{color:#334155;background:#F1F5F9;}
 /* Post-test rating */
 .rate-card{background:#fff;border:1px solid #EDF1F6;border-radius:16px;padding:20px;margin-top:16px;box-shadow:0 3px 14px rgba(15,23,42,.05);}
 .rate-card h3{font-family:'Rajdhani';font-size:18px;margin:0 0 2px;color:#1E293B;}
@@ -1211,22 +1214,31 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:10
 </div>
 
 <!-- Result Screen -->
-<div class="report-modal-bg" id="reportModalBg">
+<div class="report-modal-bg" id="reportModalBg" onclick="if(event.target===this)closeReport()">
   <div class="report-modal" id="reportModal">
-    <h3>Report a problem</h3>
-    <div class="rm-sub" id="reportQLabel">Question</div>
-    <div class="rm-reasons" id="reportReasons">
-      <button class="rm-reason" data-r="Wrong answer key">Wrong answer key</button>
-      <button class="rm-reason" data-r="Question is incorrect">Question is incorrect</button>
-      <button class="rm-reason" data-r="Options wrong or incomplete">Options are wrong / incomplete</button>
-      <button class="rm-reason" data-r="Typo or formatting">Typo / formatting issue</button>
-      <button class="rm-reason" data-r="Image not visible">Image not visible</button>
-      <button class="rm-reason" data-r="Other">Other</button>
+    <button class="rm-x" onclick="closeReport()" aria-label="Close">&times;</button>
+    <div id="reportForm">
+      <h3>Report a problem</h3>
+      <div class="rm-sub" id="reportQLabel">Question</div>
+      <div class="rm-reasons" id="reportReasons">
+        <button class="rm-reason" data-r="Wrong answer key">Wrong answer key</button>
+        <button class="rm-reason" data-r="Question is incorrect">Question is incorrect</button>
+        <button class="rm-reason" data-r="Options wrong or incomplete">Options are wrong / incomplete</button>
+        <button class="rm-reason" data-r="Typo or formatting">Typo / formatting issue</button>
+        <button class="rm-reason" data-r="Image not visible">Image not visible</button>
+        <button class="rm-reason" data-r="Other">Other</button>
+      </div>
+      <textarea class="rm-note" id="reportNote" placeholder="Add details (optional)…"></textarea>
+      <div class="rm-actions">
+        <button class="rm-btn rm-cancel" onclick="closeReport()">Cancel</button>
+        <button class="rm-btn rm-submit" id="reportSubmitBtn" onclick="submitReport()">Submit report</button>
+      </div>
     </div>
-    <textarea class="rm-note" id="reportNote" placeholder="Add details (optional)…"></textarea>
-    <div class="rm-actions">
-      <button class="rm-btn rm-cancel" onclick="closeReport()">Cancel</button>
-      <button class="rm-btn rm-submit" id="reportSubmitBtn" onclick="submitReport()">Submit report</button>
+    <div id="reportDone" style="display:none;">
+      <div class="rm-done">✓ Thanks! This question has been sent to our team for review.</div>
+      <div class="rm-actions" style="justify-content:center;">
+        <button class="rm-btn rm-submit" onclick="closeReport()">Close</button>
+      </div>
     </div>
   </div>
 </div>
@@ -1923,6 +1935,8 @@ window.openReport=function(){
   const lbl=document.getElementById('reportQLabel');
   if(lbl) lbl.textContent='Question '+(currentQ+1)+(q.qNum!=null?(' · Q'+q.qNum):'')+(q.subject?(' · '+q.subject):'');
   const sb=document.getElementById('reportSubmitBtn'); if(sb){sb.disabled=false;sb.textContent='Submit report';}
+  const form=document.getElementById('reportForm'); if(form) form.style.display='block';
+  const done=document.getElementById('reportDone'); if(done) done.style.display='none';
   document.getElementById('reportModalBg').style.display='flex';
 };
 window.closeReport=function(){ const bg=document.getElementById('reportModalBg'); if(bg) bg.style.display='none'; };
@@ -1947,9 +1961,8 @@ window.submitReport=async function(){
       testName: (mockMeta&&mockMeta.title)||exam||'',
       createdAt: serverTimestamp()
     });
-    const m=document.getElementById('reportModal');
-    if(m) m.innerHTML='<div class="rm-done">✓ Thanks! This question has been sent to our team for review.</div>';
-    setTimeout(window.closeReport,1500);
+    const form=document.getElementById('reportForm'); if(form) form.style.display='none';
+    const done=document.getElementById('reportDone'); if(done) done.style.display='block';
   }catch(err){
     if(sb){sb.disabled=false;sb.textContent='Submit report';}
     const code=''+((err&&(err.code||err.status))||'');
