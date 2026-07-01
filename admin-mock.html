@@ -89,6 +89,24 @@ td{padding:0.55rem 0.75rem;border-bottom:1px solid #1E293B;color:#CBD5E1;}
 .opt-edit input[type=radio]{width:auto;}
 .opt-edit .ol{font-weight:700;color:#94A3B8;width:18px;}
 .modal-actions{display:flex;gap:0.75rem;margin-top:1.25rem;justify-content:flex-end;}
+
+/* Image controls in edit modal */
+.img-drop{border:2px dashed #334155;border-radius:8px;padding:1rem;text-align:center;cursor:pointer;margin-bottom:0.5rem;}
+.img-drop:hover{border-color:#7C3AED;background:rgba(124,58,237,0.04);}
+.img-current{max-width:100%;max-height:180px;border-radius:8px;border:1px solid #334155;object-fit:contain;background:#0F172A;display:block;}
+.img-status{font-size:0.78rem;color:#94A3B8;margin-top:0.4rem;display:none;}
+.mini-btn{border:none;border-radius:5px;padding:0.35rem 0.55rem;font-size:0.72rem;font-weight:600;cursor:pointer;}
+.mini-paste{background:#334155;color:#94A3B8;}
+.mini-del{background:#EF4444;color:#fff;}
+.optimg-grid{display:grid;grid-template-columns:1fr 1fr;gap:0.6rem;margin-top:0.5rem;}
+@media(max-width:560px){.optimg-grid{grid-template-columns:1fr;}}
+.optimg-cell{background:#0F172A;border:1px solid #334155;border-radius:8px;padding:0.55rem;}
+.optimg-cell .ohead{display:flex;align-items:center;gap:0.4rem;}
+.optimg-cell .ol{font-weight:700;color:#A855F7;}
+.optimg-cell .up-lbl{cursor:pointer;flex:1;display:flex;align-items:center;gap:0.4rem;background:#1E293B;border:1.5px dashed #7C3AED;border-radius:6px;padding:0.35rem 0.55rem;font-size:0.72rem;color:#A855F7;font-weight:600;}
+.optimg-cell img{max-width:100%;max-height:80px;border-radius:5px;object-fit:contain;border:1px solid #334155;margin-top:0.4rem;background:#0F172A;}
+/* thumbnail in question list */
+.q-img-thumb{max-width:150px;max-height:90px;border-radius:6px;border:1px solid #334155;object-fit:contain;background:#0F172A;margin-top:0.5rem;}
 </style>
 </head>
 <body>
@@ -320,6 +338,7 @@ td{padding:0.55rem 0.75rem;border-bottom:1px solid #1E293B;color:#CBD5E1;}
       <div id="eqToolbar" style="display:none;align-items:center;gap:0.75rem;margin-bottom:0.75rem;flex-wrap:wrap;">
         <span class="badge" id="eqCount">0 questions</span>
         <input type="text" id="eqSearch" placeholder="🔍 filter by text / qNum" oninput="eqRender()" style="flex:1;min-width:160px;">
+        <button class="btn btn-secondary" id="eqImgFilterBtn" style="font-size:0.8rem;padding:0.4rem 0.9rem;" onclick="eqToggleImgOnly()">🖼 Image Qs only</button>
         <button class="btn" style="background:#EF4444;color:#fff;font-size:0.8rem;padding:0.4rem 0.9rem;" onclick="eqDeleteAll()">🗑 Delete ALL in this mock</button>
       </div>
 
@@ -375,8 +394,61 @@ td{padding:0.55rem 0.75rem;border-bottom:1px solid #1E293B;color:#CBD5E1;}
     <div class="opt-edit"><input type="radio" name="eCorrect" value="B" id="ec-B"><span class="ol">B</span><textarea id="eOptB" style="min-height:38px;"></textarea></div>
     <div class="opt-edit"><input type="radio" name="eCorrect" value="C" id="ec-C"><span class="ol">C</span><textarea id="eOptC" style="min-height:38px;"></textarea></div>
     <div class="opt-edit"><input type="radio" name="eCorrect" value="D" id="ec-D"><span class="ol">D</span><textarea id="eOptD" style="min-height:38px;"></textarea></div>
+    <label style="margin-top:0.85rem;">Option Images (optional)</label>
+    <div class="optimg-grid">
+      <div class="optimg-cell">
+        <div class="ohead"><span class="ol">A</span>
+          <label class="up-lbl"><input type="file" id="eqOptAImgFile" accept="image/*" onchange="handleMockOptImg(this,'eqOptAImg')" style="display:none;">📷 Add/Change</label>
+          <button type="button" class="mini-btn mini-paste" title="Paste" onclick="pasteMockOpt('eqOptAImg')">📋</button>
+          <button type="button" class="mini-btn mini-del" title="Remove" onclick="clearMockOptImg('eqOptAImg')">🗑</button>
+        </div>
+        <div id="eqOptAImgPreview" style="display:none;"><img id="eqOptAImgImg"></div>
+        <input type="hidden" id="eqOptAImgUrl">
+      </div>
+      <div class="optimg-cell">
+        <div class="ohead"><span class="ol">B</span>
+          <label class="up-lbl"><input type="file" id="eqOptBImgFile" accept="image/*" onchange="handleMockOptImg(this,'eqOptBImg')" style="display:none;">📷 Add/Change</label>
+          <button type="button" class="mini-btn mini-paste" title="Paste" onclick="pasteMockOpt('eqOptBImg')">📋</button>
+          <button type="button" class="mini-btn mini-del" title="Remove" onclick="clearMockOptImg('eqOptBImg')">🗑</button>
+        </div>
+        <div id="eqOptBImgPreview" style="display:none;"><img id="eqOptBImgImg"></div>
+        <input type="hidden" id="eqOptBImgUrl">
+      </div>
+      <div class="optimg-cell">
+        <div class="ohead"><span class="ol">C</span>
+          <label class="up-lbl"><input type="file" id="eqOptCImgFile" accept="image/*" onchange="handleMockOptImg(this,'eqOptCImg')" style="display:none;">📷 Add/Change</label>
+          <button type="button" class="mini-btn mini-paste" title="Paste" onclick="pasteMockOpt('eqOptCImg')">📋</button>
+          <button type="button" class="mini-btn mini-del" title="Remove" onclick="clearMockOptImg('eqOptCImg')">🗑</button>
+        </div>
+        <div id="eqOptCImgPreview" style="display:none;"><img id="eqOptCImgImg"></div>
+        <input type="hidden" id="eqOptCImgUrl">
+      </div>
+      <div class="optimg-cell">
+        <div class="ohead"><span class="ol">D</span>
+          <label class="up-lbl"><input type="file" id="eqOptDImgFile" accept="image/*" onchange="handleMockOptImg(this,'eqOptDImg')" style="display:none;">📷 Add/Change</label>
+          <button type="button" class="mini-btn mini-paste" title="Paste" onclick="pasteMockOpt('eqOptDImg')">📋</button>
+          <button type="button" class="mini-btn mini-del" title="Remove" onclick="clearMockOptImg('eqOptDImg')">🗑</button>
+        </div>
+        <div id="eqOptDImgPreview" style="display:none;"><img id="eqOptDImgImg"></div>
+        <input type="hidden" id="eqOptDImgUrl">
+      </div>
+    </div>
     <label>Explanation</label>
     <textarea id="editExpl"></textarea>
+    <label style="margin-top:0.85rem;">🖼️ Solution Image (optional)</label>
+    <div id="eqSolImgCurrentWrap" style="display:none;margin-bottom:0.5rem;text-align:center;">
+      <img id="eqSolImgCurrent" style="max-width:100%;max-height:140px;border-radius:7px;object-fit:contain;border:1px solid #00A86B44;background:#0F172A;">
+    </div>
+    <div style="display:flex;align-items:center;gap:0.4rem;">
+      <label style="cursor:pointer;flex:1;display:flex;align-items:center;gap:0.4rem;background:#0F172A;border:1.5px dashed #00A86B;border-radius:7px;padding:0.45rem 0.7rem;">
+        <input type="file" id="eqSolImgFile" accept="image/*" onchange="handleMockSolImg(this)" style="display:none;">
+        <span style="font-size:0.78rem;color:#00A86B;font-weight:600;">🖼️ Add/Change Solution Image</span>
+        <span id="eqSolImgStatus" class="img-status" style="margin-left:auto;"></span>
+      </label>
+      <button type="button" class="mini-btn mini-paste" title="Paste" onclick="pasteMockField('eqSolImg')">📋</button>
+      <button type="button" class="mini-btn mini-del" title="Remove" onclick="clearMockSolImg()">🗑</button>
+    </div>
+    <input type="hidden" id="eqSolImgUrl">
     <label>Trick</label>
     <textarea id="editTrick" style="min-height:44px;"></textarea>
     <div class="form-grid" style="margin-top:0.85rem;margin-bottom:0;">
@@ -397,6 +469,21 @@ td{padding:0.55rem 0.75rem;border-bottom:1px solid #1E293B;color:#CBD5E1;}
         <input type="number" id="editQNum">
       </div>
     </div>
+    <label style="margin-top:0.85rem;">🖼️ Question Image (figure / diagram)</label>
+    <div id="eqImgCurrentWrap" style="display:none;margin-bottom:0.5rem;">
+      <img id="eqImgCurrent" class="img-current">
+      <button type="button" class="mini-btn mini-del" style="margin-top:0.4rem;" onclick="clearMockEditImg()">🗑 Remove Image</button>
+    </div>
+    <div class="img-drop" onclick="document.getElementById('eqImgFile').click()">
+      <input type="file" id="eqImgFile" accept="image/*" style="display:none;" onchange="previewMockEditImg(event)">
+      <div id="eqImgNewWrap" style="display:none;margin-bottom:0.4rem;"><img id="eqImgNew" style="max-width:100%;max-height:150px;border-radius:6px;"></div>
+      <div id="eqImgPlaceholder" style="color:#64748B;font-size:0.85rem;">📷 Click to upload a new image to replace</div>
+    </div>
+    <div style="display:flex;gap:0.4rem;align-items:center;">
+      <input type="text" id="eqImgUrl" placeholder="Or paste image URL directly...">
+      <button type="button" class="mini-btn mini-paste" title="Paste image from clipboard" onclick="pasteMockField('eqImg')">📋</button>
+    </div>
+    <div id="eqImgStatus" class="img-status"></div>
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeEdit()">Cancel</button>
       <button class="btn btn-primary" onclick="saveEdit()">💾 Save</button>
@@ -728,6 +815,116 @@ window.mmDelete = async (docId, mockId, title) => {
 // ── EDIT QUESTIONS ──
 let eqDocs = [];
 
+// ── Image helpers (ImgBB-hosted, mirrors PYQ admin) ──
+const IMGBB_API_KEY = '2d19f5c584081a80d383c682a9974d05';
+async function uploadToImgBB(file){
+  const fd = new FormData();
+  fd.append('image', file);
+  fd.append('key', IMGBB_API_KEY);
+  const r = await fetch('https://api.imgbb.com/1/upload', {method:'POST',body:fd});
+  const d = await r.json();
+  if(d.success) return d.data.url;
+  throw new Error('ImgBB: '+(d.error?.message||'failed'));
+}
+function pasteFromClipboard(cb){
+  if(!navigator.clipboard || !navigator.clipboard.read){ alert('Clipboard not available. Use the 📷 upload button instead.'); return; }
+  navigator.clipboard.read().then(items=>{
+    for(const it of items){
+      for(const t of it.types){
+        if(t.indexOf('image')!==-1){
+          it.getType(t).then(blob=>{ const r=new FileReader(); r.onload=e=>cb(e.target.result, blob); r.readAsDataURL(blob); });
+          return;
+        }
+      }
+    }
+    alert('No image in clipboard. Copy an image first (Win+Shift+S).');
+  }).catch(()=>alert('Could not read clipboard. Use the 📷 upload button instead.'));
+}
+// Question image
+window.previewMockEditImg = (event) => {
+  const file = event.target.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    document.getElementById('eqImgNew').src = e.target.result;
+    document.getElementById('eqImgNewWrap').style.display='block';
+    document.getElementById('eqImgPlaceholder').style.display='none';
+  };
+  reader.readAsDataURL(file);
+};
+window.clearMockEditImg = () => {
+  document.getElementById('eqImgUrl').value='';
+  document.getElementById('eqImgCurrentWrap').style.display='none';
+  document.getElementById('eqImgFile').value='';
+  document.getElementById('eqImgNewWrap').style.display='none';
+  document.getElementById('eqImgPlaceholder').style.display='block';
+};
+// Option images
+window.handleMockOptImg = async (input, fieldId) => {
+  const file = input.files[0]; if(!file) return;
+  const preview = document.getElementById(fieldId+'Preview');
+  const pImg = document.getElementById(fieldId+'Img');
+  const reader = new FileReader();
+  reader.onload = e => { pImg.src=e.target.result; preview.style.display='block'; };
+  reader.readAsDataURL(file);
+  try {
+    const url = await uploadToImgBB(file);
+    document.getElementById(fieldId+'Url').value = url;
+  } catch(e){ showToast('Option image upload failed: '+e.message,'error'); }
+  input.value='';
+};
+window.clearMockOptImg = (fieldId) => {
+  ['File','Url','Img'].forEach(s=>{ const el=document.getElementById(fieldId+s); if(el){ if(s==='Img') el.src=''; else el.value=''; }});
+  const p=document.getElementById(fieldId+'Preview'); if(p) p.style.display='none';
+};
+window.loadMockOptImgPreview = (fieldId, url) => {
+  const u=document.getElementById(fieldId+'Url'); if(u) u.value=url||'';
+  const i=document.getElementById(fieldId+'Img'); const p=document.getElementById(fieldId+'Preview');
+  if(url){ if(i) i.src=url; if(p) p.style.display='block'; }
+  else { if(i) i.src=''; if(p) p.style.display='none'; }
+};
+window.pasteMockOpt = (fieldId) => pasteFromClipboard(async (base64, blob) => {
+  const i=document.getElementById(fieldId+'Img'); const p=document.getElementById(fieldId+'Preview');
+  if(i) i.src=base64; if(p) p.style.display='block';
+  document.getElementById(fieldId+'Url').value = base64;   // fallback until upload done
+  try { const url=await uploadToImgBB(blob); document.getElementById(fieldId+'Url').value=url; } catch(e){}
+});
+// Solution image
+window.handleMockSolImg = async (input) => {
+  const file = input.files[0]; if(!file) return;
+  const status=document.getElementById('eqSolImgStatus');
+  const wrap=document.getElementById('eqSolImgCurrentWrap'); const pImg=document.getElementById('eqSolImgCurrent');
+  const reader=new FileReader();
+  reader.onload = e => { if(pImg) pImg.src=e.target.result; if(wrap) wrap.style.display='block'; };
+  reader.readAsDataURL(file);
+  if(status){ status.style.display='inline'; status.textContent='⏳'; }
+  try {
+    const url = await uploadToImgBB(file);
+    document.getElementById('eqSolImgUrl').value = url;
+    if(status){ status.textContent='✅'; setTimeout(()=>status.style.display='none',2000); }
+  } catch(e){ if(status){ status.textContent='⚠ '+e.message; } }
+  input.value='';
+};
+window.clearMockSolImg = () => {
+  ['eqSolImgFile','eqSolImgUrl'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+  const i=document.getElementById('eqSolImgCurrent'); if(i) i.src='';
+  const w=document.getElementById('eqSolImgCurrentWrap'); if(w) w.style.display='none';
+  const s=document.getElementById('eqSolImgStatus'); if(s) s.style.display='none';
+};
+// Paste for question / solution image
+window.pasteMockField = (type) => pasteFromClipboard(async (base64, blob) => {
+  if(type==='eqImg'){
+    document.getElementById('eqImgCurrent').src = base64;
+    document.getElementById('eqImgCurrentWrap').style.display='block';
+    document.getElementById('eqImgUrl').value = base64;
+    try { const url=await uploadToImgBB(blob); document.getElementById('eqImgUrl').value=url; document.getElementById('eqImgCurrent').src=url; } catch(e){}
+  } else if(type==='eqSolImg'){
+    document.getElementById('eqSolImgCurrent').src = base64;
+    document.getElementById('eqSolImgCurrentWrap').style.display='block';
+    document.getElementById('eqSolImgUrl').value = base64;
+    try { const url=await uploadToImgBB(blob); document.getElementById('eqSolImgUrl').value=url; document.getElementById('eqSolImgCurrent').src=url; } catch(e){}
+  }
+});
+
 window.eqLoadMocks = async () => {
   const exam = document.getElementById('eqExam').value;
   const tier = document.getElementById('eqTier').value;
@@ -767,9 +964,13 @@ window.eqRender = () => {
   const listEl = document.getElementById('eqList');
   let docs = eqDocs;
   if(q) docs = docs.filter(d => (String(d.qNum)).includes(q) || (d.text||'').toLowerCase().includes(q));
+  if(window.eqImgOnly) docs = docs.filter(d => d.imageUrl || d.solutionImage || ['A','B','C','D'].some(l=>d.optionImages?.[l]));
   if(!docs.length){ listEl.innerHTML='<p style="color:#64748B;padding:1rem;">No questions match.</p>'; return; }
   const esc = s => (s||'').replace(/</g,'&lt;');
-  listEl.innerHTML = docs.map(d=>`
+  const optImgCount = d => ['A','B','C','D'].filter(l=>d.optionImages?.[l]).length;
+  listEl.innerHTML = docs.map(d=>{
+    const oImgs = optImgCount(d);
+    return `
     <div class="q-item">
       <div class="q-head">
         <div class="q-text"><strong style="color:#A855F7;">Q${d.qNum}.</strong> ${esc(d.text)}</div>
@@ -778,10 +979,12 @@ window.eqRender = () => {
           <button class="b-del" onclick="eqDelete('${d.id}',${d.qNum})">🗑</button>
         </div>
       </div>
+      ${d.imageUrl?`<img src="${d.imageUrl}" class="q-img-thumb" alt="Q${d.qNum} figure" onerror="this.style.display='none'">`:''}
       <div class="q-opts">
         ${['A','B','C','D'].map(l=>{
           const t = d.options?.[l] ?? d['option_'+l] ?? '';
-          return `<div class="q-opt ${d.correct===l?'correct':''}">${l}) ${esc(t)}</div>`;
+          const oi = d.optionImages?.[l];
+          return `<div class="q-opt ${d.correct===l?'correct':''}">${l}) ${esc(t)}${oi?' <span title="option image" style="color:#A855F7;">🖼</span>':''}</div>`;
         }).join('')}
       </div>
       <div class="q-meta">
@@ -789,8 +992,20 @@ window.eqRender = () => {
         <span class="q-tag">${d.difficulty||'medium'}</span>
         <span class="q-tag">${d.lang||d.language||'en'}</span>
         ${d.explanation?'<span class="q-tag" style="color:#4ADE80;">has solution</span>':'<span class="q-tag" style="color:#F87171;">no solution</span>'}
+        ${d.imageUrl?'<span class="q-tag" style="color:#A78BFA;background:#7C3AED22;border:1px solid #7C3AED44;">🖼 figure</span>':''}
+        ${oImgs?`<span class="q-tag" style="color:#A78BFA;background:#7C3AED22;border:1px solid #7C3AED44;">🖼 ${oImgs} opt img</span>`:''}
+        ${d.solutionImage?'<span class="q-tag" style="color:#4ADE80;background:#00A86B22;border:1px solid #00A86B44;">🖼 sol img</span>':''}
       </div>
-    </div>`).join('');
+    </div>`;}).join('');
+};
+
+// Filter helper: show only questions that have any image attached
+window.eqImgOnly = false;
+window.eqToggleImgOnly = () => {
+  eqImgOnly = !eqImgOnly;
+  const btn = document.getElementById('eqImgFilterBtn');
+  if(btn){ btn.textContent = eqImgOnly ? '🖼 Showing image Qs' : '🖼 Image Qs only'; btn.style.background = eqImgOnly ? '#7C3AED' : '#334155'; btn.style.color='#fff'; }
+  eqRender();
 };
 
 window.eqDelete = async (id, qNum) => {
@@ -835,6 +1050,26 @@ window.eqEdit = (id) => {
   document.getElementById('editSubject').value = d.subject||'';
   document.getElementById('editDifficulty').value = d.difficulty||'medium';
   document.getElementById('editQNum').value = d.qNum||'';
+  // ── Images ──
+  // Question image
+  document.getElementById('eqImgUrl').value = d.imageUrl||'';
+  document.getElementById('eqImgFile').value = '';
+  document.getElementById('eqImgNewWrap').style.display='none';
+  document.getElementById('eqImgPlaceholder').style.display='block';
+  document.getElementById('eqImgStatus').style.display='none';
+  if(d.imageUrl){ document.getElementById('eqImgCurrent').src=d.imageUrl; document.getElementById('eqImgCurrentWrap').style.display='block'; }
+  else { document.getElementById('eqImgCurrentWrap').style.display='none'; }
+  // Option images
+  ['A','B','C','D'].forEach(l=>{
+    const f=document.getElementById('eqOpt'+l+'ImgFile'); if(f) f.value='';
+    loadMockOptImgPreview('eqOpt'+l+'Img', d.optionImages?.[l]||'');
+  });
+  // Solution image
+  document.getElementById('eqSolImgFile').value='';
+  document.getElementById('eqSolImgUrl').value = d.solutionImage||'';
+  document.getElementById('eqSolImgStatus').style.display='none';
+  if(d.solutionImage){ document.getElementById('eqSolImgCurrent').src=d.solutionImage; document.getElementById('eqSolImgCurrentWrap').style.display='block'; }
+  else { document.getElementById('eqSolImgCurrentWrap').style.display='none'; }
   document.getElementById('editModal').classList.add('show');
   document.body.style.overflow='hidden';
 };
@@ -850,6 +1085,22 @@ window.saveEdit = async () => {
   const B=document.getElementById('eOptB').value.trim();
   const C=document.getElementById('eOptC').value.trim();
   const D=document.getElementById('eOptD').value.trim();
+  // Upload any pending question image file (option/solution images upload on change)
+  let imageUrl = document.getElementById('eqImgUrl').value.trim();
+  const imgFile = document.getElementById('eqImgFile').files[0];
+  if(imgFile){
+    const status=document.getElementById('eqImgStatus');
+    status.style.display='block'; status.textContent='⏳ Uploading image...';
+    try { imageUrl = await uploadToImgBB(imgFile); status.textContent='✅ Image uploaded'; }
+    catch(e){ status.textContent='⚠ Upload failed: '+e.message; }
+  }
+  const optionImages = {
+    A: document.getElementById('eqOptAImgUrl').value||'',
+    B: document.getElementById('eqOptBImgUrl').value||'',
+    C: document.getElementById('eqOptCImgUrl').value||'',
+    D: document.getElementById('eqOptDImgUrl').value||''
+  };
+  const solutionImage = document.getElementById('eqSolImgUrl').value.trim()||'';
   try {
     await updateDoc(doc(db,'questions',id), {
       text: document.getElementById('editText').value.trim(),
@@ -859,10 +1110,11 @@ window.saveEdit = async () => {
       trick: document.getElementById('editTrick').value.trim(),
       subject: document.getElementById('editSubject').value.trim(),
       difficulty: document.getElementById('editDifficulty').value,
-      qNum: parseInt(document.getElementById('editQNum').value)||0
+      qNum: parseInt(document.getElementById('editQNum').value)||0,
+      imageUrl, optionImages, solutionImage
     });
     const d = eqDocs.find(x=>x.id===id);
-    if(d){ Object.assign(d,{text:document.getElementById('editText').value.trim(),options:{A,B,C,D},option_A:A,option_B:B,option_C:C,option_D:D,correct:correctEl.value,explanation:document.getElementById('editExpl').value.trim(),trick:document.getElementById('editTrick').value.trim(),subject:document.getElementById('editSubject').value.trim(),difficulty:document.getElementById('editDifficulty').value,qNum:parseInt(document.getElementById('editQNum').value)||0});
+    if(d){ Object.assign(d,{text:document.getElementById('editText').value.trim(),options:{A,B,C,D},option_A:A,option_B:B,option_C:C,option_D:D,correct:correctEl.value,explanation:document.getElementById('editExpl').value.trim(),trick:document.getElementById('editTrick').value.trim(),subject:document.getElementById('editSubject').value.trim(),difficulty:document.getElementById('editDifficulty').value,qNum:parseInt(document.getElementById('editQNum').value)||0,imageUrl,optionImages,solutionImage});
       eqDocs.sort((a,b)=>(parseInt(a.qNum)||0)-(parseInt(b.qNum)||0)); }
     showToast('✅ Question updated','success');
     closeEdit(); eqRender();
