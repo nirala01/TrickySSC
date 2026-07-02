@@ -392,7 +392,7 @@ def render(ordered):
 
     itemlist_schema = {
         "@context": "https://schema.org", "@type": "ItemList",
-        "name": "SSC CGL Previous Year Papers (PYQ) — Free Online Tests",
+        "name": "Free SSC CGL PYQ Tests (Previous Year Papers) — Online in Hindi & English",
         "numberOfItems": total_papers, "itemListElement": item_list,
     }
 
@@ -409,6 +409,12 @@ def render(ordered):
              "acceptedAnswer": {"@type": "Answer", "text": "TrickySSC provides shift-wise SSC CGL previous year papers across multiple years, including the most recent 2025 Tier 1 exam shifts, added regularly as new papers are processed."}},
             {"@type": "Question", "name": "Is the test interface similar to the real SSC CGL exam?",
              "acceptedAnswer": {"@type": "Answer", "text": "Yes. The online test engine mirrors the real SSC CGL exam pattern with sectional layout, a question palette, a timer, and negative marking, so you practice in exam-like conditions."}},
+            {"@type": "Question", "name": "Are SSC CGL PYQ tests free?",
+             "acceptedAnswer": {"@type": "Answer", "text": "Yes. Every SSC CGL PYQ test on TrickySSC is completely free to attempt online — no payment, subscription, or hidden charges."}},
+            {"@type": "Question", "name": "Where can I attempt SSC CGL PYQ tests online?",
+             "acceptedAnswer": {"@type": "Answer", "text": "You can attempt SSC CGL PYQ tests online at TrickySSC (trickyssc.com). Shift-wise Tier I and Tier II previous year papers are available in a real exam-like interface with timer and solutions."}},
+            {"@type": "Question", "name": "Which website provides free SSC CGL previous year paper tests?",
+             "acceptedAnswer": {"@type": "Answer", "text": "TrickySSC provides free SSC CGL previous year paper tests online, shift-wise, in both English and Hindi, with answer keys and step-by-step solutions for every question."}},
         ],
     }
 
@@ -420,7 +426,120 @@ def render(ordered):
         <details style="background:#fff;border:1px solid #E2E8F0;border-radius:11px;padding:0.85rem 1.1rem;margin-bottom:0.6rem;"><summary style="cursor:pointer;font-weight:700;font-size:0.92rem;color:#1A202C;">Do the tests include answer keys and solutions?</summary><p style="color:#4A5568;margin:0.6rem 0 0;font-size:0.88rem;">Yes. Each paper comes with the correct answer key and step-by-step solutions, so you can review every question after submitting the test.</p></details>
         <details style="background:#fff;border:1px solid #E2E8F0;border-radius:11px;padding:0.85rem 1.1rem;margin-bottom:0.6rem;"><summary style="cursor:pointer;font-weight:700;font-size:0.92rem;color:#1A202C;">Which SSC CGL years are available?</summary><p style="color:#4A5568;margin:0.6rem 0 0;font-size:0.88rem;">Shift-wise SSC CGL previous year papers across multiple years, including the most recent 2025 Tier 1 exam shifts, added regularly as new papers are processed.</p></details>
         <details style="background:#fff;border:1px solid #E2E8F0;border-radius:11px;padding:0.85rem 1.1rem;margin-bottom:0.6rem;"><summary style="cursor:pointer;font-weight:700;font-size:0.92rem;color:#1A202C;">Is the interface similar to the real SSC CGL exam?</summary><p style="color:#4A5568;margin:0.6rem 0 0;font-size:0.88rem;">Yes. The test engine mirrors the real exam pattern with a sectional layout, question palette, timer, and negative marking for exam-like practice.</p></details>
+        <details style="background:#fff;border:1px solid #E2E8F0;border-radius:11px;padding:0.85rem 1.1rem;margin-bottom:0.6rem;"><summary style="cursor:pointer;font-weight:700;font-size:0.92rem;color:#1A202C;">Are SSC CGL PYQ tests free?</summary><p style="color:#4A5568;margin:0.6rem 0 0;font-size:0.88rem;">Yes. Every SSC CGL PYQ test on TrickySSC is completely free to attempt online — no payment, subscription, or hidden charges.</p></details>
+        <details style="background:#fff;border:1px solid #E2E8F0;border-radius:11px;padding:0.85rem 1.1rem;margin-bottom:0.6rem;"><summary style="cursor:pointer;font-weight:700;font-size:0.92rem;color:#1A202C;">Where can I attempt SSC CGL PYQ tests online?</summary><p style="color:#4A5568;margin:0.6rem 0 0;font-size:0.88rem;">You can attempt SSC CGL PYQ tests online at TrickySSC (trickyssc.com). Shift-wise Tier I and Tier II previous year papers are available in a real exam-like interface with timer and solutions.</p></details>
+        <details style="background:#fff;border:1px solid #E2E8F0;border-radius:11px;padding:0.85rem 1.1rem;margin-bottom:0.6rem;"><summary style="cursor:pointer;font-weight:700;font-size:0.92rem;color:#1A202C;">Which website provides free SSC CGL previous year paper tests?</summary><p style="color:#4A5568;margin:0.6rem 0 0;font-size:0.88rem;">TrickySSC provides free SSC CGL previous year paper tests online, shift-wise, in both English and Hindi, with answer keys and step-by-step solutions for every question.</p></details>
       </div>"""
+
+    seo_content = f"""
+    <div style="margin-top:2rem;">
+      <h2 style="font-family:'Rajdhani',sans-serif;font-weight:800;font-size:1.25rem;color:#1A202C;margin:0 0 0.8rem;display:flex;align-items:center;gap:0.5rem;"><span style="display:inline-block;width:3px;height:18px;background:linear-gradient(180deg,#FF6B00,#FF8C38);border-radius:2px;"></span>Free SSC CGL PYQ Tests</h2>
+      <p style="color:#4A5568;margin:0;font-size:0.9rem;line-height:1.6;">All SSC CGL PYQ tests on TrickySSC are completely free. You can attempt every previous year paper online without downloading PDFs. Each test follows the actual SSC CGL exam pattern and includes detailed solutions.</p>
+    </div>
+
+    <div style="margin-top:2rem;">
+      <h2 style="font-family:'Rajdhani',sans-serif;font-weight:800;font-size:1.25rem;color:#1A202C;margin:0 0 0.8rem;display:flex;align-items:center;gap:0.5rem;"><span style="display:inline-block;width:3px;height:18px;background:linear-gradient(180deg,#FF6B00,#FF8C38);border-radius:2px;"></span>What is SSC CGL?</h2>
+      <p style="color:#4A5568;margin:0 0 0.7rem;font-size:0.9rem;line-height:1.6;">SSC CGL (Staff Selection Commission Combined Graduate Level Examination) is one of India's most prestigious government recruitment examinations. Conducted annually by the Staff Selection Commission (SSC), the exam recruits candidates for various Group B and Group C posts in central government ministries, departments, constitutional bodies, and organizations.</p>
+      <p style="color:#4A5568;margin:0 0 0.7rem;font-size:0.9rem;line-height:1.6;">Through SSC CGL, candidates can secure highly sought-after posts such as Income Tax Inspector, Assistant Section Officer (ASO), Examiner, Preventive Officer, Central Excise Inspector, Auditor, Accountant, Tax Assistant, Divisional Accountant, and several other government positions. Due to excellent career growth, job security, government benefits, and attractive salary packages, SSC CGL attracts lakhs of aspirants every year.</p>
+      <p style="color:#4A5568;margin:0;font-size:0.9rem;line-height:1.6;">Success in SSC CGL requires strong conceptual understanding, speed, accuracy, and continuous practice through previous year papers and mock tests. TrickySSC helps aspirants prepare effectively through SSC CGL Previous Year Papers, <a href="{SITE}/mock-list.html?exam=ssc-cgl" style="color:#FF6B00;font-weight:600;">online mock tests</a>, chapter-wise practice tests, detailed solutions, and exam-oriented resources.</p>
+    </div>
+
+    <div style="margin-top:2rem;">
+      <h2 style="font-family:'Rajdhani',sans-serif;font-weight:800;font-size:1.25rem;color:#1A202C;margin:0 0 0.8rem;display:flex;align-items:center;gap:0.5rem;"><span style="display:inline-block;width:3px;height:18px;background:linear-gradient(180deg,#FF6B00,#FF8C38);border-radius:2px;"></span>SSC CGL Previous Year Papers Online Test</h2>
+      <p style="color:#4A5568;margin:0 0 0.7rem;font-size:0.9rem;line-height:1.6;">SSC CGL Previous Year Papers are among the most reliable resources for exam preparation. They provide direct insight into the actual exam pattern, difficulty level, question trends, and frequently asked concepts. Unlike random practice questions, PYQs help candidates understand exactly how SSC frames questions and what topics are repeatedly tested.</p>
+      <p style="color:#4A5568;margin:0 0 0.7rem;font-size:0.9rem;line-height:1.6;">At TrickySSC, candidates can attempt SSC CGL Previous Year Papers online in a real exam-like environment. Instead of downloading PDFs and manually evaluating answers, aspirants can practice complete shift-wise papers, track performance, analyze mistakes, and improve speed through online testing.</p>
+      <p style="color:#4A5568;margin:0 0 0.7rem;font-size:0.9rem;line-height:1.6;">Our SSC CGL PYQ Test Series includes papers from multiple years and examination shifts. Each paper follows the actual SSC pattern and helps candidates gain familiarity with Quantitative Aptitude, General Intelligence &amp; Reasoning, English Language, and General Awareness questions asked in recent examinations.</p>
+      <p style="color:#4A5568;margin:0 0 0.5rem;font-size:0.9rem;line-height:1.6;">Regular practice of SSC CGL Previous Year Papers helps candidates:</p>
+      <ul style="color:#4A5568;font-size:0.9rem;line-height:1.7;margin:0 0 0.7rem 1.2rem;padding:0;">
+        <li>Understand actual SSC exam difficulty.</li>
+        <li>Identify important and recurring concepts.</li>
+        <li>Improve question selection strategy.</li>
+        <li>Develop effective time management skills.</li>
+        <li>Increase accuracy and confidence.</li>
+        <li>Strengthen weak areas through repeated practice.</li>
+        <li>Improve overall exam readiness.</li>
+      </ul>
+      <p style="color:#4A5568;margin:0;font-size:0.9rem;line-height:1.6;">Candidates preparing for SSC CGL Tier I and Tier II should make previous year paper practice a regular part of their preparation strategy.</p>
+    </div>
+
+    <div style="margin-top:2rem;">
+      <h2 style="font-family:'Rajdhani',sans-serif;font-weight:800;font-size:1.25rem;color:#1A202C;margin:0 0 0.8rem;display:flex;align-items:center;gap:0.5rem;"><span style="display:inline-block;width:3px;height:18px;background:linear-gradient(180deg,#FF6B00,#FF8C38);border-radius:2px;"></span>Why Solve SSC CGL Previous Year Papers?</h2>
+      <p style="color:#4A5568;margin:0 0 0.7rem;font-size:0.9rem;line-height:1.6;">SSC CGL Previous Year Papers offer a clear understanding of what candidates can expect in the actual examination. Since these papers contain real questions asked by SSC, they provide the most authentic preparation experience available.</p>
+      <p style="color:#4A5568;margin:0 0 0.5rem;font-size:0.9rem;line-height:1.6;">Benefits of solving SSC CGL PYQs include:</p>
+      <ul style="color:#4A5568;font-size:0.9rem;line-height:1.7;margin:0 0 0.7rem 1.2rem;padding:0;">
+        <li>Understanding the latest exam pattern.</li>
+        <li>Recognizing important and recurring topics.</li>
+        <li>Learning exam-oriented solving techniques.</li>
+        <li>Improving speed and accuracy.</li>
+        <li>Building confidence before the examination.</li>
+        <li>Identifying strengths and weaknesses.</li>
+        <li>Practicing under actual exam conditions.</li>
+        <li>Reducing examination anxiety through familiarity.</li>
+      </ul>
+      <p style="color:#4A5568;margin:0;font-size:0.9rem;line-height:1.6;">Many successful SSC candidates consider previous year paper practice one of the most important factors behind their success.</p>
+    </div>
+
+    <div style="margin-top:2rem;">
+      <h2 style="font-family:'Rajdhani',sans-serif;font-weight:800;font-size:1.25rem;color:#1A202C;margin:0 0 0.8rem;display:flex;align-items:center;gap:0.5rem;"><span style="display:inline-block;width:3px;height:18px;background:linear-gradient(180deg,#FF6B00,#FF8C38);border-radius:2px;"></span>SSC CGL Exam Pattern</h2>
+      <h3 style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.02rem;color:#0F4C81;margin:0 0 0.5rem;">Tier I Examination</h3>
+      <div style="overflow-x:auto;margin:0 0 0.8rem;-webkit-overflow-scrolling:touch;">
+        <table style="width:100%;border-collapse:collapse;min-width:420px;font-size:0.86rem;color:#334155;">
+          <thead>
+            <tr>
+              <th style="background:linear-gradient(135deg,#FF6B00,#FF8C38);color:#fff;font-family:'Rajdhani',sans-serif;font-weight:700;border:1px solid #FF8C38;padding:0.55rem 0.7rem;text-align:left;">Subject</th>
+              <th style="background:linear-gradient(135deg,#FF6B00,#FF8C38);color:#fff;font-family:'Rajdhani',sans-serif;font-weight:700;border:1px solid #FF8C38;padding:0.55rem 0.7rem;text-align:left;">Questions</th>
+              <th style="background:linear-gradient(135deg,#FF6B00,#FF8C38);color:#fff;font-family:'Rajdhani',sans-serif;font-weight:700;border:1px solid #FF8C38;padding:0.55rem 0.7rem;text-align:left;">Marks</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td style="border:1px solid #E2E8F0;padding:0.5rem 0.7rem;">General Intelligence &amp; Reasoning</td><td style="border:1px solid #E2E8F0;padding:0.5rem 0.7rem;">25</td><td style="border:1px solid #E2E8F0;padding:0.5rem 0.7rem;">50</td></tr>
+            <tr style="background:#F8FAFC;"><td style="border:1px solid #E2E8F0;padding:0.5rem 0.7rem;">General Awareness</td><td style="border:1px solid #E2E8F0;padding:0.5rem 0.7rem;">25</td><td style="border:1px solid #E2E8F0;padding:0.5rem 0.7rem;">50</td></tr>
+            <tr><td style="border:1px solid #E2E8F0;padding:0.5rem 0.7rem;">Quantitative Aptitude</td><td style="border:1px solid #E2E8F0;padding:0.5rem 0.7rem;">25</td><td style="border:1px solid #E2E8F0;padding:0.5rem 0.7rem;">50</td></tr>
+            <tr style="background:#F8FAFC;"><td style="border:1px solid #E2E8F0;padding:0.5rem 0.7rem;">English Comprehension</td><td style="border:1px solid #E2E8F0;padding:0.5rem 0.7rem;">25</td><td style="border:1px solid #E2E8F0;padding:0.5rem 0.7rem;">50</td></tr>
+            <tr style="background:#FFF7ED;font-weight:700;"><td style="border:1px solid #E2E8F0;padding:0.5rem 0.7rem;">Total</td><td style="border:1px solid #E2E8F0;padding:0.5rem 0.7rem;">100</td><td style="border:1px solid #E2E8F0;padding:0.5rem 0.7rem;">200</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p style="color:#4A5568;margin:0 0 0.5rem;font-size:0.9rem;line-height:1.6;">⏱ <strong>Duration:</strong> 60 Minutes</p>
+      <p style="color:#4A5568;margin:0 0 0.4rem;font-size:0.9rem;line-height:1.6;"><strong>Key Highlights:</strong></p>
+      <ul style="color:#4A5568;font-size:0.9rem;line-height:1.7;margin:0 0 0 1.2rem;padding:0;">
+        <li>Objective-type online examination.</li>
+        <li>100 questions carrying 200 marks.</li>
+        <li>Negative marking of 0.50 marks for each incorrect answer.</li>
+        <li>Qualifying candidates proceed to Tier II.</li>
+      </ul>
+    </div>
+
+    <div style="margin-top:2rem;">
+      <h2 style="font-family:'Rajdhani',sans-serif;font-weight:800;font-size:1.25rem;color:#1A202C;margin:0 0 0.8rem;display:flex;align-items:center;gap:0.5rem;"><span style="display:inline-block;width:3px;height:18px;background:linear-gradient(180deg,#FF6B00,#FF8C38);border-radius:2px;"></span>SSC CGL Syllabus</h2>
+      <p style="color:#4A5568;margin:0 0 0.7rem;font-size:0.9rem;line-height:1.6;">SSC CGL primarily tests candidates across four major areas.</p>
+      <h3 style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.02rem;color:#0F4C81;margin:0 0 0.3rem;">Quantitative Aptitude</h3>
+      <p style="color:#4A5568;margin:0 0 0.8rem;font-size:0.9rem;line-height:1.6;">Percentage, Ratio &amp; Proportion, Profit &amp; Loss, Time &amp; Work, Time-Speed-Distance, Algebra, Geometry, Mensuration, Number System, Data Interpretation, and Arithmetic.</p>
+      <h3 style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.02rem;color:#0F4C81;margin:0 0 0.3rem;">General Intelligence &amp; Reasoning</h3>
+      <p style="color:#4A5568;margin:0 0 0.8rem;font-size:0.9rem;line-height:1.6;">Analogy, Classification, Coding-Decoding, Series, Blood Relations, Directions, Ranking, Syllogism, Statement-Based Questions, and Non-Verbal Reasoning.</p>
+      <h3 style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.02rem;color:#0F4C81;margin:0 0 0.3rem;">English Language</h3>
+      <p style="color:#4A5568;margin:0 0 0.8rem;font-size:0.9rem;line-height:1.6;">Reading Comprehension, Cloze Test, Error Spotting, Sentence Improvement, One Word Substitution, Vocabulary, Synonyms, Antonyms, and Grammar.</p>
+      <h3 style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.02rem;color:#0F4C81;margin:0 0 0.3rem;">General Awareness</h3>
+      <p style="color:#4A5568;margin:0;font-size:0.9rem;line-height:1.6;">History, Geography, Indian Polity, Economics, Science, Current Affairs, Static GK, Government Schemes, and National &amp; International Events.</p>
+    </div>
+
+    <div style="margin-top:2rem;">
+      <h2 style="font-family:'Rajdhani',sans-serif;font-weight:800;font-size:1.25rem;color:#1A202C;margin:0 0 0.8rem;display:flex;align-items:center;gap:0.5rem;"><span style="display:inline-block;width:3px;height:18px;background:linear-gradient(180deg,#FF6B00,#FF8C38);border-radius:2px;"></span>SSC CGL Preparation Strategy</h2>
+      <p style="color:#4A5568;margin:0 0 0.7rem;font-size:0.9rem;line-height:1.6;">A successful SSC CGL preparation strategy combines concept building, revision, previous year paper practice, and mock testing.</p>
+      <p style="color:#4A5568;margin:0 0 0.7rem;font-size:0.9rem;line-height:1.6;">Candidates should first complete important concepts and then focus on solving SSC CGL Previous Year Papers to understand actual question trends. Mock tests should be used regularly to improve speed, accuracy, and exam temperament.</p>
+      <p style="color:#4A5568;margin:0 0 0.4rem;font-size:0.9rem;line-height:1.6;">A recommended preparation approach is:</p>
+      <ol style="color:#4A5568;font-size:0.9rem;line-height:1.7;margin:0 0 0.7rem 1.3rem;padding:0;">
+        <li>Complete the syllabus topic-wise.</li>
+        <li>Practice chapter-wise questions regularly.</li>
+        <li>Solve SSC CGL Previous Year Papers consistently.</li>
+        <li>Attempt full-length mock tests every week.</li>
+        <li>Analyze mistakes after every test.</li>
+        <li>Revise weak topics continuously.</li>
+        <li>Focus on accuracy before speed.</li>
+        <li>Track performance and monitor progress.</li>
+      </ol>
+      <p style="color:#4A5568;margin:0;font-size:0.9rem;line-height:1.6;">Consistent practice and performance analysis often contribute more to success than repeatedly studying new topics.</p>
+    </div>"""
 
     desc = (
         f"Attempt {total_papers}+ SSC CGL Tier 1 previous year question papers "
@@ -433,13 +552,13 @@ def render(ordered):
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SSC CGL Previous Year Papers (PYQ) — Free Online Test in Hindi &amp; English | TrickySSC</title>
+<title>SSC CGL PYQ Tests Free | Previous Year Papers Online (Hindi &amp; English) | TrickySSC</title>
 <meta name="description" content="{html.escape(desc)}">
 <meta name="keywords" content="SSC CGL PYQ, SSC CGL previous year paper, SSC CGL previous year paper online free, SSC CGL PYQ test, SSC CGL question paper with solution, SSC CGL 2025 paper, SSC CGL Tier 1 PYQ, SSC CGL free online test">
 <meta name="robots" content="index, follow, max-image-preview:large">
 <link rel="canonical" href="{SITE}/{OUTPUT_FILE}">
 <meta property="og:type" content="website">
-<meta property="og:title" content="SSC CGL Previous Year Papers (PYQ) — Free Online Test">
+<meta property="og:title" content="SSC CGL PYQ Tests Free | Previous Year Papers Online (Hindi &amp; English)">
 <meta property="og:description" content="{html.escape(desc)}">
 <meta property="og:url" content="{SITE}/{OUTPUT_FILE}">
 <meta property="og:site_name" content="TrickySSC">
@@ -514,7 +633,7 @@ def render(ordered):
 <div style="background:#F0F2F7;min-height:100vh;padding-top:1.5rem;">
 
   <div style="max-width:960px;margin:0 auto;padding:0.2rem 1.25rem 0.2rem;">
-    <h1 style="font-family:'Rajdhani',sans-serif;font-weight:800;font-size:clamp(1.1rem,4.2vw,1.55rem);line-height:1.25;color:#1A202C;margin:0;">SSC CGL Previous Year Papers (PYQ) – Free Online Tests</h1>
+    <h1 style="font-family:'Rajdhani',sans-serif;font-weight:800;font-size:clamp(1.1rem,4.2vw,1.55rem);line-height:1.25;color:#1A202C;margin:0;">Free SSC CGL PYQ Tests (Previous Year Papers) – Online in Hindi &amp; English</h1>
   </div>
 
   <div style="background:#fff;border-bottom:1px solid #E8ECF2;padding:0.55rem 1.5rem;margin-top:0.6rem;">
@@ -546,10 +665,14 @@ def render(ordered):
       </div>
     </div>
 
+    <p style="color:#334155;font-size:0.92rem;line-height:1.65;margin:0 0 1.1rem;">Looking for <strong>free SSC CGL PYQ tests</strong>? TrickySSC provides SSC CGL Previous Year Question Paper tests that you can attempt online for free. Practice shift-wise Tier I and Tier II papers in English and Hindi with detailed solutions, answer keys, timer, and a real exam interface.</p>
+
     <div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:11px;padding:0.65rem 1rem;display:flex;align-items:center;gap:0.55rem;margin-bottom:1.25rem;">
       <span style="font-size:0.95rem;">🎁</span>
       <span style="font-size:0.82rem;color:#15803D;font-weight:600;">All papers are free to attempt online in English &amp; Hindi. New papers added regularly!</span>
     </div>
+
+    <p style="color:#475569;font-size:0.9rem;line-height:1.6;margin:0 0 1rem;">Choose any free SSC CGL PYQ test below and start practicing immediately. All previous year papers are available online with detailed solutions.</p>
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:1.5rem;">
       <button id="t1-btn" onclick="switchTier('t1')" style="padding:0.9rem 1rem;border-radius:13px;border:2px solid #FF6B00;background:linear-gradient(135deg,#FF6B00,#FF8C38);color:white;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1rem;cursor:pointer;box-shadow:0 4px 16px rgba(255,107,0,0.28);display:flex;align-items:center;justify-content:center;gap:0.45rem;">🎯 Tier I</button>
@@ -577,6 +700,8 @@ def render(ordered):
       <p style="color:#4A5568;margin:0 0 0.7rem;font-size:0.9rem;line-height:1.6;">SSC CGL previous year papers (PYQ) are the most reliable way to understand the actual exam pattern, difficulty level, and the topics SSC repeats every year. Instead of downloading PDFs and checking answers manually, you can attempt complete shift-wise papers online in a real exam-like interface — track your score, review mistakes, and build speed.</p>
       <p style="color:#4A5568;margin:0;font-size:0.9rem;line-height:1.6;">Every paper above is free, available in both English and Hindi, and includes the correct answer key with detailed solutions. Pick any shift to begin.</p>
     </div>
+
+{seo_content}
 
     {faq_visible}
 
