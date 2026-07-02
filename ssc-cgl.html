@@ -3130,17 +3130,32 @@ function _setNavUser(name){
   });
 }
 
-// Check Firebase (Google users)
+// Resolve the best available display name.
+// localStorage is authoritative: login.html writes tssc_user.name for BOTH
+// Google and phone/OTP users. Phone users have NO displayName/email on the
+// Firebase user object, so trusting user.email here is what made the pill
+// fall through to "Student".
+function _bestName(user){
+  try{
+    const u=JSON.parse(localStorage.getItem('tssc_user')||'null');
+    if(u && u.name && u.name!=='Student') return u.name;   // real saved name wins
+  }catch(e){}
+  if(user && user.displayName) return user.displayName;     // Google users
+  if(user && user.email)       return user.email;           // email fallback
+  try{
+    const u=JSON.parse(localStorage.getItem('tssc_user')||'null');
+    if(u && u.name) return u.name;                          // last resort (even 'Student')
+  }catch(e){}
+  return 'Student';
+}
+
 onAuthStateChanged(_auth, user=>{
-  if(user){
-    _setNavUser(user.displayName||user.email||'Student');
-    return;
-  }
-  // Check sessionStorage (mobile/name users)
-  const stored=localStorage.getItem('tssc_user');
-  if(stored){
-    try{ const u=JSON.parse(stored); _setNavUser(u.name||'Student'); }catch(e){}
-  }
+  if(user){ _setNavUser(_bestName(user)); return; }
+  // Logged out of Firebase but a local session may still exist (phone users)
+  try{
+    const u=JSON.parse(localStorage.getItem('tssc_user')||'null');
+    if(u && u.name) _setNavUser(u.name);
+  }catch(e){}
 });
 </script>
 <!-- ============================================================= -->

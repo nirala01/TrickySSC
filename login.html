@@ -322,7 +322,7 @@ import { getFirestore, doc, setDoc, getDoc, getDocs, collection, query, where, s
 import {
   getAuth, signInWithPopup, GoogleAuthProvider,
   signInAnonymously, onAuthStateChanged,
-  signInWithPhoneNumber, RecaptchaVerifier
+  signInWithPhoneNumber, RecaptchaVerifier, updateProfile
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 const app = initializeApp({
@@ -651,6 +651,9 @@ window.verifyOTP = async () => {
       if(snap.exists() && snap.data().name && snap.data().name !== 'Student') {
         isReturning = true;
         const ud = snap.data();
+        // Back-fill displayName for users who signed up before this fix, so the
+        // name shows on every page from now on (nav bars read user.displayName).
+        if(!user.displayName){ try{ await updateProfile(user, { displayName: ud.name }); }catch(e){ console.warn('[OTP] updateProfile failed:', e.message); } }
         localStorage.setItem('tssc_user', JSON.stringify({
           uid: user.uid, name: ud.name, phone: window._otpPhone,
           email: ud.email||'', photoURL:'', loginMethod:'phone'
@@ -693,6 +696,10 @@ window.completeMobileLogin = async () => {
       photoURL:'', loginMethod:'phone', createdAt: serverTimestamp(),
       totalTests:0, avgScore:0, bestScore:0,
     }, {merge: true});
+    // Persist name onto the Firebase Auth profile so user.displayName is
+    // populated on EVERY page (nav bars read user.displayName). Without this,
+    // phone users have a null displayName and pages fall back to "Student".
+    try{ await updateProfile(user, { displayName: name }); }catch(e){ console.warn('[OTP] updateProfile failed:', e.message); }
     // Save to localStorage with name BEFORE going to dashboard
     const tsscData = {uid: user.uid, name, phone: window._otpPhone, email:'', photoURL:'', loginMethod:'phone'};
     localStorage.setItem('tssc_user', JSON.stringify(tsscData));
