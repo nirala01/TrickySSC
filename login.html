@@ -388,7 +388,11 @@ function showGoogleInfoModal(user, existingData) {
   const userName = existingData?.name || user.displayName || '';
   const needsName = !userName || userName === 'Student';
   modal.innerHTML = `
-    <div style="background:#fff;border-radius:20px;padding:2rem;max-width:400px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.2);">
+    <div style="position:relative;background:#fff;border-radius:20px;padding:2rem;max-width:400px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.2);">
+      <button onclick="skipGoogleExtra()" aria-label="Close" title="Skip for now"
+        style="position:absolute;top:0.85rem;right:0.85rem;width:32px;height:32px;padding:0;border:none;background:#F1F5F9;color:#64748B;border-radius:50%;font-size:1.25rem;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s,color .15s;"
+        onmouseover="this.style.background='#E2E8F0';this.style.color='#1A202C';"
+        onmouseout="this.style.background='#F1F5F9';this.style.color='#64748B';">&times;</button>
       ${user.photoURL ? `<img src="${user.photoURL}" style="width:60px;height:60px;border-radius:50%;margin-bottom:0.75rem;border:3px solid #FF6B00;">` : '<div style="font-size:2.5rem;margin-bottom:0.75rem;">👋</div>'}
       <h2 style="font-family:'Rajdhani',sans-serif;font-size:1.4rem;font-weight:700;color:#1A202C;margin-bottom:0.25rem;">Almost there!</h2>
       <p style="font-size:0.85rem;color:#64748B;margin-bottom:1.5rem;">Complete your TrickySSC profile to get started.</p>
@@ -452,6 +456,28 @@ window.submitGoogleExtra = async (uid) => {
     email: user.email||'', photoURL: user.photoURL||'', loginMethod:'google'
   }));
   goToDashboard(user);
+};
+
+// Dismiss the "complete your profile" modal without adding a phone. The user is
+// already authenticated via Google, so we persist a minimal profile (name/email/
+// photo, no phone) and continue to the dashboard. This also unblocks the case
+// where the entered phone is "already linked to another account".
+window.skipGoogleExtra = async () => {
+  const user  = window._pendingGoogleUser;
+  const modal = document.getElementById('extraInfoModal');
+  try {
+    if (user) {
+      const nameInput = document.getElementById('gName');
+      const finalName = (nameInput?.value?.trim()) || user.displayName || 'Student';
+      try { await saveUserProfile(user, '', finalName); } catch(_) {}
+      localStorage.setItem('tssc_user', JSON.stringify({
+        uid: user.uid, name: finalName, phone: '',
+        email: user.email||'', photoURL: user.photoURL||'', loginMethod:'google'
+      }));
+    }
+  } catch(_) {}
+  if (modal) modal.remove();
+  if (user) goToDashboard(user);
 };
 
 // ── Redirect after login ──
