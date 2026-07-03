@@ -700,14 +700,7 @@ def render(ordered):
       </div>
     </div>
 
-    <p style="color:#334155;font-size:0.92rem;line-height:1.65;margin:0 0 1.1rem;">Looking for <strong>free SSC CGL PYQ tests</strong>? TrickySSC provides SSC CGL Previous Year Question Paper tests that you can attempt online for free. Practice shift-wise Tier I and Tier II papers in English and Hindi with detailed solutions, answer keys, timer, and a real exam interface.</p>
-
-    <div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:11px;padding:0.65rem 1rem;display:flex;align-items:center;gap:0.55rem;margin-bottom:1.25rem;">
-      <span style="font-size:0.95rem;">🎁</span>
-      <span style="font-size:0.82rem;color:#15803D;font-weight:600;">All papers are free to attempt online in English &amp; Hindi. New papers added regularly!</span>
-    </div>
-
-    <p style="color:#475569;font-size:0.9rem;line-height:1.6;margin:0 0 1rem;">Choose any free SSC CGL PYQ test below and start practicing immediately. All previous year papers are available online with detailed solutions.</p>
+    <p style="color:#475569;font-size:0.9rem;line-height:1.55;margin:0 0 1.1rem;">Attempt <strong>free SSC CGL PYQ tests</strong> online — shift-wise Tier I &amp; Tier II previous year papers in Hindi &amp; English, with answer keys, detailed solutions and a real exam timer.</p>
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:1.5rem;">
       <button id="t1-btn" onclick="switchTier('t1')" style="padding:0.9rem 1rem;border-radius:13px;border:2px solid #FF6B00;background:linear-gradient(135deg,#FF6B00,#FF8C38);color:white;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1rem;cursor:pointer;box-shadow:0 4px 16px rgba(255,107,0,0.28);display:flex;align-items:center;justify-content:center;gap:0.45rem;">🎯 Tier I</button>
