@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>AI Practice Test — TrickySSC</title>
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- KaTeX (math rendering) -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-3MMDNVBJQN"></script>
 <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-3MMDNVBJQN');</script>
 
@@ -281,6 +285,7 @@ Rules:
 - Similar style to samples but NOT identical — change values/numbers
 - Exactly 4 options, one correct answer (A/B/C/D)
 - Difficulty: ${DIFF}
+- Write ALL mathematical expressions in LaTeX wrapped in single dollar signs, e.g. $\\frac{3}{4}$, $x^2+5x+6$, $\\sqrt{49}$, $\\frac{22}{7}$. Do NOT write math as plain text like 3/4 or x^2. This applies to question text, all four options, explanation, and solution_steps.
 - For Quant: numerical problems with clear steps. For Reasoning: logical patterns. For English: grammar/vocab. For GK: India/World facts
 - "explanation": 2-3 sentence summary in ${LANG}
 - "solution_steps": 3-5 clear numbered steps showing HOW to solve in ${LANG}
@@ -432,6 +437,7 @@ function renderTestLayout() {
         : `<button class="btn btn-success" onclick="submitTest()">✅ Submit Test</button>`
       }
     </div>`;
+  renderMath();
 }
 
 window.selectAnswer = (qIdx, letter, btn) => {
@@ -543,6 +549,7 @@ function showResults() {
 
     <div class="section-title">📋 Answer Review</div>
     ${reviewHtml}`;
+  renderMath();
 }
 
 // ── Error ─────────────────────────────────────────────────────────────────────
@@ -560,6 +567,25 @@ function showError(msg) {
 
 function esc(s) {
   return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// Render any LaTeX inside #root with KaTeX. Safe to call repeatedly.
+function renderMath() {
+  if (typeof renderMathInElement !== 'function') return;
+  const root = document.getElementById('root');
+  if (!root) return;
+  try {
+    renderMathInElement(root, {
+      delimiters: [
+        { left: '$$', right: '$$', display: true },
+        { left: '\\[', right: '\\]', display: true },
+        { left: '$',  right: '$',  display: false },
+        { left: '\\(', right: '\\)', display: false }
+      ],
+      throwOnError: false,
+      ignoredTags: ['script','noscript','style','textarea','pre']
+    });
+  } catch(e) { console.warn('KaTeX render skipped:', e.message); }
 }
 
 
