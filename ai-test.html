@@ -188,9 +188,9 @@ document.addEventListener('DOMContentLoaded', () => {
   tryFetch();
 });
 
-// Cloudflare Worker proxy — keeps the Anthropic key server-side, off the public page
+// Cloudflare Worker proxy — keeps the Groq key server-side, off the public page
 const AI_PROXY = 'https://trickyssc-ai.nirala01.workers.dev';
-const AI_MODEL = 'claude-sonnet-5';
+const AI_MODEL = 'llama-3.3-70b-versatile';
 
 async function startLoad() {
   try {
@@ -245,7 +245,7 @@ function setStep(n) {
   }
 }
 
-// ── Anthropic API call (via Cloudflare Worker) ───────────────────────────────
+// ── Groq API call (via Cloudflare Worker) ────────────────────────────────────
 async function generateQuestions(dbSamples) {
   const examples = dbSamples.slice(0, 5).map(q =>
     `"${(q.text||'').slice(0,120)}" — correct: ${q.correct||'A'}`
@@ -297,26 +297,24 @@ Rules:
   let lastErr = null;
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
-      console.log(`Anthropic ${AI_MODEL} attempt ${attempt}`);
+      console.log(`Groq ${AI_MODEL} attempt ${attempt}`);
       const resp = await fetch(AI_PROXY, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          provider: 'anthropic',
+          provider: 'groq',
           model: AI_MODEL,
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.4,
           max_tokens: 8192,
-          messages: [{ role: 'user', content: prompt }]
+          response_format: { type: 'json_object' }
         })
       });
       const data = await resp.json();
-      // Anthropic error shape: {type:'error', error:{message}}; worker error: {error}
       if (data.error) throw new Error(data.error.message || data.error);
-      if (data.type === 'error') throw new Error(data.error?.message || 'API error');
 
-      // Anthropic returns content as an array of blocks; grab the text blocks.
-      let text = Array.isArray(data.content)
-        ? data.content.filter(b => b.type === 'text').map(b => b.text).join('')
-        : '';
+      // Groq is OpenAI-compatible: text is in choices[0].message.content
+      let text = data.choices?.[0]?.message?.content || '';
       if (!text) throw new Error('Empty response from AI');
 
       let parsed;
