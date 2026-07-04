@@ -285,7 +285,8 @@ Rules:
 - Similar style to samples but NOT identical — change values/numbers
 - Exactly 4 options, one correct answer (A/B/C/D)
 - Difficulty: ${DIFF}
-- Write ALL mathematical expressions in LaTeX wrapped in single dollar signs, e.g. $\\frac{3}{4}$, $x^2+5x+6$, $\\sqrt{49}$, $\\frac{22}{7}$. Do NOT write math as plain text like 3/4 or x^2. This applies to question text, all four options, explanation, and solution_steps.
+- MATH FORMATTING (very important): Do NOT use LaTeX, backslash commands, or dollar signs. Write ALL math in plain readable Unicode text. Use x² and x³ (not x^2), √ for square roots (e.g. √49), a/b for fractions (e.g. 3/4, 2x/5), × for multiply, ÷ for divide, ≤ ≥ ≠ ± as needed. Example: write "2x + 5 = 11" and "(3/4) of 80" directly, with NO $ signs and NO \\frac.
+- CURRENCY: SSC exams use Indian Rupees. Use the ₹ symbol for money (e.g. ₹80), never the $ sign.
 - For Quant: numerical problems with clear steps. For Reasoning: logical patterns. For English: grammar/vocab. For GK: India/World facts
 - "explanation": 2-3 sentence summary in ${LANG}
 - "solution_steps": 3-5 clear numbered steps showing HOW to solve in ${LANG}
@@ -325,15 +326,15 @@ Rules:
       if (!Array.isArray(parsed) || !parsed.length) throw new Error('Empty array');
       console.log(`✅ Got ${parsed.length} questions`);
       return parsed.slice(0, COUNT).map((q, i) => ({
-        text:           q.text        || q.question || `Question ${i+1}`,
-        option_A:       q.option_A    || q.options?.A || q.a || 'Option A',
-        option_B:       q.option_B    || q.options?.B || q.b || 'Option B',
-        option_C:       q.option_C    || q.options?.C || q.c || 'Option C',
-        option_D:       q.option_D    || q.options?.D || q.d || 'Option D',
+        text:           dressMath(q.text        || q.question || `Question ${i+1}`),
+        option_A:       dressMath(q.option_A    || q.options?.A || q.a || 'Option A'),
+        option_B:       dressMath(q.option_B    || q.options?.B || q.b || 'Option B'),
+        option_C:       dressMath(q.option_C    || q.options?.C || q.c || 'Option C'),
+        option_D:       dressMath(q.option_D    || q.options?.D || q.d || 'Option D'),
         correct:        (q.correct||q.answer||'A').toString().toUpperCase().trim().charAt(0),
-        explanation:    q.explanation || q.solution || '',
-        solution_steps: q.solution_steps || [],
-        key_concept:    q.key_concept || ''
+        explanation:    dressMath(q.explanation || q.solution || ''),
+        solution_steps: (q.solution_steps || []).map(dressMath),
+        key_concept:    dressMath(q.key_concept || '')
       }));
     } catch(err) {
       lastErr = err;
@@ -567,7 +568,35 @@ function esc(s) {
   return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
-// Render any LaTeX inside #root with KaTeX. Safe to call repeatedly.
+// Repair AI math into clean Unicode. Handles $, leftover LaTeX, and JSON-eaten
+// backslashes (\frac -> "rac", \sqrt -> "sqrt") that survive parsing.
+function dressMath(s) {
+  if (!s) return s;
+  let t = String(s);
+  // strip math delimiters that get used as currency/noise
+  t = t.replace(/\${1,2}/g, '');
+  t = t.replace(/\\[()\[\]]/g, '');            // \( \) \[ \]
+  t = t.replace(/\\left|\\right/g, '');
+  // fractions: \frac{a}{b} OR corrupted rac{a}{b} -> (a)/(b)
+  t = t.replace(/\\?(?:frac|rac)\s*\{([^{}]*)\}\s*\{([^{}]*)\}/g, '($1)/($2)');
+  // roots: \sqrt{x} / sqrt{x} -> √(x)
+  t = t.replace(/\\?sqrt\s*\{([^{}]*)\}/g, '√($1)');
+  t = t.replace(/\\?sqrt\s+(\w+)/g, '√$1');
+  // operators
+  t = t.replace(/\\times/g, '×').replace(/\\div/g, '÷').replace(/\\cdot/g, '·')
+       .replace(/\\pm/g, '±').replace(/\\leq/g, '≤').replace(/\\geq/g, '≥')
+       .replace(/\\neq/g, '≠').replace(/\\%/g, '%').replace(/\\,/g, ' ')
+       .replace(/\\ /g, ' ');
+  // superscripts: x^2 / x^{2} -> x²  (digits only)
+  const sup = {'0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹'};
+  t = t.replace(/\^\{?(\d+)\}?/g, (_, d) => d.split('').map(c => sup[c] || c).join(''));
+  // any stray remaining backslash commands -> drop the backslash
+  t = t.replace(/\\([a-zA-Z]+)/g, '$1');
+  t = t.replace(/[{}]/g, '');                   // leftover braces
+  return t.replace(/\s{2,}/g, ' ').trim();
+}
+
+// KaTeX fallback for any well-formed \( \) that a question still contains.
 function renderMath() {
   if (typeof renderMathInElement !== 'function') return;
   const root = document.getElementById('root');
@@ -575,10 +604,8 @@ function renderMath() {
   try {
     renderMathInElement(root, {
       delimiters: [
-        { left: '$$', right: '$$', display: true },
-        { left: '\\[', right: '\\]', display: true },
-        { left: '$',  right: '$',  display: false },
-        { left: '\\(', right: '\\)', display: false }
+        { left: '\\(', right: '\\)', display: false },
+        { left: '\\[', right: '\\]', display: true }
       ],
       throwOnError: false,
       ignoredTags: ['script','noscript','style','textarea','pre']
