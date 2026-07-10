@@ -68,13 +68,14 @@ body{font-family:'Noto Sans',sans-serif;background:var(--bg);color:var(--text);m
 .main{max-width:1400px;margin:0 auto;padding:2rem;}
 
 /* STATS ROW */
-.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:2rem;}
+.stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:1rem;margin-bottom:2rem;}
 .stat-card{
   background:var(--surface);border:1px solid var(--border);border-radius:14px;
   padding:1.25rem 1.5rem;
 }
 .stat-label{font-size:0.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:0.5rem;}
 .stat-val{font-family:'Rajdhani',sans-serif;font-size:2rem;font-weight:700;color:var(--text);}
+.stat-sub{font-size:0.72rem;color:var(--muted);margin-top:0.35rem;font-family:'JetBrains Mono',monospace;}
 .stat-val.orange{color:var(--orange);}
 .stat-val.green{color:var(--green);}
 .stat-val.blue{color:var(--blue);}
@@ -216,6 +217,16 @@ body{font-family:'Noto Sans',sans-serif;background:var(--bg);color:var(--text);m
       <div class="stat-label">Active Today</div>
       <div class="stat-val" id="activeToday">—</div>
     </div>
+    <div class="stat-card">
+      <div class="stat-label">PYQ Tests Today</div>
+      <div class="stat-val orange" id="pyqToday">—</div>
+      <div class="stat-sub" id="pyqTodaySub">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Mock Tests Today</div>
+      <div class="stat-val green" id="mockToday">—</div>
+      <div class="stat-sub" id="mockTodaySub">—</div>
+    </div>
   </div>
 
   <!-- Controls -->
@@ -234,6 +245,8 @@ body{font-family:'Noto Sans',sans-serif;background:var(--bg);color:var(--text);m
     <select class="filter-select" id="sortBy" onchange="filterTable()">
       <option value="joined_desc">Joined: Newest first</option>
       <option value="joined_asc">Joined: Oldest first</option>
+      <option value="tests_desc">Tests Taken: High → Low</option>
+      <option value="tests_asc">Tests Taken: Low → High</option>
       <option value="best_desc">Best Marks: High → Low</option>
       <option value="best_asc">Best Marks: Low → High</option>
     </select>
@@ -287,6 +300,21 @@ const auth=getAuth(app);
 const ADMIN_PASS = 'TrickySSC@Admin2024';
 let allUsers = [];
 let allAttempts = [];
+
+// Classify an attempt as 'mock' or 'pyq'. Checks several possible schema
+// fields so it works whether your attempt docs carry mockId/paperId, a
+// type/mode field, or just the exam name. Adjust here if your field names differ.
+function attemptType(a){
+  const t = (a.type || a.mode || a.testType || a.category || '').toString().toLowerCase();
+  if(t.includes('mock')) return 'mock';
+  if(t.includes('pyq') || t.includes('paper')) return 'pyq';
+  if(a.mockId) return 'mock';
+  if(a.paperId) return 'pyq';
+  const name = (a.mockName || a.examName || a.exam || a.testName || '').toString().toLowerCase();
+  if(name.includes('mock')) return 'mock';
+  // Default: treat anything not identified as a mock as a PYQ attempt.
+  return 'pyq';
+}
 
 window.checkAuth = async () => {
   const pass = document.getElementById('adminPass').value;
@@ -347,10 +375,24 @@ window.loadData = async () => {
     const allScores = allAttempts.map(a=>parseFloat(a.percentage)||0);
     const overallAvg = allScores.length ? (allScores.reduce((a,b)=>a+b,0)/allScores.length).toFixed(1) : '—';
 
+    // Tests given today, PYQ and Mock counted separately.
+    // Primary number = unique candidates; sub-line = total attempts.
+    const todaysAttempts = allAttempts.filter(a => a.timestamp?.toDate && a.timestamp.toDate().toDateString()===today);
+    const pyqUsersToday = new Set(), mockUsersToday = new Set();
+    let pyqAttemptsToday = 0, mockAttemptsToday = 0;
+    todaysAttempts.forEach(a => {
+      if(attemptType(a)==='mock'){ mockUsersToday.add(a.uid); mockAttemptsToday++; }
+      else { pyqUsersToday.add(a.uid); pyqAttemptsToday++; }
+    });
+
     document.getElementById('totalUsers').textContent = allUsers.length;
     document.getElementById('totalTests').textContent = allAttempts.length;
     document.getElementById('overallAvg').textContent = allScores.length ? overallAvg+'%' : '—';
     document.getElementById('activeToday').textContent = activeToday;
+    document.getElementById('pyqToday').textContent = pyqUsersToday.size;
+    document.getElementById('pyqTodaySub').textContent = pyqAttemptsToday+' attempt'+(pyqAttemptsToday===1?'':'s');
+    document.getElementById('mockToday').textContent = mockUsersToday.size;
+    document.getElementById('mockTodaySub').textContent = mockAttemptsToday+' attempt'+(mockAttemptsToday===1?'':'s');
     document.getElementById('lastRefresh').textContent = 'Updated: '+new Date().toLocaleTimeString('en-IN');
 
     renderTable(allUsers);
@@ -418,9 +460,12 @@ window.filterTable = () => {
   const sortBy = document.getElementById('sortBy')?.value || 'joined_desc';
   const joinedMs = u => (u.createdAt?.toDate ? u.createdAt.toDate().getTime() : 0);
   const bestNum  = u => (u.liveBest!==null && u.liveBest!==undefined ? parseFloat(u.liveBest) : -1);
+  const testsNum = u => (u.liveTests || 0);
   filtered.sort((a,b)=>{
     switch(sortBy){
       case 'joined_asc':  return joinedMs(a)-joinedMs(b);
+      case 'tests_desc':  return testsNum(b)-testsNum(a);
+      case 'tests_asc':   return testsNum(a)-testsNum(b);
       case 'best_desc':   return bestNum(b)-bestNum(a);
       case 'best_asc':    return bestNum(a)-bestNum(b);
       case 'joined_desc':
