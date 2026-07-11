@@ -227,6 +227,10 @@ body{font-family:'Noto Sans',sans-serif;background:var(--bg);color:var(--text);m
       <div class="stat-val green" id="mockToday">—</div>
       <div class="stat-sub" id="mockTodaySub">—</div>
     </div>
+    <div class="stat-card">
+      <div class="stat-label">New Users Today</div>
+      <div class="stat-val blue" id="newUsersToday">—</div>
+    </div>
   </div>
 
   <!-- Controls -->
@@ -372,6 +376,8 @@ window.loadData = async () => {
     // Overall stats
     const today = new Date().toDateString();
     const activeToday = allUsers.filter(u => u.lastActive?.toDate && u.lastActive.toDate().toDateString()===today).length;
+    // Registered users added today, by their createdAt date.
+    const newUsersToday = allUsers.filter(u => u.createdAt?.toDate && u.createdAt.toDate().toDateString()===today).length;
     const allScores = allAttempts.map(a=>parseFloat(a.percentage)||0);
     const overallAvg = allScores.length ? (allScores.reduce((a,b)=>a+b,0)/allScores.length).toFixed(1) : '—';
 
@@ -393,6 +399,7 @@ window.loadData = async () => {
     document.getElementById('pyqTodaySub').textContent = pyqAttemptsToday+' attempt'+(pyqAttemptsToday===1?'':'s');
     document.getElementById('mockToday').textContent = mockUsersToday.size;
     document.getElementById('mockTodaySub').textContent = mockAttemptsToday+' attempt'+(mockAttemptsToday===1?'':'s');
+    document.getElementById('newUsersToday').textContent = newUsersToday;
     document.getElementById('lastRefresh').textContent = 'Updated: '+new Date().toLocaleTimeString('en-IN');
 
     renderTable(allUsers);
