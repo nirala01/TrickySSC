@@ -183,6 +183,15 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:10
   font-size:16px;font-weight:500;color:#1E293B;
   line-height:1.8;
 }
+/* ─── Math overflow safety (mobile) ─── */
+.qText,.opt-body,.en-qtext,.en-opts,.q-sentence,.q-instruction{
+  overflow-wrap:break-word;word-wrap:break-word;min-width:0;
+}
+.katex{max-width:100%;}
+.katex-display{overflow-x:auto;overflow-y:hidden;max-width:100%;padding-bottom:2px;}
+.katex-display>.katex{white-space:nowrap;}
+.katex::-webkit-scrollbar,.katex-display::-webkit-scrollbar{height:4px;}
+.katex::-webkit-scrollbar-thumb,.katex-display::-webkit-scrollbar-thumb{background:#CBD5E1;border-radius:4px;}
 .q-instruction{
   display:block;
   font-size:15px;font-weight:500;color:#475569;
@@ -2560,7 +2569,54 @@ function renderTrickyMath(root){
   }catch(e){/* never break rendering */}
 }
 /* render LaTeX first, then draw bars over any remaining Unicode roots */
-function mathDress(el){ renderTrickyMath(el); dressRoots(el); dressFractions(el); }
+/* ── TrickySSC: shrink wide math to fit the screen ───────────────
+   KaTeX renders \( ... \) as a fixed-width inline box that neither
+   wraps nor scales, so a wide formula (big fraction, cosec/sec
+   product) overflows off the right edge on narrow phones. KaTeX
+   sizes everything in em, so lowering the element font-size scales
+   the whole formula down proportionally and its measured width
+   shrinks correctly. We scale each overflowing formula down just
+   enough to fit (never below 55%); anything still too wide is made
+   horizontally scrollable so nothing is ever cut off.
+   Display-only — never touches stored data. */
+function fitMath(root){
+  if(!root||!root.querySelectorAll) return;
+  var boxSel='.qText,.opt-body,.en-qtext,.en-opts,.q-sentence,.q-instruction';
+  root.querySelectorAll('.katex').forEach(function(k){
+    try{
+      k.style.fontSize='';                 /* reset any earlier fit before re-measuring */
+      k.style.overflowX=''; k.style.display=''; k.style.maxWidth='';
+      var box=(k.closest?k.closest(boxSel):null)||root;
+      var avail=box.clientWidth;
+      if(!avail) return;                    /* container hidden/zero-width: skip, retry on show/resize */
+      var w=k.getBoundingClientRect().width;
+      if(w<=avail) return;                  /* already fits */
+      var scale=(avail-2)/w;
+      if(scale<0.55){                       /* too wide even at floor -> let it scroll sideways */
+        k.style.fontSize='55%';
+        k.style.display='inline-block';
+        k.style.maxWidth='100%';
+        k.style.overflowX='auto';
+        k.style.verticalAlign='middle';
+      }else{
+        k.style.fontSize=(scale*100).toFixed(1)+'%';
+      }
+    }catch(e){/* never break rendering */}
+  });
+}
+function mathDress(el){ renderTrickyMath(el); dressRoots(el); dressFractions(el); fitMath(el); }
+/* re-fit when the viewport changes (rotation, resize) */
+(function(){
+  var t;
+  window.addEventListener('resize',function(){
+    clearTimeout(t);
+    t=setTimeout(function(){
+      ['qText','options','enQText','enOpts','review'].forEach(function(id){
+        var el=document.getElementById(id); if(el) fitMath(el);
+      });
+    },180);
+  });
+})();
 /* re-render math once KaTeX finishes loading (covers first paint) */
 window.addEventListener('load',function(){try{['qText','options','enQText','enOpts','review'].forEach(function(id){var el=document.getElementById(id);if(el)mathDress(el);});}catch(e){}});
 
