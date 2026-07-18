@@ -532,5 +532,47 @@ const EXAM = "ssc-cgl";
 })();
 </script>
 
+<!-- Nav auth sync — reflect signed-in user in the navbar (mirrors mock-list.html / PYQ pages) -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+// Same config as the counts script above → initializeApp returns the existing
+// default app instead of throwing (identical options are deep-equal).
+const _app = initializeApp({
+  apiKey:"AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",
+  authDomain:"trickyssc-17bb3.firebaseapp.com",
+  projectId:"trickyssc-17bb3",
+  storageBucket:"trickyssc-17bb3.firebasestorage.app",
+  messagingSenderId:"450627057220",
+  appId:"1:450627057220:web:366267bf437d94f20c6e11"
+});
+const _auth = getAuth(_app);
+const _db   = getFirestore(_app);
+
+// Swap the "Login / Register" CTA(s) for the signed-in user's name (desktop + mobile nav)
+function _setNavUser(name) {
+  document.querySelectorAll('a[href="https://trickyssc.com/login.html"], a[href="login.html"]').forEach(el => {
+    el.href = 'https://trickyssc.com/dashboard.html';
+    el.style.background = 'linear-gradient(135deg,#00A86B,#0EA5E9)';
+    el.innerHTML = '👤 ' + name.split(' ')[0];
+  });
+}
+
+onAuthStateChanged(_auth, async user => {
+  if(!user) return;   // logged out → keep the static "Login / Register" CTA
+  // Instant paint from localStorage (no network), then confirm from Firestore.
+  try { const s = localStorage.getItem('tssc_user'); if(s){ const u = JSON.parse(s); if(u.name && u.name!=='Student') _setNavUser(u.name); } } catch(e) {}
+  try {
+    const snap = await getDoc(doc(_db,'users',user.uid));
+    if(snap.exists() && snap.data().name && snap.data().name!=='Student') {
+      _setNavUser(snap.data().name);
+      try { const s=localStorage.getItem('tssc_user'); const u=s?JSON.parse(s):{}; localStorage.setItem('tssc_user',JSON.stringify({...u,name:snap.data().name,uid:user.uid})); } catch(e) {}
+    } else _setNavUser(user.displayName||user.email||'Student');
+  } catch(e) { _setNavUser(user.displayName||user.email||'Student'); }
+});
+</script>
+
 </body>
 </html>
