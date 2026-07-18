@@ -29,6 +29,8 @@
   code{background:#0B1220;color:#7DD3FC;padding:1px 6px;border-radius:5px;font-size:12px;word-break:break-all;}
   .pill{display:inline-block;font-size:11px;padding:1px 8px;border-radius:99px;background:#FEE2E2;color:#B91C1C;font-weight:700;margin:1px 3px 1px 0;}
   .pill.b{background:#E0E7FF;color:#3730A3;}
+  .pill.pyq{background:#DBEAFE;color:#1D4ED8;}
+  .pill.mock{background:#DCFCE7;color:#15803D;}
   .stars{color:#F59E0B;letter-spacing:1px;}
   .muted{color:#94A3B8;font-size:12px;}
   .big{font-family:'Rajdhani';font-weight:700;font-size:22px;}
@@ -119,6 +121,7 @@ const auth = getAuth(app);
 const $ = id => document.getElementById(id);
 const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const fmtTime = ts => { try{ const d=ts?.toDate?ts.toDate():(ts?new Date(ts):null); return d?d.toLocaleString():''; }catch(_){ return ''; } };
+const srcPill = r => { const s=String(r.source||'mock').toLowerCase(); return s==='pyq' ? '<span class="pill pyq">PYQ</span>' : '<span class="pill mock">Mock</span>'; };
 
 let REPORTS = [], RATINGS = [];
 
@@ -162,7 +165,7 @@ function tsMs(r){ const t=r.createdAt; try{ return t?.toDate?t.toDate().getTime(
 
 window.renderReports = function(){
   const f = ($('reportFilter').value||'').toLowerCase();
-  const rows = REPORTS.filter(r => !f || (`${r.mockId} ${r.subject} ${r.reason} ${r.note} ${r.testName}`).toLowerCase().includes(f));
+  const rows = REPORTS.filter(r => !f || (`${r.mockId} ${r.subject} ${r.reason} ${r.note} ${r.testName} ${r.source||'mock'}`).toLowerCase().includes(f));
 
   $('reportKpis').innerHTML =
     `<div class="kpi"><div class="v">${REPORTS.length}</div><div class="l">Total reports</div></div>
@@ -189,8 +192,9 @@ window.renderReports = function(){
 
   // Raw list
   const list = rows.slice().sort((a,b)=>tsMs(b)-tsMs(a));
-  $('reportList').innerHTML = list.length ? `<table><tr><th>When</th><th>Test · Q</th><th>Reason</th><th>Note</th><th>By</th><th></th></tr>` +
+  $('reportList').innerHTML = list.length ? `<table><tr><th>When</th><th>Src</th><th>Test · Q</th><th>Reason</th><th>Note</th><th>By</th><th></th></tr>` +
     list.map(r=>`<tr><td class="muted">${esc(fmtTime(r.createdAt))}</td>
+      <td>${srcPill(r)}</td>
       <td><code>${esc(r.mockId)}</code> · Q${esc(r.qNum)}</td>
       <td><span class="pill">${esc(r.reason||'—')}</span></td>
       <td>${esc(r.note||'')}</td>
@@ -291,8 +295,8 @@ window.downloadCsv = function(which){
   const q = s => '"'+String(s==null?'':s).replace(/"/g,'""')+'"';
   if(which==='reports'){
     name='question_reports.csv';
-    rows=[['when','mockId','qNum','position','subject','reason','note','name','uid','testName']];
-    REPORTS.slice().sort((a,b)=>tsMs(b)-tsMs(a)).forEach(r=>rows.push([fmtTime(r.createdAt),r.mockId,r.qNum,r.position,r.subject,r.reason,r.note,r.name,r.uid,r.testName]));
+    rows=[['when','source','mockId','qNum','position','subject','reason','note','name','uid','testName']];
+    REPORTS.slice().sort((a,b)=>tsMs(b)-tsMs(a)).forEach(r=>rows.push([fmtTime(r.createdAt),r.source||'mock',r.mockId,r.qNum,r.position,r.subject,r.reason,r.note,r.name,r.uid,r.testName]));
   } else {
     name='mock_ratings.csv';
     rows=[['when','mockId','stars','difficulty','name','uid','testName']];
