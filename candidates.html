@@ -231,6 +231,11 @@ body{font-family:'Noto Sans',sans-serif;background:var(--bg);color:var(--text);m
       <div class="stat-label">New Users Today</div>
       <div class="stat-val blue" id="newUsersToday">—</div>
     </div>
+    <div class="stat-card">
+      <div class="stat-label">New Users Yesterday</div>
+      <div class="stat-val" id="newUsersYesterday">—</div>
+      <div class="stat-sub" id="newUsersYesterdaySub">—</div>
+    </div>
   </div>
 
   <!-- Controls -->
@@ -374,16 +379,28 @@ window.loadData = async () => {
     });
 
     // Overall stats
-    const today = new Date().toDateString();
-    const activeToday = allUsers.filter(u => u.lastActive?.toDate && u.lastActive.toDate().toDateString()===today).length;
-    // Registered users added today, by their createdAt date.
-    const newUsersToday = allUsers.filter(u => u.createdAt?.toDate && u.createdAt.toDate().toDateString()===today).length;
+    // ── Report day runs 7:00 AM → 7:00 AM (local time), not midnight ──
+    // Before 7 AM, the current report day still belongs to the previous calendar date.
+    const _now = new Date();
+    const reportStart = new Date(_now); reportStart.setHours(7,0,0,0);
+    if(_now < reportStart){ reportStart.setDate(reportStart.getDate()-1); }
+    const reportEnd  = new Date(reportStart); reportEnd.setDate(reportEnd.getDate()+1);   // +24h → next 7 AM
+    const ydayStart  = new Date(reportStart); ydayStart.setDate(ydayStart.getDate()-1);   // previous 7 AM
+    const _td   = x => (x && x.toDate) ? x.toDate() : null;                 // safe Firestore Timestamp → Date
+    const inDay  = d => d && d>=reportStart && d<reportEnd;                 // current 7 AM window ("today")
+    const inYday = d => d && d>=ydayStart   && d<reportStart;               // previous 7 AM window ("yesterday")
+    const _dLabel = dt => dt.toLocaleDateString('en-IN',{day:'numeric',month:'short'});
+
+    const activeToday = allUsers.filter(u => inDay(_td(u.lastActive))).length;
+    // Registered users added in the current / previous 7 AM report windows.
+    const newUsersToday     = allUsers.filter(u => inDay(_td(u.createdAt))).length;
+    const newUsersYesterday = allUsers.filter(u => inYday(_td(u.createdAt))).length;
     const allScores = allAttempts.map(a=>parseFloat(a.percentage)||0);
     const overallAvg = allScores.length ? (allScores.reduce((a,b)=>a+b,0)/allScores.length).toFixed(1) : '—';
 
-    // Tests given today, PYQ and Mock counted separately.
+    // Tests given today (7 AM window), PYQ and Mock counted separately.
     // Primary number = unique candidates; sub-line = total attempts.
-    const todaysAttempts = allAttempts.filter(a => a.timestamp?.toDate && a.timestamp.toDate().toDateString()===today);
+    const todaysAttempts = allAttempts.filter(a => inDay(_td(a.timestamp)));
     const pyqUsersToday = new Set(), mockUsersToday = new Set();
     let pyqAttemptsToday = 0, mockAttemptsToday = 0;
     todaysAttempts.forEach(a => {
@@ -400,7 +417,9 @@ window.loadData = async () => {
     document.getElementById('mockToday').textContent = mockUsersToday.size;
     document.getElementById('mockTodaySub').textContent = mockAttemptsToday+' attempt'+(mockAttemptsToday===1?'':'s');
     document.getElementById('newUsersToday').textContent = newUsersToday;
-    document.getElementById('lastRefresh').textContent = 'Updated: '+new Date().toLocaleTimeString('en-IN');
+    document.getElementById('newUsersYesterday').textContent = newUsersYesterday;
+    document.getElementById('newUsersYesterdaySub').textContent = '7 AM '+_dLabel(ydayStart)+' → 7 AM '+_dLabel(reportStart);
+    document.getElementById('lastRefresh').textContent = 'Updated: '+new Date().toLocaleTimeString('en-IN')+' · report day 7 AM–7 AM';
 
     renderTable(allUsers);
   } catch(e) {
