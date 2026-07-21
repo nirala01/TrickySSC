@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chapter Tagger — TrickySSC admin</title>
+<style>
+  :root{
+    --bg:#0f172a; --panel:#ffffff; --ink:#1e293b; --muted:#64748b; --line:#e2e8f0;
+    --accent:#2563eb; --accent-ink:#1d4ed8;
+    --ok:#16a34a; --ok-bg:#f0fdf4; --warn:#d97706; --warn-bg:#fffbeb;
+    --bad:#dc2626; --bad-bg:#fef2f2; --chip:#f1f5f9;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+       color:var(--ink);background:#f8fafc}
+  header{background:var(--bg);color:#fff;padding:14px 20px;display:flex;align-items:center;
+         gap:14px;flex-wrap:wrap;position:sticky;top:0;z-index:20}
+  header h1{font-size:16px;margin:0;font-weight:600;letter-spacing:.2px}
+  header .spacer{flex:1}
+  header .who{font-size:12px;color:#cbd5e1}
+  main{max-width:1200px;margin:0 auto;padding:20px}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;
+         padding:16px 18px;margin-bottom:16px}
+  .panel h2{font-size:13px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);
+            margin:0 0 12px}
+  .step{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;
+        border-radius:50%;background:var(--accent);color:#fff;font-size:11px;font-weight:700;
+        margin-right:8px}
+  .row{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end}
+  label.f{display:block;font-size:12px;color:var(--muted);margin-bottom:4px}
+  input[type=text],select{padding:8px 10px;border:1px solid var(--line);border-radius:7px;
+        font:inherit;background:#fff;min-width:180px}
+  input[type=text]:focus,select:focus,button:focus-visible{outline:2px solid var(--accent);
+        outline-offset:1px}
+  button{padding:9px 15px;border:1px solid transparent;border-radius:7px;font:inherit;
+        font-weight:600;cursor:pointer;background:var(--accent);color:#fff}
+  button.ghost{background:#fff;color:var(--ink);border-color:var(--line)}
+  button.ghost:hover{background:#f8fafc}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  button.danger{background:var(--bad)}
+  .hint{font-size:12px;color:var(--muted);margin-top:8px}
+  .radio{display:inline-flex;gap:6px;align-items:center;margin-right:14px;font-size:13px}
+  .summary{display:flex;gap:10px;flex-wrap:wrap;margin:2px 0 14px}
+  .chip{background:var(--chip);border-radius:999px;padding:4px 11px;font-size:12px;font-weight:600}
+  .chip.ok{background:var(--ok-bg);color:var(--ok)}
+  .chip.warn{background:var(--warn-bg);color:var(--warn)}
+  .chip.bad{background:var(--bad-bg);color:var(--bad)}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:8px 9px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{position:sticky;top:52px;background:#f8fafc;font-size:11px;text-transform:uppercase;
+     letter-spacing:.4px;color:var(--muted);z-index:5}
+  tr:hover td{background:#fbfcfe}
+  td.qn{font-weight:700;color:var(--muted);white-space:nowrap}
+  .subj{display:inline-block;font-size:11px;padding:1px 7px;border-radius:5px;background:var(--chip);
+        color:var(--muted);font-weight:600;white-space:nowrap}
+  .qtext{max-width:340px}
+  .opts{font-size:12px;color:var(--muted);margin-top:3px}
+  .opts b{color:var(--ink)}
+  .correct{color:var(--ok);font-weight:700}
+  select.chap{min-width:210px;max-width:230px}
+  .conf{font-size:12px;font-weight:700}
+  .conf.low{color:var(--warn)}
+  .st{font-size:11px;font-weight:700;padding:2px 7px;border-radius:5px;white-space:nowrap}
+  .st.match{background:var(--ok-bg);color:var(--ok)}
+  .st.none{background:var(--bad-bg);color:var(--bad)}
+  .st.multi{background:var(--warn-bg);color:var(--warn)}
+  .st.pending{background:var(--chip);color:var(--muted)}
+  .st.done{background:var(--ok-bg);color:var(--ok)}
+  .st.fail{background:var(--bad-bg);color:var(--bad)}
+  .fbtext{max-width:260px;font-size:12px;color:var(--muted)}
+  .empty{padding:36px;text-align:center;color:var(--muted)}
+  .barwrap{height:6px;background:var(--line);border-radius:4px;overflow:hidden;margin-top:10px;display:none}
+  .bar{height:100%;width:0;background:var(--accent);transition:width .2s}
+  .note{background:var(--warn-bg);border:1px solid #fde68a;color:#92400e;border-radius:8px;
+        padding:10px 12px;font-size:12.5px;margin-bottom:14px}
+  .filterbar{display:flex;gap:14px;align-items:center;margin-bottom:10px;font-size:13px}
+  code{background:#f1f5f9;padding:1px 5px;border-radius:4px;font-size:12px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Chapter Tagger</h1>
+  <span class="who" id="who">not signed in</span>
+  <div class="spacer"></div>
+  <button class="ghost" id="signIn">Sign in</button>
+</header>
+
+<main>
+  <div class="note">
+    This tool writes <b>only</b> the <code>chapterId</code> and <code>chapterName</code> fields onto
+    questions that already exist. It uses Firestore <code>update()</code>, so it can never create a
+    new question or change any other field. Nothing is written until you review the matches and press
+    <b>Push chapters</b>.
+  </div>
+
+  <!-- STEP 1 -->
+  <div class="panel">
+    <h2><span class="step">1</span>Which paper</h2>
+    <div class="row">
+      <div>
+        <label class="f">Paper type</label>
+        <span class="radio"><input type="radio" name="ptype" value="paperId" checked id="tPyq"> PYQ (paperId)</span>
+        <span class="radio"><input type="radio" name="ptype" value="mockId" id="tMock"> Mock (mockId)</span>
+      </div>
+      <div>
+        <label class="f" id="enLbl">English paper ID</label>
+        <input type="text" id="enId" placeholder="e.g. ssc-cgl-2025-12sep-s1">
+      </div>
+      <div>
+        <label class="f">Hindi paper ID <span style="font-weight:400">(only if stored separately)</span></label>
+        <input type="text" id="hiId" placeholder="leave blank if same doc holds both">
+      </div>
+    </div>
+    <div class="hint">
+      If your English and Hindi questions live in one document each, fill only the English ID — the tool
+      updates that single document (which serves both languages). If Hindi is a separate paper, add its ID
+      too and both get the same chapter.
+    </div>
+  </div>
+
+  <!-- STEP 2 -->
+  <div class="panel">
+    <h2><span class="step">2</span>Upload the tagged CSV</h2>
+    <div class="row">
+      <input type="file" id="csv" accept=".csv">
+      <span class="hint" id="csvInfo"></span>
+    </div>
+  </div>
+
+  <!-- STEP 3 -->
+  <div class="panel">
+    <h2><span class="step">3</span>Match against Firebase &amp; review</h2>
+    <div class="row" style="margin-bottom:6px">
+      <button id="loadBtn" class="ghost" disabled>Load &amp; match from Firebase</button>
+      <button id="pushBtn" class="danger" disabled>Push chapters</button>
+    </div>
+    <div class="barwrap" id="barwrap"><div class="bar" id="bar"></div></div>
+    <div class="summary" id="summary" style="margin-top:12px"></div>
+    <div class="filterbar" id="filterbar" style="display:none">
+      <label><input type="checkbox" id="onlyReview"> Show only rows that need a look</label>
+    </div>
+    <div style="overflow:auto">
+      <table id="tbl">
+        <thead><tr>
+          <th>#</th><th>Subject</th><th>Question &amp; options</th><th>Correct</th>
+          <th>Firebase match</th><th>Chapter</th><th>Conf.</th><th>Status</th>
+        </tr></thead>
+        <tbody id="tbody"><tr><td colspan="8" class="empty">Upload a tagged CSV to begin.</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<!-- Firebase compat SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script>
+/* ==========================================================================
+   CONFIG  — set these once to match your Firestore.
+   ========================================================================== */
+// Paste your project's config (same object your other admin pages use).
+const firebaseConfig = {
+  apiKey: "PASTE_API_KEY",
+  authDomain: "trickyssc-17bb3.firebaseapp.com",
+  projectId: "trickyssc-17bb3",
+  storageBucket: "trickyssc-17bb3.appspot.com",
+  messagingSenderId: "PASTE_SENDER_ID",
+  appId: "PASTE_APP_ID"
+};
+const COLLECTION          = "questions";   // question collection
+const QNUM_FIELD          = "qNum";        // question-number field on the doc
+const QUESTION_TEXT_FIELD = "text";        // shown so you can confirm the match
+const CHAPTER_ID_FIELD    = "chapterId";   // field this tool writes
+const CHAPTER_NAME_FIELD  = "chapterName"; // display name it also writes
+const LANG_FIELDS         = ["lang","language"]; // used only to label EN/HI in the preview
+const CONF_THRESHOLD      = 0.75;
+/* ========================================================================== */
+
+const TAXONOMY = {"version":1,"note":"Canonical chapter taxonomy for TrickySSC tagging. chapterId is the stable key (never rename an id once questions are tagged to it; only edit the display name). Subject is derived from the module: for Tier I by Q-range (1-25 reasoning, 26-50 ga, 51-75 quant, 76-100 english); Tier II reuses those same four subjects plus the dedicated 'computer', 'statistics' (Paper II) and 'finance_economics' (Paper III, AAO) modules. The tagger only chooses within one subject's chapter list. Every subject has an '*.other' safety-valve for genuinely uncategorizable questions - these should be rare and reviewed.","subjects":{"reasoning":{"range":"1-25","chapters":[{"id":"reason.analogy","name":"Analogy (Word / Letter / Number)","group":"Verbal"},{"id":"reason.classification","name":"Classification (Odd One Out)","group":"Verbal"},{"id":"reason.series","name":"Series (Number / Alphabet / Mixed)","group":"Verbal"},{"id":"reason.coding-decoding","name":"Coding-Decoding","group":"Verbal"},{"id":"reason.blood-relation","name":"Blood Relations","group":"Verbal"},{"id":"reason.direction-distance","name":"Direction & Distance","group":"Verbal"},{"id":"reason.ranking-arrangement","name":"Ranking & Order Arrangement","group":"Verbal"},{"id":"reason.seating-arrangement","name":"Seating Arrangement","group":"Verbal"},{"id":"reason.syllogism","name":"Syllogism","group":"Verbal"},{"id":"reason.statement-conclusion","name":"Statement & Conclusion / Inference","group":"Verbal"},{"id":"reason.venn-diagram","name":"Venn Diagram","group":"Verbal"},{"id":"reason.mathematical-operations","name":"Mathematical Operations (BODMAS / Symbols)","group":"Verbal"},{"id":"reason.word-formation","name":"Word Formation & Dictionary Order","group":"Verbal"},{"id":"reason.missing-number","name":"Missing Number (Matrix)","group":"Verbal"},{"id":"reason.puzzle","name":"Puzzle / Data Arrangement","group":"Verbal"},{"id":"reason.calendar-clock","name":"Calendar & Clock","group":"Verbal"},{"id":"reason.mirror-image","name":"Mirror Image","group":"Non-Verbal"},{"id":"reason.water-image","name":"Water Image","group":"Non-Verbal"},{"id":"reason.paper-folding","name":"Paper Folding & Cutting","group":"Non-Verbal"},{"id":"reason.embedded-figure","name":"Embedded / Hidden Figures","group":"Non-Verbal"},{"id":"reason.figure-completion","name":"Figure / Pattern Completion","group":"Non-Verbal"},{"id":"reason.figure-series","name":"Figure Series","group":"Non-Verbal"},{"id":"reason.figure-classification","name":"Figure Classification","group":"Non-Verbal"},{"id":"reason.figure-analogy","name":"Figure Analogy","group":"Non-Verbal"},{"id":"reason.counting-figures","name":"Counting of Figures (Triangles etc.)","group":"Non-Verbal"},{"id":"reason.dice","name":"Dice","group":"Non-Verbal"},{"id":"reason.cube-cuboid","name":"Cube & Cuboid","group":"Non-Verbal"},{"id":"reason.dot-situation","name":"Dot Situation","group":"Non-Verbal"},{"id":"reason.other","name":"Other / Uncategorized Reasoning","group":"Other"}]},"ga":{"range":"26-50","chapters":[{"id":"ga.history-ancient","name":"History: Ancient India","group":"History"},{"id":"ga.history-medieval","name":"History: Medieval India","group":"History"},{"id":"ga.history-modern","name":"History: Modern India & Freedom Struggle","group":"History"},{"id":"ga.art-culture","name":"Art & Culture","group":"History"},{"id":"ga.geography-india","name":"Geography: India","group":"Geography"},{"id":"ga.geography-world","name":"Geography: World & Physical","group":"Geography"},{"id":"ga.polity","name":"Polity & Constitution","group":"Polity"},{"id":"ga.economics","name":"Economics","group":"Economy"},{"id":"ga.physics","name":"Science: Physics","group":"Science"},{"id":"ga.chemistry","name":"Science: Chemistry","group":"Science"},{"id":"ga.biology","name":"Science: Biology","group":"Science"},{"id":"ga.computer","name":"Computer & Technology","group":"Science"},{"id":"ga.static-books-authors","name":"Static: Books & Authors","group":"Static GK"},{"id":"ga.static-awards","name":"Static: Awards & Honours","group":"Static GK"},{"id":"ga.static-days-events","name":"Static: Important Days & Events","group":"Static GK"},{"id":"ga.static-sports","name":"Static: Sports","group":"Static GK"},{"id":"ga.static-schemes","name":"Govt Schemes","group":"Static GK"},{"id":"ga.static-organizations","name":"National & International Organizations","group":"Static GK"},{"id":"ga.static-misc","name":"Static GK: Misc (Dances, Festivals, Symbols, Superlatives)","group":"Static GK"},{"id":"ga.current-affairs","name":"Current Affairs","group":"Current Affairs"},{"id":"ga.other","name":"Other / Uncategorized GA","group":"Other"}]},"quant":{"range":"51-75","chapters":[{"id":"quant.number-system","name":"Number System, HCF & LCM","group":"Arithmetic"},{"id":"quant.simplification","name":"Simplification, Surds & Indices","group":"Arithmetic"},{"id":"quant.percentage","name":"Percentage","group":"Arithmetic"},{"id":"quant.profit-loss","name":"Profit, Loss & Discount","group":"Arithmetic"},{"id":"quant.ratio-proportion","name":"Ratio & Proportion","group":"Arithmetic"},{"id":"quant.average","name":"Average","group":"Arithmetic"},{"id":"quant.mixture-alligation","name":"Mixture & Alligation","group":"Arithmetic"},{"id":"quant.time-work","name":"Time & Work, Pipes & Cistern","group":"Arithmetic"},{"id":"quant.time-speed-distance","name":"Time, Speed & Distance, Trains, Boats","group":"Arithmetic"},{"id":"quant.simple-compound-interest","name":"Simple & Compound Interest","group":"Arithmetic"},{"id":"quant.partnership","name":"Partnership","group":"Arithmetic"},{"id":"quant.ages","name":"Problems on Ages","group":"Arithmetic"},{"id":"quant.algebra","name":"Algebra","group":"Advanced Maths"},{"id":"quant.geometry","name":"Geometry","group":"Advanced Maths"},{"id":"quant.mensuration","name":"Mensuration (2D & 3D)","group":"Advanced Maths"},{"id":"quant.trigonometry","name":"Trigonometry","group":"Advanced Maths"},{"id":"quant.height-distance","name":"Height & Distance","group":"Advanced Maths"},{"id":"quant.data-interpretation","name":"Data Interpretation (Bar/Pie/Line/Table)","group":"Data"},{"id":"quant.statistics","name":"Statistics (Mean / Median / Mode)","group":"Data"},{"id":"quant.other","name":"Other / Uncategorized Quant","group":"Other"}]},"english":{"range":"76-100","chapters":[{"id":"eng.error-spotting","name":"Spot the Error","group":"Grammar"},{"id":"eng.sentence-improvement","name":"Sentence Improvement","group":"Grammar"},{"id":"eng.fill-blanks","name":"Fill in the Blanks","group":"Grammar"},{"id":"eng.active-passive","name":"Active & Passive Voice","group":"Grammar"},{"id":"eng.narration","name":"Direct & Indirect Narration","group":"Grammar"},{"id":"eng.para-jumbles","name":"Sentence Rearrangement / Para Jumbles","group":"Grammar"},{"id":"eng.synonyms","name":"Synonyms","group":"Vocabulary"},{"id":"eng.antonyms","name":"Antonyms","group":"Vocabulary"},{"id":"eng.spelling","name":"Spelling Correction","group":"Vocabulary"},{"id":"eng.idioms-phrases","name":"Idioms & Phrases","group":"Vocabulary"},{"id":"eng.one-word","name":"One Word Substitution","group":"Vocabulary"},{"id":"eng.homonyms","name":"Homonyms","group":"Vocabulary"},{"id":"eng.cloze-test","name":"Cloze Test","group":"Comprehension"},{"id":"eng.reading-comprehension","name":"Reading Comprehension","group":"Comprehension"},{"id":"eng.other","name":"Other / Uncategorized English","group":"Other"}]},"computer":{"range":"tier2-computer-module","chapters":[{"id":"computer.fundamentals","name":"Computer Fundamentals & Organization (CPU, I/O, Ports, Generations)","group":"Basics"},{"id":"computer.memory-storage","name":"Memory & Storage Devices","group":"Basics"},{"id":"computer.os-windows","name":"Operating System & Windows (Explorer, Shortcuts)","group":"Software"},{"id":"computer.ms-office","name":"MS Office (Word, Excel, PowerPoint)","group":"Software"},{"id":"computer.internet-email","name":"Internet, Web Browsing & E-mail (incl. e-Banking)","group":"Internet"},{"id":"computer.networking","name":"Networking (Devices & Protocols)","group":"Networking & Security"},{"id":"computer.cyber-security","name":"Cyber Security (Virus, Hacking, Threats)","group":"Networking & Security"},{"id":"computer.other","name":"Other / Uncategorized Computer","group":"Other"}]},"statistics":{"range":"tier2-paper2","chapters":[{"id":"statistics.data-collection","name":"Collection, Classification & Presentation of Data","group":"Descriptive"},{"id":"statistics.central-tendency","name":"Measures of Central Tendency","group":"Descriptive"},{"id":"statistics.dispersion","name":"Measures of Dispersion","group":"Descriptive"},{"id":"statistics.moments-skewness-kurtosis","name":"Moments, Skewness & Kurtosis","group":"Descriptive"},{"id":"statistics.correlation-regression","name":"Correlation & Regression","group":"Relationships"},{"id":"statistics.probability","name":"Probability Theory","group":"Probability"},{"id":"statistics.random-variable","name":"Random Variable & Probability Distributions","group":"Probability"},{"id":"statistics.sampling","name":"Sampling Theory","group":"Inference"},{"id":"statistics.inference","name":"Statistical Inference (Estimation & Testing)","group":"Inference"},{"id":"statistics.anova","name":"Analysis of Variance (ANOVA)","group":"Inference"},{"id":"statistics.time-series","name":"Time Series Analysis","group":"Applied"},{"id":"statistics.index-numbers","name":"Index Numbers","group":"Applied"},{"id":"statistics.other","name":"Other / Uncategorized Statistics","group":"Other"}]},"finance_economics":{"range":"tier2-paper3","chapters":[{"id":"fineco.accounting-fundamentals","name":"Financial Accounting: Nature, Concepts & Conventions (GAAP)","group":"Finance & Accounts"},{"id":"fineco.accounting-basics","name":"Basic Accounting: Single/Double Entry, Journal, Ledger, Trial Balance","group":"Finance & Accounts"},{"id":"fineco.bank-reconciliation","name":"Bank Reconciliation Statement","group":"Finance & Accounts"},{"id":"fineco.rectification-errors","name":"Rectification of Errors","group":"Finance & Accounts"},{"id":"fineco.final-accounts","name":"Final Accounts (Trading, P&L, Balance Sheet)","group":"Finance & Accounts"},{"id":"fineco.capital-revenue","name":"Capital & Revenue Expenditure","group":"Finance & Accounts"},{"id":"fineco.depreciation","name":"Depreciation Accounting","group":"Finance & Accounts"},{"id":"fineco.inventory-valuation","name":"Valuation of Inventories","group":"Finance & Accounts"},{"id":"fineco.non-profit-accounts","name":"Non-Profit Org Accounts (Receipts & Payments, Income & Expenditure)","group":"Finance & Accounts"},{"id":"fineco.bills-exchange","name":"Bills of Exchange","group":"Finance & Accounts"},{"id":"fineco.self-balancing-ledgers","name":"Self-Balancing Ledgers","group":"Finance & Accounts"},{"id":"fineco.constitutional-bodies","name":"Constitutional Bodies: CAG & Finance Commission","group":"Governance"},{"id":"fineco.economics-basics","name":"Basic Concepts & Micro Economics Intro (PPC, Central Problems)","group":"Micro Economics"},{"id":"fineco.demand-supply","name":"Theory of Demand & Supply (Elasticity, Consumer Behaviour)","group":"Micro Economics"},{"id":"fineco.production-cost","name":"Theory of Production & Cost (Returns to Scale)","group":"Micro Economics"},{"id":"fineco.market-forms","name":"Forms of Market & Price Determination","group":"Micro Economics"},{"id":"fineco.indian-economy","name":"Indian Economy: Sectors (Agriculture, Industry, Services)","group":"Indian Economy"},{"id":"fineco.national-income","name":"National Income (Concepts & Measurement)","group":"Indian Economy"},{"id":"fineco.population","name":"Population & Growth","group":"Indian Economy"},{"id":"fineco.poverty-unemployment","name":"Poverty & Unemployment","group":"Indian Economy"},{"id":"fineco.infrastructure","name":"Infrastructure (Energy, Transport, Communication)","group":"Indian Economy"},{"id":"fineco.economic-reforms","name":"Economic Reforms since 1991 (LPG & Disinvestment)","group":"Indian Economy"},{"id":"fineco.money-banking","name":"Money & Banking (RBI, Commercial Banks, Monetary Policy)","group":"Money & Banking"},{"id":"fineco.budget-fiscal","name":"Budget, Fiscal Deficit, BoP & FRBM Act","group":"Money & Banking"},{"id":"fineco.it-governance","name":"Role of IT in Governance","group":"Governance"},{"id":"fineco.other","name":"Other / Uncategorized Finance & Economics","group":"Other"}]}}};
+const SUBJECTS = TAXONOMY.subjects;
+
+const SUBJECT_ALIASES = {
+  "general intelligence & reasoning":"reasoning","general intelligence and reasoning":"reasoning",
+  "reasoning & general intelligence":"reasoning","general intelligence":"reasoning","reasoning":"reasoning",
+  "general awareness":"ga","general knowledge":"ga","ga":"ga","gk":"ga",
+  "quantitative aptitude":"quant","quantitative abilities":"quant","mathematical abilities":"quant",
+  "quant":"quant","maths":"quant","math":"quant",
+  "english":"english","english language & comprehension":"english",
+  "english language and comprehension":"english","english comprehension":"english",
+  "computer knowledge":"computer","computer knowledge module":"computer","computer awareness":"computer",
+  "computer":"computer","statistics":"statistics",
+  "general studies (finance and economics)":"finance_economics",
+  "general studies finance and economics":"finance_economics",
+  "finance and economics":"finance_economics","finance & economics":"finance_economics"
+};
+function normalizeSubject(name){
+  if(!name) return null;
+  const k = String(name).trim().toLowerCase();
+  if(SUBJECT_ALIASES[k]) return SUBJECT_ALIASES[k];
+  if(k.includes("statistic")) return "statistics";
+  if(k.includes("finance")||k.includes("economic")) return "finance_economics";
+  if(k.includes("computer")) return "computer";
+  if(k.includes("english")) return "english";
+  if(k.includes("quantitat")||k.includes("mathematic")||k.startsWith("math")) return "quant";
+  if(k.includes("reasoning")||k.includes("intelligence")) return "reasoning";
+  if(k.includes("aware")||k.includes("knowledge")||k.includes("studies")) return "ga";
+  return null;
+}
+function chapterName(id){
+  for(const s in SUBJECTS){ const c=SUBJECTS[s].chapters.find(x=>x.id===id); if(c) return c.name; }
+  return "";
+}
+
+/* ---- CSV parser (handles quoted fields, commas & newlines inside quotes, BOM) ---- */
+function parseCSV(text){
+  text = text.replace(/^\uFEFF/,"");
+  const rows=[]; let row=[], field="", i=0, q=false;
+  while(i<text.length){
+    const c=text[i];
+    if(q){
+      if(c==='"'){ if(text[i+1]==='"'){field+='"';i++;} else q=false; }
+      else field+=c;
+    } else {
+      if(c==='"') q=true;
+      else if(c===','){ row.push(field); field=""; }
+      else if(c==='\n'){ row.push(field); rows.push(row); row=[]; field=""; }
+      else if(c==='\r'){ /* skip */ }
+      else field+=c;
+    }
+    i++;
+  }
+  if(field.length||row.length){ row.push(field); rows.push(row); }
+  if(!rows.length) return {header:[],rows:[]};
+  const header=rows.shift().map(h=>h.trim());
+  const objs=rows.filter(r=>r.some(v=>v!=="")).map(r=>{
+    const o={}; header.forEach((h,j)=>o[h]=(r[j]!==undefined?r[j]:"")); return o;
+  });
+  return {header,rows:objs};
+}
+function pick(header,cands){
+  const low={}; header.forEach(h=>low[h.toLowerCase().trim()]=h);
+  for(const c of cands) if(low[c]) return low[c];
+  return null;
+}
+function pickQuad(header){
+  const low={}; header.forEach(h=>low[h.toLowerCase().trim()]=h);
+  const sets=[["option_a","option_b","option_c","option_d"],["opta","optb","optc","optd"],
+              ["a","b","c","d"],["option1","option2","option3","option4"]];
+  for(const s of sets) if(s.every(x=>low[x])) return s.map(x=>low[x]);
+  return null;
+}
+
+/* ---- State ---- */
+let COL={}, data=[], db=null, auth=null, user=null, matched=false;
+
+/* ---- Firebase init ---- */
+try{
+  firebase.initializeApp(firebaseConfig);
+  db=firebase.firestore(); auth=firebase.auth();
+  auth.onAuthStateChanged(u=>{
+    user=u;
+    document.getElementById("who").textContent = u ? ("signed in — "+(u.email||u.uid)) : "not signed in";
+    document.getElementById("signIn").textContent = u ? "Sign out" : "Sign in";
+  });
+}catch(e){ console.warn("Firebase not configured yet:",e); }
+
+document.getElementById("signIn").onclick=async()=>{
+  if(!auth) return alert("Add your firebaseConfig at the top of this file first.");
+  if(user){ await auth.signOut(); }
+  else { try{ await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()); }
+         catch(e){ alert("Sign-in failed: "+e.message); } }
+};
+
+/* ---- Paper type label ---- */
+document.querySelectorAll('input[name=ptype]').forEach(r=>r.onchange=()=>{
+  const f=document.querySelector('input[name=ptype]:checked').value;
+  document.getElementById("enLbl").textContent = "English paper ID";
+});
+
+/* ---- CSV upload ---- */
+document.getElementById("csv").onchange=async ev=>{
+  const file=ev.target.files[0]; if(!file) return;
+  const text=await file.text();
+  const {header,rows}=parseCSV(text);
+  COL={
+    qnum:   pick(header,["qnum","q_num","qno","q_no","number","sno","id"]),
+    text:   pick(header,["text","question","question_en","stem","english"]),
+    subject:pick(header,["subject","section","module"]),
+    correct:pick(header,["correct","answer","ans","key"]),
+    chapter:pick(header,["chapterid","chapter_id","chapter"]),
+    conf:   pick(header,["chapter_confidence","confidence","conf"]),
+    opts:   pick(header,["options","choices"]),
+    quad:   null
+  };
+  if(!COL.opts) COL.quad=pickQuad(header);
+  if(!COL.qnum||!COL.text){
+    document.getElementById("csvInfo").innerHTML =
+      '<span style="color:var(--bad)">Could not find a question-number or question column. Header found: '
+      +header.join(", ")+'</span>';
+    return;
+  }
+  if(!COL.chapter){
+    document.getElementById("csvInfo").innerHTML =
+      '<span style="color:var(--bad)">No chapterId column in this CSV. Run it through tag_chapters.py first.</span>';
+    return;
+  }
+  data=rows.map(r=>{
+    const qn=parseInt((r[COL.qnum]||"").match(/\d+/)?.[0]||"",10);
+    const subjKey=normalizeSubject(COL.subject?r[COL.subject]:"");
+    let opts="";
+    if(COL.opts) opts=r[COL.opts]||"";
+    else if(COL.quad) opts=COL.quad.map((c,k)=>({L:"ABCD"[k],v:r[c]})).filter(o=>o.v)
+                                   .map(o=>o.L+") "+o.v).join("   ");
+    return {
+      qn, subjKey,
+      subjRaw: COL.subject?r[COL.subject]:"",
+      text: r[COL.text]||"",
+      opts,
+      correct: COL.correct?(r[COL.correct]||"").trim():"",
+      chapter: (r[COL.chapter]||"").trim(),
+      conf: COL.conf?parseFloat(r[COL.conf]||"") : NaN,
+      match:null, status:"pending"
+    };
+  }).filter(x=>!isNaN(x.qn));
+  matched=false;
+  document.getElementById("csvInfo").textContent =
+    data.length+" questions loaded. Columns → qNum:"+COL.qnum+", chapterId:"+COL.chapter+
+    (COL.quad?", options:4-col":COL.opts?", options:"+COL.opts:"");
+  document.getElementById("loadBtn").disabled = !(db && data.length);
+  document.getElementById("pushBtn").disabled = true;
+  document.getElementById("filterbar").style.display = data.length?"flex":"none";
+  render();
+};
+
+/* ---- Chapter dropdown constrained to the row's subject ---- */
+function chapterSelect(rowIdx){
+  const r=data[rowIdx];
+  const subj = SUBJECTS[r.subjKey] ? r.subjKey : null;
+  const sel=document.createElement("select"); sel.className="chap";
+  const pool = subj ? {[subj]:SUBJECTS[subj]} : SUBJECTS; // if subject unknown, allow all
+  for(const sk in pool){
+    const groups={};
+    pool[sk].chapters.forEach(c=>{ (groups[c.group]=groups[c.group]||[]).push(c); });
+    for(const g in groups){
+      const og=document.createElement("optgroup"); og.label=(subj?"":sk+" — ")+g;
+      groups[g].forEach(c=>{
+        const o=document.createElement("option"); o.value=c.id; o.textContent=c.name;
+        if(c.id===r.chapter) o.selected=true; og.appendChild(o);
+      });
+      sel.appendChild(og);
+    }
+  }
+  if(r.chapter && !sel.value){ // chapter id not in this subject's list — surface it
+    const o=document.createElement("option"); o.value=r.chapter;
+    o.textContent="⚠ "+r.chapter+" (off-list)"; o.selected=true; sel.insertBefore(o,sel.firstChild);
+  }
+  sel.onchange=()=>{ r.chapter=sel.value; render(); };
+  return sel;
+}
+
+function needsReview(r){
+  return r.status==="none" || (r.chapter||"").endsWith(".other")
+      || (!isNaN(r.conf) && r.conf<CONF_THRESHOLD) || (r.match===null&&matched);
+}
+
+/* ---- Render table ---- */
+function render(){
+  const tb=document.getElementById("tbody"); tb.innerHTML="";
+  const onlyRev=document.getElementById("onlyReview").checked;
+  const rows = onlyRev ? data.filter(needsReview) : data;
+  if(!rows.length){ tb.innerHTML='<tr><td colspan="8" class="empty">Nothing to show.</td></tr>'; updateSummary(); return; }
+  rows.forEach(r=>{
+    const i=data.indexOf(r);
+    const tr=document.createElement("tr");
+
+    const q=String(r.qn);
+    const stem=(r.text||"").replace(/\[BR\]/g,"  ").replace(/\|\|/g," ").replace(/\[FIGURE-BASED\]/g,"🖼 ");
+    const optHtml = r.opts ? '<div class="opts">'+escapeHtml(r.opts)+'</div>' : '';
+
+    let fb='<span class="st pending">not loaded</span>';
+    if(r.match!==null){
+      if(r.match.length===0) fb='<span class="st none">no match</span>';
+      else{
+        const langs=r.match.map(m=>m.lang).filter(Boolean);
+        const cls=r.match.length>2?"multi":"match";
+        fb='<span class="st '+cls+'">'+r.match.length+' doc'+(r.match.length>1?'s':'')+
+           (langs.length?' ('+langs.join('/')+')':'')+'</span>'+
+           '<div class="fbtext">'+escapeHtml((r.match[0].text||"").slice(0,90))+'…</div>';
+      }
+    }
+
+    let stCls={pending:"pending",done:"done",fail:"fail",none:"none"}[r.status]||"pending";
+    const stTxt={pending:"—",done:"pushed",fail:"failed",none:"skipped"}[r.status]||"—";
+
+    tr.innerHTML =
+      '<td class="qn">'+q+'</td>'+
+      '<td><span class="subj">'+escapeHtml(r.subjRaw||r.subjKey||"?")+'</span></td>'+
+      '<td class="qtext">'+escapeHtml(stem.slice(0,180))+(stem.length>180?'…':'')+optHtml+'</td>'+
+      '<td class="correct">'+escapeHtml(r.correct||"")+'</td>'+
+      '<td>'+fb+'</td>'+
+      '<td class="chapcell"></td>'+
+      '<td class="conf'+(!isNaN(r.conf)&&r.conf<CONF_THRESHOLD?' low':'')+'">'+
+        (isNaN(r.conf)?"":r.conf.toFixed(2))+'</td>'+
+      '<td><span class="st '+stCls+'">'+stTxt+'</span></td>';
+    tr.querySelector(".chapcell").appendChild(chapterSelect(i));
+    tb.appendChild(tr);
+  });
+  updateSummary();
+}
+function escapeHtml(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+
+function updateSummary(){
+  const s=document.getElementById("summary");
+  const total=data.length;
+  const other=data.filter(r=>(r.chapter||"").endsWith(".other")).length;
+  const low=data.filter(r=>!isNaN(r.conf)&&r.conf<CONF_THRESHOLD).length;
+  const nomatch=matched?data.filter(r=>r.match&&r.match.length===0).length:0;
+  const docs=matched?data.reduce((n,r)=>n+(r.match?r.match.length:0),0):0;
+  const done=data.filter(r=>r.status==="done").length;
+  s.innerHTML =
+    '<span class="chip">'+total+' questions</span>'+
+    (matched?'<span class="chip ok">'+docs+' docs matched</span>':'')+
+    (nomatch?'<span class="chip bad">'+nomatch+' no match</span>':'')+
+    (low?'<span class="chip warn">'+low+' low-confidence</span>':'')+
+    (other?'<span class="chip warn">'+other+' in “other”</span>':'')+
+    (done?'<span class="chip ok">'+done+' pushed</span>':'');
+}
+document.getElementById("onlyReview").onchange=render;
+
+/* ---- Load & match from Firebase ---- */
+async function queryPaper(field,id){
+  const snap=await db.collection(COLLECTION).where(field,"==",id).get();
+  const byQ={};
+  snap.forEach(doc=>{
+    const qn=parseInt(String(doc.get(QNUM_FIELD)??"").match(/\d+/)?.[0]||"",10);
+    if(isNaN(qn)) return;
+    let lang=""; for(const lf of LANG_FIELDS){ const v=doc.get(lf); if(v){lang=String(v).toLowerCase();break;} }
+    (byQ[qn]=byQ[qn]||[]).push({ref:doc.ref,id:doc.id,text:doc.get(QUESTION_TEXT_FIELD)||"",lang,
+                                existing:doc.get(CHAPTER_ID_FIELD)||""});
+  });
+  return byQ;
+}
+document.getElementById("loadBtn").onclick=async()=>{
+  if(!db) return alert("Add your firebaseConfig at the top of this file first.");
+  const field=document.querySelector('input[name=ptype]:checked').value;
+  const enId=document.getElementById("enId").value.trim();
+  const hiId=document.getElementById("hiId").value.trim();
+  if(!enId){ return alert("Enter the English paper ID first."); }
+  const btn=document.getElementById("loadBtn"); btn.disabled=true; btn.textContent="Loading…";
+  try{
+    const maps=[await queryPaper(field,enId)];
+    if(hiId) maps.push(await queryPaper(field,hiId));
+    data.forEach(r=>{
+      let m=[]; maps.forEach(mp=>{ if(mp[r.qn]) m=m.concat(mp[r.qn]); });
+      r.match=m; r.status = m.length? "pending" : "none";
+    });
+    matched=true;
+    const totalDocs=data.reduce((n,r)=>n+r.match.length,0);
+    const canPush = totalDocs>0 && data.some(r=>r.match.length>0);
+    document.getElementById("pushBtn").disabled=!canPush;
+    render();
+    if(totalDocs===0) alert("No matching questions found for that paper ID. Check the paper type and ID, and that the "+QNUM_FIELD+" field matches your CSV's question numbers.");
+  }catch(e){
+    alert("Load failed: "+e.message+"\n(If this is a permissions error, sign in first.)");
+  }finally{ btn.disabled=false; btn.textContent="Load & match from Firebase"; }
+};
+
+/* ---- Push chapters ---- */
+document.getElementById("pushBtn").onclick=async()=>{
+  if(!matched) return;
+  const targets=data.filter(r=>r.match&&r.match.length>0&&r.chapter);
+  const docCount=targets.reduce((n,r)=>n+r.match.length,0);
+  if(!docCount) return alert("Nothing matched to push.");
+  const offlist=targets.filter(r=>!chapterName(r.chapter)).length;
+  let msg="Write chapterId to "+docCount+" document(s) across "+targets.length+" question(s)?\n"+
+          "Only chapterId and chapterName change; no questions are created or overwritten.";
+  if(offlist) msg="\u26a0 "+offlist+" row(s) have an off-list chapterId.\n\n"+msg;
+  if(!confirm(msg)) return;
+
+  const bw=document.getElementById("barwrap"), bar=document.getElementById("bar");
+  bw.style.display="block"; bar.style.width="0";
+  document.getElementById("pushBtn").disabled=true;
+  document.getElementById("loadBtn").disabled=true;
+
+  let done=0, failed=0, processed=0;
+  for(const r of targets){
+    try{
+      const cname=chapterName(r.chapter)||r.chapter;
+      for(const m of r.match){
+        await m.ref.update({[CHAPTER_ID_FIELD]:r.chapter,[CHAPTER_NAME_FIELD]:cname});
+      }
+      r.status="done"; done++;
+    }catch(e){ r.status="fail"; failed++; console.error("Q"+r.qn,e); }
+    processed++; bar.style.width=Math.round(processed/targets.length*100)+"%";
+    if(processed%5===0) render();
+  }
+  render();
+  document.getElementById("loadBtn").disabled=false;
+  document.getElementById("pushBtn").disabled=false;
+  alert("Done. "+done+" question(s) updated"+(failed?(", "+failed+" failed — see the Status column."):"."));
+};
+
+/* Try to override the embedded taxonomy with a chapters.json sitting next to this page,
+   so the list stays in sync if you deploy an updated one. Falls back silently. */
+fetch("chapters.json").then(r=>r.ok?r.json():null).then(j=>{
+  if(j&&j.subjects){ for(const k in j.subjects) SUBJECTS[k]=j.subjects[k]; }
+}).catch(()=>{});
+</script>
+</body>
+</html>
