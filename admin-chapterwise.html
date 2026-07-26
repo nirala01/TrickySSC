@@ -152,6 +152,20 @@ textarea{resize:vertical;min-height:80px;}
           <select id="cChapter"></select>
         </div>
       </div>
+      <div class="form-row">
+        <div>
+          <label>Difficulty Level ⭐</label>
+          <select id="cLevel">
+            <option value="1">Level 1</option>
+            <option value="2">Level 2</option>
+            <option value="3">Level 3</option>
+          </select>
+        </div>
+        <div>
+          <label>Test ⭐ <span style="text-transform:none;color:#64748B;font-weight:500;">(50 questions each)</span></label>
+          <select id="cTest"><option value="1">Test 1</option></select>
+        </div>
+      </div>
       <div class="form-row three">
         <div>
           <label>Difficulty</label>
@@ -340,6 +354,19 @@ textarea{resize:vertical;min-height:80px;}
               <option value="hi">Hindi</option>
             </select>
           </div>
+          <div>
+            <label>Difficulty Level (override)</label>
+            <select id="cwCsvLevel">
+              <option value="">From CSV</option>
+              <option value="1">Level 1</option>
+              <option value="2">Level 2</option>
+              <option value="3">Level 3</option>
+            </select>
+          </div>
+          <div>
+            <label>Test (override)</label>
+            <select id="cwCsvTest"><option value="">From CSV</option></select>
+          </div>
         </div>
       </div>
       <div onclick="document.getElementById('cwCsvFileInput').click()" style="border:2px dashed #334155;border-radius:12px;padding:2rem;text-align:center;cursor:pointer;margin-bottom:1rem;transition:all 0.2s;">
@@ -497,6 +524,15 @@ textarea{resize:vertical;min-height:80px;}
           <option value="medium">Medium</option>
           <option value="hard">Hard</option>
         </select>
+        <select id="mgrLevel" onchange="loadManage()" style="width:120px;">
+          <option value="">Any Level</option>
+          <option value="1">Level 1</option>
+          <option value="2">Level 2</option>
+          <option value="3">Level 3</option>
+        </select>
+        <select id="mgrTest" onchange="loadManage()" style="width:120px;">
+          <option value="">All Tests</option>
+        </select>
       </div>
       <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1rem;flex-wrap:wrap;">
         <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;text-transform:none;letter-spacing:0;font-size:0.85rem;color:#94A3B8;font-weight:500;">
@@ -646,7 +682,7 @@ const provider = new GoogleAuthProvider();
 const ADMIN_EMAILS = ['nirala01@gmail.com', 'ashish@trickyssc.com'];
 
 const EXAM_SUBJECTS = {
-  'ssc-cgl':  [{v:'reasoning',l:'General Intelligence & Reasoning'},{v:'english',l:'English Language'},{v:'quant',l:'Quantitative Aptitude'},{v:'gk',l:'General Awareness'},{v:'statistics',l:'Statistics'},{v:'finance',l:'Finance & Economics'}],
+  'ssc-cgl':  [{v:'reasoning',l:'General Intelligence & Reasoning'},{v:'english',l:'English Language'},{v:'quant',l:'Quantitative Aptitude'},{v:'gk',l:'General Awareness'},{v:'computer',l:'Computer Knowledge'},{v:'statistics',l:'Statistics'},{v:'finance',l:'Finance & Economics'}],
   'ssc-chsl': [{v:'reasoning',l:'General Intelligence & Reasoning'},{v:'english',l:'English Language'},{v:'quant',l:'Quantitative Aptitude'},{v:'gk',l:'General Awareness'}],
   'ssc-mts':  [{v:'reasoning',l:'General Intelligence & Reasoning'},{v:'english',l:'English Language'},{v:'quant',l:'Numerical Ability'},{v:'gk',l:'General Awareness'}],
   'ssc-gd':   [{v:'reasoning',l:'General Intelligence & Reasoning'},{v:'english',l:'English / Hindi'},{v:'quant',l:'Elementary Mathematics'},{v:'gk',l:'General Knowledge'}],
@@ -685,6 +721,30 @@ const CHAPTER_VALS = {
   terminology:['technical','legal','administrative','scientific'],
 };
 
+// ── Canonical chapter taxonomy (embedded from chapters.json) ──
+const CANON = {"version":1,"subjects":{"reasoning":{"chapters":[{"id":"reason.analogy","name":"Analogy (Word / Letter / Number)"},{"id":"reason.classification","name":"Classification (Odd One Out)"},{"id":"reason.series","name":"Series (Number / Alphabet / Mixed)"},{"id":"reason.coding-decoding","name":"Coding-Decoding"},{"id":"reason.blood-relation","name":"Blood Relations"},{"id":"reason.direction-distance","name":"Direction & Distance"},{"id":"reason.ranking-arrangement","name":"Ranking & Order Arrangement"},{"id":"reason.seating-arrangement","name":"Seating Arrangement"},{"id":"reason.syllogism","name":"Syllogism"},{"id":"reason.statement-conclusion","name":"Statement & Conclusion / Inference"},{"id":"reason.venn-diagram","name":"Venn Diagram"},{"id":"reason.mathematical-operations","name":"Mathematical Operations (BODMAS / Symbols)"},{"id":"reason.word-formation","name":"Word Formation & Dictionary Order"},{"id":"reason.missing-number","name":"Missing Number (Matrix)"},{"id":"reason.puzzle","name":"Puzzle / Data Arrangement"},{"id":"reason.calendar-clock","name":"Calendar & Clock"},{"id":"reason.mirror-image","name":"Mirror Image"},{"id":"reason.water-image","name":"Water Image"},{"id":"reason.paper-folding","name":"Paper Folding & Cutting"},{"id":"reason.embedded-figure","name":"Embedded / Hidden Figures"},{"id":"reason.figure-completion","name":"Figure / Pattern Completion"},{"id":"reason.figure-series","name":"Figure Series"},{"id":"reason.figure-classification","name":"Figure Classification"},{"id":"reason.figure-analogy","name":"Figure Analogy"},{"id":"reason.counting-figures","name":"Counting of Figures (Triangles etc.)"},{"id":"reason.dice","name":"Dice"},{"id":"reason.cube-cuboid","name":"Cube & Cuboid"},{"id":"reason.dot-situation","name":"Dot Situation"},{"id":"reason.other","name":"Other / Uncategorized Reasoning"}]},"ga":{"chapters":[{"id":"ga.history-ancient","name":"History: Ancient India"},{"id":"ga.history-medieval","name":"History: Medieval India"},{"id":"ga.history-modern","name":"History: Modern India & Freedom Struggle"},{"id":"ga.art-culture","name":"Art & Culture"},{"id":"ga.geography-india","name":"Geography: India"},{"id":"ga.geography-world","name":"Geography: World & Physical"},{"id":"ga.polity","name":"Polity & Constitution"},{"id":"ga.economics","name":"Economics"},{"id":"ga.physics","name":"Science: Physics"},{"id":"ga.chemistry","name":"Science: Chemistry"},{"id":"ga.biology","name":"Science: Biology"},{"id":"ga.computer","name":"Computer & Technology"},{"id":"ga.static-books-authors","name":"Static: Books & Authors"},{"id":"ga.static-awards","name":"Static: Awards & Honours"},{"id":"ga.static-days-events","name":"Static: Important Days & Events"},{"id":"ga.static-sports","name":"Static: Sports"},{"id":"ga.static-schemes","name":"Govt Schemes"},{"id":"ga.static-organizations","name":"National & International Organizations"},{"id":"ga.static-misc","name":"Static GK: Misc (Dances, Festivals, Symbols, Superlatives)"},{"id":"ga.current-affairs","name":"Current Affairs"},{"id":"ga.other","name":"Other / Uncategorized GA"}]},"quant":{"chapters":[{"id":"quant.number-system","name":"Number System, HCF & LCM"},{"id":"quant.simplification","name":"Simplification, Surds & Indices"},{"id":"quant.percentage","name":"Percentage"},{"id":"quant.profit-loss","name":"Profit, Loss & Discount"},{"id":"quant.ratio-proportion","name":"Ratio & Proportion"},{"id":"quant.average","name":"Average"},{"id":"quant.mixture-alligation","name":"Mixture & Alligation"},{"id":"quant.time-work","name":"Time & Work, Pipes & Cistern"},{"id":"quant.time-speed-distance","name":"Time, Speed & Distance, Trains, Boats"},{"id":"quant.simple-compound-interest","name":"Simple & Compound Interest"},{"id":"quant.partnership","name":"Partnership"},{"id":"quant.ages","name":"Problems on Ages"},{"id":"quant.algebra","name":"Algebra"},{"id":"quant.geometry","name":"Geometry"},{"id":"quant.mensuration","name":"Mensuration (2D & 3D)"},{"id":"quant.trigonometry","name":"Trigonometry"},{"id":"quant.height-distance","name":"Height & Distance"},{"id":"quant.data-interpretation","name":"Data Interpretation (Bar/Pie/Line/Table)"},{"id":"quant.statistics","name":"Statistics (Mean / Median / Mode)"},{"id":"quant.other","name":"Other / Uncategorized Quant"}]},"english":{"chapters":[{"id":"eng.error-spotting","name":"Spot the Error"},{"id":"eng.sentence-improvement","name":"Sentence Improvement"},{"id":"eng.fill-blanks","name":"Fill in the Blanks"},{"id":"eng.active-passive","name":"Active & Passive Voice"},{"id":"eng.narration","name":"Direct & Indirect Narration"},{"id":"eng.para-jumbles","name":"Sentence Rearrangement / Para Jumbles"},{"id":"eng.synonyms","name":"Synonyms"},{"id":"eng.antonyms","name":"Antonyms"},{"id":"eng.spelling","name":"Spelling Correction"},{"id":"eng.idioms-phrases","name":"Idioms & Phrases"},{"id":"eng.one-word","name":"One Word Substitution"},{"id":"eng.homonyms","name":"Homonyms"},{"id":"eng.cloze-test","name":"Cloze Test"},{"id":"eng.reading-comprehension","name":"Reading Comprehension"},{"id":"eng.other","name":"Other / Uncategorized English"}]},"computer":{"chapters":[{"id":"computer.fundamentals","name":"Computer Fundamentals & Organization (CPU, I/O, Ports, Generations)"},{"id":"computer.memory-storage","name":"Memory & Storage Devices"},{"id":"computer.os-windows","name":"Operating System & Windows (Explorer, Shortcuts)"},{"id":"computer.ms-office","name":"MS Office (Word, Excel, PowerPoint)"},{"id":"computer.internet-email","name":"Internet, Web Browsing & E-mail (incl. e-Banking)"},{"id":"computer.networking","name":"Networking (Devices & Protocols)"},{"id":"computer.cyber-security","name":"Cyber Security (Virus, Hacking, Threats)"},{"id":"computer.other","name":"Other / Uncategorized Computer"}]},"statistics":{"chapters":[{"id":"statistics.data-collection","name":"Collection, Classification & Presentation of Data"},{"id":"statistics.central-tendency","name":"Measures of Central Tendency"},{"id":"statistics.dispersion","name":"Measures of Dispersion"},{"id":"statistics.moments-skewness-kurtosis","name":"Moments, Skewness & Kurtosis"},{"id":"statistics.correlation-regression","name":"Correlation & Regression"},{"id":"statistics.probability","name":"Probability Theory"},{"id":"statistics.random-variable","name":"Random Variable & Probability Distributions"},{"id":"statistics.sampling","name":"Sampling Theory"},{"id":"statistics.inference","name":"Statistical Inference (Estimation & Testing)"},{"id":"statistics.anova","name":"Analysis of Variance (ANOVA)"},{"id":"statistics.time-series","name":"Time Series Analysis"},{"id":"statistics.index-numbers","name":"Index Numbers"},{"id":"statistics.other","name":"Other / Uncategorized Statistics"}]},"finance_economics":{"chapters":[{"id":"fineco.accounting-fundamentals","name":"Financial Accounting: Nature, Concepts & Conventions (GAAP)"},{"id":"fineco.accounting-basics","name":"Basic Accounting: Single/Double Entry, Journal, Ledger, Trial Balance"},{"id":"fineco.bank-reconciliation","name":"Bank Reconciliation Statement"},{"id":"fineco.rectification-errors","name":"Rectification of Errors"},{"id":"fineco.final-accounts","name":"Final Accounts (Trading, P&L, Balance Sheet)"},{"id":"fineco.capital-revenue","name":"Capital & Revenue Expenditure"},{"id":"fineco.depreciation","name":"Depreciation Accounting"},{"id":"fineco.inventory-valuation","name":"Valuation of Inventories"},{"id":"fineco.non-profit-accounts","name":"Non-Profit Org Accounts (Receipts & Payments, Income & Expenditure)"},{"id":"fineco.bills-exchange","name":"Bills of Exchange"},{"id":"fineco.self-balancing-ledgers","name":"Self-Balancing Ledgers"},{"id":"fineco.constitutional-bodies","name":"Constitutional Bodies: CAG & Finance Commission"},{"id":"fineco.economics-basics","name":"Basic Concepts & Micro Economics Intro (PPC, Central Problems)"},{"id":"fineco.demand-supply","name":"Theory of Demand & Supply (Elasticity, Consumer Behaviour)"},{"id":"fineco.production-cost","name":"Theory of Production & Cost (Returns to Scale)"},{"id":"fineco.market-forms","name":"Forms of Market & Price Determination"},{"id":"fineco.indian-economy","name":"Indian Economy: Sectors (Agriculture, Industry, Services)"},{"id":"fineco.national-income","name":"National Income (Concepts & Measurement)"},{"id":"fineco.population","name":"Population & Growth"},{"id":"fineco.poverty-unemployment","name":"Poverty & Unemployment"},{"id":"fineco.infrastructure","name":"Infrastructure (Energy, Transport, Communication)"},{"id":"fineco.economic-reforms","name":"Economic Reforms since 1991 (LPG & Disinvestment)"},{"id":"fineco.money-banking","name":"Money & Banking (RBI, Commercial Banks, Monetary Policy)"},{"id":"fineco.budget-fiscal","name":"Budget, Fiscal Deficit, BoP & FRBM Act"},{"id":"fineco.it-governance","name":"Role of IT in Governance"},{"id":"fineco.other","name":"Other / Uncategorized Finance & Economics"}]}}};
+// Map the form's subject values → canonical taxonomy keys
+const SUBJECT_TO_CANON = { reasoning:'reasoning', gk:'ga', quant:'quant', english:'english', statistics:'statistics', finance:'finance_economics', computer:'computer' };
+// Override the mapped subjects' chapter lists with the canonical taxonomy
+//   value = stable canonical chapterId (e.g. 'quant.percentage'), label = display name
+Object.entries(SUBJECT_TO_CANON).forEach(([formSubj, canonKey]) => {
+  const sub = CANON.subjects && CANON.subjects[canonKey];
+  if (!sub) return;
+  CHAPTERS[formSubj]     = sub.chapters.map(c => c.name);
+  CHAPTER_VALS[formSubj] = sub.chapters.map(c => c.id);
+});
+// id → display-name lookup (for storing chapterName / pretty display)
+const CHAPTER_NAME_BY_ID = {};
+Object.values(CANON.subjects || {}).forEach(s => s.chapters.forEach(c => { CHAPTER_NAME_BY_ID[c.id] = c.name; }));
+// Difficulty-level + test dropdown config
+const TEST_COUNT = 20;
+window.fillTestSelects = () => {
+  const testOpts = Array.from({length:TEST_COUNT}, (_,i) => `<option value="${i+1}">Test ${i+1}</option>`).join('');
+  const addSel = document.getElementById('cTest'); if (addSel) addSel.innerHTML = testOpts;
+  const csvSel = document.getElementById('cwCsvTest'); if (csvSel) csvSel.innerHTML = '<option value="">From CSV</option>' + testOpts;
+  const mgrSel = document.getElementById('mgrTest'); if (mgrSel) mgrSel.innerHTML = '<option value="">All Tests</option>' + testOpts;
+};
+
 // Auth
 window.googleLogin = async () => { try { await signInWithPopup(auth, provider); } catch(e) { showToast('Login failed: '+e.message,'error'); }};
 window.logout = async () => { await signOut(auth); };
@@ -697,6 +757,7 @@ onAuthStateChanged(auth, async (user) => {
     document.getElementById('adminScreen').style.display = 'block';
     document.getElementById('adminName').textContent = user.displayName || user.email;
     onExamChange();
+    fillTestSelects();
     loadStats();
   } else {
     document.getElementById('loginScreen').style.display = 'flex';
@@ -749,14 +810,23 @@ window.saveQuestion = async () => {
   const optD = document.getElementById('cOptD').value.trim();
   const correct = document.querySelector('input[name="cCorrect"]:checked');
   const chapter = document.getElementById('cChapter').value;
+  const level   = parseInt(document.getElementById('cLevel').value) || 0;
+  const testNum = parseInt(document.getElementById('cTest').value) || 0;
+  const chSel   = document.getElementById('cChapter');
+  const chapterName = CHAPTER_NAME_BY_ID[chapter] || (chSel.options[chSel.selectedIndex]?.text || '');
   if (!text||!optA||!optB||!optC||!optD||!correct) { showToast('Please fill all required fields','error'); return; }
   if (!chapter) { showToast('Chapter is required for chapterwise questions','error'); return; }
+  if (!level || !testNum) { showToast('Pick a difficulty level and a test','error'); return; }
   try {
     await addDoc(collection(db,'questions'),{
       type: 'chapterwise',
       exam: document.getElementById('cExam').value,
       subject: document.getElementById('cSubject').value,
       chapter: chapter,
+      chapterId: chapter,
+      chapterName: chapterName,
+      level: level,
+      testNum: testNum,
       difficulty: document.getElementById('cDifficulty').value,
       year: document.getElementById('cYear').value || null,
       qNum: parseInt(document.getElementById('cNum').value)||0,
@@ -807,7 +877,7 @@ window.loadChapterTree = async () => {
     if (!Object.keys(map).length) { tree.innerHTML='<div style="color:#64748B;padding:1rem;">No chapterwise questions found for this exam. Add some via CSV Import or Add Question.</div>'; return; }
     tree.innerHTML = Object.entries(map).sort((a,b)=>b[1]-a[1]).map(([ch,cnt])=>`
       <div class="chapter-card">
-        <div class="ch-name">${ch}</div>
+        <div class="ch-name">${CHAPTER_NAME_BY_ID[ch]||ch}</div>
         <div class="ch-count">${cnt} question${cnt!==1?'s':''}</div>
       </div>`).join('');
   } catch(e) { tree.innerHTML='<div style="color:#EF4444;">Error: '+e.message+'</div>'; }
@@ -923,11 +993,15 @@ window.loadManage = async () => {
     const chap = document.getElementById('mgrChapter').value;
     const lang = document.getElementById('mgrLang')?.value || '';
     const diff = document.getElementById('mgrDiff').value;
+    const lvl = document.getElementById('mgrLevel')?.value || '';
+    const tst = document.getElementById('mgrTest')?.value || '';
     if (exam) docs = docs.filter(d=>d.exam===exam);
     if (subj) docs = docs.filter(d=>d.subject===subj);
     if (chap) docs = docs.filter(d=>d.chapter===chap);
     if (lang) docs = docs.filter(d=>d.language===lang);
     if (diff) docs = docs.filter(d=>d.difficulty===diff);
+    if (lvl) docs = docs.filter(d=>String(d.level)===lvl);
+    if (tst) docs = docs.filter(d=>String(d.testNum)===tst);
     docs.sort((a,b) => (parseInt(a.qNum)||0) - (parseInt(b.qNum)||0));
     docs = docs.slice(0,200);
     if (!docs.length) { list.innerHTML='<div style="color:#64748B;text-align:center;padding:2rem;">No questions found.</div>'; return; }
@@ -954,8 +1028,10 @@ window.loadManage = async () => {
         <div class="q-meta">
           <span class="meta-tag">${q.exam}</span>
           <span class="meta-tag">${q.subject}</span>
-          <span class="meta-tag">${q.chapter}</span>
+          <span class="meta-tag">${q.chapterName||q.chapter}</span>
           <span class="meta-tag">${q.difficulty}</span>
+          ${q.level?`<span class="meta-tag" style="background:#F59E0B22;color:#FBBF24;border:1px solid #F59E0B44;">Level ${q.level}</span>`:''}
+          ${q.testNum?`<span class="meta-tag" style="background:#10B98122;color:#34D399;border:1px solid #10B98144;">Test ${q.testNum}</span>`:''}
           ${q.year?`<span class="meta-tag">${q.year}</span>`:''}
           ${q.language?`<span class="meta-tag" style="background:#0EA5E922;color:#38BDF8;border:1px solid #0EA5E944;">${q.language==='hi'?'🇮🇳 Hindi':'🇬🇧 English'}</span>`:''}
           ${q.imageUrl?`<span class="meta-tag" style="background:#7C3AED22;color:#A78BFA;border:1px solid #7C3AED44;">🖼 has image</span>`:''}
@@ -1016,6 +1092,8 @@ window.importCSV=async()=>{
   const ovSubject=document.getElementById('cwCsvSubject')?.value||'';
   const ovChapter=document.getElementById('cwCsvChapter')?.value||'';
   const ovLang=document.getElementById('cwCsvLang')?.value||'';
+  const ovLevel=document.getElementById('cwCsvLevel')?.value||'';
+  const ovTest=document.getElementById('cwCsvTest')?.value||'';
   let saved=0,errors=0;
   for(let i=0;i<csvParsedRows.length;i++){
     const r=csvParsedRows[i];
@@ -1028,6 +1106,9 @@ window.importCSV=async()=>{
       await addDoc(collection(db,'questions'),{
         text:r.text,exam,tier:r.tier||'tier1',year:r.year||'',
         type:r.type||'chapterwise',subject,chapter,language,
+        chapterId:chapter,chapterName:(CHAPTER_NAME_BY_ID[chapter]||r.chapterName||''),
+        level:parseInt(ovLevel||r.level||1)||1,
+        testNum:parseInt(ovTest||r.testNum||r.test||1)||1,
         difficulty:r.difficulty||'medium',qNum:parseInt(r.qNum)||0,
         options:{A:r.option_A||'',B:r.option_B||'',C:r.option_C||'',D:r.option_D||''},
         correct:r.correct,explanation:r.explanation||'',trick:r.trick||'',
@@ -1219,6 +1300,8 @@ window.clearCsolImg = () => {
   const p=document.getElementById('cSolImgPreview'); if(p) p.style.display='none';
   const s=document.getElementById('cSolImgStatus'); if(s) s.style.display='none';
 };
+
+try { fillTestSelects(); } catch(e) {}
 </script>
 </body>
 </html>
