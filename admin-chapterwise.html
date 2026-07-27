@@ -334,17 +334,20 @@ textarea{resize:vertical;min-height:80px;}
           </div>
           <div>
             <label>Subject (override)</label>
-            <select id="cwCsvSubject">
+            <select id="cwCsvSubject" onchange="updateCsvChapters()">
               <option value="">From CSV</option>
               <option value="reasoning">General Intelligence &amp; Reasoning</option>
               <option value="english">English Language</option>
               <option value="quant">Quantitative Aptitude</option>
               <option value="gk">General Awareness</option>
+              <option value="computer">Computer Knowledge</option>
+              <option value="statistics">Statistics</option>
+              <option value="finance">Finance &amp; Economics</option>
             </select>
           </div>
           <div>
             <label>Chapter (override)</label>
-            <input type="text" id="cwCsvChapter" placeholder="e.g. Percentage">
+            <select id="cwCsvChapter"><option value="">Pick a subject first</option></select>
           </div>
           <div>
             <label>Language (override)</label>
@@ -1301,7 +1304,19 @@ window.clearCsolImg = () => {
   const s=document.getElementById('cSolImgStatus'); if(s) s.style.display='none';
 };
 
+// Populate the CSV-import Chapter override dropdown from the selected subject's
+// canonical chapters — same list the Add form and the public test pages use, so
+// every imported question carries a valid canonical chapterId (no free-text drift).
+window.updateCsvChapters = () => {
+  const subj = document.getElementById('cwCsvSubject').value;
+  const sel  = document.getElementById('cwCsvChapter');
+  if (!sel) return;
+  if (!subj) { sel.innerHTML = '<option value="">Pick a subject first</option>'; return; }
+  sel.innerHTML = '<option value="">From CSV</option>' + chapterOptsFor(subj);
+};
+
 try { fillTestSelects(); } catch(e) {}
+try { updateCsvChapters(); } catch(e) {}
 </script>
 </body>
 </html>
