@@ -475,6 +475,15 @@ textarea{resize:vertical;min-height:80px;}
           </select>
         </div>
         <div>
+          <label>Difficulty</label>
+          <select id="delDiff">
+            <option value="">Any Difficulty</option>
+            <option value="easy">Easy</option>
+            <option value="medium">Medium</option>
+            <option value="hard">Hard</option>
+          </select>
+        </div>
+        <div>
           <label>Level</label>
           <select id="delLevel">
             <option value="">All Levels</option>
@@ -970,6 +979,7 @@ window.previewDelete = async () => {
   const subj = document.getElementById('delSubject')?.value || '';
   const chap = document.getElementById('delChapter')?.value || '';
   const lang = document.getElementById('delLang')?.value || '';
+  const diff = document.getElementById('delDiff')?.value || '';
   const lvl  = document.getElementById('delLevel')?.value || '';
   const tst  = document.getElementById('delTest')?.value || '';
   const snap = await getDocs(collection(db,'questions'));
@@ -977,10 +987,11 @@ window.previewDelete = async () => {
   if (subj) docs = docs.filter(d => d.data().subject === subj);
   if (chap) docs = docs.filter(d => d.data().chapter === chap);
   if (lang) docs = docs.filter(d => d.data().language === lang);
+  if (diff) docs = docs.filter(d => d.data().difficulty === diff);
   if (lvl)  docs = docs.filter(d => String(d.data().level) === lvl);
   if (tst)  docs = docs.filter(d => String(d.data().testNum) === tst);
   const count = docs.length;
-  const label = `${exam.toUpperCase()} · ${subj||'All Subjects'} · ${chap||'All Chapters'} · ${lang?(lang==='hi'?'Hindi':'English'):'All Languages'} · ${lvl?('Level '+lvl):'All Levels'} · ${tst?('Test '+tst):'All Tests'}`;
+  const label = `${exam.toUpperCase()} · ${subj||'All Subjects'} · ${chap||'All Chapters'} · ${lang?(lang==='hi'?'Hindi':'English'):'All Languages'} · ${diff?diff:'Any Difficulty'} · ${lvl?('Level '+lvl):'All Levels'} · ${tst?('Test '+tst):'All Tests'}`;
   document.getElementById('delPreview').style.display = 'block';
   document.getElementById('delPreviewText').textContent = `Found ${count} matching: ${label}`;
   const delBtn = document.getElementById('delBtn');
@@ -991,6 +1002,7 @@ window.previewDelete = async () => {
     delBtn.dataset.subj = subj;
     delBtn.dataset.chap = chap;
     delBtn.dataset.lang = lang;
+    delBtn.dataset.diff = diff;
     delBtn.dataset.lvl  = lvl;
     delBtn.dataset.tst  = tst;
   } else { delBtn.style.display = 'none'; }
@@ -999,8 +1011,8 @@ window.previewDelete = async () => {
 window.bulkDelete = async () => {
   const btn = document.getElementById('delBtn');
   const exam = btn.dataset.exam; const subj = btn.dataset.subj; const chap = btn.dataset.chap;
-  const lang = btn.dataset.lang; const lvl = btn.dataset.lvl || ''; const tst = btn.dataset.tst || '';
-  const label = `${exam.toUpperCase()} · ${subj||'All Subjects'} · ${chap||'All Chapters'} · ${lang?(lang==='hi'?'Hindi':'English'):'All Languages'} · ${lvl?('Level '+lvl):'All Levels'} · ${tst?('Test '+tst):'All Tests'}`;
+  const lang = btn.dataset.lang; const diff = btn.dataset.diff || ''; const lvl = btn.dataset.lvl || ''; const tst = btn.dataset.tst || '';
+  const label = `${exam.toUpperCase()} · ${subj||'All Subjects'} · ${chap||'All Chapters'} · ${lang?(lang==='hi'?'Hindi':'English'):'All Languages'} · ${diff?diff:'Any Difficulty'} · ${lvl?('Level '+lvl):'All Levels'} · ${tst?('Test '+tst):'All Tests'}`;
   if (!confirm(`DELETE ALL matching chapterwise questions?\n\n${label}\n\nCannot be undone!`)) return;
   btn.disabled = true;
   document.getElementById('delProgress').style.display = 'block';
@@ -1009,6 +1021,7 @@ window.bulkDelete = async () => {
   if (subj) docs = docs.filter(d => d.data().subject === subj);
   if (chap) docs = docs.filter(d => d.data().chapter === chap);
   if (lang) docs = docs.filter(d => d.data().language === lang);
+  if (diff) docs = docs.filter(d => d.data().difficulty === diff);
   if (lvl)  docs = docs.filter(d => String(d.data().level) === lvl);
   if (tst)  docs = docs.filter(d => String(d.data().testNum) === tst);
   const total = docs.length; let deleted = 0;
@@ -1098,6 +1111,7 @@ window.loadManage = async () => {
             <button class="btn btn-secondary" style="padding:0.3rem 0.6rem;font-size:0.75rem;" onclick="openEditModal('${q.id}')">✏️</button>
             <button class="btn btn-danger" style="padding:0.3rem 0.6rem;font-size:0.75rem;" onclick="deleteQ('${q.id}')">🗑</button>
           </div>
+        </div>
         <div class="q-options">
           ${['A','B','C','D'].map(l=>{
             const txt=q.options?.[l]||''; const img=q.optionImages?.[l]||'';
