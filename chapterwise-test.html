@@ -10,6 +10,954 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700;800&family=Baloo+2:wght@600;700;800&family=Hind:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<style id="cw-radical-style">
+/* TrickySSC — square-root: SVG sign sized to the radicand only.
+   The SVG is wrapped in a span (non-replaced) that stretches to the
+   radicand height; abs top/bottom is ignored on a raw <svg>. */
+.rad{position:relative;display:inline-block;vertical-align:middle;white-space:nowrap;padding-left:.6em;line-height:1;}
+.rad-sign{position:absolute;left:0;top:0;bottom:0;width:.6em;}
+.rad-sign svg{display:block;width:100%;height:100%;overflow:visible;}
+.rad-cand{display:inline-block;border-top:1.5px solid currentColor;padding:.08em .24em 0 0;line-height:1.1;}
+</style>
+<style id="cw-frac-style">
+/* TrickySSC — stacked (vertical) fractions for algebraic/parenthesised a/b */
+.vfrac{display:inline-flex;flex-direction:column;align-items:stretch;justify-content:center;vertical-align:middle;text-align:center;line-height:1.15;margin:0 .12em;}
+.vfrac .vf-num{display:block;padding:0 .4em 1px;text-align:center;}
+.vfrac .vf-den{display:block;padding:1px .4em 0;border-top:1.5px solid currentColor;text-align:center;}
+</style>
+<style id="cw-player-css">
+/* player font — scoped so the selection page keeps its own font */
+#cwPlayer{font-family:'Plus Jakarta Sans',sans-serif;color:#1E293B;}
+#cwPlayer #testScreen,#cwPlayer #resultScreen,#cwPlayer #instrScreen{background:#F0F4F8;}
+/* the player is a full-screen overlay; make its inner test screen fill it */
+#cwPlayer #testScreen{display:none;}
+/* the close (✕) button in the player topbar */
+.cw-x{background:transparent;border:1.5px solid #E2E8F0;color:#64748B;width:34px;height:34px;border-radius:9px;cursor:pointer;font-size:16px;line-height:1;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.cw-x:hover{border-color:#CBD5E1;color:#334155;background:#F8FAFC;}
+/* result-screen action buttons */
+.cw-res-acts{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:22px;}
+.cw-res-acts button{border-radius:11px;padding:12px 26px;font-family:'Plus Jakarta Sans';font-weight:700;font-size:14px;cursor:pointer;border:none;}
+.cw-res-again{background:#EFF6FF;color:#3B82F6;border:1.5px solid #BFDBFE!important;}
+.cw-res-done{background:linear-gradient(135deg,#FF6B00,#FF9240);color:#fff;}
+/* ═══════════════════════════════════
+   TEST SCREEN
+═══════════════════════════════════ */
+#testScreen{
+  display:none;
+  height:100vh;
+  flex-direction:column;
+  overflow:hidden;
+  background:#F0F4F8;
+}
+
+/* ─── Topbar ─── */
+.topbar{
+  background:#ffffff;
+  display:flex;justify-content:space-between;align-items:center;
+  padding:0 28px;height:58px;gap:16px;flex-shrink:0;
+  box-shadow:0 1px 0 #E2E8F0, 0 2px 12px rgba(0,0,0,0.06);
+  z-index:10;position:relative;
+}
+.topbar-left{display:flex;align-items:center;gap:14px;min-width:0;}
+.brand-dot{
+  width:34px;height:34px;border-radius:10px;
+  background:linear-gradient(135deg,#FF6B00,#FF9240);
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Rajdhani';font-size:16px;font-weight:700;color:#fff;
+  flex-shrink:0;
+}
+.exam-title{
+  font-family:'Rajdhani';font-size:17px;font-weight:700;
+  color:#1E293B;line-height:1.2;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.user-name{font-size:11.5px;color:#94A3B8;line-height:1.2;font-weight:500;}
+
+.topbar-center{
+  flex:1;display:flex;justify-content:center;align-items:center;gap:10px;
+}
+.timer-wrap{
+  display:flex;align-items:center;gap:8px;
+  background:#FFF7F0;border:1.5px solid #FFD4AD;
+  border-radius:10px;padding:5px 16px;
+}
+.timer-icon{font-size:14px;}
+.timer{
+  font-family:'Rajdhani';font-size:26px;font-weight:700;
+  color:#FF6B00;letter-spacing:1.5px;
+}
+.topbar-right{display:flex;align-items:center;gap:8px;flex-shrink:0;}
+.logout-btn{
+  background:transparent;border:1.5px solid #E2E8F0;color:#64748B;
+  padding:6px 16px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;
+  font-family:'Plus Jakarta Sans';
+  transition:all 0.15s;
+}
+.logout-btn:hover{border-color:#CBD5E1;color:#334155;background:#F8FAFC;}
+#gridToggleBtn{display:none;}
+
+/* Pause button */
+.pause-btn{
+  display:flex;align-items:center;gap:6px;
+  background:#FFF7F0;border:1.5px solid #FFD4AD;color:#FF6B00;
+  padding:6px 14px;border-radius:10px;cursor:pointer;
+  font-size:13px;font-weight:700;font-family:'Plus Jakarta Sans';
+  transition:all 0.15s;white-space:nowrap;
+}
+.pause-btn:hover{background:#FFEEDD;border-color:#FFB877;}
+.pause-btn.paused{background:#FF6B00;border-color:#FF6B00;color:#fff;}
+.pause-btn.paused:hover{background:#E85F00;}
+
+/* Pause overlay */
+#pauseOverlay{
+  display:none;position:fixed;inset:0;z-index:10001;
+  background:rgba(15,23,42,0.92);
+  flex-direction:column;align-items:center;justify-content:center;
+  text-align:center;padding:24px;
+}
+#pauseOverlay .po-icon{font-size:56px;margin-bottom:10px;}
+#pauseOverlay .po-title{
+  font-family:'Plus Jakarta Sans';font-size:30px;font-weight:800;
+  color:#fff;letter-spacing:0.5px;margin-bottom:8px;
+}
+#pauseOverlay .po-sub{font-size:15px;color:#CBD5E1;margin-bottom:6px;}
+#pauseOverlay .po-time{
+  font-family:'Rajdhani';font-size:46px;font-weight:700;
+  color:#FF8A33;letter-spacing:2px;margin-bottom:26px;
+}
+#pauseOverlay .po-resume{
+  background:#FF6B00;border:none;color:#fff;
+  padding:14px 40px;border-radius:12px;cursor:pointer;
+  font-size:17px;font-weight:700;font-family:'Plus Jakarta Sans';
+  transition:all 0.15s;
+}
+#pauseOverlay .po-resume:hover{background:#E85F00;transform:translateY(-1px);}
+
+/* ═══════════════════════════════════
+   SUBJECT TABS BAR  (Desktop — above Q panel)
+═══════════════════════════════════ */
+
+/* ═══════════════════════════════════
+   MAIN AREA
+═══════════════════════════════════ */
+.main{flex:1;display:flex;overflow:hidden;min-height:0;}
+
+/* ─── Question Panel ─── */
+.questionPanel{
+  flex:1;overflow-y:auto;
+  padding:28px 36px;
+  background:#F0F4F8;
+  display:flex;flex-direction:column;align-items:stretch;
+}
+/* Scrollbar */
+.questionPanel::-webkit-scrollbar{width:5px;}
+.questionPanel::-webkit-scrollbar-track{background:transparent;}
+.questionPanel::-webkit-scrollbar-thumb{background:#CBD5E1;border-radius:4px;}
+
+.q-inner{
+  width:100%;
+  max-width:none;
+}
+
+/* Q-number badge */
+.qNum-row{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:18px;
+}
+.qNum-badge{
+  display:inline-flex;align-items:center;gap:10px;
+  background:#fff;border:1.5px solid #E2E8F0;
+  border-radius:10px;padding:8px 20px;
+  font-size:15px;font-weight:700;color:#475569;letter-spacing:0.04em;
+  text-transform:uppercase;
+  box-shadow:0 1px 4px rgba(0,0,0,0.05);
+}
+.qNum-badge .qNum-accent{color:#FF6B00;font-size:20px;line-height:1;}
+
+
+/* Question text card */
+.q-card{
+  background:#ffffff;border-radius:14px;
+  padding:22px 24px;
+  border:1px solid #E2E8F0;
+  box-shadow:0 1px 4px rgba(0,0,0,0.04);
+  margin-bottom:18px;
+}
+.qText{
+  font-size:16px;font-weight:500;color:#1E293B;
+  line-height:1.8;
+}
+/* ─── Math overflow safety (mobile) ─── */
+.qText,.opt-body,.en-qtext,.en-opts,.q-sentence,.q-instruction{
+  overflow-wrap:break-word;word-wrap:break-word;min-width:0;
+}
+.katex{max-width:100%;}
+.katex-display{overflow-x:auto;overflow-y:hidden;max-width:100%;padding-bottom:2px;}
+.katex-display>.katex{white-space:nowrap;}
+.katex::-webkit-scrollbar,.katex-display::-webkit-scrollbar{height:4px;}
+.katex::-webkit-scrollbar-thumb,.katex-display::-webkit-scrollbar-thumb{background:#CBD5E1;border-radius:4px;}
+.q-instruction{
+  display:block;
+  font-size:15px;font-weight:500;color:#475569;
+  margin-bottom:14px;line-height:1.7;
+}
+.q-sentence{
+  display:block;
+  font-size:16px;font-weight:600;color:#1E293B;
+  line-height:1.8;
+  padding:12px 16px;
+  background:#F8FAFC;
+  border-left:3px solid #FF6B00;
+  border-radius:0 8px 8px 0;
+}
+#qImgWrap{margin-top:14px;text-align:center;position:relative;}
+#qImg{
+  max-width:100%;max-height:280px;border-radius:10px;
+  border:1px solid #E2E8F0;object-fit:contain;background:#F8FAFC;
+}
+#qImgLoader{
+  display:none;
+  align-items:center;justify-content:center;gap:8px;
+  background:#F8FAFC;border:1px solid #E2E8F0;
+  border-radius:10px;padding:28px 20px;
+  color:#94A3B8;font-size:13px;font-weight:500;
+  min-height:80px;
+}
+#qImgLoader .img-spin{
+  width:18px;height:18px;border:2.5px solid #E2E8F0;
+  border-top-color:#FF6B00;border-radius:50%;
+  animation:imgSpin 0.7s linear infinite;flex-shrink:0;
+}
+@keyframes imgSpin{to{transform:rotate(360deg);}}
+
+/* ─── Options ─── */
+.options-wrap{display:flex;flex-direction:column;gap:10px;}
+.option{
+  display:flex;align-items:flex-start;gap:14px;
+  padding:14px 20px;border-radius:12px;
+  border:1.5px solid #E2E8F0;background:#FFFFFF;
+  cursor:pointer;font-size:15px;
+  transition:border-color 0.15s,background 0.15s,box-shadow 0.15s,transform 0.1s;
+  box-shadow:0 1px 3px rgba(0,0,0,0.04);
+}
+.option:hover{border-color:#FF9240;background:#FFFBF7;transform:translateY(-1px);box-shadow:0 3px 10px rgba(255,107,0,0.1);}
+.option.selected{border-color:#FF6B00;background:#FFF7F0;box-shadow:0 0 0 3px rgba(255,107,0,0.08);}
+.option.correct{border-color:#22C55E;background:#F0FDF4;box-shadow:0 0 0 3px rgba(34,197,94,0.08);}
+.option.wrong  {border-color:#EF4444;background:#FEF2F2;box-shadow:0 0 0 3px rgba(239,68,68,0.06);}
+
+.opt-label{
+  width:30px;height:30px;min-width:30px;
+  border-radius:8px;background:#F1F5F9;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Rajdhani';font-size:14px;font-weight:700;
+  color:#64748B;transition:all 0.15s;
+}
+.option:hover    .opt-label{background:#FFE8D6;color:#FF6B00;}
+.option.selected .opt-label{background:#FF6B00;color:#fff;}
+.option.correct  .opt-label{background:#22C55E;color:#fff;}
+.option.wrong    .opt-label{background:#EF4444;color:#fff;}
+.opt-body{flex:1;min-width:0;line-height:1.6;color:#334155;font-size:15px;}
+/* Fraction rendering */
+.frac{display:inline-flex;flex-direction:column;align-items:center;vertical-align:middle;margin:0 2px;line-height:1.1;}
+.frac-num{border-bottom:1.5px solid currentColor;padding:0 2px;text-align:center;font-size:0.85em;line-height:1.3;}
+.frac-den{padding:0 2px;text-align:center;font-size:0.85em;line-height:1.3;}
+.mixed-frac{display:inline-flex;align-items:center;gap:2px;vertical-align:middle;}
+.option.correct .opt-body{color:#15803D;font-weight:600;}
+.option.wrong   .opt-body{color:#DC2626;}
+
+/* ─── English toggle (Hindi tests) ─── */
+#enToggleBtn{
+  display:none;
+  align-items:center;gap:6px;
+  margin-top:14px;
+  background:#EFF6FF;border:1.5px solid #BFDBFE;
+  color:#1D4ED8;border-radius:8px;
+  padding:7px 14px;font-size:12.5px;font-weight:600;
+  cursor:pointer;font-family:'Plus Jakarta Sans';
+  transition:all 0.15s;width:fit-content;
+}
+#enToggleBtn:hover{background:#DBEAFE;border-color:#93C5FD;}
+#enToggleBtn.active{background:#1D4ED8;color:#fff;border-color:#1D4ED8;}
+/* Per-solution EN/HI toggle in the review screen */
+.sol-lang-btn{margin-left:auto;flex:0 0 auto;font:inherit;font-size:11px;
+  font-weight:700;letter-spacing:.02em;text-transform:none;cursor:pointer;
+  padding:3px 10px;border-radius:999px;border:1px solid currentColor;
+  background:rgba(255,255,255,.6);color:inherit;opacity:.85;}
+.sol-lang-btn:hover{opacity:1;background:#fff;}
+#enViewPanel{
+  display:none;
+  margin-top:12px;
+  background:#F0F7FF;
+  border:1.5px solid #BFDBFE;
+  border-radius:12px;
+  padding:16px 18px;
+}
+.en-panel-label{
+  font-size:10.5px;font-weight:700;color:#3B82F6;
+  text-transform:uppercase;letter-spacing:0.07em;margin-bottom:10px;
+}
+.en-qtext{font-size:14.5px;font-weight:500;color:#1E3A5F;line-height:1.8;}
+.en-opts{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px;}
+.en-opt{
+  padding:7px 10px;border-radius:8px;font-size:13px;
+  border:1.5px solid #BFDBFE;background:#fff;color:#1E3A5F;
+}
+.en-opt-lbl{font-weight:700;margin-right:5px;color:#3B82F6;}
+@media(max-width:640px){
+  .en-opts{grid-template-columns:1fr;}
+}
+.nav-btns{
+  display:flex;align-items:center;gap:12px;
+  margin-top:28px;padding-bottom:16px;
+}
+.btn{
+  padding:11px 28px;border:none;border-radius:10px;
+  cursor:pointer;font-family:'Plus Jakarta Sans';font-size:14px;font-weight:700;
+  transition:all 0.15s;white-space:nowrap;letter-spacing:0.01em;
+}
+.btn:hover{opacity:0.92;transform:translateY(-1px);}
+.btn-prev  {background:#EFF6FF;color:#3B82F6;border:1.5px solid #BFDBFE;}
+.btn-prev:hover{background:#DBEAFE;}
+.btn-next  {background:linear-gradient(135deg,#FF6B00,#FF9240);color:#fff;box-shadow:0 3px 12px rgba(255,107,0,0.25);}
+.btn-submit{background:#1E293B;color:#fff;box-shadow:0 3px 12px rgba(30,41,59,0.2);}
+.btn-mark{
+  background:#FFFBEB;color:#D97706;
+  border:1.5px solid #FDE68A;padding:11px 18px;
+}
+.btn-mark:hover{background:#FEF3C7;}
+.btn-clear{
+  background:#F8FAFC;color:#64748B;
+  border:1.5px solid #E2E8F0;padding:11px 18px;
+}
+.btn-clear:hover{background:#F1F5F9;color:#475569;}
+.btn-clear:disabled{opacity:0.45;cursor:not-allowed;transform:none;}
+.skip-btn-row{flex:1;display:flex;justify-content:flex-end;gap:10px;}
+/* ── Report a question (PYQ) ── */
+.report-link{background:none;border:0;color:#94A3B8;font-size:12px;font-weight:600;cursor:pointer;text-decoration:underline;padding:4px 2px;}
+.report-link:hover{color:#DC2626;}
+.rv-report-link{display:inline-flex;align-items:center;gap:5px;margin-top:12px;background:none;border:0;color:#94A3B8;font-size:12px;font-weight:600;cursor:pointer;text-decoration:underline;padding:4px 2px;}
+.rv-report-link:hover{color:#DC2626;}
+.report-modal-bg{position:fixed;inset:0;background:rgba(15,23,42,.55);display:none;align-items:center;justify-content:center;z-index:9999;padding:16px;}
+.report-modal{background:#fff;border-radius:16px;max-width:440px;width:100%;padding:22px;box-shadow:0 12px 40px rgba(0,0,0,.25);position:relative;}
+.report-modal h3{font-family:'Rajdhani';font-size:20px;margin:0 0 4px;color:#1E293B;}
+.rm-sub{font-size:12px;color:#94A3B8;margin-bottom:14px;}
+.rm-reasons{display:flex;flex-direction:column;gap:8px;margin-bottom:12px;}
+.rm-reason{text-align:left;padding:10px 14px;border-radius:10px;border:1.5px solid #E2E8F0;background:#F8FAFC;color:#334155;font-size:14px;font-weight:600;cursor:pointer;}
+.rm-reason.sel{border-color:#FF6B00;background:#FFF7ED;color:#C2410C;}
+.rm-note{width:100%;border:1.5px solid #E2E8F0;border-radius:10px;padding:10px;font-size:14px;font-family:inherit;resize:vertical;min-height:60px;margin-bottom:12px;box-sizing:border-box;}
+.rm-actions{display:flex;gap:10px;justify-content:flex-end;}
+.rm-btn{padding:10px 20px;border-radius:10px;font-weight:700;font-size:14px;border:0;cursor:pointer;}
+.rm-cancel{background:#F1F5F9;color:#475569;}
+.rm-submit{background:#FF6B00;color:#fff;}
+.rm-submit:disabled{opacity:.5;cursor:default;}
+.rm-done{text-align:center;color:#15803D;font-weight:700;padding:14px 0;}
+.rm-x{position:absolute;top:8px;right:10px;background:none;border:0;font-size:26px;line-height:1;color:#94A3B8;cursor:pointer;padding:2px 8px;border-radius:8px;}
+.rm-x:hover{color:#334155;background:#F1F5F9;}
+
+/* ── Sectional timer / submit-section ── */
+.btn-section{background:#1E293B;color:#fff;box-shadow:0 3px 12px rgba(30,41,59,0.2);}
+.dot.locked{opacity:0.4;cursor:not-allowed;background:#F1F5F9;border-color:#E2E8F0;color:#CBD5E1;pointer-events:none;}
+.dot.locked.answered{background:#DCFCE7;border-color:#BBF7D0;color:#86EFAC;}
+.sec-tab.locked{opacity:0.5;cursor:not-allowed;pointer-events:none;}
+.sec-tab.locked .sec-tab-name::after{content:" 🔒";font-size:9px;}
+.sec-timer-name{
+  font-family:'Rajdhani';font-size:11px;font-weight:700;
+  color:#FF6B00;letter-spacing:0.04em;text-transform:uppercase;
+  margin-bottom:2px;line-height:1;text-align:center;
+}
+.sb-submitted-note{
+  font-size:11px;color:#FF6B00;font-weight:600;
+  text-align:center;padding:8px 0 0;line-height:1.5;
+}
+
+/* ═══════════════════════════════════
+   DESKTOP SIDEBAR
+═══════════════════════════════════ */
+.sidebar{
+  width:270px;flex-shrink:0;
+  border-left:1px solid #E2E8F0;
+  background:#FFFFFF;
+  overflow-y:auto;
+  overflow-x:hidden;
+  display:flex;flex-direction:column;
+}
+.sidebar::-webkit-scrollbar{width:4px;}
+.sidebar::-webkit-scrollbar-thumb{background:#E2E8F0;border-radius:4px;}
+
+/* Sidebar subject tabs */
+
+/* ── Section tab bar (above question panel) ── */
+#sectionBar{
+  display:flex;align-items:center;gap:0;
+  background:#fff;border-bottom:2px solid #F1F5F9;
+  overflow-x:auto;-webkit-overflow-scrolling:touch;
+  scrollbar-width:none;flex-shrink:0;
+}
+#sectionBar::-webkit-scrollbar{display:none;}
+.sec-tab{
+  display:flex;flex-direction:column;align-items:center;
+  padding:10px 16px 8px;cursor:pointer;
+  border-bottom:3px solid transparent;
+  font-family:'Plus Jakarta Sans';font-size:12px;font-weight:600;
+  color:#64748B;white-space:nowrap;transition:all 0.15s;
+  gap:3px;flex-shrink:0;user-select:none;
+}
+.sec-tab:hover{color:#FF6B00;background:#FFF7F0;}
+.sec-tab.active{color:#FF6B00;border-bottom-color:#FF6B00;}
+.sec-tab-name{font-size:11.5px;}
+.sec-tab-count{
+  font-size:10px;font-weight:700;
+  background:#F1F5F9;color:#94A3B8;
+  border-radius:20px;padding:1px 7px;
+  transition:all 0.15s;
+}
+.sec-tab.active .sec-tab-count{background:#FFF3E8;color:#FF6B00;}
+.sec-tab-progress{
+  height:3px;border-radius:2px;background:#E2E8F0;
+  width:100%;overflow:hidden;
+}
+.sec-tab-progress-fill{height:100%;background:#22C55E;border-radius:2px;transition:width 0.3s;}
+
+/* Sidebar legend + grid */
+.sb-section{padding:12px 14px;}
+.sb-label{
+  font-family:'Rajdhani';font-size:11px;font-weight:700;
+  color:#94A3B8;text-transform:uppercase;letter-spacing:0.08em;
+  margin-bottom:8px;
+}
+.legend{display:flex;flex-direction:column;gap:6px;margin-bottom:14px;}
+.legend-item{display:flex;align-items:center;gap:8px;font-size:11.5px;color:#64748B;font-weight:500;}
+.legend-dot{width:13px;height:13px;border-radius:4px;flex-shrink:0;}
+
+/* Q-number grid */
+.grid{
+  display:block;
+  width:100%;min-width:0;
+}
+.section-grid{
+  display:grid;grid-template-columns:repeat(5,1fr);gap:5px;
+  width:100%;min-width:0;
+}
+.section-block{margin-bottom:12px;}
+.dot{
+  aspect-ratio:1;display:flex;align-items:center;justify-content:center;
+  border:1.5px solid #E2E8F0;background:#FFFFFF;
+  cursor:pointer;font-size:11px;font-weight:600;border-radius:7px;
+  transition:all 0.12s;color:#475569;
+  font-family:'Plus Jakarta Sans';
+  min-width:0;overflow:hidden;
+}
+.dot:hover           {border-color:#FF6B00;color:#FF6B00;background:#FFF7F0;}
+.dot.answered        {background:#22C55E;color:#fff;border-color:#22C55E;}
+.dot.answered:hover  {background:#16A34A;}
+.dot.current         {border-color:#FF6B00;font-weight:700;color:#FF6B00;background:#FFF3E8;box-shadow:0 0 0 2px rgba(255,107,0,0.2);}
+.dot.skipped         {background:#FEF9C3;border-color:#EAB308;color:#713F12;}
+.dot.marked          {background:#EEF2FF;border-color:#6366F1;color:#4338CA;}
+
+/* Progress bar */
+.progress-wrap{padding:0 14px 14px;}
+.progress-label{display:flex;justify-content:space-between;font-size:11px;color:#94A3B8;font-weight:600;margin-bottom:6px;}
+.progress-bar{height:5px;background:#F1F5F9;border-radius:4px;overflow:hidden;}
+.progress-fill{height:100%;background:linear-gradient(90deg,#FF6B00,#FF9240);border-radius:4px;transition:width 0.4s ease;}
+
+/* Submit section in sidebar */
+.sb-submit{padding:0 14px 16px;}
+.sidebar-submit-btn{
+  width:100%;padding:12px;border:none;border-radius:10px;
+  background:linear-gradient(135deg,#1E293B,#334155);
+  color:#fff;font-family:'Plus Jakarta Sans';font-size:14px;font-weight:700;
+  cursor:pointer;transition:all 0.15s;letter-spacing:0.01em;
+}
+.sidebar-submit-btn:hover{opacity:0.9;transform:translateY(-1px);}
+
+/* ═══════════════════════════════════
+   MOBILE DRAWER
+═══════════════════════════════════ */
+#sidebarOverlay{
+  display:none;position:fixed;inset:0;
+  background:rgba(15,23,42,0.55);z-index:9998;
+  backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);
+}
+#sidebarDrawer{
+  display:none;position:fixed;right:0;top:0;bottom:0;
+  width:min(300px,85vw);
+  background:#fff;z-index:9999;overflow-y:auto;
+  box-shadow:-8px 0 32px rgba(0,0,0,0.18);
+}
+.drawer-header{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:14px 16px;border-bottom:1px solid #F1F5F9;
+  font-family:'Rajdhani';font-size:16px;font-weight:700;color:#1E293B;
+  background:#FFFFFF;position:sticky;top:0;z-index:1;
+}
+.drawer-close-btn{
+  background:#F1F5F9;border:none;border-radius:8px;
+  width:30px;height:30px;cursor:pointer;font-size:16px;color:#64748B;
+  display:flex;align-items:center;justify-content:center;
+}
+.drawer-body{padding:14px 14px 20px;}
+
+/* Subject buttons in drawer */
+
+#drawerGrid{display:block;width:100%;min-width:0;}
+
+/* ═══════════════════════════════════
+   RESULT SCREEN
+═══════════════════════════════════ */
+#resultScreen{
+  display:none;padding:32px 20px;
+  max-width:820px;margin:0 auto;
+}
+.result-card{
+  background:#fff;border-radius:20px;padding:36px 32px;
+  text-align:center;box-shadow:0 4px 24px rgba(0,0,0,0.07);
+  margin-bottom:24px;border:1px solid #F1F5F9;
+}
+.score-big{font-family:'Rajdhani';font-size:72px;font-weight:700;color:#FF6B00;line-height:1;}
+.score-label{font-size:13px;color:#94A3B8;margin-top:4px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;}
+.stats{display:flex;gap:12px;justify-content:center;margin-top:24px;flex-wrap:wrap;}
+.stat{background:#F8FAFC;border-radius:14px;padding:16px 20px;text-align:center;border:1px solid #F1F5F9;min-width:80px;}
+.stat-val{font-family:'Rajdhani';font-size:32px;font-weight:700;}
+.stat-lbl{font-size:11px;color:#94A3B8;margin-top:2px;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;}
+/* Estimated CGL rank card */
+.rank-est-title{font-family:'Rajdhani';font-size:20px;font-weight:700;color:#1E293B;margin-bottom:4px;}
+.rank-est-sub{font-size:12px;color:#94A3B8;margin-bottom:18px;}
+.rank-est-grid{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;}
+.rank-est-box{background:#FFF7ED;border:1px solid #FED7AA;border-radius:14px;padding:18px 22px;min-width:150px;text-align:center;}
+.rank-est-num{font-family:'Rajdhani';font-size:30px;font-weight:700;color:#FF6B00;line-height:1.1;}
+.rank-est-lbl{font-size:11px;color:#94A3B8;margin-top:6px;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;}
+.rank-est-box.chance.good{background:#F0FDF4;border-color:#BBF7D0;}
+.rank-est-box.chance.good .rank-est-num{color:#15803D;font-size:22px;}
+.rank-est-box.chance.mid{background:#FFFBEB;border-color:#FDE68A;}
+.rank-est-box.chance.mid .rank-est-num{color:#B45309;font-size:22px;}
+.rank-est-box.chance.low{background:#FEF2F2;border-color:#FECACA;}
+.rank-est-box.chance.low .rank-est-num{color:#DC2626;font-size:22px;}
+.rank-est-notes{margin-top:18px;text-align:left;}
+.rank-est-notes summary{cursor:pointer;font-size:13px;font-weight:600;color:#FF6B00;list-style:none;}
+.rank-est-notes summary::-webkit-details-marker{display:none;}
+.rank-est-notes summary::before{content:'\25B8  ';}
+.rank-est-notes[open] summary::before{content:'\25BE  ';}
+.rank-est-notes ul{margin:10px 0 0;padding-left:18px;font-size:12px;color:#64748B;line-height:1.6;}
+.rank-est-notes li{margin-bottom:6px;}
+.review-item{
+  background:#fff;border-radius:16px;padding:18px 18px 16px;margin-bottom:16px;
+  border:1px solid #EDF1F6;border-left:5px solid #E2E8F0;
+  box-shadow:0 3px 14px rgba(15,23,42,0.05);
+  transition:box-shadow .2s ease,transform .2s ease;
+}
+.review-item:hover{box-shadow:0 6px 22px rgba(15,23,42,0.09);}
+.review-item.correct{border-left-color:#22C55E;}
+.review-item.wrong  {border-left-color:#EF4444;}
+.review-item.skip   {border-left-color:#EAB308;}
+
+/* Review header pill */
+.rv-head{display:flex;justify-content:flex-end;margin-bottom:6px;}
+.rv-pill{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;
+  padding:5px 12px;border-radius:999px;display:inline-flex;align-items:center;gap:6px;}
+.rv-pill.correct{background:#DCFCE7;color:#15803D;}
+.rv-pill.wrong  {background:#FEE2E2;color:#DC2626;}
+.rv-pill.skip   {background:#FEF9C3;color:#A16207;}
+
+/* Review option chips */
+.rv-opts{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0;}
+.rv-opt{display:flex;align-items:flex-start;gap:9px;padding:10px 12px;border-radius:11px;
+  font-size:14px;line-height:1.55;border:1.5px solid #E5E9F0;background:#F9FAFB;color:#1F2937;font-weight:600;}
+.rv-opt .rv-key{flex:0 0 auto;width:23px;height:23px;border-radius:7px;background:#fff;
+  border:1px solid #E2E8F0;display:flex;align-items:center;justify-content:center;
+  font-size:12px;font-weight:800;color:#475569;}
+.rv-opt .rv-mk{margin-left:5px;font-weight:700;}
+.rv-opt.c{background:#F0FDF4;border-color:#22C55E;color:#15803D;font-weight:600;}
+.rv-opt.c .rv-key{background:#22C55E;color:#fff;border-color:#22C55E;}
+.rv-opt.w{background:#FEF2F2;border-color:#EF4444;color:#DC2626;}
+.rv-opt.w .rv-key{background:#EF4444;color:#fff;border-color:#EF4444;}
+
+/* Verdict bar */
+.verdict{display:flex;align-items:center;gap:10px;padding:11px 14px;border-radius:12px;
+  font-size:13.5px;font-weight:700;margin:12px 0 4px;}
+.verdict .v-ic{flex:0 0 auto;width:24px;height:24px;border-radius:50%;background:#fff;
+  display:flex;align-items:center;justify-content:center;font-size:13px;}
+.verdict.correct{background:#F0FDF4;color:#15803D;border:1px solid #BBF7D0;}
+.verdict.wrong  {background:#FEF2F2;color:#DC2626;border:1px solid #FECACA;}
+.verdict.skip   {background:#FFFBEB;color:#B45309;border:1px solid #FDE68A;}
+
+/* Solution / Trick / Concept panels */
+.sol-panel{border-radius:14px;overflow:hidden;margin-top:12px;border:1px solid transparent;}
+.sol-panel .sol-head{display:flex;align-items:center;gap:9px;padding:10px 14px;
+  font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;}
+.sol-panel .sol-ic{flex:0 0 auto;width:27px;height:27px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;font-size:14px;
+  background:rgba(255,255,255,.65);box-shadow:0 1px 3px rgba(0,0,0,.06);}
+.sol-panel .sol-body{padding:12px 15px;font-size:14px;line-height:1.85;color:#1F2937;font-weight:500;}
+.sol-panel .sol-body strong{color:#0F172A;font-weight:700;}
+.sol-panel .sol-body img{max-width:100%;border-radius:8px;margin-top:8px;display:block;object-fit:contain;}
+.sol-sol{border-color:#BBF7D0;}
+.sol-sol .sol-head{background:linear-gradient(90deg,#DCFCE7,#ECFDF5);color:#15803D;}
+.sol-sol .sol-body{background:#F6FEF9;color:#374151;}
+.sol-trick{border-color:#BFDBFE;}
+.sol-trick .sol-head{background:linear-gradient(90deg,#DBEAFE,#EFF6FF);color:#1D4ED8;}
+.sol-trick .sol-body{background:#F5F9FF;color:#1E40AF;}
+.sol-concept{border-color:#FED7AA;}
+.sol-concept .sol-head{background:linear-gradient(90deg,#FFEDD5,#FFF7ED);color:#C2410C;}
+.sol-concept .sol-body{background:#FFFBF5;color:#7C2D12;}
+/* Solution body — readable section headings, bullets & lines */
+.sol-panel .sol-body .sol-section{font-weight:800;font-size:15.5px;line-height:1.4;
+  color:#0F172A;margin:18px 0 8px;padding-bottom:5px;
+  border-bottom:1px solid rgba(15,23,42,.10);letter-spacing:.005em;}
+.sol-panel .sol-body .sol-section:first-child{margin-top:0;}
+.sol-panel .sol-body .sol-step{font-weight:800;font-size:14.5px;line-height:1.5;
+  color:#15803D;margin:15px 0 6px;}
+.sol-panel .sol-body .sol-step:first-child{margin-top:0;}
+.sol-panel .sol-body .sol-verdict{display:flex;gap:8px;align-items:flex-start;
+  margin:13px 0 8px;padding:9px 13px;border-radius:10px;
+  background:#ECFDF5;border:1px solid #A7F3D0;color:#15803D;
+  font-weight:800;font-size:14px;line-height:1.6;}
+.sol-panel .sol-body .sol-verdict .vmk{flex:0 0 auto;}
+.sol-panel .sol-body .sol-bullet{display:flex;gap:9px;align-items:flex-start;
+  margin:6px 0 6px 2px;font-size:14px;line-height:1.72;}
+.sol-panel .sol-body .sol-bullet-mk{flex:0 0 auto;color:#FF6B00;font-weight:800;line-height:1.72;}
+.sol-panel .sol-body .sol-bullet strong{color:#0F172A;}
+.sol-panel .sol-body .sol-line{font-size:14px;line-height:1.78;margin:5px 0;}
+.sol-sol .sol-body .sol-section{color:#166534;border-bottom-color:#BBF7D0;}
+.sol-sol .sol-body .sol-step{color:#166534;}
+.sol-trick .sol-body .sol-section{color:#1D4ED8;border-bottom-color:#BFDBFE;}
+.sol-trick .sol-body .sol-step{color:#1D4ED8;}
+.sol-trick .sol-body .sol-bullet-mk{color:#2563EB;}
+.sol-trick .sol-body .sol-bullet strong{color:#1E3A8A;}
+.sol-concept .sol-body .sol-section{color:#C2410C;border-bottom-color:#FED7AA;}
+.sol-concept .sol-body .sol-step{color:#C2410C;}
+.sol-concept .sol-body .sol-bullet-mk{color:#EA580C;}
+.sol-concept .sol-body .sol-bullet strong{color:#7C2D12;}
+@media(max-width:560px){.sol-panel .sol-body .sol-section{font-size:14.5px;margin:14px 0 6px;}}
+
+/* Result hero verdict chip */
+.result-verdict{display:inline-flex;align-items:center;gap:8px;margin-top:16px;
+  padding:9px 20px;border-radius:999px;font-weight:700;font-size:14px;}
+.result-verdict.great{background:#DCFCE7;color:#15803D;}
+.result-verdict.good {background:#FEF3C7;color:#B45309;}
+.result-verdict.low  {background:#FEE2E2;color:#DC2626;}
+
+/* ══ Tabbed section-wise review (mobile-optimized) ══ */
+.rv-wrap{margin-top:4px;}
+.rv-tabs{display:flex;gap:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;
+  padding:8px 2px 10px;margin-bottom:14px;scrollbar-width:none;
+  position:sticky;top:0;z-index:30;background:#F0F4F8;}
+.rv-tabs::-webkit-scrollbar{display:none;}
+.rv-tab{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:4px;
+  background:#fff;border:1.5px solid #E5E9F0;border-radius:13px;padding:8px 15px;
+  cursor:pointer;min-width:98px;transition:all .18s ease;font-family:inherit;}
+.rv-tab:hover{border-color:#FFD9B8;}
+.rv-tab.active{border-color:#FF6B00;background:#FFF7F0;box-shadow:0 3px 12px rgba(255,107,0,.16);}
+.rv-tab-name{font-size:13px;font-weight:800;color:#1E293B;white-space:nowrap;}
+.rv-tab.active .rv-tab-name{color:#FF6B00;}
+.rv-tab-mini{display:flex;gap:8px;font-size:11px;font-weight:800;line-height:1;}
+.rv-tab-mini span{display:inline-flex;align-items:center;gap:3px;}
+.rv-tab-mini span::before{content:"";width:7px;height:7px;border-radius:50%;display:inline-block;}
+.rv-tab-mini .c{color:#16A34A;} .rv-tab-mini .c::before{background:#22C55E;}
+.rv-tab-mini .w{color:#DC2626;} .rv-tab-mini .w::before{background:#EF4444;}
+.rv-tab-mini .k{color:#CA8A04;} .rv-tab-mini .k::before{background:#EAB308;}
+
+.rv-panel{animation:rvfade .25s ease;}
+@keyframes rvfade{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
+
+.rv-secsum{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
+.rv-lg{font-size:12px;font-weight:800;padding:5px 12px;border-radius:999px;display:inline-flex;align-items:center;gap:5px;}
+.rv-lg.correct{background:#DCFCE7;color:#15803D;}
+.rv-lg.wrong{background:#FEE2E2;color:#DC2626;}
+.rv-lg.skip{background:#FEF9C3;color:#A16207;}
+
+.rv-palette{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px;padding:14px;
+  background:#fff;border:1px solid #EDF1F6;border-radius:14px;box-shadow:0 3px 14px rgba(15,23,42,.05);}
+.rv-circle{width:34px;height:34px;border-radius:50%;border:none;cursor:pointer;
+  font-size:12.5px;font-weight:800;color:#fff;font-family:inherit;
+  display:flex;align-items:center;justify-content:center;transition:transform .12s ease;}
+.rv-circle:hover{transform:scale(1.12);}
+.rv-circle:active{transform:scale(.94);}
+.rv-circle.correct{background:#22C55E;}
+.rv-circle.wrong{background:#EF4444;}
+.rv-circle.skip{background:#EAB308;}
+
+.rv-flash{animation:rvflash 1.2s ease;}
+@keyframes rvflash{0%,100%{box-shadow:0 3px 14px rgba(15,23,42,.05);}28%{box-shadow:0 0 0 3px #FFB877,0 6px 22px rgba(255,107,0,.28);}}
+
+@media(max-width:560px){
+  .rv-tabs{gap:7px;}
+  .rv-tab{min-width:86px;padding:7px 12px;}
+  .rv-tab-name{font-size:12px;}
+  .rv-tab-mini{font-size:10px;gap:6px;}
+  .rv-circle{width:31px;height:31px;font-size:11.5px;}
+  .rv-palette{gap:7px;padding:11px;}
+  .rv-lg{font-size:11px;padding:4px 10px;}
+}
+
+.q-figure-img{max-width:100%;border-radius:8px;margin:6px 0;border:1px solid #334155;display:block;}
+
+/* ── DI Table ── */
+.di-caption{font-size:13px;color:#64748B;font-style:italic;margin:6px 0 3px;line-height:1.5;}
+.di-table-wrap{overflow-x:auto;margin:4px 0 6px;-webkit-overflow-scrolling:touch;}
+.di-table{width:100%;border-collapse:collapse;font-size:13.5px;}
+.di-table thead tr{background:#FFF3E8;}
+.di-table th{color:#C2410C;font-weight:700;text-align:center;padding:8px 12px;border:1px solid #FDDCBD;font-size:12.5px;white-space:nowrap;}
+.di-table td{padding:7px 12px;border:1px solid #F1F5F9;text-align:center;color:#334155;font-size:13px;}
+.di-table tbody tr:nth-child(even) td{background:#F8FAFC;}
+
+/* Toggle button — hidden on desktop, shown on mobile */
+.di-toggle{
+  display:none;
+  align-items:center;
+  gap:6px;
+  margin:6px 0 4px;
+  padding:7px 14px;
+  background:#FFF3E8;
+  border:1.5px solid #FDDCBD;
+  border-radius:8px;
+  color:#C2410C;
+  font-family:inherit;
+  font-size:13px;
+  font-weight:700;
+  cursor:pointer;
+  width:100%;
+  justify-content:center;
+  letter-spacing:.01em;
+}
+.di-toggle-icon{font-size:16px;line-height:1;}
+
+/* Mobile: hide table by default, show toggle button */
+@media(max-width:600px){
+    .di-toggle{display:none !important;}
+  .di-table-wrap{
+    display:block;
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+  }
+    .di-table{font-size:12px;}
+}
+
+
+/* ═══════════════════════════════════
+   MOBILE  ≤ 640px
+═══════════════════════════════════ */
+@media(max-width:640px){
+  #sectionBar{ border-bottom:1px solid #E2E8F0; }
+  .sec-tab{ padding:6px 12px 5px; font-size:11px; min-width:72px; }
+  .sec-tab-name{font-size:10.5px;}
+  .sec-tab-count{font-size:9.5px;padding:1px 5px;}
+  .sec-tab-progress{width:100%;}
+
+  #testScreen{height:100dvh;}
+
+  .topbar{
+    background:#fff;height:46px;padding:0 10px;
+    box-shadow:0 1px 0 #E2E8F0;gap:6px;
+  }
+  .topbar-center{flex:0 0 auto;}
+  /* Reclaim vertical + horizontal space on phones */
+  .brand-dot{display:none;}
+  .exam-title{display:none;}
+  .topbar-left{gap:0;}
+  .user-name{display:none;}
+  .timer-wrap{padding:3px 9px;gap:4px;border-radius:9px;}
+  .timer{font-size:18px;}
+  .timer-icon{display:none;}
+  .sec-timer-name{font-size:9px;margin-bottom:1px;}
+  .pause-btn{padding:5px 10px;font-size:12px;}
+  .logout-btn{padding:5px 9px;font-size:11px;}
+
+  #gridToggleBtn{
+    display:flex;align-items:center;gap:5px;
+    background:#1E293B;color:#fff;border:none;
+    border-radius:8px;padding:5px 10px;
+    font-family:'Rajdhani';font-size:12px;font-weight:700;
+    cursor:pointer;white-space:nowrap;
+  }
+
+  /* Subject bar: horizontal scroll on mobile too */
+  
+  
+  
+
+  .sidebar{display:none;}
+  .main{background:#F0F4F8;flex-direction:column;}
+
+  .questionPanel{
+    padding:0;background:transparent;
+    flex-direction:column;align-items:stretch;
+  }
+  .q-inner{max-width:100%;padding:0;}
+
+  .qNum-row{
+    padding:7px 14px 0;
+    margin-bottom:6px;
+  }
+  .qNum-badge{font-size:10.5px;padding:3px 11px;border-width:1px;box-shadow:none;}
+  .qNum-badge .qNum-accent{font-size:12.5px;}
+  
+
+  .q-card{
+    margin:0 12px 10px;
+    padding:16px;border-radius:12px;
+  }
+  .qText{font-size:15px;line-height:1.7;}
+  .q-instruction{font-size:14px;margin-bottom:10px;}
+  .q-sentence{font-size:15px;padding:10px 14px;}
+
+  .options-wrap{
+    padding:0 12px 0;gap:8px;
+  }
+  .option{
+    background:#fff;border:1.5px solid #E2E8F0;
+    border-radius:12px;padding:12px 14px;
+    font-size:14px;gap:10px;
+    box-shadow:0 1px 3px rgba(0,0,0,0.04);
+  }
+  .option:hover{transform:none;}
+  .option:active{transform:scale(0.985);}
+  .opt-label{
+    width:30px;height:30px;min-width:30px;
+    border-radius:8px;font-size:13px;
+  }
+  .opt-body{font-size:14px;}
+
+  .nav-btns{
+    position:sticky;bottom:0;z-index:10;
+    background:#fff;border-top:1px solid #E2E8F0;
+    padding:10px 12px;margin-top:10px;
+    gap:8px;flex-wrap:wrap;
+    box-shadow:0 -2px 12px rgba(0,0,0,0.06);
+  }
+  .btn{
+    padding:11px 0;font-size:14px;border-radius:10px;
+    text-align:center;
+  }
+  .nav-btns>.btn,
+  .nav-btns>.skip-btn-row{flex:1 1 calc(50% - 4px);}
+  .skip-btn-row>.btn{flex:1 1 auto;}
+  .btn-prev {background:#EFF6FF;color:#3B82F6;border:1.5px solid #BFDBFE;}
+  .btn-next {background:linear-gradient(135deg,#FF6B00,#FF9240);color:#fff;box-shadow:none;}
+  .btn-submit{background:#1E293B;color:#fff;box-shadow:none;font-size:13px;}
+  .btn-section{background:#1E293B;color:#fff;box-shadow:none;font-size:13px;}
+  .skip-btn-row{display:flex;gap:8px;}
+  .btn-mark{display:none;}
+
+  #resultScreen{padding:12px;}
+  .result-card{padding:22px 16px;border-radius:16px;}
+  .score-big{font-size:54px;}
+  .stats{gap:8px;}
+  .stat{padding:12px;flex:1;min-width:60px;border-radius:12px;}
+  .stat-val{font-size:26px;}
+  .stat-lbl{font-size:9px;}
+  .review-item{padding:12px;margin-bottom:8px;}
+}
+
+/* ═══════════ INSTRUCTIONS SCREEN ═══════════ */
+#instrScreen{
+  min-height:100vh;background:#F0F4F8;display:flex;flex-direction:column;
+}
+.instr-topbar{
+  background:#fff;display:flex;align-items:center;gap:14px;
+  padding:14px 28px;
+  box-shadow:0 1px 0 #E2E8F0,0 2px 12px rgba(0,0,0,0.06);flex-shrink:0;
+}
+.instr-exam-title{font-family:'Rajdhani';font-size:17px;font-weight:700;color:#1E293B;line-height:1.2;}
+.instr-user{font-size:11.5px;color:#94A3B8;font-weight:500;}
+.instr-body{
+  flex:1;display:flex;justify-content:center;align-items:flex-start;
+  padding:24px 16px 40px;
+}
+.instr-card{
+  background:#fff;border-radius:20px;
+  box-shadow:0 4px 24px rgba(0,0,0,0.08);
+  width:100%;max-width:780px;overflow:hidden;
+}
+.instr-header{
+  display:flex;align-items:center;gap:16px;
+  background:linear-gradient(135deg,#FF6B00,#FF9240);
+  padding:22px 28px;
+}
+.instr-header-icon{font-size:32px;}
+.instr-title{font-family:'Rajdhani';font-size:22px;font-weight:700;color:#fff;line-height:1.2;}
+.instr-subtitle{font-size:13px;color:rgba(255,255,255,0.85);margin-top:2px;}
+.instr-content{
+  padding:24px 28px;max-height:58vh;overflow-y:auto;
+}
+.instr-section-title{
+  font-family:'Rajdhani';font-size:15px;font-weight:700;
+  color:#FF6B00;letter-spacing:0.3px;
+  margin:20px 0 8px;padding-bottom:5px;
+  border-bottom:1.5px solid #FEE9D7;
+}
+.instr-section-title:first-child{margin-top:0;}
+.instr-list{padding-left:20px;display:flex;flex-direction:column;gap:8px;}
+.instr-list li{font-size:13.5px;color:#374151;line-height:1.65;}
+.instr-list li strong{color:#1E293B;}
+.instr-legend{display:flex;flex-direction:column;gap:8px;margin:8px 0 4px 4px;}
+.instr-legend-item{display:flex;align-items:center;gap:10px;font-size:13px;color:#374151;}
+.instr-dot{width:26px;height:26px;border-radius:7px;flex-shrink:0;}
+.instr-footer{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:18px 28px;border-top:1px solid #F1F5F9;background:#FAFBFC;gap:12px;
+}
+.instr-back-btn{
+  background:transparent;border:1.5px solid #E2E8F0;
+  color:#64748B;padding:10px 22px;border-radius:10px;
+  cursor:pointer;font-size:13px;font-weight:600;font-family:'Plus Jakarta Sans';transition:all 0.15s;
+}
+.instr-back-btn:hover{background:#F1F5F9;border-color:#CBD5E1;color:#334155;}
+.instr-start-btn{
+  background:linear-gradient(135deg,#FF6B00,#FF9240);
+  color:#fff;border:none;padding:11px 32px;border-radius:10px;
+  cursor:pointer;font-size:14px;font-weight:700;font-family:'Plus Jakarta Sans';
+  box-shadow:0 4px 16px rgba(255,107,0,0.35);transition:all 0.15s;
+}
+.instr-start-btn:hover{box-shadow:0 6px 20px rgba(255,107,0,0.45);transform:translateY(-1px);}
+/* Marking scheme */
+.instr-marking{display:flex;flex-direction:column;gap:8px;margin:10px 0 6px;}
+.instr-mark-row{
+  display:flex;align-items:center;gap:12px;
+  padding:11px 14px;border-radius:10px;border:1.5px solid;
+}
+.instr-mark-row.correct{background:#F0FDF4;border-color:#86EFAC;}
+.instr-mark-row.wrong{background:#FEF2F2;border-color:#FCA5A5;}
+.instr-mark-row.skipped{background:#F8FAFC;border-color:#E2E8F0;}
+.instr-mark-icon{
+  width:28px;height:28px;border-radius:8px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:14px;font-weight:700;flex-shrink:0;
+}
+.instr-mark-row.correct .instr-mark-icon{background:#22C55E;color:#fff;}
+.instr-mark-row.wrong .instr-mark-icon{background:#EF4444;color:#fff;}
+.instr-mark-row.skipped .instr-mark-icon{background:#94A3B8;color:#fff;font-size:16px;}
+.instr-mark-info{flex:1;min-width:0;}
+.instr-mark-label{font-size:13px;font-weight:700;color:#1E293B;}
+.instr-mark-desc{font-size:11.5px;color:#64748B;margin-top:1px;}
+.instr-mark-val{
+  font-family:'Rajdhani';font-size:22px;font-weight:700;flex-shrink:0;
+}
+.instr-mark-row.correct .instr-mark-val{color:#16A34A;}
+.instr-mark-row.wrong .instr-mark-val{color:#DC2626;}
+.instr-mark-row.skipped .instr-mark-val{color:#94A3B8;}
+.instr-marking-note{
+  font-size:12px;color:#64748B;
+  background:#F8FAFC;border:1px solid #E2E8F0;
+  border-radius:8px;padding:9px 12px;margin-top:4px;
+  line-height:1.5;
+}
+.instr-marking-note strong{color:#1E293B;}
+@media(max-width:640px){
+  .instr-topbar{padding:12px 16px;}
+  .instr-body{padding:12px 10px 32px;}
+  .instr-card{border-radius:14px;}
+  .instr-header{padding:18px 16px;gap:12px;}
+  .instr-title{font-size:19px;}
+  .instr-content{padding:18px 16px;max-height:55vh;}
+  .instr-footer{flex-direction:column;gap:10px;padding:16px;}
+  .instr-start-btn,.instr-back-btn{width:100%;text-align:center;justify-content:center;}
+}
+</style>
+
 <style>
   :root{
     --orange:#FF6B00; --orange2:#FF8C38;
@@ -188,7 +1136,207 @@
 </div>
 
 <!-- BUILT-IN CHAPTER PLAYER (self-contained; does not use mock-test.html) -->
-<div id="cwPlayer" style="display:none;position:fixed;inset:0;z-index:6500;background:var(--bg);overflow-y:auto;"></div>
+<div id="cwPlayer" style="display:none;position:fixed;inset:0;z-index:6500;background:#F0F4F8;overflow-y:auto;">
+
+  <!-- ===== Instructions ===== -->
+  <div id="instrScreen" style="display:none;">
+    <div class="instr-topbar">
+      <div class="brand-dot">T</div>
+      <div>
+        <div class="instr-exam-title" id="cwInstrTitle">Chapter Test</div>
+        <div class="instr-user" id="cwInstrSub"></div>
+      </div>
+    </div>
+    <div class="instr-body">
+      <div class="instr-card">
+        <div class="instr-header">
+          <div class="instr-header-icon">&#128203;</div>
+          <div>
+            <div class="instr-title">Before you begin</div>
+            <div class="instr-subtitle">Chapter-wise practice test</div>
+          </div>
+        </div>
+        <div class="instr-content">
+          <div class="instr-section-title">&#9201; Time &amp; Submission</div>
+          <ol class="instr-list" id="cwInstrTime"></ol>
+          <div class="instr-section-title">&#128202; Question Palette</div>
+          <div class="instr-legend">
+            <div class="instr-legend-item"><div class="instr-dot" style="background:#fff;border:1.5px solid #CBD5E1;"></div><span><strong>Not Visited</strong> — not opened yet.</span></div>
+            <div class="instr-legend-item"><div class="instr-dot" style="background:#22C55E;"></div><span><strong>Answered</strong> — you picked an option.</span></div>
+            <div class="instr-legend-item"><div class="instr-dot" style="background:#FEF9C3;border:1.5px solid #EAB308;"></div><span><strong>Skipped</strong> — visited but not answered.</span></div>
+            <div class="instr-legend-item"><div class="instr-dot" style="background:#EEF2FF;border:1.5px solid #6366F1;"></div><span><strong>Marked for Review</strong> — flagged to revisit.</span></div>
+          </div>
+          <div class="instr-section-title">&#127775; Marking Scheme</div>
+          <div class="instr-marking">
+            <div class="instr-mark-row correct"><div class="instr-mark-icon">&#10003;</div><div class="instr-mark-info"><div class="instr-mark-label">Correct Answer</div><div class="instr-mark-desc">Full marks for each correct response</div></div><div class="instr-mark-val">+2.00</div></div>
+            <div class="instr-mark-row wrong"><div class="instr-mark-icon">&#10005;</div><div class="instr-mark-info"><div class="instr-mark-label">Wrong Answer</div><div class="instr-mark-desc">Negative marking for each wrong response</div></div><div class="instr-mark-val">&minus;0.50</div></div>
+            <div class="instr-mark-row skipped"><div class="instr-mark-icon">&#8212;</div><div class="instr-mark-info"><div class="instr-mark-label">Unattempted / Skipped</div><div class="instr-mark-desc">No marks awarded or deducted</div></div><div class="instr-mark-val">0</div></div>
+          </div>
+          <div class="instr-marking-note">Total marks = (Correct &times; 2) &minus; (Wrong &times; 0.5) &nbsp;&bull;&nbsp; Maximum marks: <strong id="cwInstrMax">100</strong></div>
+          <div class="instr-section-title">&#9999;&#65039; Answering</div>
+          <ol class="instr-list">
+            <li>Choose one option (A&ndash;D). Tap the same option again to deselect.</li>
+            <li>Tap <strong>Next &rarr;</strong> to move on, or jump using the question palette.</li>
+            <li><strong>&#128278; Mark</strong> flags a question for review; a marked answer is still evaluated.</li>
+            <li>You can switch a Hindi question to English with <strong>&#127468;&#127463; View in English</strong>.</li>
+          </ol>
+        </div>
+        <div class="instr-footer">
+          <button class="instr-back-btn" onclick="cwClose()">&larr; Back to tests</button>
+          <button class="instr-start-btn" id="cwInstrStart" onclick="beginTest()">I am ready to begin &#9658;</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Test screen ===== -->
+  <div id="testScreen">
+    <div class="topbar">
+      <div class="topbar-left">
+        <div class="brand-dot">T</div>
+        <div>
+          <div class="exam-title" id="examTitle">Chapter Test</div>
+          <div class="user-name" id="userName"></div>
+        </div>
+      </div>
+      <div class="topbar-center">
+        <div class="timer-wrap" id="cwTimerWrap" style="flex-direction:column;align-items:center;gap:2px;padding-top:4px;padding-bottom:4px;">
+          <div class="sec-timer-name" id="secTimerName"></div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span class="timer-icon">&#9201;</span>
+            <div class="timer" id="timer">30:00</div>
+          </div>
+        </div>
+        <button class="pause-btn" id="pauseBtn" onclick="togglePause()">&#9208; Pause</button>
+      </div>
+      <div class="topbar-right">
+        <button id="gridToggleBtn" onclick="openDrawer()">&#9776; Questions</button>
+        <button class="cw-x" onclick="cwClose()" aria-label="Exit test">&times;</button>
+      </div>
+    </div>
+
+    <div id="sectionBar"></div>
+
+    <div class="main">
+      <div class="questionPanel">
+        <div class="q-inner">
+          <div class="qNum-row">
+            <div class="qNum-badge" id="qNum">Question <span class="qNum-accent" id="qNumCurrent">1</span>&nbsp;of&nbsp;<span id="qNumTotal">0</span></div>
+          </div>
+          <div class="q-card">
+            <div class="qText" id="qText"></div>
+            <div id="qImgWrap" style="display:none;">
+              <div id="qImgLoader" style="display:flex;"><div class="img-spin"></div>Image is loading&hellip;</div>
+              <img id="qImg" alt="Question figure" style="display:none;">
+            </div>
+            <button id="enToggleBtn" onclick="toggleEnglishView()">&#127468;&#127463; View in English</button>
+            <div id="enViewPanel">
+              <div class="en-panel-label">&#127468;&#127463; English Version</div>
+              <div class="en-qtext" id="enQText"></div>
+              <div class="en-opts" id="enOpts"></div>
+            </div>
+          </div>
+          <div id="options" class="options-wrap"></div>
+          <div style="text-align:right;margin-top:4px;">
+            <button class="report-link" id="reportBtn" onclick="openReport()">&#9888; Report a problem with this question</button>
+          </div>
+          <div class="nav-btns">
+            <button class="btn btn-prev" id="prevBtn" onclick="prevQ()">&larr; Prev</button>
+            <button class="btn btn-next" id="nextBtn" onclick="nextQ()">Next &rarr;</button>
+            <div class="skip-btn-row">
+              <button class="btn btn-clear" onclick="clearResponse()" id="clearBtn">&times; Clear</button>
+              <button class="btn btn-mark" onclick="markForReview()" id="markBtn">&#128278; Mark</button>
+            </div>
+            <button class="btn btn-section" id="submitSectionBtn" onclick="cwConfirmSubmit()">Submit Test &#10003;</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="sidebar">
+        <div class="progress-wrap">
+          <div class="progress-label"><span>Progress</span><span id="progressText">0 / 0</span></div>
+          <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+        </div>
+        <div class="sb-section">
+          <div class="sb-label">Legend</div>
+          <div class="legend">
+            <div class="legend-item"><div class="legend-dot" style="background:#22C55E;"></div>Answered</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#fff;border:1.5px solid #E2E8F0;"></div>Not Visited</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#FFF3E8;border:2px solid #FF6B00;"></div>Current</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#FEF9C3;border:1.5px solid #EAB308;"></div>Skipped</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#EEF2FF;border:1.5px solid #6366F1;"></div>Marked for Review</div>
+          </div>
+          <div class="sb-label">Questions</div>
+          <div class="grid" id="grid"></div>
+        </div>
+        <div class="sb-submit">
+          <button class="sidebar-submit-btn" id="sidebarSubmitBtn" onclick="cwConfirmSubmit()">Submit Test &#10003;</button>
+          <div class="sb-submitted-note" id="sbSubmittedNote"></div>
+        </div>
+      </div>
+    </div>
+  </div><!-- /#testScreen -->
+
+  <!-- mobile drawer + overlays -->
+  <div id="sidebarOverlay" onclick="closeDrawer()"></div>
+  <div id="pauseOverlay">
+    <div class="po-icon">&#9208;</div>
+    <div class="po-title">Test Paused</div>
+    <div class="po-sub">Time remaining</div>
+    <div class="po-time" id="pauseTime">--:--</div>
+    <button class="po-resume" onclick="togglePause()">&#9658; Resume Test</button>
+  </div>
+  <div id="sidebarDrawer">
+    <div class="drawer-header"><span>&#128203; Questions</span><button class="drawer-close-btn" onclick="closeDrawer()">&times;</button></div>
+    <div class="drawer-body">
+      <div class="legend" style="margin-bottom:12px;">
+        <div class="legend-item"><div class="legend-dot" style="background:#22C55E;"></div>Answered</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#fff;border:1.5px solid #E2E8F0;"></div>Not Visited</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#FFF3E8;border:2px solid #FF6B00;"></div>Current</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#FEF9C3;border:1.5px solid #EAB308;"></div>Skipped</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#EEF2FF;border:1.5px solid #6366F1;"></div>Marked</div>
+      </div>
+      <div class="sb-label" style="margin-bottom:8px;">All Questions</div>
+      <div id="drawerGrid"></div>
+    </div>
+  </div>
+
+  <!-- report modal (shared by in-test button & review report links) -->
+  <div class="report-modal-bg" id="reportModalBg" onclick="if(event.target===this)closeReport()">
+    <div class="report-modal" id="reportModal">
+      <button class="rm-x" onclick="closeReport()" aria-label="Close">&times;</button>
+      <div id="reportForm">
+        <h3>Report a problem</h3>
+        <div class="rm-sub" id="reportQLabel">Question</div>
+        <div class="rm-reasons" id="reportReasons">
+          <button class="rm-reason" data-r="Wrong answer key">Wrong answer key</button>
+          <button class="rm-reason" data-r="Question is incorrect">Question is incorrect</button>
+          <button class="rm-reason" data-r="Options wrong or incomplete">Options are wrong / incomplete</button>
+          <button class="rm-reason" data-r="Wrong or unclear solution">Solution is wrong / unclear</button>
+          <button class="rm-reason" data-r="Typo or formatting">Typo / formatting issue</button>
+          <button class="rm-reason" data-r="Image not visible">Image not visible</button>
+          <button class="rm-reason" data-r="Other">Other</button>
+        </div>
+        <textarea class="rm-note" id="reportNote" placeholder="Add details (optional)&hellip;"></textarea>
+        <div class="rm-actions">
+          <button class="rm-btn rm-cancel" onclick="closeReport()">Cancel</button>
+          <button class="rm-btn rm-submit" id="reportSubmitBtn" onclick="submitReport()">Submit report</button>
+        </div>
+      </div>
+      <div id="reportDone" style="display:none;">
+        <div class="rm-done">&#10003; Thanks! This question has been sent to our team for review.</div>
+        <div class="rm-actions" style="justify-content:center;"><button class="rm-btn rm-submit" onclick="closeReport()">Close</button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- result screen -->
+  <div id="resultScreen">
+    <div id="cwResultCard"></div>
+    <div id="review"></div>
+  </div>
+
+</div><!-- /#cwPlayer -->
 
 <style>
   .step-h{display:flex;align-items:center;flex-wrap:wrap;gap:0.6rem;font-family:'Rajdhani',sans-serif;font-weight:800;font-size:1.2rem;margin:1.7rem 0 1.1rem;color:var(--text);}
@@ -247,85 +1395,11 @@
   .pick-opt:disabled:hover{transform:none;box-shadow:none;border-color:var(--border);background:#F8FAFC;}
   .pick-back{margin-top:1rem;border:none;background:none;color:var(--muted);font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.85rem;cursor:pointer;}
   .pick-back:hover{color:var(--saffron);}
-  /* ---- built-in player ---- */
-  .cwp-top{position:sticky;top:0;z-index:4;background:#fff;border-bottom:1px solid var(--border);}
-  .cwp-top-in{max-width:900px;margin:0 auto;padding:0.7rem 1rem;display:flex;align-items:center;gap:0.7rem;}
-  .cwp-x{border:none;background:#F1F5F9;color:#64748B;width:36px;height:36px;border-radius:10px;font-size:1.05rem;cursor:pointer;flex-shrink:0;}
-  .cwp-ttl{flex:1;min-width:0;}
-  .cwp-ttl .a{font-family:'Rajdhani',sans-serif;font-weight:800;font-size:1rem;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .cwp-ttl .b{font-size:0.73rem;color:var(--muted);}
-  .cwp-clock{font-family:'Rajdhani',sans-serif;font-weight:800;font-size:1.05rem;color:var(--dim);background:#F8FAFC;border:1px solid var(--border);border-radius:9px;padding:0.3rem 0.7rem;min-width:74px;text-align:center;}
-  .cwp-clock.warn{color:#DC2626;border-color:#FCA5A5;background:#FEF2F2;}
-  .cwp-sub-btn{border:none;border-radius:9px;padding:0.45rem 0.95rem;font-family:'Rajdhani',sans-serif;font-weight:800;font-size:0.85rem;cursor:pointer;background:linear-gradient(135deg,var(--green),#38BDF8);color:#fff;flex-shrink:0;}
-  .cwp-wrap{max-width:900px;margin:0 auto;padding:1rem 1rem 4rem;display:grid;grid-template-columns:1fr 250px;gap:1.2rem;}
-  @media(max-width:760px){.cwp-wrap{grid-template-columns:1fr;}.cwp-side{order:-1;}}
-  .cwp-main{min-width:0;}
-  .cwp-qmeta{display:flex;align-items:center;justify-content:space-between;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.8rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:0.6rem;}
-  .cwp-qtext{font-size:1.05rem;line-height:1.65;margin-bottom:1.1rem;}
-  .cwp-qtext img,.cwp-opt img,.rvw img{max-width:100%;border-radius:8px;margin-top:0.5rem;}
-  .cwp-opt{display:flex;gap:0.7rem;align-items:flex-start;width:100%;text-align:left;background:#F8FAFC;border:1.5px solid var(--border);border-radius:12px;padding:0.8rem 0.95rem;margin-bottom:0.6rem;cursor:pointer;font:inherit;color:var(--text);transition:all .12s;}
-  .cwp-opt:hover{background:#fff;border-color:#CBD5E1;}
-  .cwp-opt.sel{background:#EFF6FF;border-color:var(--sky);}
-  .cwp-opt .k{font-family:'Rajdhani',sans-serif;font-weight:800;flex-shrink:0;width:22px;}
-  .cwp-actions{display:flex;flex-wrap:wrap;gap:0.6rem;margin-top:1.1rem;}
-  .cwp-actions button{border-radius:11px;padding:0.7rem 1rem;font-family:'Rajdhani',sans-serif;font-weight:800;font-size:0.9rem;cursor:pointer;}
-  .cwp-actions .mark{border:1.5px solid #C4B5FD;background:#F5F3FF;color:#6D28D9;}
-  .cwp-actions .mark.on{background:#6D28D9;color:#fff;border-color:#6D28D9;}
-  .cwp-actions .clear{border:1px solid var(--border);background:#fff;color:var(--dim);}
-  .cwp-actions .prev{border:1px solid var(--border);background:#fff;color:var(--dim);}
-  .cwp-actions .next{border:none;background:linear-gradient(135deg,var(--green),#38BDF8);color:#fff;margin-left:auto;}
-  .cwp-actions button:disabled{opacity:0.4;cursor:not-allowed;}
-  .cwp-side{background:#fff;border:1px solid var(--border);border-radius:14px;padding:1rem;height:fit-content;position:sticky;top:70px;}
-  .cwp-legend{display:grid;grid-template-columns:1fr 1fr;gap:0.35rem 0.6rem;font-size:0.7rem;color:var(--dim);margin-bottom:0.8rem;}
-  .cwp-legend span{display:flex;align-items:center;gap:0.35rem;}
-  .cwp-legend i{width:13px;height:13px;border-radius:4px;display:inline-block;flex-shrink:0;}
-  .cwp-pal{display:grid;grid-template-columns:repeat(6,1fr);gap:0.35rem;}
-  @media(max-width:760px){.cwp-pal{grid-template-columns:repeat(10,1fr);}}
-  .cwp-pal b{aspect-ratio:1;border-radius:7px;display:flex;align-items:center;justify-content:center;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.8rem;cursor:pointer;border:1px solid var(--border);background:#fff;color:var(--dim);}
-  .cwp-pal b.cur{outline:2px solid var(--saffron);outline-offset:1px;}
-  .cwp-pal b.ans{background:#22C55E;border-color:#22C55E;color:#fff;}
-  .cwp-pal b.skip{background:#FEF9C3;border-color:#EAB308;color:#854D0E;}
-  .cwp-pal b.mark{background:#EEF2FF;border-color:#6366F1;color:#4338CA;}
-  .cwp-prog{margin-top:0.8rem;font-size:0.74rem;color:var(--muted);text-align:center;}
-  /* instructions */
-  .cwp-instr{max-width:560px;margin:1.5rem auto;background:#fff;border:1px solid var(--border);border-radius:18px;padding:1.6rem;}
-  .cwp-instr h2{font-family:'Baloo 2',cursive;font-weight:800;font-size:1.4rem;}
-  .cwp-instr .m{font-size:0.85rem;color:var(--muted);margin:0.15rem 0 1rem;}
-  .cwp-mk{display:flex;gap:0.5rem;margin:0.9rem 0;}
-  .cwp-mk div{flex:1;text-align:center;border:1px solid var(--border);border-radius:11px;padding:0.6rem;}
-  .cwp-mk .v{font-family:'Rajdhani',sans-serif;font-weight:800;font-size:1.1rem;}
-  .cwp-mk .l{font-size:0.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;}
-  .cwp-instr ul{margin:0.6rem 0 1.2rem 1.1rem;font-size:0.87rem;line-height:1.7;color:var(--dim);}
-  .cwp-begin{width:100%;border:none;border-radius:12px;padding:0.85rem;font-family:'Rajdhani',sans-serif;font-weight:800;font-size:1rem;cursor:pointer;background:linear-gradient(135deg,var(--green),#38BDF8);color:#fff;}
-  /* result */
-  .cwp-res{max-width:640px;margin:1.5rem auto;}
-  .cwp-scard{background:#fff;border:1px solid var(--border);border-radius:18px;padding:1.8rem;text-align:center;margin-bottom:1.2rem;}
-  .cwp-scard .big{font-size:2.6rem;}
-  .cwp-scard .mk{font-family:'Baloo 2',cursive;font-weight:800;font-size:2.4rem;color:var(--green-dim);margin:0.2rem 0;line-height:1.05;}
-  .cwp-scard .sub{font-size:0.85rem;color:var(--muted);}
-  .cwp-stats{display:flex;justify-content:space-around;margin:1.2rem 0 0.4rem;}
-  .cwp-stats div .v{font-family:'Rajdhani',sans-serif;font-weight:800;font-size:1.3rem;}
-  .cwp-stats div .k{font-size:0.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;}
-  .cwp-racts{display:flex;gap:0.6rem;justify-content:center;margin-top:1rem;}
-  .cwp-racts button{border-radius:11px;padding:0.7rem 1.3rem;font-family:'Rajdhani',sans-serif;font-weight:800;cursor:pointer;}
-  .cwp-racts .again{border:1px solid var(--border);background:#fff;color:var(--dim);}
-  .cwp-racts .done{border:none;background:linear-gradient(135deg,var(--green),#38BDF8);color:#fff;}
-  .rvw{background:#fff;border:1px solid var(--border);border-radius:13px;padding:1rem 1.1rem;margin-bottom:0.7rem;}
-  .rvw .pill{display:inline-block;font-family:'Rajdhani',sans-serif;font-weight:800;font-size:0.7rem;padding:0.2rem 0.6rem;border-radius:100px;margin-bottom:0.5rem;}
-  .rvw .pill.correct{background:#E8F5E9;color:var(--green-dim);}
-  .rvw .pill.wrong{background:#FEF2F2;color:#B91C1C;}
-  .rvw .pill.skip{background:#FEF9C3;color:#854D0E;}
-  .rvw .rq{font-size:0.95rem;line-height:1.55;margin-bottom:0.6rem;}
-  .rvw .ro{font-size:0.86rem;padding:0.4rem 0.6rem;border-radius:8px;margin-bottom:0.3rem;background:#F8FAFC;}
-  .rvw .ro.c{background:#E8F5E9;color:var(--green-dim);font-weight:600;}
-  .rvw .ro.w{background:#FEF2F2;color:#B91C1C;}
-  .rvw .sol{margin-top:0.55rem;padding:0.7rem 0.85rem;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:9px;font-size:0.85rem;line-height:1.6;}
-  .rvw .trk{margin-top:0.5rem;padding:0.55rem 0.75rem;background:#FFF7F0;border:1px dashed #FFB37A;border-radius:9px;font-size:0.83rem;color:#C2410C;}
 </style>
 
 <script type="module">
 import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, collection, getDocs, query, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getFirestore, collection, getDocs, query, where, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 const CANON = {"version":1,"note":"Canonical chapter taxonomy for TrickySSC tagging. chapterId is the stable key (never rename an id once questions are tagged to it; only edit the display name). Subject is derived from the module: for Tier I by Q-range (1-25 reasoning, 26-50 ga, 51-75 quant, 76-100 english); Tier II reuses those same four subjects plus the dedicated 'computer', 'statistics' (Paper II) and 'finance_economics' (Paper III, AAO) modules. The tagger only chooses within one subject's chapter list. Every subject has an '*.other' safety-valve for genuinely uncategorizable questions - these should be rare and reviewed.","subjects":{"reasoning":{"range":"1-25","chapters":[{"id":"reason.analogy","name":"Analogy (Word / Letter / Number)","group":"Verbal"},{"id":"reason.classification","name":"Classification (Odd One Out)","group":"Verbal"},{"id":"reason.series","name":"Series (Number / Alphabet / Mixed)","group":"Verbal"},{"id":"reason.coding-decoding","name":"Coding-Decoding","group":"Verbal"},{"id":"reason.blood-relation","name":"Blood Relations","group":"Verbal"},{"id":"reason.direction-distance","name":"Direction & Distance","group":"Verbal"},{"id":"reason.ranking-arrangement","name":"Ranking & Order Arrangement","group":"Verbal"},{"id":"reason.seating-arrangement","name":"Seating Arrangement","group":"Verbal"},{"id":"reason.syllogism","name":"Syllogism","group":"Verbal"},{"id":"reason.statement-conclusion","name":"Statement & Conclusion / Inference","group":"Verbal"},{"id":"reason.venn-diagram","name":"Venn Diagram","group":"Verbal"},{"id":"reason.mathematical-operations","name":"Mathematical Operations (BODMAS / Symbols)","group":"Verbal"},{"id":"reason.word-formation","name":"Word Formation & Dictionary Order","group":"Verbal"},{"id":"reason.missing-number","name":"Missing Number (Matrix)","group":"Verbal"},{"id":"reason.puzzle","name":"Puzzle / Data Arrangement","group":"Verbal"},{"id":"reason.calendar-clock","name":"Calendar & Clock","group":"Verbal"},{"id":"reason.mirror-image","name":"Mirror Image","group":"Non-Verbal"},{"id":"reason.water-image","name":"Water Image","group":"Non-Verbal"},{"id":"reason.paper-folding","name":"Paper Folding & Cutting","group":"Non-Verbal"},{"id":"reason.embedded-figure","name":"Embedded / Hidden Figures","group":"Non-Verbal"},{"id":"reason.figure-completion","name":"Figure / Pattern Completion","group":"Non-Verbal"},{"id":"reason.figure-series","name":"Figure Series","group":"Non-Verbal"},{"id":"reason.figure-classification","name":"Figure Classification","group":"Non-Verbal"},{"id":"reason.figure-analogy","name":"Figure Analogy","group":"Non-Verbal"},{"id":"reason.counting-figures","name":"Counting of Figures (Triangles etc.)","group":"Non-Verbal"},{"id":"reason.dice","name":"Dice","group":"Non-Verbal"},{"id":"reason.cube-cuboid","name":"Cube & Cuboid","group":"Non-Verbal"},{"id":"reason.dot-situation","name":"Dot Situation","group":"Non-Verbal"},{"id":"reason.other","name":"Other / Uncategorized Reasoning","group":"Other"}]},"ga":{"range":"26-50","chapters":[{"id":"ga.history-ancient","name":"History: Ancient India","group":"History"},{"id":"ga.history-medieval","name":"History: Medieval India","group":"History"},{"id":"ga.history-modern","name":"History: Modern India & Freedom Struggle","group":"History"},{"id":"ga.art-culture","name":"Art & Culture","group":"History"},{"id":"ga.geography-india","name":"Geography: India","group":"Geography"},{"id":"ga.geography-world","name":"Geography: World & Physical","group":"Geography"},{"id":"ga.polity","name":"Polity & Constitution","group":"Polity"},{"id":"ga.economics","name":"Economics","group":"Economy"},{"id":"ga.physics","name":"Science: Physics","group":"Science"},{"id":"ga.chemistry","name":"Science: Chemistry","group":"Science"},{"id":"ga.biology","name":"Science: Biology","group":"Science"},{"id":"ga.computer","name":"Computer & Technology","group":"Science"},{"id":"ga.static-books-authors","name":"Static: Books & Authors","group":"Static GK"},{"id":"ga.static-awards","name":"Static: Awards & Honours","group":"Static GK"},{"id":"ga.static-days-events","name":"Static: Important Days & Events","group":"Static GK"},{"id":"ga.static-sports","name":"Static: Sports","group":"Static GK"},{"id":"ga.static-schemes","name":"Govt Schemes","group":"Static GK"},{"id":"ga.static-organizations","name":"National & International Organizations","group":"Static GK"},{"id":"ga.static-misc","name":"Static GK: Misc (Dances, Festivals, Symbols, Superlatives)","group":"Static GK"},{"id":"ga.current-affairs","name":"Current Affairs","group":"Current Affairs"},{"id":"ga.other","name":"Other / Uncategorized GA","group":"Other"}]},"quant":{"range":"51-75","chapters":[{"id":"quant.number-system","name":"Number System, HCF & LCM","group":"Arithmetic"},{"id":"quant.simplification","name":"Simplification, Surds & Indices","group":"Arithmetic"},{"id":"quant.percentage","name":"Percentage","group":"Arithmetic"},{"id":"quant.profit-loss","name":"Profit, Loss & Discount","group":"Arithmetic"},{"id":"quant.ratio-proportion","name":"Ratio & Proportion","group":"Arithmetic"},{"id":"quant.average","name":"Average","group":"Arithmetic"},{"id":"quant.mixture-alligation","name":"Mixture & Alligation","group":"Arithmetic"},{"id":"quant.time-work","name":"Time & Work, Pipes & Cistern","group":"Arithmetic"},{"id":"quant.time-speed-distance","name":"Time, Speed & Distance, Trains, Boats","group":"Arithmetic"},{"id":"quant.simple-compound-interest","name":"Simple & Compound Interest","group":"Arithmetic"},{"id":"quant.partnership","name":"Partnership","group":"Arithmetic"},{"id":"quant.ages","name":"Problems on Ages","group":"Arithmetic"},{"id":"quant.algebra","name":"Algebra","group":"Advanced Maths"},{"id":"quant.geometry","name":"Geometry","group":"Advanced Maths"},{"id":"quant.mensuration","name":"Mensuration (2D & 3D)","group":"Advanced Maths"},{"id":"quant.trigonometry","name":"Trigonometry","group":"Advanced Maths"},{"id":"quant.height-distance","name":"Height & Distance","group":"Advanced Maths"},{"id":"quant.data-interpretation","name":"Data Interpretation (Bar/Pie/Line/Table)","group":"Data"},{"id":"quant.statistics","name":"Statistics (Mean / Median / Mode)","group":"Data"},{"id":"quant.other","name":"Other / Uncategorized Quant","group":"Other"}]},"english":{"range":"76-100","chapters":[{"id":"eng.error-spotting","name":"Spot the Error","group":"Grammar"},{"id":"eng.sentence-improvement","name":"Sentence Improvement","group":"Grammar"},{"id":"eng.fill-blanks","name":"Fill in the Blanks","group":"Grammar"},{"id":"eng.active-passive","name":"Active & Passive Voice","group":"Grammar"},{"id":"eng.narration","name":"Direct & Indirect Narration","group":"Grammar"},{"id":"eng.para-jumbles","name":"Sentence Rearrangement / Para Jumbles","group":"Grammar"},{"id":"eng.synonyms","name":"Synonyms","group":"Vocabulary"},{"id":"eng.antonyms","name":"Antonyms","group":"Vocabulary"},{"id":"eng.spelling","name":"Spelling Correction","group":"Vocabulary"},{"id":"eng.idioms-phrases","name":"Idioms & Phrases","group":"Vocabulary"},{"id":"eng.one-word","name":"One Word Substitution","group":"Vocabulary"},{"id":"eng.homonyms","name":"Homonyms","group":"Vocabulary"},{"id":"eng.cloze-test","name":"Cloze Test","group":"Comprehension"},{"id":"eng.reading-comprehension","name":"Reading Comprehension","group":"Comprehension"},{"id":"eng.other","name":"Other / Uncategorized English","group":"Other"}]},"computer":{"range":"tier2-computer-module","chapters":[{"id":"computer.fundamentals","name":"Computer Fundamentals & Organization (CPU, I/O, Ports, Generations)","group":"Basics"},{"id":"computer.memory-storage","name":"Memory & Storage Devices","group":"Basics"},{"id":"computer.os-windows","name":"Operating System & Windows (Explorer, Shortcuts)","group":"Software"},{"id":"computer.ms-office","name":"MS Office (Word, Excel, PowerPoint)","group":"Software"},{"id":"computer.internet-email","name":"Internet, Web Browsing & E-mail (incl. e-Banking)","group":"Internet"},{"id":"computer.networking","name":"Networking (Devices & Protocols)","group":"Networking & Security"},{"id":"computer.cyber-security","name":"Cyber Security (Virus, Hacking, Threats)","group":"Networking & Security"},{"id":"computer.other","name":"Other / Uncategorized Computer","group":"Other"}]},"statistics":{"range":"tier2-paper2","chapters":[{"id":"statistics.data-collection","name":"Collection, Classification & Presentation of Data","group":"Descriptive"},{"id":"statistics.central-tendency","name":"Measures of Central Tendency","group":"Descriptive"},{"id":"statistics.dispersion","name":"Measures of Dispersion","group":"Descriptive"},{"id":"statistics.moments-skewness-kurtosis","name":"Moments, Skewness & Kurtosis","group":"Descriptive"},{"id":"statistics.correlation-regression","name":"Correlation & Regression","group":"Relationships"},{"id":"statistics.probability","name":"Probability Theory","group":"Probability"},{"id":"statistics.random-variable","name":"Random Variable & Probability Distributions","group":"Probability"},{"id":"statistics.sampling","name":"Sampling Theory","group":"Inference"},{"id":"statistics.inference","name":"Statistical Inference (Estimation & Testing)","group":"Inference"},{"id":"statistics.anova","name":"Analysis of Variance (ANOVA)","group":"Inference"},{"id":"statistics.time-series","name":"Time Series Analysis","group":"Applied"},{"id":"statistics.index-numbers","name":"Index Numbers","group":"Applied"},{"id":"statistics.other","name":"Other / Uncategorized Statistics","group":"Other"}]},"finance_economics":{"range":"tier2-paper3","chapters":[{"id":"fineco.accounting-fundamentals","name":"Financial Accounting: Nature, Concepts & Conventions (GAAP)","group":"Finance & Accounts"},{"id":"fineco.accounting-basics","name":"Basic Accounting: Single/Double Entry, Journal, Ledger, Trial Balance","group":"Finance & Accounts"},{"id":"fineco.bank-reconciliation","name":"Bank Reconciliation Statement","group":"Finance & Accounts"},{"id":"fineco.rectification-errors","name":"Rectification of Errors","group":"Finance & Accounts"},{"id":"fineco.final-accounts","name":"Final Accounts (Trading, P&L, Balance Sheet)","group":"Finance & Accounts"},{"id":"fineco.capital-revenue","name":"Capital & Revenue Expenditure","group":"Finance & Accounts"},{"id":"fineco.depreciation","name":"Depreciation Accounting","group":"Finance & Accounts"},{"id":"fineco.inventory-valuation","name":"Valuation of Inventories","group":"Finance & Accounts"},{"id":"fineco.non-profit-accounts","name":"Non-Profit Org Accounts (Receipts & Payments, Income & Expenditure)","group":"Finance & Accounts"},{"id":"fineco.bills-exchange","name":"Bills of Exchange","group":"Finance & Accounts"},{"id":"fineco.self-balancing-ledgers","name":"Self-Balancing Ledgers","group":"Finance & Accounts"},{"id":"fineco.constitutional-bodies","name":"Constitutional Bodies: CAG & Finance Commission","group":"Governance"},{"id":"fineco.economics-basics","name":"Basic Concepts & Micro Economics Intro (PPC, Central Problems)","group":"Micro Economics"},{"id":"fineco.demand-supply","name":"Theory of Demand & Supply (Elasticity, Consumer Behaviour)","group":"Micro Economics"},{"id":"fineco.production-cost","name":"Theory of Production & Cost (Returns to Scale)","group":"Micro Economics"},{"id":"fineco.market-forms","name":"Forms of Market & Price Determination","group":"Micro Economics"},{"id":"fineco.indian-economy","name":"Indian Economy: Sectors (Agriculture, Industry, Services)","group":"Indian Economy"},{"id":"fineco.national-income","name":"National Income (Concepts & Measurement)","group":"Indian Economy"},{"id":"fineco.population","name":"Population & Growth","group":"Indian Economy"},{"id":"fineco.poverty-unemployment","name":"Poverty & Unemployment","group":"Indian Economy"},{"id":"fineco.infrastructure","name":"Infrastructure (Energy, Transport, Communication)","group":"Indian Economy"},{"id":"fineco.economic-reforms","name":"Economic Reforms since 1991 (LPG & Disinvestment)","group":"Indian Economy"},{"id":"fineco.money-banking","name":"Money & Banking (RBI, Commercial Banks, Monetary Policy)","group":"Money & Banking"},{"id":"fineco.budget-fiscal","name":"Budget, Fiscal Deficit, BoP & FRBM Act","group":"Money & Banking"},{"id":"fineco.it-governance","name":"Role of IT in Governance","group":"Governance"},{"id":"fineco.other","name":"Other / Uncategorized Finance & Economics","group":"Other"}]}}};
@@ -375,6 +1449,7 @@ window.tsscLogout=async()=>{ try{ await signOut(auth); }catch(e){} try{ localSto
 try{ const c=JSON.parse(localStorage.getItem('tssc_user')||'null'); if(c&&c.uid) tsscPaintAccount(c); }catch(e){}
 // reconcile with Firebase auth (source of truth)
 onAuthStateChanged(auth, user=>{
+  currentUser=user;
   if(user){
     const data={uid:user.uid,name:user.displayName||'Student',phone:user.phoneNumber||'',email:user.email||'',photoURL:user.photoURL||'',loginMethod:user.phoneNumber?'phone':'google'};
     try{ const c=JSON.parse(localStorage.getItem('tssc_user')||'null'); if(c&&c.uid===user.uid){ if((!data.name||data.name==='Student')&&c.name) data.name=c.name; if(!data.photoURL&&c.photoURL) data.photoURL=c.photoURL; } }catch(e){}
@@ -392,7 +1467,6 @@ const CHID=qs.get('chapter')||qs.get('chapterId')||'';
 const sMeta=subjectMeta(SUBJ);
 const cMeta=chapterMeta(SUBJ,CHID);
 
-function fmt(s){return (s||'').replace(/\[BR\]/g,'<br>').replace(/\s*\|\|\s*/g,'<br>');}
 
 // state
 const S={ map:{}, level:null };
@@ -542,174 +1616,1111 @@ window.pickBack=()=>{
 };
 window.closePick=()=>{ document.getElementById('pick').style.display='none'; document.body.style.overflow=''; };
 document.getElementById('pick').addEventListener('click',(e)=>{ if(e.target.id==='pick') closePick(); });
-// ---------------- BUILT-IN PLAYER (self-contained; mock-test.html is NOT used) ----------------
-const G={lv:null,tn:null,lang:'en',timed:false,list:[],idx:0,ans:{},marked:{},visited:{},t:1800,timer:null,submitted:false};
-const CW_MINUTES=30;                         // fixed timer when "With timer" is chosen
+/* ══════════════════════════════════════════════════════════════════
+   BUILT-IN CHAPTER PLAYER — PYQ-test GUI (topbar, palette, drawer,
+   report, View-in-English, per-solution EN toggle, KaTeX solutions)
+   Single flat 50-Q section · +2 / −0.5 · timed(30 min) or untimed.
+══════════════════════════════════════════════════════════════════ */
+let questions=[],answers={},markedForReview={},currentQ=0,sections=[],curTS=0;
+let enQMap={},showEnglishQ={},enMapLoaded=false,enMapLoading=false,enFetchError=false;
+let enFetchParams=null;
+let timeLeft=0,timerInterval=null,paused=false,isSubmitting=false;
+let currentUser=null;
+let exam='ssc-cgl',year='',mockMeta=null,_reportTestId='';
+const CW={lv:null,tn:null,lang:'en',timed:false,mins:30};
 const cwEl=()=>document.getElementById('cwPlayer');
 
 window.launch=(timed)=>{
   const lv=PK.lv, tn=PK.tn, lang=PK.lang||'en';
   const x=(S.map[lv]||{})[tn]||{en:[],hi:[]};
-  const src=(x[lang]&&x[lang].length)?x[lang]:(x.en.length?x.en:x.hi);
-  G.lv=lv; G.tn=tn; G.lang=(x[lang]&&x[lang].length)?lang:(x.en.length?'en':'hi');
-  G.timed=!!timed;
-  cwReset(src);
+  const useLang=(x[lang]&&x[lang].length)?lang:(x.en.length?'en':'hi');
+  const src=x[useLang]||[];
+  CW.lv=lv; CW.tn=tn; CW.lang=useLang; CW.timed=!!timed; CW.mins=30;
+
+  // English counterpart map (powers "View in English" + review "View solution
+  // in English") — built locally from the same test's English set, no fetch.
+  enQMap={}; showEnglishQ={}; enMapLoaded=false; enMapLoading=false; enFetchError=false;
+  if(useLang==='hi' && x.en && x.en.length){
+    x.en.forEach(q=>{ const n=parseInt(q.qNum)||0; if(n) enQMap[n]=q; });
+    enMapLoaded=true;
+  }
+
+  questions=src.map(q=>({...q}));
+  answers={}; markedForReview={}; currentQ=0; curTS=0; isSubmitting=false; paused=false;
+  sections=[{name:'',label:(cMeta?cMeta.name:'Chapter Test'),from:0,to:Math.max(0,questions.length-1)}];
+  _reportTestId=(CHID||'chapter')+'_L'+lv+'_T'+tn+(useLang==='hi'?'_hi':'_en');
+
+  const subTxt='Level '+lv+' \u00b7 '+(sMeta?sMeta.short:'')+' \u00b7 SSC CGL \u00b7 '+(useLang==='hi'?'\u0939\u093f\u0902\u0926\u0940':'English');
+  document.getElementById('examTitle').textContent=(cMeta?cMeta.name:'Chapter Test')+' \u00b7 Test '+tn;
+  document.getElementById('userName').textContent=subTxt;
+  document.getElementById('cwInstrTitle').textContent=(cMeta?cMeta.name:'Chapter Test')+' \u2014 Test '+tn;
+  document.getElementById('cwInstrSub').textContent=(sMeta?sMeta.l:'')+' \u00b7 '+subTxt;
+  cwFillInstr();
+
   closePick();
   cwEl().style.display='block';
+  document.getElementById('testScreen').style.display='none';
+  document.getElementById('resultScreen').style.display='none';
+  document.getElementById('instrScreen').style.display='block';
   document.body.style.overflow='hidden';
-  renderInstr();
+  window.scrollTo(0,0);
 };
-function cwReset(src){
-  G.list=(src||G._src||[]).map(q=>({...q}));
-  G._src=src||G._src;
-  G.idx=0; G.ans={}; G.marked={}; G.visited={0:true}; G.submitted=false;
-  G.t=CW_MINUTES*60; clearInterval(G.timer); G.timer=null;
-}
-window.cwClose=()=>{ clearInterval(G.timer); cwEl().style.display='none'; document.body.style.overflow=''; };
 
-function cwTopBar(withControls){
-  const clock = G.timed ? '<div class="cwp-clock" id="cwClock">'+cwFmtTime(G.t)+'</div>' : '';
-  const submit = withControls ? '<button class="cwp-sub-btn" onclick="cwSubmit()">Submit</button>' : '';
-  return '<div class="cwp-top"><div class="cwp-top-in">'+
-    '<button class="cwp-x" onclick="cwClose()">✕</button>'+
-    '<div class="cwp-ttl"><div class="a">'+cMeta.name+' · Test '+G.tn+'</div>'+
-      '<div class="b">Level '+G.lv+' · '+sMeta.short+' · SSC CGL · '+(G.lang==='hi'?'हिंदी':'English')+'</div></div>'+
-    clock+submit+'</div></div>';
-}
-function cwFmtTime(s){ s=Math.max(0,s|0); return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0'); }
-
-function renderInstr(){
-  const n=G.list.length;
-  cwEl().innerHTML=cwTopBar(false)+
-    '<div class="cwp-instr">'+
-      '<h2>'+cMeta.name+' — Test '+G.tn+'</h2>'+
-      '<div class="m">'+sMeta.l+' · Level '+G.lv+' · '+n+' questions · '+(G.timed?(CW_MINUTES+'-minute timer'):'no timer')+'</div>'+
-      '<div class="cwp-mk">'+
-        '<div><div class="v" style="color:var(--green-dim)">+2</div><div class="l">Correct</div></div>'+
-        '<div><div class="v" style="color:#B91C1C">−0.5</div><div class="l">Wrong</div></div>'+
-        '<div><div class="v">0</div><div class="l">Skipped</div></div>'+
-      '</div>'+
-      '<ul>'+
-        '<li>Choose one option (A–D). Tap it again to deselect.</li>'+
-        '<li>Use <b>Save &amp; Next</b> to move on, or jump via the question palette.</li>'+
-        '<li><b>🔖 Mark</b> flags a question for review; a marked answer is still evaluated.</li>'+
-        (G.timed?('<li>The test auto-submits when the '+CW_MINUTES+'-minute timer ends.</li>'):'<li>No timer — take as long as you need, then tap <b>Submit</b>.</li>')+
-      '</ul>'+
-      '<button class="cwp-begin" onclick="cwBegin()">I am ready ▶</button>'+
-    '</div>';
-}
-window.cwBegin=()=>{ renderQ(); if(G.timed) cwStartTimer(); };
-
-function cwStartTimer(){
-  clearInterval(G.timer);
-  const tickfn=()=>{
-    const el=document.getElementById('cwClock'); if(!el) return;
-    el.textContent=cwFmtTime(G.t);
-    if(G.t<=120) el.classList.add('warn'); else el.classList.remove('warn');
-    if(G.t<=0){ clearInterval(G.timer); G.timer=null; doSubmit(true); }
-  };
-  tickfn();
-  G.timer=setInterval(()=>{ G.t--; tickfn(); },1000);
+function cwFillInstr(){
+  const n=questions.length;
+  const mx=document.getElementById('cwInstrMax'); if(mx) mx.textContent=(n*2);
+  const t=document.getElementById('cwInstrTime'); if(!t) return;
+  t.innerHTML = CW.timed
+    ? '<li>This test has a single <strong>'+CW.mins+'-minute</strong> timer shown at the top.</li>'
+      +'<li>When the timer reaches zero the test is <strong>submitted automatically</strong>.</li>'
+      +'<li>You can submit early anytime with the <strong>Submit Test</strong> button.</li>'
+      +'<li>Use <strong>&#9208; Pause</strong> to pause the clock and hide the questions.</li>'
+    : '<li>This is an <strong>untimed</strong> practice test &mdash; take as long as you need.</li>'
+      +'<li>Submit whenever you are ready with the <strong>Submit Test</strong> button.</li>';
 }
 
-function optImg(u){ return u?('<br><img src="'+u+'" onerror="this.style.display=\'none\'">'):''; }
+window.beginTest=function(){
+  const btn=document.getElementById('cwInstrStart'); if(btn){btn.disabled=true;btn.textContent='Starting\u2026';}
+  document.getElementById('instrScreen').style.display='none';
+  document.getElementById('testScreen').style.display='flex';
+  const tw=document.getElementById('cwTimerWrap'), pb=document.getElementById('pauseBtn');
+  if(CW.timed){ if(tw)tw.style.display=''; if(pb)pb.style.display=''; timeLeft=CW.mins*60; }
+  else { if(tw)tw.style.display='none'; if(pb)pb.style.display='none'; }
+  if(btn){btn.disabled=false;btn.textContent='I am ready to begin \u25b6';}
+  updateSubmitBtn();
+  buildGrid();
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    renderQ();
+    if(CW.timed) startTimer();
+  }));
+};
+
+window.cwClose=()=>{
+  if(timerInterval){clearInterval(timerInterval);timerInterval=null;}
+  paused=false; const po=document.getElementById('pauseOverlay'); if(po)po.style.display='none';
+  cwEl().style.display='none';
+  document.body.style.overflow=''; document.body.style.position=''; document.body.style.width='';
+};
+window.cwRetry=()=>{
+  answers={}; markedForReview={}; currentQ=0; isSubmitting=false; paused=false; showEnglishQ={};
+  if(timerInterval){clearInterval(timerInterval);timerInterval=null;}
+  document.getElementById('resultScreen').style.display='none';
+  document.getElementById('testScreen').style.display='none';
+  const btn=document.getElementById('cwInstrStart'); if(btn){btn.disabled=false;btn.textContent='I am ready to begin \u25b6';}
+  cwFillInstr();
+  document.getElementById('instrScreen').style.display='block';
+  cwEl().scrollTop=0; window.scrollTo(0,0);
+};
+
+window.cwConfirmSubmit=()=>{
+  if(isSubmitting) return;
+  if(confirm('Submit this test? You cannot change answers after submitting.')) submitTest(false);
+};
+
+function updateSubmitBtn(){
+  const label='Submit Test \u2713';
+  const b1=document.getElementById('submitSectionBtn'); if(b1)b1.textContent=label;
+  const b2=document.getElementById('sidebarSubmitBtn'); if(b2)b2.textContent=label;
+  const note=document.getElementById('sbSubmittedNote'); if(note)note.textContent='';
+}
+
+function startTimer(){
+  if(timerInterval){clearInterval(timerInterval);timerInterval=null;}
+  const nameEl=document.getElementById('secTimerName'); if(nameEl) nameEl.textContent='';
+  function tick(){
+    const t=Math.max(0,timeLeft), m=Math.floor(t/60), s=t%60;
+    const el=document.getElementById('timer'); if(el) el.textContent=String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+    const tw=document.getElementById('cwTimerWrap'), tEl=document.getElementById('timer');
+    if(t<=120){ if(tw)tw.style.borderColor='#FCA5A5'; if(tEl)tEl.style.color='#DC2626'; }
+    else { if(tw)tw.style.borderColor=''; if(tEl)tEl.style.color=''; }
+    if(t<=0){ clearInterval(timerInterval); timerInterval=null; submitTest(true); }
+  }
+  tick();
+  timerInterval=setInterval(()=>{ timeLeft--; tick(); },1000);
+}
+
+window.togglePause=function(){
+  if(!CW.timed || isSubmitting) return;
+  if(!paused && !timerInterval) return;
+  if(!paused){
+    paused=true;
+    if(timerInterval){clearInterval(timerInterval);timerInterval=null;}
+    const t=Math.max(0,timeLeft), m=Math.floor(t/60), s=t%60;
+    document.getElementById('pauseTime').textContent=String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+    document.getElementById('pauseOverlay').style.display='flex';
+    const b=document.getElementById('pauseBtn'); b.innerHTML='\u25b6 Resume'; b.classList.add('paused');
+  } else {
+    paused=false;
+    document.getElementById('pauseOverlay').style.display='none';
+    const b=document.getElementById('pauseBtn'); b.innerHTML='\u23f8 Pause'; b.classList.remove('paused');
+    startTimer();
+  }
+};
+
+async function ensureEnglishMap(){ return; }   // map already built locally at launch
+
+window.submitTest=async(auto)=>{
+  if(isSubmitting) return;
+  isSubmitting=true;
+  if(timerInterval){clearInterval(timerInterval);timerInterval=null;}
+  paused=false; const po=document.getElementById('pauseOverlay'); if(po)po.style.display='none';
+  let correct=0,wrong=0,skip=0;
+  questions.forEach((q,i)=>{ const a=answers[i]; if(!a) skip++; else if(a===q.correct) correct++; else wrong++; });
+  const marks=(correct*2-wrong*0.5);
+  const max=questions.length*2;
+  const pct= max? Math.round((marks/max)*1000)/10 : 0;
+  let vcls,vmsg;
+  if(pct>=70){vcls='great';vmsg='\ud83c\udf89 Excellent work \u2014 keep it up!';}
+  else if(pct>=40){vcls='good';vmsg='\ud83d\udc4d Good effort \u2014 review and improve!';}
+  else{vcls='low';vmsg='\ud83d\udcaa Keep practising \u2014 you\u2019ll get there!';}
+  document.getElementById('cwResultCard').innerHTML=
+    '<div class="result-card">'
+    +'<div style="font-family:\'Rajdhani\';font-size:22px;font-weight:700;color:#1E293B;margin-bottom:14px;">'+(cMeta?cMeta.name:'Chapter Test')+' \u00b7 Test '+CW.tn+'</div>'
+    +'<div class="score-big">'+marks.toFixed(1)+'</div>'
+    +'<div class="score-label">out of '+max+' marks</div>'
+    +'<div style="font-size:13px;color:#94A3B8;margin-top:2px;">'+pct+'% \u00b7 '+correct+' correct \u00b7 '+wrong+' wrong'+(auto?' \u00b7 time up':'')+'</div>'
+    +'<div class="result-verdict '+vcls+'" style="display:inline-flex;">'+vmsg+'</div>'
+    +'<div class="stats">'
+      +'<div class="stat"><div class="stat-val" style="color:#22C55E">'+correct+'</div><div class="stat-lbl">Correct<br><span style="font-size:9px;color:#94A3B8;">+2 each</span></div></div>'
+      +'<div class="stat"><div class="stat-val" style="color:#EF4444">'+wrong+'</div><div class="stat-lbl">Wrong<br><span style="font-size:9px;color:#94A3B8;">\u22120.5 each</span></div></div>'
+      +'<div class="stat"><div class="stat-val" style="color:#EAB308">'+skip+'</div><div class="stat-lbl">Skipped</div></div>'
+      +'<div class="stat" style="background:#FFF7ED;border-color:#FED7AA;"><div class="stat-val" style="color:#FF6B00;">'+marks.toFixed(1)+'</div><div class="stat-lbl">Marks</div></div>'
+    +'</div>'
+    +'<div class="cw-res-acts">'
+      +'<button class="cw-res-again" onclick="cwRetry()">\u21bb Retry</button>'
+      +'<button class="cw-res-done" onclick="cwClose()">Back to tests</button>'
+    +'</div>'
+    +'</div>';
+  document.getElementById('testScreen').style.display='none';
+  document.getElementById('resultScreen').style.display='block';
+  try{ if(!enMapLoaded) await ensureEnglishMap(); }catch(e){}
+  buildSectionedReview();
+  cwEl().scrollTop=0; window.scrollTo(0,0);
+  isSubmitting=false;
+};
+
+/* ── copied from the PYQ test engine (verbatim), so the GUI, math & solution
+   formatting render identically ──────────────────────────────────────── */
+function normaliseQ(q) {
+  // Helper: unwrap a Firestore REST field value (handles mapValue recursively)
+  function _unwrap(v) {
+    if (v === null || v === undefined) return '';
+    if (typeof v !== 'object') return v;
+    if (v.stringValue  !== undefined) return v.stringValue;
+    if (v.integerValue !== undefined) return v.integerValue;
+    if (v.booleanValue !== undefined) return v.booleanValue;
+    if (v.doubleValue  !== undefined) return v.doubleValue;
+    if (v.nullValue    !== undefined) return '';
+    if (v.arrayValue   !== undefined) return (v.arrayValue.values||[]).map(_unwrap);
+    if (v.mapValue     !== undefined) {
+      var m = {};
+      var f = v.mapValue.fields || {};
+      Object.keys(f).forEach(function(k){ m[k] = _unwrap(f[k]); });
+      return m;
+    }
+    return v; // already a plain JS value
+  }
+
+  // Fix options if still in raw Firestore mapValue format
+  if (q.options && typeof q.options === 'object' && q.options.mapValue) {
+    q.options = _unwrap(q.options);
+  }
+  // Also unwrap top-level fields that may be Firestore wrappers
+  ['text','question','explanation','trick','concept','option_A','option_B','option_C','option_D','correct','subject','shift','heldOn','language','tier','year','qNum','imageUrl','solutionImage','optionImages'].forEach(function(f){
+    if (q[f] && typeof q[f] === 'object' && (q[f].stringValue !== undefined || q[f].integerValue !== undefined || q[f].mapValue !== undefined)) {
+      q[f] = _unwrap(q[f]);
+    }
+  });
+
+  // Convert [BR] tokens in solution/option fields only.
+  // text/question stay raw so formatQText can detect pipe-tables before rendering.
+  ['explanation','trick','concept','option_A','option_B','option_C','option_D'].forEach(function(f){
+    if (q[f] && typeof q[f] === 'string') q[f] = q[f].split('[BR]').join('<br>');
+  });
+  // Also fix options map values
+  if (q.options && typeof q.options === 'object') {
+    ['A','B','C','D'].forEach(function(o){
+      if (q.options[o] && typeof q.options[o] === 'string') {
+        q.options[o] = q.options[o].split('[BR]').join('<br>');
+      }
+    });
+  }
+}
 
 function renderQ(){
-  const q=G.list[G.idx]; G.visited[G.idx]=true;
-  const n=G.list.length;
-  const labels=['A','B','C','D'];
-  const opts=labels.map(L=>{
-    const txt=(q.options&&q.options[L])||''; const img=(q.optionImages&&q.optionImages[L])||'';
-    const sel=G.ans[G.idx]===L;
-    return '<button class="cwp-opt'+(sel?' sel':'')+'" data-k="'+L+'"><span class="k">'+L+'</span>'+
-      '<span style="flex:1;">'+fmt(txt)+optImg(img)+'</span></button>';
-  }).join('');
-  const pal=G.list.map((_,i)=>{
-    let cls='';
-    if(G.marked[i]) cls='mark'; else if(G.ans[i]) cls='ans'; else if(G.visited[i]) cls='skip';
-    if(i===G.idx) cls+=' cur';
-    return '<b class="'+cls.trim()+'" data-i="'+i+'">'+(i+1)+'</b>';
-  }).join('');
-  const answered=Object.keys(G.ans).length, marked=Object.keys(G.marked).filter(k=>G.marked[k]).length;
-  const last=G.idx===n-1;
-  cwEl().innerHTML=cwTopBar(true)+
-    '<div class="cwp-wrap"><div class="cwp-main">'+
-      '<div class="cwp-qmeta"><span>Question '+(G.idx+1)+' / '+n+'</span><span>'+(G.ans[G.idx]?'Answered':'Not answered')+'</span></div>'+
-      '<div class="cwp-qtext">'+fmt(q.text)+(q.imageUrl?optImg(q.imageUrl):'')+'</div>'+
-      opts+
-      '<div class="cwp-actions">'+
-        '<button class="mark'+(G.marked[G.idx]?' on':'')+'" onclick="cwMark()">🔖 Mark</button>'+
-        '<button class="clear" onclick="cwClear()">Clear</button>'+
-        '<button class="prev" onclick="cwPrev()"'+(G.idx===0?' disabled':'')+'>← Prev</button>'+
-        '<button class="next" onclick="cwNext()">'+(last?'Submit ✓':'Save &amp; Next →')+'</button>'+
-      '</div>'+
-    '</div><div class="cwp-side">'+
-      '<div class="cwp-legend">'+
-        '<span><i style="background:#22C55E"></i>Answered</span>'+
-        '<span><i style="background:#FEF9C3;border:1px solid #EAB308"></i>Skipped</span>'+
-        '<span><i style="background:#EEF2FF;border:1px solid #6366F1"></i>Marked</span>'+
-        '<span><i style="background:#fff;border:1px solid #CBD5E1"></i>Not visited</span>'+
-      '</div>'+
-      '<div class="cwp-pal">'+pal+'</div>'+
-      '<div class="cwp-prog">'+answered+' answered · '+marked+' marked</div>'+
-    '</div></div>';
-  // wire option + palette handlers (avoids inline string-arg onclick)
-  cwEl().querySelectorAll('.cwp-opt').forEach(b=>{ b.onclick=()=>cwSelect(b.dataset.k); });
-  cwEl().querySelectorAll('.cwp-pal b').forEach(b=>{ b.onclick=()=>cwGo(parseInt(b.dataset.i)); });
-}
-window.cwSelect=(L)=>{ if(G.submitted) return; if(G.ans[G.idx]===L) delete G.ans[G.idx]; else G.ans[G.idx]=L; renderQ(); };
-window.cwMark=()=>{ G.marked[G.idx]=!G.marked[G.idx]; renderQ(); };
-window.cwClear=()=>{ delete G.ans[G.idx]; renderQ(); };
-window.cwGo=(i)=>{ G.idx=i; renderQ(); };
-window.cwPrev=()=>{ if(G.idx>0){ G.idx--; renderQ(); } };
-window.cwNext=()=>{ if(G.idx<G.list.length-1){ G.idx++; renderQ(); } else { cwSubmit(); } };
-window.cwSubmit=()=>{ if(confirm('Submit this test? You cannot change answers after submitting.')) doSubmit(false); };
-window.cwRetry=()=>{ cwReset(); renderInstr(); };
+  if(!questions.length){
+    document.getElementById('qText').innerHTML='<span style="color:#94A3B8;">Loading questions...</span>';
+    document.getElementById('options').innerHTML='';
+    return;
+  }
+  const q=questions[currentQ];
+  normaliseQ(q); // ensure options/text are clean regardless of fetch path
+  document.getElementById('qNumCurrent').textContent=currentQ+1;
+  document.getElementById('qNumTotal').textContent=questions.length;
+  const rawText=(q.text||q.question||'').replace(/^\[FIGURE-BASED\]\s*/i,'');
+  document.getElementById('qText').innerHTML=formatQText(rawText);
+  mathDress(document.getElementById('qText'));
 
-function doSubmit(auto){
-  if(G.submitted) return; G.submitted=true; clearInterval(G.timer); G.timer=null;
-  let correct=0,wrong=0,skip=0;
-  G.list.forEach((q,i)=>{ const a=G.ans[i]; if(!a) skip++; else if(a===q.correct) correct++; else wrong++; });
-  const marks=(correct*2 - wrong*0.5);
-  const max=G.list.length*2;
-  const pct= max? Math.round((marks/max)*1000)/10 : 0;
-  const verdict = pct>=70?'🎉 Excellent!':pct>=40?'👍 Good effort':'💪 Keep practising';
-  const review=G.list.map((q,i)=>{
-    const a=G.ans[i];
-    const st=!a?'skip':(a===q.correct?'correct':'wrong');
-    const pill=st==='correct'?'Correct':st==='wrong'?'Incorrect':'Skipped';
-    const labels=['A','B','C','D'];
-    const rows=labels.map(L=>{
-      const txt=(q.options&&q.options[L])||''; if(!txt && !(q.optionImages&&q.optionImages[L])) return '';
-      let cls='ro'; if(L===q.correct) cls='ro c'; else if(L===a && a!==q.correct) cls='ro w';
-      return '<div class="'+cls+'"><b>'+L+'.</b> '+fmt(txt)+optImg((q.optionImages&&q.optionImages[L])||'')+'</div>';
-    }).join('');
-    const sol=(q.explanation||q.solutionImage)?('<div class="sol"><b>💡 Solution:</b> '+fmt(q.explanation||'')+(q.solutionImage?optImg(q.solutionImage):'')+'</div>'):'';
-    const trk=q.trick?('<div class="trk"><b>⚡ Trick:</b> '+fmt(q.trick)+'</div>'):'';
-    return '<div class="rvw"><span class="pill '+st+'">'+pill+'</span>'+
-      '<div class="rq"><b>Q'+(i+1)+'.</b> '+fmt(q.text)+(q.imageUrl?optImg(q.imageUrl):'')+'</div>'+
-      rows+sol+trk+'</div>';
+  // Image
+  const imgWrap=document.getElementById('qImgWrap');
+  const imgEl=document.getElementById('qImg');
+  const imgLoader=document.getElementById('qImgLoader');
+  if(q.imageUrl){
+    imgWrap.style.display='block';
+    imgLoader.style.display='flex';
+    imgEl.style.display='none';
+    imgEl.onload=function(){imgLoader.style.display='none';imgEl.style.display='';};
+    imgEl.onerror=function(){imgLoader.style.display='none';imgEl.style.display='none';};
+    imgEl.src=q.imageUrl;
+  } else {
+    imgWrap.style.display='none';
+    imgEl.src='';
+  }
+
+  // Options — support all storage formats (A/B/C/D or a/b/c/d keys, or option_A fields)
+  const opts=['A','B','C','D'];
+  if(currentQ===0) console.log('[TrickySSC] Q1 options debug:', JSON.stringify(q.options), '| option_A:', q.option_A||q.optionA||'(none)');
+  document.getElementById('options').innerHTML=opts.map(o=>{
+    const lo=o.toLowerCase();
+    const txt=(q.options&&(q.options[o]!=null&&q.options[o]!==''?q.options[o]:(q.options[lo]!=null&&q.options[lo]!==''?q.options[lo]:'')))
+      ||(q['option'+o]||q['option_'+o]||q['option'+lo]||'');
+    const optImg=q.optionImages?.[o]||'';
+    const sel=answers[currentQ]===o?'selected':'';
+    const fmtTxt=renderFraction(txt);
+    return `<div class="option ${sel}" onclick="selectOpt('${o}')">
+      <span class="opt-label">${o}</span>
+      <div class="opt-body">
+        ${fmtTxt}
+        ${optImg?`<img src="${optImg}" style="max-width:100%;max-height:${txt?'90px':'160px'};border-radius:6px;object-fit:contain;display:block;margin-top:${txt?'7px':'0'};" onerror="this.style.display='none'">`:''}
+      </div>
+    </div>`;
   }).join('');
-  cwEl().innerHTML=cwTopBar(false)+
-    '<div class="cwp-res"><div class="cwp-scard">'+
-      '<div class="big">'+(pct>=60?'🎉':'📚')+'</div>'+
-      '<div class="mk">'+marks.toFixed(1)+' / '+max+'</div>'+
-      '<div class="sub">'+verdict+' · '+pct+'%'+(auto?' · time up':'')+'</div>'+
-      '<div class="cwp-stats">'+
-        '<div><div class="v" style="color:var(--green-dim)">'+correct+'</div><div class="k">Correct</div></div>'+
-        '<div><div class="v" style="color:#B91C1C">'+wrong+'</div><div class="k">Wrong</div></div>'+
-        '<div><div class="v">'+skip+'</div><div class="k">Skipped</div></div>'+
-      '</div>'+
-      '<div class="cwp-racts">'+
-        '<button class="again" onclick="cwRetry()">↻ Retry</button>'+
-        '<button class="done" onclick="cwClose()">Back to tests</button>'+
-      '</div>'+
-    '</div>'+
-    '<div style="font-family:\'Rajdhani\',sans-serif;font-weight:800;font-size:1.1rem;margin:0.5rem 0 0.8rem;">Review &amp; Solutions</div>'+
-    review+'</div>';
-  window.scrollTo(0,0);
+  mathDress(document.getElementById('options'));
+
+  // ── English toggle (Hindi tests, Q1-75 only) ──
+  const enBtn=document.getElementById('enToggleBtn');
+  const enPanel=document.getElementById('enViewPanel');
+  const qNum=parseInt(q.qNum)||0;
+  const isHindiTest=(CW.lang==='hi');
+  // Offer the toggle on Q1-75 for Hindi tests even before the English map is
+  // fetched — the map loads lazily on first tap.
+  const hasEnglish=isHindiTest && !!(enQMap&&enQMap[qNum]);
+  if(enBtn){
+    if(hasEnglish){
+      enBtn.style.display='flex';
+      const isOn=!!showEnglishQ[currentQ];
+      const eq=isOn?enQMap[qNum]:null;
+      enBtn.classList.toggle('active',isOn);
+      enBtn.textContent=isOn?'✕ Hide English':'🇬🇧 View in English';
+      if(isOn && eq && enPanel){
+        document.getElementById('enQText').innerHTML=formatQText(eq.text||eq.question||'');
+        mathDress(document.getElementById('enQText'));
+        const opts=['A','B','C','D'];
+        document.getElementById('enOpts').innerHTML=opts.map(o=>{
+          const lo=o.toLowerCase();
+          const txt=(eq.options&&(eq.options[o]||eq.options[lo]))||(eq['option'+o]||eq['option_'+o]||'');
+          return txt?`<div class="en-opt"><span class="en-opt-lbl">${o})</span>${txt}</div>`:'';
+        }).join('');
+        mathDress(document.getElementById('enOpts'));
+        enPanel.style.display='block';
+      } else if(isOn && !eq && enPanel){
+        // Toggle is on but no English counterpart exists for this question
+        const wholePaperMissing = enMapLoaded && Object.keys(enQMap).length===0;
+        const _msg = enFetchError
+          ? "Couldn't load the English version — check your connection and tap \u201cView in English\u201d again."
+          : (wholePaperMissing
+              ? "The English version of this paper hasn't been uploaded yet."
+              : 'English version not available for this question.');
+        document.getElementById('enQText').innerHTML='<span style="opacity:0.7;">'+_msg+'</span>';
+        document.getElementById('enOpts').innerHTML='';
+        enPanel.style.display='block';
+      } else if(enPanel){enPanel.style.display='none';}
+    } else {
+      enBtn.style.display='none';
+      if(enPanel){enPanel.style.display='none';}
+    }
+  }
+
+  // Mark btn
+  const markBtn=document.getElementById('markBtn');
+  if(markBtn) markBtn.style.background=markedForReview[currentQ]?'#EEF2FF':'';
+  const clearBtn=document.getElementById('clearBtn');
+  if(clearBtn) clearBtn.disabled=(answers[currentQ]===undefined);
+
+  // Blur + disable Next on the last question of the section, Prev on the first.
+  // (Navigation is locked within the active section, so use its bounds.)
+  const _ts=sections[curTS];
+  const _lo=_ts?_ts.from:0, _hi=_ts?_ts.to:questions.length-1;
+  const _nb=document.getElementById('nextBtn');
+  if(_nb){ const atEnd=currentQ>=_hi; _nb.disabled=atEnd; _nb.style.opacity=atEnd?'0.4':''; _nb.style.cursor=atEnd?'not-allowed':''; }
+  const _pb=document.getElementById('prevBtn');
+  if(_pb){ const atStart=currentQ<=_lo; _pb.disabled=atStart; _pb.style.opacity=atStart?'0.4':''; _pb.style.cursor=atStart?'not-allowed':''; }
+
+  updateGrid();
+  updateProgress();
 }
 
+window.selectOpt=o=>{answers[currentQ]=o;renderQ();};
+window.clearResponse=()=>{ if(answers[currentQ]!==undefined){ delete answers[currentQ]; } renderQ(); };
+window.nextQ=()=>{const ts=sections[curTS];const lim=ts?ts.to:questions.length-1;if(currentQ<lim){currentQ++;renderQ();}};
+window.prevQ=()=>{const ts=sections[curTS];const lo=ts?ts.from:0;if(currentQ>lo){currentQ--;renderQ();}};
+window.goQ=i=>{if(!inActiveTS(i))return;currentQ=i;renderQ();};
+window.markForReview=()=>{markedForReview[currentQ]=!markedForReview[currentQ];renderQ();};
+
+let _reportReason='', _reportQIdx=0;
+window.openReport=function(idx){
+  _reportQIdx=(typeof idx==='number' && idx>=0)?idx:currentQ;
+  const q=questions[_reportQIdx]||{};
+  _reportReason='';
+  document.querySelectorAll('#reportReasons .rm-reason').forEach(b=>b.classList.remove('sel'));
+  const note=document.getElementById('reportNote'); if(note) note.value='';
+  const lbl=document.getElementById('reportQLabel');
+  if(lbl) lbl.textContent='Question '+(_reportQIdx+1)+(q.qNum!=null?(' · Q'+q.qNum):'')+(q.subject?(' · '+q.subject):'');
+  const sb=document.getElementById('reportSubmitBtn'); if(sb){sb.disabled=false;sb.textContent='Submit report';}
+  const form=document.getElementById('reportForm'); if(form) form.style.display='block';
+  const done=document.getElementById('reportDone'); if(done) done.style.display='none';
+  const bg=document.getElementById('reportModalBg'); if(bg) bg.style.display='flex';
+};
+window.closeReport=function(){ const bg=document.getElementById('reportModalBg'); if(bg) bg.style.display='none'; };
+document.addEventListener('click',function(e){
+  const r=e.target.closest('#reportReasons .rm-reason');
+  if(r){ document.querySelectorAll('#reportReasons .rm-reason').forEach(b=>b.classList.remove('sel')); r.classList.add('sel'); _reportReason=r.getAttribute('data-r'); }
+  const rl=e.target.closest('.rv-report-link');
+  if(rl){ e.preventDefault(); const qi=parseInt(rl.getAttribute('data-i')); window.openReport(isNaN(qi)?currentQ:qi); }
+});
+window.submitReport=async function(){
+  if(!_reportReason){ alert('Please choose what is wrong with this question.'); return; }
+  const sb=document.getElementById('reportSubmitBtn'); if(sb){sb.disabled=true;sb.textContent='Submitting…';}
+  const q=questions[_reportQIdx]||{};
+  const _examNamesR={'ssc-cgl':'SSC CGL','ssc-chsl':'SSC CHSL','ssc-mts':'SSC MTS','ssc-cpo':'SSC CPO','ssc-gd':'SSC GD','ssc-je':'SSC JE','ssc-jht':'SSC JHT'};
+  const _tName=(cMeta?cMeta.name:'Chapter')+' \u00b7 Test '+CW.tn+' \u00b7 Level '+CW.lv;
+  try{
+    await setDoc(doc(collection(db,'question_reports')),{
+      mockId: _reportTestId,
+      qNum: (q.qNum!=null?String(q.qNum):''),
+      position: _reportQIdx+1,
+      subject: q.subject||'',
+      reason: _reportReason,
+      note: ((document.getElementById('reportNote')||{}).value||'').slice(0,1000),
+      uid: (currentUser&&currentUser.uid)||'',
+      name: (currentUser&&currentUser.displayName)||'',
+      testName: _tName||'',
+      source: 'chapterwise',
+      createdAt: serverTimestamp()
+    });
+    const form=document.getElementById('reportForm'); if(form) form.style.display='none';
+    const done=document.getElementById('reportDone'); if(done) done.style.display='block';
+  }catch(err){
+    if(sb){sb.disabled=false;sb.textContent='Submit report';}
+    const code=''+((err&&(err.code||err.status))||'');
+    alert(code.indexOf('permission')>=0
+      ? 'Report blocked by Firestore rules. Please ensure the question_reports rules are published.'
+      : 'Could not send the report'+(code?(' ('+code+')'):'')+'. Please check your connection and try again.');
+  }
+};
+
+// Per-solution EN/HI toggle (review screen). Swaps the .sol-body content of the
+// panel whose button was clicked, between its data-hi and data-en payloads.
+window.toggleSolLang=function(btn){
+  var head=btn.closest('.sol-head');
+  var body=head&&head.parentElement.querySelector('.sol-body');
+  if(!body) return;
+  var to=(body.getAttribute('data-lang')==='hi')?'en':'hi';
+  var raw=decodeURIComponent(body.getAttribute('data-'+to)||'');
+  // preserve any trailing <img> (solution image) that lived in the body
+  var img=body.querySelector('img');
+  body.innerHTML=renderContent(raw)+(img?img.outerHTML:'');
+  body.setAttribute('data-lang',to);
+  try{ mathDress(body); }catch(e){}
+  btn.textContent=(to==='en')?'हिंदी में देखें':'View in English';
+};
+
+window.toggleEnglishView=async()=>{
+  // Turning OFF — no fetch needed
+  if(showEnglishQ[currentQ]){ showEnglishQ[currentQ]=false; renderQ(); return; }
+  // Turning ON — make sure the English map is loaded first
+  if(!enMapLoaded){
+    const btn=document.getElementById('enToggleBtn');
+    if(btn) btn.textContent='⏳ Loading…';
+    await ensureEnglishMap();
+  }
+  showEnglishQ[currentQ]=true;
+  renderQ();
+};
+
+function inActiveTS(i){
+  const t=sections[curTS];
+  return !!t && i>=t.from && i<=t.to;
+}
+
+function activeSectionIdx(){
+  for(let i=0;i<sections.length;i++)
+    if(currentQ>=sections[i].from&&currentQ<=sections[i].to) return i;
+  return 0;
+}
+
+function buildSectionBar(){
+  const bar=document.getElementById('sectionBar');
+  if(!bar) return;
+  if(sections.length<=1){bar.style.display='none';return;}
+  bar.style.display='flex';
+  const actIdx=activeSectionIdx();
+  bar.innerHTML=sections.map((s,i)=>{
+    const total=s.to-s.from+1;
+    const ans=Array.from({length:total},(_,j)=>answers[s.from+j]).filter(Boolean).length;
+    const pct=total>0?Math.round(ans/total*100):0;
+    const locked=!inActiveTS(s.from)||!inActiveTS(s.to);
+    return '<div class="sec-tab'+(i===actIdx?' active':'')+(locked?' locked':'')+'"'+(locked?'':' onclick="jumpToSection('+i+')"')+'>'
+      +'<span class="sec-tab-name">'+s.label+'</span>'
+      +'<span class="sec-tab-count">'+ans+'/'+total+'</span>'
+      +'<div class="sec-tab-progress"><div class="sec-tab-progress-fill" style="width:'+pct+'%"></div></div>'
+      +'</div>';
+  }).join('');
+  const active=bar.querySelector('.sec-tab.active');
+  if(active) active.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});
+}
+
+window.jumpToSection=function(sIdx){
+  if(sIdx<0||sIdx>=sections.length) return;
+  const s=sections[sIdx];
+  if(!inActiveTS(s.from)||!inActiveTS(s.to)) return; // locked section
+  let target=s.from;
+  for(let i=s.from;i<=s.to;i++){if(!answers[i]){target=i;break;}}
+  currentQ=target;renderQ();closeDrawer();
+};
+
+function buildGrid(){
+  const grid=document.getElementById('grid');
+  if(!grid) return;
+  if(sections.length>1){
+    grid.innerHTML=sections.map(s=>'<div class="section-block"><div class="sb-label" style="margin-bottom:6px;">'+s.label+'</div><div class="section-grid">'+Array.from({length:s.to-s.from+1},(_,j)=>{const i=s.from+j;const lk=!inActiveTS(i);return '<div class="dot'+(lk?' locked':'')+'" id="dot'+i+'"'+(lk?'':' onclick="goQ('+i+')"')+'>'+(i+1)+'</div>';}).join('')+'</div></div>').join('');
+  } else {
+    grid.innerHTML='<div class="section-grid">'+questions.map((_,i)=>{const lk=!inActiveTS(i);return '<div class="dot'+(lk?' locked':'')+'" id="dot'+i+'"'+(lk?'':' onclick="goQ('+i+')"')+'>'+(i+1)+'</div>';}).join('')+'</div>';
+  }
+}
+
+function updateGrid(){
+  questions.forEach((_,i)=>{
+    let cls='dot';
+    if(!inActiveTS(i)) cls+=' locked';
+    if(markedForReview[i]) cls+=' marked';
+    else if(answers[i]) cls+=' answered';
+    if(i===currentQ) cls+=' current';
+    const d=document.getElementById('dot'+i);if(d)d.className=cls;
+  });
+  const dg=document.getElementById('drawerGrid');
+  if(dg){
+    if(sections.length>1){
+      dg.innerHTML=sections.map(s=>{
+        const dots=Array.from({length:s.to-s.from+1},(_,j)=>{
+          const i=s.from+j;
+          const lk=!inActiveTS(i);
+          let cls='dot';
+          if(lk) cls+=' locked';
+          if(markedForReview[i]) cls+=' marked';
+          else if(answers[i]) cls+=' answered';
+          if(i===currentQ) cls+=' current';
+          return '<div class="'+cls+'"'+(lk?'':' onclick="goQ('+i+');closeDrawer()"')+'>'+(i+1)+'</div>';
+        }).join('');
+        return '<div class="section-block"><div class="sb-label" style="margin-bottom:6px;">'+s.label+'</div><div class="section-grid">'+dots+'</div></div>';
+      }).join('');
+    } else {
+      dg.innerHTML='<div class="section-grid">'+questions.map((_,i)=>{
+        const lk=!inActiveTS(i);
+        let cls='dot';
+        if(lk) cls+=' locked';
+        if(markedForReview[i]) cls+=' marked';
+        else if(answers[i]) cls+=' answered';
+        if(i===currentQ) cls+=' current';
+        return '<div class="'+cls+'"'+(lk?'':' onclick="goQ('+i+');closeDrawer()"')+'>'+(i+1)+'</div>';
+      }).join('')+'</div>';
+    }
+  }
+  buildSectionBar();
+}
+
+function updateProgress(){
+  const answered=Object.keys(answers).length;
+  const total=questions.length;
+  document.getElementById('progressText').textContent=`${answered} / ${total}`;
+  document.getElementById('progressFill').style.width=`${Math.round((answered/total)*100)}%`;
+}
+
+function buildReviewItem(q,i){
+  const a=answers[i];
+  const status=!a?'skip':a===q.correct?'correct':'wrong';
+  const opts=['A','B','C','D'];
+  const vIcon=status==='correct'?'✓':status==='wrong'?'✕':'⏭';
+  const pillText=status==='correct'?'Correct':status==='wrong'?'Incorrect':'Skipped';
+  const vText=status==='correct'?'Correct! Well done.':status==='wrong'?`Incorrect — you chose <b>${a}</b>, the correct answer is <b>${q.correct}</b>`:'Skipped — you did not answer this question';
+  const headHtml=`<div class="rv-head"><span class="rv-pill ${status}">${vIcon} ${pillText}</span></div>`;
+  const optsHtml=`<div class="rv-opts">${opts.map(o=>{
+    const txt=q.options?.[o]||q['option'+o]||'';const optImg=q.optionImages?.[o]||'';
+    const isCorrect=o===q.correct;const isWrong=o===a&&a!==q.correct;
+    const cls=isCorrect?'rv-opt c':isWrong?'rv-opt w':'rv-opt';
+    const marker=isCorrect?'<span class="rv-mk">✓</span>':isWrong?'<span class="rv-mk">✕</span>':'';
+    return `<div class="${cls}"><span class="rv-key">${o}</span><span>${txt}${marker}${optImg?`<span style="display:block;margin-top:6px;"><img src="${optImg}" style="max-width:100%;max-height:100px;border-radius:5px;object-fit:contain;" onerror="this.style.display='none'"></span>`:''}</span></div>`;
+  }).join('')}</div>`;
+  const solImg=q.solutionImage||'';
+  // Per-solution EN/HI toggle: available for Q1–75 when an English counterpart
+  // solution exists in enQMap. Q76–100 are English-only, so no toggle there.
+  const _qn=parseInt(q.qNum)||(i+1);
+  const _enDoc=(enQMap&&enQMap[_qn])||null;
+  const _hasEnSol=!!(_enDoc&&(_enDoc.explanation||'').trim());
+  const _enExp=_hasEnSol?_enDoc.explanation:'';
+  const _enTrk=(_enDoc&&_enDoc.trick)||'';
+  // stash both languages on the element via encoded data-attrs (safe for HTML attr)
+  const _enc=s=>encodeURIComponent(s||'');
+  const solToggleBtn=_hasEnSol
+    ?`<button class="sol-lang-btn" onclick="toggleSolLang(this)">View in English</button>`:'';
+  const solHtml=(q.explanation||solImg)?`<div class="sol-panel sol-sol"><div class="sol-head"><span class="sol-ic">💡</span>Step-by-Step Solution${solToggleBtn}</div><div class="sol-body" data-hi="${_enc(q.explanation||'')}" data-en="${_enc(_enExp)}" data-lang="hi">${renderContent(q.explanation||'')}${solImg?`<img src="${solImg}" onerror="this.style.display='none'" alt="Solution">`:''}</div></div>`:'';
+  const trickToggleBtn=(_hasEnSol&&_enTrk)
+    ?`<button class="sol-lang-btn" onclick="toggleSolLang(this)">View in English</button>`:'';
+  const trickHtml=q.trick?`<div class="sol-panel sol-trick"><div class="sol-head"><span class="sol-ic">⚡</span>Quick Trick${trickToggleBtn}</div><div class="sol-body" data-hi="${_enc(q.trick)}" data-en="${_enc(_enTrk)}" data-lang="hi">${renderContent(q.trick)}</div></div>`:'';
+  const conceptHtml=q.concept?`<div class="sol-panel sol-concept"><div class="sol-head"><span class="sol-ic">🧠</span>Concept</div><div class="sol-body">${renderContent(q.concept)}</div></div>`:'';
+  const verdictHtml=`<div class="verdict ${status}"><span class="v-ic">${vIcon}</span><span>${vText}</span></div>`;
+  const rawRT=(q.text||q.question||'').replace(/^\[FIGURE-BASED\]\s*/i,'');
+  const reviewQHtml=formatQTextReview(rawRT,i+1);
+  const html=`<div class="review-item ${status}" id="rvq${i}">${headHtml}${reviewQHtml}${q.imageUrl?`<div style="text-align:center;margin:8px 0;"><img src="${q.imageUrl}" style="max-width:100%;max-height:220px;border-radius:8px;border:1px solid #E2E8F0;object-fit:contain;background:#F9FAFB;" onerror="this.style.display='none'"></div>`:''}${optsHtml}${verdictHtml}${solHtml}${trickHtml}${conceptHtml}<div style="text-align:right;margin-top:6px;"><button class="rv-report-link" data-i="${i}" type="button">⚠ Report a problem with this question</button></div></div>`;
+  return {status,html};
+}
+
+function buildSectionedReview(){
+  const reviewEl=document.getElementById('review');
+  const secs=(sections&&sections.length)?sections:[{label:'All Questions',from:0,to:questions.length-1}];
+  let tabsHtml='',panelsHtml='';
+  secs.forEach((s,si)=>{
+    let c=0,w=0,k=0,circles='',items='';
+    for(let i=s.from;i<=s.to;i++){
+      const it=buildReviewItem(questions[i],i);
+      if(it.status==='correct')c++;else if(it.status==='wrong')w++;else k++;
+      circles+=`<button class="rv-circle ${it.status}" onclick="window.rvGoto(${i})">${i+1}</button>`;
+      items+=it.html;
+    }
+    tabsHtml+=`<button class="rv-tab${si===0?' active':''}" onclick="window.rvSwitch(${si})">`
+      +`<span class="rv-tab-name">${s.label}</span>`
+      +`<span class="rv-tab-mini"><span class="c">${c}</span><span class="w">${w}</span><span class="k">${k}</span></span>`
+      +`</button>`;
+    panelsHtml+=`<div class="rv-panel" data-sec="${si}"${si===0?'':' style="display:none"'}>`
+      +`<div class="rv-secsum"><span class="rv-lg correct">✓ ${c} Correct</span><span class="rv-lg wrong">✕ ${w} Incorrect</span><span class="rv-lg skip">⏭ ${k} Skipped</span></div>`
+      +`<div class="rv-palette">${circles}</div>`
+      +`<div class="rv-items">${items}</div>`
+      +`</div>`;
+  });
+  const tabBar=secs.length>1?`<div class="rv-tabs" id="rvTabs">${tabsHtml}</div>`:'';
+  reviewEl.innerHTML=`<div class="rv-wrap">${tabBar}${panelsHtml}</div>`;
+  mathDress(reviewEl);
+  // The first panel is visible, so the call above rendered its math; mark it
+  // so _rvActivate doesn't redo it. Other panels render lazily when shown.
+  var firstPanel=reviewEl.querySelector('.rv-panel');
+  if(firstPanel) firstPanel.__mathDone=true;
+}
+
+/* ── Section-wise review: tab switching & circle jump ── */
+function _rvBarH(){const b=document.getElementById('rvTabs');return b?b.getBoundingClientRect().height:0;}
+function _rvActivate(si){
+  document.querySelectorAll('#review .rv-panel').forEach(p=>{
+    var show=(p.getAttribute('data-sec')===String(si));
+    p.style.display=show?'block':'none';
+    // KaTeX cannot measure/render math inside a display:none element, so panels
+    // built hidden (every tab after the first) keep raw \( ... \) until shown.
+    // Render math the first time a panel actually becomes visible.
+    if(show && !p.__mathDone){ p.__mathDone=true; try{ mathDress(p); }catch(e){} }
+  });
+  document.querySelectorAll('#review .rv-tab').forEach((t,i)=>{
+    t.classList.toggle('active',i===si);
+  });
+}
+window.rvSwitch=(si)=>{
+  _rvActivate(si);
+  // Reset scroll to the top of the section. Anchor on the non-sticky .rv-wrap:
+  // the tab bar is position:sticky, so once it's pinned its own rect.top reads ~0,
+  // which made the scroll target equal the current position (the reported bug).
+  const wrap=document.querySelector('#review .rv-wrap');
+  if(wrap){
+    const y=wrap.getBoundingClientRect().top+window.scrollY-6;
+    window.scrollTo({top:y<0?0:y,behavior:'auto'});
+  }
+};
+window.rvGoto=(i)=>{
+  const el=document.getElementById('rvq'+i);
+  if(!el)return;
+  const panel=el.closest('.rv-panel');
+  const hidden=panel&&panel.style.display==='none';
+  if(hidden){
+    const si=parseInt(panel.getAttribute('data-sec'),10);
+    if(!isNaN(si))_rvActivate(si);   // switch silently; we scroll to the item below
+  }
+  setTimeout(()=>{
+    // Offset by the sticky tab-bar height so the question header isn't hidden under it.
+    const y=el.getBoundingClientRect().top+window.scrollY-_rvBarH()-12;
+    window.scrollTo({top:y<0?0:y,behavior:'smooth'});
+    el.classList.add('rv-flash');
+    setTimeout(()=>el.classList.remove('rv-flash'),1200);
+  },hidden?60:0);
+};
+
+function applyBR(text){
+  return text.split('[BR]').join('<br>');
+}
+
+/* ── TrickySSC: square-root dresser ─────────────────────────────
+   Draws a bar (vinculum) over the WHOLE radicand so it is always
+   clear how far the root extends. Works on existing Unicode "√"
+   content. Only touches text nodes, never tags/attributes. */
+function _radEsc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function _radHTML(cand){
+  return '<span class="rad"><span class="rad-sign"><svg viewBox="0 0 12 100" preserveAspectRatio="none" aria-hidden="true">'
+    +'<path d="M0.5,62 L4,97 L11,1 L12,1" fill="none" stroke="currentColor" stroke-width="1.6" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/>'
+    +'</svg></span><span class="rad-cand">'+_radEsc(cand)+'</span></span>';
+}
+function _radExtract(str,start){
+  var i=start;
+  while(i<str.length && str[i]===' ') i++;
+  var open=str[i], close=(open==='(')?')':(open==='[')?']':(open==='{')?'}':'';
+  if(close){
+    var depth=0,j=i;
+    for(;j<str.length;j++){
+      if(str[j]===open)depth++;
+      else if(str[j]===close){depth--;if(depth===0){j++;break;}}
+    }
+    return {cand:str.slice(i+1,j-1),end:j};
+  }
+  var sup='\u2070\u00B9\u00B2\u00B3\u2074\u2075\u2076\u2077\u2078\u2079';
+  var j2=i;
+  while(j2<str.length){
+    var c=str[j2];
+    if((c>='0'&&c<='9')||c==='.'||(c>='A'&&c<='Z')||(c>='a'&&c<='z')||sup.indexOf(c)!==-1){j2++;}
+    else break;
+  }
+  if(j2===i) return null;
+  return {cand:str.slice(i,j2),end:j2};
+}
+/* ── TrickySSC: KaTeX renderer ───────────────────────────────────
+   Renders LaTeX written between \( ... \) (inline) or \[ ... \] (display).
+   IMPORTANT: $ and $$ are NOT delimiters — content uses "$" as a coding
+   operator (e.g. "6 $ 2 = 20"), so dollar delimiters are deliberately off. */
+function renderTrickyMath(root){
+  if(!root) return;
+  /* If KaTeX auto-render has not loaded yet, queue this element and render it
+     the moment KaTeX becomes available. Fixes the race where a dynamically
+     built panel (review/solution screen) is dressed before the deferred
+     auto-render.min.js finishes loading, which left \\( ... \\) as raw text. */
+  if(!window.renderMathInElement){
+    (window.__pendingMath=window.__pendingMath||[]).push(root);
+    if(!window.__mathWaiter){
+      window.__mathWaiter=setInterval(function(){
+        if(window.renderMathInElement){
+          clearInterval(window.__mathWaiter);window.__mathWaiter=null;
+          var q=window.__pendingMath||[];window.__pendingMath=[];
+          q.forEach(function(el){try{mathDress(el);}catch(e){}});
+        }
+      },120);
+    }
+    return;
+  }
+  try{
+    window.renderMathInElement(root,{
+      delimiters:[
+        {left:'\\(',right:'\\)',display:false},
+        {left:'\\[',right:'\\]',display:true}
+      ],
+      throwOnError:false,
+      errorColor:'#1f2933',
+      ignoredTags:['script','noscript','style','textarea','pre']
+    });
+  }catch(e){/* never break rendering */}
+}
+/* render LaTeX first, then draw bars over any remaining Unicode roots */
+/* ── TrickySSC: shrink wide math to fit the screen ───────────────
+   KaTeX renders \( ... \) as a fixed-width inline box that neither
+   wraps nor scales, so a wide formula (big fraction, cosec/sec
+   product) overflows off the right edge on narrow phones. KaTeX
+   sizes everything in em, so lowering the element font-size scales
+   the whole formula down proportionally and its measured width
+   shrinks correctly. We scale each overflowing formula down just
+   enough to fit (never below 55%); anything still too wide is made
+   horizontally scrollable so nothing is ever cut off.
+   Display-only — never touches stored data. */
+function fitMath(root){
+  if(!root||!root.querySelectorAll) return;
+  var boxSel='.qText,.opt-body,.en-qtext,.en-opts,.q-sentence,.q-instruction';
+  root.querySelectorAll('.katex').forEach(function(k){
+    try{
+      k.style.fontSize='';                 /* reset any earlier fit before re-measuring */
+      k.style.overflowX=''; k.style.display=''; k.style.maxWidth='';
+      var box=(k.closest?k.closest(boxSel):null)||root;
+      var avail=box.clientWidth;
+      if(!avail) return;                    /* container hidden/zero-width: skip, retry on show/resize */
+      var w=k.getBoundingClientRect().width;
+      if(w<=avail) return;                  /* already fits */
+      var scale=(avail-2)/w;
+      if(scale<0.55){                       /* too wide even at floor -> let it scroll sideways */
+        k.style.fontSize='55%';
+        k.style.display='inline-block';
+        k.style.maxWidth='100%';
+        k.style.overflowX='auto';
+        k.style.verticalAlign='middle';
+      }else{
+        k.style.fontSize=(scale*100).toFixed(1)+'%';
+      }
+    }catch(e){/* never break rendering */}
+  });
+}
+function mathDress(el){ renderTrickyMath(el); dressRoots(el); dressFractions(el); fitMath(el); }
+/* re-fit when the viewport changes (rotation, resize) */
+(function(){
+  var t;
+  window.addEventListener('resize',function(){
+    clearTimeout(t);
+    t=setTimeout(function(){
+      ['qText','options','enQText','enOpts','review'].forEach(function(id){
+        var el=document.getElementById(id); if(el) fitMath(el);
+      });
+    },180);
+  });
+})();
+/* re-render math once KaTeX finishes loading (covers first paint) */
+window.addEventListener('load',function(){try{['qText','options','enQText','enOpts','review'].forEach(function(id){var el=document.getElementById(id);if(el)mathDress(el);});}catch(e){}});
+
+
+/* ── TrickySSC: stacked-fraction dresser ─────────────────────────
+   Renders NUM/DEN as a vertical fraction when it is clearly math:
+   when either side is a (parenthesised group), or contains a
+   superscript / decimal / pi / root. Plain integer fractions
+   (e.g. 45/1 addresses, 8/17) and word/word (and/or) are LEFT ALONE.
+   Display-only; never changes stored data. */
+var _FRAC_SUP='\u2070\u00B9\u00B2\u00B3\u2074\u2075\u2076\u2077\u2078\u2079';
+function _fracTerm(c){return (c>='0'&&c<='9')||c==='.'||(c>='A'&&c<='Z')||(c>='a'&&c<='z')||c==='\u03C0'||_FRAC_SUP.indexOf(c)!==-1;}
+function _fracStrong(s){for(var i=0;i<s.length;i++){var c=s[i];if(c==='.'||c==='\u03C0'||c==='\u221A'||_FRAC_SUP.indexOf(c)!==-1)return true;}return false;}
+function _fracLeft(str,slash){
+  var i=slash-1;while(i>=0&&str[i]===' ')i--;if(i<0)return null;
+  if(str[i]===')'){var d=0,j=i;for(;j>=0;j--){if(str[j]===')')d++;else if(str[j]==='('){d--;if(d===0)break;}}if(j<0)return null;return {start:j,text:str.slice(j+1,i),grouped:true};}
+  var j2=i;while(j2>=0&&_fracTerm(str[j2]))j2--;if(j2===i)return null;return {start:j2+1,text:str.slice(j2+1,i+1),grouped:false};
+}
+function _fracRight(str,slash){
+  var i=slash+1;while(i<str.length&&str[i]===' ')i++;if(i>=str.length)return null;
+  if(str[i]==='('){var d=0,j=i;for(;j<str.length;j++){if(str[j]==='(')d++;else if(str[j]===')'){d--;if(d===0){j++;break;}}}return {end:j,text:str.slice(i+1,j-1),grouped:true};}
+  var j2=i;while(j2<str.length&&_fracTerm(str[j2]))j2++;if(j2===i)return null;return {end:j2,text:str.slice(i,j2),grouped:false};
+}
+function _vfracHTML(num,den){return '<span class="vfrac"><span class="vf-num">'+_radEsc(num)+'</span><span class="vf-den">'+_radEsc(den)+'</span></span>';}
+function dressFractions(root){
+  if(!root||typeof document==='undefined'||!document.createTreeWalker)return;
+  try{
+    var skipTag={SCRIPT:1,STYLE:1,TEXTAREA:1},skipCls=['katex','vfrac','frac','mixed-frac'];
+    var walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,{
+      acceptNode:function(n){
+        if(!n.nodeValue||n.nodeValue.indexOf('/')===-1)return NodeFilter.FILTER_REJECT;
+        var p=n.parentNode;if(p&&skipTag[p.nodeName])return NodeFilter.FILTER_REJECT;
+        var el=p;while(el&&el!==root){if(el.classList){for(var c=0;c<skipCls.length;c++)if(el.classList.contains(skipCls[c]))return NodeFilter.FILTER_REJECT;}el=el.parentNode;}
+        return NodeFilter.FILTER_ACCEPT;
+      }
+    });
+    var targets=[],node;while(node=walker.nextNode())targets.push(node);
+    targets.forEach(function(tn){
+      var str=tn.nodeValue,segs=[],last=0,changed=false,i=0;
+      while(i<str.length){
+        if(str[i]==='/'){
+          var L=_fracLeft(str,i),R=_fracRight(str,i);
+          if(L&&R){
+            var afterR=R.end<str.length?str[R.end]:'';
+            var beforeL=L.start>0?str[L.start-1]:'';
+            var trig=(L.grouped||R.grouped||_fracStrong(L.text)||_fracStrong(R.text));
+            if(trig&&afterR!=='/'&&beforeL!=='/'){
+              if(L.start>=last) segs.push(_radEsc(str.slice(last,L.start)));
+              segs.push(_vfracHTML(L.text.trim(),R.text.trim()));
+              last=R.end;i=R.end;changed=true;continue;
+            }
+          }
+        }
+        i++;
+      }
+      if(changed){segs.push(_radEsc(str.slice(last)));var span=document.createElement('span');span.innerHTML=segs.join('');tn.parentNode.replaceChild(span,tn);}
+    });
+  }catch(e){/* never break rendering */}
+}
+function dressRoots(root){
+  if(!root || typeof document==='undefined' || !document.createTreeWalker) return;
+  try{
+    var walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,{
+      acceptNode:function(n){
+        if(!n.nodeValue||n.nodeValue.indexOf('\u221A')===-1) return NodeFilter.FILTER_REJECT;
+        var p=n.parentNode;
+        if(p&&(p.nodeName==='SCRIPT'||p.nodeName==='STYLE'||p.nodeName==='TEXTAREA')) return NodeFilter.FILTER_REJECT;
+        var el=p;
+        while(el&&el!==root){if(el.classList&&(el.classList.contains('rad')||el.classList.contains('katex'))) return NodeFilter.FILTER_REJECT; el=el.parentNode;}
+        return NodeFilter.FILTER_ACCEPT;
+      }
+    });
+    var targets=[],node;
+    while(node=walker.nextNode()) targets.push(node);
+    targets.forEach(function(tn){
+      var str=tn.nodeValue,out='',i=0,changed=false;
+      while(i<str.length){
+        var k=str.indexOf('\u221A',i);
+        if(k===-1){out+=_radEsc(str.slice(i));break;}
+        out+=_radEsc(str.slice(i,k));
+        var r=_radExtract(str,k+1);
+        if(r){out+=_radHTML(r.cand);i=r.end;changed=true;}
+        else{out+=_radEsc('\u221A');i=k+1;}
+      }
+      if(changed){
+        var span=document.createElement('span');
+        span.innerHTML=out;
+        tn.parentNode.replaceChild(span,tn);
+      }
+    });
+  }catch(e){/* never break rendering */}
+}
+
+/* resolveImg — converts [IMG]url[/IMG] tokens to <img> tags */
+function resolveImg(text){
+  if(!text||text.indexOf('[IMG]')===-1) return text;
+  return text.replace(/\[IMG\](.*?)\[\/IMG\]/g, function(_,url){
+    return '<img src="'+url+'" class="q-figure-img" alt="Figure" loading="lazy">';
+  });
+}
+
+function splitLines(raw){
+  return raw.split(/\[BR\]|<br\s*\/?>|\n/i).map(function(s){return s.trim();});
+}
+
+var _diTableCounter=0;
+
+function isPipeRow(s){
+  if(!s)return false;
+  var p=0;for(var i=0;i<s.length;i++){if(s[i]==='|')p++;}
+  return p>=2;
+}
+
+function buildDITable(parts){
+  var tableRows=[],captionParts=[],afterParts=[],inTable=false,pastTable=false;
+  for(var i=0;i<parts.length;i++){
+    var seg=parts[i].trim();
+    if(!seg){if(inTable){pastTable=true;inTable=false;}continue;}
+    if(isPipeRow(seg)){
+      if(/^\|[\s\-|:]+\|$/.test(seg))continue;
+      inTable=true;pastTable=false;
+      tableRows.push(seg);
+    }else if(pastTable||(tableRows.length&&!inTable)){
+      afterParts.push(seg);
+    }else{
+      captionParts.push(seg);
+    }
+  }
+  if(!tableRows.length)return null;
+
+  var tid='di-tbl-'+(++_diTableCounter);
+  var headers=tableRows[0].split('|').map(function(c){return c.trim();}).filter(function(c){return c!=='';});
+
+  var html='';
+  if(captionParts.length)html+='<p class="di-caption">'+captionParts.join(' ')+'</p>';
+
+  // Expand toggle button (mobile only via CSS)
+  html+='<button class="di-toggle" onclick="diToggle(\''+tid+'\')" aria-expanded="false">'
+       +'<span class="di-toggle-icon">⊞</span> View Full Table</button>';
+
+  html+='<div class="di-table-wrap" id="'+tid+'">'
+       +'<table class="di-table">'
+       +'<thead><tr>'+headers.map(function(c){return'<th>'+c+'</th>';}).join('')+'</tr></thead>'
+       +'<tbody>';
+  for(var r=1;r<tableRows.length;r++){
+    var cols=tableRows[r].split('|').map(function(c){return c.trim();}).filter(function(c){return c!=='';});
+    html+='<tr>';
+    cols.forEach(function(c,ci){html+='<td data-label="'+(headers[ci]||'')+'">'+c+'</td>';});
+    html+='</tr>';
+  }
+  html+='</tbody></table></div>';
+
+  if(afterParts.length){
+    html+='<p style="font-size:15px;font-weight:500;color:#1E293B;margin:8px 0 0;line-height:1.7;">'+afterParts.join('<br>')+'</p>';
+  }
+  return html;
+}
+
+/* ── TrickySSC: solution body formatter ───────────────────────────
+   Auto-structures BOTH quant (Step/चरण + "- " bullets) and GK
+   (flat [BR] sentences) solutions, in English and Hindi, without
+   needing the source data to carry any bullet markup.            */
+var SOL_HEAD_SET={
+  'explanation':1,'information about other options':1,'about other options':1,'other options':1,
+  'why the other options are wrong':1,'why other options are wrong':1,
+  'why the other options are incorrect':1,'why other options are incorrect':1,
+  'exam fact':1,'exam facts':1,'key fact':1,'key facts':1,'fact':1,
+  'trick':1,'tricks':1,'quick trick':1,'memory trick':1,'shortcut':1,
+  'concept':1,'key concept':1,'note':1,'important':1,'key point':1,'key points':1,
+  'summary':1,'analysis':1,'statement analysis':1,'correct statement':1,'correct statements':1,
+  /* Hindi */
+  'व्याख्या':1,'परीक्षा तथ्य':1,'महत्वपूर्ण तथ्य':1,'मुख्य तथ्य':1,'तथ्य':1,
+  'अन्य विकल्पों के बारे में जानकारी':1,'अन्य विकल्प':1,'अन्य विकल्प क्यों गलत हैं':1,
+  'ट्रिक':1,'युक्ति':1,'शॉर्टकट':1,'अवधारणा':1,'मुख्य अवधारणा':1,'नोट':1,'ध्यान दें':1,
+  'मुख्य बिंदु':1,'सारांश':1,'विश्लेषण':1};
+function _solStrip(s){return s.replace(/<[^>]+>/g,'').replace(/\*\*/g,'').trim();}
+function solHeadingLabel(line){
+  var plain=_solStrip(line);
+  var key=plain.replace(/[:：]\s*$/,'').toLowerCase().trim();
+  return SOL_HEAD_SET[key]?plain.replace(/[:：]\s*$/,''):null;
+}
+/* Core: takes an array of (possibly HTML) lines → structured HTML */
+function coreSolFormat(lines){
+  var hasStep=false,nReal=0,i;
+  for(i=0;i<lines.length;i++){
+    var p=lines[i].replace(/<[^>]+>/g,'').trim();
+    if(!p)continue; nReal++;
+    if(/^(Step|चरण)\s+\d/.test(p))hasStep=true;
+  }
+  var out=[],optHeadDone=false;
+  for(i=0;i<lines.length;i++){
+    var raw=lines[i],line=raw.replace(/^\s+|\s+$/g,'');
+    if(!line)continue;
+    /* block-level html passes through untouched (tables, images…) */
+    if(/^<(div|table|thead|tbody|tr|td|th|ul|ol|li|h[1-6]|p|img|figure|blockquote|hr)\b/i.test(line)){out.push(raw);continue;}
+    var plain=_solStrip(line);
+    /* 1) Step / चरण heading — whole line, bold + accent colour */
+    if(/^(Step|चरण)\s+\d+\s*[:：]/.test(plain)){out.push('<div class="sol-step">'+plain+'</div>');continue;}
+    /* 2) existing explicit bullet ("- ", "— ", "• ") */
+    var bm=line.match(/^(?:[—–•]|-)\s+([\s\S]*)$/);
+    if(bm){out.push('<div class="sol-bullet"><span class="sol-bullet-mk">—</span><span>'+bm[1]+'</span></div>');continue;}
+    /* 3) conclusion / verdict line — highlighted */
+    var verdict=(/^(Therefore|Hence|Thus|So)\b/i.test(plain)&&/(correct|right answer|correct answer|correct option)/i.test(plain))
+              ||(/^(अतः|अत:|अंततः|अंतः|इसलिए)/.test(plain)&&/(सही है|सही हैं|सही उत्तर|सही विकल्प)/.test(plain))
+              ||/^(Final Answer|अंतिम उत्तर|∴)/i.test(plain);
+    if(verdict){out.push('<div class="sol-verdict"><span class="vmk">✓</span><span>'+line.replace(/^∴\s*/,'')+'</span></div>');continue;}
+    /* 4) known section heading */
+    var hd=solHeadingLabel(line);
+    if(hd!==null){out.push('<div class="sol-section">'+hd+'</div>');if(/option|विकल्प/i.test(hd))optHeadDone=true;continue;}
+    /* 5) option-wise analysis ("Option (1) …" / "विकल्प (1) …") */
+    var opt=line.match(/^(Option\s*\(?\s*\d+\)?)([\s\S]*)$/i)||line.match(/^(विकल्प\s*\(?\s*\d+\)?)([\s\S]*)$/);
+    if(opt){
+      if(!optHeadDone){
+        out.push('<div class="sol-section">'+(/विकल्प/.test(opt[1])?'अन्य विकल्प क्यों गलत हैं':'Why the other options are wrong')+'</div>');
+        optHeadDone=true;
+      }
+      out.push('<div class="sol-bullet"><span class="sol-bullet-mk">—</span><span><strong>'+opt[1]+'</strong>'+opt[2]+'</span></div>');
+      continue;
+    }
+    /* 6) plain narrative — auto-bullet in GK (no Step) solutions */
+    if(!hasStep&&nReal>1){out.push('<div class="sol-bullet"><span class="sol-bullet-mk">—</span><span>'+line+'</span></div>');}
+    else{out.push('<div class="sol-line">'+line+'</div>');}
+  }
+  return out.join('');
+}
+function enhanceSolHTML(html){return coreSolFormat((html||'').split(/<br\s*\/?>/i));}
+function renderContent(text){
+  if(!text)return'';
+  if(text.indexOf('<')!==-1&&text.indexOf('>')!==-1&&/<[a-z]/i.test(text))return enhanceSolHTML(text);
+  if(text.indexOf('\n')!==-1){
+    return enhanceSolHTML(text
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+      .replace(/\*([^*]+?)\*/g,'<em>$1</em>')
+      .split('\n').filter(function(l){return l.trim();}).join('<br>'));
+  }
+  return formatSteps(text);
+}
+
+
+/* renderFraction: converts "24 2/5" and "2/5" to stacked fraction HTML */
+function renderFraction(text){
+  if(!text || text.indexOf('/')===-1) return text;
+  // Mixed fraction: whole + space + n/d  e.g. "24 2/5"
+  text = text.replace(/(\d+)\s+(\d+)\/(\d+)/g, function(_,whole,num,den){
+    return '<span class="mixed-frac"><span>'+whole+'</span>'
+          +'<span class="frac"><span class="frac-num">'+num+'</span>'
+          +'<span class="frac-den">'+den+'</span></span></span>';
+  });
+  // Pure fraction: n/d not preceded by digit (avoids matching already-replaced or dates)
+  text = text.replace(/([^\d])(\d+)\/(\d+)/g, function(_,pre,num,den){
+    return pre+'<span class="frac"><span class="frac-num">'+num+'</span>'
+              +'<span class="frac-den">'+den+'</span></span>';
+  });
+  // Handle fraction at start of string
+  text = text.replace(/^(\d+)\/(\d+)/, function(_,num,den){
+    return '<span class="frac"><span class="frac-num">'+num+'</span>'
+              +'<span class="frac-den">'+den+'</span></span>';
+  });
+  return text;
+}
+
+function formatQText(raw){
+  if(!raw)return'';
+  raw = resolveImg(raw);
+  if(raw.indexOf('||')!==-1){
+    var halves=raw.split('||');
+    var instr=halves[0].trim();
+    var body=halves.slice(1).join('').trim();
+    var bodyLines=splitLines(body);
+    if(bodyLines.some(function(p){return isPipeRow(p);})){
+      var tbl=buildDITable(bodyLines);
+      if(tbl)return'<span class="q-instruction">'+applyBR(instr)+'</span>'+tbl;
+    }
+    return'<span class="q-instruction">'+applyBR(instr)+'</span><span class="q-sentence">'+applyBR(body)+'</span>';
+  }
+  var lines=splitLines(raw);
+  if(lines.some(function(p){return isPipeRow(p);})){
+    var tbl2=buildDITable(lines);
+    if(tbl2)return tbl2;
+  }
+  if(raw.indexOf('[BR]')!==-1)return applyBR(raw);
+  return raw;
+}
+
+function formatSteps(text){
+  if(!text)return'';
+  var html=coreSolFormat(applyBR(text).split('<br>'));
+  html=html.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
+  html=html.replace(/\*([^*]+?)\*/g,'<em>$1</em>');
+  return html;
+}
+
+function formatQTextReview(raw,qNum){
+  if(!raw)return'';
+  raw = resolveImg(raw);
+  if(raw.indexOf('||')!==-1){
+    var halves=raw.split('||');
+    var instr=halves[0].trim();
+    var body=halves.slice(1).join('').trim();
+    var bodyLines=splitLines(body);
+    if(bodyLines.some(function(p){return isPipeRow(p);})){
+      var tbl=buildDITable(bodyLines);
+      if(tbl)return'<div style="font-size:13.5px;font-weight:600;color:#475569;margin-bottom:8px;line-height:1.6;">Q'+qNum+'. '+applyBR(instr)+'</div>'+tbl;
+    }
+    return'<div style="font-size:13.5px;font-weight:600;color:#475569;margin-bottom:8px;line-height:1.6;">Q'+qNum+'. '+applyBR(instr)+'</div>'
+         +'<div style="font-size:15px;font-weight:700;color:#0F172A;padding:11px 14px;background:#F1F5F9;border-left:4px solid #FF6B00;border-radius:0 8px 8px 0;margin-bottom:10px;line-height:1.9;">'+applyBR(body)+'</div>';
+  }
+  var lines=splitLines(raw);
+  if(lines.some(function(p){return isPipeRow(p);})){
+    var tbl2=buildDITable(lines);
+    if(tbl2)return'<div style="font-size:15px;font-weight:700;color:#0F172A;margin-bottom:8px;">Q'+qNum+'.</div>'+tbl2;
+  }
+  if(raw.indexOf('[BR]')!==-1)return'<div style="font-size:15.5px;font-weight:700;color:#0F172A;margin-bottom:8px;line-height:1.55;">Q'+qNum+'. '+applyBR(raw)+'</div>';
+  return'<div style="font-size:15.5px;font-weight:700;color:#0F172A;margin-bottom:8px;line-height:1.55;">Q'+qNum+'. '+raw+'</div>';
+}
+
+function diToggle(tid){
+  var wrap=document.getElementById(tid);
+  var btn=wrap?wrap.previousElementSibling:null;
+  if(!wrap||!btn)return;
+  var expanded=wrap.classList.toggle('di-expanded');
+  btn.setAttribute('aria-expanded',expanded);
+  btn.querySelector('.di-toggle-icon').textContent=expanded?'⊟':'⊞';
+  btn.childNodes[1].textContent=expanded?' Collapse Table':' View Full Table';
+}
+
+window.openDrawer=()=>{
+  document.getElementById('sidebarOverlay').style.display='block';
+  document.getElementById('sidebarDrawer').style.display='block';
+  document.body.style.overflow='hidden';
+  document.body.style.position='fixed';
+  document.body.style.width='100%';
+};
+window.closeDrawer=()=>{
+  document.getElementById('sidebarOverlay').style.display='none';
+  document.getElementById('sidebarDrawer').style.display='none';
+  document.body.style.overflow='';
+  document.body.style.position='';
+  document.body.style.width='';
+};
 init();
 </script>
 <div class="foot">
