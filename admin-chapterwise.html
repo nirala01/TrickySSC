@@ -444,7 +444,7 @@ textarea{resize:vertical;min-height:80px;}
       <div class="filter-row" style="margin-bottom:1rem;">
         <div>
           <label>Exam</label>
-          <select id="delExam">
+          <select id="delExam" onchange="updateDelSubjects()">
             <option value="ssc-cgl">SSC CGL</option>
             <option value="ssc-chsl">SSC CHSL</option>
             <option value="ssc-mts">SSC MTS</option>
@@ -458,10 +458,6 @@ textarea{resize:vertical;min-height:80px;}
           <label>Subject</label>
           <select id="delSubject">
             <option value="">All Subjects</option>
-            <option value="reasoning">General Intelligence &amp; Reasoning</option>
-            <option value="english">English Language</option>
-            <option value="quant">Quantitative Aptitude</option>
-            <option value="gk">General Awareness</option>
           </select>
         </div>
         <div>
@@ -476,6 +472,21 @@ textarea{resize:vertical;min-height:80px;}
             <option value="">All Languages</option>
             <option value="en">English</option>
             <option value="hi">Hindi</option>
+          </select>
+        </div>
+        <div>
+          <label>Level</label>
+          <select id="delLevel">
+            <option value="">All Levels</option>
+            <option value="1">Level 1</option>
+            <option value="2">Level 2</option>
+            <option value="3">Level 3</option>
+          </select>
+        </div>
+        <div>
+          <label>Test</label>
+          <select id="delTest">
+            <option value="">All Tests</option>
           </select>
         </div>
         <div style="display:flex;align-items:flex-end;">
@@ -542,6 +553,7 @@ textarea{resize:vertical;min-height:80px;}
           <input type="checkbox" id="mgrSelectAllChk" onchange="mgrToggleSelectAll()" style="accent-color:#0EA5E9;width:16px;height:16px;">
           Select All
         </label>
+        <span id="mgrCount" style="background:#0EA5E922;color:#38BDF8;padding:0.2rem 0.6rem;border-radius:100px;font-size:0.78rem;font-weight:600;">—</span>
         <span id="mgrSelectedBadge" style="background:#334155;color:#94A3B8;padding:0.2rem 0.6rem;border-radius:100px;font-size:0.78rem;font-weight:600;display:none;">0 selected</span>
         <button class="btn btn-danger" id="mgrDeleteSelectedBtn" onclick="mgrDeleteSelected()" style="display:none;padding:0.4rem 0.9rem;font-size:0.82rem;">🗑 Delete Selected</button>
         <button class="btn btn-danger" onclick="mgrDeleteAllVisible()" style="background:#7F1D1D;padding:0.4rem 0.9rem;font-size:0.82rem;">🗑 Delete All Shown</button>
@@ -637,10 +649,53 @@ textarea{resize:vertical;min-height:80px;}
     </div>
     <div style="margin-bottom:1rem;"><label>📝 Explanation</label><textarea id="editExplanation" style="width:100%;min-height:70px;background:#0F172A;border:1px solid #334155;border-radius:8px;padding:0.65rem 0.9rem;color:#E2E8F0;font-family:'Inter',sans-serif;font-size:0.9rem;outline:none;resize:vertical;"></textarea></div>
     <div style="margin-bottom:1rem;"><label>⚡ Trick</label><textarea id="editTrick" style="width:100%;min-height:70px;background:#0F172A;border:1px solid #334155;border-radius:8px;padding:0.65rem 0.9rem;color:#E2E8F0;font-family:'Inter',sans-serif;font-size:0.9rem;outline:none;resize:vertical;"></textarea></div>
-    <div style="margin-bottom:1rem;"><label>Difficulty</label>
-      <select id="editDifficulty" style="width:100%;background:#0F172A;border:1px solid #334155;border-radius:8px;padding:0.65rem 0.9rem;color:#E2E8F0;font-family:'Inter',sans-serif;font-size:0.9rem;outline:none;">
-        <option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option>
-      </select>
+    <div style="background:#0F172A;border:1px solid #334155;border-radius:10px;padding:1rem;margin-bottom:1rem;">
+      <p style="font-size:0.8rem;color:#94A3B8;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.75rem;">📌 Classification</p>
+      <div class="form-row three">
+        <div><label>Exam</label>
+          <select id="editExam" onchange="updateEditSubjects()"></select>
+        </div>
+        <div><label>Subject</label>
+          <select id="editSubject" onchange="updateEditChapters()"></select>
+        </div>
+        <div><label>Chapter</label>
+          <select id="editChapter"></select>
+        </div>
+      </div>
+      <div class="form-row three" style="margin-bottom:0;">
+        <div><label>Language</label>
+          <select id="editLanguage">
+            <option value="">Not set</option>
+            <option value="en">English</option>
+            <option value="hi">Hindi</option>
+          </select>
+        </div>
+        <div><label>Level</label>
+          <select id="editLevel">
+            <option value="1">Level 1</option>
+            <option value="2">Level 2</option>
+            <option value="3">Level 3</option>
+          </select>
+        </div>
+        <div><label>Test</label>
+          <select id="editTest"></select>
+        </div>
+      </div>
+    </div>
+    <div class="form-row">
+      <div><label>Difficulty</label>
+        <select id="editDifficulty">
+          <option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option>
+        </select>
+      </div>
+      <div><label>Year (optional)</label>
+        <select id="editYear">
+          <option value="">Not specified</option>
+          <option value="2025">2025</option><option value="2024">2024</option><option value="2023">2023</option>
+          <option value="2022">2022</option><option value="2021">2021</option><option value="2020">2020</option>
+          <option value="2019">2019</option><option value="2018">2018</option>
+        </select>
+      </div>
     </div>
     <div style="margin-bottom:1.5rem;">
       <label>🖼️ Question Image</label>
@@ -746,6 +801,8 @@ window.fillTestSelects = () => {
   const addSel = document.getElementById('cTest'); if (addSel) addSel.innerHTML = testOpts;
   const csvSel = document.getElementById('cwCsvTest'); if (csvSel) csvSel.innerHTML = '<option value="">From CSV</option>' + testOpts;
   const mgrSel = document.getElementById('mgrTest'); if (mgrSel) mgrSel.innerHTML = '<option value="">All Tests</option>' + testOpts;
+  const delSel = document.getElementById('delTest'); if (delSel) delSel.innerHTML = '<option value="">All Tests</option>' + testOpts;
+  const edtSel = document.getElementById('editTest'); if (edtSel) edtSel.innerHTML = Array.from({length:TEST_COUNT}, (_,i) => `<option value="${i+1}">Test ${i+1}</option>`).join('');
 };
 
 // Auth
@@ -761,6 +818,7 @@ onAuthStateChanged(auth, async (user) => {
     document.getElementById('adminName').textContent = user.displayName || user.email;
     onExamChange();
     fillTestSelects();
+    updateDelSubjects();
     loadStats();
   } else {
     document.getElementById('loginScreen').style.display = 'flex';
@@ -892,6 +950,11 @@ window.updateMgrSubjects = () => {
   document.getElementById('mgrSubject').innerHTML = '<option value="">All Subjects</option>' + subjectOptsFor(exam);
   document.getElementById('mgrChapter').innerHTML = '<option value="">All Chapters</option>';
 };
+window.updateDelSubjects = () => {
+  const exam = document.getElementById('delExam').value;
+  document.getElementById('delSubject').innerHTML = '<option value="">All Subjects</option>' + subjectOptsFor(exam);
+  document.getElementById('delChapter').innerHTML = '<option value="">All Chapters</option>';
+};
 document.getElementById('delSubject')?.addEventListener('change', () => {
   const subj = document.getElementById('delSubject').value;
   document.getElementById('delChapter').innerHTML = '<option value="">All Chapters</option>' + chapterOptsFor(subj);
@@ -907,14 +970,19 @@ window.previewDelete = async () => {
   const subj = document.getElementById('delSubject')?.value || '';
   const chap = document.getElementById('delChapter')?.value || '';
   const lang = document.getElementById('delLang')?.value || '';
+  const lvl  = document.getElementById('delLevel')?.value || '';
+  const tst  = document.getElementById('delTest')?.value || '';
   const snap = await getDocs(collection(db,'questions'));
   let docs = snap.docs.filter(d => d.data().exam === exam && d.data().type === 'chapterwise');
   if (subj) docs = docs.filter(d => d.data().subject === subj);
   if (chap) docs = docs.filter(d => d.data().chapter === chap);
   if (lang) docs = docs.filter(d => d.data().language === lang);
+  if (lvl)  docs = docs.filter(d => String(d.data().level) === lvl);
+  if (tst)  docs = docs.filter(d => String(d.data().testNum) === tst);
   const count = docs.length;
+  const label = `${exam.toUpperCase()} · ${subj||'All Subjects'} · ${chap||'All Chapters'} · ${lang?(lang==='hi'?'Hindi':'English'):'All Languages'} · ${lvl?('Level '+lvl):'All Levels'} · ${tst?('Test '+tst):'All Tests'}`;
   document.getElementById('delPreview').style.display = 'block';
-  document.getElementById('delPreviewText').textContent = `Found ${count} matching: ${exam.toUpperCase()} ${subj||'All Subjects'} ${chap||'All Chapters'} ${lang||'All Languages'}`;
+  document.getElementById('delPreviewText').textContent = `Found ${count} matching: ${label}`;
   const delBtn = document.getElementById('delBtn');
   if (count > 0) {
     delBtn.style.display = 'block';
@@ -923,14 +991,17 @@ window.previewDelete = async () => {
     delBtn.dataset.subj = subj;
     delBtn.dataset.chap = chap;
     delBtn.dataset.lang = lang;
+    delBtn.dataset.lvl  = lvl;
+    delBtn.dataset.tst  = tst;
   } else { delBtn.style.display = 'none'; }
 };
 
 window.bulkDelete = async () => {
   const btn = document.getElementById('delBtn');
-  const exam = btn.dataset.exam; const subj = btn.dataset.subj; const chap = btn.dataset.chap; const lang = btn.dataset.lang;
-  const label = `${exam.toUpperCase()} ${subj||'All Subjects'} ${chap||'All Chapters'} ${lang||'All Languages'}`;
-  if (!confirm(`DELETE ALL ${label} chapterwise questions? Cannot be undone!`)) return;
+  const exam = btn.dataset.exam; const subj = btn.dataset.subj; const chap = btn.dataset.chap;
+  const lang = btn.dataset.lang; const lvl = btn.dataset.lvl || ''; const tst = btn.dataset.tst || '';
+  const label = `${exam.toUpperCase()} · ${subj||'All Subjects'} · ${chap||'All Chapters'} · ${lang?(lang==='hi'?'Hindi':'English'):'All Languages'} · ${lvl?('Level '+lvl):'All Levels'} · ${tst?('Test '+tst):'All Tests'}`;
+  if (!confirm(`DELETE ALL matching chapterwise questions?\n\n${label}\n\nCannot be undone!`)) return;
   btn.disabled = true;
   document.getElementById('delProgress').style.display = 'block';
   const snap = await getDocs(collection(db,'questions'));
@@ -938,6 +1009,8 @@ window.bulkDelete = async () => {
   if (subj) docs = docs.filter(d => d.data().subject === subj);
   if (chap) docs = docs.filter(d => d.data().chapter === chap);
   if (lang) docs = docs.filter(d => d.data().language === lang);
+  if (lvl)  docs = docs.filter(d => String(d.data().level) === lvl);
+  if (tst)  docs = docs.filter(d => String(d.data().testNum) === tst);
   const total = docs.length; let deleted = 0;
   for (const d of docs) {
     await deleteDoc(doc(db,'questions',d.id));
@@ -1006,7 +1079,11 @@ window.loadManage = async () => {
     if (lvl) docs = docs.filter(d=>String(d.level)===lvl);
     if (tst) docs = docs.filter(d=>String(d.testNum)===tst);
     docs.sort((a,b) => (parseInt(a.qNum)||0) - (parseInt(b.qNum)||0));
+    const totalMatched = docs.length;
     docs = docs.slice(0,200);
+    window._mgrDocs = docs;
+    const cntEl = document.getElementById('mgrCount');
+    if (cntEl) cntEl.textContent = totalMatched > 200 ? `Showing 200 of ${totalMatched} matching` : `${totalMatched} question${totalMatched!==1?'s':''}`;
     if (!docs.length) { list.innerHTML='<div style="color:#64748B;text-align:center;padding:2rem;">No questions found.</div>'; return; }
     list.innerHTML = docs.map(q=>`
       <div class="question-item">
@@ -1228,10 +1305,32 @@ window.clear_c_img=()=>{
   document.getElementById('cImgStatus').style.display='none';
 };
 // ── Edit Modal ──
+const EXAM_LABELS = {'ssc-cgl':'SSC CGL','ssc-chsl':'SSC CHSL','ssc-mts':'SSC MTS','ssc-gd':'SSC GD','ssc-cpo':'SSC CPO','ssc-jht':'SSC JHT','ssc-je':'SSC JE'};
+window.updateEditSubjects = () => {
+  const exam = document.getElementById('editExam').value;
+  document.getElementById('editSubject').innerHTML = subjectOptsFor(exam);
+  updateEditChapters();
+};
+window.updateEditChapters = () => {
+  const subj = document.getElementById('editSubject').value;
+  document.getElementById('editChapter').innerHTML = chapterOptsFor(subj);
+};
+
 window.openEditModal=(id)=>{
   const q=(window._mgrDocs||[]).find(d=>d.id===id);
   if(!q){showToast('Not found','error');return;}
   document.getElementById('editId').value=id;
+  // Classification fields
+  document.getElementById('editExam').innerHTML = Object.entries(EXAM_LABELS).map(([v,l])=>`<option value="${v}">${l}</option>`).join('');
+  document.getElementById('editExam').value = q.exam || 'ssc-cgl';
+  updateEditSubjects();
+  if (q.subject) document.getElementById('editSubject').value = q.subject;
+  updateEditChapters();
+  if (q.chapter) document.getElementById('editChapter').value = q.chapter;
+  document.getElementById('editLanguage').value = q.language || '';
+  document.getElementById('editLevel').value = String(q.level || 1);
+  document.getElementById('editTest').value = String(q.testNum || 1);
+  document.getElementById('editYear').value = q.year || '';
   document.getElementById('editText').value=q.text||'';
   document.getElementById('eOptA').value=q.options?.A||'';
   if(typeof loadOptImgPreview==='function'){['A','B','C','D'].forEach(l=>loadOptImgPreview('eOpt'+l+'Img',q.optionImages?.[l]||''));}
@@ -1267,15 +1366,25 @@ window.saveEdit=async()=>{
     try{const r2=ref(storage,'question-images/'+Date.now()+'_'+imgFile.name);await uploadBytes(r2,imgFile);imageUrl=await getDownloadURL(r2);st.textContent='✅ Done!';}
     catch(e){st.textContent='⚠ '+e.message;}
   }
+  const chapterId = document.getElementById('editChapter').value;
+  const chSel = document.getElementById('editChapter');
+  const chapterName = CHAPTER_NAME_BY_ID[chapterId] || (chSel.options[chSel.selectedIndex]?.text || '');
   try{
     await updateDoc(doc(db,'questions',id),{
       text:document.getElementById('editText').value.trim(),
       options:{A:document.getElementById('eOptA').value.trim(),B:document.getElementById('eOptB').value.trim(),C:document.getElementById('eOptC').value.trim(),D:document.getElementById('eOptD').value.trim()},
       correct:correct.value,explanation:document.getElementById('editExplanation').value.trim(),
       trick:document.getElementById('editTrick').value.trim(),difficulty:document.getElementById('editDifficulty').value,
+      exam:document.getElementById('editExam').value,
+      subject:document.getElementById('editSubject').value,
+      chapter:chapterId, chapterId:chapterId, chapterName:chapterName,
+      language:document.getElementById('editLanguage').value || null,
+      level:parseInt(document.getElementById('editLevel').value)||1,
+      testNum:parseInt(document.getElementById('editTest').value)||1,
+      year:document.getElementById('editYear').value || null,
       imageUrl:imageUrl
     });
-    showToast('✅ Updated!','success');closeEditModal();loadManage();
+    showToast('✅ Updated!','success');closeEditModal();loadManage();loadStats();
   }catch(e){showToast('Error: '+e.message,'error');}
 };
 
