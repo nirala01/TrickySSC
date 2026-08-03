@@ -364,6 +364,7 @@
     <button class="att-tab active" id="atab-all" onclick="switchAttTab('all')">All <span class="att-count" id="acnt-all">0</span></button>
     <button class="att-tab" id="atab-pyq" onclick="switchAttTab('pyq')">📄 PYQ <span class="att-count" id="acnt-pyq">0</span></button>
     <button class="att-tab" id="atab-mock" onclick="switchAttTab('mock')">🧪 Mock Tests <span class="att-count" id="acnt-mock">0</span></button>
+    <button class="att-tab" id="atab-chapter" onclick="switchAttTab('chapter')">📚 Chapter Tests <span class="att-count" id="acnt-chapter">0</span></button>
   </div>
   <div class="attempts-card">
     <div id="attemptsBody"></div>
@@ -567,11 +568,18 @@ async function loadDashboard(user) {
     });
     console.log('[Dashboard] Attempts found:', attempts.length);
 
+    // Classify: chapter tests are single-subject 100-mark practice, kept apart
+    // from full 200-mark PYQ/Mock papers so they don't skew the /200 stat cards
+    // or the performance analysis (they still count in Tests Taken + the table).
+    const isChapter = a => a.type==='chapterwise';
+    const isMock    = a => !isChapter(a) && !!(a.mockId || a.type==='mock' || (a.paperId||'').includes('_mock'));
+    const paperAttempts = attempts.filter(a => !isChapter(a));   // PYQ + Mock only
+
     // Calculate stats from attempts
     if (attempts.length > 0) {
-      const marksArr = attempts.map(a => parseFloat(a.marks)||0);
-      const avgMarks = (marksArr.reduce((a,b)=>a+b,0)/marksArr.length).toFixed(1);
-      const bestMarks = Math.max(...marksArr).toFixed(1);
+      const marksArr = paperAttempts.map(a => parseFloat(a.marks)||0);
+      const avgMarks = marksArr.length ? (marksArr.reduce((a,b)=>a+b,0)/marksArr.length).toFixed(1) : '—';
+      const bestMarks = marksArr.length ? Math.max(...marksArr).toFixed(1) : '—';
       const totalCorrect = attempts.reduce((s,a)=>s+(parseInt(a.correct)||0),0);
       const days = new Set(attempts.map(a => a.timestamp?.toDate ? a.timestamp.toDate().toDateString() : null).filter(Boolean));
 
@@ -579,34 +587,34 @@ async function loadDashboard(user) {
       document.getElementById('statAvg').textContent = avgMarks;
       document.getElementById('statBest').textContent = bestMarks;
       document.getElementById('statStreak').textContent = days.size;
-      document.getElementById('wSub').textContent = `${attempts.length} test${attempts.length>1?'s':''} attempted · ${totalCorrect} correct · Avg ${avgMarks}/200 marks 💪`;
+      document.getElementById('wSub').textContent = `${attempts.length} test${attempts.length>1?'s':''} attempted · ${totalCorrect} correct${marksArr.length?` · Avg ${avgMarks}/200 marks`:''} 💪`;
 
       // Update user profile stats in Firestore
       await setDoc(doc(db, 'users', effectiveUid), {
         totalTests: attempts.length,
-        avgScore: parseFloat(avgMarks),
-        bestScore: parseFloat(bestMarks),
+        avgScore: marksArr.length ? parseFloat(avgMarks) : 0,
+        bestScore: marksArr.length ? parseFloat(bestMarks) : 0,
         lastActive: serverTimestamp(),
       }, {merge: true});
     }
 
-    // Store globally and split PYQ vs Mock for the tabs.
-    // A mock attempt has a mockId (set by mock-test.html); otherwise it's a PYQ.
-    _allAttempts = attempts;
-    const isMock = a => !!(a.mockId || a.type==='mock' || (a.paperId||'').includes('_mock'));
-    _mockAttempts = attempts.filter(isMock);
-    _pyqAttempts  = attempts.filter(a => !isMock(a));
-    document.getElementById('acnt-all').textContent  = attempts.length;
-    document.getElementById('acnt-pyq').textContent  = _pyqAttempts.length;
-    document.getElementById('acnt-mock').textContent = _mockAttempts.length;
+    // Store globally and split PYQ / Mock / Chapter for the tabs.
+    _allAttempts     = attempts;
+    _mockAttempts    = attempts.filter(isMock);
+    _chapterAttempts = attempts.filter(isChapter);
+    _pyqAttempts     = attempts.filter(a => !isMock(a) && !isChapter(a));
+    document.getElementById('acnt-all').textContent     = attempts.length;
+    document.getElementById('acnt-pyq').textContent     = _pyqAttempts.length;
+    document.getElementById('acnt-mock').textContent    = _mockAttempts.length;
+    document.getElementById('acnt-chapter').textContent = _chapterAttempts.length;
 
     // Render attempts table (active tab)
     renderAttempts(_attemptsFor(_attTab));
 
-    // Performance Analysis
-    renderPerformance(attempts);
+    // Performance Analysis — full papers only (chapter tests carry no subjectStats)
+    renderPerformance(paperAttempts);
 
-    // Your Rank preview (latest test)
+    // Your Rank preview (latest test) — naturally skips chapter tests (no paperId/mockId)
     renderRankPreview(attempts, effectiveUid);
   } catch(e) {
     renderAttempts([]);
@@ -653,18 +661,30 @@ async function loadDashboardMobile(mUser) {
     const snap = await getDocs(q);
     const attempts = [];
     snap.forEach(d => attempts.push({id:d.id,...d.data()}));
+    const isChapter = a => a.type==='chapterwise';
+    const isMock    = a => !isChapter(a) && !!(a.mockId || a.type==='mock' || (a.paperId||'').includes('_mock'));
+    const paperAttempts = attempts.filter(a => !isChapter(a));   // PYQ + Mock only
     if(attempts.length > 0){
-      const marksArr2 = attempts.map(a=>parseFloat(a.marks)||0);
+      const marksArr2 = paperAttempts.map(a=>parseFloat(a.marks)||0);
       const totalCorrect = attempts.reduce((s,a)=>s+(parseInt(a.correct)||0),0);
-      const avgM2 = (marksArr2.reduce((a,b)=>a+b,0)/marksArr2.length).toFixed(1);
+      const avgM2 = marksArr2.length ? (marksArr2.reduce((a,b)=>a+b,0)/marksArr2.length).toFixed(1) : '—';
       document.getElementById('statTests').textContent = attempts.length;
       document.getElementById('statAvg').textContent = avgM2;
-      document.getElementById('statBest').textContent = Math.max(...marksArr2).toFixed(1);
+      document.getElementById('statBest').textContent = marksArr2.length ? Math.max(...marksArr2).toFixed(1) : '—';
       const days = new Set(attempts.map(a => a.timestamp?.toDate ? a.timestamp.toDate().toDateString() : null).filter(Boolean));
       document.getElementById('statStreak').textContent = days.size;
-      document.getElementById('wSub').textContent = `${attempts.length} test${attempts.length>1?'s':''} attempted · ${totalCorrect} correct · Avg ${avgM2}/200 marks 💪`;
+      document.getElementById('wSub').textContent = `${attempts.length} test${attempts.length>1?'s':''} attempted · ${totalCorrect} correct${marksArr2.length?` · Avg ${avgM2}/200 marks`:''} 💪`;
     }
-    renderAttempts(attempts);
+    // Split into the same tab buckets the desktop path uses, so all tabs work.
+    _allAttempts     = attempts;
+    _mockAttempts    = attempts.filter(isMock);
+    _chapterAttempts = attempts.filter(isChapter);
+    _pyqAttempts     = attempts.filter(a => !isMock(a) && !isChapter(a));
+    document.getElementById('acnt-all').textContent     = attempts.length;
+    document.getElementById('acnt-pyq').textContent     = _pyqAttempts.length;
+    document.getElementById('acnt-mock').textContent    = _mockAttempts.length;
+    document.getElementById('acnt-chapter').textContent = _chapterAttempts.length;
+    renderAttempts(_attemptsFor(_attTab));
     renderRankPreview(attempts, mUser.uid);
   } catch(e) { renderAttempts([]); }
 
@@ -837,15 +857,16 @@ async function renderRankPreview(attempts, uid) {
   } catch (e) { /* index building or no data — leave card hidden */ }
 }
 
-let _allAttempts = [], _pyqAttempts = [], _mockAttempts = [], _attTab = 'all';
+let _allAttempts = [], _pyqAttempts = [], _mockAttempts = [], _chapterAttempts = [], _attTab = 'all';
 function _attemptsFor(tab){
-  if(tab==='pyq')  return _pyqAttempts;
-  if(tab==='mock') return _mockAttempts;
+  if(tab==='pyq')     return _pyqAttempts;
+  if(tab==='mock')    return _mockAttempts;
+  if(tab==='chapter') return _chapterAttempts;
   return _allAttempts;
 }
 window.switchAttTab = (tab) => {
   _attTab = tab;
-  ['all','pyq','mock'].forEach(t=>{
+  ['all','pyq','mock','chapter'].forEach(t=>{
     document.getElementById('atab-'+t).classList.toggle('active', t===tab);
   });
   renderAttempts(_attemptsFor(tab));
@@ -872,23 +893,36 @@ function renderAttempts(attempts) {
     const date = a.timestamp?.toDate
       ? a.timestamp.toDate().toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})
       : '—';
-    const examName = a.examName || ((EXAM_NAMES[a.exam]||a.exam||'—') + (a.year?' '+a.year:''));
-    const _isMock = !!(a.mockId || a.type==='mock' || (a.paperId||'').includes('_mock'));
-    let retryUrl;
-    if(_isMock){
+    const _isChapter = a.type==='chapterwise';
+    const _isMock = !_isChapter && !!(a.mockId || a.type==='mock' || (a.paperId||'').includes('_mock'));
+    let examName, retryUrl, typeTag, detail = '';
+    if(_isChapter){
+      examName = a.chapterName || a.examName || 'Chapter Test';
+      const lang = (a.language==='hi') ? 'hi' : '';
+      retryUrl = 'chapterwise-test.html?exam='+(a.exam||'ssc-cgl')
+        +'&subject='+encodeURIComponent(a.subject||'')
+        +'&chapter='+encodeURIComponent(a.chapterId||a.chapter||'')
+        + (lang?'&lang='+lang:'');
+      typeTag = '<span style="background:#F0FDFA;color:#0D9488;border-radius:5px;padding:0.05rem 0.4rem;font-size:0.66rem;font-weight:700;margin-left:0.4rem;">CHAPTER</span>';
+      const bits = [];
+      if(a.level!==undefined && a.level!==null && a.level!=='') bits.push('Level '+a.level);
+      if(a.testNum!==undefined && a.testNum!==null && a.testNum!=='') bits.push('Test '+a.testNum);
+      if(bits.length) detail = '<span style="color:var(--gray);font-weight:500;font-size:0.78rem;margin-left:0.4rem;">· '+bits.join(' · ')+'</span>';
+    } else if(_isMock){
+      examName = a.examName || ((EXAM_NAMES[a.exam]||a.exam||'—') + (a.year?' '+a.year:''));
       const mid = a.mockId || a.paperId || '';
       const t2 = (a.tier==='tier2') || (mid.includes('_tier2_'));
       const player = t2 ? 'mock-test-tier2.html' : 'mock-test.html';
       const lang = mid.endsWith('_hi') ? 'hi' : 'en';
       retryUrl = player+'?exam='+(a.exam||'')+'&mockId='+encodeURIComponent(mid)+'&lang='+lang;
+      typeTag = '<span style="background:#EDE9FE;color:#7C3AED;border-radius:5px;padding:0.05rem 0.4rem;font-size:0.66rem;font-weight:700;margin-left:0.4rem;">MOCK</span>';
     } else {
+      examName = a.examName || ((EXAM_NAMES[a.exam]||a.exam||'—') + (a.year?' '+a.year:''));
       retryUrl = 'test.html?exam='+a.exam+(a.year?'&year='+a.year:'')+(a.paperId?'&paperId='+a.paperId:'');
+      typeTag = '<span style="background:#FFF7ED;color:#FF6B00;border-radius:5px;padding:0.05rem 0.4rem;font-size:0.66rem;font-weight:700;margin-left:0.4rem;">PYQ</span>';
     }
-    const typeTag = _isMock
-      ? '<span style="background:#EDE9FE;color:#7C3AED;border-radius:5px;padding:0.05rem 0.4rem;font-size:0.66rem;font-weight:700;margin-left:0.4rem;">MOCK</span>'
-      : '<span style="background:#FFF7ED;color:#FF6B00;border-radius:5px;padding:0.05rem 0.4rem;font-size:0.66rem;font-weight:700;margin-left:0.4rem;">PYQ</span>';
     return `<tr>
-      <td data-label="Exam"><b>${examName}</b>${typeTag}</td>
+      <td data-label="Exam"><b>${examName}</b>${typeTag}${detail}</td>
       <td data-label="Questions">${a.total||'—'} Qs</td>
       <td data-label="Score"><span class="score-pill ${cls}">${displayScore}</span></td>
       <td data-label="Correct" style="color:var(--green);font-weight:600;">✅ ${a.correct||0}</td>

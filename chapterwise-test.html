@@ -42,6 +42,7 @@
 .cw-res-acts{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:22px;}
 .cw-res-acts button{border-radius:11px;padding:12px 26px;font-family:'Plus Jakarta Sans';font-weight:700;font-size:14px;cursor:pointer;border:none;}
 .cw-res-again{background:#EFF6FF;color:#3B82F6;border:1.5px solid #BFDBFE!important;}
+.cw-res-neutral{background:#F1F5F9;color:#475569;border:1.5px solid #E2E8F0!important;}
 .cw-res-done{background:linear-gradient(135deg,#FF6B00,#FF9240);color:#fff;}
 /* ═══════════════════════════════════
    TEST SCREEN
@@ -1794,6 +1795,47 @@ window.togglePause=function(){
 
 async function ensureEnglishMap(){ return; }   // map already built locally at launch
 
+/* ── Save this chapter-test result to the shared `attempts` collection so it
+   shows up on the dashboard alongside PYQ + Mock attempts. Uses a deterministic
+   doc id (per user + chapter + level + test + language) so a Retry overwrites
+   the previous result instead of piling up dozens of rows. Best-effort: any
+   failure (not logged in, rules, offline) is swallowed and never blocks the
+   result screen. */
+async function saveChapterAttempt(correct,wrong,skip,marks,pct){
+  // Resolve the effective user id the same way the rest of the site does:
+  // Firebase auth first, else the cached tssc_user (mobile / name login).
+  let uid='', uname='', uemail='', uphone='';
+  if(currentUser&&currentUser.uid){
+    uid=currentUser.uid; uname=currentUser.displayName||''; uemail=currentUser.email||''; uphone=currentUser.phoneNumber||'';
+  }
+  if(!uid){
+    try{ const c=JSON.parse(localStorage.getItem('tssc_user')||'null');
+      if(c&&c.uid){ uid=c.uid; uname=uname||c.name||''; uemail=uemail||c.email||''; uphone=uphone||c.phone||''; }
+    }catch(e){}
+  }
+  if(!uid) return;                        // anonymous — nothing to attribute
+  const chKey=String(CHID||'chapter').replace(/[^a-zA-Z0-9]/g,'');
+  const attemptId='cw_'+uid+'_'+chKey+'_L'+CW.lv+'_T'+CW.tn+'_'+CW.lang;
+  const attempt={
+    uid,
+    type:'chapterwise',
+    exam:EXAM,                            // 'ssc-cgl'
+    examName:(cMeta?cMeta.name:'Chapter Test'),
+    subject:SUBJ,                         // form key: quant / gk / reasoning ...
+    chapter:CHID, chapterId:CHID,
+    chapterName:(cMeta?cMeta.name:''),
+    level:CW.lv, testNum:CW.tn, language:CW.lang,
+    correct, wrong, skip,
+    total:questions.length,
+    marks, percentage:pct,
+    name:uname, email:uemail, phone:uphone,
+    timestamp:serverTimestamp(),
+    clientSubmittedAt:new Date().toISOString()
+  };
+  try{ await setDoc(doc(db,'attempts',attemptId), attempt); }
+  catch(e){ console.warn('[chapterwise] could not save attempt:', e); }
+}
+
 window.submitTest=async(auto)=>{
   if(isSubmitting) return;
   isSubmitting=true;
@@ -1804,6 +1846,7 @@ window.submitTest=async(auto)=>{
   const marks=(correct*2-wrong*0.5);
   const max=questions.length*2;
   const pct= max? Math.round((marks/max)*1000)/10 : 0;
+  saveChapterAttempt(correct,wrong,skip,marks,pct);   // record for the dashboard (best-effort)
   let vcls,vmsg;
   if(pct>=70){vcls='great';vmsg='\ud83c\udf89 Excellent work \u2014 keep it up!';}
   else if(pct>=40){vcls='good';vmsg='\ud83d\udc4d Good effort \u2014 review and improve!';}
@@ -1823,7 +1866,8 @@ window.submitTest=async(auto)=>{
     +'</div>'
     +'<div class="cw-res-acts">'
       +'<button class="cw-res-again" onclick="cwRetry()">\u21bb Retry</button>'
-      +'<button class="cw-res-done" onclick="cwClose()">Back to tests</button>'
+      +'<button class="cw-res-neutral" onclick="cwClose()">Back to tests</button>'
+      +'<button class="cw-res-done" onclick="location.href=\'dashboard.html\'">\ud83d\udcca Go to Dashboard</button>'
     +'</div>'
     +'</div>';
   document.getElementById('testScreen').style.display='none';
