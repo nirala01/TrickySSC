@@ -1424,17 +1424,16 @@ const TEST_COUNT=20, TARGET_Q=50;
 const app=getApps().length?getApps()[0]:initializeApp(FIRE_CFG);
 let db;
 try{
-  // experimentalAutoDetectLongPolling: survive networks / proxies / browser extensions
-  //   that block Firestore's streaming WebChannel — the "Could not reach backend" and
-  //   RPC 'Listen' transport errors — by auto-falling back to long-polling.
-  // persistentLocalCache: repeat visits to a chapter paint instantly from IndexedDB.
-  db=initializeFirestore(app,{
-    experimentalAutoDetectLongPolling:true,
-    localCache:persistentLocalCache({tabManager:persistentMultipleTabManager()})
-  });
+  // This site's Firestore streaming WebChannel is blocked in some environments
+  // (proxy / CDN / mobile networks): the console shows RPC 'Listen' transport errors and
+  // 404s on the channel, and the loader hangs. Two changes fix that:
+  //  - experimentalForceLongPolling: talk to Firestore over ordinary HTTPS long-polling,
+  //    which gets through where the streaming channel does not.
+  //  - NO persistentLocalCache: a one-shot getDocs needs no long-lived 'Listen' stream —
+  //    that stream (opened only by the persistent cache) was what errored and hung the page.
+  db=initializeFirestore(app,{experimentalForceLongPolling:true});
 }catch(e){
-  // initializeFirestore throws if Firestore was already started (shared app) — reuse it.
-  db=getFirestore(app);
+  db=getFirestore(app); // Firestore already started (shared app) — reuse it
 }
 const auth=getAuth(app);
 
