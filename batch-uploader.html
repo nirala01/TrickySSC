@@ -1,0 +1,1078 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TrickySSC — Batch Paper Uploader</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+
+  :root {
+    --bg: #0f0f11;
+    --surface: #18181c;
+    --surface2: #222228;
+    --border: #2e2e38;
+    --accent: #6366f1;
+    --accent2: #22d3ee;
+    --green: #22c55e;
+    --red: #f43f5e;
+    --yellow: #f59e0b;
+    --text: #e4e4ef;
+    --muted: #6b7280;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14px; min-height: 100vh; }
+
+  .header {
+    border-bottom: 1px solid var(--border); padding: 14px 24px;
+    display: flex; align-items: center; gap: 12px;
+    background: var(--surface); position: sticky; top: 0; z-index: 100;
+  }
+  .header-logo { font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--accent2); letter-spacing: .05em; }
+  .header-title { font-size: 13px; color: var(--muted); }
+  .header-sep { flex: 1; }
+
+  .badge {
+    font-family: var(--mono); font-size: 11px; padding: 3px 9px; border-radius: 5px;
+    background: var(--surface2); border: 1px solid var(--border); color: var(--muted);
+  }
+  .badge.ok  { color: var(--green);  border-color: rgba(34,197,94,.35);  background: rgba(34,197,94,.10); }
+  .badge.bad { color: var(--red);    border-color: rgba(244,63,94,.35);  background: rgba(244,63,94,.10); }
+  .badge.warn{ color: var(--yellow); border-color: rgba(245,158,11,.35); background: rgba(245,158,11,.10); }
+  .badge.info{ color: var(--accent2);border-color: rgba(34,211,238,.35); background: rgba(34,211,238,.10); }
+
+  .wrap { max-width: 1500px; margin: 0 auto; padding: 22px 24px 80px; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; margin-bottom: 18px; }
+  .card h2 { font-size: 14px; font-weight: 600; margin-bottom: 4px; display: flex; align-items: center; gap: 9px; }
+  .step-n {
+    font-family: var(--mono); font-size: 11px; width: 22px; height: 22px; border-radius: 6px;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: var(--accent); color: #fff; flex: none;
+  }
+  .card p.hint { color: var(--muted); font-size: 12.5px; margin: 6px 0 14px 31px; line-height: 1.55; }
+
+  button {
+    font-family: var(--sans); font-size: 13px; font-weight: 500; cursor: pointer;
+    padding: 8px 15px; border-radius: 7px; border: 1px solid var(--border);
+    background: var(--surface2); color: var(--text); transition: .12s;
+  }
+  button:hover:not(:disabled) { border-color: var(--accent); }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.primary:hover:not(:disabled) { filter: brightness(1.12); }
+  button.danger  { background: rgba(244,63,94,.14); border-color: rgba(244,63,94,.4); color: var(--red); }
+  button.ghost   { background: transparent; }
+  button.sm { padding: 5px 10px; font-size: 12px; }
+
+  .drop {
+    border: 2px dashed var(--border); border-radius: 10px; padding: 34px 20px;
+    text-align: center; transition: .15s; cursor: pointer; background: var(--surface2);
+  }
+  .drop:hover, .drop.over { border-color: var(--accent); background: rgba(99,102,241,.07); }
+  .drop .big { font-size: 15px; font-weight: 500; margin-bottom: 6px; }
+  .drop .sub { font-size: 12.5px; color: var(--muted); line-height: 1.6; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th {
+    text-align: left; font-family: var(--mono); font-size: 10.5px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: .06em; color: var(--muted);
+    padding: 8px 9px; border-bottom: 1px solid var(--border); white-space: nowrap;
+  }
+  td { padding: 8px 9px; border-bottom: 1px solid rgba(46,46,56,.55); vertical-align: middle; }
+  tr.row-done td { background: rgba(34,197,94,.05); }
+  tr.row-err  td { background: rgba(244,63,94,.06); }
+
+  input, select {
+    font-family: var(--sans); font-size: 12.5px; padding: 6px 8px; border-radius: 6px;
+    border: 1px solid var(--border); background: var(--bg); color: var(--text); width: 100%;
+  }
+  input:focus, select:focus { outline: none; border-color: var(--accent); }
+  input[type=checkbox] { width: auto; accent-color: var(--accent); cursor: pointer; }
+  label.chk { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; cursor: pointer; color: var(--text); }
+
+  .files-mini { font-family: var(--mono); font-size: 10.5px; color: var(--muted); line-height: 1.7; }
+  .files-mini span.have { color: var(--green); }
+  .files-mini span.miss { color: var(--red); }
+
+  .toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 14px; }
+
+  .prog-outer { height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; margin-top: 12px; }
+  .prog-inner { height: 100%; width: 0%; background: linear-gradient(90deg, var(--accent), var(--accent2)); transition: width .2s; }
+
+  #log {
+    font-family: var(--mono); font-size: 11.5px; line-height: 1.65; background: var(--bg);
+    border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px;
+    max-height: 380px; overflow-y: auto; white-space: pre-wrap; word-break: break-word;
+  }
+  #log .l-ok   { color: var(--green); }
+  #log .l-err  { color: var(--red); }
+  #log .l-warn { color: var(--yellow); }
+  #log .l-info { color: var(--muted); }
+  #log .l-head { color: var(--accent2); font-weight: 600; }
+
+  .gate { max-width: 420px; margin: 90px auto; text-align: center; }
+  .gate h1 { font-size: 19px; margin-bottom: 10px; }
+  .gate p { color: var(--muted); font-size: 13px; margin-bottom: 22px; line-height: 1.6; }
+
+  .issues { margin-top: 10px; font-size: 12px; line-height: 1.65; }
+  .issues div.iss-err  { color: var(--red); }
+  .issues div.iss-warn { color: var(--yellow); }
+  .mono { font-family: var(--mono); font-size: 11.5px; }
+  .muted { color: var(--muted); }
+  .nowrap { white-space: nowrap; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <span class="header-logo">TRICKYSSC</span>
+  <span class="header-title">Batch Paper Uploader — CSVs + solutions + figures, all papers in one run</span>
+  <span class="header-sep"></span>
+  <span class="badge" id="userBadge">not signed in</span>
+  <button class="sm ghost" id="signBtn" onclick="doSignIn()">Sign in</button>
+</div>
+
+<div id="gate" class="gate">
+  <h1>Admin sign-in required</h1>
+  <p>Firestore and Storage writes are gated to the admin allowlist. Sign in with your admin Google account to continue.</p>
+  <button class="primary" onclick="doSignIn()">Sign in with Google</button>
+</div>
+
+<div class="wrap" id="main" style="display:none">
+
+  <!-- ── STEP 1 ─────────────────────────────────────────── -->
+  <div class="card">
+    <h2><span class="step-n">1</span> Drop every file for every paper</h2>
+    <p class="hint">
+      Select or drag in all files at once — as many papers as you like. Files are grouped into papers automatically by
+      their filename prefix (e.g. <span class="mono">ssc-cgl-2023-jul18-s1-</span>).
+      Each paper wants 4 CSVs (<span class="mono">questions-EN / questions-HI / solutions-EN / solutions-HI</span>)
+      and, if it has figure questions, one figures <span class="mono">.docx</span>.
+      A <span class="mono">.docx</span> whose name carries no prefix is matched by its heading line
+      (e.g. <span class="mono">IMAGE QUESTIONS — 18-July-shift-1-2023</span>), or you can assign it by hand below.
+    </p>
+    <div class="drop" id="drop" onclick="document.getElementById('fileInput').click()">
+      <div class="big">Drop files or folders here</div>
+      <div class="sub">…or click to browse. Nothing is uploaded until you press Run in step 3.</div>
+    </div>
+    <input type="file" id="fileInput" multiple accept=".csv,.docx" style="display:none">
+    <div class="toolbar">
+      <span class="badge" id="fileCount">0 files</span>
+      <span class="badge" id="paperCount">0 papers</span>
+      <button class="sm ghost" onclick="resetAll()">Clear</button>
+    </div>
+  </div>
+
+  <!-- ── STEP 2 ─────────────────────────────────────────── -->
+  <div class="card" id="manifestCard" style="display:none">
+    <h2><span class="step-n">2</span> Confirm each paper's metadata</h2>
+    <p class="hint">
+      Exam, year, date and shift are guessed from the filename — check them, since they build the
+      <span class="mono">paperId</span> that ties questions, solutions and images together.
+      Anything you edit here overrides the CSV.
+    </p>
+    <div style="overflow-x:auto">
+      <table id="manifestTable">
+        <thead>
+          <tr>
+            <th style="width:20px"><input type="checkbox" id="chkAll" checked onchange="toggleAll(this)"></th>
+            <th>Paper (prefix)</th>
+            <th style="width:110px">Exam</th>
+            <th style="width:78px">Tier</th>
+            <th style="width:78px">Year</th>
+            <th style="width:135px">Held on</th>
+            <th style="width:100px">Shift</th>
+            <th style="width:190px">Figures .docx</th>
+            <th style="width:120px">On duplicate</th>
+            <th>Files</th>
+            <th style="width:150px">Status</th>
+          </tr>
+        </thead>
+        <tbody id="manifestBody"></tbody>
+      </table>
+    </div>
+    <div class="toolbar">
+      <button onclick="validateAll()">Validate &amp; check for duplicates</button>
+      <label class="chk"><input type="checkbox" id="optLegacyScan"> also scan for legacy docs with no paperId (slower)</label>
+    </div>
+  </div>
+
+  <!-- ── STEP 3 ─────────────────────────────────────────── -->
+  <div class="card" id="runCard" style="display:none">
+    <h2><span class="step-n">3</span> Run</h2>
+    <p class="hint">
+      For each selected paper this uploads the figure images once, then writes all 200 question documents
+      (100 EN + 100 HI) with their options, answer key, explanation, trick, concept, image URLs and
+      <span class="mono">paperId</span> already merged in — plus both <span class="mono">papers</span> cards.
+      Writes go out in batches, and document IDs are derived from the paperId, so a re-run repairs a paper
+      instead of duplicating it.
+    </p>
+    <div class="toolbar" style="margin-top:0">
+      <label class="chk"><input type="checkbox" id="optImages" checked> upload figure images</label>
+      <label class="chk"><input type="checkbox" id="optReuseImg" checked> skip images already in Storage</label>
+      <label class="chk"><input type="checkbox" id="optSolutions" checked> apply solutions</label>
+      <label class="chk"><input type="checkbox" id="optPapersDoc" checked> create/update papers cards</label>
+      <label class="chk"><input type="checkbox" id="optDryRun"> dry run (write nothing)</label>
+    </div>
+    <div class="toolbar">
+      <button class="primary" id="runBtn" onclick="runAll()">Run selected papers</button>
+      <button class="ghost sm" id="reportBtn" onclick="downloadReport()" style="display:none">Download report</button>
+      <span class="badge" id="runBadge">idle</span>
+    </div>
+    <div class="prog-outer"><div class="prog-inner" id="progBar"></div></div>
+    <div style="margin-top:8px;font-size:12px;color:var(--muted)" id="progText"></div>
+  </div>
+
+  <!-- ── LOG ────────────────────────────────────────────── -->
+  <div class="card">
+    <h2><span class="step-n">·</span> Log</h2>
+    <p class="hint">Everything the run did, in order. Copy this out if a paper needs investigating.</p>
+    <div id="log"><span class="l-info">Ready.</span></div>
+    <div class="toolbar"><button class="sm ghost" onclick="document.getElementById('log').innerHTML=''">Clear log</button></div>
+  </div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js';
+import { getFirestore, collection, doc, setDoc, getDocs, deleteDoc, query, where,
+         writeBatch, getCountFromServer }
+  from 'https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js';
+import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged }
+  from 'https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js';
+import { getStorage, ref as storageRef, uploadBytes, getDownloadURL }
+  from 'https://www.gstatic.com/firebasejs/11.0.0/firebase-storage.js';
+
+const firebaseConfig = {
+  apiKey: "AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",
+  authDomain: "trickyssc-17bb3.firebaseapp.com",
+  projectId: "trickyssc-17bb3",
+  storageBucket: "trickyssc-17bb3.firebasestorage.app",
+  messagingSenderId: "450627057220",
+  appId: "1:450627057220:web:366267bf437d94f20c6e11"
+};
+
+const app     = initializeApp(firebaseConfig);
+const db      = getFirestore(app);
+const storage = getStorage(app);
+const auth    = getAuth(app);
+const provider = new GoogleAuthProvider();
+const ADMIN_EMAILS = ['nirala01@gmail.com', 'ashish@trickyssc.com'];
+
+/* ══════════════════════════════════════════════════════════
+   Auth
+   ══════════════════════════════════════════════════════════ */
+window.doSignIn = async () => {
+  try { await signInWithPopup(auth, provider); }
+  catch (e) { log('Sign-in failed: ' + e.message, 'err'); }
+};
+
+onAuthStateChanged(auth, user => {
+  const ok = user && (ADMIN_EMAILS.includes(user.email) || user.email.endsWith('@trickyssc.com'));
+  document.getElementById('gate').style.display = ok ? 'none' : 'block';
+  document.getElementById('main').style.display = ok ? 'block' : 'none';
+  document.getElementById('signBtn').style.display = ok ? 'none' : 'inline-block';
+  const b = document.getElementById('userBadge');
+  if (ok) { b.textContent = user.email; b.className = 'badge ok'; }
+  else if (user) { b.textContent = 'not an admin'; b.className = 'badge bad'; }
+  else { b.textContent = 'not signed in'; b.className = 'badge'; }
+});
+
+/* ══════════════════════════════════════════════════════════
+   Logging
+   ══════════════════════════════════════════════════════════ */
+function log(msg, kind = 'info') {
+  const el = document.getElementById('log');
+  const t = new Date().toTimeString().slice(0, 8);
+  const line = document.createElement('div');
+  line.className = 'l-' + kind;
+  line.textContent = `[${t}] ${msg}`;
+  el.appendChild(line);
+  el.scrollTop = el.scrollHeight;
+}
+window.log = log;
+
+/* ══════════════════════════════════════════════════════════
+   CSV parser (RFC 4180: quoted fields, embedded commas/newlines/quotes)
+   ══════════════════════════════════════════════════════════ */
+function parseCSV(text) {
+  if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);      // strip UTF-8 BOM
+  text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const rows = [];
+  let row = [], field = '', inQ = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQ) {
+      if (c === '"') {
+        if (text[i + 1] === '"') { field += '"'; i++; }
+        else inQ = false;
+      } else field += c;
+    } else {
+      if (c === '"') inQ = true;
+      else if (c === ',') { row.push(field); field = ''; }
+      else if (c === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
+      else field += c;
+    }
+  }
+  if (field.length || row.length) { row.push(field); rows.push(row); }
+  if (!rows.length) return [];
+  const headers = rows[0].map(h => h.trim());
+  return rows.slice(1)
+    .filter(r => r.some(v => v && v.trim()))
+    .map(r => {
+      const o = {};
+      headers.forEach((h, i) => o[h] = (r[i] === undefined ? '' : r[i]).trim());
+      return o;
+    });
+}
+
+/* ══════════════════════════════════════════════════════════
+   Filename → paper grouping
+   ══════════════════════════════════════════════════════════ */
+const ROLE_RE = /^(.*?)[-_]?(questions|solutions|qs|sols?)[-_](en|hi)\.csv$/i;
+const MONTHS = { jan:1, feb:2, mar:3, apr:4, may:5, jun:6, jul:7, aug:8, sep:9, sept:9, oct:10, nov:11, dec:12 };
+const MONTH_NAMES = ['','january','february','march','april','may','june','july','august','september','october','november','december'];
+
+function cleanName(name) {
+  return name.replace(/^\d{10,}_/, '');       // strip an upload-tool numeric prefix
+}
+
+function detectRole(name) {
+  const m = cleanName(name).match(ROLE_RE);
+  if (!m) return null;
+  let kind = m[2].toLowerCase();
+  kind = kind.startsWith('q') ? 'questions' : 'solutions';
+  return { prefix: m[1].replace(/[-_]+$/, ''), kind, lang: m[3].toLowerCase() };
+}
+
+/** Pull exam / year / date / shift out of a prefix like ssc-cgl-2023-jul18-s1 */
+function metaFromPrefix(prefix) {
+  const p = prefix.toLowerCase();
+  const meta = { exam: '', tier: 'tier1', year: '', heldOn: '', shift: '' };
+
+  const exam = p.match(/ssc[-_]?(cgl|chsl|mts|gd|cpo|jht|je)/);
+  if (exam) meta.exam = 'ssc-' + exam[1];
+
+  if (/tier[-_]?(2|ii)\b/.test(p)) meta.tier = 'tier2';
+
+  const yr = p.match(/(20\d{2})/);
+  if (yr) meta.year = yr[1];
+
+  const md = p.match(/(jan|feb|mar|apr|may|jun|jul|aug|sept|sep|oct|nov|dec)[a-z]*[-_]?(\d{1,2})/) ||
+             p.match(/(\d{1,2})[-_]?(jan|feb|mar|apr|may|jun|jul|aug|sept|sep|oct|nov|dec)/);
+  if (md && meta.year) {
+    let mon, day;
+    if (MONTHS[md[1]]) { mon = MONTHS[md[1]]; day = parseInt(md[2]); }
+    else { mon = MONTHS[md[2]]; day = parseInt(md[1]); }
+    if (mon && day >= 1 && day <= 31) {
+      meta.heldOn = `${meta.year}-${String(mon).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    }
+  }
+
+  const sh = p.match(/(?:^|[-_])s(?:hift)?[-_]?([1-4])(?:$|[-_])/);
+  if (sh) meta.shift = 'Shift-' + sh[1];
+
+  return meta;
+}
+
+/** Read the docx heading to guess which paper it belongs to. */
+function metaFromDocxTitle(title) {
+  const t = (title || '').toLowerCase();
+  const out = { year: '', heldOn: '', shift: '' };
+  const yr = t.match(/(20\d{2})/); if (yr) out.year = yr[1];
+  const sh = t.match(/shift[-_ ]?([1-4])/); if (sh) out.shift = 'Shift-' + sh[1];
+  const md = t.match(/(\d{1,2})[-_ ]?(jan|feb|mar|apr|may|jun|jul|aug|sept|sep|oct|nov|dec)/) ||
+             t.match(/(jan|feb|mar|apr|may|jun|jul|aug|sept|sep|oct|nov|dec)[a-z]*[-_ ]?(\d{1,2})/);
+  if (md && out.year) {
+    let mon, day;
+    if (MONTHS[md[1]]) { mon = MONTHS[md[1]]; day = parseInt(md[2]); }
+    else { mon = MONTHS[md[2]]; day = parseInt(md[1]); }
+    if (mon && day) out.heldOn = `${out.year}-${String(mon).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+  }
+  return out;
+}
+
+function buildPaperId(m, lang) {
+  return [m.exam, m.year, m.tier, (m.shift || '').replace(/\s+/g, '-'), m.heldOn, lang]
+          .filter(Boolean).join('_').toLowerCase().replace(/\s+/g, '-');
+}
+
+/* ══════════════════════════════════════════════════════════
+   DOCX figure parser  (same grouping rules as uploader.html)
+   ══════════════════════════════════════════════════════════ */
+async function parseFiguresDocx(file) {
+  const zip = await JSZip.loadAsync(await file.arrayBuffer());
+
+  const blobs = {};
+  for (const path of Object.keys(zip.files).filter(f => f.startsWith('word/media/'))) {
+    blobs[path.split('/').pop()] = await zip.files[path].async('blob');
+  }
+
+  const docXml  = await zip.files['word/document.xml'].async('string');
+  const relsXml = await zip.files['word/_rels/document.xml.rels'].async('string');
+  const parser  = new DOMParser();
+  const relsDoc = parser.parseFromString(relsXml, 'text/xml');
+  const docDOM  = parser.parseFromString(docXml, 'text/xml');
+
+  const ridMap = {};
+  relsDoc.querySelectorAll('Relationship').forEach(rel => {
+    const tgt = rel.getAttribute('Target') || '';
+    if (tgt.includes('media/')) ridMap[rel.getAttribute('Id')] = tgt.split('/').pop();
+  });
+
+  const NS_W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+  const NS_A = 'http://schemas.openxmlformats.org/drawingml/2006/main';
+  const NS_R = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+
+  const paras = [];
+  for (const para of docDOM.getElementsByTagNameNS(NS_W, 'p')) {
+    let text = '';
+    for (const t of para.getElementsByTagNameNS(NS_W, 't')) text += t.textContent;
+    text = text.trim();
+    const imgs = [];
+    for (const blip of para.getElementsByTagNameNS(NS_A, 'blip')) {
+      const rid = blip.getAttributeNS(NS_R, 'embed') || blip.getAttribute('r:embed');
+      if (rid && ridMap[rid]) imgs.push(ridMap[rid]);
+    }
+    if (text || imgs.length) paras.push({ text, imgs });
+  }
+
+  const title = paras.length ? paras[0].text : '';
+  const questions = [];
+  const used = new Set();
+  let cur = null;
+
+  const nextFreeOpt = (q, img) => {
+    for (const l of ['A','B','C','D']) {
+      if (!q.imgs['opt' + l]) { q.imgs['opt' + l] = img; return; }
+    }
+  };
+
+  for (const para of paras) {
+    const qm = para.text.match(/^Q\.?\s*(\d+)[.)]?\s*(.*)/i);
+    if (qm) {
+      if (cur) questions.push(cur);
+      cur = { qNum: parseInt(qm[1]), imgs: {} };
+      para.imgs.forEach((img, i) => {
+        cur.imgs[i === 0 ? 'q' : 'opt' + String.fromCharCode(64 + i)] = img;
+        used.add(img);
+      });
+      continue;
+    }
+    if (!cur) continue;
+
+    if (/^(Solution|Explanation|Answer)\s*:?$/i.test(para.text)) cur._expectSol = true;
+
+    const isOptLabel = /^(Diagram|Figure|Option|Image)\s*\d/i.test(para.text);
+
+    if (para.imgs.length && cur._expectSol) {
+      cur.imgs.sol = para.imgs[0]; used.add(para.imgs[0]); cur._expectSol = false;
+    } else if (para.imgs.length && isOptLabel) {
+      para.imgs.forEach(img => { used.add(img); nextFreeOpt(cur, img); });
+    } else if (para.imgs.length && !cur.imgs.q) {
+      cur.imgs.q = para.imgs[0]; used.add(para.imgs[0]);
+      para.imgs.slice(1).forEach(img => { used.add(img); nextFreeOpt(cur, img); });
+    } else if (para.imgs.length) {
+      para.imgs.forEach(img => { used.add(img); nextFreeOpt(cur, img); });
+    }
+  }
+  if (cur) questions.push(cur);
+
+  const unassigned = Object.keys(blobs).filter(n => !used.has(n));
+  return { title, blobs, questions, unassigned };
+}
+
+/* ══════════════════════════════════════════════════════════
+   State
+   ══════════════════════════════════════════════════════════ */
+let papers = [];        // [{prefix, meta, files:{qEn,qHi,sEn,sHi}, docxFile, docx, rows:{}, issues, existing, selected, status}]
+let looseDocx = [];     // docx files not matched by prefix
+let report = [];
+
+/* ══════════════════════════════════════════════════════════
+   Step 1 — ingest files
+   ══════════════════════════════════════════════════════════ */
+const drop = document.getElementById('drop');
+['dragenter','dragover'].forEach(ev => drop.addEventListener(ev, e => {
+  e.preventDefault(); drop.classList.add('over');
+}));
+['dragleave','drop'].forEach(ev => drop.addEventListener(ev, e => {
+  e.preventDefault(); drop.classList.remove('over');
+}));
+drop.addEventListener('drop', e => ingest([...e.dataTransfer.files]));
+document.getElementById('fileInput').addEventListener('change', e => ingest([...e.target.files]));
+
+window.resetAll = () => {
+  papers = []; looseDocx = []; report = [];
+  document.getElementById('fileInput').value = '';
+  document.getElementById('manifestCard').style.display = 'none';
+  document.getElementById('runCard').style.display = 'none';
+  document.getElementById('fileCount').textContent = '0 files';
+  document.getElementById('paperCount').textContent = '0 papers';
+  document.getElementById('reportBtn').style.display = 'none';
+  log('Cleared.', 'info');
+};
+
+async function ingest(fileList) {
+  const csvs  = fileList.filter(f => /\.csv$/i.test(f.name));
+  const docxs = fileList.filter(f => /\.docx$/i.test(f.name));
+  document.getElementById('fileCount').textContent = fileList.length + ' files';
+
+  const byPrefix = {};
+  for (const p of papers) byPrefix[p.prefix] = p;
+
+  let skipped = 0;
+  for (const f of csvs) {
+    const role = detectRole(f.name);
+    if (!role) { skipped++; log(`Skipped "${f.name}" — filename does not end in -questions-EN/HI.csv or -solutions-EN/HI.csv`, 'warn'); continue; }
+    if (!byPrefix[role.prefix]) {
+      byPrefix[role.prefix] = {
+        prefix: role.prefix, meta: metaFromPrefix(role.prefix),
+        files: {}, docxFile: null, docx: null, rows: {},
+        issues: [], existing: null, selected: true, dupMode: 'overwrite', done: false
+      };
+    }
+    const key = (role.kind === 'questions' ? 'q' : 's') + (role.lang === 'en' ? 'En' : 'Hi');
+    byPrefix[role.prefix].files[key] = f;
+  }
+
+  papers = Object.values(byPrefix).sort((a, b) => a.prefix.localeCompare(b.prefix));
+
+  // Parse each docx once so we can read its heading and match it.
+  for (const f of docxs) {
+    let parsed = null;
+    try { parsed = await parseFiguresDocx(f); }
+    catch (e) { log(`Could not read ${f.name}: ${e.message}`, 'err'); continue; }
+    const clean = cleanName(f.name).toLowerCase();
+
+    let target = papers.find(p => clean.includes(p.prefix.toLowerCase()));
+    if (!target) {
+      const dm = metaFromDocxTitle(parsed.title);
+      target = papers.find(p =>
+        (!dm.heldOn || dm.heldOn === p.meta.heldOn) &&
+        (!dm.shift  || dm.shift  === p.meta.shift)  &&
+        (!dm.year   || dm.year   === p.meta.year)   &&
+        (dm.heldOn || dm.shift) && !p.docxFile);
+    }
+    if (!target && papers.length === 1 && !papers[0].docxFile) target = papers[0];
+
+    if (target) {
+      target.docxFile = f; target.docx = parsed;
+      log(`${f.name} → ${target.prefix} (${parsed.questions.length} figure questions, ${Object.keys(parsed.blobs).length} images)`, 'ok');
+    } else {
+      looseDocx.push({ file: f, parsed });
+      log(`${f.name} could not be matched automatically — assign it in the table`, 'warn');
+    }
+  }
+
+  // Load CSV contents
+  for (const p of papers) {
+    for (const [key, f] of Object.entries(p.files)) {
+      if (p.rows[key]) continue;
+      try { p.rows[key] = parseCSV(await f.text()); }
+      catch (e) { log(`Failed to read ${f.name}: ${e.message}`, 'err'); }
+    }
+  }
+
+  document.getElementById('paperCount').textContent = papers.length + ' papers';
+  if (skipped) log(`${skipped} file(s) skipped.`, 'warn');
+  renderManifest();
+  if (papers.length) {
+    document.getElementById('manifestCard').style.display = 'block';
+    document.getElementById('runCard').style.display = 'block';
+  }
+}
+
+/* ══════════════════════════════════════════════════════════
+   Step 2 — manifest table
+   ══════════════════════════════════════════════════════════ */
+const EXAMS = ['ssc-cgl','ssc-chsl','ssc-mts','ssc-gd','ssc-cpo','ssc-jht','ssc-je'];
+
+function renderManifest() {
+  const body = document.getElementById('manifestBody');
+  body.innerHTML = '';
+  papers.forEach((p, i) => {
+    const tr = document.createElement('tr');
+    tr.id = 'row-' + i;
+
+    const have = k => p.files[k] ? `<span class="have">✓</span>` : `<span class="miss">✗</span>`;
+    const docxOpts = ['<option value="">— none —</option>']
+      .concat(looseDocx.map((d, di) =>
+        `<option value="${di}" ${p.docxFile === d.file ? 'selected' : ''}>${cleanName(d.file.name)}</option>`));
+    const docxCell = p.docxFile && !looseDocx.some(d => d.file === p.docxFile)
+      ? `<span class="mono">${cleanName(p.docxFile.name)}</span><br>
+         <span class="muted mono">${p.docx ? p.docx.questions.length + ' fig Qs' : ''}</span>`
+      : `<select onchange="assignDocx(${i}, this.value)">${docxOpts.join('')}</select>`;
+
+    tr.innerHTML = `
+      <td><input type="checkbox" class="sel" ${p.selected ? 'checked' : ''} onchange="papersSel(${i}, this.checked)"></td>
+      <td class="mono">${p.prefix}<br><span class="muted" id="pid-${i}">${buildPaperId(p.meta,'en')}</span></td>
+      <td><select onchange="setMeta(${i},'exam',this.value)">
+            ${EXAMS.map(e => `<option value="${e}" ${p.meta.exam === e ? 'selected' : ''}>${e}</option>`).join('')}
+          </select></td>
+      <td><select onchange="setMeta(${i},'tier',this.value)">
+            <option value="tier1" ${p.meta.tier === 'tier1' ? 'selected' : ''}>tier1</option>
+            <option value="tier2" ${p.meta.tier === 'tier2' ? 'selected' : ''}>tier2</option>
+          </select></td>
+      <td><input value="${p.meta.year}" onchange="setMeta(${i},'year',this.value)"></td>
+      <td><input type="date" value="${p.meta.heldOn}" onchange="setMeta(${i},'heldOn',this.value)"></td>
+      <td><select onchange="setMeta(${i},'shift',this.value)">
+            <option value="" ${!p.meta.shift ? 'selected' : ''}>—</option>
+            ${[1,2,3,4].map(n => `<option value="Shift-${n}" ${p.meta.shift === 'Shift-' + n ? 'selected' : ''}>Shift ${n}</option>`).join('')}
+          </select></td>
+      <td>${docxCell}</td>
+      <td><select onchange="setDup(${i}, this.value)">
+            <option value="overwrite">Overwrite</option>
+            <option value="skip">Skip</option>
+            <option value="replace">Delete + reimport</option>
+          </select></td>
+      <td class="files-mini">
+        Q ${have('qEn')}EN ${have('qHi')}HI &nbsp; S ${have('sEn')}EN ${have('sHi')}HI
+        <div id="iss-${i}" class="issues"></div>
+      </td>
+      <td id="st-${i}" class="nowrap"><span class="badge">not checked</span></td>`;
+    body.appendChild(tr);
+  });
+}
+
+window.papersSel = (i, v) => { papers[i].selected = v; };
+window.toggleAll = (el) => {
+  papers.forEach((p, i) => { p.selected = el.checked; });
+  document.querySelectorAll('#manifestBody .sel').forEach(c => c.checked = el.checked);
+};
+window.setMeta = (i, k, v) => {
+  papers[i].meta[k] = v.trim();
+  document.getElementById('pid-' + i).textContent = buildPaperId(papers[i].meta, 'en');
+};
+window.setDup = (i, v) => { papers[i].dupMode = v; };
+window.assignDocx = (i, v) => {
+  if (v === '') { papers[i].docxFile = null; papers[i].docx = null; return; }
+  const d = looseDocx[parseInt(v)];
+  papers[i].docxFile = d.file; papers[i].docx = d.parsed;
+  log(`${cleanName(d.file.name)} assigned to ${papers[i].prefix}`, 'ok');
+};
+
+/* ══════════════════════════════════════════════════════════
+   Validation + duplicate check
+   ══════════════════════════════════════════════════════════ */
+function validatePaper(p) {
+  const errs = [], warns = [];
+  const m = p.meta;
+  if (!m.exam)   errs.push('exam is not set');
+  if (!m.year)   errs.push('year is not set');
+  if (!m.shift)  warns.push('no shift — papers with the same exam+year could merge into one card');
+  if (!m.heldOn) warns.push('no held-on date — strongly recommended, it separates same-shift papers');
+
+  for (const [k, label] of [['qEn','questions-EN'],['qHi','questions-HI'],['sEn','solutions-EN'],['sHi','solutions-HI']]) {
+    if (!p.files[k]) { errs.push(`${label}.csv is missing`); continue; }
+    const rows = p.rows[k] || [];
+    if (!rows.length) { errs.push(`${label}.csv has no data rows`); continue; }
+    const nums = rows.map(r => parseInt(r.qNum));
+    if (nums.some(isNaN)) errs.push(`${label}.csv has a row with a non-numeric qNum`);
+    if (new Set(nums).size !== nums.length) errs.push(`${label}.csv has duplicate qNums`);
+    if (k[0] === 'q') {
+      const need = ['text','option_A','option_B','option_C','option_D','correct'];
+      const miss = need.filter(h => !(h in rows[0]));
+      if (miss.length) errs.push(`${label}.csv is missing column(s): ${miss.join(', ')}`);
+      const bad = rows.filter(r => !/^[ABCD]$/.test((r.correct || '').trim()));
+      if (bad.length) errs.push(`${label}.csv has ${bad.length} row(s) whose answer is not A–D`);
+      const empty = rows.filter(r => !(r.text || '').trim());
+      if (empty.length) errs.push(`${label}.csv has ${empty.length} row(s) with empty text`);
+    } else {
+      if (!('explanation' in rows[0])) errs.push(`${label}.csv has no explanation column`);
+    }
+  }
+
+  const qEn = p.rows.qEn || [], qHi = p.rows.qHi || [];
+  if (qEn.length && qHi.length) {
+    if (qEn.length !== qHi.length) errs.push(`EN has ${qEn.length} questions but HI has ${qHi.length}`);
+    const hiKey = {}; qHi.forEach(r => hiKey[parseInt(r.qNum)] = (r.correct || '').trim());
+    const clash = qEn.filter(r => hiKey[parseInt(r.qNum)] && hiKey[parseInt(r.qNum)] !== (r.correct || '').trim());
+    if (clash.length) errs.push(`answer key differs between EN and HI at Q${clash.map(r => r.qNum).join(', Q')}`);
+  }
+
+  for (const [sk, qk, label] of [['sEn','qEn','EN'],['sHi','qHi','HI']]) {
+    const s = p.rows[sk] || [], q = p.rows[qk] || [];
+    if (!s.length || !q.length) continue;
+    const qn = new Set(q.map(r => parseInt(r.qNum)));
+    const orphan = s.filter(r => !qn.has(parseInt(r.qNum)));
+    if (orphan.length) errs.push(`solutions-${label} has ${orphan.length} qNum(s) with no matching question`);
+    const sn = new Set(s.map(r => parseInt(r.qNum)));
+    const noSol = [...qn].filter(n => !sn.has(n));
+    if (noSol.length) warns.push(`${noSol.length} ${label} question(s) have no solution row`);
+    const blank = s.filter(r => !(r.explanation || '').trim());
+    if (blank.length) warns.push(`solutions-${label} has ${blank.length} blank explanation(s)`);
+  }
+
+  // Figures: every [FIGURE-BASED] / (figure n) question should have images
+  const figQ = qEn.filter(r =>
+    /\[FIGURE-BASED\]/i.test(r.text || '') ||
+    /\(figure\s*\d\)/i.test([r.option_A, r.option_B, r.option_C, r.option_D].join(' ')))
+    .map(r => parseInt(r.qNum));
+  p.figQ = figQ;
+  if (figQ.length) {
+    if (!p.docx) {
+      errs.push(`${figQ.length} figure question(s) (Q${figQ.join(', Q')}) but no figures .docx assigned`);
+    } else {
+      const got = new Set(p.docx.questions.map(q => q.qNum));
+      const missing = figQ.filter(n => !got.has(n));
+      if (missing.length) errs.push(`no figures in the .docx for Q${missing.join(', Q')}`);
+      const extra = p.docx.questions.map(q => q.qNum).filter(n => !figQ.includes(n));
+      if (extra.length) warns.push(`.docx has figures for Q${extra.join(', Q')} which the CSV does not mark as figure questions`);
+      if (p.docx.unassigned.length) warns.push(`${p.docx.unassigned.length} image(s) in the .docx were not attached to any question`);
+
+      // A question whose options read "(figure 1)…(figure 4)" needs four option images;
+      // one with text options just needs the stem figure.
+      const byNum = {}; p.docx.questions.forEach(q => byNum[q.qNum] = q);
+      const thinOpts = [], thinStem = [];
+      qEn.filter(r => figQ.includes(parseInt(r.qNum))).forEach(r => {
+        const n = parseInt(r.qNum), g = byNum[n]; if (!g) return;
+        const optsAreFigures = ['option_A','option_B','option_C','option_D']
+          .every(k => /\(\s*figure\s*\d\s*\)/i.test(r[k] || ''));
+        if (optsAreFigures) {
+          const have = ['optA','optB','optC','optD'].filter(s => g.imgs[s]).length;
+          if (have < 4) thinOpts.push(`Q${n} (${have}/4)`);
+        } else if (!g.imgs.q) thinStem.push('Q' + n);
+      });
+      if (thinOpts.length) errs.push(`option figures incomplete for ${thinOpts.join(', ')} — check the .docx layout`);
+      if (thinStem.length) errs.push(`no stem figure in the .docx for ${thinStem.join(', ')}`);
+    }
+  }
+
+  p.issues = { errs, warns };
+  return errs.length === 0;
+}
+
+async function checkExisting(p) {
+  const out = {};
+  for (const lang of ['en','hi']) {
+    const pid = buildPaperId(p.meta, lang);
+    let n = 0;
+    try {
+      const snap = await getCountFromServer(query(collection(db, 'questions'), where('paperId', '==', pid)));
+      n = snap.data().count;
+    } catch (e) { log(`Count failed for ${pid}: ${e.message}`, 'warn'); }
+    out[lang] = { pid, count: n, legacy: 0 };
+  }
+
+  if (document.getElementById('optLegacyScan').checked && p.meta.exam && p.meta.year) {
+    for (const lang of ['en','hi']) {
+      try {
+        const snap = await getDocs(query(collection(db, 'questions'),
+          where('exam','==',p.meta.exam), where('year','==',p.meta.year), where('language','==',lang)));
+        let n = 0;
+        snap.forEach(d => {
+          const x = d.data();
+          if (x.paperId) return;
+          if (p.meta.shift && (x.shift || '') !== p.meta.shift) return;
+          if (p.meta.heldOn && (x.heldOn || '') !== p.meta.heldOn) return;
+          n++;
+        });
+        out[lang].legacy = n;
+      } catch (e) { log(`Legacy scan failed (${lang}): ${e.message}`, 'warn'); }
+    }
+  }
+  p.existing = out;
+  return out;
+}
+
+window.validateAll = async () => {
+  log('── Validating ──', 'head');
+  let ok = 0, bad = 0;
+  for (let i = 0; i < papers.length; i++) {
+    const p = papers[i];
+    if (!p.selected) continue;
+    const good = validatePaper(p);
+    await checkExisting(p);
+
+    const issEl = document.getElementById('iss-' + i);
+    issEl.innerHTML =
+      p.issues.errs.map(e => `<div class="iss-err">✗ ${e}</div>`).join('') +
+      p.issues.warns.map(w => `<div class="iss-warn">! ${w}</div>`).join('');
+
+    const ex = p.existing;
+    const exTxt = (ex.en.count || ex.hi.count || ex.en.legacy || ex.hi.legacy)
+      ? `<span class="badge warn">EN ${ex.en.count}${ex.en.legacy ? '+' + ex.en.legacy + ' legacy' : ''} · HI ${ex.hi.count}${ex.hi.legacy ? '+' + ex.hi.legacy + ' legacy' : ''} already there</span>`
+      : `<span class="badge info">new paper</span>`;
+
+    document.getElementById('st-' + i).innerHTML = good
+      ? `<span class="badge ok">ready</span> ${exTxt}`
+      : `<span class="badge bad">${p.issues.errs.length} error(s)</span>`;
+    document.getElementById('row-' + i).className = good ? '' : 'row-err';
+
+    good ? ok++ : bad++;
+    log(`${p.prefix}: ${good ? 'ready' : 'BLOCKED'} — ${p.issues.errs.length} error(s), ${p.issues.warns.length} warning(s), ${(p.rows.qEn || []).length} questions, ${p.figQ ? p.figQ.length : 0} figure Qs`,
+        good ? 'ok' : 'err');
+  }
+  log(`Validation done: ${ok} ready, ${bad} blocked.`, bad ? 'warn' : 'ok');
+};
+
+/* ══════════════════════════════════════════════════════════
+   Step 3 — run
+   ══════════════════════════════════════════════════════════ */
+function setProg(pct, txt) {
+  if (pct !== null && pct !== undefined) document.getElementById('progBar').style.width = pct + '%';
+  if (txt !== undefined) document.getElementById('progText').textContent = txt || '';
+}
+
+async function uploadFigures(p, pid) {
+  // Deterministic paths → a re-run overwrites instead of piling up copies.
+  const uid = auth.currentUser.uid;
+  const reuse = document.getElementById('optReuseImg').checked;
+  const urls = {};                                   // qNum → {q, optA..optD, sol}
+  const jobs = [];
+  for (const q of p.docx.questions) {
+    for (const [slot, name] of Object.entries(q.imgs)) {
+      if (slot.startsWith('_')) continue;
+      const blob = p.docx.blobs[name];
+      if (blob) jobs.push({ qNum: q.qNum, slot, blob, name });
+    }
+  }
+  let done = 0;
+  for (const j of jobs) {
+    const ext  = (j.name.match(/\.(\w+)$/) || [, 'png'])[1].toLowerCase();
+    const path = `question-images/${uid}/${pid}_q${String(j.qNum).padStart(3,'0')}_${j.slot}.${ext}`;
+    const sRef = storageRef(storage, path);
+    let url = null;
+    if (reuse) { try { url = await getDownloadURL(sRef); } catch (e) { /* not there yet */ } }
+    if (!url) {
+      const snap = await uploadBytes(sRef, j.blob, {
+        contentType: j.blob.type || 'image/' + (ext === 'jpg' ? 'jpeg' : ext),
+        cacheControl: 'public, max-age=31536000'
+      });
+      url = await getDownloadURL(snap.ref);
+    }
+    (urls[j.qNum] = urls[j.qNum] || {})[j.slot] = url;
+    done++;
+    setProg(null, `${p.prefix}: images ${done}/${jobs.length}`);
+  }
+  return { urls, count: jobs.length };
+}
+
+async function deleteRefs(refs) {
+  for (let i = 0; i < refs.length; i += 400) {
+    const b = writeBatch(db);
+    refs.slice(i, i + 400).forEach(r => b.delete(r));
+    await b.commit();
+  }
+  return refs.length;
+}
+
+async function deleteExisting(pid) {
+  const snap = await getDocs(query(collection(db, 'questions'), where('paperId', '==', pid)));
+  const refs = []; snap.forEach(d => refs.push(d.ref));
+  return await deleteRefs(refs);
+}
+
+/** Older imports carry no paperId — match them on exam+year+language+shift+heldOn instead. */
+async function deleteLegacy(p, lang) {
+  const snap = await getDocs(query(collection(db, 'questions'),
+    where('exam','==',p.meta.exam), where('year','==',p.meta.year), where('language','==',lang)));
+  const refs = [];
+  snap.forEach(d => {
+    const x = d.data();
+    if (x.paperId) return;
+    if (p.meta.shift  && (x.shift  || '') !== p.meta.shift)  return;
+    if (p.meta.heldOn && (x.heldOn || '') !== p.meta.heldOn) return;
+    refs.push(d.ref);
+  });
+  if (!refs.length) return 0;
+  const yes = confirm(
+    `${p.prefix} — ${refs.length} older ${lang.toUpperCase()} question(s) with no paperId match this paper.\n\n` +
+    `These are almost certainly the same paper from a previous upload. Delete them too?\n\n` +
+    `OK = delete, Cancel = leave them (you will end up with duplicates).`);
+  if (!yes) return 0;
+  return await deleteRefs(refs);
+}
+
+function buildDocs(p, lang, imgUrls, isNew) {
+  const qRows = p.rows[lang === 'en' ? 'qEn' : 'qHi'] || [];
+  const sRows = document.getElementById('optSolutions').checked
+    ? (p.rows[lang === 'en' ? 'sEn' : 'sHi'] || []) : [];
+  const sol = {}; sRows.forEach(r => sol[parseInt(r.qNum)] = r);
+  const m = p.meta;
+  const pid = buildPaperId(m, lang);
+  const now = new Date();
+
+  return qRows.map(r => {
+    const qNum = parseInt(r.qNum);
+    const s = sol[qNum];
+    const im = imgUrls && imgUrls[qNum];
+
+    const data = {
+      paperId: pid,
+      exam: m.exam, tier: m.tier, year: m.year, shift: m.shift, heldOn: m.heldOn,
+      language: lang, type: 'pyq',
+      qNum,
+      subject: r.subject || '',
+      chapter: r.chapter || '',
+      difficulty: r.difficulty || 'medium',
+      text: r.text || '',
+      options: { A: r.option_A || '', B: r.option_B || '', C: r.option_C || '', D: r.option_D || '' },
+      correct: (r.correct || '').trim(),
+      updatedAt: now
+    };
+    if (isNew) data.createdAt = now;
+
+    // Written only when we actually have the data — a merge write must never
+    // blank out solutions or image URLs that a previous run put there.
+    if (s) {
+      data.explanation = s.explanation || '';
+      data.trick       = s.trick || '';
+      data.concept     = s.concept || '';
+    }
+    if (im) {
+      data.imageUrl      = im.q || '';
+      data.optionImages  = { A: im.optA || '', B: im.optB || '', C: im.optC || '', D: im.optD || '' };
+      data.solutionImage = im.sol || '';
+    }
+    return { id: `${pid}_q${String(qNum).padStart(3, '0')}`, data };
+  });
+}
+
+async function commitDocs(docs) {
+  for (let i = 0; i < docs.length; i += 400) {
+    const b = writeBatch(db);
+    docs.slice(i, i + 400).forEach(d => b.set(doc(db, 'questions', d.id), d.data, { merge: true }));
+    await b.commit();
+  }
+}
+
+window.runAll = async () => {
+  const dry = document.getElementById('optDryRun').checked;
+  const doImg = document.getElementById('optImages').checked;
+  const doPapers = document.getElementById('optPapersDoc').checked;
+  const list = papers.filter(p => p.selected);
+  if (!list.length) { log('Nothing selected.', 'warn'); return; }
+
+  // Re-validate from scratch — metadata may have been edited since the last check.
+  const blocked = list.filter(p => !validatePaper(p));
+  if (blocked.length) {
+    log(`${blocked.length} selected paper(s) still have errors — fix them or deselect. Run aborted.`, 'err');
+    blocked.forEach(p => log(`  ${p.prefix}: ${p.issues.errs.join('; ')}`, 'err'));
+    return;
+  }
+
+  document.getElementById('runBtn').disabled = true;
+  document.getElementById('runBadge').textContent = dry ? 'dry run…' : 'running…';
+  document.getElementById('runBadge').className = 'badge info';
+  report = [];
+  log(`── ${dry ? 'DRY RUN' : 'RUN'}: ${list.length} paper(s) ──`, 'head');
+  const t0 = Date.now();
+
+  let idx = 0;
+  for (const p of list) {
+    idx++;
+    const i = papers.indexOf(p);
+    const base = ((idx - 1) / list.length) * 100;
+    setProg(base, `Paper ${idx}/${list.length}: ${p.prefix}`);
+    document.getElementById('st-' + i).innerHTML = '<span class="badge info">working…</span>';
+    const rec = { prefix: p.prefix, images: 0, en: 0, hi: 0, deleted: 0, skipped: false, error: null };
+
+    try {
+      const mode = p.dupMode || 'overwrite';
+      if (!p.existing) await checkExisting(p);
+      const already = p.existing.en.count || p.existing.hi.count;
+      if (mode === 'skip' && already) {
+        log(`${p.prefix}: already in Firestore — skipped`, 'warn');
+        rec.skipped = true; report.push(rec);
+        document.getElementById('st-' + i).innerHTML = '<span class="badge warn">skipped</span>';
+        continue;
+      }
+      if (mode === 'replace' && !dry) {
+        for (const lang of ['en','hi']) {
+          const n = await deleteExisting(buildPaperId(p.meta, lang));
+          rec.deleted += n;
+          if (n) log(`${p.prefix}: deleted ${n} existing ${lang.toUpperCase()} docs`, 'warn');
+          if (p.existing[lang] && p.existing[lang].legacy) {
+            const l = await deleteLegacy(p, lang);
+            rec.deleted += l;
+            if (l) log(`${p.prefix}: deleted ${l} legacy ${lang.toUpperCase()} docs (no paperId)`, 'warn');
+          }
+        }
+      }
+
+      // 1. Images — uploaded once, shared by the EN and HI documents.
+      let imgUrls = null;
+      if (doImg && p.docx) {
+        if (dry) {
+          const n = p.docx.questions.reduce((a, q) => a + Object.keys(q.imgs).filter(k => !k.startsWith('_')).length, 0);
+          log(`${p.prefix}: would upload ${n} image(s)`, 'info');
+          rec.images = n;
+        } else {
+          const pidImg = buildPaperId(p.meta, 'en').replace(/_en$/, '');
+          const r = await uploadFigures(p, pidImg);
+          imgUrls = r.urls; rec.images = r.count;
+          log(`${p.prefix}: ${r.count} image(s) in Storage, reused by both languages`, 'ok');
+        }
+      }
+
+      // 2 + 3. Questions merged with solutions and image URLs, both languages.
+      for (const lang of ['en','hi']) {
+        const isNew = mode === 'replace' || !(p.existing[lang] && p.existing[lang].count);
+        const docs = buildDocs(p, lang, imgUrls, isNew);
+        if (!docs.length) continue;
+        if (!dry) await commitDocs(docs);
+        rec[lang] = docs.length;
+        log(`${p.prefix}: ${dry ? 'would write' : 'wrote'} ${docs.length} ${lang.toUpperCase()} questions (with solutions + images + paperId)`, 'ok');
+        setProg(base + (lang === 'en' ? 40 : 75) / list.length, `${p.prefix}: ${lang.toUpperCase()} committed`);
+      }
+
+      // 4. papers cards
+      if (doPapers && !dry) {
+        for (const lang of ['en','hi']) {
+          const pid = buildPaperId(p.meta, lang);
+          const n = (p.rows[lang === 'en' ? 'qEn' : 'qHi'] || []).length;
+          if (!n) continue;
+          await setDoc(doc(db, 'papers', pid), {
+            paperId: pid, exam: p.meta.exam, tier: p.meta.tier, year: p.meta.year,
+            shift: p.meta.shift, heldOn: p.meta.heldOn, language: lang,
+            questionCount: n, updatedAt: new Date()
+          }, { merge: true });
+        }
+        log(`${p.prefix}: paper cards updated`, 'ok');
+      }
+
+      p.done = true;
+      document.getElementById('row-' + i).className = 'row-done';
+      document.getElementById('st-' + i).innerHTML =
+        `<span class="badge ok">${dry ? 'dry ok' : 'done'}</span> <span class="badge">${rec.en}+${rec.hi} Qs · ${rec.images} img</span>`;
+
+    } catch (e) {
+      rec.error = e.message;
+      log(`${p.prefix}: FAILED — ${e.message}`, 'err');
+      console.error(e);
+      document.getElementById('row-' + i).className = 'row-err';
+      document.getElementById('st-' + i).innerHTML = `<span class="badge bad">failed</span>`;
+    }
+    report.push(rec);
+    setProg((idx / list.length) * 100, `${idx}/${list.length} papers`);
+  }
+
+  const secs = ((Date.now() - t0) / 1000).toFixed(1);
+  const totQ = report.reduce((a, r) => a + r.en + r.hi, 0);
+  const totI = report.reduce((a, r) => a + r.images, 0);
+  const fails = report.filter(r => r.error).length;
+  log(`── Finished in ${secs}s — ${totQ} question docs, ${totI} images, ${fails} failure(s) ──`, fails ? 'err' : 'head');
+  setProg(100, `Done — ${totQ} questions, ${totI} images, ${secs}s`);
+  document.getElementById('runBadge').textContent = fails ? `${fails} failed` : 'complete';
+  document.getElementById('runBadge').className = 'badge ' + (fails ? 'bad' : 'ok');
+  document.getElementById('runBtn').disabled = false;
+  document.getElementById('reportBtn').style.display = 'inline-block';
+};
+
+window.downloadReport = () => {
+  const blob = new Blob([JSON.stringify({ at: new Date().toISOString(), papers: report }, null, 2)],
+                        { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'batch-upload-report.json';
+  a.click();
+};
+</script>
+</body>
+</html>
