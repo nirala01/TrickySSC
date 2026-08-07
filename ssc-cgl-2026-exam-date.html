@@ -23,7 +23,7 @@
 <link rel="icon" href="/favicon.ico">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
 <style>
 :root{
@@ -62,15 +62,14 @@ body{
 
 /* Logo */
 .brand{display:flex;align-items:center;gap:9px;text-decoration:none;flex-shrink:0;}
-.brand-mark{
-  width:34px;height:34px;border-radius:50%;
-  background:linear-gradient(135deg,#ff9500,#ff6a00);
-  display:flex;align-items:center;justify-content:center;flex-shrink:0;
-}
-.brand-mark svg{width:17px;height:17px;fill:#12161f;}
-.brand-text{font-size:1.45rem;font-weight:800;letter-spacing:-.6px;color:#111827;line-height:1;}
-.brand-text em{font-style:normal;color:#ff6a00;}
-@media(max-width:420px){.brand-text{font-size:1.2rem;}.brand-mark{width:30px;height:30px;}}
+.brand-mark{width:36px;height:36px;border-radius:50%;
+  background:radial-gradient(circle at 52% 38%,#FFEFE0 0%,#FFCE9F 55%,#FFB273 100%);
+  box-shadow:0 0 14px rgba(255,150,70,.38);
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.brand-mark svg{width:16px;height:16px;fill:#101B2E;}
+.brand-text{font-family:'Baloo 2',cursive;font-size:1.5rem;font-weight:800;letter-spacing:-.3px;color:#101B2E;line-height:1;}
+.brand-text em{font-style:normal;color:#FF6B00;}
+@media(max-width:420px){.brand-text{font-size:1.22rem;}.brand-mark{width:31px;height:31px;}.brand-mark svg{width:14px;height:14px;}}
 
 /* Desktop nav */
 .main-nav{margin-left:auto;display:flex;align-items:center;gap:22px;}
@@ -294,7 +293,7 @@ details.faq .faq-body p{margin:0;}
 
     <a class="brand" href="/" aria-label="TrickySSC home">
       <span class="brand-mark">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z"/></svg>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13.9 2 5.2 13.4h5.2L9.5 22l8.8-11.6h-5.3l.9-8.4z"/></svg>
       </span>
       <span class="brand-text">Tricky <em>SSC</em></span>
     </a>
@@ -336,6 +335,36 @@ details.faq .faq-body p{margin:0;}
 
   </div>
 </header>
+
+<script>
+/* TrickySSC account pill — reflects the login state written by login.html.
+   login.html stores localStorage['tssc_user'] = {uid,name,phone,email,photoURL,loginMethod}
+   and reads localStorage['loginReturnTo'] to send the user back here after signing in. */
+(function(){
+  var pill  = document.getElementById('accountBtn');
+  var label = document.getElementById('accountName');
+  if(!pill || !label) return;
+
+  var raw = null;
+  try { raw = localStorage.getItem('tssc_user'); } catch(e){}
+
+  if (raw) {
+    try {
+      var u = JSON.parse(raw);
+      var first = String(u.name || 'Student').trim().split(/\s+/)[0];
+      label.textContent = first;
+      pill.href = '/dashboard.html';
+      pill.setAttribute('aria-label', 'Open your dashboard');
+      pill.classList.add('is-signed-in');
+    } catch(e){}
+  } else {
+    pill.addEventListener('click', function(){
+      try { localStorage.setItem('loginReturnTo', window.location.pathname + window.location.search); } catch(e){}
+    });
+  }
+})();
+</script>
+
 
 <script>
 (function(){
