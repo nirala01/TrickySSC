@@ -359,15 +359,18 @@ def render(ordered):
               <div style="display:flex;align-items:center;gap:0.4rem;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;">{btns_html}</div>
             </div>""")
 
+            # Newest year opens by default; older years start collapsed.
+            open_attr = ' open' if yi == 0 else ''
             blocks.append(f"""
-        <div style="margin-bottom:1.5rem;">
-          <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.6rem;padding:0 0.25rem;">
-            <div style="width:32px;height:32px;background:{accent};border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:'Rajdhani',sans-serif;font-weight:800;font-size:0.72rem;color:white;letter-spacing:-0.3px;flex-shrink:0;">{year}</div>
-            <div style="font-family:'Rajdhani',sans-serif;font-weight:800;font-size:1rem;color:#1A202C;">SSC CGL {tier_label} {year}</div>
-            <div style="margin-left:auto;background:#F1F5F9;border-radius:20px;padding:0.2rem 0.65rem;font-size:0.72rem;font-weight:700;color:#64748B;font-family:'Rajdhani',sans-serif;">{ycount} paper{'s' if ycount != 1 else ''}</div>
-          </div>
-          <div style="background:#fff;border:1px solid #E2E8F0;border-radius:14px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.05);border-left:3px solid {accent};">{''.join(rows)}</div>
-        </div>""")
+        <details class="yr-acc"{open_attr}>
+          <summary class="yr-head">
+            <span class="yr-badge" style="background:{accent};">{year}</span>
+            <span class="yr-title">SSC CGL {tier_label} {year}</span>
+            <span class="yr-count">{ycount} test{'s' if ycount != 1 else ''}</span>
+            <span class="yr-chev" aria-hidden="true">▾</span>
+          </summary>
+          <div class="yr-body" style="border-left:3px solid {accent};">{''.join(rows)}</div>
+        </details>""")
         return "".join(blocks)
 
     t1_html = render_tier(tier1, "Tier I", "t1")
@@ -644,6 +647,23 @@ def render(ordered):
   .attempt-pill {{ display:inline-flex; align-items:center; gap:0.25rem; white-space:nowrap; font-family:'Rajdhani',sans-serif; font-weight:700; font-size:0.68rem; padding:0.18rem 0.55rem; border-radius:100px; border:1px solid transparent; letter-spacing:0.2px; line-height:1.3; }}
   .attempt-pill.done {{ background:#E8F5E9; color:#15803D; border-color:#BBF7D0; }}
   .attempt-pill.todo {{ background:#F1F5F9; color:#64748B; border-color:#E2E8F0; }}
+  /* ---- Year accordion (SSC CGL Tier I 2025 / 2024 …) ---- */
+  .yr-acc {{ margin-bottom:0.85rem; }}
+  .yr-head {{ list-style:none; cursor:pointer; display:flex; align-items:center; gap:0.65rem; padding:0.6rem 0.75rem; background:#fff; border:1px solid #E2E8F0; border-radius:12px; box-shadow:0 1px 5px rgba(0,0,0,0.04); -webkit-user-select:none; user-select:none; transition:border-color .15s, box-shadow .15s; }}
+  .yr-head::-webkit-details-marker {{ display:none; }}
+  .yr-head::marker {{ content:''; }}
+  .yr-head:hover {{ border-color:#CBD5E1; box-shadow:0 3px 12px rgba(0,0,0,0.08); }}
+  .yr-badge {{ width:32px; height:32px; border-radius:8px; display:inline-flex; align-items:center; justify-content:center; font-family:'Rajdhani',sans-serif; font-weight:800; font-size:0.72rem; color:#fff; letter-spacing:-0.3px; flex-shrink:0; }}
+  .yr-title {{ font-family:'Rajdhani',sans-serif; font-weight:800; font-size:1rem; color:#1A202C; line-height:1.2; }}
+  .yr-count {{ background:#F1F5F9; border-radius:20px; padding:0.2rem 0.6rem; font-family:'Rajdhani',sans-serif; font-weight:700; font-size:0.72rem; color:#64748B; white-space:nowrap; flex-shrink:0; }}
+  .yr-chev {{ margin-left:auto; flex-shrink:0; width:24px; height:24px; border-radius:50%; background:#F8FAFC; color:#94A3B8; display:inline-flex; align-items:center; justify-content:center; font-size:0.8rem; line-height:1; transition:transform .2s ease; }}
+  details[open] > .yr-head .yr-chev {{ transform:rotate(180deg); }}
+  details[open] > .yr-head {{ border-bottom-left-radius:0; border-bottom-right-radius:0; }}
+  .yr-body {{ background:#fff; border:1px solid #E2E8F0; border-top:none; border-radius:0 0 14px 14px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,0.05); }}
+  @media (max-width:480px) {{
+    .yr-title {{ font-size:0.92rem; }}
+    .yr-head {{ gap:0.5rem; padding:0.55rem 0.6rem; }}
+  }}
   @keyframes lcFade {{ from{{opacity:0;}} to{{opacity:1;}} }}
   @keyframes lcPop {{ from{{opacity:0;transform:translate(-50%,-46%) scale(.96);}} to{{opacity:1;transform:translate(-50%,-50%) scale(1);}} }}
 </style>
