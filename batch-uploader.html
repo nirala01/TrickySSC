@@ -848,6 +848,23 @@ function setProg(pct, txt) {
   if (txt !== undefined) document.getElementById('progText').textContent = txt || '';
 }
 
+// Word embeds .wmf/.emf for drawn shapes and equations, and Storage rules often
+// whitelist only real web image types. uploader.html sidesteps this by labelling
+// everything PNG; do the same, and only trust an extension we know is safe.
+const SAFE_MIME = { png:'image/png', jpg:'image/jpeg', jpeg:'image/jpeg',
+                    gif:'image/gif', webp:'image/webp', bmp:'image/bmp' };
+
+/** One tiny write, so a rules problem surfaces in two seconds instead of 18 images in. */
+async function preflight() {
+  const uid = auth.currentUser.uid;
+  const bytes = Uint8Array.from(atob(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='),
+    c => c.charCodeAt(0));
+  const sRef = storageRef(storage, `question-images/${uid}/_preflight.png`);
+  await uploadBytes(sRef, new Blob([bytes], { type: 'image/png' }), { contentType: 'image/png' });
+  return uid;
+}
+
 async function uploadFigures(p, pid) {
   // Deterministic paths → a re-run overwrites instead of piling up copies.
   const uid = auth.currentUser.uid;
@@ -862,24 +879,34 @@ async function uploadFigures(p, pid) {
     }
   }
   let done = 0;
+  const failed = [];
   for (const j of jobs) {
-    const ext  = (j.name.match(/\.(\w+)$/) || [, 'png'])[1].toLowerCase();
+    const rawExt = (j.name.match(/\.(\w+)$/) || [, ''])[1].toLowerCase();
+    const mime   = SAFE_MIME[rawExt] || 'image/png';
+    const ext    = SAFE_MIME[rawExt] ? rawExt : 'png';
     const path = `question-images/${uid}/${pid}_q${String(j.qNum).padStart(3,'0')}_${j.slot}.${ext}`;
     const sRef = storageRef(storage, path);
-    let url = null;
-    if (reuse) { try { url = await getDownloadURL(sRef); } catch (e) { /* not there yet */ } }
-    if (!url) {
-      const snap = await uploadBytes(sRef, j.blob, {
-        contentType: j.blob.type || 'image/' + (ext === 'jpg' ? 'jpeg' : ext),
-        cacheControl: 'public, max-age=31536000'
-      });
-      url = await getDownloadURL(snap.ref);
+    try {
+      let url = null;
+      if (reuse) { try { url = await getDownloadURL(sRef); } catch (e) { /* not there yet */ } }
+      if (!url) {
+        const snap = await uploadBytes(sRef, j.blob, {
+          contentType: mime,
+          cacheControl: 'public, max-age=31536000'
+        });
+        url = await getDownloadURL(snap.ref);
+      }
+      (urls[j.qNum] = urls[j.qNum] || {})[j.slot] = url;
+      done++;
+    } catch (e) {
+      // One bad image must not cost the whole paper — record it and carry on.
+      failed.push({ qNum: j.qNum, slot: j.slot, src: j.name,
+                    kb: Math.round(j.blob.size / 1024), ext: rawExt || '(none)', mime,
+                    code: e.code || '', msg: e.message });
     }
-    (urls[j.qNum] = urls[j.qNum] || {})[j.slot] = url;
-    done++;
-    setProg(null, `${p.prefix}: images ${done}/${jobs.length}`);
+    setProg(null, `${p.prefix}: images ${done + failed.length}/${jobs.length}`);
   }
-  return { urls, count: jobs.length };
+  return { urls, count: done, total: jobs.length, failed };
 }
 
 async function deleteRefs(refs) {
@@ -991,6 +1018,21 @@ window.runAll = async () => {
   document.getElementById('runBadge').className = 'badge info';
   report = [];
   log(`── ${dry ? 'DRY RUN' : 'RUN'}: ${list.length} paper(s) ──`, 'head');
+
+  // Prove we can write to Storage before spending minutes on real uploads.
+  if (!dry && doImg && list.some(p => p.docx)) {
+    try {
+      const uid = await preflight();
+      log(`Storage write check passed as ${auth.currentUser.email} (uid ${uid})`, 'ok');
+    } catch (e) {
+      log(`Storage write check FAILED as ${auth.currentUser.email} (uid ${auth.currentUser.uid}) — ${e.code || e.message}`, 'err');
+      log(`Your Storage rules are refusing writes for this account. Fix the rules or sign in as the admin that works, then re-run. Nothing was written.`, 'err');
+      document.getElementById('runBtn').disabled = false;
+      document.getElementById('runBadge').textContent = 'blocked';
+      document.getElementById('runBadge').className = 'badge bad';
+      return;
+    }
+  }
   const t0 = Date.now();
 
   let idx = 0;
@@ -1035,8 +1077,19 @@ window.runAll = async () => {
         } else {
           const pidImg = buildPaperId(p.meta, 'en').replace(/_en$/, '');
           const r = await uploadFigures(p, pidImg);
-          imgUrls = r.urls; rec.images = r.count;
-          log(`${p.prefix}: ${r.count} image(s) in Storage, reused by both languages`, 'ok');
+          imgUrls = r.urls; rec.images = r.count; rec.imagesFailed = r.failed;
+          log(`${p.prefix}: ${r.count}/${r.total} image(s) in Storage, reused by both languages`,
+              r.failed.length ? 'warn' : 'ok');
+          if (r.failed.length) {
+            // Print the details that identify the cause — type, size and the Storage error code.
+            const codes = [...new Set(r.failed.map(f => f.code || 'unknown'))].join(', ');
+            const exts  = [...new Set(r.failed.map(f => f.ext))].join(', ');
+            log(`${p.prefix}: ${r.failed.length} image(s) REJECTED — codes: ${codes} · source types: ${exts}`, 'err');
+            r.failed.slice(0, 8).forEach(f =>
+              log(`    Q${f.qNum} ${f.slot} — ${f.src} (${f.ext}, ${f.kb} KB, sent as ${f.mime}) → ${f.code || f.msg}`, 'err'));
+            if (r.failed.length > 8) log(`    …and ${r.failed.length - 8} more (see the report file)`, 'err');
+            log(`${p.prefix}: writing questions anyway — re-run later to fill the missing images`, 'warn');
+          }
         }
       }
 
