@@ -451,12 +451,27 @@ async function parseFiguresDocx(file) {
       if (!q.imgs['opt' + l]) { q.imgs['opt' + l] = img; return; }
     }
   };
+  // Put an image in the slot its label asked for; fall back if that slot is taken.
+  const putOpt = (q, slot, img) => {
+    const l = 'ABCD'[slot - 1];
+    if (l && !q.imgs['opt' + l]) { q.imgs['opt' + l] = img; return; }
+    nextFreeOpt(q, img);
+  };
+
+  // A label ("[figure]", "Figure 2") normally sits in its OWN paragraph, with the
+  // picture in the paragraph that follows. Remember the last label so the next
+  // image paragraph can be bound to the slot it names. Without this, a question
+  // that has no problem figure (e.g. a Venn item, where the classes are text and
+  // only the options are pictures) loses its first option to the stem slot and
+  // validates as 3/4.
+  let pendingLabel = null;   // null | 'stem' | 1..4
 
   for (const para of paras) {
     const qm = para.text.match(/^Q\.?\s*(\d+)[.)]?\s*(.*)/i);
     if (qm) {
       if (cur) questions.push(cur);
       cur = { qNum: parseInt(qm[1]), imgs: {} };
+      pendingLabel = null;
       para.imgs.forEach((img, i) => {
         cur.imgs[i === 0 ? 'q' : 'opt' + String.fromCharCode(64 + i)] = img;
         used.add(img);
@@ -467,16 +482,30 @@ async function parseFiguresDocx(file) {
 
     if (/^(Solution|Explanation|Answer)\s*:?$/i.test(para.text)) cur._expectSol = true;
 
-    const isOptLabel = /^(Diagram|Figure|Option|Image)\s*\d/i.test(para.text);
+    const optM  = para.text.match(/^(?:Diagram|Figure|Option|Image)\s*(\d+)/i);
+    const stemM = /^\[\s*figure\s*\]$/i.test(para.text);
 
-    if (para.imgs.length && cur._expectSol) {
+    // Label on a line of its own: hold it for the image paragraph that follows.
+    if (!para.imgs.length) {
+      if (optM)            pendingLabel = parseInt(optM[1]);
+      else if (stemM)      pendingLabel = 'stem';
+      else if (para.text)  pendingLabel = null;
+      continue;
+    }
+
+    // Image paragraph. A label on this same paragraph wins over a held one.
+    const label = optM ? parseInt(optM[1]) : (stemM ? 'stem' : pendingLabel);
+    pendingLabel = null;
+
+    if (cur._expectSol) {
       cur.imgs.sol = para.imgs[0]; used.add(para.imgs[0]); cur._expectSol = false;
-    } else if (para.imgs.length && isOptLabel) {
-      para.imgs.forEach(img => { used.add(img); nextFreeOpt(cur, img); });
-    } else if (para.imgs.length && !cur.imgs.q) {
+      para.imgs.slice(1).forEach(img => { used.add(img); nextFreeOpt(cur, img); });
+    } else if (typeof label === 'number') {
+      para.imgs.forEach((img, i) => { used.add(img); putOpt(cur, label + i, img); });
+    } else if (label === 'stem' || !cur.imgs.q) {
       cur.imgs.q = para.imgs[0]; used.add(para.imgs[0]);
       para.imgs.slice(1).forEach(img => { used.add(img); nextFreeOpt(cur, img); });
-    } else if (para.imgs.length) {
+    } else {
       para.imgs.forEach(img => { used.add(img); nextFreeOpt(cur, img); });
     }
   }
