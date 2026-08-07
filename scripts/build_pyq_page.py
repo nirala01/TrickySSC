@@ -648,21 +648,27 @@ def render(ordered):
   .attempt-pill.done {{ background:#E8F5E9; color:#15803D; border-color:#BBF7D0; }}
   .attempt-pill.todo {{ background:#F1F5F9; color:#64748B; border-color:#E2E8F0; }}
   /* ---- Year accordion (SSC CGL Tier I 2025 / 2024 …) ---- */
-  .yr-acc {{ margin-bottom:0.85rem; }}
-  .yr-head {{ list-style:none; cursor:pointer; display:flex; align-items:center; gap:0.65rem; padding:0.6rem 0.75rem; background:#fff; border:1px solid #E2E8F0; border-radius:12px; box-shadow:0 1px 5px rgba(0,0,0,0.04); -webkit-user-select:none; user-select:none; transition:border-color .15s, box-shadow .15s; }}
+  .yr-acc {{ margin-bottom:1rem; }}
+  .yr-head {{ list-style:none; cursor:pointer; display:flex; align-items:center; gap:0.9rem; padding:1rem 1.15rem; background:#fff; border:1px solid #E2E8F0; border-radius:15px; box-shadow:0 2px 8px rgba(0,0,0,0.05); -webkit-user-select:none; user-select:none; transition:border-color .15s, box-shadow .15s, transform .12s; }}
   .yr-head::-webkit-details-marker {{ display:none; }}
   .yr-head::marker {{ content:''; }}
-  .yr-head:hover {{ border-color:#CBD5E1; box-shadow:0 3px 12px rgba(0,0,0,0.08); }}
-  .yr-badge {{ width:32px; height:32px; border-radius:8px; display:inline-flex; align-items:center; justify-content:center; font-family:'Rajdhani',sans-serif; font-weight:800; font-size:0.72rem; color:#fff; letter-spacing:-0.3px; flex-shrink:0; }}
-  .yr-title {{ font-family:'Rajdhani',sans-serif; font-weight:800; font-size:1rem; color:#1A202C; line-height:1.2; }}
-  .yr-count {{ background:#F1F5F9; border-radius:20px; padding:0.2rem 0.6rem; font-family:'Rajdhani',sans-serif; font-weight:700; font-size:0.72rem; color:#64748B; white-space:nowrap; flex-shrink:0; }}
-  .yr-chev {{ margin-left:auto; flex-shrink:0; width:24px; height:24px; border-radius:50%; background:#F8FAFC; color:#94A3B8; display:inline-flex; align-items:center; justify-content:center; font-size:0.8rem; line-height:1; transition:transform .2s ease; }}
-  details[open] > .yr-head .yr-chev {{ transform:rotate(180deg); }}
+  .yr-head:hover {{ border-color:#CBD5E1; box-shadow:0 5px 16px rgba(0,0,0,0.09); }}
+  .yr-head:active {{ transform:scale(0.995); }}
+  .yr-head:focus:not(:focus-visible) {{ outline:none; }}
+  .yr-head:focus-visible {{ outline:2px solid #FF6B00; outline-offset:2px; }}
+  .yr-badge {{ width:46px; height:46px; border-radius:11px; display:inline-flex; align-items:center; justify-content:center; font-family:'Rajdhani',sans-serif; font-weight:800; font-size:0.92rem; color:#fff; letter-spacing:-0.3px; flex-shrink:0; }}
+  .yr-title {{ font-family:'Rajdhani',sans-serif; font-weight:800; font-size:1.32rem; color:#1A202C; line-height:1.15; }}
+  .yr-count {{ background:#F1F5F9; border-radius:20px; padding:0.3rem 0.8rem; font-family:'Rajdhani',sans-serif; font-weight:700; font-size:0.88rem; color:#64748B; white-space:nowrap; flex-shrink:0; }}
+  .yr-chev {{ margin-left:auto; flex-shrink:0; width:32px; height:32px; border-radius:50%; background:#F8FAFC; color:#94A3B8; display:inline-flex; align-items:center; justify-content:center; font-size:1.05rem; line-height:1; transition:transform .2s ease; }}
+  details[open] > .yr-head .yr-chev {{ transform:rotate(180deg); background:#FFF1E6; color:#FF6B00; }}
   details[open] > .yr-head {{ border-bottom-left-radius:0; border-bottom-right-radius:0; }}
-  .yr-body {{ background:#fff; border:1px solid #E2E8F0; border-top:none; border-radius:0 0 14px 14px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,0.05); }}
+  .yr-body {{ background:#fff; border:1px solid #E2E8F0; border-top:none; border-radius:0 0 15px 15px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,0.05); }}
   @media (max-width:480px) {{
-    .yr-title {{ font-size:0.92rem; }}
-    .yr-head {{ gap:0.5rem; padding:0.55rem 0.6rem; }}
+    .yr-head {{ gap:0.7rem; padding:0.8rem 0.85rem; }}
+    .yr-badge {{ width:40px; height:40px; font-size:0.82rem; border-radius:10px; }}
+    .yr-title {{ font-size:1.12rem; }}
+    .yr-count {{ font-size:0.8rem; padding:0.24rem 0.65rem; }}
+    .yr-chev {{ width:28px; height:28px; }}
   }}
   @keyframes lcFade {{ from{{opacity:0;}} to{{opacity:1;}} }}
   @keyframes lcPop {{ from{{opacity:0;transform:translate(-50%,-46%) scale(.96);}} to{{opacity:1;transform:translate(-50%,-50%) scale(1);}} }}
