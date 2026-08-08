@@ -1,0 +1,1200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TrickySSC — Batch Mock Uploader</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+
+  :root {
+    --bg: #0f0f11;
+    --surface: #18181c;
+    --surface2: #222228;
+    --border: #2e2e38;
+    --accent: #a855f7;
+    --accent2: #22d3ee;
+    --green: #22c55e;
+    --red: #f43f5e;
+    --yellow: #f59e0b;
+    --text: #e4e4ef;
+    --muted: #6b7280;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14px; min-height: 100vh; }
+
+  .header {
+    border-bottom: 1px solid var(--border); padding: 14px 24px;
+    display: flex; align-items: center; gap: 12px;
+    background: var(--surface); position: sticky; top: 0; z-index: 100;
+  }
+  .header-logo { font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--accent2); letter-spacing: .05em; }
+  .header-title { font-size: 13px; color: var(--muted); }
+  .header-sep { flex: 1; }
+
+  .badge {
+    font-family: var(--mono); font-size: 11px; padding: 3px 9px; border-radius: 5px;
+    background: var(--surface2); border: 1px solid var(--border); color: var(--muted);
+  }
+  .badge.ok  { color: var(--green);  border-color: rgba(34,197,94,.35);  background: rgba(34,197,94,.10); }
+  .badge.bad { color: var(--red);    border-color: rgba(244,63,94,.35);  background: rgba(244,63,94,.10); }
+  .badge.warn{ color: var(--yellow); border-color: rgba(245,158,11,.35); background: rgba(245,158,11,.10); }
+  .badge.info{ color: var(--accent2);border-color: rgba(34,211,238,.35); background: rgba(34,211,238,.10); }
+
+  .wrap { max-width: 1500px; margin: 0 auto; padding: 22px 24px 80px; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; margin-bottom: 18px; }
+  .card h2 { font-size: 14px; font-weight: 600; margin-bottom: 4px; display: flex; align-items: center; gap: 9px; }
+  .step-n {
+    font-family: var(--mono); font-size: 11px; width: 22px; height: 22px; border-radius: 6px;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: var(--accent); color: #fff; flex: none;
+  }
+  .card p.hint { color: var(--muted); font-size: 12.5px; margin: 6px 0 14px 31px; line-height: 1.55; }
+
+  button {
+    font-family: var(--sans); font-size: 13px; font-weight: 500; cursor: pointer;
+    padding: 8px 15px; border-radius: 7px; border: 1px solid var(--border);
+    background: var(--surface2); color: var(--text); transition: .12s;
+  }
+  button:hover:not(:disabled) { border-color: var(--accent); }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.primary:hover:not(:disabled) { filter: brightness(1.12); }
+  button.danger  { background: rgba(244,63,94,.14); border-color: rgba(244,63,94,.4); color: var(--red); }
+  button.ghost   { background: transparent; }
+  button.sm { padding: 5px 10px; font-size: 12px; }
+
+  .drop {
+    border: 2px dashed var(--border); border-radius: 10px; padding: 34px 20px;
+    text-align: center; transition: .15s; cursor: pointer; background: var(--surface2);
+  }
+  .drop:hover, .drop.over { border-color: var(--accent); background: rgba(168,85,247,.07); }
+  .drop .big { font-size: 15px; font-weight: 500; margin-bottom: 6px; }
+  .drop .sub { font-size: 12.5px; color: var(--muted); line-height: 1.6; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th {
+    text-align: left; font-family: var(--mono); font-size: 10.5px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: .06em; color: var(--muted);
+    padding: 8px 9px; border-bottom: 1px solid var(--border); white-space: nowrap;
+  }
+  td { padding: 8px 9px; border-bottom: 1px solid rgba(46,46,56,.55); vertical-align: middle; }
+  tr.row-done td { background: rgba(34,197,94,.05); }
+  tr.row-err  td { background: rgba(244,63,94,.06); }
+
+  input, select {
+    font-family: var(--sans); font-size: 12.5px; padding: 6px 8px; border-radius: 6px;
+    border: 1px solid var(--border); background: var(--bg); color: var(--text); width: 100%;
+  }
+  input:focus, select:focus { outline: none; border-color: var(--accent); }
+  input[type=checkbox] { width: auto; accent-color: var(--accent); cursor: pointer; }
+  input.narrow { width: 80px; }
+  label.chk { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; cursor: pointer; color: var(--text); }
+  label.fld { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--muted); }
+
+  .files-mini { font-family: var(--mono); font-size: 10.5px; color: var(--muted); line-height: 1.7; }
+  .files-mini span.have { color: var(--green); }
+  .files-mini span.miss { color: var(--red); }
+
+  .toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 14px; }
+
+  .prog-outer { height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; margin-top: 12px; }
+  .prog-inner { height: 100%; width: 0%; background: linear-gradient(90deg, var(--accent), var(--accent2)); transition: width .2s; }
+
+  #log {
+    font-family: var(--mono); font-size: 11.5px; line-height: 1.65; background: var(--bg);
+    border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px;
+    max-height: 380px; overflow-y: auto; white-space: pre-wrap; word-break: break-word;
+  }
+  #log .l-ok   { color: var(--green); }
+  #log .l-err  { color: var(--red); }
+  #log .l-warn { color: var(--yellow); }
+  #log .l-info { color: var(--muted); }
+  #log .l-head { color: var(--accent2); font-weight: 600; }
+
+  .gate { max-width: 420px; margin: 90px auto; text-align: center; }
+  .gate h1 { font-size: 19px; margin-bottom: 10px; }
+  .gate p { color: var(--muted); font-size: 13px; margin-bottom: 22px; line-height: 1.6; }
+
+  .issues { margin-top: 10px; font-size: 12px; line-height: 1.65; }
+  .issues div.iss-err  { color: var(--red); }
+  .issues div.iss-warn { color: var(--yellow); }
+  .mono { font-family: var(--mono); font-size: 11.5px; }
+  .muted { color: var(--muted); }
+  .nowrap { white-space: nowrap; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <span class="header-logo">TRICKYSSC</span>
+  <span class="header-title">Batch Mock Uploader — CSVs + solutions + figures, all mocks in one run</span>
+  <span class="header-sep"></span>
+  <span class="badge" id="userBadge">not signed in</span>
+  <button class="sm ghost" id="signBtn" onclick="doSignIn()">Sign in</button>
+</div>
+
+<div id="gate" class="gate">
+  <h1>Admin sign-in required</h1>
+  <p>Firestore and Storage writes are gated to the admin allowlist. Sign in with your admin Google account to continue.</p>
+  <button class="primary" onclick="doSignIn()">Sign in with Google</button>
+</div>
+
+<div class="wrap" id="main" style="display:none">
+
+  <!-- ── STEP 1 ─────────────────────────────────────────── -->
+  <div class="card">
+    <h2><span class="step-n">1</span> Drop every file for every mock</h2>
+    <p class="hint">
+      Select or drag in all files at once — as many mocks as you like. Files are grouped into mocks automatically by
+      their filename prefix (e.g. <span class="mono">ssc-cgl-2025-mock-12-</span>).
+      Each mock wants 4 CSVs (<span class="mono">questions-EN / questions-HI / solutions-EN / solutions-HI</span>)
+      and, if it has figure questions, one figures <span class="mono">.docx</span>.
+      A <span class="mono">.docx</span> whose name carries no prefix is matched by its heading line
+      (e.g. <span class="mono">SSC CGL 2025 Mock Test-12 — Image / Figure Questions</span>), or you can assign it by hand below.
+    </p>
+    <div class="drop" id="drop" onclick="document.getElementById('fileInput').click()">
+      <div class="big">Drop files or folders here</div>
+      <div class="sub">…or click to browse. Nothing is uploaded until you press Run in step 3.</div>
+    </div>
+    <input type="file" id="fileInput" multiple accept=".csv,.docx" style="display:none">
+    <div class="toolbar">
+      <span class="badge" id="fileCount">0 files</span>
+      <span class="badge" id="mockCount">0 mocks</span>
+      <button class="sm ghost" onclick="resetAll()">Clear</button>
+    </div>
+  </div>
+
+  <!-- ── STEP 2 ─────────────────────────────────────────── -->
+  <div class="card" id="manifestCard" style="display:none">
+    <h2><span class="step-n">2</span> Confirm each mock's metadata</h2>
+    <p class="hint">
+      Exam, tier and mock number are guessed from the filename — check them, since they build the
+      <span class="mono">mockId</span> that ties questions, solutions and images together
+      (<span class="mono">exam_tier_mockN_lang</span>). Anything you edit here overrides the CSV.
+      Leave the title blank to get the standard <span class="mono">SSC CGL Tier I — Mock Test 12</span>.
+    </p>
+    <div style="overflow-x:auto">
+      <table id="manifestTable">
+        <thead>
+          <tr>
+            <th style="width:20px"><input type="checkbox" id="chkAll" checked onchange="toggleAll(this)"></th>
+            <th>Mock (prefix)</th>
+            <th style="width:110px">Exam</th>
+            <th style="width:78px">Tier</th>
+            <th style="width:70px">Mock #</th>
+            <th style="width:78px">Year</th>
+            <th style="width:200px">Title (optional)</th>
+            <th style="width:190px">Figures .docx</th>
+            <th style="width:130px">On duplicate</th>
+            <th>Files</th>
+            <th style="width:150px">Status</th>
+          </tr>
+        </thead>
+        <tbody id="manifestBody"></tbody>
+      </table>
+    </div>
+    <div class="toolbar">
+      <button onclick="validateAll()">Validate &amp; check for duplicates</button>
+    </div>
+  </div>
+
+  <!-- ── STEP 3 ─────────────────────────────────────────── -->
+  <div class="card" id="runCard" style="display:none">
+    <h2><span class="step-n">3</span> Run</h2>
+    <p class="hint">
+      For each selected mock this uploads the figure images once, then writes all 200 question documents
+      (100 EN + 100 HI) with their options, answer key, explanation, trick, concept, image URLs and
+      <span class="mono">mockId</span> already merged in — plus both <span class="mono">mock_tests</span> cards.
+      Writes go out in batches, and document IDs are derived from the mockId, so a re-run repairs a mock
+      instead of duplicating it.
+    </p>
+    <div class="toolbar" style="margin-top:0">
+      <label class="chk"><input type="checkbox" id="optImages" checked> upload figure images</label>
+      <label class="chk"><input type="checkbox" id="optReuseImg" checked> skip images already in Storage</label>
+      <label class="chk"><input type="checkbox" id="optSolutions" checked> apply solutions</label>
+      <label class="chk"><input type="checkbox" id="optMockDoc" checked> create/update mock_tests cards</label>
+      <label class="chk"><input type="checkbox" id="optPublish" checked> publish immediately</label>
+      <label class="chk"><input type="checkbox" id="optDryRun"> dry run (write nothing)</label>
+    </div>
+    <div class="toolbar">
+      <label class="fld">duration (min) <input class="narrow" type="number" id="optDuration" value="60" min="1"></label>
+      <label class="fld">marks per question <input class="narrow" type="number" id="optMarks" value="2" min="1" step="0.5"></label>
+      <label class="chk"><input type="checkbox" id="optNormalize">
+        convert <span class="mono">$…$</span> to KaTeX and auto-insert <span class="mono">[BR]</span> (legacy CSVs only)</label>
+    </div>
+    <div class="toolbar">
+      <button class="primary" id="runBtn" onclick="runAll()">Run selected mocks</button>
+      <button class="ghost sm" id="reportBtn" onclick="downloadReport()" style="display:none">Download report</button>
+      <span class="badge" id="runBadge">idle</span>
+    </div>
+    <div class="prog-outer"><div class="prog-inner" id="progBar"></div></div>
+    <div style="margin-top:8px;font-size:12px;color:var(--muted)" id="progText"></div>
+  </div>
+
+  <!-- ── LOG ────────────────────────────────────────────── -->
+  <div class="card">
+    <h2><span class="step-n">·</span> Log</h2>
+    <p class="hint">Everything the run did, in order. Copy this out if a mock needs investigating.</p>
+    <div id="log"><span class="l-info">Ready.</span></div>
+    <div class="toolbar"><button class="sm ghost" onclick="document.getElementById('log').innerHTML=''">Clear log</button></div>
+  </div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js';
+import { getFirestore, collection, doc, setDoc, getDocs, query, where, writeBatch }
+  from 'https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js';
+import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged }
+  from 'https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js';
+import { getStorage, ref as storageRef, uploadBytes, getDownloadURL }
+  from 'https://www.gstatic.com/firebasejs/11.0.0/firebase-storage.js';
+
+const firebaseConfig = {
+  apiKey: "AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",
+  authDomain: "trickyssc-17bb3.firebaseapp.com",
+  projectId: "trickyssc-17bb3",
+  storageBucket: "trickyssc-17bb3.firebasestorage.app",
+  messagingSenderId: "450627057220",
+  appId: "1:450627057220:web:366267bf437d94f20c6e11"
+};
+
+const app     = initializeApp(firebaseConfig);
+const db      = getFirestore(app);
+const storage = getStorage(app);
+const auth    = getAuth(app);
+const provider = new GoogleAuthProvider();
+const ADMIN_EMAILS = ['nirala01@gmail.com', 'ashish@trickyssc.com'];
+
+/* ══════════════════════════════════════════════════════════
+   Auth
+   ══════════════════════════════════════════════════════════ */
+window.doSignIn = async () => {
+  try { await signInWithPopup(auth, provider); }
+  catch (e) { log('Sign-in failed: ' + e.message, 'err'); }
+};
+
+onAuthStateChanged(auth, user => {
+  const ok = user && (ADMIN_EMAILS.includes(user.email) || user.email.endsWith('@trickyssc.com'));
+  document.getElementById('gate').style.display = ok ? 'none' : 'block';
+  document.getElementById('main').style.display = ok ? 'block' : 'none';
+  document.getElementById('signBtn').style.display = ok ? 'none' : 'inline-block';
+  const b = document.getElementById('userBadge');
+  if (ok) { b.textContent = user.email; b.className = 'badge ok'; }
+  else if (user) { b.textContent = 'not an admin'; b.className = 'badge bad'; }
+  else { b.textContent = 'not signed in'; b.className = 'badge'; }
+});
+
+/* ══════════════════════════════════════════════════════════
+   Logging
+   ══════════════════════════════════════════════════════════ */
+function log(msg, kind = 'info') {
+  const el = document.getElementById('log');
+  const t = new Date().toTimeString().slice(0, 8);
+  const line = document.createElement('div');
+  line.className = 'l-' + kind;
+  line.textContent = `[${t}] ${msg}`;
+  el.appendChild(line);
+  el.scrollTop = el.scrollHeight;
+}
+window.log = log;
+
+/* ══════════════════════════════════════════════════════════
+   CSV parser (RFC 4180: quoted fields, embedded commas/newlines/quotes)
+   ══════════════════════════════════════════════════════════ */
+function parseCSV(text) {
+  if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);      // strip UTF-8 BOM
+  text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const rows = [];
+  let row = [], field = '', inQ = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQ) {
+      if (c === '"') {
+        if (text[i + 1] === '"') { field += '"'; i++; }
+        else inQ = false;
+      } else field += c;
+    } else {
+      if (c === '"') inQ = true;
+      else if (c === ',') { row.push(field); field = ''; }
+      else if (c === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
+      else field += c;
+    }
+  }
+  if (field.length || row.length) { row.push(field); rows.push(row); }
+  if (!rows.length) return [];
+  const headers = rows[0].map(h => h.trim());
+  return rows.slice(1)
+    .filter(r => r.some(v => v && v.trim()))
+    .map(r => {
+      const o = {};
+      headers.forEach((h, i) => o[h] = (r[i] === undefined ? '' : r[i]).trim());
+      return o;
+    });
+}
+
+/* ══════════════════════════════════════════════════════════
+   Filename → mock grouping
+   ══════════════════════════════════════════════════════════ */
+const ROLE_RE = /^(.*?)[-_]?(questions|solutions|qs|sols?)[-_](en|hi)\.csv$/i;
+
+function cleanName(name) {
+  return name.replace(/^\d{10,}_/, '');       // strip an upload-tool numeric prefix
+}
+
+function detectRole(name) {
+  const m = cleanName(name).match(ROLE_RE);
+  if (!m) return null;
+  let kind = m[2].toLowerCase();
+  kind = kind.startsWith('q') ? 'questions' : 'solutions';
+  return { prefix: m[1].replace(/[-_]+$/, ''), kind, lang: m[3].toLowerCase() };
+}
+
+/** Pull exam / tier / mock number / year out of a prefix like ssc-cgl-2025-mock-12 */
+function metaFromPrefix(prefix) {
+  const p = prefix.toLowerCase();
+  const meta = { exam: '', tier: 'tier1', mockNum: '', year: '', title: '' };
+
+  const exam = p.match(/ssc[-_]?(cgl|chsl|mts|gd|cpo|jht|je)/);
+  if (exam) meta.exam = 'ssc-' + exam[1];
+
+  if (/tier[-_]?(2|ii)\b/.test(p)) meta.tier = 'tier2';
+
+  const yr = p.match(/(20\d{2})/);
+  if (yr) meta.year = yr[1];
+
+  const mk = p.match(/mock[-_ ]?(?:test[-_ ]?)?(\d{1,3})/) || p.match(/[-_]m(\d{1,3})(?:$|[-_])/);
+  if (mk) meta.mockNum = String(parseInt(mk[1]));
+
+  return meta;
+}
+
+/** Read the docx heading to guess which mock it belongs to. */
+function metaFromDocxTitle(title) {
+  const t = (title || '').toLowerCase();
+  const out = { mockNum: '', year: '', tier: '' };
+  const yr = t.match(/(20\d{2})/); if (yr) out.year = yr[1];
+  const mk = t.match(/mock[-_ ]?(?:test[-_ ]?)?(\d{1,3})/);
+  if (mk) out.mockNum = String(parseInt(mk[1]));
+  if (/tier[-_ ]?(2|ii)\b/.test(t)) out.tier = 'tier2';
+  return out;
+}
+
+/** exam_tier_mockN_lang — the exact shape admin-mock.html and uploader.html use. */
+function buildMockId(m, lang) {
+  return `${m.exam}_${m.tier}_mock${m.mockNum}_${lang}`.toLowerCase().replace(/\s+/g, '-');
+}
+
+function defaultTitle(m) {
+  const examName = (m.exam || '').replace('ssc-', 'SSC ').toUpperCase();
+  const tierLbl  = m.tier === 'tier2' ? 'Tier II' : 'Tier I';
+  return `${examName} ${tierLbl} — Mock Test ${m.mockNum}`;
+}
+
+/* ══════════════════════════════════════════════════════════
+   Subject canonicalisation + content normalisation
+   (same rules as admin-mock.html, so both importers agree)
+   ══════════════════════════════════════════════════════════ */
+const SUBJECT_CANON = {
+  'reasoning':'General Intelligence & Reasoning',
+  'gi':'General Intelligence & Reasoning',
+  'general intelligence':'General Intelligence & Reasoning',
+  'gk':'General Awareness', 'ga':'General Awareness',
+  'quant':'Quantitative Aptitude', 'maths':'Quantitative Aptitude', 'math':'Quantitative Aptitude',
+  'english':'English Language', 'eng':'English Language'
+};
+const CANON_SET = new Set(['General Intelligence & Reasoning','General Awareness','Quantitative Aptitude','English Language']);
+function canonSubject(s) {
+  const k = (s || '').trim().toLowerCase();
+  return SUBJECT_CANON[k] || s || '';
+}
+
+function convertMathDelims(s) {
+  if (!s) return s;
+  s = s.replace(/\$\$([\s\S]+?)\$\$/g, (_, inner) => '\\[' + inner + '\\]');
+  s = s.replace(/\$([^$\n]+?)\$/g, (_, inner) => '\\(' + inner + '\\)');
+  return s;
+}
+function autoLineBreaks(s) {
+  if (!s) return s;
+  if (s.indexOf('[BR]') !== -1) return s;      // already formatted, leave it
+  let out = s;
+  out = out.replace(/\s*(Statements?:)/g, '[BR][BR]$1');
+  out = out.replace(/\s*(Conclusions?:)/g, '[BR]$1');
+  out = out.replace(/\s*(Assertion\s*\(A\):)/g, '[BR][BR]$1');
+  out = out.replace(/\s*(Reason\s*\(R\):)/g, '[BR]$1');
+  out = out.replace(/\s+(\d{1,2}\.\s)/g, '[BR]$1');
+  out = out.replace(/\s+((?:I|II|III|IV|V)\.\s)/g, '[BR]$1');
+  out = out.replace(/^(\[BR\])+/, '');
+  return out;
+}
+/** Off by default: pipeline CSVs are already KaTeX + [BR] correct, and the
+    $-conversion destroys symbol-substitution questions ("$ means +"). */
+function normalizeField(s, breaks) {
+  if (!document.getElementById('optNormalize').checked) return s || '';
+  let v = convertMathDelims(s || '');
+  if (breaks) v = autoLineBreaks(v);
+  return v;
+}
+
+/* ══════════════════════════════════════════════════════════
+   DOCX figure parser  (same grouping rules as uploader.html)
+   ══════════════════════════════════════════════════════════ */
+async function parseFiguresDocx(file) {
+  const zip = await JSZip.loadAsync(await file.arrayBuffer());
+
+  const blobs = {};
+  for (const path of Object.keys(zip.files).filter(f => f.startsWith('word/media/'))) {
+    blobs[path.split('/').pop()] = await zip.files[path].async('blob');
+  }
+
+  const docXml  = await zip.files['word/document.xml'].async('string');
+  const relsXml = await zip.files['word/_rels/document.xml.rels'].async('string');
+  const parser  = new DOMParser();
+  const relsDoc = parser.parseFromString(relsXml, 'text/xml');
+  const docDOM  = parser.parseFromString(docXml, 'text/xml');
+
+  const ridMap = {};
+  relsDoc.querySelectorAll('Relationship').forEach(rel => {
+    const tgt = rel.getAttribute('Target') || '';
+    if (tgt.includes('media/')) ridMap[rel.getAttribute('Id')] = tgt.split('/').pop();
+  });
+
+  const NS_W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+  const NS_A = 'http://schemas.openxmlformats.org/drawingml/2006/main';
+  const NS_R = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+
+  const paras = [];
+  for (const para of docDOM.getElementsByTagNameNS(NS_W, 'p')) {
+    let text = '';
+    for (const t of para.getElementsByTagNameNS(NS_W, 't')) text += t.textContent;
+    text = text.trim();
+    const imgs = [];
+    for (const blip of para.getElementsByTagNameNS(NS_A, 'blip')) {
+      const rid = blip.getAttributeNS(NS_R, 'embed') || blip.getAttribute('r:embed');
+      if (rid && ridMap[rid]) imgs.push(ridMap[rid]);
+    }
+    if (text || imgs.length) paras.push({ text, imgs });
+  }
+
+  const title = paras.length ? paras[0].text : '';
+  const questions = [];
+  const used = new Set();
+  let cur = null;
+
+  const nextFreeOpt = (q, img) => {
+    for (const l of ['A','B','C','D']) {
+      if (!q.imgs['opt' + l]) { q.imgs['opt' + l] = img; return; }
+    }
+  };
+  // Put an image in the slot its label asked for; fall back if that slot is taken.
+  const putOpt = (q, slot, img) => {
+    const l = 'ABCD'[slot - 1];
+    if (l && !q.imgs['opt' + l]) { q.imgs['opt' + l] = img; return; }
+    nextFreeOpt(q, img);
+  };
+
+  // A label ("[figure]", "Figure 2") normally sits in its OWN paragraph, with the
+  // picture in the paragraph that follows. Remember the last label so the next
+  // image paragraph can be bound to the slot it names.
+  let pendingLabel = null;   // null | 'stem' | 1..4
+
+  for (const para of paras) {
+    const qm = para.text.match(/^Q\.?\s*(\d+)[.)]?\s*(.*)/i);
+    if (qm) {
+      if (cur) questions.push(cur);
+      cur = { qNum: parseInt(qm[1]), imgs: {} };
+      pendingLabel = null;
+      para.imgs.forEach((img, i) => {
+        cur.imgs[i === 0 ? 'q' : 'opt' + String.fromCharCode(64 + i)] = img;
+        used.add(img);
+      });
+      continue;
+    }
+    if (!cur) continue;
+
+    if (/^(Solution|Explanation|Answer)\s*:?$/i.test(para.text)) cur._expectSol = true;
+
+    const optM  = para.text.match(/^(?:Diagram|Figure|Option|Image)\s*(\d+)/i);
+    const stemM = /^\[\s*figure\s*\]$/i.test(para.text);
+
+    // Label on a line of its own: hold it for the image paragraph that follows.
+    if (!para.imgs.length) {
+      if (optM)            pendingLabel = parseInt(optM[1]);
+      else if (stemM)      pendingLabel = 'stem';
+      else if (para.text)  pendingLabel = null;
+      continue;
+    }
+
+    // Image paragraph. A label on this same paragraph wins over a held one.
+    const label = optM ? parseInt(optM[1]) : (stemM ? 'stem' : pendingLabel);
+    pendingLabel = null;
+
+    if (cur._expectSol) {
+      cur.imgs.sol = para.imgs[0]; used.add(para.imgs[0]); cur._expectSol = false;
+      para.imgs.slice(1).forEach(img => { used.add(img); nextFreeOpt(cur, img); });
+    } else if (typeof label === 'number') {
+      para.imgs.forEach((img, i) => { used.add(img); putOpt(cur, label + i, img); });
+    } else if (label === 'stem' || !cur.imgs.q) {
+      cur.imgs.q = para.imgs[0]; used.add(para.imgs[0]);
+      para.imgs.slice(1).forEach(img => { used.add(img); nextFreeOpt(cur, img); });
+    } else {
+      para.imgs.forEach(img => { used.add(img); nextFreeOpt(cur, img); });
+    }
+  }
+  if (cur) questions.push(cur);
+
+  const unassigned = Object.keys(blobs).filter(n => !used.has(n));
+  return { title, blobs, questions, unassigned };
+}
+
+/* ══════════════════════════════════════════════════════════
+   State
+   ══════════════════════════════════════════════════════════ */
+let mocks = [];         // [{prefix, meta, files:{qEn,qHi,sEn,sHi}, docxFile, docx, rows:{}, issues, existing, selected, dupMode}]
+let looseDocx = [];     // docx files not matched by prefix
+let report = [];
+
+/* ══════════════════════════════════════════════════════════
+   Step 1 — ingest files
+   ══════════════════════════════════════════════════════════ */
+const drop = document.getElementById('drop');
+['dragenter','dragover'].forEach(ev => drop.addEventListener(ev, e => {
+  e.preventDefault(); drop.classList.add('over');
+}));
+['dragleave','drop'].forEach(ev => drop.addEventListener(ev, e => {
+  e.preventDefault(); drop.classList.remove('over');
+}));
+drop.addEventListener('drop', e => ingest([...e.dataTransfer.files]));
+document.getElementById('fileInput').addEventListener('change', e => ingest([...e.target.files]));
+
+window.resetAll = () => {
+  mocks = []; looseDocx = []; report = [];
+  document.getElementById('fileInput').value = '';
+  document.getElementById('manifestCard').style.display = 'none';
+  document.getElementById('runCard').style.display = 'none';
+  document.getElementById('fileCount').textContent = '0 files';
+  document.getElementById('mockCount').textContent = '0 mocks';
+  document.getElementById('reportBtn').style.display = 'none';
+  log('Cleared.', 'info');
+};
+
+async function ingest(fileList) {
+  const csvs  = fileList.filter(f => /\.csv$/i.test(f.name));
+  const docxs = fileList.filter(f => /\.docx$/i.test(f.name));
+  document.getElementById('fileCount').textContent = fileList.length + ' files';
+
+  const byPrefix = {};
+  for (const p of mocks) byPrefix[p.prefix] = p;
+
+  let skipped = 0;
+  for (const f of csvs) {
+    const role = detectRole(f.name);
+    if (!role) { skipped++; log(`Skipped "${f.name}" — filename does not end in -questions-EN/HI.csv or -solutions-EN/HI.csv`, 'warn'); continue; }
+    if (!byPrefix[role.prefix]) {
+      byPrefix[role.prefix] = {
+        prefix: role.prefix, meta: metaFromPrefix(role.prefix),
+        files: {}, docxFile: null, docx: null, rows: {},
+        issues: [], existing: null, selected: true, dupMode: 'overwrite', done: false
+      };
+    }
+    const key = (role.kind === 'questions' ? 'q' : 's') + (role.lang === 'en' ? 'En' : 'Hi');
+    byPrefix[role.prefix].files[key] = f;
+  }
+
+  mocks = Object.values(byPrefix).sort((a, b) =>
+    (parseInt(a.meta.mockNum) || 0) - (parseInt(b.meta.mockNum) || 0) || a.prefix.localeCompare(b.prefix));
+
+  // Parse each docx once so we can read its heading and match it.
+  for (const f of docxs) {
+    let parsed = null;
+    try { parsed = await parseFiguresDocx(f); }
+    catch (e) { log(`Could not read ${f.name}: ${e.message}`, 'err'); continue; }
+    const clean = cleanName(f.name).toLowerCase();
+
+    let target = mocks.find(p => clean.includes(p.prefix.toLowerCase()));
+    if (!target) {
+      const dm = metaFromDocxTitle(parsed.title);
+      target = mocks.find(p =>
+        dm.mockNum && dm.mockNum === p.meta.mockNum &&
+        (!dm.year || dm.year === p.meta.year) &&
+        (!dm.tier || dm.tier === p.meta.tier) && !p.docxFile);
+    }
+    if (!target && mocks.length === 1 && !mocks[0].docxFile) target = mocks[0];
+
+    if (target) {
+      target.docxFile = f; target.docx = parsed;
+      log(`${f.name} → ${target.prefix} (${parsed.questions.length} figure questions, ${Object.keys(parsed.blobs).length} images)`, 'ok');
+    } else {
+      looseDocx.push({ file: f, parsed });
+      log(`${f.name} could not be matched automatically — assign it in the table`, 'warn');
+    }
+  }
+
+  // Load CSV contents
+  for (const p of mocks) {
+    for (const [key, f] of Object.entries(p.files)) {
+      if (p.rows[key]) continue;
+      try { p.rows[key] = parseCSV(await f.text()); }
+      catch (e) { log(`Failed to read ${f.name}: ${e.message}`, 'err'); }
+    }
+  }
+
+  document.getElementById('mockCount').textContent = mocks.length + ' mocks';
+  if (skipped) log(`${skipped} file(s) skipped.`, 'warn');
+  renderManifest();
+  if (mocks.length) {
+    document.getElementById('manifestCard').style.display = 'block';
+    document.getElementById('runCard').style.display = 'block';
+  }
+}
+
+/* ══════════════════════════════════════════════════════════
+   Step 2 — manifest table
+   ══════════════════════════════════════════════════════════ */
+const EXAMS = ['ssc-cgl','ssc-chsl','ssc-mts','ssc-gd','ssc-cpo','ssc-jht','ssc-je'];
+
+function renderManifest() {
+  const body = document.getElementById('manifestBody');
+  body.innerHTML = '';
+  mocks.forEach((p, i) => {
+    const tr = document.createElement('tr');
+    tr.id = 'row-' + i;
+
+    const have = k => p.files[k] ? `<span class="have">✓</span>` : `<span class="miss">✗</span>`;
+    const docxOpts = ['<option value="">— none —</option>']
+      .concat(looseDocx.map((d, di) =>
+        `<option value="${di}" ${p.docxFile === d.file ? 'selected' : ''}>${cleanName(d.file.name)}</option>`));
+    const docxCell = p.docxFile && !looseDocx.some(d => d.file === p.docxFile)
+      ? `<span class="mono">${cleanName(p.docxFile.name)}</span><br>
+         <span class="muted mono">${p.docx ? p.docx.questions.length + ' fig Qs' : ''}</span>`
+      : `<select onchange="assignDocx(${i}, this.value)">${docxOpts.join('')}</select>`;
+
+    tr.innerHTML = `
+      <td><input type="checkbox" class="sel" ${p.selected ? 'checked' : ''} onchange="mocksSel(${i}, this.checked)"></td>
+      <td class="mono">${p.prefix}<br><span class="muted" id="mid-${i}">${buildMockId(p.meta,'en')}</span></td>
+      <td><select onchange="setMeta(${i},'exam',this.value)">
+            ${EXAMS.map(e => `<option value="${e}" ${p.meta.exam === e ? 'selected' : ''}>${e}</option>`).join('')}
+          </select></td>
+      <td><select onchange="setMeta(${i},'tier',this.value)">
+            <option value="tier1" ${p.meta.tier === 'tier1' ? 'selected' : ''}>tier1</option>
+            <option value="tier2" ${p.meta.tier === 'tier2' ? 'selected' : ''}>tier2</option>
+          </select></td>
+      <td><input type="number" min="1" value="${p.meta.mockNum}" onchange="setMeta(${i},'mockNum',this.value)"></td>
+      <td><input value="${p.meta.year}" onchange="setMeta(${i},'year',this.value)"></td>
+      <td><input placeholder="${defaultTitle(p.meta)}" value="${p.meta.title}" onchange="setMeta(${i},'title',this.value)"></td>
+      <td>${docxCell}</td>
+      <td><select id="dup-${i}" onchange="setDup(${i}, this.value)">
+            <option value="overwrite">Overwrite</option>
+            <option value="skip">Skip</option>
+            <option value="replace">Delete + reimport</option>
+          </select></td>
+      <td class="files-mini">
+        Q ${have('qEn')}EN ${have('qHi')}HI &nbsp; S ${have('sEn')}EN ${have('sHi')}HI
+        <div id="iss-${i}" class="issues"></div>
+      </td>
+      <td id="st-${i}" class="nowrap"><span class="badge">not checked</span></td>`;
+    body.appendChild(tr);
+  });
+}
+
+window.mocksSel = (i, v) => { mocks[i].selected = v; };
+window.toggleAll = (el) => {
+  mocks.forEach(p => { p.selected = el.checked; });
+  document.querySelectorAll('#manifestBody .sel').forEach(c => c.checked = el.checked);
+};
+window.setMeta = (i, k, v) => {
+  mocks[i].meta[k] = v.trim();
+  document.getElementById('mid-' + i).textContent = buildMockId(mocks[i].meta, 'en');
+};
+window.setDup = (i, v) => { mocks[i].dupMode = v; };
+window.assignDocx = (i, v) => {
+  if (v === '') { mocks[i].docxFile = null; mocks[i].docx = null; return; }
+  const d = looseDocx[parseInt(v)];
+  mocks[i].docxFile = d.file; mocks[i].docx = d.parsed;
+  log(`${cleanName(d.file.name)} assigned to ${mocks[i].prefix}`, 'ok');
+};
+
+/* ══════════════════════════════════════════════════════════
+   Validation + duplicate check
+   ══════════════════════════════════════════════════════════ */
+function validateMock(p) {
+  const errs = [], warns = [];
+  const m = p.meta;
+  if (!m.exam)    errs.push('exam is not set');
+  if (!m.mockNum) errs.push('mock number is not set — it is what the mockId is built from');
+  else if (!/^\d{1,3}$/.test(m.mockNum)) errs.push('mock number must be a whole number');
+  if (!m.year)    warns.push('no year — the mock still works, the card just shows no year');
+
+  for (const [k, label] of [['qEn','questions-EN'],['qHi','questions-HI'],['sEn','solutions-EN'],['sHi','solutions-HI']]) {
+    if (!p.files[k]) { errs.push(`${label}.csv is missing`); continue; }
+    const rows = p.rows[k] || [];
+    if (!rows.length) { errs.push(`${label}.csv has no data rows`); continue; }
+    const nums = rows.map(r => parseInt(r.qNum));
+    if (nums.some(isNaN)) errs.push(`${label}.csv has a row with a non-numeric qNum`);
+    if (new Set(nums).size !== nums.length) errs.push(`${label}.csv has duplicate qNums`);
+    if (k[0] === 'q') {
+      const need = ['text','option_A','option_B','option_C','option_D','correct','subject'];
+      const miss = need.filter(h => !(h in rows[0]));
+      if (miss.length) errs.push(`${label}.csv is missing column(s): ${miss.join(', ')}`);
+      const bad = rows.filter(r => !/^[ABCD]$/.test((r.correct || '').trim()));
+      if (bad.length) errs.push(`${label}.csv has ${bad.length} row(s) whose answer is not A–D`);
+      const empty = rows.filter(r => !(r.text || '').trim());
+      if (empty.length) errs.push(`${label}.csv has ${empty.length} row(s) with empty text`);
+      const odd = [...new Set(rows.map(r => canonSubject(r.subject)).filter(s => s && !CANON_SET.has(s)))];
+      if (odd.length) warns.push(`${label}.csv has non-standard subject(s): ${odd.join(', ')} — the player groups by the four canonical names`);
+      const noSub = rows.filter(r => !(r.subject || '').trim()).length;
+      if (noSub) errs.push(`${label}.csv has ${noSub} row(s) with no subject`);
+    } else {
+      if (!('explanation' in rows[0])) errs.push(`${label}.csv has no explanation column`);
+    }
+  }
+
+  const qEn = p.rows.qEn || [], qHi = p.rows.qHi || [];
+  if (qEn.length && qHi.length) {
+    if (qEn.length !== qHi.length) errs.push(`EN has ${qEn.length} questions but HI has ${qHi.length}`);
+    const hiKey = {}; qHi.forEach(r => hiKey[parseInt(r.qNum)] = (r.correct || '').trim());
+    const clash = qEn.filter(r => hiKey[parseInt(r.qNum)] && hiKey[parseInt(r.qNum)] !== (r.correct || '').trim());
+    if (clash.length) errs.push(`answer key differs between EN and HI at Q${clash.map(r => r.qNum).join(', Q')}`);
+  }
+  if (qEn.length && qEn.length !== 100) warns.push(`${qEn.length} questions — a Tier I mock normally has 100`);
+
+  for (const [sk, qk, label] of [['sEn','qEn','EN'],['sHi','qHi','HI']]) {
+    const s = p.rows[sk] || [], q = p.rows[qk] || [];
+    if (!s.length || !q.length) continue;
+    const qn = new Set(q.map(r => parseInt(r.qNum)));
+    const orphan = s.filter(r => !qn.has(parseInt(r.qNum)));
+    if (orphan.length) errs.push(`solutions-${label} has ${orphan.length} qNum(s) with no matching question`);
+    const sn = new Set(s.map(r => parseInt(r.qNum)));
+    const noSol = [...qn].filter(n => !sn.has(n));
+    if (noSol.length) warns.push(`${noSol.length} ${label} question(s) have no solution row`);
+    const blank = s.filter(r => !(r.explanation || '').trim());
+    if (blank.length) warns.push(`solutions-${label} has ${blank.length} blank explanation(s)`);
+  }
+
+  // A "$" in the text is almost always a symbol-substitution operator in these papers,
+  // not maths delimiters — converting it would swallow half the question.
+  if (document.getElementById('optNormalize').checked) {
+    const dollars = (p.rows.qEn || []).filter(r => (r.text || '').includes('$')).map(r => r.qNum);
+    if (dollars.length) errs.push(`Q${dollars.join(', Q')} contain "$" — turn off the $→KaTeX conversion or those questions will be mangled`);
+  }
+
+  // Figures: every [FIGURE-BASED] / (figure n) question should have images
+  const figQ = qEn.filter(r =>
+    /\[FIGURE-BASED\]/i.test(r.text || '') ||
+    /\(figure\s*\d\)/i.test([r.option_A, r.option_B, r.option_C, r.option_D].join(' ')))
+    .map(r => parseInt(r.qNum));
+  p.figQ = figQ;
+  if (figQ.length) {
+    if (!p.docx) {
+      errs.push(`${figQ.length} figure question(s) (Q${figQ.join(', Q')}) but no figures .docx assigned`);
+    } else {
+      const got = new Set(p.docx.questions.map(q => q.qNum));
+      const missing = figQ.filter(n => !got.has(n));
+      if (missing.length) errs.push(`no figures in the .docx for Q${missing.join(', Q')}`);
+      const extra = p.docx.questions.map(q => q.qNum).filter(n => !figQ.includes(n));
+      if (extra.length) warns.push(`.docx has figures for Q${extra.join(', Q')} which the CSV does not mark as figure questions`);
+      if (p.docx.unassigned.length) warns.push(`${p.docx.unassigned.length} image(s) in the .docx were not attached to any question`);
+
+      // A question whose options read "(figure 1)…(figure 4)" needs four option images;
+      // one with text options just needs the stem figure.
+      const byNum = {}; p.docx.questions.forEach(q => byNum[q.qNum] = q);
+      const thinOpts = [], thinStem = [];
+      qEn.filter(r => figQ.includes(parseInt(r.qNum))).forEach(r => {
+        const n = parseInt(r.qNum), g = byNum[n]; if (!g) return;
+        const optsAreFigures = ['option_A','option_B','option_C','option_D']
+          .every(k => /\(\s*figure\s*\d\s*\)/i.test(r[k] || ''));
+        if (optsAreFigures) {
+          const have = ['optA','optB','optC','optD'].filter(s => g.imgs[s]).length;
+          if (have < 4) thinOpts.push(`Q${n} (${have}/4)`);
+        } else if (!g.imgs.q) thinStem.push('Q' + n);
+      });
+      if (thinOpts.length) errs.push(`option figures incomplete for ${thinOpts.join(', ')} — check the .docx layout`);
+      if (thinStem.length) errs.push(`no stem figure in the .docx for ${thinStem.join(', ')}`);
+    }
+  }
+
+  // Questions imported by admin-mock.html have random document IDs, so an
+  // "overwrite" pass would land alongside them and double the mock.
+  if (p.existing) {
+    const rnd = (p.existing.en.random || 0) + (p.existing.hi.random || 0);
+    if (rnd && p.dupMode === 'overwrite') {
+      errs.push(`${rnd} existing question(s) under this mockId have random IDs (imported by admin-mock) — choose "Delete + reimport", or you will get duplicates`);
+    }
+  }
+
+  p.issues = { errs, warns };
+  return errs.length === 0;
+}
+
+async function checkExisting(p) {
+  const out = {};
+  for (const lang of ['en','hi']) {
+    const mid = buildMockId(p.meta, lang);
+    let count = 0, random = 0;
+    try {
+      const snap = await getDocs(query(collection(db, 'questions'), where('mockId', '==', mid)));
+      const re = new RegExp('^' + mid.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '_q\\d{3}$');
+      snap.forEach(d => { count++; if (!re.test(d.id)) random++; });
+    } catch (e) { log(`Lookup failed for ${mid}: ${e.message}`, 'warn'); }
+    out[lang] = { mid, count, random };
+  }
+  p.existing = out;
+  return out;
+}
+
+window.validateAll = async () => {
+  log('── Validating ──', 'head');
+  let ok = 0, bad = 0;
+  for (let i = 0; i < mocks.length; i++) {
+    const p = mocks[i];
+    if (!p.selected) continue;
+    await checkExisting(p);
+
+    // Random-ID leftovers can only be cleaned by a delete pass — pick it for them.
+    const rnd = p.existing.en.random + p.existing.hi.random;
+    if (rnd && p.dupMode === 'overwrite') {
+      p.dupMode = 'replace';
+      const sel = document.getElementById('dup-' + i);
+      if (sel) sel.value = 'replace';
+      log(`${p.prefix}: ${rnd} old random-ID question(s) found — switched to "Delete + reimport"`, 'warn');
+    }
+
+    const good = validateMock(p);
+
+    const issEl = document.getElementById('iss-' + i);
+    issEl.innerHTML =
+      p.issues.errs.map(e => `<div class="iss-err">✗ ${e}</div>`).join('') +
+      p.issues.warns.map(w => `<div class="iss-warn">! ${w}</div>`).join('');
+
+    const ex = p.existing;
+    const exTxt = (ex.en.count || ex.hi.count)
+      ? `<span class="badge warn">EN ${ex.en.count} · HI ${ex.hi.count} already there</span>`
+      : `<span class="badge info">new mock</span>`;
+
+    document.getElementById('st-' + i).innerHTML = good
+      ? `<span class="badge ok">ready</span> ${exTxt}`
+      : `<span class="badge bad">${p.issues.errs.length} error(s)</span>`;
+    document.getElementById('row-' + i).className = good ? '' : 'row-err';
+
+    good ? ok++ : bad++;
+    log(`${p.prefix}: ${good ? 'ready' : 'BLOCKED'} — ${p.issues.errs.length} error(s), ${p.issues.warns.length} warning(s), ${(p.rows.qEn || []).length} questions, ${p.figQ ? p.figQ.length : 0} figure Qs`,
+        good ? 'ok' : 'err');
+  }
+  log(`Validation done: ${ok} ready, ${bad} blocked.`, bad ? 'warn' : 'ok');
+};
+
+/* ══════════════════════════════════════════════════════════
+   Step 3 — run
+   ══════════════════════════════════════════════════════════ */
+function setProg(pct, txt) {
+  if (pct !== null && pct !== undefined) document.getElementById('progBar').style.width = pct + '%';
+  if (txt !== undefined) document.getElementById('progText').textContent = txt || '';
+}
+
+// Word embeds .wmf/.emf for drawn shapes and equations, and Storage rules often
+// whitelist only real web image types. uploader.html sidesteps this by labelling
+// everything PNG; do the same, and only trust an extension we know is safe.
+const SAFE_MIME = { png:'image/png', jpg:'image/jpeg', jpeg:'image/jpeg',
+                    gif:'image/gif', webp:'image/webp', bmp:'image/bmp' };
+
+/** One tiny write, so a rules problem surfaces in two seconds instead of 18 images in. */
+async function preflight() {
+  const uid = auth.currentUser.uid;
+  const bytes = Uint8Array.from(atob(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='),
+    c => c.charCodeAt(0));
+  const sRef = storageRef(storage, `question-images/${uid}/_preflight.png`);
+  await uploadBytes(sRef, new Blob([bytes], { type: 'image/png' }), { contentType: 'image/png' });
+  return uid;
+}
+
+async function uploadFigures(p, mid) {
+  // Deterministic paths → a re-run overwrites instead of piling up copies.
+  const uid = auth.currentUser.uid;
+  const reuse = document.getElementById('optReuseImg').checked;
+  const urls = {};                                   // qNum → {q, optA..optD, sol}
+  const jobs = [];
+  for (const q of p.docx.questions) {
+    for (const [slot, name] of Object.entries(q.imgs)) {
+      if (slot.startsWith('_')) continue;
+      const blob = p.docx.blobs[name];
+      if (blob) jobs.push({ qNum: q.qNum, slot, blob, name });
+    }
+  }
+  let done = 0;
+  const failed = [];
+  for (const j of jobs) {
+    const rawExt = (j.name.match(/\.(\w+)$/) || [, ''])[1].toLowerCase();
+    const mime   = SAFE_MIME[rawExt] || 'image/png';
+    const ext    = SAFE_MIME[rawExt] ? rawExt : 'png';
+    const path = `question-images/${uid}/${mid}_q${String(j.qNum).padStart(3,'0')}_${j.slot}.${ext}`;
+    const sRef = storageRef(storage, path);
+    try {
+      let url = null;
+      if (reuse) { try { url = await getDownloadURL(sRef); } catch (e) { /* not there yet */ } }
+      if (!url) {
+        const snap = await uploadBytes(sRef, j.blob, {
+          contentType: mime,
+          cacheControl: 'public, max-age=31536000'
+        });
+        url = await getDownloadURL(snap.ref);
+      }
+      (urls[j.qNum] = urls[j.qNum] || {})[j.slot] = url;
+      done++;
+    } catch (e) {
+      // One bad image must not cost the whole mock — record it and carry on.
+      failed.push({ qNum: j.qNum, slot: j.slot, src: j.name,
+                    kb: Math.round(j.blob.size / 1024), ext: rawExt || '(none)', mime,
+                    code: e.code || '', msg: e.message });
+    }
+    setProg(null, `${p.prefix}: images ${done + failed.length}/${jobs.length}`);
+  }
+  return { urls, count: done, total: jobs.length, failed };
+}
+
+async function deleteRefs(refs) {
+  for (let i = 0; i < refs.length; i += 400) {
+    const b = writeBatch(db);
+    refs.slice(i, i + 400).forEach(r => b.delete(r));
+    await b.commit();
+  }
+  return refs.length;
+}
+
+async function deleteExisting(mid) {
+  const snap = await getDocs(query(collection(db, 'questions'), where('mockId', '==', mid)));
+  const refs = []; snap.forEach(d => refs.push(d.ref));
+  return await deleteRefs(refs);
+}
+
+function buildDocs(p, lang, imgUrls, isNew) {
+  const qRows = p.rows[lang === 'en' ? 'qEn' : 'qHi'] || [];
+  const sRows = document.getElementById('optSolutions').checked
+    ? (p.rows[lang === 'en' ? 'sEn' : 'sHi'] || []) : [];
+  const sol = {}; sRows.forEach(r => sol[parseInt(r.qNum)] = r);
+  const m = p.meta;
+  const mid = buildMockId(m, lang);
+  const num = parseInt(m.mockNum);
+  const now = new Date();
+
+  return qRows.map(r => {
+    const qNum = parseInt(r.qNum);
+    const s = sol[qNum];
+    const im = imgUrls && imgUrls[qNum];
+
+    const oA = normalizeField(r.option_A), oB = normalizeField(r.option_B);
+    const oC = normalizeField(r.option_C), oD = normalizeField(r.option_D);
+
+    const data = {
+      mockId: mid,
+      exam: m.exam, tier: m.tier, type: 'mock',
+      language: lang, lang,
+      mockNum: num, mockSeriesNum: num,
+      qNum,
+      subject: canonSubject(r.subject),
+      chapter: r.chapter || '',
+      difficulty: r.difficulty || 'medium',
+      text: normalizeField(r.text, true),
+      options: { A: oA, B: oB, C: oC, D: oD },
+      // The mock player reads the flat fields on older documents — write both.
+      option_A: oA, option_B: oB, option_C: oC, option_D: oD,
+      correct: (r.correct || '').trim().toUpperCase(),
+      updatedAt: now
+    };
+    if (m.year) data.year = m.year;
+    if (isNew) data.createdAt = now;
+
+    // Written only when we actually have the data — a merge write must never
+    // blank out solutions or image URLs that a previous run put there.
+    if (s) {
+      data.explanation = normalizeField(s.explanation);
+      data.trick       = normalizeField(s.trick);
+      data.concept     = s.concept || '';
+    }
+    if (im) {
+      data.imageUrl      = im.q || '';
+      data.optionImages  = { A: im.optA || '', B: im.optB || '', C: im.optC || '', D: im.optD || '' };
+      data.solutionImage = im.sol || '';
+    }
+    return { id: `${mid}_q${String(qNum).padStart(3, '0')}`, data };
+  });
+}
+
+async function commitDocs(docs) {
+  for (let i = 0; i < docs.length; i += 400) {
+    const b = writeBatch(db);
+    docs.slice(i, i + 400).forEach(d => b.set(doc(db, 'questions', d.id), d.data, { merge: true }));
+    await b.commit();
+  }
+}
+
+window.runAll = async () => {
+  const dry = document.getElementById('optDryRun').checked;
+  const doImg = document.getElementById('optImages').checked;
+  const doCard = document.getElementById('optMockDoc').checked;
+  const publish = document.getElementById('optPublish').checked;
+  const duration = parseInt(document.getElementById('optDuration').value) || 60;
+  const perMark = parseFloat(document.getElementById('optMarks').value) || 2;
+  const list = mocks.filter(p => p.selected);
+  if (!list.length) { log('Nothing selected.', 'warn'); return; }
+
+  // Re-validate from scratch — metadata may have been edited since the last check.
+  const blocked = list.filter(p => !validateMock(p));
+  if (blocked.length) {
+    log(`${blocked.length} selected mock(s) still have errors — fix them or deselect. Run aborted.`, 'err');
+    blocked.forEach(p => log(`  ${p.prefix}: ${p.issues.errs.join('; ')}`, 'err'));
+    return;
+  }
+
+  document.getElementById('runBtn').disabled = true;
+  document.getElementById('runBadge').textContent = dry ? 'dry run…' : 'running…';
+  document.getElementById('runBadge').className = 'badge info';
+  report = [];
+  log(`── ${dry ? 'DRY RUN' : 'RUN'}: ${list.length} mock(s) ──`, 'head');
+
+  // Prove we can write to Storage before spending minutes on real uploads.
+  if (!dry && doImg && list.some(p => p.docx)) {
+    try {
+      const uid = await preflight();
+      log(`Storage write check passed as ${auth.currentUser.email} (uid ${uid})`, 'ok');
+    } catch (e) {
+      log(`Storage write check FAILED as ${auth.currentUser.email} (uid ${auth.currentUser.uid}) — ${e.code || e.message}`, 'err');
+      log(`Your Storage rules are refusing writes for this account. Fix the rules or sign in as the admin that works, then re-run. Nothing was written.`, 'err');
+      document.getElementById('runBtn').disabled = false;
+      document.getElementById('runBadge').textContent = 'blocked';
+      document.getElementById('runBadge').className = 'badge bad';
+      return;
+    }
+  }
+  const t0 = Date.now();
+
+  let idx = 0;
+  for (const p of list) {
+    idx++;
+    const i = mocks.indexOf(p);
+    const base = ((idx - 1) / list.length) * 100;
+    setProg(base, `Mock ${idx}/${list.length}: ${p.prefix}`);
+    document.getElementById('st-' + i).innerHTML = '<span class="badge info">working…</span>';
+    const rec = { prefix: p.prefix, mockId: buildMockId(p.meta, 'en'), images: 0, en: 0, hi: 0, deleted: 0, skipped: false, error: null };
+
+    try {
+      const mode = p.dupMode || 'overwrite';
+      if (!p.existing) await checkExisting(p);
+      const already = p.existing.en.count || p.existing.hi.count;
+      if (mode === 'skip' && already) {
+        log(`${p.prefix}: already in Firestore — skipped`, 'warn');
+        rec.skipped = true; report.push(rec);
+        document.getElementById('st-' + i).innerHTML = '<span class="badge warn">skipped</span>';
+        continue;
+      }
+      if (mode === 'replace' && !dry) {
+        for (const lang of ['en','hi']) {
+          const n = await deleteExisting(buildMockId(p.meta, lang));
+          rec.deleted += n;
+          if (n) log(`${p.prefix}: deleted ${n} existing ${lang.toUpperCase()} docs`, 'warn');
+        }
+      }
+
+      // 1. Images — uploaded once, shared by the EN and HI documents.
+      let imgUrls = null;
+      if (doImg && p.docx) {
+        if (dry) {
+          const n = p.docx.questions.reduce((a, q) => a + Object.keys(q.imgs).filter(k => !k.startsWith('_')).length, 0);
+          log(`${p.prefix}: would upload ${n} image(s)`, 'info');
+          rec.images = n;
+        } else {
+          const midImg = buildMockId(p.meta, 'en').replace(/_en$/, '');
+          const r = await uploadFigures(p, midImg);
+          imgUrls = r.urls; rec.images = r.count; rec.imagesFailed = r.failed;
+          log(`${p.prefix}: ${r.count}/${r.total} image(s) in Storage, reused by both languages`,
+              r.failed.length ? 'warn' : 'ok');
+          if (r.failed.length) {
+            const codes = [...new Set(r.failed.map(f => f.code || 'unknown'))].join(', ');
+            const exts  = [...new Set(r.failed.map(f => f.ext))].join(', ');
+            log(`${p.prefix}: ${r.failed.length} image(s) REJECTED — codes: ${codes} · source types: ${exts}`, 'err');
+            r.failed.slice(0, 8).forEach(f =>
+              log(`    Q${f.qNum} ${f.slot} — ${f.src} (${f.ext}, ${f.kb} KB, sent as ${f.mime}) → ${f.code || f.msg}`, 'err'));
+            if (r.failed.length > 8) log(`    …and ${r.failed.length - 8} more (see the report file)`, 'err');
+            log(`${p.prefix}: writing questions anyway — re-run later to fill the missing images`, 'warn');
+          }
+        }
+      }
+
+      // 2 + 3. Questions merged with solutions and image URLs, both languages.
+      for (const lang of ['en','hi']) {
+        const isNew = mode === 'replace' || !(p.existing[lang] && p.existing[lang].count);
+        const docs = buildDocs(p, lang, imgUrls, isNew);
+        if (!docs.length) continue;
+        if (!dry) await commitDocs(docs);
+        rec[lang] = docs.length;
+        log(`${p.prefix}: ${dry ? 'would write' : 'wrote'} ${docs.length} ${lang.toUpperCase()} questions (with solutions + images + mockId)`, 'ok');
+        setProg(base + (lang === 'en' ? 40 : 75) / list.length, `${p.prefix}: ${lang.toUpperCase()} committed`);
+      }
+
+      // 4. mock_tests cards — one per language, doc id = mockId
+      if (doCard && !dry) {
+        for (const lang of ['en','hi']) {
+          const mid = buildMockId(p.meta, lang);
+          const rows = p.rows[lang === 'en' ? 'qEn' : 'qHi'] || [];
+          if (!rows.length) continue;
+          const subCounts = {};
+          rows.forEach(r => { const s = canonSubject(r.subject); subCounts[s] = (subCounts[s] || 0) + 1; });
+          const card = {
+            mockId: mid, exam: p.meta.exam, tier: p.meta.tier, lang, language: lang,
+            seriesNum: parseInt(p.meta.mockNum), mockNum: parseInt(p.meta.mockNum),
+            title: p.meta.title || defaultTitle(p.meta),
+            totalQuestions: rows.length, subjectCounts: subCounts,
+            duration, totalMarks: Math.round(rows.length * perMark),
+            isPublished: publish, updatedAt: new Date()
+          };
+          if (p.meta.year) card.year = p.meta.year;
+          await setDoc(doc(db, 'mock_tests', mid), card, { merge: true });
+        }
+        log(`${p.prefix}: mock cards ${publish ? 'published' : 'saved as draft'}`, 'ok');
+      }
+
+      p.done = true;
+      document.getElementById('row-' + i).className = 'row-done';
+      document.getElementById('st-' + i).innerHTML =
+        `<span class="badge ok">${dry ? 'dry ok' : 'done'}</span> <span class="badge">${rec.en}+${rec.hi} Qs · ${rec.images} img</span>`;
+
+    } catch (e) {
+      rec.error = e.message;
+      log(`${p.prefix}: FAILED — ${e.message}`, 'err');
+      console.error(e);
+      document.getElementById('row-' + i).className = 'row-err';
+      document.getElementById('st-' + i).innerHTML = `<span class="badge bad">failed</span>`;
+    }
+    report.push(rec);
+    setProg((idx / list.length) * 100, `${idx}/${list.length} mocks`);
+  }
+
+  const secs = ((Date.now() - t0) / 1000).toFixed(1);
+  const totQ = report.reduce((a, r) => a + r.en + r.hi, 0);
+  const totI = report.reduce((a, r) => a + r.images, 0);
+  const fails = report.filter(r => r.error).length;
+  log(`── Finished in ${secs}s — ${totQ} question docs, ${totI} images, ${fails} failure(s) ──`, fails ? 'err' : 'head');
+  setProg(100, `Done — ${totQ} questions, ${totI} images, ${secs}s`);
+  document.getElementById('runBadge').textContent = fails ? `${fails} failed` : 'complete';
+  document.getElementById('runBadge').className = 'badge ' + (fails ? 'bad' : 'ok');
+  document.getElementById('runBtn').disabled = false;
+  document.getElementById('reportBtn').style.display = 'inline-block';
+};
+
+window.downloadReport = () => {
+  const blob = new Blob([JSON.stringify({ at: new Date().toISOString(), mocks: report }, null, 2)],
+                        { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'batch-mock-upload-report.json';
+  a.click();
+};
+</script>
+</body>
+</html>
