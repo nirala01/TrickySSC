@@ -1384,9 +1384,9 @@
               <h3 style="font-family:'Rajdhani',sans-serif; font-size:1.05rem; font-weight:700; color:#1A202C; margin:0 0 0.5rem; line-height:1.4;">SSC CGL PYQ Tests <span style="color:#FF6B00;">(Tier I & Tier II)</span><div style="font-size:0.72rem;color:#718096;margin-top:0.3rem;">🕐 Updated: 8 Mar 2026</div></h3>
               <p style="font-size:0.78rem; color:#718096; margin:0 0 0.5rem;">Authentic shift-wise SSC CGL papers with detailed solutions.</p>
               <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.75rem;">
-                <span style="font-size:0.82rem; color:#4A5568; font-weight:600;">1500 Total Tests</span>
+                <span id="cglPyqCount" style="font-size:0.82rem; color:#4A5568; font-weight:600;">Loading…</span>
                 <span style="color:#CBD5E0;">|</span>
-                <span style="font-size:0.82rem; color:#00A86B; font-weight:700;">✅ Tier I Free</span>
+                <span style="font-size:0.82rem; color:#00A86B; font-weight:700;">✅ All Free</span>
               </div>
               <div style="display:flex; align-items:center; gap:0.4rem; margin-bottom:1.2rem;">
                 <span style="font-size:0.75rem; background:#F1F5F9; color:#4A5568; padding:0.2rem 0.6rem; border-radius:100px; font-weight:600;">English</span>
@@ -1407,9 +1407,9 @@
               <h3 style="font-family:'Rajdhani',sans-serif; font-size:1.05rem; font-weight:700; color:#1A202C; margin:0 0 0.5rem; line-height:1.4;">SSC CGL Mock Test Series 2026 <span style="color:#0EA5E9;">(Tier I & Tier II)</span><div style="font-size:0.72rem;color:#718096;margin-top:0.3rem;">🕐 Updated: 5 Mar 2026</div></h3>
               <p style="font-size:0.78rem; color:#718096; margin:0 0 0.5rem;">Full-length mock tests built on the latest exam pattern.</p>
               <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.75rem;">
-                <span style="font-size:0.82rem; color:#4A5568; font-weight:600;">1500 Total Tests</span>
+                <span id="cglMockCount" style="font-size:0.82rem; color:#4A5568; font-weight:600;">Loading…</span>
                 <span style="color:#CBD5E0;">|</span>
-                <span style="font-size:0.82rem; color:#00A86B; font-weight:700;">4 Free Tests</span>
+                <span style="font-size:0.82rem; color:#00A86B; font-weight:700;">✅ All Free</span>
               </div>
               <div style="display:flex; align-items:center; gap:0.4rem; margin-bottom:1.2rem;">
                 <span style="font-size:0.75rem; background:#F1F5F9; color:#4A5568; padding:0.2rem 0.6rem; border-radius:100px; font-weight:600;">English</span>
@@ -1427,12 +1427,12 @@
                 <div style="width:44px; height:44px; border-radius:50%; background:#F0FFF4; border:2px solid #BBF7D0; display:flex; align-items:center; justify-content:center; font-size:1.2rem;">📚</div>
                 <span style="background:#E8F5E9; color:#00A86B; font-size:0.72rem; font-weight:700; padding:0.25rem 0.6rem; border-radius:100px; font-family:'Rajdhani',sans-serif;">BUNDLE</span>
               </div>
-              <h3 style="font-family:'Rajdhani',sans-serif; font-size:1.05rem; font-weight:700; color:#1A202C; margin:0 0 0.5rem; line-height:1.4;">SSC CGL Chapter-wise Preparation 2026 <span style="color:#00A86B;">(PYQs + Model Questions)</span><div style="font-size:0.72rem;color:#718096;margin-top:0.3rem;">🕐 Updated: 3 Mar 2026</div></h3>
+              <h3 style="font-family:'Rajdhani',sans-serif; font-size:1.05rem; font-weight:700; color:#1A202C; margin:0 0 0.5rem; line-height:1.4;">SSC CGL Chapter-wise Preparation 2026<div style="font-size:0.72rem;color:#718096;margin-top:0.3rem;">🕐 Updated: 3 Mar 2026</div></h3>
               <p style="font-size:0.78rem; color:#718096; margin:0 0 0.5rem;">Includes Tier I & Tier II complete coverage</p>
               <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.75rem;">
-                <span style="font-size:0.82rem; color:#4A5568; font-weight:600;">3000 Total Tests</span>
+                <span id="cglChapCount" style="font-size:0.82rem; color:#4A5568; font-weight:600;">Loading…</span>
                 <span style="color:#CBD5E0;">|</span>
-                <span style="font-size:0.82rem; color:#00A86B; font-weight:700;">4 Free Tests</span>
+                <span style="font-size:0.82rem; color:#00A86B; font-weight:700;">✅ All Free</span>
               </div>
               <div style="display:flex; align-items:center; gap:0.4rem; margin-bottom:1.2rem;">
                 <span style="font-size:0.75rem; background:#F1F5F9; color:#4A5568; padding:0.2rem 0.6rem; border-radius:100px; font-weight:600;">English</span>
@@ -1442,6 +1442,129 @@
             </div>
           </div>
         </div><!-- end grid -->
+
+        <!-- ============================================================ -->
+        <!-- LIVE TEST COUNTS — auto-updates as new tests are added       -->
+        <!-- Reads Firestore over the public REST API (no login needed)   -->
+        <!-- ============================================================ -->
+        <script>
+        (function(){
+          var P    = 'trickyssc-17bb3';
+          var K    = 'AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA';
+          var EXAM = 'ssc-cgl';
+          var QPT  = 50;                       // questions per chapter-wise test (admin-chapterwise.html target)
+          var CK   = 'cglCardCounts_' + EXAM;  // session cache key
+          var TTL  = 30 * 60 * 1000;           // 30 min
+          var B    = 'https://firestore.googleapis.com/v1/projects/' + P + '/databases/(default)/documents';
+
+          function paint(id, n){
+            var e = document.getElementById(id);
+            if(!e) return;
+            if(n === null || n === undefined || isNaN(n)) { e.textContent = 'Tests added weekly'; return; }
+            if(n === 0) { e.textContent = 'Coming soon'; return; }
+            e.textContent = n + (n === 1 ? ' Test' : ' Tests');
+          }
+
+          function eqS(f,v){ return {fieldFilter:{field:{fieldPath:f}, op:'EQUAL', value:{stringValue:v}}}; }
+
+          // COUNT aggregation — returns a number without downloading the documents
+          function countDocs(coll, filters){
+            var where = filters.length === 1 ? filters[0] : {compositeFilter:{op:'AND', filters:filters}};
+            return fetch(B + ':runAggregationQuery?key=' + K, {
+              method:'POST',
+              headers:{'Content-Type':'application/json'},
+              body: JSON.stringify({structuredAggregationQuery:{
+                structuredQuery:{ from:[{collectionId:coll}], where: where },
+                aggregations:[{count:{}, alias:'c'}]
+              }})
+            })
+            .then(function(r){ return r.json(); })
+            .then(function(j){
+              var a = j && j[0] && j[0].result && j[0].result.aggregateFields && j[0].result.aggregateFields.c;
+              return a ? parseInt(a.integerValue || a.doubleValue || 0, 10) : null;
+            })
+            .catch(function(){ return null; });
+          }
+
+          // ---- Card 1: PYQ papers ------------------------------------
+          function pyqCount(){
+            try {
+              var c = sessionStorage.getItem('papers_' + EXAM);   // reuse the PYQ tab's cache if it exists
+              if(c){ var o = JSON.parse(c); if(o && o.d && o.d.length) return Promise.resolve(o.d.length); }
+            } catch(e){}
+            return countDocs('papers', [eqS('exam', EXAM)]);
+          }
+
+          // ---- Card 2: mock tests (dedupe the EN/HI pair) ------------
+          function mockCount(){
+            if(window.__lastMocks && window.__lastMocks.length){
+              return Promise.resolve(dedupeMocks(window.__lastMocks.map(function(t){ return {
+                mockId: t.mockId || t.id || '', tier: t.tier || '', num: t.mockNum || t.seriesNum || t.mockSeriesNum || ''
+              };})));
+            }
+            return fetch(B + '/mock_tests?key=' + K + '&pageSize=300')
+              .then(function(r){ return r.json(); })
+              .then(function(j){
+                var rows = (j.documents || []).map(function(d){ return d.fields || {}; })
+                  .filter(function(f){
+                    var okExam = !f.exam || (f.exam.stringValue === EXAM);
+                    var okPub  = !f.isPublished || f.isPublished.booleanValue !== false;
+                    return okExam && okPub;
+                  })
+                  .map(function(f){
+                    var g = function(k){ return f[k] ? (f[k].stringValue || f[k].integerValue || '') : ''; };
+                    return { mockId:g('mockId'), tier:g('tier'), num:(g('mockNum') || g('seriesNum') || g('mockSeriesNum')) };
+                  });
+                return dedupeMocks(rows);
+              })
+              .catch(function(){ return null; });
+          }
+
+          // mockId looks like ssc-cgl_tier1_mock5_en → one test, two language docs
+          function dedupeMocks(rows){
+            var seen = {}, n = 0;
+            rows.forEach(function(r, i){
+              var key = r.mockId ? String(r.mockId).replace(/_(en|hi)$/i, '')
+                                 : (r.tier + '|' + (r.num !== '' ? r.num : 'row' + i));
+              if(!seen[key]){ seen[key] = 1; n++; }
+            });
+            return n;
+          }
+
+          // ---- Card 3: chapter-wise tests ----------------------------
+          // Questions are stored one doc per question per language, 50 per test.
+          function chapCount(){
+            return countDocs('questions', [
+              eqS('type', 'chapterwise'), eqS('exam', EXAM), eqS('language', 'en')
+            ]).then(function(c){
+              if(c === null) return null;
+              return Math.ceil(c / QPT);
+            });
+          }
+
+          function run(){
+            // serve instantly from cache, then refresh in the background
+            try {
+              var c = JSON.parse(sessionStorage.getItem(CK) || 'null');
+              if(c && (Date.now() - c.ts) < TTL){
+                paint('cglPyqCount', c.pyq); paint('cglMockCount', c.mock); paint('cglChapCount', c.chap);
+                return;
+              }
+            } catch(e){}
+
+            Promise.all([pyqCount(), mockCount(), chapCount()]).then(function(r){
+              paint('cglPyqCount',  r[0]);
+              paint('cglMockCount', r[1]);
+              paint('cglChapCount', r[2]);
+              try { sessionStorage.setItem(CK, JSON.stringify({ts:Date.now(), pyq:r[0], mock:r[1], chap:r[2]})); } catch(e){}
+            });
+          }
+
+          if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run);
+          else run();
+        })();
+        </script>
+
 
                 <!-- SEO CONTENT (added below cards) -->
         <div class="cgl-seo">
