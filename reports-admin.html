@@ -47,6 +47,36 @@
   .del{background:#FEF2F2;color:#DC2626;border:1.5px solid #FECACA;border-radius:8px;font-size:12px;font-weight:700;padding:6px 10px;cursor:pointer;white-space:nowrap;}
   .del:hover{background:#FEE2E2;}
   .del:disabled{opacity:.5;cursor:default;}
+  .fix{background:#EEF2FF;color:#4338CA;border:1.5px solid #C7D2FE;border-radius:8px;font-size:12px;font-weight:700;padding:6px 10px;cursor:pointer;white-space:nowrap;margin-right:6px;}
+  .fix:hover{background:#E0E7FF;}
+  .fix:disabled{opacity:.5;cursor:default;}
+  /* ── AI fix modal ── */
+  .modal{position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:50;display:flex;align-items:flex-start;justify-content:center;padding:24px 12px;overflow:auto;}
+  .modal.hidden{display:none;}
+  .sheet{background:#fff;border-radius:16px;width:100%;max-width:900px;box-shadow:0 20px 60px rgba(15,23,42,.3);display:flex;flex-direction:column;max-height:calc(100vh - 48px);}
+  .sheet-head{padding:14px 18px;border-bottom:1px solid #EDF1F6;display:flex;align-items:center;gap:10px;}
+  .sheet-head .t{font-family:'Rajdhani';font-weight:700;font-size:19px;}
+  .sheet-body{padding:16px 18px;overflow:auto;flex:1;}
+  .sheet-foot{padding:12px 18px;border-top:1px solid #EDF1F6;display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:#FAFBFD;border-radius:0 0 16px 16px;}
+  .x{margin-left:auto;background:none;border:0;font-size:22px;line-height:1;color:#94A3B8;cursor:pointer;}
+  .sec{border:1px solid #EDF1F6;border-radius:12px;padding:12px 14px;margin-bottom:12px;}
+  .sec h3{margin:0 0 8px;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:#64748B;font-family:'Inter';}
+  .qtext{font-size:13.5px;line-height:1.65;white-space:pre-wrap;word-break:break-word;}
+  .fieldrow{border:1px solid #E2E8F0;border-radius:10px;padding:10px 12px;margin-bottom:10px;background:#FCFDFF;}
+  .fieldrow .fn{font-size:12px;font-weight:800;color:#0F172A;font-family:ui-monospace,Menlo,Consolas,monospace;}
+  .old{background:#FEF2F2;border:1px solid #FECACA;border-radius:8px;padding:7px 9px;font-size:12.5px;white-space:pre-wrap;word-break:break-word;color:#7F1D1D;margin:6px 0;}
+  .new{width:100%;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px;padding:7px 9px;font-size:12.5px;color:#14532D;font-family:inherit;line-height:1.55;resize:vertical;min-height:38px;}
+  .why{font-size:12px;color:#64748B;margin-top:6px;}
+  .lbl{font-size:10px;font-weight:800;letter-spacing:.06em;color:#94A3B8;text-transform:uppercase;}
+  .verdict{border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.6;margin-bottom:12px;}
+  .v-fix{background:#FFF7ED;border:1px solid #FED7AA;color:#7C2D12;}
+  .v-no{background:#F0FDF4;border:1px solid #BBF7D0;color:#14532D;}
+  .v-un{background:#F8FAFC;border:1px solid #E2E8F0;color:#334155;}
+  .docpill{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;background:#0B1220;color:#7DD3FC;font-family:ui-monospace,monospace;margin:2px 4px 2px 0;}
+  .btn-green{background:#16A34A;color:#fff;}
+  .btn-red{background:#fff;color:#DC2626;border:1.5px solid #FECACA;}
+  .steps{display:flex;gap:6px;font-size:11px;color:#94A3B8;font-weight:700;margin-bottom:10px;}
+  .steps b{color:#FF6B00;}
 </style>
 </head>
 <body>
@@ -98,9 +128,21 @@
     </div>
   </div>
 
+  <div id="fixModal" class="modal hidden">
+    <div class="sheet">
+      <div class="sheet-head">
+        <span class="t" id="fixTitle">AI correction</span>
+        <button class="x" onclick="closeFix()">×</button>
+      </div>
+      <div class="sheet-body" id="fixBody"></div>
+      <div class="sheet-foot" id="fixFoot"></div>
+    </div>
+  </div>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, initializeFirestore, collection, getDocs, doc, deleteDoc }
+import { getFirestore, initializeFirestore, collection, getDocs, doc, deleteDoc,
+         getDoc, updateDoc, addDoc, query, where, limit, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut }
   from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
@@ -187,7 +229,7 @@ window.renderReports = function(){
       <td><span class="pill">${v.count}</span></td>
       <td>${Object.entries(v.reasons).map(([rn,c])=>`<span class="pill b">${esc(rn)} ×${c}</span>`).join('')}</td>
       <td class="muted">${esc(v.note||'')}</td>
-      <td><button class="del" data-act="delq" data-mockid="${esc(v.mockId)}" data-qnum="${esc(v.qNum)}" title="Fixed — clear all reports for this question">🗑 Clear ${v.count}</button></td></tr>`).join('') + `</table>`
+      <td style="white-space:nowrap"><button class="fix" data-mockid="${esc(v.mockId)}" data-qnum="${esc(v.qNum)}" title="Analyse with AI and propose a correction">✨ AI Fix</button><button class="del" data-act="delq" data-mockid="${esc(v.mockId)}" data-qnum="${esc(v.qNum)}" title="Fixed — clear all reports for this question">🗑 Clear ${v.count}</button></td></tr>`).join('') + `</table>`
     : `<div class="muted">No reports${f?' match this filter':''}.</div>`;
 
   // Raw list
@@ -281,6 +323,352 @@ document.addEventListener('click', async (e)=>{
       ? 'Delete blocked by Firestore rules. Make sure admin delete is allowed for this collection (see the rules note).'
       : 'Could not delete: '+(code||'unknown error'));
   }
+});
+
+/* ══════════════════════════════════════════════════════════════════
+   AI AUTO-CORRECT
+   Locate the flagged question doc(s) → send to Claude with the
+   candidate's complaint → preview an editable field-level diff →
+   approve → write to Firestore + audit log.
+   ══════════════════════════════════════════════════════════════════ */
+
+// ── Config: adjust these if your worker/collections differ ──
+const AI_ENDPOINT   = "https://trickyssc-ai.nirala01.workers.dev";
+const AI_MODEL      = "claude-opus-5";          // accuracy matters here — keep it on Opus. Must match what your worker allows.
+const AI_MAX_TOKENS = 8000;
+const Q_COLLECTIONS = ["questions"];            // where question docs live
+const X_COLLECTIONS = ["solutions"];            // optional extra collections using the same doc-id convention
+const AUDIT_COLL    = "question_fixes";         // every applied correction is logged here
+const ID_FIELDS     = ["paperId","mockId","testId","paper_id","mock_id"];
+const NUM_FIELDS    = ["qNum","questionNumber","qNo","qno","number","serial","position","q"];
+
+let FIX = null;   // live state for the open modal
+
+const getPath = (o,p) => p.split('.').reduce((x,k)=> (x==null?undefined:x[k]), o);
+const twinId  = s => String(s).replace(/_en$/i,'_hi').replace(/-en$/i,'-hi');
+const isEn    = s => /[_-]en$/i.test(String(s));
+const isHi    = s => /[_-]hi$/i.test(String(s));
+
+function idCandidates(base, qn){
+  const n = parseInt(qn,10), out = [];
+  if(!isNaN(n)){
+    out.push(`${base}_q${String(n).padStart(3,'0')}`);
+    out.push(`${base}_q${String(n).padStart(2,'0')}`);
+    out.push(`${base}_q${n}`);
+    out.push(`${base}_Q${String(n).padStart(3,'0')}`);
+  }
+  out.push(`${base}_q${qn}`);
+  return [...new Set(out)];
+}
+
+// Probe once per collection to learn which id/number fields this data uses
+async function probeSchema(coll, baseId){
+  for(const idf of ID_FIELDS){
+    try{
+      const s = await getDocs(query(collection(db,coll), where(idf,'==',baseId), limit(1)));
+      if(!s.empty){
+        const d = s.docs[0].data();
+        const nf = NUM_FIELDS.find(f => d[f] !== undefined) || null;
+        return {idf, nf};
+      }
+    }catch(_){}
+  }
+  return null;
+}
+
+async function findOne(coll, baseId, qn){
+  // 1) deterministic doc id
+  for(const cand of idCandidates(baseId, qn)){
+    try{
+      const snap = await getDoc(doc(db, coll, cand));
+      if(snap.exists()) return {coll, id:snap.id, data:snap.data()};
+    }catch(_){}
+  }
+  // 2) query fallback (legacy random-id docs)
+  const sch = await probeSchema(coll, baseId);
+  if(sch && sch.nf){
+    const n = parseInt(qn,10);
+    for(const val of (isNaN(n) ? [String(qn)] : [n, String(n)])){
+      try{
+        const s = await getDocs(query(collection(db,coll),
+          where(sch.idf,'==',baseId), where(sch.nf,'==',val), limit(2)));
+        if(!s.empty) return {coll, id:s.docs[0].id, data:s.docs[0].data()};
+      }catch(_){}
+    }
+  }
+  return null;
+}
+
+async function locateDocs(baseId, qn){
+  const bases = [baseId];
+  const t = twinId(baseId);
+  if(t !== baseId) bases.push(t);              // pull the Hindi/English twin too
+  const found = [];
+  for(const b of bases){
+    for(const coll of [...Q_COLLECTIONS, ...X_COLLECTIONS]){
+      const hit = await findOne(coll, b, qn);
+      if(hit) found.push({...hit, base:b, lang: isHi(b) ? 'hi' : (isEn(b) ? 'en' : '?')});
+    }
+  }
+  return found;
+}
+
+// ── Open ───────────────────────────────────────────────────────────
+window.openFix = async function(mockId, qNum){
+  const reports = REPORTS.filter(r => String(r.mockId)===String(mockId) && String(r.qNum)===String(qNum));
+  FIX = {mockId, qNum, reports, docs:[], ai:null, changes:[]};
+  $('fixModal').classList.remove('hidden');
+  $('fixTitle').textContent = `AI correction · ${mockId} · Q${qNum}`;
+  $('fixFoot').innerHTML = '';
+  $('fixBody').innerHTML = `<div class="steps"><b>1 · Locating</b> → 2 · Analysing → 3 · Preview → 4 · Apply</div>
+    <div style="text-align:center;padding:30px;"><div class="spin"></div>
+    <div class="muted" style="margin-top:10px;">Finding the question in Firestore…</div></div>`;
+
+  try{
+    FIX.docs = await locateDocs(mockId, qNum);
+  }catch(e){
+    return fail('Lookup failed: '+(e.message||e));
+  }
+  if(!FIX.docs.length){
+    return fail(`Couldn't find a document for <code>${esc(mockId)}</code> Q${esc(qNum)} in ${[...Q_COLLECTIONS,...X_COLLECTIONS].join(', ')}.<br>
+      <span class="muted">Check the collection names / id convention in the config block at the top of the AI AUTO-CORRECT section.</span>`);
+  }
+  renderStage2();
+};
+
+function fail(html){
+  $('fixBody').innerHTML = `<div class="verdict v-fix">${html}</div>`;
+  $('fixFoot').innerHTML = `<button class="btn btn-ghost" onclick="closeFix()">Close</button>`;
+}
+
+window.closeFix = function(){ $('fixModal').classList.add('hidden'); FIX = null; };
+
+// ── Stage 2: show what was found, offer to analyse ─────────────────
+function docCard(d, i){
+  const rows = Object.entries(d.data)
+    .filter(([k,v]) => typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean')
+    .map(([k,v]) => `<div style="margin:3px 0;"><span class="lbl">${esc(k)}</span><div class="qtext">${esc(v)}</div></div>`)
+    .join('');
+  return `<div class="sec">
+    <h3>D${i+1} <span class="docpill">${esc(d.coll)}/${esc(d.id)}</span> ${d.lang!=='?'?`<span class="pill b">${d.lang.toUpperCase()}</span>`:''}</h3>
+    ${rows}
+    <details style="margin-top:8px;"><summary class="muted" style="cursor:pointer;">Full JSON</summary>
+      <pre style="font-size:11px;overflow:auto;background:#F8FAFC;padding:8px;border-radius:8px;">${esc(JSON.stringify(d.data,null,1))}</pre></details>
+  </div>`;
+}
+
+function renderStage2(){
+  const rep = FIX.reports.map(r =>
+    `<div style="margin-bottom:6px;"><span class="pill">${esc(r.reason||'—')}</span>
+     <span class="muted">${esc(r.note||'(no note)')}</span>
+     <span class="muted"> — ${esc(r.name||r.uid||'')}, ${esc(fmtTime(r.createdAt))}</span></div>`).join('');
+  $('fixBody').innerHTML =
+    `<div class="steps">1 · Located → <b>2 · Analyse</b> → 3 · Preview → 4 · Apply</div>
+     <div class="sec"><h3>Candidate reports (${FIX.reports.length})</h3>${rep||'<span class="muted">none</span>'}</div>
+     ${FIX.docs.map(docCard).join('')}`;
+  $('fixFoot').innerHTML =
+    `<button class="btn btn-orange" id="goAI">✨ Analyse &amp; propose correction</button>
+     <button class="btn btn-ghost" onclick="closeFix()">Cancel</button>
+     <span class="muted" style="margin-left:auto;">Nothing is written until you approve.</span>`;
+  $('goAI').onclick = runAI;
+}
+
+// ── Stage 3: call Claude ───────────────────────────────────────────
+function buildPrompt(){
+  const L = [];
+  L.push("You are a senior SSC exam content reviewer for TrickySSC, an SSC exam-prep platform.");
+  L.push("A candidate has flagged a question during a test. Your job is to decide whether the stored content is actually wrong, and if so to produce the minimum set of field edits that fix it.");
+  L.push("");
+  L.push("### Candidate reports");
+  FIX.reports.forEach(r => L.push(`- Reason: ${r.reason||'—'} | Note: ${r.note||'(none)'}`));
+  L.push("");
+  L.push(`### Test: ${FIX.mockId} · Question number ${FIX.qNum}`);
+  L.push("");
+  L.push("### Stored documents");
+  FIX.docs.forEach((d,i) => {
+    L.push(`D${i+1} (${d.coll}/${d.id}, language=${d.lang}):`);
+    L.push("```json");
+    L.push(JSON.stringify(d.data, null, 1));
+    L.push("```");
+  });
+  L.push("");
+  L.push("### How to judge");
+  L.push("1. SOLVE THE QUESTION YOURSELF from first principles before reading the stored answer. Do not assume the reporter is right — candidates are often wrong. If the stored content is correct, say so and return no changes.");
+  L.push("2. If it IS wrong, work out exactly which fields carry the error.");
+  L.push("3. If the answer key changes, you MUST also edit every solution / explanation / trick field that states or derives the old option — in EVERY document above, English and Hindi — so nothing contradicts. A half-fixed question is worse than an unfixed one.");
+  L.push("4. Preserve the existing formatting conventions exactly: KaTeX wrapped in \\( \\), [BR] for line breaks, <u> tags, || option separators, inline HTML in solution fields, green/orange styled blocks. Match the surrounding style of the field you are editing.");
+  L.push("5. Never translate. Edit Hindi documents in Hindi, English documents in English.");
+  L.push("6. Do not rewrite anything that is not wrong. Minimal edits only.");
+  L.push("7. For nested fields use dot notation exactly as it appears in the JSON, e.g. options.A");
+  L.push("");
+  L.push("### Output");
+  L.push("Return ONLY a JSON object, no markdown fences, no commentary before or after:");
+  L.push('{');
+  L.push('  "verdict": "fix_needed" | "no_change" | "unclear",');
+  L.push('  "confidence": "high" | "medium" | "low",');
+  L.push('  "correct_answer": "the option letter you independently derived, or null",');
+  L.push('  "diagnosis": "2-5 sentences: what you worked out, and what exactly is wrong (or why the report is mistaken)",');
+  L.push('  "reporter_assessment": "one line — was the candidate right?",');
+  L.push('  "changes": [ { "doc": "D1", "field": "answer", "new": "B", "why": "short reason" } ],');
+  L.push('  "clear_reports": true');
+  L.push('}');
+  L.push('If verdict is "no_change" or "unclear", "changes" must be an empty array.');
+  return L.join("\n");
+}
+
+function parseAI(raw){
+  let t = String(raw||'').trim();
+  t = t.replace(/^```(?:json)?/i,'').replace(/```$/,'').trim();
+  try{ return JSON.parse(t); }catch(_){}
+  const a = t.indexOf('{'), b = t.lastIndexOf('}');
+  if(a>=0 && b>a){ try{ return JSON.parse(t.slice(a,b+1)); }catch(_){} }
+  return null;
+}
+
+async function runAI(){
+  $('fixBody').innerHTML = `<div class="steps">1 · Located → <b>2 · Analysing</b> → 3 · Preview → 4 · Apply</div>
+    <div style="text-align:center;padding:34px;"><div class="spin"></div>
+    <div class="muted" style="margin-top:10px;">Claude is solving the question and checking the stored content…</div></div>`;
+  $('fixFoot').innerHTML = `<button class="btn btn-ghost" onclick="closeFix()">Cancel</button>`;
+  let raw = '';
+  try{
+    const res = await fetch(AI_ENDPOINT, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        model: AI_MODEL,
+        max_tokens: AI_MAX_TOKENS,
+        messages:[{role:'user', content: buildPrompt()}]
+      })
+    });
+    const j = await res.json().catch(()=>null);
+    if(!res.ok) throw new Error(`HTTP ${res.status} — ${JSON.stringify(j||'').slice(0,300)}`);
+    raw = Array.isArray(j?.content)
+      ? j.content.filter(b=>b.type==='text').map(b=>b.text).join('\n')
+      : (j?.text || j?.completion || j?.output_text || (typeof j==='string'? j : ''));
+  }catch(e){
+    return fail(`AI request failed: ${esc(e.message||e)}<br><span class="muted">Check that <code>${esc(AI_ENDPOINT)}</code> accepts a standard Anthropic messages body and allows <code>${esc(AI_MODEL)}</code>.</span>`);
+  }
+  const ai = parseAI(raw);
+  if(!ai) return fail(`Couldn't parse the AI response as JSON.<br><pre style="font-size:11px;white-space:pre-wrap;">${esc(String(raw).slice(0,1500))}</pre>`);
+  FIX.ai = ai;
+  FIX.changes = (ai.changes||[]).map((c,i) => {
+    const di = Math.max(0, parseInt(String(c.doc||'D1').replace(/\D/g,''),10)-1);
+    const d  = FIX.docs[di] || FIX.docs[0];
+    return {i, d, field:String(c.field||''), old:getPath(d.data, String(c.field||'')), val:c.new, why:c.why||'', on:true};
+  }).filter(c => c.field);
+  renderStage3();
+}
+
+// ── Stage 4: editable preview ──────────────────────────────────────
+function renderStage3(){
+  const ai = FIX.ai;
+  const cls = ai.verdict==='fix_needed' ? 'v-fix' : (ai.verdict==='no_change' ? 'v-no' : 'v-un');
+  const head = ai.verdict==='fix_needed' ? '⚠ Correction proposed'
+             : ai.verdict==='no_change'  ? '✓ No change needed — the stored content looks correct'
+             : '? Unclear — needs your eyes';
+  let html = `<div class="steps">1 · Located → 2 · Analysed → <b>3 · Review</b> → 4 · Apply</div>
+    <div class="verdict ${cls}"><b>${head}</b> <span class="muted">(confidence: ${esc(ai.confidence||'?')})</span>
+      <div style="margin-top:6px;">${esc(ai.diagnosis||'')}</div>
+      ${ai.correct_answer?`<div style="margin-top:6px;"><span class="lbl">Independently derived answer</span> <b>${esc(ai.correct_answer)}</b></div>`:''}
+      ${ai.reporter_assessment?`<div class="why">Reporter: ${esc(ai.reporter_assessment)}</div>`:''}
+    </div>`;
+
+  if(FIX.changes.length){
+    html += `<div class="sec"><h3>Proposed edits (${FIX.changes.length}) — editable</h3>`;
+    FIX.changes.forEach(c => {
+      const oldTxt = c.old===undefined ? '(field does not exist yet)' : (typeof c.old==='object'? JSON.stringify(c.old) : String(c.old));
+      const newTxt = typeof c.val==='object'? JSON.stringify(c.val) : String(c.val==null?'':c.val);
+      const rows = Math.min(14, Math.max(1, Math.ceil(newTxt.length/95) + (newTxt.match(/\n/g)||[]).length));
+      html += `<div class="fieldrow">
+        <label style="display:flex;gap:8px;align-items:center;">
+          <input type="checkbox" data-ci="${c.i}" class="ck" checked>
+          <span class="fn">${esc(c.d.coll)}/${esc(c.d.id)} → ${esc(c.field)}</span>
+        </label>
+        <div class="lbl" style="margin-top:6px;">Current</div><div class="old">${esc(oldTxt)}</div>
+        <div class="lbl">Corrected</div><textarea class="new" rows="${rows}" data-ci="${c.i}">${esc(newTxt)}</textarea>
+        ${c.why?`<div class="why">↳ ${esc(c.why)}</div>`:''}
+      </div>`;
+    });
+    html += `</div>`;
+  }
+  $('fixBody').innerHTML = html;
+
+  $('fixBody').querySelectorAll('textarea.new').forEach(t => {
+    t.oninput = () => { const c = FIX.changes.find(x=>x.i==t.dataset.ci); if(c) c.val = t.value; };
+  });
+  $('fixBody').querySelectorAll('input.ck').forEach(k => {
+    k.onchange = () => { const c = FIX.changes.find(x=>x.i==k.dataset.ci); if(c) c.on = k.checked; };
+  });
+
+  const nRep = FIX.reports.length;
+  $('fixFoot').innerHTML =
+    (FIX.changes.length
+      ? `<button class="btn btn-green" id="apply">✓ Approve &amp; update Firestore</button>`
+      : '') +
+    `<label class="muted" style="display:flex;gap:6px;align-items:center;">
+       <input type="checkbox" id="alsoClear" ${FIX.ai.clear_reports!==false?'checked':''}> also clear the ${nRep} report(s)</label>
+     <button class="btn btn-ghost" onclick="closeFix()">Close without changing</button>`;
+  const ap = $('apply'); if(ap) ap.onclick = applyFix;
+}
+
+// ── Stage 5: write ─────────────────────────────────────────────────
+async function applyFix(){
+  const picked = FIX.changes.filter(c => c.on);
+  if(!picked.length) return alert('Nothing selected.');
+  const btn = $('apply'); btn.disabled = true; btn.textContent = 'Writing…';
+  try{
+    const byDoc = new Map();
+    picked.forEach(c => {
+      const key = c.d.coll+'/'+c.d.id;
+      if(!byDoc.has(key)) byDoc.set(key, {d:c.d, patch:{}});
+      byDoc.get(key).patch[c.field] = c.val;
+    });
+    for(const {d,patch} of byDoc.values()){
+      await updateDoc(doc(db, d.coll, d.id), patch);
+    }
+    // audit trail
+    try{
+      await addDoc(collection(db, AUDIT_COLL), {
+        mockId: FIX.mockId, qNum: FIX.qNum,
+        by: auth.currentUser?.email || auth.currentUser?.uid || '',
+        at: serverTimestamp(),
+        verdict: FIX.ai.verdict, confidence: FIX.ai.confidence||'',
+        diagnosis: FIX.ai.diagnosis||'',
+        reportReasons: FIX.reports.map(r=>r.reason||''),
+        reportNotes: FIX.reports.map(r=>r.note||''),
+        changes: picked.map(c => ({
+          docPath: c.d.coll+'/'+c.d.id, field: c.field,
+          old: c.old===undefined ? null : (typeof c.old==='object'? JSON.stringify(c.old) : String(c.old)),
+          new: typeof c.val==='object'? JSON.stringify(c.val) : String(c.val==null?'':c.val)
+        }))
+      });
+    }catch(e){ console.warn('audit log failed', e); }
+
+    let cleared = 0;
+    if($('alsoClear')?.checked){
+      const ids = FIX.reports.map(r=>r.id);
+      await delMany('question_reports', ids);
+      REPORTS = REPORTS.filter(r => !ids.includes(r.id));
+      cleared = ids.length;
+      renderReports();
+    }
+    $('fixBody').innerHTML = `<div class="verdict v-no"><b>✓ Updated</b><br>
+      ${picked.length} field(s) written across ${byDoc.size} document(s)${cleared?`, ${cleared} report(s) cleared`:''}.
+      <div class="why">Logged to <code>${esc(AUDIT_COLL)}</code>. Purge the Cloudflare cache if the test page still shows the old text.</div></div>`;
+    $('fixFoot').innerHTML = `<button class="btn btn-orange" onclick="closeFix()">Done</button>`;
+  }catch(e){
+    btn.disabled=false; btn.textContent='✓ Approve & update Firestore';
+    const code = ''+((e&&(e.code||e.message))||'');
+    alert(code.includes('permission')
+      ? `Write blocked by Firestore rules. Allow admin writes on the questions collection and on ${AUDIT_COLL}.`
+      : 'Could not update: '+code);
+  }
+}
+
+document.addEventListener('click', (e)=>{
+  const b = e.target.closest('button.fix'); if(!b) return;
+  openFix(b.dataset.mockid, b.dataset.qnum);
 });
 
 window.showTab = function(t){
