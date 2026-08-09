@@ -310,6 +310,11 @@ const ADMIN_PASS = 'TrickySSC@Admin2024';
 let allUsers = [];
 let allAttempts = [];
 
+// Every date on this dashboard is rendered in Indian Standard Time, regardless of
+// the timezone of the machine viewing it. Firestore Timestamps are absolute, so the
+// only thing that ever varied was the formatter's default (browser-local) zone.
+const IST_TZ = 'Asia/Kolkata';
+
 // Classify an attempt as 'mock' or 'pyq'. Checks several possible schema
 // fields so it works whether your attempt docs carry mockId/paperId, a
 // type/mode field, or just the exam name. Adjust here if your field names differ.
@@ -379,17 +384,29 @@ window.loadData = async () => {
     });
 
     // Overall stats
-    // ── Report day runs 7:00 AM → 7:00 AM (local time), not midnight ──
-    // Before 7 AM, the current report day still belongs to the previous calendar date.
-    const _now = new Date();
-    const reportStart = new Date(_now); reportStart.setHours(7,0,0,0);
-    if(_now < reportStart){ reportStart.setDate(reportStart.getDate()-1); }
-    const reportEnd  = new Date(reportStart); reportEnd.setDate(reportEnd.getDate()+1);   // +24h → next 7 AM
-    const ydayStart  = new Date(reportStart); ydayStart.setDate(ydayStart.getDate()-1);   // previous 7 AM
+    // ── Report day runs 7:00 AM → 7:00 AM INDIAN STANDARD TIME, not midnight ──
+    // Anchored to Asia/Kolkata explicitly, NOT the viewing machine's timezone —
+    // opening this dashboard from a device set to the wrong zone used to shift
+    // the whole report day. Before 7 AM IST the current report day still belongs
+    // to the previous calendar date.
+    const IST_MS = 5.5*3600*1000, DAY_MS = 86400000;
+    const _nowMs = Date.now();
+    const _istNow = new Date(_nowMs + IST_MS);   // clock shifted so UTC getters read as IST
+    let _startMs = Date.UTC(_istNow.getUTCFullYear(), _istNow.getUTCMonth(), _istNow.getUTCDate(), 7, 0, 0) - IST_MS;
+    if(_nowMs < _startMs){ _startMs -= DAY_MS; }
+    const reportStart = new Date(_startMs);                 // 7 AM IST, report day start
+    const reportEnd   = new Date(_startMs + DAY_MS);        // next 7 AM IST
+    const ydayStart   = new Date(_startMs - DAY_MS);        // previous 7 AM IST
     const _td   = x => (x && x.toDate) ? x.toDate() : null;                 // safe Firestore Timestamp → Date
     const inDay  = d => d && d>=reportStart && d<reportEnd;                 // current 7 AM window ("today")
     const inYday = d => d && d>=ydayStart   && d<reportStart;               // previous 7 AM window ("yesterday")
-    const _dLabel = dt => dt.toLocaleDateString('en-IN',{day:'numeric',month:'short'});
+    const _dLabel = dt => dt.toLocaleDateString('en-IN',{day:'numeric',month:'short',timeZone:IST_TZ});
+
+    // Users whose createdAt lies in the future = the signing-up device's clock was
+    // wrong (createdAt is written client-side). They land in the wrong report window,
+    // so surface the count instead of silently mis-bucketing them.
+    const skewMs = _nowMs + 60000;   // 1 min slack for ordinary clock drift
+    const futureJoins = allUsers.filter(u => { const d=_td(u.createdAt); return d && d.getTime()>skewMs; }).length;
 
     const activeToday = allUsers.filter(u => inDay(_td(u.lastActive))).length;
     // Registered users added in the current / previous 7 AM report windows.
@@ -419,7 +436,8 @@ window.loadData = async () => {
     document.getElementById('newUsersToday').textContent = newUsersToday;
     document.getElementById('newUsersYesterday').textContent = newUsersYesterday;
     document.getElementById('newUsersYesterdaySub').textContent = '7 AM '+_dLabel(ydayStart)+' → 7 AM '+_dLabel(reportStart);
-    document.getElementById('lastRefresh').textContent = 'Updated: '+new Date().toLocaleTimeString('en-IN')+' · report day 7 AM–7 AM';
+    document.getElementById('lastRefresh').textContent = 'Updated: '+new Date().toLocaleTimeString('en-IN',{timeZone:IST_TZ})+' IST · report day 7 AM–7 AM IST'
+      + (futureJoins ? ' · ⚠ '+futureJoins+' future-dated join'+(futureJoins===1?'':'s') : '');
 
     renderTable(allUsers);
   } catch(e) {
@@ -443,7 +461,7 @@ function renderTable(users) {
     const avgNum = parseFloat(u.liveAvg)||0;
     const scoreCls = u.usesMarks ? (avgNum>=140?'score-high':avgNum>=80?'score-mid':tests>0?'score-low':'') : (avgNum>=70?'score-high':avgNum>=40?'score-mid':tests>0?'score-low':'');
     const loginType = u.loginMethod==='google'||u.email ? 'google' : 'mobile';
-    const joined = u.createdAt?.toDate ? u.createdAt.toDate().toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'2-digit'}) : '—';
+    const joined = u.createdAt?.toDate ? u.createdAt.toDate().toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'2-digit',timeZone:IST_TZ}) : '—';
     const email = u.email || '';
 
     return `<div class="table-row" data-uid="${u.id}">
@@ -507,8 +525,11 @@ window.showDetail = (uid) => {
   if(!u) return;
   const name = u.name||u.displayName||'Unknown';
   const uAttempts = allAttempts.filter(a=>a.uid===u.uid);
-  const joined = u.createdAt?.toDate ? u.createdAt.toDate().toLocaleString('en-IN') : '—';
-  const lastActive = u.lastActive?.toDate ? u.lastActive.toDate().toLocaleString('en-IN') : '—';
+  const _joinedDt = u.createdAt?.toDate ? u.createdAt.toDate() : null;
+  const _skewed = _joinedDt && _joinedDt.getTime() > Date.now()+60000;   // future join = bad device clock
+  const joined = (_joinedDt ? _joinedDt.toLocaleString('en-IN',{timeZone:IST_TZ}) : '—')
+               + (_skewed ? ' <span style="color:var(--orange);font-size:0.8em;">⚠ device clock</span>' : '');
+  const lastActive = u.lastActive?.toDate ? u.lastActive.toDate().toLocaleString('en-IN',{timeZone:IST_TZ}) : '—';
 
   document.getElementById('modalTitle').textContent = name;
   document.getElementById('modalBody').innerHTML = `
@@ -524,7 +545,7 @@ window.showDetail = (uid) => {
     ${uAttempts.length>0?`
     <div style="margin-top:1rem;font-family:'Rajdhani',sans-serif;font-size:0.85rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:0.5rem;">Recent Attempts</div>
     ${uAttempts.slice(0,5).map(a=>{
-      const d=a.timestamp?.toDate?a.timestamp.toDate().toLocaleDateString('en-IN'):'—';
+      const d=a.timestamp?.toDate?a.timestamp.toDate().toLocaleDateString('en-IN',{timeZone:IST_TZ}):'—';
       return `<div class="modal-row"><span class="modal-key">${(a.examName||a.exam||'Test').split('—')[0].trim()} ${a.year||''}</span><span class="modal-val">${parseFloat(a.percentage)||0}% · ${a.correct||0}✅ ${a.wrong||0}❌ · ${d}</span></div>`;
     }).join('')}`:''}
   `;
@@ -536,7 +557,7 @@ window.closeModal = () => document.getElementById('detailModal').classList.remov
 window.exportCSV = () => {
   const rows = [['Name','Email','Mobile','Login','Tests Taken','Avg Score','Best Score','Joined']];
   allUsers.forEach(u=>{
-    const joined = u.createdAt?.toDate ? u.createdAt.toDate().toLocaleDateString('en-IN') : '';
+    const joined = u.createdAt?.toDate ? u.createdAt.toDate().toLocaleDateString('en-IN',{timeZone:IST_TZ}) : '';
     rows.push([
       u.name||u.displayName||'',
       u.email||'',
