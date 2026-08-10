@@ -1347,6 +1347,25 @@ const SUBJECT_SHORT={
   'सामान्य बुद्धि और तर्क शक्ति':'Reasoning',
   'सामान्य बुद्धि':'Reasoning',
 };
+/* ── English section of an SSC CHSL Tier I paper ──
+   English Language Q1-25 · General Intelligence Q26-50 ·
+   Quantitative Aptitude Q51-75 · General Awareness Q76-100.
+   Used to hide the "View in English" toggle on English questions — they are
+   already in English. The subject tag wins when it is present and recognised;
+   the Q1-25 range is the fallback for papers with missing/unknown subjects. */
+const EN_Q_FROM=1, EN_Q_TO=25;
+const _NON_EN_SUBJ=/reason|intellig|quant|math|aware|^gk$|computer|बुद्धि|तर्क|गणित|मात्रात्मक|जागरूकता|कंप्यूटर|कम्प्यूटर/i;
+function isEnglishSubject(q,idx){
+  if(!q) return false;
+  const raw=(q.subject||q.section||'').trim();
+  if(raw){
+    const short=SUBJECT_SHORT[raw]||raw;
+    if(/english/i.test(short)||/english/i.test(raw)||/अंग्रेज/.test(raw)) return true;
+    if(_NON_EN_SUBJ.test(short)||_NON_EN_SUBJ.test(raw)) return false;
+  }
+  const n=parseInt(q.qNum)||((idx!=null&&idx>=0)?idx+1:0);
+  return n>=EN_Q_FROM && n<=EN_Q_TO;
+}
 let isSubmitting=false,lastResultPayload=null;
 const params=new URLSearchParams(window.location.search);
 
@@ -1881,14 +1900,14 @@ function renderQ(){
   }).join('');
   mathDress(document.getElementById('options'));
 
-  // ── English toggle (Hindi tests, Q1-75 only) ──
+  // ── English toggle (Hindi tests) — every subject EXCEPT the English section ──
   const enBtn=document.getElementById('enToggleBtn');
   const enPanel=document.getElementById('enViewPanel');
   const qNum=parseInt(q.qNum)||0;
   const isHindiTest=(new URLSearchParams(window.location.search).get('lang')==='hi');
-  // Offer the toggle on Q1-75 for Hindi tests even before the English map is
-  // fetched — the map loads lazily on first tap.
-  const hasEnglish=isHindiTest && qNum>=1 && qNum<=75;
+  // Offer the toggle for Hindi tests on non-English-section questions even before
+  // the English map is fetched — the map loads lazily on first tap.
+  const hasEnglish=isHindiTest && !isEnglishSubject(q,currentQ);
   if(enBtn){
     if(hasEnglish){
       enBtn.style.display='flex';
@@ -2463,10 +2482,11 @@ window.submitTest=async()=>{
       return `<div class="${cls}"><span class="rv-key">${o}</span><span>${txt}${marker}${optImg?`<span style="display:block;margin-top:6px;"><img src="${optImg}" style="max-width:100%;max-height:100px;border-radius:5px;object-fit:contain;" onerror="this.style.display='none'"></span>`:''}</span></div>`;
     }).join('')}</div>`;
     const solImg=q.solutionImage||'';
-    // Per-solution EN/HI toggle: available for Q1–75 when an English counterpart
-    // solution exists in enQMap. Q76–100 are English-only, so no toggle there.
+    // Per-solution EN/HI toggle: offered when an English counterpart solution
+    // exists in enQMap. Never on English-section questions — those are already
+    // in English, so a "View in English" button there is meaningless.
     const _qn=parseInt(q.qNum)||(i+1);
-    const _enDoc=(_qn>=1&&_qn<=75)?(enQMap&&enQMap[_qn]):null;
+    const _enDoc=isEnglishSubject(q,i)?null:(enQMap&&enQMap[_qn]);
     const _hasEnSol=!!(_enDoc&&(_enDoc.explanation||'').trim());
     const _enExp=_hasEnSol?_enDoc.explanation:'';
     const _enTrk=(_enDoc&&_enDoc.trick)||'';
