@@ -1,0 +1,61 @@
+# .github/workflows/build-chsl-pyq.yml
+#
+# Rebuilds the static SSC CHSL PYQ list so newly uploaded papers become
+# crawlable HTML links (not just JavaScript-rendered rows).
+# Mirrors the existing SSC CGL PYQ build.
+
+name: Build SSC CHSL PYQ page
+
+on:
+  schedule:
+    - cron: '20 */6 * * *'      # every 6 hours, offset from the CGL build
+  workflow_dispatch:            # lets you rebuild by hand right after an upload
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-chsl-pyq
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Bake the paper list into ssc-chsl-pyq.html
+        run: |
+          python build_chsl_pyq_page.py \
+            --page ssc-chsl-pyq.html \
+            --sitemap sitemap-chsl-pyq.xml
+
+      - name: Commit if anything changed
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ssc-chsl-pyq.html sitemap-chsl-pyq.xml
+          if git diff --cached --quiet; then
+            echo "No CHSL paper changes — nothing to commit."
+          else
+            git commit -m "chore: rebuild SSC CHSL PYQ list [skip ci]"
+            git push
+          fi
+
+      # Optional — same Cloudflare purge step the other builds use.
+      # Add CF_ZONE_ID and CF_API_TOKEN as repository secrets to enable it.
+      - name: Purge Cloudflare cache for the page
+        if: ${{ env.CF_ZONE_ID != '' }}
+        env:
+          CF_ZONE_ID: ${{ secrets.CF_ZONE_ID }}
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+        run: |
+          curl -sS -X POST \
+            "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/purge_cache" \
+            -H "Authorization: Bearer $CF_API_TOKEN" \
+            -H "Content-Type: application/json" \
+            --data '{"files":["https://trickyssc.com/ssc-chsl-pyq.html","https://trickyssc.com/sitemap-chsl-pyq.xml"]}'
