@@ -515,6 +515,33 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:10
 .stat{background:#F8FAFC;border-radius:14px;padding:16px 20px;text-align:center;border:1px solid #F1F5F9;min-width:80px;}
 .stat-val{font-family:'Rajdhani';font-size:32px;font-weight:700;}
 .stat-lbl{font-size:11px;color:#94A3B8;margin-top:2px;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;}
+/* Mock-test cross-promo on the result screen */
+#mockPromo{
+  margin-top:22px;align-items:center;justify-content:space-between;gap:14px;
+  text-decoration:none;text-align:left;padding:14px 18px;border-radius:14px;
+  background:linear-gradient(120deg,#6D28D9,#DB2777,#F59E0B);
+  background-size:200% 200%;animation:mpGradient 6s ease infinite;
+  box-shadow:0 6px 22px rgba(219,39,119,0.32);
+  transition:transform .2s, box-shadow .2s;
+}
+#mockPromo:hover{transform:translateY(-2px);box-shadow:0 10px 30px rgba(219,39,119,0.45);}
+#mockPromo .mp-left{display:flex;align-items:center;gap:12px;min-width:0;}
+#mockPromo .mp-icon{font-size:24px;line-height:1;flex-shrink:0;}
+#mockPromo .mp-text{display:flex;flex-direction:column;min-width:0;}
+#mockPromo .mp-title{font-family:'Rajdhani';font-size:17px;font-weight:700;color:#fff;line-height:1.25;}
+#mockPromo .mp-sub{font-size:11.5px;color:rgba(255,255,255,0.85);margin-top:2px;}
+#mockPromo .mp-cta{
+  flex-shrink:0;background:#fff;color:#DB2777;font-family:'Rajdhani';font-weight:700;
+  font-size:14px;padding:8px 16px;border-radius:9px;white-space:nowrap;
+}
+@keyframes mpGradient{0%{background-position:0% 50%;}50%{background-position:100% 50%;}100%{background-position:0% 50%;}}
+@media(max-width:520px){
+  #mockPromo{flex-direction:column;align-items:stretch;text-align:center;}
+  #mockPromo .mp-left{flex-direction:column;gap:6px;}
+  #mockPromo .mp-text{align-items:center;}
+  #mockPromo .mp-cta{width:100%;text-align:center;}
+}
+@media(prefers-reduced-motion:reduce){#mockPromo{animation:none;}}
 /* Estimated CGL rank card */
 .rank-est-title{font-family:'Rajdhani';font-size:20px;font-weight:700;color:#1E293B;margin-bottom:4px;}
 .rank-est-sub{font-size:12px;color:#94A3B8;margin-bottom:18px;}
@@ -1278,6 +1305,19 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:10
       <div class="stat"><div class="stat-val" style="color:#EAB308" id="statSkip">0</div><div class="stat-lbl">Skipped</div></div>
       <div class="stat" style="background:#FFF7ED;border-color:#FED7AA;"><div class="stat-val" style="color:#FF6B00;" id="statMarks">0</div><div class="stat-lbl">Marks</div></div>
     </div>
+
+    <!-- Mock-test cross-promo (shown after a PYQ attempt) -->
+    <a id="mockPromo" href="https://trickyssc.com/mock-list.html?exam=ssc-cgl" style="display:none;">
+      <span class="mp-left">
+        <span class="mp-icon">🚀</span>
+        <span class="mp-text">
+          <span class="mp-title" id="mockPromoTitle">Attempt High Quality SSC CGL Mock Test — Free</span>
+          <span class="mp-sub">Exam-level papers with full solutions &amp; rank analysis</span>
+        </span>
+      </span>
+      <span class="mp-cta">Start Now →</span>
+    </a>
+
     <button class="btn btn-next" id="goDashboardBtn" style="margin-top:24px;padding:12px 32px;" onclick="window.location='https://trickyssc.com/dashboard.html'" disabled>Saving result...</button>
     <a id="viewRankBtn" href="#" style="display:none;margin-top:12px;margin-left:8px;padding:12px 28px;border-radius:10px;background:#FFF3E8;color:#FF6B00;font-weight:700;font-size:14px;text-decoration:none;border:1.5px solid #FFD9B8;">🏆 View Rank &amp; Leaderboard</a>
     <div id="saveStatus" style="margin-top:10px;font-size:12px;color:#94A3B8;">⏳ Saving your result...</div>
@@ -2437,6 +2477,20 @@ window.submitTest=async()=>{
   document.getElementById('statWrong').textContent=wrong;
   document.getElementById('statSkip').textContent=skip;
   document.getElementById('statMarks').textContent=marks;
+
+  // Mock-test cross-promo — only after a PYQ attempt (never on a mock itself)
+  (function(){
+    var el=document.getElementById('mockPromo');
+    if(!el) return;
+    if(mockId||mockMeta){ el.style.display='none'; return; }   // already a mock test
+    var slug=(exam||'ssc-cgl').toLowerCase();
+    var names={'ssc-cgl':'SSC CGL','ssc-chsl':'SSC CHSL','ssc-mts':'SSC MTS','ssc-cpo':'SSC CPO','ssc-gd':'SSC GD','ssc-je':'SSC JE','ssc-jht':'SSC JHT'};
+    var label=names[slug]||'SSC CGL';
+    el.href='https://trickyssc.com/mock-list.html?exam='+encodeURIComponent(slug);
+    var t=document.getElementById('mockPromoTitle');
+    if(t) t.textContent='Attempt High Quality '+label+' Mock Test — Free';
+    el.style.display='flex';
+  })();
 
   // Estimated CGL rank (CGL papers/mocks only — roadmap is CGL-specific)
   if(String(exam||'').toLowerCase().indexOf('cgl')>=0) renderEstimatedRank(parseFloat(marks),maxMarks);
