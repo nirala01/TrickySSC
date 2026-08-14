@@ -31,6 +31,8 @@
   .pill.b{background:#E0E7FF;color:#3730A3;}
   .pill.pyq{background:#DBEAFE;color:#1D4ED8;}
   .pill.mock{background:#DCFCE7;color:#15803D;}
+  .pill.qn{background:#E0F2FE;color:#0369A1;}
+  .pill.sol{background:#FEF3C7;color:#B45309;}
   .stars{color:#F59E0B;letter-spacing:1px;}
   .muted{color:#94A3B8;font-size:12px;}
   .big{font-family:'Rajdhani';font-weight:700;font-size:22px;}
@@ -94,7 +96,7 @@
 
     <div id="app" class="hidden">
       <div class="tabs">
-        <button class="tab active" id="tabReports" onclick="showTab('reports')">⚠ Question Reports</button>
+        <button class="tab active" id="tabReports" onclick="showTab('reports')">⚠ Question &amp; Solution Reports</button>
         <button class="tab" id="tabRatings" onclick="showTab('ratings')">⭐ Test Ratings</button>
       </div>
 
@@ -103,9 +105,14 @@
         <div class="card">
           <div class="row">
             <input class="filter" id="reportFilter" placeholder="Filter by test id, subject or reason…" oninput="renderReports()">
+            <select class="filter" id="reportTargetFilter" style="flex:0 0 auto;min-width:170px;" onchange="renderReports()">
+              <option value="">All reports</option>
+              <option value="question">Question reports only</option>
+              <option value="solution">Solution reports only</option>
+            </select>
             <button class="btn btn-ghost" onclick="downloadCsv('reports')">Download CSV</button>
           </div>
-          <h2>Most-flagged questions</h2>
+          <h2>Most-flagged questions &amp; solutions</h2>
           <div id="reportAgg" class="muted">Loading…</div>
         </div>
         <div class="card">
@@ -164,6 +171,10 @@ const $ = id => document.getElementById(id);
 const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const fmtTime = ts => { try{ const d=ts?.toDate?ts.toDate():(ts?new Date(ts):null); return d?d.toLocaleString():''; }catch(_){ return ''; } };
 const srcPill = r => { const s=String(r.source||'mock').toLowerCase(); return s==='pyq' ? '<span class="pill pyq">PYQ</span>' : '<span class="pill mock">Mock</span>'; };
+// Reports carry target:'question' (raised on the test screen) or target:'solution'
+// (raised under the solution in the review screen). Legacy docs have no target.
+const tgtOf   = r => String(r.target||'question').toLowerCase()==='solution' ? 'solution' : 'question';
+const tgtPill = r => tgtOf(r)==='solution' ? '<span class="pill sol">Solution</span>' : '<span class="pill qn">Question</span>';
 
 let REPORTS = [], RATINGS = [];
 
@@ -207,26 +218,33 @@ function tsMs(r){ const t=r.createdAt; try{ return t?.toDate?t.toDate().getTime(
 
 window.renderReports = function(){
   const f = ($('reportFilter').value||'').toLowerCase();
-  const rows = REPORTS.filter(r => !f || (`${r.mockId} ${r.subject} ${r.reason} ${r.note} ${r.testName} ${r.source||'mock'}`).toLowerCase().includes(f));
+  const tf = (($('reportTargetFilter')||{}).value)||'';
+  const rows = REPORTS
+    .filter(r => !tf || tgtOf(r)===tf)
+    .filter(r => !f || (`${r.mockId} ${r.subject} ${r.reason} ${r.note} ${r.testName} ${r.source||'mock'} ${tgtOf(r)}`).toLowerCase().includes(f));
 
   $('reportKpis').innerHTML =
     `<div class="kpi"><div class="v">${REPORTS.length}</div><div class="l">Total reports</div></div>
      <div class="kpi"><div class="v">${new Set(REPORTS.map(r=>r.mockId+'|'+r.qNum)).size}</div><div class="l">Distinct questions</div></div>
+     <div class="kpi"><div class="v">${REPORTS.filter(r=>tgtOf(r)==='question').length}</div><div class="l">On the question</div></div>
+     <div class="kpi"><div class="v">${REPORTS.filter(r=>tgtOf(r)==='solution').length}</div><div class="l">On the solution</div></div>
      <div class="kpi"><div class="v">${new Set(REPORTS.map(r=>r.mockId)).size}</div><div class="l">Tests affected</div></div>`;
 
   // Aggregate by test + question
   const agg = {};
   rows.forEach(r=>{
     const k = r.mockId+' · Q'+(r.qNum||'?');
-    agg[k] = agg[k] || {mockId:r.mockId, qNum:r.qNum, count:0, reasons:{}, last:0, note:''};
+    agg[k] = agg[k] || {mockId:r.mockId, qNum:r.qNum, count:0, reasons:{}, last:0, note:'', parts:{question:0,solution:0}};
     agg[k].count++;
+    agg[k].parts[tgtOf(r)]++;
     agg[k].reasons[r.reason||'—'] = (agg[k].reasons[r.reason||'—']||0)+1;
     const ms = tsMs(r); if(ms>agg[k].last){ agg[k].last=ms; if(r.note) agg[k].note=r.note; }
   });
   const aggArr = Object.entries(agg).sort((a,b)=>b[1].count-a[1].count);
-  $('reportAgg').innerHTML = aggArr.length ? `<table><tr><th>Test · Q</th><th>#</th><th>Reasons</th><th>Latest note</th><th></th></tr>` +
+  $('reportAgg').innerHTML = aggArr.length ? `<table><tr><th>Test · Q</th><th>#</th><th>Part</th><th>Reasons</th><th>Latest note</th><th></th></tr>` +
     aggArr.map(([k,v])=>`<tr><td><code>${esc(v.mockId)}</code><br><b>Q${esc(v.qNum)}</b></td>
       <td><span class="pill">${v.count}</span></td>
+      <td style="white-space:nowrap">${v.parts.question?`<span class="pill qn">Question ×${v.parts.question}</span>`:''}${v.parts.solution?`<span class="pill sol">Solution ×${v.parts.solution}</span>`:''}</td>
       <td>${Object.entries(v.reasons).map(([rn,c])=>`<span class="pill b">${esc(rn)} ×${c}</span>`).join('')}</td>
       <td class="muted">${esc(v.note||'')}</td>
       <td style="white-space:nowrap"><button class="fix" data-mockid="${esc(v.mockId)}" data-qnum="${esc(v.qNum)}" title="Analyse with AI and propose a correction">✨ AI Fix</button><button class="del" data-act="delq" data-mockid="${esc(v.mockId)}" data-qnum="${esc(v.qNum)}" title="Fixed — clear all reports for this question">🗑 Clear ${v.count}</button></td></tr>`).join('') + `</table>`
@@ -234,9 +252,10 @@ window.renderReports = function(){
 
   // Raw list
   const list = rows.slice().sort((a,b)=>tsMs(b)-tsMs(a));
-  $('reportList').innerHTML = list.length ? `<table><tr><th>When</th><th>Src</th><th>Test · Q</th><th>Reason</th><th>Note</th><th>By</th><th></th></tr>` +
+  $('reportList').innerHTML = list.length ? `<table><tr><th>When</th><th>Src</th><th>Part</th><th>Test · Q</th><th>Reason</th><th>Note</th><th>By</th><th></th></tr>` +
     list.map(r=>`<tr><td class="muted">${esc(fmtTime(r.createdAt))}</td>
       <td>${srcPill(r)}</td>
+      <td>${tgtPill(r)}</td>
       <td><code>${esc(r.mockId)}</code> · Q${esc(r.qNum)}</td>
       <td><span class="pill">${esc(r.reason||'—')}</span></td>
       <td>${esc(r.note||'')}</td>
@@ -459,7 +478,7 @@ function docCard(d, i){
 
 function renderStage2(){
   const rep = FIX.reports.map(r =>
-    `<div style="margin-bottom:6px;"><span class="pill">${esc(r.reason||'—')}</span>
+    `<div style="margin-bottom:6px;">${tgtPill(r)}<span class="pill">${esc(r.reason||'—')}</span>
      <span class="muted">${esc(r.note||'(no note)')}</span>
      <span class="muted"> — ${esc(r.name||r.uid||'')}, ${esc(fmtTime(r.createdAt))}</span></div>`).join('');
   $('fixBody').innerHTML =
@@ -477,10 +496,11 @@ function renderStage2(){
 function buildPrompt(){
   const L = [];
   L.push("You are a senior SSC exam content reviewer for TrickySSC, an SSC exam-prep platform.");
-  L.push("A candidate has flagged a question during a test. Your job is to decide whether the stored content is actually wrong, and if so to produce the minimum set of field edits that fix it.");
+  L.push("A candidate has flagged a question, or its solution, during a test. Your job is to decide whether the stored content is actually wrong, and if so to produce the minimum set of field edits that fix it.");
+  L.push("Each report says which part it is about: PART=question (raised on the question/options while attempting) or PART=solution (raised on the explanation / trick / concept shown in the review screen).");
   L.push("");
   L.push("### Candidate reports");
-  FIX.reports.forEach(r => L.push(`- Reason: ${r.reason||'—'} | Note: ${r.note||'(none)'}`));
+  FIX.reports.forEach(r => L.push(`- PART: ${tgtOf(r)} | Reason: ${r.reason||'—'} | Note: ${r.note||'(none)'}`));
   L.push("");
   L.push(`### Test: ${FIX.mockId} · Question number ${FIX.qNum}`);
   L.push("");
@@ -495,6 +515,7 @@ function buildPrompt(){
   L.push("### How to judge");
   L.push("1. SOLVE THE QUESTION YOURSELF from first principles before reading the stored answer. Do not assume the reporter is right — candidates are often wrong. If the stored content is correct, say so and return no changes.");
   L.push("2. If it IS wrong, work out exactly which fields carry the error.");
+  L.push("2b. For PART=solution reports the answer key is usually fine and the fault is in explanation / trick / concept — a wrong step, a wrong figure, a missing step, or a solution that derives a different option from the stored answer. Verify the key anyway, but do not rewrite a correct key just because the working is sloppy; fix the working instead.");
   L.push("3. If the answer key changes, you MUST also edit every solution / explanation / trick field that states or derives the old option — in EVERY document above, English and Hindi — so nothing contradicts. A half-fixed question is worse than an unfixed one.");
   L.push("4. Preserve the existing formatting conventions exactly: KaTeX wrapped in \\( \\), [BR] for line breaks, <u> tags, || option separators, inline HTML in solution fields, green/orange styled blocks. Match the surrounding style of the field you are editing.");
   L.push("5. Never translate. Edit Hindi documents in Hindi, English documents in English.");
@@ -683,8 +704,8 @@ window.downloadCsv = function(which){
   const q = s => '"'+String(s==null?'':s).replace(/"/g,'""')+'"';
   if(which==='reports'){
     name='question_reports.csv';
-    rows=[['when','source','mockId','qNum','position','subject','reason','note','name','uid','testName']];
-    REPORTS.slice().sort((a,b)=>tsMs(b)-tsMs(a)).forEach(r=>rows.push([fmtTime(r.createdAt),r.source||'mock',r.mockId,r.qNum,r.position,r.subject,r.reason,r.note,r.name,r.uid,r.testName]));
+    rows=[['when','source','part','mockId','qNum','position','subject','reason','note','name','uid','testName']];
+    REPORTS.slice().sort((a,b)=>tsMs(b)-tsMs(a)).forEach(r=>rows.push([fmtTime(r.createdAt),r.source||'mock',tgtOf(r),r.mockId,r.qNum,r.position,r.subject,r.reason,r.note,r.name,r.uid,r.testName]));
   } else {
     name='mock_ratings.csv';
     rows=[['when','mockId','stars','difficulty','name','uid','testName']];
