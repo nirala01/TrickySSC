@@ -1,0 +1,52 @@
+name: Update Mock Live Count
+
+# Keeps ssc-cgl-mock-test.html and mock-list.html in step with Firestore, the
+# same way the PYQ page build does. Runs on a schedule, and can be triggered by
+# hand from the Actions tab the moment a new mock is uploaded.
+
+on:
+  schedule:
+    - cron: '30 1,7,13,19 * * *'      # 07:00, 13:00, 19:00, 01:00 IST
+  workflow_dispatch:
+    inputs:
+      live:
+        description: 'Force a live count (leave blank to read Firestore)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-mock-live
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Sync live mocks from Firestore
+        run: |
+          if [ -n "${{ github.event.inputs.live }}" ]; then
+            python update_mock_live.py --live "${{ github.event.inputs.live }}"
+          else
+            python update_mock_live.py
+          fi
+
+      - name: Commit if anything changed
+        run: |
+          if [ -z "$(git status --porcelain ssc-cgl-mock-test.html mock-list.html)" ]; then
+            echo "No change — nothing to commit."
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ssc-cgl-mock-test.html mock-list.html
+          git commit -m "chore: sync mock live count [skip ci]"
+          git push
