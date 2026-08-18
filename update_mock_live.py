@@ -85,9 +85,9 @@ def update(path, live, free_upto, dry):
         if n > live:
             return m.group(0)
         body = LOCK.sub("", m.group("body"))
-        badge = ('\n  <div class="mc-lock mc-free-tag"><span>&#10004; Free</span></div>'
+        badge = ('\n  <div class="mc-lock mc-free-tag"><span><i class="mc-ico">&#10004;</i>Free</span></div>'
                  if n <= free_upto else
-                 '\n  <div class="mc-lock mc-paid-tag"><span>&#9733; Premium</span></div>')
+                 '\n  <div class="mc-lock mc-paid-tag"><span><i class="mc-coin">&#129689;</i>Premium</span></div>')
         flipped.append(n)
         return ('<div class="mock-card live resolved"%sdata-tier="tier1" data-n="%d">%s%s\n</div>'
                 % (m.group(1), n, body, badge))
