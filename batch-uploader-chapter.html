@@ -1,0 +1,1304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TrickySSC — Batch Chapter-Test Uploader</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+
+  :root {
+    --bg: #0f0f11;
+    --surface: #18181c;
+    --surface2: #222228;
+    --border: #2e2e38;
+    --accent: #14b8a6;
+    --accent2: #22d3ee;
+    --green: #22c55e;
+    --red: #f43f5e;
+    --yellow: #f59e0b;
+    --text: #e4e4ef;
+    --muted: #6b7280;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14px; min-height: 100vh; }
+
+  .header {
+    border-bottom: 1px solid var(--border); padding: 14px 24px;
+    display: flex; align-items: center; gap: 12px;
+    background: var(--surface); position: sticky; top: 0; z-index: 100;
+  }
+  .header-logo { font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--accent2); letter-spacing: .05em; }
+  .header-title { font-size: 13px; color: var(--muted); }
+  .header-sep { flex: 1; }
+
+  .badge {
+    font-family: var(--mono); font-size: 11px; padding: 3px 9px; border-radius: 5px;
+    background: var(--surface2); border: 1px solid var(--border); color: var(--muted);
+  }
+  .badge.ok  { color: var(--green);  border-color: rgba(34,197,94,.35);  background: rgba(34,197,94,.10); }
+  .badge.bad { color: var(--red);    border-color: rgba(244,63,94,.35);  background: rgba(244,63,94,.10); }
+  .badge.warn{ color: var(--yellow); border-color: rgba(245,158,11,.35); background: rgba(245,158,11,.10); }
+  .badge.info{ color: var(--accent2);border-color: rgba(34,211,238,.35); background: rgba(34,211,238,.10); }
+
+  .wrap { max-width: 1600px; margin: 0 auto; padding: 22px 24px 80px; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; margin-bottom: 18px; }
+  .card h2 { font-size: 14px; font-weight: 600; margin-bottom: 4px; display: flex; align-items: center; gap: 9px; }
+  .step-n {
+    font-family: var(--mono); font-size: 11px; width: 22px; height: 22px; border-radius: 6px;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: var(--accent); color: #04211d; font-weight: 600; flex: none;
+  }
+  .card p.hint { color: var(--muted); font-size: 12.5px; margin: 6px 0 14px 31px; line-height: 1.55; }
+
+  button {
+    font-family: var(--sans); font-size: 13px; font-weight: 500; cursor: pointer;
+    padding: 8px 15px; border-radius: 7px; border: 1px solid var(--border);
+    background: var(--surface2); color: var(--text); transition: .12s;
+  }
+  button:hover:not(:disabled) { border-color: var(--accent); }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #04211d; font-weight: 600; }
+  button.primary:hover:not(:disabled) { filter: brightness(1.12); }
+  button.danger  { background: rgba(244,63,94,.14); border-color: rgba(244,63,94,.4); color: var(--red); }
+  button.ghost   { background: transparent; }
+  button.sm { padding: 5px 10px; font-size: 12px; }
+
+  .drop {
+    border: 2px dashed var(--border); border-radius: 10px; padding: 34px 20px;
+    text-align: center; transition: .15s; cursor: pointer; background: var(--surface2);
+  }
+  .drop:hover, .drop.over { border-color: var(--accent); background: rgba(20,184,166,.07); }
+  .drop .big { font-size: 15px; font-weight: 500; margin-bottom: 6px; }
+  .drop .sub { font-size: 12.5px; color: var(--muted); line-height: 1.6; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th {
+    text-align: left; font-family: var(--mono); font-size: 10.5px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: .06em; color: var(--muted);
+    padding: 8px 9px; border-bottom: 1px solid var(--border); white-space: nowrap;
+  }
+  td { padding: 8px 9px; border-bottom: 1px solid rgba(46,46,56,.55); vertical-align: middle; }
+  tr.row-done td { background: rgba(34,197,94,.05); }
+  tr.row-err  td { background: rgba(244,63,94,.06); }
+
+  input, select {
+    font-family: var(--sans); font-size: 12.5px; padding: 6px 8px; border-radius: 6px;
+    border: 1px solid var(--border); background: var(--bg); color: var(--text); width: 100%;
+  }
+  input:focus, select:focus { outline: none; border-color: var(--accent); }
+  input[type=checkbox] { width: auto; accent-color: var(--accent); cursor: pointer; }
+  input.narrow { width: 80px; }
+  label.chk { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; cursor: pointer; color: var(--text); }
+  label.fld { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--muted); }
+
+  .files-mini { font-family: var(--mono); font-size: 10.5px; color: var(--muted); line-height: 1.7; }
+  .files-mini span.have { color: var(--green); }
+  .files-mini span.miss { color: var(--red); }
+
+  .toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 14px; }
+
+  .prog-outer { height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; margin-top: 12px; }
+  .prog-inner { height: 100%; width: 0%; background: linear-gradient(90deg, var(--accent), var(--accent2)); transition: width .2s; }
+
+  #log {
+    font-family: var(--mono); font-size: 11.5px; line-height: 1.65; background: var(--bg);
+    border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px;
+    max-height: 380px; overflow-y: auto; white-space: pre-wrap; word-break: break-word;
+  }
+  #log .l-ok   { color: var(--green); }
+  #log .l-err  { color: var(--red); }
+  #log .l-warn { color: var(--yellow); }
+  #log .l-info { color: var(--muted); }
+  #log .l-head { color: var(--accent2); font-weight: 600; }
+
+  .gate { max-width: 420px; margin: 90px auto; text-align: center; }
+  .gate h1 { font-size: 19px; margin-bottom: 10px; }
+  .gate p { color: var(--muted); font-size: 13px; margin-bottom: 22px; line-height: 1.6; }
+
+  .issues { margin-top: 10px; font-size: 12px; line-height: 1.65; }
+  .issues div.iss-err  { color: var(--red); }
+  .issues div.iss-warn { color: var(--yellow); }
+  .mono { font-family: var(--mono); font-size: 11.5px; }
+  .muted { color: var(--muted); }
+  .nowrap { white-space: nowrap; }
+  .cov { font-family: var(--mono); font-size: 11.5px; line-height: 1.9; }
+  .cov b { color: var(--accent2); font-weight: 600; }
+  .cov i { font-style: normal; display: inline-block; min-width: 26px; text-align: center;
+           border-radius: 4px; padding: 1px 0; margin-right: 3px; background: var(--surface2); color: var(--muted); }
+  .cov i.on  { background: rgba(34,197,94,.14); color: var(--green); }
+  .cov i.new { background: rgba(20,184,166,.18); color: var(--accent); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <span class="header-logo">TRICKYSSC</span>
+  <span class="header-title">Batch Chapter-Test Uploader — every set, both languages, one run</span>
+  <span class="header-sep"></span>
+  <span class="badge" id="userBadge">not signed in</span>
+  <button class="sm ghost" id="signBtn" onclick="doSignIn()">Sign in</button>
+</div>
+
+<div id="gate" class="gate">
+  <h1>Admin sign-in required</h1>
+  <p>Firestore and Storage writes are gated to the admin allowlist. Sign in with your admin Google account to continue.</p>
+  <button class="primary" onclick="doSignIn()">Sign in with Google</button>
+</div>
+
+<div class="wrap" id="main" style="display:none">
+
+  <!-- ── STEP 1 ─────────────────────────────────────────── -->
+  <div class="card">
+    <h2><span class="step-n">1</span> Drop every chapter-test CSV</h2>
+    <p class="hint">
+      Select or drag in all files at once — as many sets, levels and chapters as you like. Files pair into tests by
+      their filename, minus the language suffix: <span class="mono">NumberSystem_L3_Set13_EN.csv</span> and
+      <span class="mono">…_HI.csv</span> become one test.
+      Level comes from <span class="mono">L1/L2/L3</span> (no marker means Level 1) and the test number from
+      <span class="mono">Set13</span> / <span class="mono">Test13</span>.
+      Exam, subject and chapter are read out of the CSV's own columns; everything is editable below.
+      A figures <span class="mono">.docx</span> is optional — only chapters with diagrams need one.
+    </p>
+    <div class="drop" id="drop" onclick="document.getElementById('fileInput').click()">
+      <div class="big">Drop files or folders here</div>
+      <div class="sub">…or click to browse. Nothing is uploaded until you press Run in step 3.</div>
+    </div>
+    <input type="file" id="fileInput" multiple accept=".csv,.docx" style="display:none">
+    <div class="toolbar">
+      <span class="badge" id="fileCount">0 files</span>
+      <span class="badge" id="testCount">0 tests</span>
+      <button class="sm ghost" onclick="resetAll()">Clear</button>
+    </div>
+  </div>
+
+  <!-- ── STEP 2 ─────────────────────────────────────────── -->
+  <div class="card" id="manifestCard" style="display:none">
+    <h2><span class="step-n">2</span> Confirm each test's slot</h2>
+    <p class="hint">
+      Chapter, level and test number are what the public page queries on, so check them —
+      together they decide which tile on <span class="mono">chapterwise-test.html</span> a set lands in.
+      The chapter list is the canonical taxonomy; picking a subject re-fills it.
+      Anything you set here overrides the CSV.
+    </p>
+    <div style="overflow-x:auto">
+      <table id="manifestTable">
+        <thead>
+          <tr>
+            <th style="width:20px"><input type="checkbox" id="chkAll" checked onchange="toggleAll(this)"></th>
+            <th>Set (file prefix)</th>
+            <th style="width:100px">Exam</th>
+            <th style="width:120px">Subject</th>
+            <th style="width:230px">Chapter</th>
+            <th style="width:70px">Level</th>
+            <th style="width:70px">Test #</th>
+            <th style="width:170px">Figures .docx</th>
+            <th style="width:130px">On duplicate</th>
+            <th>Files</th>
+            <th style="width:150px">Status</th>
+          </tr>
+        </thead>
+        <tbody id="manifestBody"></tbody>
+      </table>
+    </div>
+    <div class="toolbar">
+      <button onclick="validateAll()">Validate &amp; check for duplicates</button>
+      <span class="badge" id="valBadge">not checked</span>
+    </div>
+    <div id="coverage" class="cov" style="margin-top:14px"></div>
+  </div>
+
+  <!-- ── STEP 3 ─────────────────────────────────────────── -->
+  <div class="card" id="runCard" style="display:none">
+    <h2><span class="step-n">3</span> Run</h2>
+    <p class="hint">
+      For each selected test this writes both languages' question documents with
+      <span class="mono">type:'chapterwise'</span>, the canonical <span class="mono">chapterId</span>,
+      <span class="mono">level</span> and <span class="mono">testNum</span> already stamped in — the exact shape
+      <span class="mono">admin-chapterwise.html</span> writes, so the public player needs no change.
+      Document IDs are derived from chapter + level + test + language, so a re-run repairs a set instead of doubling it.
+    </p>
+    <div class="toolbar" style="margin-top:0">
+      <label class="chk"><input type="checkbox" id="optImages" checked> upload figure images</label>
+      <label class="chk"><input type="checkbox" id="optReuseImg" checked> skip images already in Storage</label>
+      <label class="chk"><input type="checkbox" id="optDryRun"> dry run (write nothing)</label>
+    </div>
+    <div class="toolbar">
+      <label class="fld">default difficulty
+        <select id="optDifficulty" style="width:120px">
+          <option value="" selected>from level (1→easy, 2→medium, 3→hard)</option>
+          <option value="easy">easy</option>
+          <option value="medium">medium</option>
+          <option value="hard">hard</option>
+        </select>
+      </label>
+      <label class="chk"><input type="checkbox" id="optStrictLint">
+        treat KaTeX / superscript lint warnings as errors</label>
+    </div>
+    <div class="toolbar">
+      <button class="primary" id="runBtn" onclick="runAll()">Run selected tests</button>
+      <button class="ghost sm" id="reportBtn" onclick="downloadReport()" style="display:none">Download report</button>
+      <span class="badge" id="runBadge">idle</span>
+    </div>
+    <div class="prog-outer"><div class="prog-inner" id="progBar"></div></div>
+    <div style="margin-top:8px;font-size:12px;color:var(--muted)" id="progText"></div>
+  </div>
+
+  <!-- ── LOG ────────────────────────────────────────────── -->
+  <div class="card">
+    <h2><span class="step-n">·</span> Log</h2>
+    <p class="hint">Everything the run did, in order. Copy this out if a set needs investigating.</p>
+    <div id="log"><span class="l-info">Ready.</span></div>
+    <div class="toolbar"><button class="sm ghost" onclick="document.getElementById('log').innerHTML=''">Clear log</button></div>
+  </div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js';
+import { getFirestore, collection, doc, setDoc, getDocs, query, where, writeBatch }
+  from 'https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js';
+import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged }
+  from 'https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js';
+import { getStorage, ref as storageRef, uploadBytes, getDownloadURL }
+  from 'https://www.gstatic.com/firebasejs/11.0.0/firebase-storage.js';
+
+const firebaseConfig = {
+  apiKey: "AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",
+  authDomain: "trickyssc-17bb3.firebaseapp.com",
+  projectId: "trickyssc-17bb3",
+  storageBucket: "trickyssc-17bb3.firebasestorage.app",
+  messagingSenderId: "450627057220",
+  appId: "1:450627057220:web:366267bf437d94f20c6e11"
+};
+
+const app     = initializeApp(firebaseConfig);
+const db      = getFirestore(app);
+const storage = getStorage(app);
+const auth    = getAuth(app);
+const provider = new GoogleAuthProvider();
+const ADMIN_EMAILS = ['nirala01@gmail.com', 'ashish@trickyssc.com'];
+
+/* ══════════════════════════════════════════════════════════
+   Auth
+   ══════════════════════════════════════════════════════════ */
+window.doSignIn = async () => {
+  try { await signInWithPopup(auth, provider); }
+  catch (e) { log('Sign-in failed: ' + e.message, 'err'); }
+};
+
+onAuthStateChanged(auth, user => {
+  const ok = user && (ADMIN_EMAILS.includes(user.email) || user.email.endsWith('@trickyssc.com'));
+  document.getElementById('gate').style.display = ok ? 'none' : 'block';
+  document.getElementById('main').style.display = ok ? 'block' : 'none';
+  document.getElementById('signBtn').style.display = ok ? 'none' : 'inline-block';
+  const b = document.getElementById('userBadge');
+  if (ok) { b.textContent = user.email; b.className = 'badge ok'; }
+  else if (user) { b.textContent = 'not an admin'; b.className = 'badge bad'; }
+  else { b.textContent = 'not signed in'; b.className = 'badge'; }
+});
+
+/* ══════════════════════════════════════════════════════════
+   Logging
+   ══════════════════════════════════════════════════════════ */
+function log(msg, kind = 'info') {
+  const el = document.getElementById('log');
+  const t = new Date().toTimeString().slice(0, 8);
+  const line = document.createElement('div');
+  line.className = 'l-' + kind;
+  line.textContent = `[${t}] ${msg}`;
+  el.appendChild(line);
+  el.scrollTop = el.scrollHeight;
+}
+window.log = log;
+
+/* ══════════════════════════════════════════════════════════
+   CSV parser (RFC 4180: quoted fields, embedded commas/newlines/quotes)
+   ══════════════════════════════════════════════════════════ */
+function parseCSV(text) {
+  if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);      // strip UTF-8 BOM
+  text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const rows = [];
+  let row = [], field = '', inQ = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQ) {
+      if (c === '"') {
+        if (text[i + 1] === '"') { field += '"'; i++; }
+        else inQ = false;
+      } else field += c;
+    } else {
+      if (c === '"') inQ = true;
+      else if (c === ',') { row.push(field); field = ''; }
+      else if (c === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
+      else field += c;
+    }
+  }
+  if (field.length || row.length) { row.push(field); rows.push(row); }
+  if (!rows.length) return [];
+  const headers = rows[0].map(h => h.trim().replace(/^\uFEFF/, ''));
+  return rows.slice(1)
+    .filter(r => r.some(v => v && v.trim()))
+    .map(r => {
+      const o = {};
+      headers.forEach((h, i) => o[h] = (r[i] === undefined ? '' : r[i]).trim());
+      return o;
+    });
+}
+
+/* ══════════════════════════════════════════════════════════
+   Canonical chapter taxonomy — embedded verbatim from chapters.json,
+   the same copy admin-chapterwise.html and chapterwise-test.html carry.
+   ══════════════════════════════════════════════════════════ */
+const CANON = {"version":1,"subjects":{"reasoning":{"chapters":[{"id":"reason.analogy","name":"Analogy (Word / Letter / Number)"},{"id":"reason.classification","name":"Classification (Odd One Out)"},{"id":"reason.series","name":"Series (Number / Alphabet / Mixed)"},{"id":"reason.coding-decoding","name":"Coding-Decoding"},{"id":"reason.blood-relation","name":"Blood Relations"},{"id":"reason.direction-distance","name":"Direction & Distance"},{"id":"reason.ranking-arrangement","name":"Ranking & Order Arrangement"},{"id":"reason.seating-arrangement","name":"Seating Arrangement"},{"id":"reason.syllogism","name":"Syllogism"},{"id":"reason.statement-conclusion","name":"Statement & Conclusion / Inference"},{"id":"reason.venn-diagram","name":"Venn Diagram"},{"id":"reason.mathematical-operations","name":"Mathematical Operations (BODMAS / Symbols)"},{"id":"reason.word-formation","name":"Word Formation & Dictionary Order"},{"id":"reason.missing-number","name":"Missing Number (Matrix)"},{"id":"reason.puzzle","name":"Puzzle / Data Arrangement"},{"id":"reason.calendar-clock","name":"Calendar & Clock"},{"id":"reason.mirror-image","name":"Mirror Image"},{"id":"reason.water-image","name":"Water Image"},{"id":"reason.paper-folding","name":"Paper Folding & Cutting"},{"id":"reason.embedded-figure","name":"Embedded / Hidden Figures"},{"id":"reason.figure-completion","name":"Figure / Pattern Completion"},{"id":"reason.figure-series","name":"Figure Series"},{"id":"reason.figure-classification","name":"Figure Classification"},{"id":"reason.figure-analogy","name":"Figure Analogy"},{"id":"reason.counting-figures","name":"Counting of Figures (Triangles etc.)"},{"id":"reason.dice","name":"Dice"},{"id":"reason.cube-cuboid","name":"Cube & Cuboid"},{"id":"reason.dot-situation","name":"Dot Situation"},{"id":"reason.other","name":"Other / Uncategorized Reasoning"}]},"ga":{"chapters":[{"id":"ga.history-ancient","name":"History: Ancient India"},{"id":"ga.history-medieval","name":"History: Medieval India"},{"id":"ga.history-modern","name":"History: Modern India & Freedom Struggle"},{"id":"ga.art-culture","name":"Art & Culture"},{"id":"ga.geography-india","name":"Geography: India"},{"id":"ga.geography-world","name":"Geography: World & Physical"},{"id":"ga.polity","name":"Polity & Constitution"},{"id":"ga.economics","name":"Economics"},{"id":"ga.physics","name":"Science: Physics"},{"id":"ga.chemistry","name":"Science: Chemistry"},{"id":"ga.biology","name":"Science: Biology"},{"id":"ga.computer","name":"Computer & Technology"},{"id":"ga.static-books-authors","name":"Static: Books & Authors"},{"id":"ga.static-awards","name":"Static: Awards & Honours"},{"id":"ga.static-days-events","name":"Static: Important Days & Events"},{"id":"ga.static-sports","name":"Static: Sports"},{"id":"ga.static-schemes","name":"Govt Schemes"},{"id":"ga.static-organizations","name":"National & International Organizations"},{"id":"ga.static-misc","name":"Static GK: Misc (Dances, Festivals, Symbols, Superlatives)"},{"id":"ga.current-affairs","name":"Current Affairs"},{"id":"ga.other","name":"Other / Uncategorized GA"}]},"quant":{"chapters":[{"id":"quant.number-system","name":"Number System"},{"id":"quant.divisibility","name":"Rule of Divisibility"},{"id":"quant.remainder-theorem","name":"Remainder Theorem"},{"id":"quant.decimal-fraction","name":"Decimal & Fraction"},{"id":"quant.lcm-hcf","name":"LCM & HCF"},{"id":"quant.square-cube-root","name":"Square, Square Root & Cube, Cube Root"},{"id":"quant.series-ap-gp","name":"Series (AP & GP)"},{"id":"quant.simplification","name":"Power, Indices & Surds"},{"id":"quant.algebraic-formula","name":"Algebraic Formula"},{"id":"quant.algebraic-result","name":"Algebraic Result"},{"id":"quant.percentage","name":"Percentage"},{"id":"quant.profit-loss","name":"Profit & Loss"},{"id":"quant.discount","name":"Discount"},{"id":"quant.simple-interest","name":"Simple Interest"},{"id":"quant.compound-interest","name":"Compound Interest"},{"id":"quant.ratio-proportion","name":"Ratio & Proportion"},{"id":"quant.partnership","name":"Partnership"},{"id":"quant.average","name":"Average"},{"id":"quant.ages","name":"Age"},{"id":"quant.mixture-alligation","name":"Mixture & Alligation"},{"id":"quant.time-work","name":"Time & Work"},{"id":"quant.pipe-cistern","name":"Pipe & Cistern"},{"id":"quant.time-speed-distance","name":"Time, Speed, Distance & Train"},{"id":"quant.algebra","name":"Algebraic Expression & Identities"},{"id":"quant.quadratic-equation","name":"Quadratic Equation"},{"id":"quant.boat-stream","name":"Boat & Stream"},{"id":"quant.race","name":"Race"},{"id":"quant.trigonometry","name":"Trigonometry"},{"id":"quant.height-distance","name":"Height & Distance"},{"id":"quant.geometry","name":"Geometry & Circle"},{"id":"quant.mensuration","name":"Mensuration (2D & 3D)"},{"id":"quant.coordinate-geometry","name":"Co-ordinate Geometry"},{"id":"quant.probability","name":"Probability"},{"id":"quant.statistics","name":"Statistics"},{"id":"quant.data-interpretation","name":"Data Interpretation"},{"id":"quant.other","name":"Other / Uncategorized Quant"}]},"english":{"chapters":[{"id":"eng.error-spotting","name":"Spot the Error"},{"id":"eng.sentence-improvement","name":"Sentence Improvement"},{"id":"eng.fill-blanks","name":"Fill in the Blanks"},{"id":"eng.active-passive","name":"Active & Passive Voice"},{"id":"eng.narration","name":"Direct & Indirect Narration"},{"id":"eng.para-jumbles","name":"Sentence Rearrangement / Para Jumbles"},{"id":"eng.synonyms","name":"Synonyms"},{"id":"eng.antonyms","name":"Antonyms"},{"id":"eng.spelling","name":"Spelling Correction"},{"id":"eng.idioms-phrases","name":"Idioms & Phrases"},{"id":"eng.one-word","name":"One Word Substitution"},{"id":"eng.homonyms","name":"Homonyms"},{"id":"eng.cloze-test","name":"Cloze Test"},{"id":"eng.reading-comprehension","name":"Reading Comprehension"},{"id":"eng.other","name":"Other / Uncategorized English"}]},"computer":{"chapters":[{"id":"computer.fundamentals","name":"Computer Fundamentals & Organization (CPU, I/O, Ports, Generations)"},{"id":"computer.memory-storage","name":"Memory & Storage Devices"},{"id":"computer.os-windows","name":"Operating System & Windows (Explorer, Shortcuts)"},{"id":"computer.ms-office","name":"MS Office (Word, Excel, PowerPoint)"},{"id":"computer.internet-email","name":"Internet, Web Browsing & E-mail (incl. e-Banking)"},{"id":"computer.networking","name":"Networking (Devices & Protocols)"},{"id":"computer.cyber-security","name":"Cyber Security (Virus, Hacking, Threats)"},{"id":"computer.other","name":"Other / Uncategorized Computer"}]},"statistics":{"chapters":[{"id":"statistics.data-collection","name":"Collection, Classification & Presentation of Data"},{"id":"statistics.central-tendency","name":"Measures of Central Tendency"},{"id":"statistics.dispersion","name":"Measures of Dispersion"},{"id":"statistics.moments-skewness-kurtosis","name":"Moments, Skewness & Kurtosis"},{"id":"statistics.correlation-regression","name":"Correlation & Regression"},{"id":"statistics.probability","name":"Probability Theory"},{"id":"statistics.random-variable","name":"Random Variable & Probability Distributions"},{"id":"statistics.sampling","name":"Sampling Theory"},{"id":"statistics.inference","name":"Statistical Inference (Estimation & Testing)"},{"id":"statistics.anova","name":"Analysis of Variance (ANOVA)"},{"id":"statistics.time-series","name":"Time Series Analysis"},{"id":"statistics.index-numbers","name":"Index Numbers"},{"id":"statistics.other","name":"Other / Uncategorized Statistics"}]},"finance_economics":{"chapters":[{"id":"fineco.accounting-fundamentals","name":"Financial Accounting: Nature, Concepts & Conventions (GAAP)"},{"id":"fineco.accounting-basics","name":"Basic Accounting: Single/Double Entry, Journal, Ledger, Trial Balance"},{"id":"fineco.bank-reconciliation","name":"Bank Reconciliation Statement"},{"id":"fineco.rectification-errors","name":"Rectification of Errors"},{"id":"fineco.final-accounts","name":"Final Accounts (Trading, P&L, Balance Sheet)"},{"id":"fineco.capital-revenue","name":"Capital & Revenue Expenditure"},{"id":"fineco.depreciation","name":"Depreciation Accounting"},{"id":"fineco.inventory-valuation","name":"Valuation of Inventories"},{"id":"fineco.non-profit-accounts","name":"Non-Profit Org Accounts (Receipts & Payments, Income & Expenditure)"},{"id":"fineco.bills-exchange","name":"Bills of Exchange"},{"id":"fineco.self-balancing-ledgers","name":"Self-Balancing Ledgers"},{"id":"fineco.constitutional-bodies","name":"Constitutional Bodies: CAG & Finance Commission"},{"id":"fineco.economics-basics","name":"Basic Concepts & Micro Economics Intro (PPC, Central Problems)"},{"id":"fineco.demand-supply","name":"Theory of Demand & Supply (Elasticity, Consumer Behaviour)"},{"id":"fineco.production-cost","name":"Theory of Production & Cost (Returns to Scale)"},{"id":"fineco.market-forms","name":"Forms of Market & Price Determination"},{"id":"fineco.indian-economy","name":"Indian Economy: Sectors (Agriculture, Industry, Services)"},{"id":"fineco.national-income","name":"National Income (Concepts & Measurement)"},{"id":"fineco.population","name":"Population & Growth"},{"id":"fineco.poverty-unemployment","name":"Poverty & Unemployment"},{"id":"fineco.infrastructure","name":"Infrastructure (Energy, Transport, Communication)"},{"id":"fineco.economic-reforms","name":"Economic Reforms since 1991 (LPG & Disinvestment)"},{"id":"fineco.money-banking","name":"Money & Banking (RBI, Commercial Banks, Monetary Policy)"},{"id":"fineco.budget-fiscal","name":"Budget, Fiscal Deficit, BoP & FRBM Act"},{"id":"fineco.it-governance","name":"Role of IT in Governance"},{"id":"fineco.other","name":"Other / Uncategorized Finance & Economics"}]}}};
+
+// Form subject key ↔ canonical taxonomy key (the form key is what gets stored)
+const SUBJECT_TO_CANON = { reasoning:'reasoning', gk:'ga', quant:'quant', english:'english',
+                           statistics:'statistics', finance:'finance_economics', computer:'computer' };
+const CANON_TO_SUBJECT = Object.fromEntries(Object.entries(SUBJECT_TO_CANON).map(([k, v]) => [v, k]));
+const SUBJECT_LABEL = {
+  reasoning:'General Intelligence & Reasoning', english:'English Language', quant:'Quantitative Aptitude',
+  gk:'General Awareness', computer:'Computer Knowledge', statistics:'Statistics', finance:'Finance & Economics'
+};
+const SUBJECT_KEYS = Object.keys(SUBJECT_TO_CANON);
+const EXAMS = ['ssc-cgl','ssc-chsl','ssc-mts','ssc-gd','ssc-cpo','ssc-jht','ssc-je'];
+const TEST_COUNT = 20;          // matches admin-chapterwise.html and the public test grid
+const LEVELS = [1, 2, 3];
+
+// id → display name, and id → owning form-subject
+const CHAPTER_NAME_BY_ID = {}, SUBJECT_BY_CHAPTER = {};
+Object.entries(CANON.subjects || {}).forEach(([canonKey, s]) => s.chapters.forEach(c => {
+  CHAPTER_NAME_BY_ID[c.id] = c.name;
+  SUBJECT_BY_CHAPTER[c.id] = CANON_TO_SUBJECT[canonKey] || '';
+}));
+function chaptersFor(subjKey) {
+  const s = CANON.subjects[SUBJECT_TO_CANON[subjKey]];
+  return s ? s.chapters : [];
+}
+
+// Loose name → chapterId lookup, so "NumberSystem" in a filename resolves to quant.number-system
+const norm = s => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+const CHAPTER_BY_NORM = {};
+Object.keys(CHAPTER_NAME_BY_ID).forEach(id => {
+  CHAPTER_BY_NORM[norm(id.split('.').slice(1).join('.'))] = id;   // number-system → quant.number-system
+  CHAPTER_BY_NORM[norm(id)] = id;
+  const n = norm(CHAPTER_NAME_BY_ID[id]);
+  if (!CHAPTER_BY_NORM[n]) CHAPTER_BY_NORM[n] = id;               // display name, first writer wins
+});
+
+/* ══════════════════════════════════════════════════════════
+   Filename → test grouping
+   ══════════════════════════════════════════════════════════ */
+const LANG_RE = /^(.*?)[-_ ]*(en|hi|eng|english|hin|hindi)\.csv$/i;
+
+function cleanName(name) {
+  return name.replace(/^\d{10,}_/, '');       // strip an upload-tool numeric prefix
+}
+
+function detectRole(name) {
+  const m = cleanName(name).match(LANG_RE);
+  if (!m) return null;
+  const lang = /^h/i.test(m[2]) ? 'hi' : 'en';
+  return { prefix: m[1].replace(/[-_ ]+$/, ''), lang };
+}
+
+/** Pull level / test number / chapter guess out of a prefix like NumberSystem_L3_Set13 */
+function metaFromPrefix(prefix) {
+  const meta = { exam: '', subject: '', chapterId: '', level: '', testNum: '', tier: 'tier1', year: '' };
+  let p = prefix;
+
+  const ex = p.toLowerCase().match(/ssc[-_ ]?(cgl|chsl|mts|gd|cpo|jht|je)/);
+  if (ex) meta.exam = 'ssc-' + ex[1];
+
+  const lv = p.match(/(?:^|[-_ ])L(?:evel)?[-_ ]?([123])(?=$|[-_ ])/i);
+  if (lv) meta.level = lv[1];
+
+  const st = p.match(/(?:set|test)[-_ ]?(\d{1,2})/i) || p.match(/(?:^|[-_ ])t(\d{1,2})(?=$|[-_ ])/i);
+  if (st) meta.testNum = String(parseInt(st[1]));
+
+  // Whatever is left after the structural tokens is the chapter name
+  const rest = p.replace(/ssc[-_ ]?(cgl|chsl|mts|gd|cpo|jht|je)/ig, '')
+                .replace(/(?:^|[-_ ])L(?:evel)?[-_ ]?[123](?=$|[-_ ])/ig, '')
+                .replace(/(?:set|test)[-_ ]?\d{1,2}/ig, '')
+                .replace(/20\d{2}/g, '');
+  const hit = CHAPTER_BY_NORM[norm(rest)];
+  if (hit) { meta.chapterId = hit; meta.subject = SUBJECT_BY_CHAPTER[hit]; }
+  return meta;
+}
+
+/** Read the docx heading to guess which set it belongs to. */
+function metaFromDocxTitle(title) {
+  const t = (title || '');
+  const out = { level: '', testNum: '', chapterId: '' };
+  const lv = t.match(/level[-_ ]?([123])/i) || t.match(/(?:^|\s)L([123])(?=$|\s|[-_])/);
+  if (lv) out.level = lv[1];
+  const st = t.match(/(?:set|test)[-_ ]?(\d{1,2})/i);
+  if (st) out.testNum = String(parseInt(st[1]));
+  const hit = CHAPTER_BY_NORM[norm(t.replace(/level[-_ ]?[123]/ig, '')
+                                   .replace(/(?:set|test)[-_ ]?\d{1,2}/ig, '')
+                                   .replace(/[^a-z ]/ig, ''))];
+  if (hit) out.chapterId = hit;
+  return out;
+}
+
+const chapterSlug = id => (id || '').replace(/\./g, '-');
+/** chapter + level + test + language — the four things the public page filters on. */
+function testKey(m, lang) { return `${m.chapterId}|l${m.level}|t${m.testNum}|${lang}`; }
+function docPrefix(m, lang) { return `cw_${chapterSlug(m.chapterId)}_l${m.level}_t${m.testNum}_${lang}`; }
+function docIdFor(m, lang, qNum) { return `${docPrefix(m, lang)}_q${String(qNum).padStart(3, '0')}`; }
+function describe(m) {
+  return `${CHAPTER_NAME_BY_ID[m.chapterId] || m.chapterId || '(no chapter)'} · L${m.level || '?'} · Test ${m.testNum || '?'}`;
+}
+
+/* ══════════════════════════════════════════════════════════
+   DOCX figure parser  (same grouping rules as uploader.html / batch-uploader-mock.html)
+   ══════════════════════════════════════════════════════════ */
+async function parseFiguresDocx(file) {
+  const zip = await JSZip.loadAsync(await file.arrayBuffer());
+
+  const blobs = {};
+  for (const path of Object.keys(zip.files).filter(f => f.startsWith('word/media/'))) {
+    blobs[path.split('/').pop()] = await zip.files[path].async('blob');
+  }
+
+  const docXml  = await zip.files['word/document.xml'].async('string');
+  const relsXml = await zip.files['word/_rels/document.xml.rels'].async('string');
+  const parser  = new DOMParser();
+  const relsDoc = parser.parseFromString(relsXml, 'text/xml');
+  const docDOM  = parser.parseFromString(docXml, 'text/xml');
+
+  const ridMap = {};
+  relsDoc.querySelectorAll('Relationship').forEach(rel => {
+    const tgt = rel.getAttribute('Target') || '';
+    if (tgt.includes('media/')) ridMap[rel.getAttribute('Id')] = tgt.split('/').pop();
+  });
+
+  const NS_W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+  const NS_A = 'http://schemas.openxmlformats.org/drawingml/2006/main';
+  const NS_R = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+
+  const paras = [];
+  for (const para of docDOM.getElementsByTagNameNS(NS_W, 'p')) {
+    let text = '';
+    for (const t of para.getElementsByTagNameNS(NS_W, 't')) text += t.textContent;
+    text = text.trim();
+    const imgs = [];
+    for (const blip of para.getElementsByTagNameNS(NS_A, 'blip')) {
+      const rid = blip.getAttributeNS(NS_R, 'embed') || blip.getAttribute('r:embed');
+      if (rid && ridMap[rid]) imgs.push(ridMap[rid]);
+    }
+    if (text || imgs.length) paras.push({ text, imgs });
+  }
+
+  const title = paras.length ? paras[0].text : '';
+  const questions = [];
+  const used = new Set();
+  let cur = null;
+
+  const nextFreeOpt = (q, img) => {
+    for (const l of ['A','B','C','D']) {
+      if (!q.imgs['opt' + l]) { q.imgs['opt' + l] = img; return; }
+    }
+  };
+  // Put an image in the slot its label asked for; fall back if that slot is taken.
+  const putOpt = (q, slot, img) => {
+    const l = 'ABCD'[slot - 1];
+    if (l && !q.imgs['opt' + l]) { q.imgs['opt' + l] = img; return; }
+    nextFreeOpt(q, img);
+  };
+
+  // A label ("[figure]", "Figure 2") normally sits in its OWN paragraph, with the
+  // picture in the paragraph that follows. Remember the last label so the next
+  // image paragraph can be bound to the slot it names.
+  let pendingLabel = null;   // null | 'stem' | 1..4
+
+  for (const para of paras) {
+    const qm = para.text.match(/^Q\.?\s*(\d+)[.)]?\s*(.*)/i);
+    if (qm) {
+      if (cur) questions.push(cur);
+      cur = { qNum: parseInt(qm[1]), imgs: {} };
+      pendingLabel = null;
+      para.imgs.forEach((img, i) => {
+        cur.imgs[i === 0 ? 'q' : 'opt' + String.fromCharCode(64 + i)] = img;
+        used.add(img);
+      });
+      continue;
+    }
+    if (!cur) continue;
+
+    if (/^(Solution|Explanation|Answer)\s*:?$/i.test(para.text)) cur._expectSol = true;
+
+    const optM  = para.text.match(/^(?:Diagram|Figure|Option|Image)\s*(\d+)/i);
+    const stemM = /^\[\s*figure\s*\]$/i.test(para.text);
+
+    // Label on a line of its own: hold it for the image paragraph that follows.
+    if (!para.imgs.length) {
+      if (optM)            pendingLabel = parseInt(optM[1]);
+      else if (stemM)      pendingLabel = 'stem';
+      else if (para.text)  pendingLabel = null;
+      continue;
+    }
+
+    // Image paragraph. A label on this same paragraph wins over a held one.
+    const label = optM ? parseInt(optM[1]) : (stemM ? 'stem' : pendingLabel);
+    pendingLabel = null;
+
+    if (cur._expectSol) {
+      cur.imgs.sol = para.imgs[0]; used.add(para.imgs[0]); cur._expectSol = false;
+      para.imgs.slice(1).forEach(img => { used.add(img); nextFreeOpt(cur, img); });
+    } else if (typeof label === 'number') {
+      para.imgs.forEach((img, i) => { used.add(img); putOpt(cur, label + i, img); });
+    } else if (label === 'stem' || !cur.imgs.q) {
+      cur.imgs.q = para.imgs[0]; used.add(para.imgs[0]);
+      para.imgs.slice(1).forEach(img => { used.add(img); nextFreeOpt(cur, img); });
+    } else {
+      para.imgs.forEach(img => { used.add(img); nextFreeOpt(cur, img); });
+    }
+  }
+  if (cur) questions.push(cur);
+
+  const unassigned = Object.keys(blobs).filter(n => !used.has(n));
+  return { title, blobs, questions, unassigned };
+}
+
+/* ══════════════════════════════════════════════════════════
+   State
+   ══════════════════════════════════════════════════════════ */
+let tests = [];         // [{prefix, meta, files:{en,hi}, rows:{en,hi}, docxFile, docx, issues, existing, selected, dupMode}]
+let looseDocx = [];     // docx files not matched by prefix
+let report = [];
+let chapterCache = {};  // chapterId → [{id, data}] already in Firestore
+
+/* ══════════════════════════════════════════════════════════
+   Step 1 — ingest files
+   ══════════════════════════════════════════════════════════ */
+const drop = document.getElementById('drop');
+['dragenter','dragover'].forEach(ev => drop.addEventListener(ev, e => {
+  e.preventDefault(); drop.classList.add('over');
+}));
+['dragleave','drop'].forEach(ev => drop.addEventListener(ev, e => {
+  e.preventDefault(); drop.classList.remove('over');
+}));
+drop.addEventListener('drop', e => ingest([...e.dataTransfer.files]));
+document.getElementById('fileInput').addEventListener('change', e => ingest([...e.target.files]));
+
+window.resetAll = () => {
+  tests = []; looseDocx = []; report = []; chapterCache = {};
+  document.getElementById('fileInput').value = '';
+  document.getElementById('manifestCard').style.display = 'none';
+  document.getElementById('runCard').style.display = 'none';
+  document.getElementById('fileCount').textContent = '0 files';
+  document.getElementById('testCount').textContent = '0 tests';
+  document.getElementById('reportBtn').style.display = 'none';
+  document.getElementById('coverage').innerHTML = '';
+  log('Cleared.', 'info');
+};
+
+/** CSV columns win over the filename for exam / subject / chapter, since the
+    generator writes them into every row. */
+function metaFromRows(meta, rows) {
+  const first = rows.find(r => (r.chapter || r.chapterId || r.exam || r.subject)) || rows[0] || {};
+  const csvChapter = (first.chapterId || first.chapter || '').trim();
+  if (csvChapter) {
+    if (CHAPTER_NAME_BY_ID[csvChapter]) meta.chapterId = csvChapter;
+    else if (CHAPTER_BY_NORM[norm(csvChapter)]) meta.chapterId = CHAPTER_BY_NORM[norm(csvChapter)];
+    else meta.chapterRaw = csvChapter;                    // kept so validation can complain by name
+  }
+  const csvSubj = (first.subject || '').trim().toLowerCase();
+  if (SUBJECT_KEYS.includes(csvSubj)) meta.subject = csvSubj;
+  else if (CANON_TO_SUBJECT[csvSubj]) meta.subject = CANON_TO_SUBJECT[csvSubj];
+  if (!meta.subject && meta.chapterId) meta.subject = SUBJECT_BY_CHAPTER[meta.chapterId];
+  if (!meta.exam && first.exam) meta.exam = first.exam.trim().toLowerCase();
+  if (!meta.level && first.level) meta.level = String(parseInt(first.level) || '');
+  if (!meta.testNum && (first.testNum || first.test)) meta.testNum = String(parseInt(first.testNum || first.test) || '');
+  if (!meta.year && first.year) meta.year = first.year.trim();
+  if (first.tier) meta.tier = first.tier.trim();
+  if (!meta.level) meta.level = '1';                      // no L marker anywhere = Level 1
+  return meta;
+}
+
+async function ingest(fileList) {
+  const csvs  = fileList.filter(f => /\.csv$/i.test(f.name));
+  const docxs = fileList.filter(f => /\.docx$/i.test(f.name));
+  document.getElementById('fileCount').textContent = fileList.length + ' files';
+
+  const byPrefix = {};
+  for (const t of tests) byPrefix[t.prefix] = t;
+
+  let skipped = 0;
+  for (const f of csvs) {
+    const role = detectRole(f.name);
+    if (!role) { skipped++; log(`Skipped "${f.name}" — filename does not end in _EN.csv or _HI.csv`, 'warn'); continue; }
+    if (!byPrefix[role.prefix]) {
+      byPrefix[role.prefix] = {
+        prefix: role.prefix, meta: metaFromPrefix(role.prefix),
+        files: {}, docxFile: null, docx: null, rows: {},
+        issues: { errs: [], warns: [] }, existing: null, selected: true, dupMode: 'overwrite', done: false
+      };
+    }
+    byPrefix[role.prefix].files[role.lang] = f;
+  }
+
+  tests = Object.values(byPrefix);
+
+  // Load CSV contents, then let the rows fill in exam / subject / chapter
+  for (const t of tests) {
+    for (const [lang, f] of Object.entries(t.files)) {
+      if (t.rows[lang]) continue;
+      try { t.rows[lang] = parseCSV(await f.text()); }
+      catch (e) { log(`Failed to read ${f.name}: ${e.message}`, 'err'); t.rows[lang] = []; }
+    }
+    if (!t.metaFilled) {
+      metaFromRows(t.meta, t.rows.en && t.rows.en.length ? t.rows.en : (t.rows.hi || []));
+      t.metaFilled = true;
+    }
+  }
+
+  tests.sort((a, b) =>
+    (a.meta.chapterId || '').localeCompare(b.meta.chapterId || '') ||
+    (parseInt(a.meta.level) || 0) - (parseInt(b.meta.level) || 0) ||
+    (parseInt(a.meta.testNum) || 0) - (parseInt(b.meta.testNum) || 0) ||
+    a.prefix.localeCompare(b.prefix));
+
+  // Parse each docx once so we can read its heading and match it.
+  for (const f of docxs) {
+    let parsed = null;
+    try { parsed = await parseFiguresDocx(f); }
+    catch (e) { log(`Could not read ${f.name}: ${e.message}`, 'err'); continue; }
+    const clean = cleanName(f.name).toLowerCase();
+
+    let target = tests.find(t => clean.includes(t.prefix.toLowerCase()));
+    if (!target) {
+      const dm = metaFromDocxTitle(parsed.title);
+      target = tests.find(t =>
+        dm.testNum && dm.testNum === t.meta.testNum &&
+        (!dm.level || dm.level === t.meta.level) &&
+        (!dm.chapterId || dm.chapterId === t.meta.chapterId) && !t.docxFile);
+    }
+    if (!target && tests.length === 1 && !tests[0].docxFile) target = tests[0];
+
+    if (target) {
+      target.docxFile = f; target.docx = parsed;
+      log(`${f.name} → ${target.prefix} (${parsed.questions.length} figure questions, ${Object.keys(parsed.blobs).length} images)`, 'ok');
+    } else {
+      looseDocx.push({ file: f, parsed });
+      log(`${f.name} could not be matched automatically — assign it in the table`, 'warn');
+    }
+  }
+
+  document.getElementById('testCount').textContent = tests.length + ' tests';
+  if (skipped) log(`${skipped} file(s) skipped.`, 'warn');
+  renderManifest();
+  if (tests.length) {
+    document.getElementById('manifestCard').style.display = 'block';
+    document.getElementById('runCard').style.display = 'block';
+  }
+}
+
+/* ══════════════════════════════════════════════════════════
+   Step 2 — manifest table
+   ══════════════════════════════════════════════════════════ */
+function chapterOptions(subjKey, selected) {
+  const list = chaptersFor(subjKey);
+  const opts = ['<option value="">— pick a chapter —</option>'].concat(
+    list.map(c => `<option value="${c.id}" ${c.id === selected ? 'selected' : ''}>${c.name}</option>`));
+  if (selected && !list.some(c => c.id === selected))
+    opts.push(`<option value="${selected}" selected>${selected} (off-list)</option>`);
+  return opts.join('');
+}
+
+function renderManifest() {
+  const body = document.getElementById('manifestBody');
+  body.innerHTML = '';
+  tests.forEach((t, i) => {
+    const tr = document.createElement('tr');
+    tr.id = 'row-' + i;
+    const m = t.meta;
+
+    const have = k => t.files[k] ? `<span class="have">✓</span>` : `<span class="miss">✗</span>`;
+    const docxOpts = ['<option value="">— none —</option>']
+      .concat(looseDocx.map((d, di) =>
+        `<option value="${di}" ${t.docxFile === d.file ? 'selected' : ''}>${cleanName(d.file.name)}</option>`));
+    const docxCell = t.docxFile && !looseDocx.some(d => d.file === t.docxFile)
+      ? `<span class="mono">${cleanName(t.docxFile.name)}</span><br>
+         <span class="muted mono">${t.docx ? t.docx.questions.length + ' fig Qs' : ''}</span>`
+      : `<select onchange="assignDocx(${i}, this.value)">${docxOpts.join('')}</select>`;
+
+    tr.innerHTML = `
+      <td><input type="checkbox" class="sel" ${t.selected ? 'checked' : ''} onchange="testSel(${i}, this.checked)"></td>
+      <td class="mono">${t.prefix}<br><span class="muted" id="mid-${i}">${docPrefix(m,'en')}_qNNN</span></td>
+      <td><select onchange="setMeta(${i},'exam',this.value)">
+            ${m.exam ? '' : '<option value="" selected>— pick —</option>'}
+            ${EXAMS.map(e => `<option value="${e}" ${m.exam === e ? 'selected' : ''}>${e}</option>`).join('')}
+          </select></td>
+      <td><select onchange="setMeta(${i},'subject',this.value)">
+            ${m.subject ? '' : '<option value="" selected>— pick —</option>'}
+            ${SUBJECT_KEYS.map(s => `<option value="${s}" ${m.subject === s ? 'selected' : ''}>${s}</option>`).join('')}
+          </select></td>
+      <td><select id="ch-${i}" onchange="setMeta(${i},'chapterId',this.value)">
+            ${chapterOptions(m.subject, m.chapterId)}
+          </select></td>
+      <td><select onchange="setMeta(${i},'level',this.value)">
+            ${LEVELS.map(l => `<option value="${l}" ${String(m.level) === String(l) ? 'selected' : ''}>${l}</option>`).join('')}
+          </select></td>
+      <td><input type="number" min="1" max="${TEST_COUNT}" value="${m.testNum}" onchange="setMeta(${i},'testNum',this.value)"></td>
+      <td>${docxCell}</td>
+      <td><select id="dup-${i}" onchange="setDup(${i}, this.value)">
+            <option value="overwrite" ${t.dupMode === 'overwrite' ? 'selected' : ''}>Overwrite</option>
+            <option value="skip"      ${t.dupMode === 'skip'      ? 'selected' : ''}>Skip</option>
+            <option value="replace"   ${t.dupMode === 'replace'   ? 'selected' : ''}>Delete + reimport</option>
+          </select></td>
+      <td class="files-mini">
+        ${have('en')}EN ${have('hi')}HI &nbsp;
+        <span class="muted">${(t.rows.en || []).length}/${(t.rows.hi || []).length} rows</span>
+        <div id="iss-${i}" class="issues"></div>
+      </td>
+      <td id="st-${i}" class="nowrap"><span class="badge">not checked</span></td>`;
+    body.appendChild(tr);
+  });
+}
+
+window.testSel = (i, v) => { tests[i].selected = v; };
+window.toggleAll = (el) => {
+  tests.forEach(t => { t.selected = el.checked; });
+  document.querySelectorAll('#manifestBody .sel').forEach(c => c.checked = el.checked);
+};
+window.setMeta = (i, k, v) => {
+  const t = tests[i];
+  t.meta[k] = String(v).trim();
+  if (k === 'subject') {                       // cascade the chapter list
+    const sel = document.getElementById('ch-' + i);
+    const keep = SUBJECT_BY_CHAPTER[t.meta.chapterId] === t.meta.subject ? t.meta.chapterId : '';
+    t.meta.chapterId = keep;
+    if (sel) sel.innerHTML = chapterOptions(t.meta.subject, keep);
+  }
+  if (k === 'chapterId' && v) {
+    const owner = SUBJECT_BY_CHAPTER[v];
+    if (owner) t.meta.subject = owner;
+  }
+  document.getElementById('mid-' + i).textContent = docPrefix(t.meta, 'en') + '_qNNN';
+};
+window.setDup = (i, v) => { tests[i].dupMode = v; };
+window.assignDocx = (i, v) => {
+  if (v === '') { tests[i].docxFile = null; tests[i].docx = null; return; }
+  const d = looseDocx[parseInt(v)];
+  tests[i].docxFile = d.file; tests[i].docx = d.parsed;
+  log(`${cleanName(d.file.name)} assigned to ${tests[i].prefix}`, 'ok');
+};
+
+/* ══════════════════════════════════════════════════════════
+   Validation
+   ══════════════════════════════════════════════════════════ */
+const REQ_COLS = ['text','option_A','option_B','option_C','option_D','correct'];
+const SUPERSCRIPTS = /[\u00B2\u00B3\u00B9\u2070\u2074-\u209F]/;
+
+/** His own lint rules: every power/root must be inside \( \), and the KaTeX must balance. */
+function lintRow(r) {
+  const out = [];
+  const fields = { text: r.text, option_A: r.option_A, option_B: r.option_B,
+                   option_C: r.option_C, option_D: r.option_D, explanation: r.explanation };
+  for (const [k, v] of Object.entries(fields)) {
+    if (!v) continue;
+    const open = (v.match(/\\\(/g) || []).length, close = (v.match(/\\\)/g) || []).length;
+    if (open !== close) out.push(`${k}: unbalanced KaTeX (${open} \\( vs ${close} \\))`);
+    if (k !== 'explanation') {
+      if (SUPERSCRIPTS.test(v)) out.push(`${k}: Unicode superscript — wrap the power in \\( \\) with ^{}`);
+      if (/\^/.test(v.replace(/\\\([\s\S]*?\\\)/g, ''))) out.push(`${k}: a "^" outside \\( \\) will render literally`);
+    }
+  }
+  return out;
+}
+
+function validateTest(t) {
+  const errs = [], warns = [];
+  const m = t.meta;
+
+  if (!m.exam) errs.push('exam is not set');
+  if (!SUBJECT_KEYS.includes(m.subject)) errs.push(`subject "${m.subject || '(blank)'}" is not one of ${SUBJECT_KEYS.join('/')}`);
+  if (!m.chapterId) errs.push(`chapter is not set${m.chapterRaw ? ` — the CSV says "${m.chapterRaw}", which is not a canonical id` : ''}`);
+  else if (!CHAPTER_NAME_BY_ID[m.chapterId]) errs.push(`chapter "${m.chapterId}" is not in the canonical taxonomy — the public page will never query it`);
+  else if (SUBJECT_BY_CHAPTER[m.chapterId] !== m.subject)
+    errs.push(`chapter ${m.chapterId} belongs to subject "${SUBJECT_BY_CHAPTER[m.chapterId]}", not "${m.subject}"`);
+  if (!LEVELS.includes(parseInt(m.level))) errs.push('level must be 1, 2 or 3');
+  const tn = parseInt(m.testNum);
+  if (!tn) errs.push('test number is not set — it is what the public test grid tiles on');
+  else if (tn < 1 || tn > TEST_COUNT) errs.push(`test number must be 1–${TEST_COUNT} (the grid only shows that many)`);
+
+  if (!t.files.en && !t.files.hi) errs.push('no CSV at all');
+  if (!t.files.hi) warns.push('no HI file — the set will be English-only, and the language popup will offer only EN');
+  if (!t.files.en) warns.push('no EN file — the set will be Hindi-only');
+
+  for (const lang of ['en','hi']) {
+    if (!t.files[lang]) continue;
+    const label = lang.toUpperCase();
+    const rows = t.rows[lang] || [];
+    if (!rows.length) { errs.push(`${label}.csv has no data rows`); continue; }
+
+    const miss = REQ_COLS.filter(h => !(h in rows[0]));
+    if (miss.length) errs.push(`${label}.csv is missing column(s): ${miss.join(', ')} — the generator writes option_A..D and a letter in "correct"`);
+
+    const nums = rows.map(r => parseInt(r.qNum));
+    if (nums.some(isNaN)) errs.push(`${label}.csv has a row with a non-numeric qNum`);
+    else if (new Set(nums).size !== nums.length) errs.push(`${label}.csv has duplicate qNums`);
+
+    const bad = rows.filter(r => !/^[ABCD]$/.test((r.correct || '').trim().toUpperCase()));
+    if (bad.length) errs.push(`${label}.csv has ${bad.length} row(s) whose answer is not A–D`);
+    const empty = rows.filter(r => !(r.text || '').trim());
+    if (empty.length) errs.push(`${label}.csv has ${empty.length} row(s) with empty text`);
+    const thin = rows.filter(r => ['option_A','option_B','option_C','option_D'].some(k => !(r[k] || '').trim()));
+    if (thin.length) errs.push(`${label}.csv has ${thin.length} row(s) with a blank option`);
+
+    if (rows.length !== 50) warns.push(`${label}.csv has ${rows.length} rows — a chapter test is normally 50`);
+    const noExp = rows.filter(r => !(r.explanation || '').trim()).length;
+    if (noExp) warns.push(`${label}.csv has ${noExp} row(s) with no explanation`);
+    const csvLang = (rows[0].language || '').trim().toLowerCase();
+    if (csvLang && csvLang !== lang) warns.push(`${label}.csv says language="${csvLang}" — the filename wins, it will be stored as ${lang}`);
+
+    const lintHits = [];
+    rows.forEach(r => lintRow(r).forEach(msg => lintHits.push(`Q${r.qNum} ${msg}`)));
+    if (lintHits.length) {
+      const head = lintHits.slice(0, 4).join(' · ') + (lintHits.length > 4 ? ` …+${lintHits.length - 4} more` : '');
+      (document.getElementById('optStrictLint').checked ? errs : warns)
+        .push(`${label} lint: ${head}`);
+    }
+  }
+
+  // EN ↔ HI alignment — same questions, same keys, in the same order
+  const en = t.rows.en || [], hi = t.rows.hi || [];
+  if (en.length && hi.length) {
+    if (en.length !== hi.length) errs.push(`EN has ${en.length} rows but HI has ${hi.length}`);
+    const hiKey = {}; hi.forEach(r => hiKey[parseInt(r.qNum)] = (r.correct || '').trim().toUpperCase());
+    const missing = en.filter(r => !(parseInt(r.qNum) in hiKey)).map(r => r.qNum);
+    if (missing.length) errs.push(`HI has no row for Q${missing.join(', Q')}`);
+    const clash = en.filter(r => hiKey[parseInt(r.qNum)] && hiKey[parseInt(r.qNum)] !== (r.correct || '').trim().toUpperCase());
+    if (clash.length) errs.push(`answer key differs between EN and HI at Q${clash.map(r => r.qNum).join(', Q')}`);
+  }
+
+  // Two files aiming at the same tile would silently overwrite each other
+  const twin = tests.find(o => o !== t && o.selected && o.meta.chapterId && o.meta.testNum &&
+    o.meta.chapterId === m.chapterId && String(o.meta.level) === String(m.level) &&
+    String(o.meta.testNum) === String(m.testNum));
+  if (twin) errs.push(`"${twin.prefix}" targets the same slot (${describe(m)}) — change one of the test numbers`);
+
+  // Figures
+  const figQ = en.filter(r =>
+    /\[FIGURE-BASED\]/i.test(r.text || '') ||
+    /\(figure\s*\d\)/i.test([r.option_A, r.option_B, r.option_C, r.option_D].join(' ')))
+    .map(r => parseInt(r.qNum));
+  t.figQ = figQ;
+  if (figQ.length) {
+    if (!t.docx) errs.push(`${figQ.length} figure question(s) (Q${figQ.join(', Q')}) but no figures .docx assigned`);
+    else {
+      const got = new Set(t.docx.questions.map(q => q.qNum));
+      const gone = figQ.filter(n => !got.has(n));
+      if (gone.length) errs.push(`no figures in the .docx for Q${gone.join(', Q')}`);
+      const extra = t.docx.questions.map(q => q.qNum).filter(n => !figQ.includes(n));
+      if (extra.length) warns.push(`.docx has figures for Q${extra.join(', Q')} which the CSV does not mark as figure questions`);
+      if (t.docx.unassigned.length) warns.push(`${t.docx.unassigned.length} image(s) in the .docx were not attached to any question`);
+    }
+  }
+
+  // Questions imported by admin-chapterwise.html have random document IDs, so an
+  // "overwrite" pass would land alongside them and double the test.
+  if (t.existing && t.existing.random && t.dupMode === 'overwrite') {
+    errs.push(`${t.existing.random} existing question(s) in this slot have random IDs (imported via admin-chapterwise) — choose "Delete + reimport", or you will get duplicates`);
+  }
+
+  t.issues = { errs, warns };
+  return errs.length === 0;
+}
+
+/** One read per chapter, cached — a chapter can hold thousands of questions. */
+async function fetchChapter(chapterId) {
+  if (chapterCache[chapterId]) return chapterCache[chapterId];
+  const out = [];
+  try {
+    const snap = await getDocs(query(collection(db, 'questions'), where('chapterId', '==', chapterId)));
+    snap.forEach(d => out.push({ id: d.id, ref: d.ref, data: d.data() }));
+    log(`${chapterId}: ${out.length} question(s) already in Firestore`, 'info');
+  } catch (e) {
+    log(`Lookup failed for ${chapterId}: ${e.message}`, 'warn');
+  }
+  chapterCache[chapterId] = out;
+  return out;
+}
+
+/** Everything already sitting in this exact chapter/level/test/language slot. */
+async function checkExisting(t) {
+  const m = t.meta;
+  const all = m.chapterId ? await fetchChapter(m.chapterId) : [];
+  const lv = parseInt(m.level), tn = parseInt(m.testNum);
+  const byLang = { en: [], hi: [] };
+  all.forEach(d => {
+    const q = d.data;
+    if ((q.type || 'chapterwise') !== 'chapterwise') return;
+    if (parseInt(q.level) !== lv || parseInt(q.testNum) !== tn) return;
+    const lang = (q.language || q.lang || 'en').toLowerCase();
+    if (byLang[lang]) byLang[lang].push(d);
+  });
+  let count = 0, random = 0;
+  for (const lang of ['en','hi']) {
+    const pre = docPrefix(m, lang);
+    byLang[lang].forEach(d => { count++; if (!d.id.startsWith(pre + '_q')) random++; });
+  }
+  t.existing = { count, random, en: byLang.en.length, hi: byLang.hi.length, docs: byLang };
+  return t.existing;
+}
+
+window.validateAll = async () => {
+  log('── Validating ──', 'head');
+  chapterCache = {};                       // always re-read, the last run may have changed things
+  let ok = 0, bad = 0;
+  for (let i = 0; i < tests.length; i++) {
+    const t = tests[i];
+    if (!t.selected) continue;
+    await checkExisting(t);
+
+    // Random-ID leftovers can only be cleaned by a delete pass — pick it for them.
+    if (t.existing.random && t.dupMode === 'overwrite') {
+      t.dupMode = 'replace';
+      const sel = document.getElementById('dup-' + i);
+      if (sel) sel.value = 'replace';
+      log(`${t.prefix}: ${t.existing.random} old random-ID question(s) found — switched to "Delete + reimport"`, 'warn');
+    }
+
+    const good = validateTest(t);
+
+    document.getElementById('iss-' + i).innerHTML =
+      t.issues.errs.map(e => `<div class="iss-err">✗ ${e}</div>`).join('') +
+      t.issues.warns.map(w => `<div class="iss-warn">! ${w}</div>`).join('');
+
+    const ex = t.existing;
+    const exTxt = ex.count
+      ? `<span class="badge warn">EN ${ex.en} · HI ${ex.hi} already there</span>`
+      : `<span class="badge info">new test</span>`;
+    document.getElementById('st-' + i).innerHTML = good
+      ? `<span class="badge ok">ready</span> ${exTxt}`
+      : `<span class="badge bad">${t.issues.errs.length} error(s)</span>`;
+    document.getElementById('row-' + i).className = good ? '' : 'row-err';
+
+    good ? ok++ : bad++;
+    log(`${t.prefix} → ${describe(t.meta)}: ${good ? 'ready' : 'BLOCKED'} — ${t.issues.errs.length} error(s), ${t.issues.warns.length} warning(s), ${(t.rows.en || []).length} EN / ${(t.rows.hi || []).length} HI rows`,
+        good ? 'ok' : 'err');
+  }
+  const vb = document.getElementById('valBadge');
+  vb.textContent = `${ok} ready · ${bad} blocked`;
+  vb.className = 'badge ' + (bad ? 'bad' : 'ok');
+  log(`Validation done: ${ok} ready, ${bad} blocked.`, bad ? 'warn' : 'ok');
+  renderCoverage();
+};
+
+/** Which tiles each touched chapter will have filled once this run lands. */
+function renderCoverage() {
+  const chapters = [...new Set(tests.filter(t => t.selected && t.meta.chapterId).map(t => t.meta.chapterId))];
+  if (!chapters.length) { document.getElementById('coverage').innerHTML = ''; return; }
+  let html = '';
+  for (const ch of chapters) {
+    const all = chapterCache[ch] || [];
+    const filled = {};                       // "level:test" → true, already live
+    all.forEach(d => {
+      const q = d.data;
+      if ((q.type || 'chapterwise') !== 'chapterwise') return;
+      const lv = parseInt(q.level), tn = parseInt(q.testNum);
+      if (lv && tn) filled[lv + ':' + tn] = true;
+    });
+    const incoming = {};
+    tests.filter(t => t.selected && t.meta.chapterId === ch)
+         .forEach(t => incoming[parseInt(t.meta.level) + ':' + parseInt(t.meta.testNum)] = true);
+    html += `<div style="margin-bottom:6px"><b>${CHAPTER_NAME_BY_ID[ch] || ch}</b></div>`;
+    for (const lv of LEVELS) {
+      let cells = '';
+      for (let n = 1; n <= TEST_COUNT; n++) {
+        const k = lv + ':' + n;
+        const cls = incoming[k] ? 'new' : (filled[k] ? 'on' : '');
+        cells += `<i class="${cls}">${n}</i>`;
+      }
+      html += `<div class="muted">L${lv} &nbsp;${cells}</div>`;
+    }
+    html += '<div style="height:8px"></div>';
+  }
+  html += `<div class="muted" style="font-size:11px">
+    <i class="on">n</i> already live &nbsp; <i class="new">n</i> this run &nbsp; <i>n</i> empty</div>`;
+  document.getElementById('coverage').innerHTML = html;
+}
+
+/* ══════════════════════════════════════════════════════════
+   Step 3 — run
+   ══════════════════════════════════════════════════════════ */
+function setProg(pct, txt) {
+  if (pct !== null && pct !== undefined) document.getElementById('progBar').style.width = pct + '%';
+  if (txt !== undefined) document.getElementById('progText').textContent = txt || '';
+}
+
+// Word embeds .wmf/.emf for drawn shapes and equations, and Storage rules often
+// whitelist only real web image types — label everything PNG unless the extension
+// is one we know is safe, exactly as uploader.html does.
+const SAFE_MIME = { png:'image/png', jpg:'image/jpeg', jpeg:'image/jpeg',
+                    gif:'image/gif', webp:'image/webp', bmp:'image/bmp' };
+
+/** One tiny write, so a rules problem surfaces in two seconds instead of 18 images in. */
+async function preflight() {
+  const uid = auth.currentUser.uid;
+  const bytes = Uint8Array.from(atob(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='),
+    c => c.charCodeAt(0));
+  const sRef = storageRef(storage, `question-images/${uid}/_preflight.png`);
+  await uploadBytes(sRef, new Blob([bytes], { type: 'image/png' }), { contentType: 'image/png' });
+  return uid;
+}
+
+async function uploadFigures(t) {
+  const uid = auth.currentUser.uid;
+  const reuse = document.getElementById('optReuseImg').checked;
+  const base = docPrefix(t.meta, 'en').replace(/_en$/, '');   // shared by both languages
+  const urls = {}, jobs = [], failed = [];
+  for (const q of t.docx.questions) {
+    for (const [slot, name] of Object.entries(q.imgs)) {
+      if (slot.startsWith('_')) continue;
+      const blob = t.docx.blobs[name];
+      if (blob) jobs.push({ qNum: q.qNum, slot, blob, name });
+    }
+  }
+  let done = 0;
+  for (const j of jobs) {
+    const rawExt = (j.name.match(/\.(\w+)$/) || [, ''])[1].toLowerCase();
+    const mime   = SAFE_MIME[rawExt] || 'image/png';
+    const ext    = SAFE_MIME[rawExt] ? rawExt : 'png';
+    const sRef = storageRef(storage,
+      `question-images/${uid}/${base}_q${String(j.qNum).padStart(3,'0')}_${j.slot}.${ext}`);
+    try {
+      let url = null;
+      if (reuse) { try { url = await getDownloadURL(sRef); } catch (e) { /* not there yet */ } }
+      if (!url) {
+        const snap = await uploadBytes(sRef, j.blob, { contentType: mime, cacheControl: 'public, max-age=31536000' });
+        url = await getDownloadURL(snap.ref);
+      }
+      (urls[j.qNum] = urls[j.qNum] || {})[j.slot] = url;
+      done++;
+    } catch (e) {
+      // One bad image must not cost the whole set — record it and carry on.
+      failed.push({ qNum: j.qNum, slot: j.slot, src: j.name,
+                    kb: Math.round(j.blob.size / 1024), ext: rawExt || '(none)', mime,
+                    code: e.code || '', msg: e.message });
+    }
+    setProg(null, `${t.prefix}: images ${done + failed.length}/${jobs.length}`);
+  }
+  return { urls, count: done, total: jobs.length, failed };
+}
+
+async function deleteRefs(refs) {
+  for (let i = 0; i < refs.length; i += 400) {
+    const b = writeBatch(db);
+    refs.slice(i, i + 400).forEach(r => b.delete(r));
+    await b.commit();
+  }
+  return refs.length;
+}
+
+const DIFF_BY_LEVEL = { 1: 'easy', 2: 'medium', 3: 'hard' };
+
+function buildDocs(t, lang, imgUrls, isNew) {
+  const rows = t.rows[lang] || [];
+  const m = t.meta;
+  const lv = parseInt(m.level), tn = parseInt(m.testNum);
+  const ovDiff = document.getElementById('optDifficulty').value;
+  const now = new Date();
+
+  return rows.map(r => {
+    const qNum = parseInt(r.qNum);
+    const im = imgUrls && imgUrls[qNum];
+    const oA = r.option_A || '', oB = r.option_B || '', oC = r.option_C || '', oD = r.option_D || '';
+
+    const data = {
+      type: 'chapterwise',
+      exam: m.exam, tier: m.tier || 'tier1',
+      subject: m.subject,
+      chapter: m.chapterId, chapterId: m.chapterId,
+      chapterName: CHAPTER_NAME_BY_ID[m.chapterId] || '',
+      level: lv, testNum: tn,
+      testKey: testKey(m, lang),
+      language: lang, lang,
+      qNum,
+      difficulty: (r.difficulty || '').trim() || ovDiff || DIFF_BY_LEVEL[lv] || 'medium',
+      text: r.text || '',
+      options: { A: oA, B: oB, C: oC, D: oD },
+      // The players read the flat fields on older documents — write both.
+      option_A: oA, option_B: oB, option_C: oC, option_D: oD,
+      correct: (r.correct || '').trim().toUpperCase(),
+      updatedAt: now
+    };
+    if (m.year) data.year = m.year;
+    if (isNew) data.createdAt = now;
+
+    // Written only when the CSV actually carries them — a merge write must never
+    // blank out a solution a previous run put there.
+    if ('explanation' in r) data.explanation = r.explanation || '';
+    if ('trick' in r)       data.trick       = r.trick || '';
+    if ('concept' in r)     data.concept     = r.concept || '';
+    if (r.imageUrl)         data.imageUrl    = r.imageUrl;
+
+    if (im) {
+      if (im.q) data.imageUrl = im.q;
+      data.optionImages  = { A: im.optA || '', B: im.optB || '', C: im.optC || '', D: im.optD || '' };
+      if (im.sol) data.solutionImage = im.sol;
+    }
+    return { id: docIdFor(m, lang, qNum), data };
+  });
+}
+
+async function commitDocs(docs) {
+  for (let i = 0; i < docs.length; i += 400) {
+    const b = writeBatch(db);
+    docs.slice(i, i + 400).forEach(d => b.set(doc(db, 'questions', d.id), d.data, { merge: true }));
+    await b.commit();
+  }
+}
+
+window.runAll = async () => {
+  const dry = document.getElementById('optDryRun').checked;
+  const doImg = document.getElementById('optImages').checked;
+  const list = tests.filter(t => t.selected);
+  if (!list.length) { log('Nothing selected.', 'warn'); return; }
+
+  // Re-validate from scratch — metadata may have been edited since the last check.
+  const blocked = list.filter(t => !validateTest(t));
+  if (blocked.length) {
+    log(`${blocked.length} selected test(s) still have errors — fix them or deselect. Run aborted.`, 'err');
+    blocked.forEach(t => log(`  ${t.prefix}: ${t.issues.errs.join('; ')}`, 'err'));
+    return;
+  }
+
+  document.getElementById('runBtn').disabled = true;
+  document.getElementById('runBadge').textContent = dry ? 'dry run…' : 'running…';
+  document.getElementById('runBadge').className = 'badge info';
+  report = [];
+  log(`── ${dry ? 'DRY RUN' : 'RUN'}: ${list.length} test(s) ──`, 'head');
+
+  // Prove we can write to Storage before spending minutes on real uploads.
+  if (!dry && doImg && list.some(t => t.docx)) {
+    try {
+      const uid = await preflight();
+      log(`Storage write check passed as ${auth.currentUser.email} (uid ${uid})`, 'ok');
+    } catch (e) {
+      log(`Storage write check FAILED as ${auth.currentUser.email} — ${e.code || e.message}`, 'err');
+      log(`Your Storage rules are refusing writes for this account. Fix the rules or sign in as the admin that works, then re-run. Nothing was written.`, 'err');
+      document.getElementById('runBtn').disabled = false;
+      document.getElementById('runBadge').textContent = 'blocked';
+      document.getElementById('runBadge').className = 'badge bad';
+      return;
+    }
+  }
+  const t0 = Date.now();
+
+  let idx = 0;
+  for (const t of list) {
+    idx++;
+    const i = tests.indexOf(t);
+    const base = ((idx - 1) / list.length) * 100;
+    setProg(base, `Test ${idx}/${list.length}: ${t.prefix}`);
+    document.getElementById('st-' + i).innerHTML = '<span class="badge info">working…</span>';
+    const rec = { prefix: t.prefix, slot: describe(t.meta), chapterId: t.meta.chapterId,
+                  level: parseInt(t.meta.level), testNum: parseInt(t.meta.testNum),
+                  images: 0, en: 0, hi: 0, deleted: 0, skipped: false, error: null };
+
+    try {
+      const mode = t.dupMode || 'overwrite';
+      if (!t.existing) await checkExisting(t);
+      if (mode === 'skip' && t.existing.count) {
+        log(`${t.prefix}: ${describe(t.meta)} already has ${t.existing.count} question(s) — skipped`, 'warn');
+        rec.skipped = true; report.push(rec);
+        document.getElementById('st-' + i).innerHTML = '<span class="badge warn">skipped</span>';
+        continue;
+      }
+      if (mode === 'replace' && !dry) {
+        const refs = [...t.existing.docs.en, ...t.existing.docs.hi].map(d => d.ref);
+        if (refs.length) {
+          rec.deleted = await deleteRefs(refs);
+          log(`${t.prefix}: deleted ${rec.deleted} existing doc(s) in ${describe(t.meta)}`, 'warn');
+          delete chapterCache[t.meta.chapterId];     // the cached copy is stale now
+        }
+      }
+
+      // 1. Images — uploaded once, shared by the EN and HI documents.
+      let imgUrls = null;
+      if (doImg && t.docx) {
+        if (dry) {
+          const n = t.docx.questions.reduce((a, q) => a + Object.keys(q.imgs).filter(k => !k.startsWith('_')).length, 0);
+          log(`${t.prefix}: would upload ${n} image(s)`, 'info');
+          rec.images = n;
+        } else {
+          const r = await uploadFigures(t);
+          imgUrls = r.urls; rec.images = r.count; rec.imagesFailed = r.failed;
+          log(`${t.prefix}: ${r.count}/${r.total} image(s) in Storage, reused by both languages`,
+              r.failed.length ? 'warn' : 'ok');
+          r.failed.slice(0, 8).forEach(f =>
+            log(`    Q${f.qNum} ${f.slot} — ${f.src} (${f.ext}, ${f.kb} KB, sent as ${f.mime}) → ${f.code || f.msg}`, 'err'));
+          if (r.failed.length > 8) log(`    …and ${r.failed.length - 8} more (see the report file)`, 'err');
+        }
+      }
+
+      // 2. Questions, both languages.
+      for (const lang of ['en','hi']) {
+        if (!t.files[lang]) continue;
+        const isNew = mode === 'replace' || !(t.existing[lang]);
+        const docs = buildDocs(t, lang, imgUrls, isNew);
+        if (!docs.length) continue;
+        if (!dry) await commitDocs(docs);
+        rec[lang] = docs.length;
+        log(`${t.prefix}: ${dry ? 'would write' : 'wrote'} ${docs.length} ${lang.toUpperCase()} questions → ${describe(t.meta)}`, 'ok');
+        setProg(base + (lang === 'en' ? 45 : 85) / list.length, `${t.prefix}: ${lang.toUpperCase()} committed`);
+      }
+
+      t.done = true;
+      document.getElementById('row-' + i).className = 'row-done';
+      document.getElementById('st-' + i).innerHTML =
+        `<span class="badge ok">${dry ? 'dry ok' : 'done'}</span> <span class="badge">${rec.en}+${rec.hi} Qs${rec.images ? ' · ' + rec.images + ' img' : ''}</span>`;
+
+    } catch (e) {
+      rec.error = e.message;
+      log(`${t.prefix}: FAILED — ${e.message}`, 'err');
+      console.error(e);
+      document.getElementById('row-' + i).className = 'row-err';
+      document.getElementById('st-' + i).innerHTML = `<span class="badge bad">failed</span>`;
+    }
+    report.push(rec);
+    setProg((idx / list.length) * 100, `${idx}/${list.length} tests`);
+  }
+
+  const secs = ((Date.now() - t0) / 1000).toFixed(1);
+  const totQ = report.reduce((a, r) => a + r.en + r.hi, 0);
+  const totI = report.reduce((a, r) => a + r.images, 0);
+  const fails = report.filter(r => r.error).length;
+  log(`── Finished in ${secs}s — ${totQ} question docs, ${totI} images, ${fails} failure(s) ──`, fails ? 'err' : 'head');
+
+  // What the public page will now show, per chapter and level
+  const byCh = {};
+  report.filter(r => !r.error && !r.skipped).forEach(r => {
+    ((byCh[r.chapterId] = byCh[r.chapterId] || {})[r.level] = byCh[r.chapterId][r.level] || []).push(r.testNum);
+  });
+  Object.entries(byCh).forEach(([ch, lv]) => Object.entries(lv).forEach(([l, ns]) =>
+    log(`${CHAPTER_NAME_BY_ID[ch] || ch} · Level ${l}: test ${ns.sort((a,b)=>a-b).join(', ')} now live`, 'ok')));
+
+  setProg(100, `Done — ${totQ} questions, ${totI} images, ${secs}s`);
+  document.getElementById('runBadge').textContent = fails ? `${fails} failed` : 'complete';
+  document.getElementById('runBadge').className = 'badge ' + (fails ? 'bad' : 'ok');
+  document.getElementById('runBtn').disabled = false;
+  document.getElementById('reportBtn').style.display = 'inline-block';
+  if (!dry) { chapterCache = {}; }
+};
+
+window.downloadReport = () => {
+  const blob = new Blob([JSON.stringify({ at: new Date().toISOString(), tests: report }, null, 2)],
+                        { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'batch-chapter-upload-report.json';
+  a.click();
+};
+</script>
+</body>
+</html>
