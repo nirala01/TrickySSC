@@ -154,12 +154,19 @@ async function checkModels() {
   return usable;
 }
 
+// Free-tier TPM is small and Groq sizes a request as
+// (prompt tokens + max_completion_tokens), so this ceiling has to leave room
+// for the prompt inside the per-minute limit rather than being set generously.
+const MAX_COMPLETION = 5000;
+const MIN_COMPLETION = 2000;
+
 async function groqCall(prompt, models = MODELS) {
   let lastErr;
   for (const model of models) {
+    let budget = MAX_COMPLETION;
     for (let i = 1; i <= 3; i++) {
       try {
-        console.log(`  Groq [${model}] attempt ${i}`);
+        console.log(`  Groq [${model}] attempt ${i} (max_completion_tokens: ${budget})`);
         const resp = await httpsPost(
           'https://api.groq.com/openai/v1/chat/completions',
           { 'Authorization': 'Bearer ' + GROQ_KEY },
@@ -168,8 +175,9 @@ async function groqCall(prompt, models = MODELS) {
             messages: [{ role:'user', content: prompt }],
             temperature: 0.4,
             // max_tokens is deprecated on Groq; and on reasoning models the
-            // thinking tokens count against this budget, so it needs headroom.
-            max_completion_tokens: 12000,
+            // thinking tokens count against this budget. Groq also counts it
+            // toward the request's TPM cost, so it cannot be set generously.
+            max_completion_tokens: budget,
             response_format: { type:'json_object' },
             // GPT-OSS ignores reasoning_format and returns thinking in a
             // separate `reasoning` field. Drop it — we only read `content`.
@@ -190,12 +198,28 @@ async function groqCall(prompt, models = MODELS) {
         return parsed;
       } catch(e) {
         lastErr = e;
-        const retry = /rate|429|503|overload|demand/i.test(e.message);
-        const skip  = /decommission|no longer support|does not exist|do not have access|not found|404/i.test(e.message);
-        console.warn(`  ${model} attempt ${i}: ${e.message.slice(0,100)}`);
-        if (skip) { console.log(`  Skipping ${model} (decommissioned)`); break; }
-        if (retry && i < 3) { console.log(`  Rate limit — waiting 30s...`); await sleep(30000); }
-        else if (!retry) break;
+        const msg   = e.message;
+        const skip  = /decommission|no longer support|does not exist|do not have access|not found|404/i.test(msg);
+        // "Request too large" is a TPM-per-request problem: retrying the same
+        // request always fails, so shrink the completion budget instead.
+        const large = /too large|413|reduce your message size|truncated/i.test(msg);
+        const retry = !large && /rate|429|503|overload|demand/i.test(msg);
+        console.warn(`  ${model} attempt ${i}: ${msg.slice(0,140)}`);
+
+        if (skip) { console.log(`  Skipping ${model} (not available)`); break; }
+
+        if (large && i < 3) {
+          const next = Math.max(MIN_COMPLETION, Math.floor(budget / 2));
+          if (next === budget) { console.log(`  Already at minimum budget — giving up on ${model}`); break; }
+          budget = next;
+          console.log(`  Request too large — retrying with max_completion_tokens ${budget}`);
+          await sleep(5000);
+        } else if (retry && i < 3) {
+          console.log(`  Rate limit — waiting 30s...`);
+          await sleep(30000);
+        } else if (!retry && !large) {
+          break;
+        }
       }
     }
   }
@@ -252,9 +276,16 @@ async function main() {
   }
 
   // Split into two batches for two separate Groq calls
-  const half    = Math.ceil(allItems.length / 2);
-  const batch1  = allItems.slice(0, half);
-  const batch2  = allItems.slice(half);
+  // Four small batches rather than two big ones. Each Groq request costs
+  // (prompt + max_completion_tokens) against the per-minute limit, so smaller
+  // asks are the only way to fit under a low TPM ceiling.
+  const per     = Math.ceil(allItems.length / 4);
+  const batches = [
+    { items: allItems.slice(0, per),         focus: 'Polity, government schemes, bills and acts — India-focused news' },
+    { items: allItems.slice(per, per*2),     focus: 'Economy, RBI, trade, budget, Science & Tech, Environment' },
+    { items: allItems.slice(per*2, per*3),   focus: 'International Affairs, treaties, summits, Defence' },
+    { items: allItems.slice(per*3),          focus: 'Sports results, Awards, Appointments, Global Rankings' },
+  ];
 
   const makePrompt = (items, focus) => `You are a current affairs expert for SSC competitive exam preparation in India.
 Today: ${dateTxt}.
@@ -322,28 +353,34 @@ STRICT RULES — violations will make content useless for students:
 - importantPoints item 2 MUST cite a specific article number, act name with year, or scheme name
 - importantPoints item 3 MUST give a historical fact — year, previous record, or context
 - keyPoints: exactly 4 items, each a crisp standalone fact a student can memorise
-- Extract 10-12 items total — quality over quantity`;
+- Extract 5-6 items total — quality over quantity`;
 
   console.log('\nChecking which Groq models are live...');
   const models = await checkModels();
 
-  console.log('\nCalling Groq Batch 1 (India/PIB/Economy)...');
-  const r1 = await groqCall(makePrompt(
-    batch1,
-    'Polity, Economy, Science & Tech, Environment, Defence, Society — India-focused news'
-  ), models);
+  const results = [];
+  for (let b = 0; b < batches.length; b++) {
+    if (!batches[b].items.length) continue;
+    if (b > 0) {
+      // Space the calls out so four requests don't stack up inside one minute
+      // and blow the per-minute token limit.
+      console.log('Waiting 60s before next batch to stay under the TPM limit...');
+      await sleep(60000);
+    }
+    console.log(`\nCalling Groq Batch ${b+1} (${batches[b].focus.slice(0,40)}...)`);
+    try {
+      const r = await groqCall(makePrompt(batches[b].items, batches[b].focus), models);
+      const n = r.items?.length || 0;
+      console.log(`  Batch ${b+1}: ${n} items`);
+      results.push(r);
+    } catch (e) {
+      // One failed batch shouldn't lose the whole day's page.
+      console.warn(`  ⚠️  Batch ${b+1} failed: ${e.message.slice(0,140)}`);
+    }
+  }
 
-  console.log('Waiting 40s before Batch 2 to avoid rate limit...');
-  await sleep(40000);
-
-  console.log('Calling Groq Batch 2 (International/Sports/Awards)...');
-  const r2 = await groqCall(makePrompt(
-    batch2,
-    'International Affairs, Sports results, Awards, Appointments, Global Rankings'
-  ), models);
-
-  const items = [...(r1.items||[]), ...(r2.items||[])];
-  console.log(`\nTotal items: ${items.length} (B1:${r1.items?.length||0} B2:${r2.items?.length||0})`);
+  const items = results.flatMap(r => r.items || []);
+  console.log(`\nTotal items: ${items.length} from ${results.length}/${batches.length} batches`);
 
   if (!items.length) throw new Error('No items from Groq');
 
