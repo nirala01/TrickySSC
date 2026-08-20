@@ -99,30 +99,99 @@ function httpsPost(url, headers, body) {
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-async function groqCall(prompt) {
-  const MODELS = [
-    'llama-3.3-70b-versatile',
-    'llama-3.3-70b-specdec',
-    'llama3-groq-70b-8192-tool-use-preview',
-  ];
+// Preferred order. gpt-oss-120b and gpt-oss-20b are Groq PRODUCTION models;
+// qwen3.6-27b is a PREVIEW model (can vanish at short notice) so it sits last.
+const MODELS = [
+  'openai/gpt-oss-120b',
+  'openai/gpt-oss-20b',
+  'qwen/qwen3.6-27b',
+];
+
+// Preflight: ask Groq which models are actually live right now, so a future
+// deprecation fails loudly at the top of the run instead of silently burning
+// through a stale hardcoded list.
+async function liveModels() {
+  return new Promise((resolve, reject) => {
+    const req = https.request({
+      hostname: 'api.groq.com', port: 443,
+      path: '/openai/v1/models', method: 'GET',
+      headers: { 'Authorization': 'Bearer ' + GROQ_KEY }
+    }, res => {
+      let buf = '';
+      res.on('data', c => buf += c);
+      res.on('end', () => {
+        try {
+          const j = JSON.parse(buf);
+          resolve((j.data || []).map(m => m.id));
+        } catch (e) { reject(new Error('Models list parse: ' + buf.slice(0, 200))); }
+      });
+    });
+    req.on('error', reject);
+    req.setTimeout(20000, () => { req.destroy(); reject(new Error('Models list timeout')); });
+    req.end();
+  });
+}
+
+async function checkModels() {
+  let live;
+  try {
+    live = await liveModels();
+  } catch (e) {
+    console.warn(`  Could not list models (${e.message}) — proceeding with hardcoded order`);
+    return MODELS;
+  }
+  const usable = MODELS.filter(m => live.includes(m));
+  const dead   = MODELS.filter(m => !live.includes(m));
+  if (dead.length) console.warn(`  ⚠️  Not available on Groq any more: ${dead.join(', ')}`);
+  if (!usable.length) {
+    throw new Error(
+      `None of the configured models exist on Groq any more (${MODELS.join(', ')}). ` +
+      `Live text models right now: ${live.filter(m => !/whisper|orpheus|guard/i.test(m)).join(', ')}. ` +
+      `Update MODELS in fetch-ca.js — see https://console.groq.com/docs/deprecations`
+    );
+  }
+  console.log(`  Models available: ${usable.join(', ')}`);
+  return usable;
+}
+
+async function groqCall(prompt, models = MODELS) {
   let lastErr;
-  for (const model of MODELS) {
+  for (const model of models) {
     for (let i = 1; i <= 3; i++) {
       try {
         console.log(`  Groq [${model}] attempt ${i}`);
         const resp = await httpsPost(
           'https://api.groq.com/openai/v1/chat/completions',
           { 'Authorization': 'Bearer ' + GROQ_KEY },
-          { model, messages:[{role:'user',content:prompt}], temperature:0.25, max_tokens:6000, response_format:{type:'json_object'} }
+          {
+            model,
+            messages: [{ role:'user', content: prompt }],
+            temperature: 0.4,
+            // max_tokens is deprecated on Groq; and on reasoning models the
+            // thinking tokens count against this budget, so it needs headroom.
+            max_completion_tokens: 12000,
+            response_format: { type:'json_object' },
+            // GPT-OSS ignores reasoning_format and returns thinking in a
+            // separate `reasoning` field. Drop it — we only read `content`.
+            include_reasoning: false,
+            // Summarising headlines needs no deep reasoning. Keeps it fast/cheap.
+            // (Qwen 3.6 uses 'none'/'default' instead of low/medium/high.)
+            reasoning_effort: model.startsWith('qwen/') ? 'none' : 'low',
+          }
         );
         if (resp.error) throw new Error(resp.error.message);
-        const parsed = JSON.parse(resp.choices[0].message.content);
+        const choice = resp.choices?.[0];
+        if (!choice) throw new Error('No choices in Groq response');
+        if (choice.finish_reason === 'length') {
+          throw new Error('Response truncated — raise max_completion_tokens or shrink the batch');
+        }
+        const parsed = JSON.parse(choice.message.content);
         console.log(`  Success: ${model}`);
         return parsed;
       } catch(e) {
         lastErr = e;
         const retry = /rate|429|503|overload|demand/i.test(e.message);
-        const skip  = /decommission|no longer support|not found|404/i.test(e.message);
+        const skip  = /decommission|no longer support|does not exist|do not have access|not found|404/i.test(e.message);
         console.warn(`  ${model} attempt ${i}: ${e.message.slice(0,100)}`);
         if (skip) { console.log(`  Skipping ${model} (decommissioned)`); break; }
         if (retry && i < 3) { console.log(`  Rate limit — waiting 30s...`); await sleep(30000); }
@@ -255,11 +324,14 @@ STRICT RULES — violations will make content useless for students:
 - keyPoints: exactly 4 items, each a crisp standalone fact a student can memorise
 - Extract 10-12 items total — quality over quantity`;
 
+  console.log('\nChecking which Groq models are live...');
+  const models = await checkModels();
+
   console.log('\nCalling Groq Batch 1 (India/PIB/Economy)...');
   const r1 = await groqCall(makePrompt(
     batch1,
     'Polity, Economy, Science & Tech, Environment, Defence, Society — India-focused news'
-  ));
+  ), models);
 
   console.log('Waiting 40s before Batch 2 to avoid rate limit...');
   await sleep(40000);
@@ -268,7 +340,7 @@ STRICT RULES — violations will make content useless for students:
   const r2 = await groqCall(makePrompt(
     batch2,
     'International Affairs, Sports results, Awards, Appointments, Global Rankings'
-  ));
+  ), models);
 
   const items = [...(r1.items||[]), ...(r2.items||[])];
   console.log(`\nTotal items: ${items.length} (B1:${r1.items?.length||0} B2:${r2.items?.length||0})`);
