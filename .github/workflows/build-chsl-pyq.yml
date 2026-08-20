@@ -41,21 +41,33 @@ jobs:
           git add ssc-chsl-pyq.html sitemap-chsl-pyq.xml
           if git diff --cached --quiet; then
             echo "No CHSL paper changes — nothing to commit."
-          else
-            git commit -m "chore: rebuild SSC CHSL PYQ list [skip ci]"
-            git push
+            exit 0
           fi
 
-      # Optional — same Cloudflare purge step the other builds use.
-      # Add CF_ZONE_ID and CF_API_TOKEN as repository secrets to enable it.
-      - name: Purge Cloudflare cache for the page
-        if: ${{ env.CF_ZONE_ID != '' }}
-        env:
-          CF_ZONE_ID: ${{ secrets.CF_ZONE_ID }}
-          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
-        run: |
-          curl -sS -X POST \
-            "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/purge_cache" \
-            -H "Authorization: Bearer $CF_API_TOKEN" \
-            -H "Content-Type: application/json" \
-            --data '{"files":["https://trickyssc.com/ssc-chsl-pyq.html","https://trickyssc.com/sitemap-chsl-pyq.xml"]}'
+          # NO [skip ci] HERE. On this repo GitHub Pages publishes via the
+          # `pages build and deployment` workflow, and [skip ci] suppresses it —
+          # the commit lands on main and the site keeps serving the old file.
+          # That is exactly what hid 8 uploaded CHSL papers on 2026-08-20.
+          # This workflow only runs on `schedule` and `workflow_dispatch`, never
+          # on `push`, so there is no loop to guard against anyway.
+          git commit -m "chore: rebuild SSC CHSL PYQ list"
+
+          # Another build workflow may have pushed while this one was running.
+          # Rebase and retry rather than failing the run and losing the rebuild.
+          for i in 1 2 3; do
+            if git push; then
+              echo "pushed on attempt $i"
+              exit 0
+            fi
+            echo "push rejected — rebasing onto origin/main and retrying"
+            git pull --rebase --autostash origin main
+          done
+          echo "::error::could not push after 3 attempts"
+          exit 1
+
+      # The Cloudflare purge step that used to sit here has been removed.
+      # trickyssc.com is NOT proxied through Cloudflare (curl -sI returns
+      # `Server: GitHub.com`), so there was no cache to purge — and its
+      # `if: env.CF_ZONE_ID != ''` condition never saw a job-level env anyway,
+      # so it was skipped on every single run. GitHub Pages invalidates its own
+      # CDN as part of the deployment.
