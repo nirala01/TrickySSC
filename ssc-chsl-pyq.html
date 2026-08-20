@@ -849,6 +849,18 @@ function signature(papers){
   // uploaded after the last page build.
   const prerendered = !!document.querySelector('#t1-list [data-pick], #t2-list [data-pick]');
 
+  // COST GUARD (2026-08-20): fetchMeta() runs a runQuery over the whole
+  // `questions` collection for this exam — that is ~7,000+ billed Firestore
+  // document reads on EVERY page view, and it grows with every paper uploaded.
+  // The static list is rebuilt by build_chsl_pyq_page.py on a schedule, so when
+  // it is present we trust it and never touch Firestore. The live query stays
+  // as a fallback for the case where the build failed and nothing was baked in.
+  if(prerendered){
+    document.dispatchEvent(new CustomEvent('pyq:rendered'));
+    console.log('[TrickySSC] PYQ list served from static build (' + (window.__PYQ_SIG||'?') + ') — no Firestore read');
+    return;
+  }
+
   const docs = await fetchMeta();
   if(docs === null){
     if(!prerendered) showError('Please check your connection and try again.');
