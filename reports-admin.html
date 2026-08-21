@@ -79,6 +79,18 @@
   .btn-red{background:#fff;color:#DC2626;border:1.5px solid #FECACA;}
   .steps{display:flex;gap:6px;font-size:11px;color:#94A3B8;font-weight:700;margin-bottom:10px;}
   .steps b{color:#FF6B00;}
+  /* ── star breakdown + candidate list ── */
+  .sb{display:inline-block;font-size:11px;font-weight:700;padding:1px 8px;border-radius:99px;background:#FFF7ED;color:#B45309;border:1px solid #FED7AA;margin:1px 3px 1px 0;white-space:nowrap;}
+  .sb.z{background:#F8FAFC;color:#CBD5E1;border-color:#E2E8F0;}
+  details.cands{margin-top:2px;}
+  details.cands>summary{cursor:pointer;font-size:12px;font-weight:700;color:#FF6B00;list-style:none;user-select:none;}
+  details.cands>summary::-webkit-details-marker{display:none;}
+  details.cands>summary:before{content:'▸ ';}
+  details.cands[open]>summary:before{content:'▾ ';}
+  table.inner{margin-top:6px;background:#FCFDFF;border:1px solid #EDF1F6;border-radius:8px;}
+  table.inner th{background:#F8FAFC;position:static;}
+  table.inner td,table.inner th{padding:6px 8px;font-size:12px;}
+  .who2{font-weight:600;color:#0F172A;}
 </style>
 </head>
 <body>
@@ -125,11 +137,23 @@
         <div class="kpis" id="ratingKpis"></div>
         <div class="card">
           <div class="row">
-            <input class="filter" id="ratingFilter" placeholder="Filter by test id…" oninput="renderRatings()">
+            <input class="filter" id="ratingFilter" placeholder="Filter by test id, test name or candidate…" oninput="renderRatings()">
+            <select class="filter" id="ratingStarFilter" style="flex:0 0 auto;min-width:150px;" onchange="renderRatings()">
+              <option value="">All star values</option>
+              <option value="5">★★★★★ 5 only</option>
+              <option value="4">★★★★ 4 only</option>
+              <option value="3">★★★ 3 only</option>
+              <option value="2">★★ 2 only</option>
+              <option value="1">★ 1 only</option>
+            </select>
             <button class="btn btn-ghost" onclick="downloadCsv('ratings')">Download CSV</button>
           </div>
           <h2>Ratings by test</h2>
           <div id="ratingAgg" class="muted">Loading…</div>
+        </div>
+        <div class="card">
+          <h2>All ratings (newest first)</h2>
+          <div id="ratingList" class="muted">Loading…</div>
         </div>
       </div>
     </div>
@@ -264,15 +288,22 @@ window.renderReports = function(){
     : `<div class="muted">No reports${f?' match this filter':''}.</div>`;
 };
 
+const whoOf   = r => (r.name || r.userName || r.displayName || r.email || '').trim() || (r.uid ? 'uid:'+String(r.uid).slice(0,8) : 'Anonymous');
+const starStr = n => { const s=Math.max(0,Math.min(5,Math.round(Number(n)||0))); return '★'.repeat(s)+'☆'.repeat(5-s); };
+
 window.renderRatings = function(){
-  const f = ($('ratingFilter').value||'').toLowerCase();
-  const rows = RATINGS.filter(r => !f || (`${r.mockId} ${r.testName}`).toLowerCase().includes(f));
+  const f  = ($('ratingFilter').value||'').toLowerCase();
+  const sf = (($('ratingStarFilter')||{}).value)||'';
+  const rows = RATINGS
+    .filter(r => !sf || String(Math.round(Number(r.stars)||0))===sf)
+    .filter(r => !f || (`${r.mockId} ${r.testName} ${whoOf(r)} ${r.uid} ${r.difficulty}`).toLowerCase().includes(f));
 
   const allStars = RATINGS.map(r=>Number(r.stars)||0).filter(Boolean);
   const overall = allStars.length ? (allStars.reduce((a,b)=>a+b,0)/allStars.length) : 0;
   $('ratingKpis').innerHTML =
     `<div class="kpi"><div class="v">${RATINGS.length}</div><div class="l">Total ratings</div></div>
      <div class="kpi"><div class="v">${overall.toFixed(2)}</div><div class="l">Avg stars (all)</div></div>
+     <div class="kpi"><div class="v">${new Set(RATINGS.map(r=>r.uid||whoOf(r))).size}</div><div class="l">Candidates</div></div>
      <div class="kpi"><div class="v">${new Set(RATINGS.map(r=>r.mockId)).size}</div><div class="l">Tests rated</div></div>`;
 
   const DIFFS = ["Same as CGL","Easy","Difficult","Very Difficult"];
@@ -280,24 +311,63 @@ window.renderRatings = function(){
   const agg = {};
   rows.forEach(r=>{
     const k=r.mockId||'(none)';
-    agg[k]=agg[k]||{count:0,sum:0,diff:{}};
+    agg[k]=agg[k]||{count:0,sum:0,diff:{},stars:{1:[],2:[],3:[],4:[],5:[]},testName:'',list:[]};
     agg[k].count++; agg[k].sum+=(Number(r.stars)||0);
+    if(r.testName && !agg[k].testName) agg[k].testName=r.testName;
+    const s = Math.round(Number(r.stars)||0);
+    if(s>=1 && s<=5) agg[k].stars[s].push(r);
+    agg[k].list.push(r);
     if(r.difficulty){ agg[k].diff[r.difficulty]=(agg[k].diff[r.difficulty]||0)+1; }
   });
   const arr = Object.entries(agg).sort((a,b)=>b[1].count-a[1].count);
-  $('ratingAgg').innerHTML = arr.length ? `<table><tr><th>Test</th><th>#</th><th>Avg</th><th>Difficulty</th><th></th></tr>` +
+
+  $('ratingAgg').innerHTML = arr.length ? `<table><tr><th>Test</th><th>#</th><th>Avg</th><th>Who gave what</th><th>Difficulty</th><th></th></tr>` +
     arr.map(([k,v])=>{
       const avg=v.count?(v.sum/v.count):0;
       const total=Object.values(v.diff).reduce((a,b)=>a+b,0)||1;
       const bar = DIFFS.map(d=>{ const c=v.diff[d]||0; const pct=Math.round(c/total*100); return c?`<i style="width:${pct}%;background:${COLORS[d]}" title="${d}: ${c}"></i>`:''; }).join('');
       const legend = DIFFS.map(d=>v.diff[d]?`<span class="pill b" style="background:#F1F5F9;color:#475569">${d}: ${v.diff[d]}</span>`:'').join('');
-      return `<tr><td><code>${esc(k)}</code></td>
+
+      // counts per star value, with the candidate names behind each one
+      const breakdown = [5,4,3,2,1].map(s=>{
+        const n = v.stars[s].length;
+        const names = v.stars[s].map(r=>whoOf(r)).join(', ');
+        return `<span class="sb${n?'':' z'}"${n?` title="${esc(names)}"`:''}>${s}★ × ${n}</span>`;
+      }).join('');
+
+      const people = v.list.slice().sort((a,b)=>(Number(b.stars)||0)-(Number(a.stars)||0) || tsMs(b)-tsMs(a))
+        .map(r=>`<tr>
+          <td class="who2">${esc(whoOf(r))}</td>
+          <td style="white-space:nowrap"><span class="stars">${starStr(r.stars)}</span> ${esc(Number(r.stars)||0)}</td>
+          <td>${esc(r.difficulty||'—')}</td>
+          <td class="muted">${esc(fmtTime(r.createdAt))}</td>
+          <td><button class="del" data-act="delone" data-id="${esc(r.id)}" title="Delete this rating">🗑</button></td>
+        </tr>`).join('');
+
+      return `<tr><td><code>${esc(k)}</code>${v.testName?`<div class="muted">${esc(v.testName)}</div>`:''}</td>
         <td>${v.count}</td>
-        <td><span class="stars">${'★'.repeat(Math.round(avg))}${'☆'.repeat(5-Math.round(avg))}</span> ${avg.toFixed(2)}</td>
+        <td><span class="stars">${starStr(avg)}</span> ${avg.toFixed(2)}</td>
+        <td style="min-width:190px">${breakdown}
+          <details class="cands"><summary>${v.count} candidate${v.count===1?'':'s'} — show names</summary>
+            <table class="inner"><tr><th>Candidate</th><th>Stars</th><th>Difficulty</th><th>When</th><th></th></tr>${people}</table>
+          </details></td>
         <td><div class="diffbar">${bar}</div><div style="margin-top:4px;">${legend}</div></td>
         <td><button class="del" data-act="delt" data-mockid="${esc(k)}" title="Delete all ratings for this test">🗑 Clear ${v.count}</button></td></tr>`;
     }).join('') + `</table>`
-    : `<div class="muted">No ratings${f?' match this filter':''}.</div>`;
+    : `<div class="muted">No ratings${(f||sf)?' match this filter':''}.</div>`;
+
+  // Flat, newest-first list of every rating with the candidate's name
+  const list = rows.slice().sort((a,b)=>tsMs(b)-tsMs(a));
+  $('ratingList').innerHTML = list.length ? `<table><tr><th>When</th><th>Candidate</th><th>Test</th><th>Stars</th><th>Difficulty</th><th></th></tr>` +
+    list.map(r=>`<tr>
+      <td class="muted" style="white-space:nowrap">${esc(fmtTime(r.createdAt))}</td>
+      <td class="who2">${esc(whoOf(r))}${r.uid?`<div class="muted" style="font-size:11px">${esc(r.uid)}</div>`:''}</td>
+      <td><code>${esc(r.mockId||'(none)')}</code>${r.testName?`<div class="muted">${esc(r.testName)}</div>`:''}</td>
+      <td style="white-space:nowrap"><span class="stars">${starStr(r.stars)}</span> ${esc(Number(r.stars)||0)}</td>
+      <td>${esc(r.difficulty||'—')}</td>
+      <td><button class="del" data-act="delone" data-id="${esc(r.id)}" title="Delete this rating">🗑</button></td>
+    </tr>`).join('') + `</table>`
+    : `<div class="muted">No ratings${(f||sf)?' match this filter':''}.</div>`;
 };
 
 // ── Delete actions (admin only; enforced by Firestore rules too) ──
@@ -325,6 +395,13 @@ document.addEventListener('click', async (e)=>{
       await delMany('question_reports', ids);
       REPORTS = REPORTS.filter(r=>!(String(r.mockId)===mid && String(r.qNum)===qn));
       renderReports();
+    } else if(act==='delone'){
+      const id = b.dataset.id;
+      if(!confirm('Delete this single rating?')) return;
+      b.disabled=true; b.textContent='…';
+      await delMany('mock_ratings', [id]);
+      RATINGS = RATINGS.filter(r=>r.id!==id);
+      renderRatings();
     } else if(act==='delt'){
       const mid=b.dataset.mockid;
       const ids = RATINGS.filter(r=>String(r.mockId)===mid).map(r=>r.id);
@@ -708,8 +785,8 @@ window.downloadCsv = function(which){
     REPORTS.slice().sort((a,b)=>tsMs(b)-tsMs(a)).forEach(r=>rows.push([fmtTime(r.createdAt),r.source||'mock',tgtOf(r),r.mockId,r.qNum,r.position,r.subject,r.reason,r.note,r.name,r.uid,r.testName]));
   } else {
     name='mock_ratings.csv';
-    rows=[['when','mockId','stars','difficulty','name','uid','testName']];
-    RATINGS.slice().sort((a,b)=>tsMs(b)-tsMs(a)).forEach(r=>rows.push([fmtTime(r.createdAt),r.mockId,r.stars,r.difficulty,r.name,r.uid,r.testName]));
+    rows=[['when','mockId','testName','candidate','stars','difficulty','uid']];
+    RATINGS.slice().sort((a,b)=>tsMs(b)-tsMs(a)).forEach(r=>rows.push([fmtTime(r.createdAt),r.mockId,r.testName,whoOf(r),r.stars,r.difficulty,r.uid]));
   }
   const csv = rows.map(r=>r.map(q).join(',')).join('\n');
   const blob = new Blob([csv],{type:'text/csv'});
