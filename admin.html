@@ -154,6 +154,7 @@ textarea{resize:vertical;min-height:80px;}
     <div class="stat-card"><div class="num" id="statQ">0</div><div class="lbl">Questions</div></div>
     <div class="stat-card"><div class="num" id="statU">0</div><div class="lbl">Users</div></div>
     <div class="stat-card"><div class="num" id="statT">0</div><div class="lbl">Tests Taken</div></div>
+    <div class="stat-card" onclick="refreshStats()" title="Counts are cached for 5 minutes — tap to recount" style="cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;"><div class="num" style="font-size:1.4rem;">↻</div><div class="lbl">Refresh</div></div>
     <div class="stat-card"><div class="num" id="statE">8</div><div class="lbl">Exams</div></div>
   </div>
 
@@ -868,6 +869,7 @@ Step 2: ...","trick":"Short trick","concept":"Concept used"}' style="width:100%;
           <option value="date">Specific Date</option>
         </select>
         <input type="date" id="filterHeldOnDate" style="display:none;background:#0F172A;border:1px solid #334155;border-radius:8px;padding:0.65rem 0.9rem;color:#E2E8F0;font-family:'Inter',sans-serif;font-size:0.9rem;outline:none;" onchange="loadQuestions()">
+        <button class="btn" id="loadQBtn" onclick="fetchQuestions()" style="padding:0.65rem 1.2rem;white-space:nowrap;">🔍 Load Questions</button>
       </div>
       <!-- Bulk action toolbar -->
       <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1rem;flex-wrap:wrap;">
@@ -880,7 +882,7 @@ Step 2: ...","trick":"Short trick","concept":"Concept used"}' style="width:100%;
         <button class="btn btn-danger" onclick="deleteAllVisible()" style="background:#7F1D1D;padding:0.4rem 0.9rem;font-size:0.82rem;">🗑 Delete All Shown</button>
       </div>
       <div id="questionsList" class="questions-list">
-        <p style="color:#94A3B8;text-align:center;padding:2rem;">Loading questions...</p>
+        <p style="color:#94A3B8;text-align:center;padding:2rem;">Choose an exam (and ideally a year), then press <strong style="color:#FF6B00;">🔍 Load Questions</strong>.</p>
       </div>
     </div>
   </div>
@@ -1619,8 +1621,11 @@ onAuthStateChanged(auth, async (user) => {
     updateTiersAndSubjects('q');
     updateTiersAndSubjects('ai');
     loadStats();
-    loadQuestions();
-    loadUsers();
+    // COST GUARD: loadQuestions() used to run here and pull the ENTIRE
+    // `questions` collection (~50,000 billed reads) on every single admin
+    // page open. Nothing is fetched now until you click "Load Questions".
+    // loadUsers() likewise waits for the Users tab.
+    renderQuestions();
   } else {
     document.getElementById('loginScreen').style.display = 'flex';
     document.getElementById('adminScreen').style.display = 'none';
@@ -1628,16 +1633,32 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 // Load stats
-async function loadStats() {
+// getCountFromServer is an aggregation: ~1 read per 1000 index entries, so all
+// three cards together cost ~56 reads, not 50,000. Cheap enough to autoload --
+// but cached for 5 minutes so repeated opens in one session are free.
+const STATS_TTL = 5*60*1000;
+function paintStats(s) {
+  document.getElementById('statQ').textContent = s.q;
+  document.getElementById('statU').textContent = s.u;
+  document.getElementById('statT').textContent = s.t;
+}
+async function loadStats(force) {
   try {
-    const qSnap = await getCountFromServer(collection(db, 'questions'));
-    document.getElementById('statQ').textContent = qSnap.data().count;
-    const uSnap = await getCountFromServer(collection(db, 'users'));
-    document.getElementById('statU').textContent = uSnap.data().count;
-    const tSnap = await getCountFromServer(collection(db, 'attempts'));
-    document.getElementById('statT').textContent = tSnap.data().count;
+    if (!force) {
+      const c = JSON.parse(sessionStorage.getItem('tssc_admin_stats') || 'null');
+      if (c && Date.now() - c.ts < STATS_TTL) { paintStats(c); return; }
+    }
+    const [qSnap, uSnap, tSnap] = await Promise.all([
+      getCountFromServer(collection(db, 'questions')),
+      getCountFromServer(collection(db, 'users')),
+      getCountFromServer(collection(db, 'attempts')),
+    ]);
+    const s = { q: qSnap.data().count, u: uSnap.data().count, t: tSnap.data().count, ts: Date.now() };
+    paintStats(s);
+    try { sessionStorage.setItem('tssc_admin_stats', JSON.stringify(s)); } catch(e) {}
   } catch(e) { console.log('Stats error:', e); }
 }
+window.refreshStats = () => loadStats(true);
 
 // Save single question
 window.saveQuestion = async () => {
@@ -1891,13 +1912,62 @@ window.startExtraction = async () => {
 
 // saveAllExtracted removed - saving now happens inline during extraction
 
-// Load questions
-window.loadQuestions = async () => {
+// ─────────────────────────────────────────────────────────────────────────
+// COST GUARD (2026-08-20)
+//
+// This used to be one function that did getDocs(collection(db,'questions'))
+// -- the WHOLE collection, ~50,000 docs -- and then filtered in JS. It was
+// wired to onAuthStateChanged, to switchTab, to all eight filter dropdowns
+// and to every post-save/delete refresh, so a normal working session cost
+// millions of billed reads.
+//
+// It is now split in two:
+//   fetchQuestions()  -- the only thing that touches Firestore. Runs one
+//                        narrow query (exam, plus year when chosen) and is
+//                        called ONLY by the Load Questions button.
+//   renderQuestions() -- pure client-side filter + paint over _qCache.
+//
+// window.loadQuestions is aliased to renderQuestions, so every pre-existing
+// call site became free without needing to be edited.
+// ─────────────────────────────────────────────────────────────────────────
+window._qCache = null;      // raw docs from the last fetch
+window._qCacheLabel = '';   // what that fetch covered, for the banner
+const Q_CAP = 600;          // safety cap when no year is chosen
+
+window.fetchQuestions = async () => {
   const listEl = document.getElementById('questionsList');
-  listEl.innerHTML = '<p style="color:#94A3B8;text-align:center;padding:2rem;">Loading...</p>';
+  const exam = document.getElementById('filterExam')?.value;
+  const year = document.getElementById('filterYear')?.value;
+  if (!exam) {
+    listEl.innerHTML = '<p style="color:#FBBF24;text-align:center;padding:2rem;">Pick an exam first — loading every exam at once would read the whole question bank.</p>';
+    return;
+  }
+  listEl.innerHTML = '<p style="color:#94A3B8;text-align:center;padding:2rem;">Loading…</p>';
   try {
-    let q = collection(db, 'questions');
+    let q = query(collection(db,'questions'), where('exam','==',exam));
+    if (year) q = query(collection(db,'questions'), where('exam','==',exam), where('year','==',year));
+    else q = query(q, limit(Q_CAP));
     const snap = await getDocs(q);
+    window._qCache = snap.docs.map(d => ({id:d.id,...d.data()}));
+    window._qCacheLabel = `${exam.toUpperCase()} ${year || 'all years'} — ${window._qCache.length} loaded${!year && window._qCache.length >= Q_CAP ? ` (capped at ${Q_CAP}; pick a year for the full set)` : ''}`;
+    console.log(`[TrickySSC] fetched ${window._qCache.length} question docs (${exam} ${year||'all years'})`);
+    renderQuestions();
+  } catch(e) {
+    listEl.innerHTML = '<p style="color:#EF4444;text-align:center;padding:2rem;">Error loading: '+e.message+'</p>';
+  }
+};
+
+window.loadQuestions = (...a) => renderQuestions(...a);
+
+function renderQuestions() {
+  const listEl = document.getElementById('questionsList');
+  if (!listEl) return;
+  if (!window._qCache) {
+    listEl.innerHTML = '<p style="color:#94A3B8;text-align:center;padding:2rem;">Choose an exam (and ideally a year), then press <strong style="color:#FF6B00;">🔍 Load Questions</strong>.</p>';
+    return;
+  }
+  try {
+    const snap = null;
     const filterExam = document.getElementById('filterExam')?.value;
     const filterTier = document.getElementById('filterTier')?.value;
     const filterYear = document.getElementById('filterYear')?.value;
@@ -1906,7 +1976,7 @@ window.loadQuestions = async () => {
     const filterHeldOnType = document.getElementById('filterHeldOnType')?.value;
     const filterHeldOnDate = document.getElementById('filterHeldOnDate')?.value;
     const filterShift = document.getElementById('filterShift')?.value;
-    let docs = snap.docs.map(d => ({id:d.id,...d.data()}));
+    let docs = window._qCache.slice();
     if (filterExam) docs = docs.filter(d => d.exam === filterExam);
     if (filterTier) docs = docs.filter(d => d.tier === filterTier);
     if (filterYear) docs = docs.filter(d => d.year === filterYear);
@@ -1916,9 +1986,11 @@ window.loadQuestions = async () => {
     if (filterHeldOnType === 'none') docs = docs.filter(d => !d.heldOn);
     else if (filterHeldOnType === 'date' && filterHeldOnDate) docs = docs.filter(d => d.heldOn === filterHeldOnDate);
     docs.sort((a,b) => (parseInt(a.qNum)||0) - (parseInt(b.qNum)||0));
+    const matched = docs.length;
     docs = docs.slice(0, 200);
-    if (!docs.length) { listEl.innerHTML = '<p style="color:#94A3B8;text-align:center;padding:2rem;">No questions found.</p>'; return; }
-    listEl.innerHTML = docs.map(q => `
+    if (!docs.length) { listEl.innerHTML = '<p style="color:#94A3B8;text-align:center;padding:2rem;">No questions match these filters in the loaded set.<br><span style="font-size:0.85rem;">'+window._qCacheLabel+'</span></p>'; return; }
+    const banner = `<div style="color:#64748B;font-size:0.8rem;padding:0 0 0.75rem;">${window._qCacheLabel} · showing ${docs.length} of ${matched} matching · filters apply locally, no re-read</div>`;
+    listEl.innerHTML = banner + docs.map(q => `
       <div class="question-item">
         <div class="q-header">
           <div class="q-text" style="flex:1;">
@@ -1950,8 +2022,8 @@ window.loadQuestions = async () => {
       </div>
     `).join('');
     window._loadedQDocs = docs;
-  } catch(e) { listEl.innerHTML = '<p style="color:#EF4444;text-align:center;padding:2rem;">Error loading: '+e.message+'</p>'; }
-};
+  } catch(e) { listEl.innerHTML = '<p style="color:#EF4444;text-align:center;padding:2rem;">Error rendering: '+e.message+'</p>'; }
+}
 
 // Bulk delete
 window.previewDelete = async () => {
@@ -2060,10 +2132,18 @@ window.deleteQuestion = async (id) => {
 };
 
 // Load users
-window.loadUsers = async () => {
+window._uCache = null;
+window.loadUsers = async (force) => {
   try {
-    const snap = await getDocs(collection(db, 'users'));
-    const users = snap.docs.map(d => ({id:d.id,...d.data()}));
+    // Cached for the session: this is a full scan of `users`, so switching
+    // tabs back and forth used to re-bill every user document each time.
+    let users = window._uCache;
+    if (!users || force) {
+      const snap = await getDocs(collection(db, 'users'));
+      users = snap.docs.map(d => ({id:d.id,...d.data()}));
+      window._uCache = users;
+      console.log(`[TrickySSC] fetched ${users.length} user docs`);
+    }
     if (!users.length) { document.getElementById('usersTable').innerHTML = '<p style="color:#94A3B8;text-align:center;padding:2rem;">No users yet.</p>'; return; }
     document.getElementById('usersTable').innerHTML = `
       <table class="users-table">
@@ -2588,7 +2668,12 @@ async function fetchExportDocs() {
   const subject = document.getElementById('expSubject').value;
   const diff    = document.getElementById('expDifficulty').value;
 
-  const snap = await getDocs(collection(db, 'questions'));
+  // Narrow server-side before paying for documents: exam (and year when set)
+  // go into the query instead of being filtered out after download.
+  let eq = collection(db, 'questions');
+  if (exam && year) eq = query(collection(db,'questions'), where('exam','==',exam), where('year','==',year));
+  else if (exam)    eq = query(collection(db,'questions'), where('exam','==',exam));
+  const snap = await getDocs(eq);
   let docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
   if (exam)    docs = docs.filter(d => d.exam    === exam);
   if (tier)    docs = docs.filter(d => d.tier    === tier);
