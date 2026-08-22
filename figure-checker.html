@@ -196,7 +196,7 @@
       <b>Storage is refusing to hand the image bytes to this page (CORS).</b><br>
       Check 1 still works — it loads images the ordinary way. Check 2 needs to read the actual
       bytes, so it needs one-time permission. Save this as <code>cors.json</code>:<br>
-      <code>[{"origin":["*"],"method":["GET"],"maxAgeSeconds":3600,"responseHeader":["Content-Type"]}]</code><br>
+      <code>[{"origin":["https://trickyssc.com","https://www.trickyssc.com","http://localhost:8000"],"method":["GET"],"maxAgeSeconds":3600,"responseHeader":["Content-Type"]}]</code><br>
       then run <code>gsutil cors set cors.json gs://trickyssc-17bb3.firebasestorage.app</code>
       once, and re-run check 2.
     </div>
@@ -603,7 +603,7 @@ window.runCheck = async (n) => {
   for (let i = 1; i <= 3; i++) document.getElementById('btn'+i).disabled = true;
   const st = document.getElementById('st'+n);
   st.textContent = 'running…'; st.className = 'badge info';
-  results = []; renderData = [];
+  results = []; renderData = []; window.__corsFailed = false;
   document.getElementById('corsHelp').style.display = 'none';
   log(`── CHECK ${n}: ${['','images present','images match the docx','answer & solution'][n]} — ${list.length} mock(s) ──`, 'head');
 
@@ -623,8 +623,13 @@ window.runCheck = async (n) => {
       setProg(done / list.length * 100, `${done}/${list.length} mocks`);
     }
     const blockers = results.filter(r => r.sev === 0).length;
-    st.textContent = blockers ? blockers + ' blocker(s)' : 'clean';
-    st.className = 'badge ' + (blockers ? 'bad' : 'ok');
+    if (n === 2 && window.__corsFailed) {
+      st.textContent = 'blocked — nothing compared';
+      st.className = 'badge bad';
+    } else {
+      st.textContent = blockers ? blockers + ' blocker(s)' : 'clean';
+      st.className = 'badge ' + (blockers ? 'bad' : 'ok');
+    }
     log(`Check ${n} finished — ${results.length} finding(s), ${blockers} blocker(s).`, blockers ? 'warn' : 'ok');
   } catch (e) {
     st.textContent = 'error'; st.className = 'badge bad';
@@ -726,7 +731,12 @@ async function check2(mock, mockId, lang, docs) {
       catch (e) { corsFailed = true; }
       const entry = { slot, label, url, docxUrl: docxUrl(mock, name),
                       keyed: exp.correct === slot.slice(-1) && slot !== 'q' };
-      if (!liveBuf) { entry.note = 'bytes unreadable'; view.slots.push(entry); continue; }
+      if (!liveBuf) {
+        // Nothing was compared. Say so — silence here would read as "clean".
+        view.findings.push(['NOT_COMPARED', 1,
+          `${label} could not be read back from Storage, so it was never compared`]);
+        entry.note = 'not compared'; view.slots.push(entry); continue;
+      }
       const lh = await sha256(liveBuf);
       if (lh === docxHash[name]) { entry.note = 'identical'; view.slots.push(entry); continue; }
 
@@ -763,7 +773,9 @@ async function check2(mock, mockId, lang, docs) {
   }
   if (corsFailed) {
     document.getElementById('corsHelp').style.display = 'block';
-    log('   Storage would not hand over the image bytes (CORS) — see the note under the buttons', 'err');
+    window.__corsFailed = true;
+    log('   Storage would not hand over the image bytes (CORS) — NOTHING WAS COMPARED. ' +
+        'See the note under the buttons.', 'err');
   }
 }
 
