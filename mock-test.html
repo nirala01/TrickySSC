@@ -674,6 +674,10 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:10
   .rv-lg{font-size:11px;padding:4px 10px;}
 }
 
+/* TSSC-FIGFIX v1 */
+.img-fail{display:block;margin:6px 0;padding:10px 12px;border:1px dashed #F59E0B;
+  border-radius:6px;background:#FFFBEB;color:#B45309;font-size:12.5px;text-align:center;}
+
 .q-figure-img{max-width:100%;border-radius:8px;margin:6px 0;border:1px solid #334155;display:block;}
 
 /* ── DI Table ── */
@@ -1814,7 +1818,7 @@ function renderQ(){
   normaliseQ(q); // ensure options/text are clean regardless of fetch path
   document.getElementById('qNumCurrent').textContent=currentQ+1;
   document.getElementById('qNumTotal').textContent=questions.length;
-  const rawText=(q.text||q.question||'').replace(/^\[FIGURE-BASED\]\s*/i,'');
+  const rawText=(q.text||q.question||'').replace(/^\s*\[FIGURE-BASED\]\s*/i,'');
   document.getElementById('qText').innerHTML=formatQText(rawText);
   mathDress(document.getElementById('qText'));
 
@@ -1839,8 +1843,8 @@ function renderQ(){
   if(currentQ===0) console.log('[TrickySSC] Q1 options debug:', JSON.stringify(q.options), '| option_A:', q.option_A||q.optionA||'(none)');
   document.getElementById('options').innerHTML=opts.map(o=>{
     const lo=o.toLowerCase();
-    const txt=(q.options&&(q.options[o]!=null&&q.options[o]!==''?q.options[o]:(q.options[lo]!=null&&q.options[lo]!==''?q.options[lo]:'')))
-      ||(q['option'+o]||q['option_'+o]||q['option'+lo]||'');
+    const txt=stripFigRef((q.options&&(q.options[o]!=null&&q.options[o]!==''?q.options[o]:(q.options[lo]!=null&&q.options[lo]!==''?q.options[lo]:'')))
+      ||(q['option'+o]||q['option_'+o]||q['option'+lo]||''));
     const optImg=q.optionImages?.[o]||'';
     const sel=answers[currentQ]===o?'selected':'';
     const fmtTxt=renderFraction(txt).replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
@@ -1848,7 +1852,7 @@ function renderQ(){
       <span class="opt-label">${o}</span>
       <div class="opt-body">
         ${fmtTxt}
-        ${optImg?`<img src="${optImg}" style="max-width:100%;max-height:${txt?'90px':'160px'};border-radius:6px;object-fit:contain;display:block;margin-top:${txt?'7px':'0'};" onerror="this.style.display='none'">`:''}
+        ${optImg?`<img src="${optImg}" style="max-width:100%;max-height:${txt?'90px':'160px'};border-radius:6px;object-fit:contain;display:block;margin-top:${txt?'7px':'0'};" onerror="imgFail(this)">`:''}
       </div>
     </div>`;
   }).join('');
@@ -2452,6 +2456,29 @@ window.submitTest=async()=>{
   try{ if(typeof ensureEnglishMap==='function' && !enMapLoaded) await ensureEnglishMap(); }catch(e){}
 
   // Build the HTML for a single review item (returns {status, html})
+  /* TSSC-FIGFIX v1 */
+// A figure question stores "(figure 1)" / "(आकृति 1)" as its option TEXT — it is a
+// placeholder for the image, not something a candidate should read. Left in place it
+// printed above every option image AND, because the text was non-empty, halved the
+// image's height budget. Treat a bare placeholder as no text at all.
+window.stripFigRef = function (t) {
+  if (!t) return '';
+  return /^\s*\(\s*(?:figure|आकृति|चित्र)\s*[1-4]\s*\)\s*$/i.test(String(t)) ? '' : t;
+};
+// A figure that fails to load used to be hidden outright, so a broken URL reached the
+// candidate as a question with nothing to look at and left no trace anywhere.
+window.imgFail = function (el) {
+  el.onerror = null;
+  var d = document.createElement('div');
+  d.className = 'img-fail';
+  d.textContent = 'Figure could not be loaded';
+  if (el.parentNode) el.parentNode.replaceChild(d, el);
+  try {
+    console.warn('[TrickySSC] figure failed to load:', el.getAttribute('src'));
+    window.__figFails = (window.__figFails || []).concat([el.getAttribute('src')]);
+  } catch (e) {}
+};
+
   function buildReviewItem(q,i){
     const a=answers[i];
     const status=!a?'skip':a===q.correct?'correct':'wrong';
@@ -2461,11 +2488,11 @@ window.submitTest=async()=>{
     const vText=status==='correct'?'Correct! Well done.':status==='wrong'?`Incorrect — you chose <b>${a}</b>, the correct answer is <b>${q.correct}</b>`:'Skipped — you did not answer this question';
     const headHtml=`<div class="rv-head"><span class="rv-pill ${status}">${vIcon} ${pillText}</span></div>`;
     const optsHtml=`<div class="rv-opts">${opts.map(o=>{
-      const txt=q.options?.[o]||q['option'+o]||'';const optImg=q.optionImages?.[o]||'';
+      const txt=stripFigRef(q.options?.[o]||q['option'+o]||q['option_'+o]||'');const optImg=q.optionImages?.[o]||'';
       const isCorrect=o===q.correct;const isWrong=o===a&&a!==q.correct;
       const cls=isCorrect?'rv-opt c':isWrong?'rv-opt w':'rv-opt';
       const marker=isCorrect?'<span class="rv-mk">✓</span>':isWrong?'<span class="rv-mk">✕</span>':'';
-      return `<div class="${cls}"><span class="rv-key">${o}</span><span>${applyBRBold(txt)}${marker}${optImg?`<span style="display:block;margin-top:6px;"><img src="${optImg}" style="max-width:100%;max-height:100px;border-radius:5px;object-fit:contain;" onerror="this.style.display='none'"></span>`:''}</span></div>`;
+      return `<div class="${cls}"><span class="rv-key">${o}</span><span>${applyBRBold(txt)}${marker}${optImg?`<span style="display:block;margin-top:6px;"><img src="${optImg}" style="max-width:100%;max-height:${txt?'100px':'170px'};border-radius:5px;object-fit:contain;" onerror="imgFail(this)"></span>`:''}</span></div>`;
     }).join('')}</div>`;
     const solImg=q.solutionImage||'';
     // Per-solution EN/HI toggle: available for Q1–75 when an English counterpart
@@ -2487,7 +2514,7 @@ window.submitTest=async()=>{
     const solReportHtml=(solHtml||trickHtml||conceptHtml)
       ?`<div class="sol-report-row"><button class="sol-report-link" onclick="openSolReport(${i})">⚠ Report a problem with this solution</button></div>`:'';
     const verdictHtml=`<div class="verdict ${status}"><span class="v-ic">${vIcon}</span><span>${vText}</span></div>`;
-    const rawRT=(q.text||q.question||'').replace(/^\[FIGURE-BASED\]\s*/i,'');
+    const rawRT=(q.text||q.question||'').replace(/^\s*\[FIGURE-BASED\]\s*/i,'');
     const reviewQHtml=formatQTextReview(rawRT,i+1);
     const html=`<div class="review-item ${status}" id="rvq${i}">${headHtml}${reviewQHtml}${q.imageUrl?`<div style="text-align:center;margin:8px 0;"><img src="${q.imageUrl}" style="max-width:100%;max-height:220px;border-radius:8px;border:1px solid #E2E8F0;object-fit:contain;background:#F9FAFB;" onerror="this.style.display='none'"></div>`:''}${optsHtml}${verdictHtml}${solHtml}${trickHtml}${conceptHtml}${solReportHtml}</div>`;
     return {status,html};
