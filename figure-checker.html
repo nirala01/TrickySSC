@@ -189,8 +189,9 @@
         <input id="aiEndpoint" value="https://trickyssc-ai.nirala01.workers.dev" style="font-family:var(--mono);font-size:11.5px">
       </label>
       <label class="fld">model
-        <input id="aiModel" value="claude-opus-4-6" style="width:190px;font-family:var(--mono);font-size:11.5px">
+        <input id="aiModel" value="claude-opus-5" style="width:190px;font-family:var(--mono);font-size:11.5px">
       </label>
+      <label class="chk"><input type="checkbox" id="optOnePass"> one AI pass per answer instead of two (about 25% cheaper, slightly less certain)</label>
     </div>
     <div class="cors-help" id="corsHelp">
       <b>Storage is refusing to hand the image bytes to this page (CORS).</b><br>
@@ -223,8 +224,10 @@
 
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js';
-import { getFirestore, collection, query, where, getDocs }
+import { getFirestore, collection, query, where, getDocs, doc as fsDoc, updateDoc, setDoc }
   from 'https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js';
+import { getStorage, ref as storageRef, uploadBytes, getDownloadURL }
+  from 'https://www.gstatic.com/firebasejs/11.0.0/firebase-storage.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged }
   from 'https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js';
 
@@ -238,6 +241,7 @@ const firebaseConfig = {
 };
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+const storage = getStorage(app);
 const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
 const ADMIN_EMAILS = ['nirala01@gmail.com', 'ashish@trickyssc.com'];
@@ -466,7 +470,7 @@ async function fetchMock(mockId) {
   if (fsCache[mockId]) return fsCache[mockId];
   const snap = await getDocs(query(collection(db, 'questions'), where('mockId', '==', mockId)));
   const out = {};
-  snap.forEach(d => { const x = d.data(); out[parseInt(x.qNum)] = x; });
+  snap.forEach(d => { const x = d.data(); x._id = d.id; out[parseInt(x.qNum)] = x; });
   fsCache[mockId] = out;
   log(`   read ${Object.keys(out).length} question(s) from ${mockId}`, 'info');
   return out;
@@ -642,6 +646,7 @@ window.runCheck = async (n) => {
 
 /* ── check 1 — is every required image there, and does it load ── */
 async function check1(mock, mockId, lang, docs) {
+  const from = renderData.length;          // this mock's slice starts here
   const byNum = {}; mock.docx.questions.forEach(q => byNum[q.qNum] = q);
   const probe = document.getElementById('optProbe').checked;
   const nums = new Set([...Object.keys(docs).map(Number), ...Object.keys(byNum).map(Number)]);
@@ -660,6 +665,9 @@ async function check1(mock, mockId, lang, docs) {
                    slots: [], findings: [] };
 
     if (!exp.isFig && !dq) continue;                        // ordinary text question
+    view.mockIdx = mocks.indexOf(mock);
+    view.docId = doc._id;
+    view.midBase = mockId.replace(/_(en|hi)$/, '');
     if (!exp.isFig && dq) view.findings.push(['DOCX_EXTRA_QUESTION', 1,
       'the docx has figures for this question but its text is not marked [FIGURE-BASED]']);
 
@@ -674,7 +682,9 @@ async function check1(mock, mockId, lang, docs) {
       if (!url) {
         view.findings.push([slot === 'q' ? 'MISSING_QUESTION_IMAGE' : 'MISSING_OPTION_IMAGE', 0,
           `${label} is empty in Firestore`]);
-        view.slots.push({ slot, label, missing: true });
+        view.slots.push({ slot, label, missing: true,
+                          blobName: dq && dq.imgs[slot] ? dq.imgs[slot] : null,
+                          docxUrl: dq && dq.imgs[slot] ? docxUrl(mock, dq.imgs[slot]) : null });
         continue;
       }
       const m = URL_SLOT.exec(url);
@@ -688,7 +698,9 @@ async function check1(mock, mockId, lang, docs) {
         if (!ok) view.findings.push(['IMAGE_WILL_NOT_LOAD', 0,
           `${label} has a URL but it ${p.why} — the candidate sees nothing`]);
       }
-      view.slots.push({ slot, label, url, docxUrl: dq && dq.imgs[slot] ? docxUrl(mock, dq.imgs[slot]) : null,
+      view.slots.push({ slot, label, url,
+                        blobName: dq && dq.imgs[slot] ? dq.imgs[slot] : null,
+                        docxUrl: dq && dq.imgs[slot] ? docxUrl(mock, dq.imgs[slot]) : null,
                         keyed: exp.correct === slot.slice(-1) && slot !== 'q', bad: !ok });
     }
     if (exp.figOpts && exp.refs && exp.refs.join() !== '1,2,3,4')
@@ -698,12 +710,14 @@ async function check1(mock, mockId, lang, docs) {
     view.findings.forEach(([c,s,d]) => add(mock, mockId, lang, qNum, c, s, d));
     renderData.push(view);
   }
-  const bad = renderData.filter(v => v.findings.some(f => f[1] === 0)).length;
-  log(`   ${renderData.length} figure question(s) checked, ${bad} with a problem`, bad ? 'warn' : 'ok');
+  const mine = renderData.slice(from);
+  const bad = mine.filter(v => v.findings.some(f => f[1] === 0)).length;
+  log(`   ${mine.length} figure question(s) checked, ${bad} with a problem`, bad ? 'warn' : 'ok');
 }
 
 /* ── check 2 — is the live image the same picture as the docx ── */
 async function check2(mock, mockId, lang, docs) {
+  const from2 = renderData.length;
   const byNum = {}; mock.docx.questions.forEach(q => byNum[q.qNum] = q);
   const useAI = document.getElementById('ai2').checked;
 
@@ -720,7 +734,9 @@ async function check2(mock, mockId, lang, docs) {
     if (!doc) continue;
     const exp = expectation(doc), urls = liveUrls(doc);
     const view = { mockId, lang, qNum: q.qNum, stem: exp.text.slice(0,220),
-                   correct: exp.correct, slots: [], findings: [] };
+                   correct: exp.correct, slots: [], findings: [],
+                   mockIdx: mocks.indexOf(mock), docId: doc._id,
+                   midBase: mockId.replace(/_(en|hi)$/, '') };
     for (const [slot, name] of Object.entries(q.imgs)) {
       if (slot.startsWith('_')) continue;
       const url = urls[slot];
@@ -729,7 +745,7 @@ async function check2(mock, mockId, lang, docs) {
       let liveBuf = null;
       try { liveBuf = await (await fetch(url, { mode:'cors' })).arrayBuffer(); }
       catch (e) { corsFailed = true; }
-      const entry = { slot, label, url, docxUrl: docxUrl(mock, name),
+      const entry = { slot, label, url, docxUrl: docxUrl(mock, name), blobName: name,
                       keyed: exp.correct === slot.slice(-1) && slot !== 'q' };
       if (!liveBuf) {
         // Nothing was compared. Say so — silence here would read as "clean".
@@ -771,6 +787,11 @@ async function check2(mock, mockId, lang, docs) {
     view.findings.forEach(([c,s,d]) => add(mock, mockId, lang, q.qNum, c, s, d));
     renderData.push(view);
   }
+  {
+    const mine = renderData.slice(from2);
+    const bad = mine.filter(v => v.findings.some(f => f[1] === 0)).length;
+    log(`   ${mine.length} figure question(s) compared, ${bad} with a problem`, bad ? 'warn' : 'ok');
+  }
   if (corsFailed) {
     document.getElementById('corsHelp').style.display = 'block';
     window.__corsFailed = true;
@@ -781,6 +802,7 @@ async function check2(mock, mockId, lang, docs) {
 
 /* ── check 3 — is the stored answer right, and does the solution tell the truth ── */
 async function check3(mock, mockId, lang, docs) {
+  const from3 = renderData.length;
   for (const q of mock.docx.questions) {
     const doc = docs[q.qNum];
     if (!doc) continue;
@@ -803,7 +825,9 @@ async function check3(mock, mockId, lang, docs) {
     if (exp.figOpts && imgs.length >= 4) {
       try {
         const a = await callAI(KEY_PROMPT(exp.text), imgs);
-        const b = await callAI(KEY_PROMPT(exp.text) + '\n\nCross-check by working from the last frame backwards.', imgs);
+        const onePass = document.getElementById('optOnePass').checked;
+        const b = onePass ? a
+          : await callAI(KEY_PROMPT(exp.text) + '\n\nCross-check by working from the last frame backwards.', imgs);
         const storedIdx = LETTERS.indexOf(exp.correct) + 1;
         const agree = a.answer && a.answer === b.answer;
         const confident = ['high','medium'].includes(a.confidence) && ['high','medium'].includes(b.confidence);
@@ -834,7 +858,113 @@ async function check3(mock, mockId, lang, docs) {
     view.findings.forEach(([c,s,d]) => add(mock, mockId, lang, q.qNum, c, s, d));
     renderData.push(view);
   }
+  const mine = renderData.slice(from3);
+  const bad = mine.filter(v => v.findings.some(f => f[1] === 0)).length;
+  log(`   ${mine.length} figure question(s) reviewed, ${bad} disputed`, bad ? 'warn' : 'ok');
 }
+
+
+/* ═══════════════ repair — push an image from the docx into Storage + Firestore ═══
+   Deliberately mirrors batch-uploader-mock.html: the same deterministic Storage path
+   (so a re-run overwrites instead of piling up copies) and the same one-upload-shared-
+   by-both-languages rule. Two differences on purpose:
+     · it writes ONE slot at a time with a dotted field path, so a partial repair can
+       never blank a sibling option the way a whole-map write would;
+     · it writes the English and Hindi documents by their REAL ids, read back from the
+       query, so mocks imported with random ids are repaired correctly too.            */
+const SAFE_MIME = { png:'image/png', jpg:'image/jpeg', jpeg:'image/jpeg',
+                    gif:'image/gif', webp:'image/webp', bmp:'image/bmp' };
+const FIELD_FOR = slot => slot === 'q' ? 'imageUrl'
+                        : slot === 'sol' ? 'solutionImage'
+                        : 'optionImages.' + slot.slice(-1);
+
+async function pushOneSlot(view, slot, blobName) {
+  const mock = mocks[view.mockIdx];
+  const blob = mock && mock.docx.blobs[blobName];
+  if (!blob) throw new Error('that image is not in the docx');
+
+  const uid = auth.currentUser.uid;
+  const rawExt = (blobName.match(/\.(\w+)$/) || [, ''])[1].toLowerCase();
+  const mime = SAFE_MIME[rawExt] || 'image/png';
+  const ext  = SAFE_MIME[rawExt] ? rawExt : 'png';
+  const path = `question-images/${uid}/${view.midBase}_q${String(view.qNum).padStart(3,'0')}_${slot}.${ext}`;
+
+  const sRef = storageRef(storage, path);
+  const snap = await uploadBytes(sRef, blob, { contentType: mime, cacheControl: 'public, max-age=31536000' });
+  const url = await getDownloadURL(snap.ref);
+
+  // both languages share the one upload, so both documents get the same URL
+  const written = [];
+  for (const lang of ['en','hi']) {
+    const mid = view.midBase + '_' + lang;
+    const docs = fsCache[mid] || await fetchMock(mid);
+    const target = docs[view.qNum];
+    if (!target || !target._id) continue;
+    const ref = fsDoc(db, 'questions', target._id);
+    try { await updateDoc(ref, { [FIELD_FOR(slot)]: url, updatedAt: new Date() }); }
+    catch (e) { await setDoc(ref, { [FIELD_FOR(slot)]: url, updatedAt: new Date() }, { merge: true }); }
+    // keep the cache honest so a re-check reflects what we just wrote
+    if (slot === 'q') target.imageUrl = url;
+    else if (slot === 'sol') target.solutionImage = url;
+    else { target.optionImages = target.optionImages || {}; target.optionImages[slot.slice(-1)] = url; }
+    written.push(lang.toUpperCase());
+  }
+  if (!written.length) throw new Error('no matching question document found to write to');
+  return { url, written };
+}
+
+window.pushSlot = async (vi, slot, btn) => {
+  const view = renderData[vi];
+  const s = view.slots.find(x => x.slot === slot);
+  if (!s || !s.blobName) { log('Nothing in the docx for that slot.', 'err'); return; }
+  btn.disabled = true; btn.textContent = 'pushing…';
+  try {
+    const { url, written } = await pushOneSlot(view, slot, s.blobName);
+    s.url = url; s.missing = false; s.bad = false; s.pushed = true;
+    view.findings = view.findings.filter(f => !(f[2] || '').startsWith(s.label));
+    view.findings.push(['REPAIRED', 2, `${s.label} uploaded and written to ${written.join(' + ')}`]);
+    results = results.filter(r => !(r.qNum === view.qNum && r.mockId === view.mockId
+                                    && (r.detail || '').startsWith(s.label)));
+    log(`${view.mockId} Q${view.qNum} ${s.label} → pushed, ${written.join(' + ')} updated`, 'ok');
+    renderResults();
+  } catch (e) {
+    btn.disabled = false; btn.textContent = 'Push image';
+    log(`${view.mockId} Q${view.qNum} ${slot}: push failed — ${e.message}`, 'err');
+  }
+};
+
+window.pushQuestion = async (vi, btn) => {
+  const view = renderData[vi];
+  const todo = view.slots.filter(s => (s.missing || s.bad) && s.blobName);
+  if (!todo.length) return;
+  btn.disabled = true; btn.textContent = `pushing 0/${todo.length}…`;
+  let n = 0;
+  for (const s of todo) {
+    try {
+      const { url, written } = await pushOneSlot(view, s.slot, s.blobName);
+      s.url = url; s.missing = false; s.bad = false; s.pushed = true;
+      view.findings.push(['REPAIRED', 2, `${s.label} uploaded and written to ${written.join(' + ')}`]);
+      n++;
+    } catch (e) { log(`Q${view.qNum} ${s.slot}: ${e.message}`, 'err'); }
+    btn.textContent = `pushing ${n}/${todo.length}…`;
+  }
+  view.findings = view.findings.filter(f => f[0] === 'REPAIRED' || f[1] === 2);
+  results = results.filter(r => !(r.qNum === view.qNum && r.mockId === view.mockId));
+  log(`${view.mockId} Q${view.qNum}: ${n}/${todo.length} image(s) pushed`, n === todo.length ? 'ok' : 'warn');
+  renderResults();
+};
+
+window.pushMock = async (mockId, btn) => {
+  const views = renderData.filter(v => v.mockId === mockId &&
+                                       v.slots.some(s => (s.missing || s.bad) && s.blobName));
+  if (!views.length) return;
+  btn.disabled = true;
+  let n = 0;
+  for (const v of views) { btn.textContent = `pushing ${++n}/${views.length}…`;
+    await window.pushQuestion(renderData.indexOf(v), { }); }
+  log(`${mockId}: repair pass finished over ${views.length} question(s)`, 'ok');
+  renderResults();
+};
 
 /* ═══════════════ results ═══════════════ */
 window.renderResults = () => {
@@ -849,27 +979,46 @@ window.renderResults = () => {
   document.getElementById('cClean').textContent = clean + ' clean';
 
   const byMock = {};
-  renderData.forEach(v => { const k = v.mockId; (byMock[k] = byMock[k] || []).push(v); });
+  renderData.forEach((v, i) => { v._i = i; const k = v.mockId; (byMock[k] = byMock[k] || []).push(v); });
   let html = '';
   for (const [mockId, views] of Object.entries(byMock)) {
     const show = views.filter(v => !onlyBad || v.findings.some(f => f[1] < 2));
     if (!show.length) continue;
     const nb = views.filter(v => v.findings.some(f => f[1] === 0)).length;
+    const fixable = views.filter(v => v.slots.some(s => (s.missing || s.bad) && s.blobName)).length;
     html += `<div class="res-mock"><div class="res-head">${mockId}
       <span class="badge ${nb?'bad':'ok'}">${nb ? nb + ' question(s) with a blocker' : 'clean'}</span>
-      <span class="badge">${views.length} figure question(s)</span></div><div class="res-body">`;
+      <span class="badge">${views.length} figure question(s)</span>
+      ${fixable ? `<button class="sm primary" style="margin-left:auto"
+        onclick="pushMock('${mockId}', this)">Push all ${fixable} fixable question(s)</button>` : ''}
+      </div><div class="res-body">`;
     for (const v of show) {
+      const canFix = v.slots.filter(s => (s.missing || s.bad) && s.blobName).length;
       html += `<div class="q-row"><div class="q-head"><span class="q-num">Q${v.qNum}</span>
-        <span class="badge">key ${v.correct || '—'}</span></div>
+        <span class="badge">key ${v.correct || '—'}</span>
+        ${canFix ? `<button class="sm primary" onclick="pushQuestion(${v._i}, this)">
+          Push ${canFix} image${canFix===1?'':'s'} to Firebase</button>` : ''}
+        ${v.slots.some(s => (s.missing||s.bad) && !s.blobName)
+          ? `<span class="badge warn">not in the docx — cannot repair from here</span>` : ''}</div>
         <div class="q-stem">${escapeHtml(v.stem)}</div><div class="slots">`;
       for (const s of v.slots) {
         const cls = 'slot' + (s.keyed ? ' keyed' : '') + (s.bad ? ' bad' : '');
         if (s.missing) {
-          html += `<div class="${cls}"><div class="miss">MISSING</div><div>${s.label}</div></div>`;
+          html += `<div class="${cls}">
+            ${s.docxUrl ? `<img src="${s.docxUrl}" title="in the docx, not on the site" style="opacity:.55">`
+                        : `<div class="miss">MISSING</div>`}
+            <div>${s.label}</div>
+            ${s.blobName ? `<button class="sm" style="margin-top:5px"
+              onclick="pushSlot(${v._i},'${s.slot}',this)">Push image</button>` : ''}</div>`;
+        } else if (s.pushed) {
+          html += `<div class="slot"><img src="${s.url}"><div style="color:var(--green)">
+            ${s.label} · pushed</div></div>`;
         } else if (s.docxUrl && s.url) {
           html += `<div class="${cls}"><div class="pair">
             <img src="${s.docxUrl}" title="from the docx"><img src="${s.url}" title="live on the site"></div>
-            <div>${s.label}${s.note ? ' · ' + s.note : ''}</div></div>`;
+            <div>${s.label}${s.note ? ' · ' + s.note : ''}</div>
+            ${s.bad && s.blobName ? `<button class="sm" style="margin-top:5px"
+              onclick="pushSlot(${v._i},'${s.slot}',this)">Replace with the docx image</button>` : ''}</div>`;
         } else {
           html += `<div class="${cls}"><img src="${s.url || s.docxUrl}">
             <div>${s.label}${s.note ? ' · ' + s.note : ''}</div></div>`;
