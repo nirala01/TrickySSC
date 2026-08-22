@@ -745,7 +745,14 @@ async function check2(mock, mockId, lang, docs) {
       if (!url) { view.findings.push(['MISSING_ON_SITE', 0, `${label} is not on the site at all`]); continue; }
       let liveBuf = null;
       try {
-        const r = await fetch(url, { mode:'cors' });
+        // The uploader sets cache-control max-age=31536000, and check 1 (and the site
+        // itself) fetch these as ordinary <img> requests with no CORS headers attached.
+        // A cached no-CORS response cannot be reused for a cors fetch, so the browser
+        // rejects it even when the bucket rule is correct. Force a fresh network read,
+        // then fall back to a cache-busted URL if the cache still wins.
+        let r;
+        try { r = await fetch(url, { mode:'cors', cache:'reload' }); }
+        catch (e1) { r = await fetch(url + '&_cb=' + Date.now(), { mode:'cors', cache:'reload' }); }
         if (!r.ok) throw new Error('HTTP ' + r.status);
         liveBuf = await r.arrayBuffer();
       } catch (e) {
