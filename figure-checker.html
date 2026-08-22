@@ -78,7 +78,8 @@
   .slots{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-start}
   .slot{text-align:center;font-family:var(--mono);font-size:10.5px;color:var(--muted)}
   .slot img{display:block;max-height:120px;max-width:200px;background:#fff;border:1px solid var(--border);border-radius:5px;padding:3px}
-  .slot .pair{display:flex;gap:5px}
+  .slot .pair{display:flex;gap:9px}
+  .slot .cap{font-size:9.5px;color:var(--muted);margin-top:2px;letter-spacing:.04em}
   .slot .miss{width:96px;height:96px;border:2px dashed var(--red);border-radius:5px;color:var(--red);display:flex;align-items:center;justify-content:center;font-size:10.5px}
   .slot.keyed img{border-color:var(--green);box-shadow:0 0 0 2px rgba(34,197,94,.35)}
   .slot.bad img{border-color:var(--red);box-shadow:0 0 0 2px rgba(244,63,94,.4)}
@@ -197,7 +198,7 @@
       <b>Storage is refusing to hand the image bytes to this page (CORS).</b><br>
       Check 1 still works — it loads images the ordinary way. Check 2 needs to read the actual
       bytes, so it needs one-time permission. Save this as <code>cors.json</code>:<br>
-      <code>[{"origin":["https://trickyssc.com","https://www.trickyssc.com","http://localhost:8000"],"method":["GET"],"maxAgeSeconds":3600,"responseHeader":["Content-Type"]}]</code><br>
+      <code>[{"origin":["*"],"method":["GET"],"maxAgeSeconds":3600,"responseHeader":["Content-Type"]}]</code><br>
       then run <code>gsutil cors set cors.json gs://trickyssc-17bb3.firebasestorage.app</code>
       once, and re-run check 2.
     </div>
@@ -607,7 +608,7 @@ window.runCheck = async (n) => {
   for (let i = 1; i <= 3; i++) document.getElementById('btn'+i).disabled = true;
   const st = document.getElementById('st'+n);
   st.textContent = 'running…'; st.className = 'badge info';
-  results = []; renderData = []; window.__corsFailed = false;
+  results = []; renderData = []; window.__corsFailed = false; window.__fetchErrShown = false;
   document.getElementById('corsHelp').style.display = 'none';
   log(`── CHECK ${n}: ${['','images present','images match the docx','answer & solution'][n]} — ${list.length} mock(s) ──`, 'head');
 
@@ -743,9 +744,21 @@ async function check2(mock, mockId, lang, docs) {
       const label = slot === 'q' ? 'question figure' : 'option ' + slot.slice(-1);
       if (!url) { view.findings.push(['MISSING_ON_SITE', 0, `${label} is not on the site at all`]); continue; }
       let liveBuf = null;
-      try { liveBuf = await (await fetch(url, { mode:'cors' })).arrayBuffer(); }
-      catch (e) { corsFailed = true; }
-      const entry = { slot, label, url, docxUrl: docxUrl(mock, name), blobName: name,
+      try {
+        const r = await fetch(url, { mode:'cors' });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        liveBuf = await r.arrayBuffer();
+      } catch (e) {
+        corsFailed = true;
+        // Report the FIRST failure verbatim — "CORS" is a guess until we see the error.
+        if (!window.__fetchErrShown) {
+          window.__fetchErrShown = true;
+          log(`   first image fetch failed: ${e.name}: ${e.message}`, 'err');
+          log(`   page origin is ${location.origin} — the bucket CORS rule must list exactly this`, 'err');
+          log(`   url was ${url.slice(0, 150)}`, 'err');
+        }
+      }
+      const entry = { slot, label, url, docxUrl: docxUrl(mock, name), blobName: name, pair: true,
                       keyed: exp.correct === slot.slice(-1) && slot !== 'q' };
       if (!liveBuf) {
         // Nothing was compared. Say so — silence here would read as "clean".
@@ -985,9 +998,12 @@ window.renderResults = () => {
     const show = views.filter(v => !onlyBad || v.findings.some(f => f[1] < 2));
     if (!show.length) continue;
     const nb = views.filter(v => v.findings.some(f => f[1] === 0)).length;
+    const nc = views.filter(v => v.findings.some(f => f[0] === 'NOT_COMPARED')).length;
     const fixable = views.filter(v => v.slots.some(s => (s.missing || s.bad) && s.blobName)).length;
     html += `<div class="res-mock"><div class="res-head">${mockId}
-      <span class="badge ${nb?'bad':'ok'}">${nb ? nb + ' question(s) with a blocker' : 'clean'}</span>
+      <span class="badge ${nb?'bad':nc?'warn':'ok'}">${
+        nb ? nb + ' question(s) with a blocker'
+           : nc ? nc + ' question(s) not compared' : 'clean'}</span>
       <span class="badge">${views.length} figure question(s)</span>
       ${fixable ? `<button class="sm primary" style="margin-left:auto"
         onclick="pushMock('${mockId}', this)">Push all ${fixable} fixable question(s)</button>` : ''}
@@ -1005,7 +1021,8 @@ window.renderResults = () => {
         const cls = 'slot' + (s.keyed ? ' keyed' : '') + (s.bad ? ' bad' : '');
         if (s.missing) {
           html += `<div class="${cls}">
-            ${s.docxUrl ? `<img src="${s.docxUrl}" title="in the docx, not on the site" style="opacity:.55">`
+            ${s.docxUrl ? `<img src="${s.docxUrl}" title="in the docx, not on the site" style="opacity:.55">
+                           <div class="cap">in the docx, not on the site</div>`
                         : `<div class="miss">MISSING</div>`}
             <div>${s.label}</div>
             ${s.blobName ? `<button class="sm" style="margin-top:5px"
@@ -1013,9 +1030,10 @@ window.renderResults = () => {
         } else if (s.pushed) {
           html += `<div class="slot"><img src="${s.url}"><div style="color:var(--green)">
             ${s.label} · pushed</div></div>`;
-        } else if (s.docxUrl && s.url) {
+        } else if (s.pair && s.docxUrl && s.url) {
           html += `<div class="${cls}"><div class="pair">
-            <img src="${s.docxUrl}" title="from the docx"><img src="${s.url}" title="live on the site"></div>
+            <div><img src="${s.docxUrl}"><div class="cap">docx</div></div>
+            <div><img src="${s.url}"><div class="cap">live</div></div></div>
             <div>${s.label}${s.note ? ' · ' + s.note : ''}</div>
             ${s.bad && s.blobName ? `<button class="sm" style="margin-top:5px"
               onclick="pushSlot(${v._i},'${s.slot}',this)">Replace with the docx image</button>` : ''}</div>`;
