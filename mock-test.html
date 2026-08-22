@@ -961,6 +961,24 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:10
 .vfrac .vf-num{display:block;padding:0 .4em 1px;text-align:center;}
 .vfrac .vf-den{display:block;padding:1px .4em 0;border-top:1.5px solid currentColor;text-align:center;}
 </style>
+<script>
+/* TSSC-FIGFIX v2 — top-level so it is defined before the test renders */
+window.stripFigRef = function (t) {
+  if (!t) return '';
+  return /^\s*\(\s*(?:figure|आकृति|चित्र)\s*[1-4]\s*\)\s*$/i.test(String(t)) ? '' : t;
+};
+window.imgFail = function (el) {
+  el.onerror = null;
+  var d = document.createElement('div');
+  d.className = 'img-fail';
+  d.textContent = 'Figure could not be loaded';
+  if (el.parentNode) el.parentNode.replaceChild(d, el);
+  try {
+    console.warn('[TrickySSC] figure failed to load:', el.getAttribute('src'));
+    window.__figFails = (window.__figFails || []).concat([el.getAttribute('src')]);
+  } catch (e) {}
+};
+</script>
 </head>
 <body>
 
@@ -2456,15 +2474,6 @@ window.submitTest=async()=>{
   try{ if(typeof ensureEnglishMap==='function' && !enMapLoaded) await ensureEnglishMap(); }catch(e){}
 
   // Build the HTML for a single review item (returns {status, html})
-  /* TSSC-FIGFIX v1 */
-// A figure question stores "(figure 1)" / "(आकृति 1)" as its option TEXT — it is a
-// placeholder for the image, not something a candidate should read. Left in place it
-// printed above every option image AND, because the text was non-empty, halved the
-// image's height budget. Treat a bare placeholder as no text at all.
-window.stripFigRef = function (t) {
-  if (!t) return '';
-  return /^\s*\(\s*(?:figure|आकृति|चित्र)\s*[1-4]\s*\)\s*$/i.test(String(t)) ? '' : t;
-};
 // A figure that fails to load used to be hidden outright, so a broken URL reached the
 // candidate as a question with nothing to look at and left no trace anywhere.
 window.imgFail = function (el) {
