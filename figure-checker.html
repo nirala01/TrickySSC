@@ -1,0 +1,892 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TrickySSC — Figure Checker</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+  :root{
+    --bg:#0f0f11; --surface:#18181c; --surface2:#222228; --border:#2e2e38;
+    --accent:#a855f7; --accent2:#22d3ee; --green:#22c55e; --red:#f43f5e; --yellow:#f59e0b;
+    --text:#e4e4ef; --muted:#6b7280; --mono:'IBM Plex Mono',monospace; --sans:'IBM Plex Sans',sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;min-height:100vh}
+  .header{border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:12px;background:var(--surface);position:sticky;top:0;z-index:100}
+  .header-logo{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--accent2);letter-spacing:.05em}
+  .header-title{font-size:13px;color:var(--muted)}
+  .header-sep{flex:1}
+  .badge{font-family:var(--mono);font-size:11px;padding:3px 9px;border-radius:5px;background:var(--surface2);border:1px solid var(--border);color:var(--muted)}
+  .badge.ok{color:var(--green);border-color:rgba(34,197,94,.35);background:rgba(34,197,94,.10)}
+  .badge.bad{color:var(--red);border-color:rgba(244,63,94,.35);background:rgba(244,63,94,.10)}
+  .badge.warn{color:var(--yellow);border-color:rgba(245,158,11,.35);background:rgba(245,158,11,.10)}
+  .badge.info{color:var(--accent2);border-color:rgba(34,211,238,.35);background:rgba(34,211,238,.10)}
+  .wrap{max-width:1500px;margin:0 auto;padding:22px 24px 80px}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px 20px;margin-bottom:18px}
+  .card h2{font-size:14px;font-weight:600;margin-bottom:4px;display:flex;align-items:center;gap:9px}
+  .step-n{font-family:var(--mono);font-size:11px;width:22px;height:22px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;background:var(--accent);color:#fff;flex:none}
+  .card p.hint{color:var(--muted);font-size:12.5px;margin:6px 0 14px 31px;line-height:1.55}
+  button{font-family:var(--sans);font-size:13px;font-weight:500;cursor:pointer;padding:8px 15px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--text);transition:.12s}
+  button:hover:not(:disabled){border-color:var(--accent)}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  button.primary:hover:not(:disabled){filter:brightness(1.12)}
+  button.ghost{background:transparent}
+  button.sm{padding:5px 10px;font-size:12px}
+  .drop{border:2px dashed var(--border);border-radius:10px;padding:34px 20px;text-align:center;transition:.15s;cursor:pointer;background:var(--surface2)}
+  .drop:hover,.drop.over{border-color:var(--accent);background:rgba(168,85,247,.07)}
+  .drop .big{font-size:15px;font-weight:500;margin-bottom:6px}
+  .drop .sub{font-size:12.5px;color:var(--muted);line-height:1.6}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th{text-align:left;font-family:var(--mono);font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:8px 9px;border-bottom:1px solid var(--border);white-space:nowrap}
+  td{padding:8px 9px;border-bottom:1px solid rgba(46,46,56,.55);vertical-align:middle}
+  input,select{font-family:var(--sans);font-size:12.5px;padding:6px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);width:100%}
+  input:focus,select:focus{outline:none;border-color:var(--accent)}
+  input[type=checkbox]{width:auto;accent-color:var(--accent);cursor:pointer}
+  input.narrow{width:90px}
+  label.chk{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;cursor:pointer}
+  label.fld{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;color:var(--muted)}
+  .toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:14px}
+  .prog-outer{height:6px;background:var(--surface2);border-radius:3px;overflow:hidden;margin-top:12px}
+  .prog-inner{height:100%;width:0%;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width .2s}
+  #log{font-family:var(--mono);font-size:11.5px;line-height:1.65;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px 14px;max-height:340px;overflow-y:auto;white-space:pre-wrap;word-break:break-word}
+  #log .l-ok{color:var(--green)} #log .l-err{color:var(--red)} #log .l-warn{color:var(--yellow)}
+  #log .l-info{color:var(--muted)} #log .l-head{color:var(--accent2);font-weight:600}
+  .gate{max-width:420px;margin:90px auto;text-align:center}
+  .gate h1{font-size:19px;margin-bottom:10px}
+  .gate p{color:var(--muted);font-size:13px;margin-bottom:22px;line-height:1.6}
+  .mono{font-family:var(--mono);font-size:11.5px}
+  .muted{color:var(--muted)}
+  /* three check buttons */
+  .checks{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+  .chk-card{background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:15px 16px;display:flex;flex-direction:column;gap:9px}
+  .chk-card h3{font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px}
+  .chk-card .n{font-family:var(--mono);font-size:11px;width:20px;height:20px;border-radius:5px;display:inline-flex;align-items:center;justify-content:center;background:var(--accent2);color:#08272d;flex:none}
+  .chk-card p{font-size:12px;color:var(--muted);line-height:1.55;flex:1}
+  .chk-card .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  /* results */
+  .res-mock{border:1px solid var(--border);border-radius:9px;margin-bottom:14px;overflow:hidden}
+  .res-head{background:var(--surface2);padding:10px 14px;display:flex;align-items:center;gap:10px;font-size:13px;font-weight:600}
+  .res-body{padding:4px 14px 12px}
+  .q-row{border-bottom:1px solid rgba(46,46,56,.55);padding:11px 0}
+  .q-row:last-child{border-bottom:none}
+  .q-head{display:flex;align-items:center;gap:9px;font-size:12.5px;margin-bottom:7px}
+  .q-num{font-family:var(--mono);font-weight:600;color:var(--accent2)}
+  .q-stem{color:var(--muted);font-size:12px;margin:2px 0 8px;line-height:1.5}
+  .slots{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-start}
+  .slot{text-align:center;font-family:var(--mono);font-size:10.5px;color:var(--muted)}
+  .slot img{display:block;max-height:120px;max-width:200px;background:#fff;border:1px solid var(--border);border-radius:5px;padding:3px}
+  .slot .pair{display:flex;gap:5px}
+  .slot .miss{width:96px;height:96px;border:2px dashed var(--red);border-radius:5px;color:var(--red);display:flex;align-items:center;justify-content:center;font-size:10.5px}
+  .slot.keyed img{border-color:var(--green);box-shadow:0 0 0 2px rgba(34,197,94,.35)}
+  .slot.bad img{border-color:var(--red);box-shadow:0 0 0 2px rgba(244,63,94,.4)}
+  .finding{font-size:12px;margin-top:6px;padding:6px 10px;border-radius:6px;line-height:1.5}
+  .finding.blocker{background:rgba(244,63,94,.10);border-left:3px solid var(--red);color:#fda4af}
+  .finding.defect{background:rgba(245,158,11,.10);border-left:3px solid var(--yellow);color:#fcd34d}
+  .finding.okmsg{background:rgba(34,197,94,.08);border-left:3px solid var(--green);color:#86efac}
+  .finding b{font-family:var(--mono);font-size:11px}
+  .cors-help{font-size:12px;color:var(--muted);line-height:1.6;background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:11px 13px;margin-top:10px;display:none}
+  .cors-help code{font-family:var(--mono);font-size:11px;color:var(--accent2)}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <span class="header-logo">TRICKYSSC</span>
+  <span class="header-title">Figure Checker — are the images really there, are they the right ones, is the answer right</span>
+  <span class="header-sep"></span>
+  <span class="badge" id="userBadge">not signed in</span>
+  <button class="sm" id="signBtn" onclick="doSignIn()">Sign in</button>
+</div>
+
+<div class="gate" id="gate">
+  <h1>Admin sign-in required</h1>
+  <p>This page reads the live <span class="mono">questions</span> collection and the figure images in Storage. Sign in with your TrickySSC admin Google account.</p>
+  <button class="primary" onclick="doSignIn()">Sign in with Google</button>
+</div>
+
+<div class="wrap" id="main" style="display:none">
+
+  <!-- Step 1 — drop docx -->
+  <div class="card">
+    <h2><span class="step-n">1</span> Drop the figures .docx files</h2>
+    <p class="hint">Drop one or many <span class="mono">…-figures-upload.docx</span> files. The mock number, exam and tier are read from the heading line inside each file — nothing else to fill in. Fix the detected values in the table if any look wrong.</p>
+    <div class="drop" id="drop" onclick="document.getElementById('fileInput').click()">
+      <div class="big">Drop .docx files here</div>
+      <div class="sub">or click to browse &nbsp;·&nbsp; only the figures docx is needed, no CSVs</div>
+    </div>
+    <input type="file" id="fileInput" accept=".docx" multiple style="display:none">
+    <div class="toolbar">
+      <span class="badge" id="fileCount">0 files</span>
+      <span class="badge" id="mockCount">0 mocks</span>
+      <button class="ghost sm" onclick="resetAll()">Clear</button>
+    </div>
+    <div id="manifestWrap" style="display:none;margin-top:14px">
+      <table>
+        <thead><tr>
+          <th style="width:34px"><input type="checkbox" id="selAll" checked onchange="toggleAll(this.checked)"></th>
+          <th>File</th><th style="width:120px">Exam</th><th style="width:90px">Tier</th>
+          <th style="width:80px">Mock #</th><th>mockId</th>
+          <th style="width:150px">In the docx</th>
+        </tr></thead>
+        <tbody id="manifestBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Step 2 — the three checks -->
+  <div class="card">
+    <h2><span class="step-n">2</span> Run a check</h2>
+    <p class="hint">Each check runs on its own and reads only what it needs. Start with check 1 — it is free and answers "is anything missing". Checks 2 and 3 cost more and only make sense once 1 is clean.</p>
+
+    <div class="toolbar" style="margin:0 0 14px 31px">
+      <label class="fld">Language
+        <select id="optLang" class="narrow" style="width:120px">
+          <option value="en">English</option>
+          <option value="hi">Hindi</option>
+          <option value="both">Both</option>
+        </select>
+      </label>
+      <label class="chk"><input type="checkbox" id="optProbe" checked> also load every image to prove it really renders</label>
+    </div>
+
+    <div class="checks">
+      <div class="chk-card">
+        <h3><span class="n">1</span> All images present</h3>
+        <p>Reads the mock from Firestore and checks every figure question has the images it needs. Reports the exact question number and which slot is empty — question figure or option A/B/C/D. Also flags an image filed under the wrong question or slot, and any image whose URL will not load.</p>
+        <div class="row"><button class="primary" id="btn1" onclick="runCheck(1)">Run check 1</button>
+          <span class="badge" id="st1">idle</span></div>
+      </div>
+
+      <div class="chk-card">
+        <h3><span class="n">2</span> Images match the docx</h3>
+        <p>Compares the live image byte for byte against the one in the docx. When they differ it works out whether it is a harmless re-save, two options swapped, or an image belonging to another question entirely. Tick AI to have the model look at any pair it cannot settle from the bytes.</p>
+        <div class="row">
+          <button class="primary" id="btn2" onclick="runCheck(2)">Run check 2</button>
+          <label class="chk"><input type="checkbox" id="ai2"> use AI</label>
+          <span class="badge" id="st2">idle</span>
+        </div>
+      </div>
+
+      <div class="chk-card">
+        <h3><span class="n">3</span> Answer &amp; solution correct</h3>
+        <p>Solves each figure question from the pictures alone, without being shown the stored key, then compares. It also re-checks every claim the published solution makes against the figures. Flags only a confident disagreement — the stored key keeps the benefit of the doubt.</p>
+        <div class="row">
+          <button class="primary" id="btn3" onclick="runCheck(3)">Run check 3</button>
+          <span class="badge info">AI required</span>
+          <span class="badge" id="st3">idle</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="prog-outer"><div class="prog-inner" id="prog"></div></div>
+    <div class="muted mono" id="progText" style="margin-top:7px;font-size:11px">&nbsp;</div>
+
+    <div class="toolbar">
+      <label class="fld" style="flex:1;min-width:280px">AI endpoint
+        <input id="aiEndpoint" value="https://trickyssc-ai.nirala01.workers.dev" style="font-family:var(--mono);font-size:11.5px">
+      </label>
+      <label class="fld">model
+        <input id="aiModel" value="claude-opus-4-6" style="width:190px;font-family:var(--mono);font-size:11.5px">
+      </label>
+    </div>
+    <div class="cors-help" id="corsHelp">
+      <b>Storage is refusing to hand the image bytes to this page (CORS).</b><br>
+      Check 1 still works — it loads images the ordinary way. Check 2 needs to read the actual
+      bytes, so it needs one-time permission. Save this as <code>cors.json</code>:<br>
+      <code>[{"origin":["*"],"method":["GET"],"maxAgeSeconds":3600,"responseHeader":["Content-Type"]}]</code><br>
+      then run <code>gsutil cors set cors.json gs://trickyssc-17bb3.firebasestorage.app</code>
+      once, and re-run check 2.
+    </div>
+  </div>
+
+  <!-- Step 3 — results -->
+  <div class="card" id="resultCard" style="display:none">
+    <h2><span class="step-n">3</span> Findings</h2>
+    <div class="toolbar" style="margin:0 0 14px 31px">
+      <span class="badge bad" id="cBlocker">0 blockers</span>
+      <span class="badge warn" id="cDefect">0 warnings</span>
+      <span class="badge ok" id="cClean">0 clean</span>
+      <label class="chk"><input type="checkbox" id="onlyBad" checked onchange="renderResults()"> show only questions with a problem</label>
+      <button class="sm ghost" onclick="exportCsv()">Download report .csv</button>
+    </div>
+    <div id="results"></div>
+  </div>
+
+  <div class="card">
+    <h2><span class="step-n">·</span> Log</h2>
+    <div id="log"></div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js';
+import { getFirestore, collection, query, where, getDocs }
+  from 'https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js';
+import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged }
+  from 'https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js';
+
+const firebaseConfig = {
+  apiKey: "AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",
+  authDomain: "trickyssc-17bb3.firebaseapp.com",
+  projectId: "trickyssc-17bb3",
+  storageBucket: "trickyssc-17bb3.firebasestorage.app",
+  messagingSenderId: "450627057220",
+  appId: "1:450627057220:web:366267bf437d94f20c6e11"
+};
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const auth = getAuth(app);
+const provider = new GoogleAuthProvider();
+const ADMIN_EMAILS = ['nirala01@gmail.com', 'ashish@trickyssc.com'];
+
+/* ═══════════════ auth ═══════════════ */
+window.doSignIn = async () => {
+  try { await signInWithPopup(auth, provider); }
+  catch (e) { log('Sign-in failed: ' + e.message, 'err'); }
+};
+onAuthStateChanged(auth, user => {
+  const ok = user && (ADMIN_EMAILS.includes(user.email) || user.email.endsWith('@trickyssc.com'));
+  document.getElementById('gate').style.display = ok ? 'none' : 'block';
+  document.getElementById('main').style.display = ok ? 'block' : 'none';
+  document.getElementById('signBtn').style.display = ok ? 'none' : 'inline-block';
+  const b = document.getElementById('userBadge');
+  if (ok) { b.textContent = user.email; b.className = 'badge ok'; }
+  else if (user) { b.textContent = 'not an admin'; b.className = 'badge bad'; }
+  else { b.textContent = 'not signed in'; b.className = 'badge'; }
+});
+
+/* ═══════════════ logging + progress ═══════════════ */
+function log(msg, kind = 'info') {
+  const el = document.getElementById('log');
+  const t = new Date().toTimeString().slice(0, 8);
+  const line = document.createElement('div');
+  line.className = 'l-' + kind;
+  line.textContent = (kind === 'head' ? '' : t + '  ') + msg;
+  el.appendChild(line); el.scrollTop = el.scrollHeight;
+}
+function setProg(pct, txt) {
+  if (pct !== null) document.getElementById('prog').style.width = Math.min(100, pct) + '%';
+  if (txt !== undefined) document.getElementById('progText').textContent = txt;
+}
+
+/* ═══════════════ docx parser ═══════════════
+   Same grouping rules as batch-uploader-mock.html, plus the directory-entry guard
+   that file is still missing — a docx carrying a "word/media/" folder entry otherwise
+   produces a blob keyed '' that no question can claim, and reports a phantom orphan. */
+async function parseFiguresDocx(file) {
+  const zip = await JSZip.loadAsync(await file.arrayBuffer());
+  const blobs = {}, dirEntries = [];
+  for (const path of Object.keys(zip.files).filter(f => f.startsWith('word/media/'))) {
+    if (zip.files[path].dir) { dirEntries.push(path); continue; }
+    const base = path.split('/').pop();
+    if (!base) { dirEntries.push(path); continue; }
+    blobs[base] = await zip.files[path].async('blob');
+  }
+  const docXml = await zip.files['word/document.xml'].async('string');
+  const relsXml = await zip.files['word/_rels/document.xml.rels'].async('string');
+  const parser = new DOMParser();
+  const relsDoc = parser.parseFromString(relsXml, 'text/xml');
+  const docDOM = parser.parseFromString(docXml, 'text/xml');
+
+  const ridMap = {};
+  relsDoc.querySelectorAll('Relationship').forEach(rel => {
+    const tgt = rel.getAttribute('Target') || '';
+    if (tgt.includes('media/')) ridMap[rel.getAttribute('Id')] = tgt.split('/').pop();
+  });
+
+  const NS_W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+  const NS_A = 'http://schemas.openxmlformats.org/drawingml/2006/main';
+  const NS_R = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+
+  const paras = [];
+  for (const para of docDOM.getElementsByTagNameNS(NS_W, 'p')) {
+    let text = '';
+    for (const t of para.getElementsByTagNameNS(NS_W, 't')) text += t.textContent;
+    text = text.trim();
+    const imgs = [];
+    for (const blip of para.getElementsByTagNameNS(NS_A, 'blip')) {
+      const rid = blip.getAttributeNS(NS_R, 'embed') || blip.getAttribute('r:embed');
+      if (rid && ridMap[rid]) imgs.push(ridMap[rid]);
+    }
+    if (text || imgs.length) paras.push({ text, imgs });
+  }
+
+  const title = paras.length ? paras[0].text : '';
+  const questions = [], used = new Set();
+  let cur = null, pendingLabel = null;
+  const nextFreeOpt = (q, img) => {
+    for (const l of ['A','B','C','D']) if (!q.imgs['opt'+l]) { q.imgs['opt'+l] = img; return; }
+  };
+  const putOpt = (q, slot, img) => {
+    const l = 'ABCD'[slot-1];
+    if (l && !q.imgs['opt'+l]) { q.imgs['opt'+l] = img; return; }
+    nextFreeOpt(q, img);
+  };
+  for (const para of paras) {
+    const qm = para.text.match(/^Q\.?\s*(\d+)[.)]?\s*(.*)/i);
+    if (qm) {
+      if (cur) questions.push(cur);
+      cur = { qNum: parseInt(qm[1]), stem: qm[2] || '', imgs: {} };
+      pendingLabel = null;
+      para.imgs.forEach((img, i) => {
+        cur.imgs[i === 0 ? 'q' : 'opt' + String.fromCharCode(64+i)] = img; used.add(img);
+      });
+      continue;
+    }
+    if (!cur) continue;
+    if (/^(Solution|Explanation|Answer)\s*:?$/i.test(para.text)) cur._expectSol = true;
+    const optM = para.text.match(/^(?:Diagram|Figure|Option|Image)\s*(\d+)/i);
+    const stemM = /^\[\s*figure\s*\]$/i.test(para.text);
+    if (!para.imgs.length) {
+      if (optM) pendingLabel = parseInt(optM[1]);
+      else if (stemM) pendingLabel = 'stem';
+      else if (para.text) pendingLabel = null;
+      continue;
+    }
+    const label = optM ? parseInt(optM[1]) : (stemM ? 'stem' : pendingLabel);
+    pendingLabel = null;
+    if (cur._expectSol) {
+      cur.imgs.sol = para.imgs[0]; used.add(para.imgs[0]); cur._expectSol = false;
+      para.imgs.slice(1).forEach(img => { used.add(img); nextFreeOpt(cur, img); });
+    } else if (typeof label === 'number') {
+      para.imgs.forEach((img, i) => { used.add(img); putOpt(cur, label + i, img); });
+    } else if (label === 'stem' || !cur.imgs.q) {
+      cur.imgs.q = para.imgs[0]; used.add(para.imgs[0]);
+      para.imgs.slice(1).forEach(img => { used.add(img); nextFreeOpt(cur, img); });
+    } else {
+      para.imgs.forEach(img => { used.add(img); nextFreeOpt(cur, img); });
+    }
+  }
+  if (cur) questions.push(cur);
+  const unassigned = Object.keys(blobs).filter(n => !used.has(n));
+  return { title, blobs, questions, unassigned, dirEntries };
+}
+
+/* ═══════════════ mock identity, read from the docx heading ═══════════════ */
+const EXAMS = ['ssc-cgl','ssc-chsl','ssc-mts','ssc-gd','ssc-cpo','ssc-jht','ssc-je'];
+function metaFromDocxTitle(title, fileName) {
+  const t = ((title || '') + ' ' + (fileName || '')).toLowerCase();
+  const out = { exam: 'ssc-cgl', tier: 'tier1', mockNum: '', year: '' };
+  const ex = t.match(/ssc[-_ ]?(cgl|chsl|mts|gd|cpo|jht|je)/); if (ex) out.exam = 'ssc-' + ex[1];
+  if (/tier[-_ ]?(2|ii)\b/.test(t)) out.tier = 'tier2';
+  const yr = t.match(/(20\d{2})/); if (yr) out.year = yr[1];
+  const mk = t.match(/mock[-_ ]?(?:test[-_ ]?)?[-#]?\s*0*(\d{1,3})/) || t.match(/[-_]m0*(\d{1,3})(?:$|[-_])/);
+  if (mk) out.mockNum = String(parseInt(mk[1]));
+  return out;
+}
+const buildMockId = (m, lang) =>
+  `${m.exam}_${m.tier}_mock${m.mockNum}_${lang}`.toLowerCase().replace(/\s+/g, '-');
+
+/* ═══════════════ state ═══════════════ */
+let mocks = [];          // {file, docx, meta, selected}
+let fsCache = {};        // mockId -> {qNum: doc}
+let results = [];        // {mock, mockId, lang, qNum, code, sev, detail}
+let renderData = [];     // per-question view models for the results panel
+const SEV = { blocker: 0, defect: 1, ok: 2 };
+
+/* ═══════════════ step 1 — ingest ═══════════════ */
+const drop = document.getElementById('drop');
+['dragenter','dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave','drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', e => ingest([...e.dataTransfer.files]));
+document.getElementById('fileInput').addEventListener('change', e => ingest([...e.target.files]));
+
+window.resetAll = () => {
+  mocks = []; fsCache = {}; results = []; renderData = [];
+  document.getElementById('fileInput').value = '';
+  document.getElementById('manifestWrap').style.display = 'none';
+  document.getElementById('resultCard').style.display = 'none';
+  document.getElementById('fileCount').textContent = '0 files';
+  document.getElementById('mockCount').textContent = '0 mocks';
+  document.getElementById('results').innerHTML = '';
+  setProg(0, ' ');
+  log('Cleared.', 'info');
+};
+
+async function ingest(fileList) {
+  const docxs = fileList.filter(f => /\.docx$/i.test(f.name));
+  document.getElementById('fileCount').textContent = fileList.length + ' files';
+  if (fileList.length !== docxs.length)
+    log(`${fileList.length - docxs.length} file(s) skipped — only .docx is used here.`, 'warn');
+  for (const f of docxs) {
+    let parsed;
+    try { parsed = await parseFiguresDocx(f); }
+    catch (e) { log(`Could not read ${f.name}: ${e.message}`, 'err'); continue; }
+    const meta = metaFromDocxTitle(parsed.title, f.name);
+    if (!meta.mockNum) log(`${f.name}: no mock number in the heading — set it by hand in the table`, 'warn');
+    const real = Object.keys(parsed.blobs).length;
+    mocks.push({ file: f, docx: parsed, meta, selected: true });
+    log(`${f.name} → ${meta.mockNum ? 'Mock ' + meta.mockNum : '(unknown mock)'} · ` +
+        `${parsed.questions.length} figure question(s), ${real} image(s)`, 'ok');
+    if (parsed.dirEntries.length)
+      log(`   note: this docx carries ${parsed.dirEntries.length} folder entr(y/ies); the ` +
+          `uploader would report a phantom unattached image. Harmless here.`, 'warn');
+    if (parsed.unassigned.length)
+      log(`   ${parsed.unassigned.length} image(s) in the docx are attached to no question`, 'warn');
+  }
+  mocks.sort((a,b) => (parseInt(a.meta.mockNum)||0) - (parseInt(b.meta.mockNum)||0));
+  document.getElementById('mockCount').textContent = mocks.length + ' mocks';
+  renderManifest();
+}
+
+function renderManifest() {
+  const body = document.getElementById('manifestBody');
+  body.innerHTML = mocks.map((p, i) => {
+    const q = p.docx.questions.length;
+    const imgs = Object.keys(p.docx.blobs).length;
+    return `<tr>
+      <td><input type="checkbox" ${p.selected?'checked':''} onchange="setSel(${i},this.checked)"></td>
+      <td class="mono">${p.file.name}<br><span class="muted" style="font-size:10.5px">${p.docx.title.slice(0,64)}</span></td>
+      <td><select onchange="setMeta(${i},'exam',this.value)">
+            ${EXAMS.map(e=>`<option value="${e}" ${p.meta.exam===e?'selected':''}>${e}</option>`).join('')}
+          </select></td>
+      <td><select onchange="setMeta(${i},'tier',this.value)">
+            <option value="tier1" ${p.meta.tier==='tier1'?'selected':''}>tier1</option>
+            <option value="tier2" ${p.meta.tier==='tier2'?'selected':''}>tier2</option>
+          </select></td>
+      <td><input type="number" min="1" class="narrow" value="${p.meta.mockNum}" onchange="setMeta(${i},'mockNum',this.value)"></td>
+      <td class="mono" id="mid-${i}">${p.meta.mockNum ? buildMockId(p.meta,'en') : '—'}</td>
+      <td class="mono muted">${q} figure Q · ${imgs} image${imgs===1?'':'s'}</td>
+    </tr>`;
+  }).join('');
+  document.getElementById('manifestWrap').style.display = mocks.length ? 'block' : 'none';
+}
+window.setSel = (i, v) => { mocks[i].selected = v; };
+window.toggleAll = v => { mocks.forEach(m => m.selected = v); renderManifest(); };
+window.setMeta = (i, k, v) => {
+  mocks[i].meta[k] = v;
+  document.getElementById('mid-'+i).textContent = mocks[i].meta.mockNum ? buildMockId(mocks[i].meta,'en') : '—';
+};
+
+/* ═══════════════ firestore ═══════════════ */
+async function fetchMock(mockId) {
+  if (fsCache[mockId]) return fsCache[mockId];
+  const snap = await getDocs(query(collection(db, 'questions'), where('mockId', '==', mockId)));
+  const out = {};
+  snap.forEach(d => { const x = d.data(); out[parseInt(x.qNum)] = x; });
+  fsCache[mockId] = out;
+  log(`   read ${Object.keys(out).length} question(s) from ${mockId}`, 'info');
+  return out;
+}
+
+/* ═══════════════ shared helpers ═══════════════ */
+const FIG_TAG = /^\s*\[FIGURE-BASED\]/i;
+const FIG_OPT = /^\s*\(\s*(?:figure|आकृति|चित्र)\s*([1-4])\s*\)\s*$/i;
+const LETTERS = ['A','B','C','D'];
+const URL_SLOT = /_q(\d{3})_(q|opt[A-D]|sol)\.\w+/i;
+
+function expectation(doc) {
+  const opts = LETTERS.map(l => ((doc.options && doc.options[l]) || doc['option_'+l] || '').trim());
+  const refs = opts.map(o => FIG_OPT.exec(o));
+  return {
+    isFig: FIG_TAG.test(doc.text || ''),
+    figOpts: refs.every(Boolean),
+    refs: refs.every(Boolean) ? refs.map(m => parseInt(m[1])) : null,
+    opts, correct: (doc.correct || '').trim().toUpperCase(),
+    text: (doc.text || '').replace(FIG_TAG, '').trim()
+  };
+}
+function liveUrls(doc) {
+  const oi = doc.optionImages || {};
+  return { q: (doc.imageUrl||'').trim(), sol: (doc.solutionImage||'').trim(),
+           optA:(oi.A||'').trim(), optB:(oi.B||'').trim(), optC:(oi.C||'').trim(), optD:(oi.D||'').trim() };
+}
+/** Loads the URL as an ordinary image — needs no CORS, so it works everywhere.
+    Tells us whether the candidate would actually see something. */
+function probeImage(url) {
+  return new Promise(res => {
+    const im = new Image();
+    const t = setTimeout(() => res({ ok:false, why:'timeout' }), 20000);
+    im.onload = () => { clearTimeout(t); res({ ok:true, w:im.naturalWidth, h:im.naturalHeight }); };
+    im.onerror = () => { clearTimeout(t); res({ ok:false, why:'did not load' }); };
+    im.src = url;
+  });
+}
+async function sha256(buf) {
+  const h = await crypto.subtle.digest('SHA-256', buf);
+  return [...new Uint8Array(h)].map(b => b.toString(16).padStart(2,'0')).join('');
+}
+const blobUrlCache = new Map();
+function docxUrl(mock, name) {
+  const key = mock.file.name + '|' + name;
+  if (!blobUrlCache.has(key)) blobUrlCache.set(key, URL.createObjectURL(mock.docx.blobs[name]));
+  return blobUrlCache.get(key);
+}
+async function blobToB64(blob) {
+  const buf = await blob.arrayBuffer();
+  let s = ''; const b = new Uint8Array(buf);
+  for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode.apply(null, b.subarray(i, i+0x8000));
+  return btoa(s);
+}
+function add(mock, mockId, lang, qNum, code, sev, detail) {
+  results.push({ mock: mock.file.name, mockId, lang, qNum, code, sev, detail });
+}
+function langsToRun() {
+  const v = document.getElementById('optLang').value;
+  return v === 'both' ? ['en','hi'] : [v];
+}
+
+/* ═══════════════ AI ═══════════════ */
+async function callAI(prompt, images) {
+  const endpoint = document.getElementById('aiEndpoint').value.trim();
+  const model = document.getElementById('aiModel').value.trim();
+  const content = [];
+  for (const b64 of images)
+    content.push({ type:'image', source:{ type:'base64', media_type:'image/png', data:b64 } });
+  content.push({ type:'text', text: prompt });
+  const r = await fetch(endpoint, {
+    method:'POST', headers:{ 'content-type':'application/json' },
+    body: JSON.stringify({ model, max_tokens:1500, messages:[{ role:'user', content }] })
+  });
+  if (!r.ok) throw new Error('AI endpoint returned ' + r.status);
+  const data = await r.json();
+  let txt = (data.content||[]).map(c => c.text || '').join('');
+  txt = txt.replace(/^```(?:json)?/m,'').replace(/```$/m,'').trim();
+  return JSON.parse(txt);
+}
+
+const KEY_PROMPT = (stem) => `You are checking one figure-based question from an SSC exam mock paper.
+
+Question stem:
+${stem}
+
+The images are, in order: the question figure (if present) then the four options, Figure 1 to Figure 4.
+
+Solve it independently. You have NOT been told the answer key and must not guess one.
+
+Reply with STRICT JSON only, no prose and no markdown fence:
+{"answer":1|2|3|4|null,
+ "rule":"the rule the series or transformation follows, one sentence",
+ "discriminator":"the specific visual property separating your answer from the closest rival",
+ "confidence":"high"|"medium"|"low"}
+
+If the images are too small or ambiguous to resolve a discriminator, set answer to null and
+confidence to "low". An honest null is correct; an invented discriminator is not. The
+discriminator must name something countable or checkable — a count, an orientation, a
+position, a fill — never a vague impression.`;
+
+const SOL_PROMPT = (stem, letter, fig, sol) => `You are fact-checking the published solution to a
+figure-based SSC question. Do not judge whether the answer key is right — only whether each
+CLAIM the solution makes is true of the images shown.
+
+Stem: ${stem}
+Published answer: option ${letter}${fig ? ' (= Figure ' + fig + ')' : ''}
+Published solution:
+${sol}
+
+Reply with STRICT JSON only:
+{"claims":[{"claim":"the claim","verdict":"holds"|"false"|"unverifiable","note":"what you observe"}],
+ "overall":"sound"|"has_false_claim"|"unverifiable",
+ "confidence":"high"|"medium"|"low"}
+
+A claim like "only option 3 has the zig-zag on the left" is FALSE if any other option also has
+it, even when option 3 is still the right answer. Any number the solution quotes must be
+recomputed from the picture, not accepted.`;
+
+const SAME_PROMPT = `These are two versions of the same exam figure: the first is the master from
+the source document, the second is what the website is serving. Ignore differences in file size,
+compression, sharpness or padding.
+
+Reply with STRICT JSON only:
+{"same":true|false,"difference":"what actually differs, or empty when they match","confidence":"high"|"medium"|"low"}
+
+"same" means a candidate would treat them as the same picture. Different shapes, counts,
+orientations, labels or values mean false.`;
+
+/* ═══════════════ the three checks ═══════════════ */
+window.runCheck = async (n) => {
+  const list = mocks.filter(m => m.selected && m.meta.mockNum);
+  if (!list.length) { log('Nothing selected, or no mock number set.', 'warn'); return; }
+  for (let i = 1; i <= 3; i++) document.getElementById('btn'+i).disabled = true;
+  const st = document.getElementById('st'+n);
+  st.textContent = 'running…'; st.className = 'badge info';
+  results = []; renderData = [];
+  document.getElementById('corsHelp').style.display = 'none';
+  log(`── CHECK ${n}: ${['','images present','images match the docx','answer & solution'][n]} — ${list.length} mock(s) ──`, 'head');
+
+  try {
+    let done = 0;
+    for (const mock of list) {
+      for (const lang of langsToRun()) {
+        const mockId = buildMockId(mock.meta, lang);
+        log(`${mockId}`, 'head');
+        const docs = await fetchMock(mockId);
+        if (!Object.keys(docs).length) { log(`   nothing in Firestore for ${mockId} — skipped`, 'err'); continue; }
+        if (n === 1) await check1(mock, mockId, lang, docs);
+        if (n === 2) await check2(mock, mockId, lang, docs);
+        if (n === 3) await check3(mock, mockId, lang, docs);
+      }
+      done++;
+      setProg(done / list.length * 100, `${done}/${list.length} mocks`);
+    }
+    const blockers = results.filter(r => r.sev === 0).length;
+    st.textContent = blockers ? blockers + ' blocker(s)' : 'clean';
+    st.className = 'badge ' + (blockers ? 'bad' : 'ok');
+    log(`Check ${n} finished — ${results.length} finding(s), ${blockers} blocker(s).`, blockers ? 'warn' : 'ok');
+  } catch (e) {
+    st.textContent = 'error'; st.className = 'badge bad';
+    log('Check failed: ' + e.message, 'err');
+  }
+  for (let i = 1; i <= 3; i++) document.getElementById('btn'+i).disabled = false;
+  setProg(100, ' ');
+  renderResults();
+};
+
+/* ── check 1 — is every required image there, and does it load ── */
+async function check1(mock, mockId, lang, docs) {
+  const byNum = {}; mock.docx.questions.forEach(q => byNum[q.qNum] = q);
+  const probe = document.getElementById('optProbe').checked;
+  const nums = new Set([...Object.keys(docs).map(Number), ...Object.keys(byNum).map(Number)]);
+
+  for (const qNum of [...nums].sort((a,b)=>a-b)) {
+    const doc = docs[qNum];
+    const dq = byNum[qNum];
+    if (!doc) {
+      if (dq) add(mock, mockId, lang, qNum, 'NOT_IN_FIRESTORE', 0,
+                  'the docx supplies figures for this question but it is not in this mock at all');
+      continue;
+    }
+    const exp = expectation(doc);
+    const urls = liveUrls(doc);
+    const view = { mockId, lang, qNum, stem: exp.text.slice(0,220), correct: exp.correct,
+                   slots: [], findings: [] };
+
+    if (!exp.isFig && !dq) continue;                        // ordinary text question
+    if (!exp.isFig && dq) view.findings.push(['DOCX_EXTRA_QUESTION', 1,
+      'the docx has figures for this question but its text is not marked [FIGURE-BASED]']);
+
+    const need = [];
+    if (exp.figOpts) LETTERS.forEach(l => need.push('opt'+l));
+    if (dq && dq.imgs.q) need.push('q');
+    else if (exp.isFig && !exp.figOpts) need.push('q');
+
+    for (const slot of need) {
+      const url = urls[slot];
+      const label = slot === 'q' ? 'question figure' : 'option ' + slot.slice(-1);
+      if (!url) {
+        view.findings.push([slot === 'q' ? 'MISSING_QUESTION_IMAGE' : 'MISSING_OPTION_IMAGE', 0,
+          `${label} is empty in Firestore`]);
+        view.slots.push({ slot, label, missing: true });
+        continue;
+      }
+      const m = URL_SLOT.exec(url);
+      if (m && (parseInt(m[1]) !== qNum || m[2].toLowerCase() !== slot.toLowerCase()))
+        view.findings.push(['WRONG_SLOT', 0,
+          `${label} is showing the image that was uploaded as Q${parseInt(m[1])} ${m[2]}`]);
+      let ok = true;
+      if (probe) {
+        const p = await probeImage(url);
+        ok = p.ok;
+        if (!ok) view.findings.push(['IMAGE_WILL_NOT_LOAD', 0,
+          `${label} has a URL but it ${p.why} — the candidate sees nothing`]);
+      }
+      view.slots.push({ slot, label, url, docxUrl: dq && dq.imgs[slot] ? docxUrl(mock, dq.imgs[slot]) : null,
+                        keyed: exp.correct === slot.slice(-1) && slot !== 'q', bad: !ok });
+    }
+    if (exp.figOpts && exp.refs && exp.refs.join() !== '1,2,3,4')
+      view.findings.push(['OPTION_LABELS_SCRAMBLED', 0,
+        `the option text reads figure ${exp.refs.join(', ')} but the images are attached in order 1,2,3,4`]);
+
+    view.findings.forEach(([c,s,d]) => add(mock, mockId, lang, qNum, c, s, d));
+    renderData.push(view);
+  }
+  const bad = renderData.filter(v => v.findings.some(f => f[1] === 0)).length;
+  log(`   ${renderData.length} figure question(s) checked, ${bad} with a problem`, bad ? 'warn' : 'ok');
+}
+
+/* ── check 2 — is the live image the same picture as the docx ── */
+async function check2(mock, mockId, lang, docs) {
+  const byNum = {}; mock.docx.questions.forEach(q => byNum[q.qNum] = q);
+  const useAI = document.getElementById('ai2').checked;
+
+  // hash every image in the docx once, so a mismatch can be traced to its real home
+  const docxHash = {}, hashHome = {};
+  for (const [name, blob] of Object.entries(mock.docx.blobs)) {
+    const h = await sha256(await blob.arrayBuffer());
+    docxHash[name] = h; (hashHome[h] = hashHome[h] || []).push(name);
+  }
+  let corsFailed = false;
+
+  for (const q of mock.docx.questions) {
+    const doc = docs[q.qNum];
+    if (!doc) continue;
+    const exp = expectation(doc), urls = liveUrls(doc);
+    const view = { mockId, lang, qNum: q.qNum, stem: exp.text.slice(0,220),
+                   correct: exp.correct, slots: [], findings: [] };
+    for (const [slot, name] of Object.entries(q.imgs)) {
+      if (slot.startsWith('_')) continue;
+      const url = urls[slot];
+      const label = slot === 'q' ? 'question figure' : 'option ' + slot.slice(-1);
+      if (!url) { view.findings.push(['MISSING_ON_SITE', 0, `${label} is not on the site at all`]); continue; }
+      let liveBuf = null;
+      try { liveBuf = await (await fetch(url, { mode:'cors' })).arrayBuffer(); }
+      catch (e) { corsFailed = true; }
+      const entry = { slot, label, url, docxUrl: docxUrl(mock, name),
+                      keyed: exp.correct === slot.slice(-1) && slot !== 'q' };
+      if (!liveBuf) { entry.note = 'bytes unreadable'; view.slots.push(entry); continue; }
+      const lh = await sha256(liveBuf);
+      if (lh === docxHash[name]) { entry.note = 'identical'; view.slots.push(entry); continue; }
+
+      const home = hashHome[lh];
+      if (home) {
+        const where = [];
+        for (const q2 of mock.docx.questions)
+          for (const [s2, n2] of Object.entries(q2.imgs))
+            if (home.includes(n2)) where.push(`Q${q2.qNum} ${s2}`);
+        const sameQ = where.some(w => w.startsWith('Q' + q.qNum + ' '));
+        view.findings.push([sameQ ? 'OPTIONS_SWAPPED' : 'IMAGE_FROM_ANOTHER_QUESTION', 0,
+          `${label} is serving the image that belongs at ${where.join(', ')}`]);
+        entry.bad = true; view.slots.push(entry); continue;
+      }
+      if (useAI) {
+        try {
+          const verdict = await callAI(SAME_PROMPT,
+            [await blobToB64(mock.docx.blobs[name]), await blobToB64(new Blob([liveBuf]))]);
+          if (verdict.same) entry.note = 'same picture, re-saved';
+          else { view.findings.push(['DIFFERENT_PICTURE', 0, `${label} — ${verdict.difference}`]); entry.bad = true; }
+        } catch (e) {
+          view.findings.push(['AI_FAILED', 1, `${label}: ${e.message}`]);
+          entry.note = 'bytes differ, AI unavailable';
+        }
+      } else {
+        view.findings.push(['BYTES_DIFFER', 1,
+          `${label} does not match the docx — could be a harmless re-save, tick "use AI" to settle it`]);
+        entry.note = 'bytes differ';
+      }
+      view.slots.push(entry);
+    }
+    view.findings.forEach(([c,s,d]) => add(mock, mockId, lang, q.qNum, c, s, d));
+    renderData.push(view);
+  }
+  if (corsFailed) {
+    document.getElementById('corsHelp').style.display = 'block';
+    log('   Storage would not hand over the image bytes (CORS) — see the note under the buttons', 'err');
+  }
+}
+
+/* ── check 3 — is the stored answer right, and does the solution tell the truth ── */
+async function check3(mock, mockId, lang, docs) {
+  for (const q of mock.docx.questions) {
+    const doc = docs[q.qNum];
+    if (!doc) continue;
+    const exp = expectation(doc);
+    const view = { mockId, lang, qNum: q.qNum, stem: exp.text.slice(0,220),
+                   correct: exp.correct, slots: [], findings: [] };
+    const imgs = [];
+    if (q.imgs.q) imgs.push(await blobToB64(mock.docx.blobs[q.imgs.q]));
+    for (const l of LETTERS) {
+      const nm = q.imgs['opt'+l];
+      if (nm && mock.docx.blobs[nm]) imgs.push(await blobToB64(mock.docx.blobs[nm]));
+    }
+    for (const [slot, name] of Object.entries(q.imgs)) {
+      if (slot.startsWith('_')) continue;
+      view.slots.push({ slot, label: slot === 'q' ? 'question figure' : 'option ' + slot.slice(-1),
+                        docxUrl: docxUrl(mock, name), keyed: exp.correct === slot.slice(-1) && slot !== 'q' });
+    }
+    setProg(null, `Q${q.qNum} — asking the model`);
+
+    if (exp.figOpts && imgs.length >= 4) {
+      try {
+        const a = await callAI(KEY_PROMPT(exp.text), imgs);
+        const b = await callAI(KEY_PROMPT(exp.text) + '\n\nCross-check by working from the last frame backwards.', imgs);
+        const storedIdx = LETTERS.indexOf(exp.correct) + 1;
+        const agree = a.answer && a.answer === b.answer;
+        const confident = ['high','medium'].includes(a.confidence) && ['high','medium'].includes(b.confidence);
+        if (agree && confident && a.answer !== storedIdx)
+          view.findings.push(['ANSWER_DISPUTED', 0,
+            `stored answer is ${exp.correct} (Figure ${storedIdx}); solved twice independently as Figure ${a.answer} — ${a.discriminator}`]);
+        else if (agree && a.answer === storedIdx)
+          view.findings.push(['ANSWER_CONFIRMED', 2, `independently solved as ${exp.correct} — ${a.rule}`]);
+        else
+          view.findings.push(['ANSWER_UNRESOLVED', 1,
+            'the model could not settle this one — check it by eye']);
+      } catch (e) { view.findings.push(['AI_FAILED', 1, e.message]); }
+    }
+    const sol = (doc.explanation || '').replace(/<[^>]+>/g, ' ').trim();
+    if (sol && imgs.length) {
+      try {
+        const fig = exp.figOpts ? LETTERS.indexOf(exp.correct) + 1 : '';
+        const sc = await callAI(SOL_PROMPT(exp.text, exp.correct, fig, sol.slice(0,4000)), imgs);
+        if (sc.overall === 'has_false_claim' && sc.confidence === 'high') {
+          const bad = (sc.claims||[]).filter(c => c.verdict === 'false');
+          view.findings.push(['SOLUTION_CLAIM_FALSE', 0,
+            bad.slice(0,2).map(c => `"${c.claim}" — ${c.note}`).join('; ')]);
+        } else if (sc.overall === 'sound') {
+          view.findings.push(['SOLUTION_SOUND', 2, 'every claim in the solution checks out']);
+        }
+      } catch (e) { view.findings.push(['AI_FAILED', 1, e.message]); }
+    }
+    view.findings.forEach(([c,s,d]) => add(mock, mockId, lang, q.qNum, c, s, d));
+    renderData.push(view);
+  }
+}
+
+/* ═══════════════ results ═══════════════ */
+window.renderResults = () => {
+  const onlyBad = document.getElementById('onlyBad').checked;
+  const card = document.getElementById('resultCard');
+  card.style.display = renderData.length ? 'block' : 'none';
+  const blockers = results.filter(r => r.sev === 0).length;
+  const defects = results.filter(r => r.sev === 1).length;
+  const clean = renderData.filter(v => !v.findings.some(f => f[1] < 2)).length;
+  document.getElementById('cBlocker').textContent = blockers + ' blocker' + (blockers===1?'':'s');
+  document.getElementById('cDefect').textContent = defects + ' warning' + (defects===1?'':'s');
+  document.getElementById('cClean').textContent = clean + ' clean';
+
+  const byMock = {};
+  renderData.forEach(v => { const k = v.mockId; (byMock[k] = byMock[k] || []).push(v); });
+  let html = '';
+  for (const [mockId, views] of Object.entries(byMock)) {
+    const show = views.filter(v => !onlyBad || v.findings.some(f => f[1] < 2));
+    if (!show.length) continue;
+    const nb = views.filter(v => v.findings.some(f => f[1] === 0)).length;
+    html += `<div class="res-mock"><div class="res-head">${mockId}
+      <span class="badge ${nb?'bad':'ok'}">${nb ? nb + ' question(s) with a blocker' : 'clean'}</span>
+      <span class="badge">${views.length} figure question(s)</span></div><div class="res-body">`;
+    for (const v of show) {
+      html += `<div class="q-row"><div class="q-head"><span class="q-num">Q${v.qNum}</span>
+        <span class="badge">key ${v.correct || '—'}</span></div>
+        <div class="q-stem">${escapeHtml(v.stem)}</div><div class="slots">`;
+      for (const s of v.slots) {
+        const cls = 'slot' + (s.keyed ? ' keyed' : '') + (s.bad ? ' bad' : '');
+        if (s.missing) {
+          html += `<div class="${cls}"><div class="miss">MISSING</div><div>${s.label}</div></div>`;
+        } else if (s.docxUrl && s.url) {
+          html += `<div class="${cls}"><div class="pair">
+            <img src="${s.docxUrl}" title="from the docx"><img src="${s.url}" title="live on the site"></div>
+            <div>${s.label}${s.note ? ' · ' + s.note : ''}</div></div>`;
+        } else {
+          html += `<div class="${cls}"><img src="${s.url || s.docxUrl}">
+            <div>${s.label}${s.note ? ' · ' + s.note : ''}</div></div>`;
+        }
+      }
+      html += `</div>`;
+      for (const [code, sev, detail] of v.findings)
+        html += `<div class="finding ${sev===0?'blocker':sev===1?'defect':'okmsg'}">
+          <b>${code}</b> — ${escapeHtml(detail)}</div>`;
+      html += `</div>`;
+    }
+    html += `</div></div>`;
+  }
+  document.getElementById('results').innerHTML = html || '<div class="muted">Nothing to show.</div>';
+};
+function escapeHtml(s) {
+  return String(s||'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+}
+window.exportCsv = () => {
+  const rows = [['mock','mockId','language','qNum','severity','code','detail']];
+  results.forEach(r => rows.push([r.mock, r.mockId, r.lang, r.qNum,
+    ['BLOCKER','WARNING','OK'][r.sev], r.code, r.detail]));
+  const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type:'text/csv' }));
+  a.download = 'figure-check-report.csv'; a.click();
+};
+
+log('Ready. Drop the figures .docx files above, then run a check.', 'ok');
+</script>
+</body>
+</html>
