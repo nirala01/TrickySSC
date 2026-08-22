@@ -742,7 +742,12 @@ async function check2(mock, mockId, lang, docs) {
       if (slot.startsWith('_')) continue;
       const url = urls[slot];
       const label = slot === 'q' ? 'question figure' : 'option ' + slot.slice(-1);
-      if (!url) { view.findings.push(['MISSING_ON_SITE', 0, `${label} is not on the site at all`]); continue; }
+      if (!url) {
+        view.findings.push(['MISSING_ON_SITE', 0, `${label} is not on the site at all`]);
+        view.slots.push({ slot, label, missing: true, blobName: name, docxUrl: docxUrl(mock, name),
+                          keyed: exp.correct === slot.slice(-1) && slot !== 'q' });
+        continue;
+      }
       let liveBuf = null;
       try {
         // The uploader sets cache-control max-age=31536000, and check 1 (and the site
@@ -771,7 +776,7 @@ async function check2(mock, mockId, lang, docs) {
         // Nothing was compared. Say so — silence here would read as "clean".
         view.findings.push(['NOT_COMPARED', 1,
           `${label} could not be read back from Storage, so it was never compared`]);
-        entry.note = 'not compared'; view.slots.push(entry); continue;
+        entry.note = 'not compared'; entry.fixable = true; view.slots.push(entry); continue;
       }
       const lh = await sha256(liveBuf);
       if (lh === docxHash[name]) { entry.note = 'identical'; view.slots.push(entry); continue; }
@@ -795,12 +800,12 @@ async function check2(mock, mockId, lang, docs) {
           else { view.findings.push(['DIFFERENT_PICTURE', 0, `${label} — ${verdict.difference}`]); entry.bad = true; }
         } catch (e) {
           view.findings.push(['AI_FAILED', 1, `${label}: ${e.message}`]);
-          entry.note = 'bytes differ, AI unavailable';
+          entry.note = 'bytes differ, AI unavailable'; entry.fixable = true;
         }
       } else {
         view.findings.push(['BYTES_DIFFER', 1,
           `${label} does not match the docx — could be a harmless re-save, tick "use AI" to settle it`]);
-        entry.note = 'bytes differ';
+        entry.note = 'bytes differ'; entry.fixable = true;
       }
       view.slots.push(entry);
     }
@@ -933,6 +938,11 @@ async function pushOneSlot(view, slot, blobName) {
   return { url, written };
 }
 
+/** A slot is repairable when the docx holds that image and the live copy is absent,
+    wrong, unreadable, or merely unequal. Used by the per-slot, per-question and
+    per-mock buttons alike, so the three can never disagree about what is fixable. */
+const canPush = s => !!(s.blobName && !s.pushed && (s.missing || s.bad || s.fixable));
+
 window.pushSlot = async (vi, slot, btn) => {
   const view = renderData[vi];
   const s = view.slots.find(x => x.slot === slot);
@@ -940,7 +950,7 @@ window.pushSlot = async (vi, slot, btn) => {
   btn.disabled = true; btn.textContent = 'pushing…';
   try {
     const { url, written } = await pushOneSlot(view, slot, s.blobName);
-    s.url = url; s.missing = false; s.bad = false; s.pushed = true;
+    s.url = url; s.missing = false; s.bad = false; s.fixable = false; s.pushed = true; s.note = '';
     view.findings = view.findings.filter(f => !(f[2] || '').startsWith(s.label));
     view.findings.push(['REPAIRED', 2, `${s.label} uploaded and written to ${written.join(' + ')}`]);
     results = results.filter(r => !(r.qNum === view.qNum && r.mockId === view.mockId
@@ -955,14 +965,14 @@ window.pushSlot = async (vi, slot, btn) => {
 
 window.pushQuestion = async (vi, btn) => {
   const view = renderData[vi];
-  const todo = view.slots.filter(s => (s.missing || s.bad) && s.blobName);
+  const todo = view.slots.filter(canPush);
   if (!todo.length) return;
   btn.disabled = true; btn.textContent = `pushing 0/${todo.length}…`;
   let n = 0;
   for (const s of todo) {
     try {
       const { url, written } = await pushOneSlot(view, s.slot, s.blobName);
-      s.url = url; s.missing = false; s.bad = false; s.pushed = true;
+      s.url = url; s.missing = false; s.bad = false; s.fixable = false; s.pushed = true; s.note = '';
       view.findings.push(['REPAIRED', 2, `${s.label} uploaded and written to ${written.join(' + ')}`]);
       n++;
     } catch (e) { log(`Q${view.qNum} ${s.slot}: ${e.message}`, 'err'); }
@@ -975,8 +985,7 @@ window.pushQuestion = async (vi, btn) => {
 };
 
 window.pushMock = async (mockId, btn) => {
-  const views = renderData.filter(v => v.mockId === mockId &&
-                                       v.slots.some(s => (s.missing || s.bad) && s.blobName));
+  const views = renderData.filter(v => v.mockId === mockId && v.slots.some(canPush));
   if (!views.length) return;
   btn.disabled = true;
   let n = 0;
@@ -1006,7 +1015,7 @@ window.renderResults = () => {
     if (!show.length) continue;
     const nb = views.filter(v => v.findings.some(f => f[1] === 0)).length;
     const nc = views.filter(v => v.findings.some(f => f[0] === 'NOT_COMPARED')).length;
-    const fixable = views.filter(v => v.slots.some(s => (s.missing || s.bad) && s.blobName)).length;
+    const fixable = views.filter(v => v.slots.some(canPush)).length;
     html += `<div class="res-mock"><div class="res-head">${mockId}
       <span class="badge ${nb?'bad':nc?'warn':'ok'}">${
         nb ? nb + ' question(s) with a blocker'
@@ -1016,12 +1025,12 @@ window.renderResults = () => {
         onclick="pushMock('${mockId}', this)">Push all ${fixable} fixable question(s)</button>` : ''}
       </div><div class="res-body">`;
     for (const v of show) {
-      const canFix = v.slots.filter(s => (s.missing || s.bad) && s.blobName).length;
+      const canFix = v.slots.filter(canPush).length;
       html += `<div class="q-row"><div class="q-head"><span class="q-num">Q${v.qNum}</span>
         <span class="badge">key ${v.correct || '—'}</span>
         ${canFix ? `<button class="sm primary" onclick="pushQuestion(${v._i}, this)">
           Push ${canFix} image${canFix===1?'':'s'} to Firebase</button>` : ''}
-        ${v.slots.some(s => (s.missing||s.bad) && !s.blobName)
+        ${v.slots.some(s => (s.missing||s.bad||s.fixable) && !s.blobName)
           ? `<span class="badge warn">not in the docx — cannot repair from here</span>` : ''}</div>
         <div class="q-stem">${escapeHtml(v.stem)}</div><div class="slots">`;
       for (const s of v.slots) {
@@ -1042,7 +1051,7 @@ window.renderResults = () => {
             <div><img src="${s.docxUrl}"><div class="cap">docx</div></div>
             <div><img src="${s.url}"><div class="cap">live</div></div></div>
             <div>${s.label}${s.note ? ' · ' + s.note : ''}</div>
-            ${s.bad && s.blobName ? `<button class="sm" style="margin-top:5px"
+            ${canPush(s) ? `<button class="sm" style="margin-top:5px"
               onclick="pushSlot(${v._i},'${s.slot}',this)">Replace with the docx image</button>` : ''}</div>`;
         } else {
           html += `<div class="${cls}"><img src="${s.url || s.docxUrl}">
