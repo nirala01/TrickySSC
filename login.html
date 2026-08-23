@@ -448,7 +448,30 @@ window.submitGoogleExtra = async (uid) => {
   const nameInput = document.getElementById('gName');
   const finalName = (nameInput?.value?.trim()) || user.displayName || 'Student';
   if(finalName.length < 2){ msgEl.style.display='block'; msgEl.style.color='#DC2626'; msgEl.textContent='⚠️ Please enter your full name'; return; }
-  await saveUserProfile(user, '+91'+phone, finalName);
+
+  /* TSSC-LOGINERR-V1 — never let a Firestore failure leave the student on a
+     dead spinner. Before this, a refused write rejected the promise with no
+     handler: the console logged it, the button stayed on "Verifying..." and
+     registration was impossible. */
+  const gBtn = document.querySelector('#extraInfoModal button[onclick^="submitGoogleExtra"]');
+  if (gBtn) { gBtn.disabled = true; }
+  try {
+    await saveUserProfile(user, '+91'+phone, finalName);
+  } catch (err) {
+    console.error('[register] profile write failed:', err);
+    msgEl.style.display = 'block';
+    msgEl.style.color = '#DC2626';
+    msgEl.textContent = (err && err.code === 'permission-denied')
+      ? '⚠️ We could not save your profile just now. Please tap "Skip for now" '
+        + 'to continue — you are already signed in, and you can add your mobile '
+        + 'number later from your profile.'
+      : '⚠️ Could not save your details: ' + ((err && err.message) || 'unknown error')
+        + '. Please try again, or tap "Skip for now" to continue.';
+    if (gBtn) { gBtn.disabled = false; }
+    return;
+  }
+  if (gBtn) { gBtn.disabled = false; }
+
   document.getElementById('extraInfoModal').remove();
   // Save finalName (from modal) to localStorage so dashboard shows correct name immediately
   localStorage.setItem('tssc_user', JSON.stringify({

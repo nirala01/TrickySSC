@@ -3471,7 +3471,7 @@ onAuthStateChanged(_auth, async user => {
 */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getFirestore, doc, getDoc, setDoc, serverTimestamp, increment } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 const CFG = {
   exam:        'ssc-cgl',           // which catalog block the dropdown reads
@@ -3621,6 +3621,7 @@ async function openBuy(card) {
   showStep(1);
   pop.style.display = 'flex';
   document.body.style.overflow = 'hidden';
+  recordIntent('opened');                       /* TSSC-INTENT-V1 */
 
   let cat, P;
   try {
@@ -3683,6 +3684,35 @@ function showUnlocked(msg) {
 window.tsscOpenBuy     = openBuy;
 window.tsscCloseBuy    = closeBuy;
 window.tsscShowUnlocked = showUnlocked;
+
+/* ---- checkout intent (TSSC-INTENT-V1) ------------------------------------
+   Records that a signed-in student reached the checkout, BEFORE the payment
+   server creates an order. Without this, anyone who drops out between the
+   popup and Razorpay is invisible on admin-premium.html and cannot be granted
+   access by hand.
+
+   One doc per user at checkoutIntents/{uid}, merged and overwritten as they
+   progress, so a student who tries three times is one row, not three.
+
+   This never blocks a sale: it is not awaited and it swallows its own errors.
+   Firestore rules allow a signed-in user to write only their own doc, which
+   is fine — nothing here grants anything, it is a support breadcrumb. */
+function recordIntent(stage, extra) {
+  const user = _auth.currentUser;
+  if (!user) return;                  // signed-out buyers go to login first
+  const body = Object.assign({
+    uid:      user.uid,
+    email:    user.email || '',
+    stage:    stage,
+    courseId: (ORDER && ORDER.courseId) || CFG.module,
+    page:     (location.pathname.split('/').pop() || 'mock-list.html'),
+    clicks:   increment(1),
+    lastAt:   serverTimestamp()
+  }, extra || {});
+  setDoc(doc(_db, 'checkoutIntents', user.uid), body, { merge: true })
+    .catch(e => console.warn('[intent] not recorded:', e.message));
+}
+window.tsscRecordIntent = recordIntent;
 
 /* prefill name + mobile from the signed-in profile so the form is one tap */
 /* Prefill from the signed-in profile so the form is a couple of taps.
@@ -3856,6 +3886,11 @@ document.getElementById('mbpPay')?.addEventListener('click', async () => {
   btn.disabled = true;
   btn.textContent = 'Opening payment\u2026';
   ORDER = { ...d, uid: user.uid, email: user.email || '' };
+  /* TSSC-INTENT-V1 — they have given us their details and pressed pay. If the
+     order call fails after this, these are the people to follow up with. */
+  recordIntent('details', {
+    name: d.name, mobile: d.mobile, place: d.place, courseId: d.courseId
+  });
   // so a second purchase is prefilled end to end, place included
   try {
     localStorage.setItem('tssc_checkout', JSON.stringify(
@@ -3878,6 +3913,7 @@ document.getElementById('mbpPay')?.addEventListener('click', async () => {
 /* Called by the checkout layer once the Worker has confirmed the payment.
    Re-reads the entitlement (cache-busted) and repaints every card. */
 window.tsscOnPaymentSuccess = async function (msg) {
+  recordIntent('paid');                         /* TSSC-INTENT-V1 */
   const user = _auth.currentUser;
   if (user) {
     try { sessionStorage.removeItem('tssc_ent_' + user.uid); } catch (e) {}

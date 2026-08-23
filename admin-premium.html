@@ -48,6 +48,27 @@ font-family:'Rajdhani',sans-serif;letter-spacing:.02em;white-space:nowrap;}
 .msg.ok{background:#ECFDF5;border:1px solid #A7F3D0;color:#047857;display:block;}
 .msg.warn{background:#FFFBEB;border:1px solid #FDE68A;color:#92400E;display:block;}
 .gate{max-width:400px;margin:12vh auto;text-align:center;}
+/* TSSC-ADMINGRANT-V1 */
+.act{background:#fff;border:1px solid #E2E8F0;color:#475569;padding:.28rem .6rem;font-size:.74rem;}
+.act:hover{border-color:#FF6B00;color:#C2410C;}
+.act.rev:hover{border-color:#FCA5A5;color:#B91C1C;}
+.act[disabled]{opacity:.45;cursor:not-allowed;}
+.p-manual{background:#EDE9FE;color:#5B21B6;}
+.p-stage{background:#F1F5F9;color:#475569;}
+.dlg{position:fixed;inset:0;background:rgba(15,23,42,.5);display:none;
+align-items:center;justify-content:center;padding:1rem;z-index:99;}
+.dlg.on{display:flex;}
+.dlg-card{background:#fff;border-radius:14px;max-width:420px;width:100%;padding:1.2rem 1.3rem;}
+.dlg-card h2{font-family:'Rajdhani',sans-serif;font-size:1.25rem;font-weight:800;margin-bottom:.2rem;}
+.dlg-card .sub{margin-bottom:.9rem;}
+.fld{margin-bottom:.75rem;}
+.fld label{display:block;font-size:.72rem;text-transform:uppercase;letter-spacing:.04em;
+color:#94A3B8;font-weight:700;margin-bottom:.25rem;}
+.fld input,.fld select{width:100%;border:1px solid #E2E8F0;border-radius:9px;padding:.5rem .7rem;
+font-size:.87rem;font-family:'Plus Jakarta Sans',sans-serif;outline:none;}
+.fld input:focus,.fld select:focus{border-color:#FF6B00;}
+.dlg-row{display:flex;gap:.5rem;margin-top:1rem;}
+.dlg-row button{flex:1;padding:.6rem;font-size:.9rem;}
 .empty{color:#94A3B8;text-align:center;padding:2rem 1rem;font-size:.9rem;line-height:1.7;}
 @media(max-width:860px){table,thead,tbody,th,td,tr{display:block;}thead{display:none;}
 tr{border:1px solid #E2E8F0;border-radius:10px;padding:.55rem;margin-bottom:.6rem;}
@@ -73,6 +94,7 @@ letter-spacing:.04em;color:#94A3B8;}}
     </div>
     <div style="display:flex;align-items:center;gap:.6rem;">
       <span class="sub" id="who"></span>
+      <button class="btn-p" id="grantBtn" style="padding:.55rem 1rem;font-size:.85rem;">+ Grant access</button>
       <button class="btn" id="reload">↻ Refresh</button>
       <button class="btn" id="csv">Export CSV</button>
       <button class="btn" id="signout">Sign out</button>
@@ -107,12 +129,65 @@ letter-spacing:.04em;color:#94A3B8;}}
         <th data-s="status">Status</th>
         <th data-s="expiresAt">Access until</th>
         <th data-s="createdAt">Purchased</th>
+        <th>Actions</th>
       </tr></thead>
       <tbody id="rows"></tbody>
     </table>
     <div class="empty" id="empty" hidden></div>
   </div>
+
+  <!-- TSSC-ADMINGRANT-V1 — people who opened checkout but have no order -->
+  <div class="card">
+    <div style="display:flex;align-items:baseline;justify-content:space-between;gap:1rem;flex-wrap:wrap;">
+      <div>
+        <h1 style="font-size:1.15rem;">Reached checkout, no payment</h1>
+        <div class="sub">Opened the unlock popup but never completed a purchase.
+          Grant access here if they say they paid.</div>
+      </div>
+      <button class="btn" id="intentCsv">Export CSV</button>
+    </div>
+    <table style="margin-top:.8rem;">
+      <thead><tr>
+        <th>Candidate</th><th>Course</th><th>Got as far as</th>
+        <th>Tries</th><th>Last seen</th><th>Actions</th>
+      </tr></thead>
+      <tbody id="intentRows"></tbody>
+    </table>
+    <div class="empty" id="intentEmpty" hidden></div>
+  </div>
 </div>
+
+<!-- TSSC-ADMINGRANT-V1 — grant dialog -->
+<div class="dlg" id="grantDlg">
+  <div class="dlg-card">
+    <h2 id="gdTitle">Grant access</h2>
+    <div class="sub" id="gdWho">Find the student by email address.</div>
+    <div class="fld" id="gdEmailFld">
+      <label for="gdEmail">Student email</label>
+      <input id="gdEmail" type="email" placeholder="student@example.com">
+    </div>
+    <div class="fld">
+      <label for="gdCourse">Course</label>
+      <select id="gdCourse"></select>
+    </div>
+    <div class="fld">
+      <label for="gdDays">Access for (days)</label>
+      <input id="gdDays" type="number" min="1" max="3650" value="365">
+    </div>
+    <div class="fld">
+      <label for="gdNote">Why (kept on the record)</label>
+      <input id="gdNote" type="text" placeholder="e.g. paid by UPI, webhook missed it">
+    </div>
+    <div class="msg" id="gdMsg"></div>
+    <div class="dlg-row">
+      <button class="btn" id="gdCancel">Cancel</button>
+      <button class="btn-p" id="gdConfirm">Grant access</button>
+    </div>
+  </div>
+</div>
+
+<!-- prices + the payment server address live in Firestore config/pricing -->
+<script src="https://trickyssc.com/tssc-pricing.js"></script>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
@@ -147,6 +222,19 @@ const CACHE_TTL = 5 * 60 * 1000;
 let ROWS = [];
 let sortKey = 'createdAt', sortDir = -1;
 
+/* TSSC-ADMINGRANT-V1 ------------------------------------------------------
+   entitlements/{uid} is `allow write: if false`, so this page cannot grant
+   anything directly — not even signed in as you. It asks the payment Worker,
+   which checks the caller is an admin and writes with the service account.
+   If the pricing catalog has no payApi set, the buttons stay disabled rather
+   than failing halfway through. */
+const PAY_API_FALLBACK = 'https://trickyssc-pay.nirala01.workers.dev';
+let PAY_API = '';
+let PRODUCTS = [];        // [{id, label, grants:[moduleKey]}]
+let ENTS = {};            // uid -> entitlement doc
+let INTENTS = [];         // people who opened checkout
+let GRANT_TARGET = null;  // {uid, email} when granting from a row
+
 /* ------------------------------------------------------------------ auth */
 $('signin').onclick = async () => {
   try { await signInWithPopup(auth, new GoogleAuthProvider()); }
@@ -163,6 +251,7 @@ onAuthStateChanged(auth, async user => {
   }
   $('gate').hidden = true; $('app').hidden = false;
   $('who').textContent = user.email;
+  await loadCatalog();                             /* TSSC-ADMINGRANT-V1 */
   await load(false);
 });
 
@@ -196,6 +285,7 @@ async function load(force) {
     const entSnap = await getDocs(collection(db, 'entitlements'));
     const ents = {};
     entSnap.docs.forEach(d => { ents[d.id] = d.data() || {}; });
+    ENTS = ents;                                   /* TSSC-ADMINGRANT-V1 */
 
     ROWS = pays.map(p => {
       const mods = (ents[p.uid] || {}).modules || {};
@@ -223,6 +313,25 @@ async function load(force) {
         expiresAt: until
       };
     });
+    /* TSSC-ADMINGRANT-V1 — checkout intents are a separate, small collection */
+    try {
+      const inSnap = await getDocs(collection(db, 'checkoutIntents'));
+      INTENTS = inSnap.docs.map(d => {
+        const v = d.data() || {};
+        return {
+          uid: d.id,
+          email: v.email || '', name: v.name || '', mobile: v.mobile || '',
+          place: v.place || '', courseId: v.courseId || '',
+          stage: v.stage || 'opened',
+          clicks: Number(v.clicks) || 1,
+          lastAt: ts(v.lastAt)
+        };
+      });
+    } catch (e) {
+      INTENTS = [];
+      console.warn('checkoutIntents unreadable:', e.message);
+    }
+
     try { sessionStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), rows: ROWS })); }
     catch (e) {}
     afterLoad(false);
@@ -319,8 +428,64 @@ function render() {
       </td>
       <td data-l="Access until">${expPill}</td>
       <td data-l="Purchased">${fmt(r.paidAt || r.createdAt)}</td>
+      <td data-l="Actions">${actionCell(r.uid, r.courseId)}</td>
     </tr>`;
   }).join('');
+
+  renderIntents();                               /* TSSC-ADMINGRANT-V1 */
+}
+
+/* ------------------------------------------------- TSSC-ADMINGRANT-V1 */
+/* Does this uid hold an active, unexpired grant right now? */
+function ownsAnything(uid) {
+  const d = ENTS[uid];
+  if (!d) return false;
+  const live = g => {
+    if (!g || g.active !== true) return false;
+    const t = ts(g.expiresAt);
+    return !t || t > Date.now();
+  };
+  if (live(d.allAccess)) return true;
+  return Object.values(d.modules || {}).some(live);
+}
+
+function actionCell(uid, courseId) {
+  if (!uid) return '<span class="em">no account</span>';
+  const dis = PAY_API ? '' : ' disabled';
+  return ownsAnything(uid)
+    ? `<button class="act rev" data-revoke="${esc(uid)}"${dis}>Revoke</button>`
+    : `<button class="act" data-grant="${esc(uid)}" data-course="${esc(courseId || '')}"${dis}>Grant</button>`;
+}
+
+/* People who opened checkout but never got as far as an order. Anyone with an
+   order already appears in the table above, so they are filtered out here. */
+function renderIntents() {
+  const withOrders = new Set(ROWS.map(r => r.uid).filter(Boolean));
+  const rows = INTENTS
+    .filter(i => !withOrders.has(i.uid))
+    .sort((a, b) => (b.lastAt || 0) - (a.lastAt || 0));
+
+  const box = document.getElementById('intentEmpty');
+  box.hidden = rows.length > 0;
+  if (!rows.length) {
+    box.textContent = INTENTS.length
+      ? 'Everyone who opened checkout also has an order — nothing stuck here.'
+      : 'No one has opened the unlock popup yet.';
+  }
+
+  const label = { opened: 'Opened the popup', details: 'Filled in details', paid: 'Paid' };
+  document.getElementById('intentRows').innerHTML = rows.map(i => `<tr>
+    <td data-l="Candidate">
+      <div class="nm">${esc(i.name) || '—'}</div>
+      ${i.email ? `<div class="em">${esc(i.email)}</div>` : ''}
+      ${i.mobile ? `<div class="em mono">${esc(i.mobile)}</div>` : ''}
+    </td>
+    <td data-l="Course">${esc(i.courseId) || '—'}</td>
+    <td data-l="Got as far as"><span class="pill p-stage">${esc(label[i.stage] || i.stage)}</span></td>
+    <td data-l="Tries" class="mono">${i.clicks}</td>
+    <td data-l="Last seen">${fmt(i.lastAt)}</td>
+    <td data-l="Actions">${actionCell(i.uid, i.courseId)}</td>
+  </tr>`).join('');
 }
 
 ['q','fStatus','fMode','fCourse'].forEach(id =>
@@ -333,6 +498,172 @@ document.querySelectorAll('th[data-s]').forEach(th => {
     render();
   };
 });
+
+/* ============================================ TSSC-ADMINGRANT-V1 — grants */
+
+/* The course dropdown and the payment server address both come from the
+   pricing catalog, so adding a course or moving the Worker needs no edit
+   here. If the catalog will not load, grant buttons stay disabled and say
+   why, rather than half-working. */
+async function loadCatalog() {
+  try {
+    const P = window.TSSC_PRICING;
+    if (!P) throw new Error('pricing script did not load');
+    const cat = await P.load();
+    PAY_API = String(cat.payApi || PAY_API_FALLBACK).replace(/\/+$/, '');
+    PRODUCTS = (typeof P.productsFor === 'function')
+      ? (P.productsFor(cat) || [])
+      : [];
+    // productsFor may want an exam id; fall back to walking the catalog.
+    if (!PRODUCTS.length && cat.products) {
+      PRODUCTS = Object.keys(cat.products).map(id => ({
+        id, label: (cat.products[id] || {}).label || id,
+        grants: (cat.products[id] || {}).grants || [id]
+      }));
+    }
+  } catch (e) {
+    PAY_API = PAY_API_FALLBACK;
+    PRODUCTS = [];
+    console.warn('pricing catalog unavailable:', e.message);
+  }
+
+  const sel = $('gdCourse');
+  sel.innerHTML = PRODUCTS.length
+    ? PRODUCTS.map(c => `<option value="${esc(c.id)}">${esc(c.label)}</option>`).join('')
+    : '<option value="ssc-cgl-mocks">SSC CGL Mock Test Series</option>';
+}
+
+function modulesFor(courseId) {
+  const hit = PRODUCTS.find(c => c.id === courseId);
+  return (hit && hit.grants && hit.grants.length) ? hit.grants : [courseId];
+}
+
+/* One place that talks to the Worker, so auth and error handling are the
+   same for every admin action. */
+async function callWorker(path, payload) {
+  const user = auth.currentUser;
+  if (!user) throw new Error('Session expired — sign in again.');
+  if (!PAY_API) throw new Error('No payment server address configured.');
+  const res = await fetch(PAY_API + path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ idToken: await user.getIdToken(), ...payload })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || ('Request failed (' + res.status + ')'));
+  return data;
+}
+
+/* ---- dialog ---- */
+const dlg = $('grantDlg');
+
+function openGrant(target) {
+  GRANT_TARGET = target || null;
+  const byEmail = !GRANT_TARGET;
+  $('gdEmailFld').hidden = !byEmail;
+  $('gdWho').textContent = byEmail
+    ? 'Find the student by the email on their account.'
+    : 'Granting to ' + (GRANT_TARGET.email || GRANT_TARGET.uid);
+  if (GRANT_TARGET && GRANT_TARGET.courseId) {
+    const opt = [...$('gdCourse').options].find(o => o.value === GRANT_TARGET.courseId);
+    if (opt) $('gdCourse').value = GRANT_TARGET.courseId;
+  }
+  $('gdMsg').className = 'msg';
+  $('gdMsg').textContent = '';
+  $('gdConfirm').disabled = false;
+  $('gdConfirm').textContent = 'Grant access';
+  dlg.classList.add('on');
+  (byEmail ? $('gdEmail') : $('gdNote')).focus();
+}
+
+function closeGrant() { dlg.classList.remove('on'); GRANT_TARGET = null; }
+
+$('grantBtn').onclick = () => openGrant(null);
+$('gdCancel').onclick = closeGrant;
+dlg.addEventListener('click', e => { if (e.target === dlg) closeGrant(); });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && dlg.classList.contains('on')) closeGrant();
+});
+
+$('gdConfirm').onclick = async () => {
+  const gm = $('gdMsg');
+  const courseId = $('gdCourse').value;
+  const days = parseInt($('gdDays').value, 10) || 365;
+  const note = $('gdNote').value.trim();
+  const email = $('gdEmail').value.trim();
+
+  if (!GRANT_TARGET && !email) {
+    gm.className = 'msg err'; gm.textContent = 'Enter the student\'s email address.';
+    return;
+  }
+
+  $('gdConfirm').disabled = true;
+  $('gdConfirm').textContent = 'Granting…';
+  gm.className = 'msg'; gm.textContent = '';
+
+  try {
+    const out = await callWorker('/admin/grant', {
+      uid: GRANT_TARGET ? GRANT_TARGET.uid : undefined,
+      email: GRANT_TARGET ? undefined : email,
+      modules: modulesFor(courseId),
+      days, note
+    });
+    closeGrant();
+    say('Access granted to ' + esc(out.uid) + ' until ' +
+        fmt(Date.parse(out.expiresAt)) + '.', 'ok');
+    await load(true);
+  } catch (e) {
+    gm.className = 'msg err';
+    gm.textContent = e.message;
+    $('gdConfirm').disabled = false;
+    $('gdConfirm').textContent = 'Grant access';
+  }
+};
+
+/* ---- row buttons ---- */
+document.addEventListener('click', async e => {
+  const g = e.target.closest?.('[data-grant]');
+  if (g) {
+    const uid = g.getAttribute('data-grant');
+    const row = ROWS.find(r => r.uid === uid) || INTENTS.find(i => i.uid === uid) || {};
+    openGrant({ uid, email: row.email || '', courseId: g.getAttribute('data-course') || '' });
+    return;
+  }
+
+  const r = e.target.closest?.('[data-revoke]');
+  if (!r) return;
+  const uid = r.getAttribute('data-revoke');
+  const who = (ROWS.find(x => x.uid === uid) || {}).email || uid;
+  if (!confirm('Revoke all access for ' + who + '?\n\nThey lose the premium mocks ' +
+               'immediately. You can grant it back at any time.')) return;
+  r.disabled = true;
+  try {
+    await callWorker('/admin/revoke', { uid });
+    say('Access revoked for ' + esc(who) + '.', 'warn');
+    await load(true);
+  } catch (err) {
+    say('Could not revoke: ' + esc(err.message), 'err');
+    r.disabled = false;
+  }
+});
+
+/* ---- intents csv ---- */
+$('intentCsv').onclick = () => {
+  const withOrders = new Set(ROWS.map(x => x.uid).filter(Boolean));
+  const rows = INTENTS.filter(i => !withOrders.has(i.uid));
+  const head = ['Name','Email','Mobile','Place','Course','Stage','Tries','Last seen','UID'];
+  const cell = v => `"${String(v == null ? '' : v).replace(/"/g, '""')}"`;
+  const body = rows.map(i => [i.name, i.email, i.mobile, i.place, i.courseId,
+    i.stage, i.clicks, i.lastAt ? new Date(i.lastAt).toISOString().slice(0,10) : '', i.uid
+  ].map(cell).join(','));
+  const blob = new Blob([[head.map(cell).join(',')].concat(body).join('\n')],
+    { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'trickyssc-checkout-intents-' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
+};
 
 /* ------------------------------------------------------------------ csv */
 $('csv').onclick = () => {
