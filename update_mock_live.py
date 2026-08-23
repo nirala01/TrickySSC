@@ -27,7 +27,24 @@ DOC_RE = re.compile(r"ssc-cgl_tier1_mock(\d+)", re.I)
 PAGES = ["ssc-cgl-mock-test.html", "mock-list.html"]
 CARD = (r'<div class="mock-card locked"([^>]*?)data-tier="tier1"[^>]*?'
         r'data-n="(?P<n>\d+)"[^>]*?>(?P<body>.*?)\n</div>')
+
+# the dated "📅 25 Aug 2026" / "Coming Soon" overlay pill
 LOCK = re.compile(r'\s*<div class="mc-lock"><span>[^<]*</span></div>')
+
+# Anything the card may ALREADY carry in its footer. Since TSSC-PAYWALL-V1 the
+# not-yet-live cards ship with their Free/Premium badge and lock pill baked in,
+# so a flip must strip these and re-emit rather than append — otherwise the card
+# ends up with two Premium badges and the lock in the wrong place.
+BADGE = re.compile(r'\s*<div class="mc-lock mc-(?:free|paid)-tag">.*?</div>', re.S)
+LOCKBTN = re.compile(r'\s*<button class="mc-locktag".*?</button>', re.S)
+
+FREE_TAG = ('\n  <div class="mc-lock mc-free-tag">'
+            '<span><i class="mc-ico">&#10004;</i>Free</span></div>')
+PAID_TAG = ('\n  <div class="mc-lock mc-paid-tag">'
+            '<span><i class="mc-coin">&#129689;</i>Premium</span></div>')
+LOCK_BTN = ('\n  <button class="mc-locktag" type="button" '
+            'aria-label="Premium mock — unlock to attempt">'
+            '<i>&#128274;</i>Unlock</button>')
 
 
 # ----------------------------------------------------------------- Firestore
@@ -84,17 +101,24 @@ def update(path, live, free_upto, dry):
         n = int(m.group("n"))
         if n > live:
             return m.group(0)
+        # Strip everything the footer may already hold — the dated pill, any
+        # Free/Premium badge and any lock button — then re-emit in a fixed
+        # order. Keeps the flip idempotent and duplicate-free.
         body = LOCK.sub("", m.group("body"))
-        badge = ('\n  <div class="mc-lock mc-free-tag"><span><i class="mc-ico">&#10004;</i>Free</span></div>'
-                 if n <= free_upto else
-                 '\n  <div class="mc-lock mc-paid-tag"><span><i class="mc-coin">&#129689;</i>Premium</span></div>')
+        body = BADGE.sub("", body)
+        body = LOCKBTN.sub("", body)
+        tail = FREE_TAG if n <= free_upto else PAID_TAG + LOCK_BTN
         flipped.append(n)
         return ('<div class="mock-card live resolved"%sdata-tier="tier1" data-n="%d">%s%s\n</div>'
-                % (m.group(1), n, body, badge))
+                % (m.group(1), n, body, tail))
 
     new = re.sub(CARD, repl, s, flags=re.S)
     new = re.sub(r'(<span class="tc" id="tc1">)\d+ live', r'\g<1>%d live' % live, new)
     new = re.sub(r'(<span class="tb-live-dot"></span>)\d+ Live', r'\g<1>%d Live' % live, new)
+    # hero pill — "📝 35 Tier I Mocks Live". Was never synced before, so it had
+    # drifted well behind the real count on both pages.
+    new = re.sub(r'(<span class="hero-badge">[^<]*?)\d+( Tier I Mocks Live</span>)',
+                 r'\g<1>%d\g<2>' % live, new)
 
     if new == s:
         print("   %-26s already at %d live" % (path, live))
