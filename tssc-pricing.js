@@ -99,6 +99,7 @@
 
   function normalise(raw) {
     var cat = raw || {};
+    cat.payApi = cat.payApi || '';        // payment server address
     cat.entitlements = cat.entitlements || {};
     cat.products = (cat.products || []).map(function (p, i) {
       p.grants = p.grants || [];

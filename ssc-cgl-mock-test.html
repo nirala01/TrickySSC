@@ -4058,6 +4058,117 @@ if (typeof _origChooser === 'function') {
   };
 }
 
+/* ------------------------------------------------------------------
+   Razorpay checkout.
+
+   The browser never decides the price. It asks the payment server to
+   create an order, the server reads the price from Firestore and tells
+   Razorpay. The amount shown here is whatever the server came back with.
+------------------------------------------------------------------ */
+
+function payApi(cat) {
+  const url = (cat && cat.payApi) || '';
+  if (!url) throw new Error(
+    'Payments are not switched on yet. (No payment server address is set in ' +
+    'the pricing settings.)');
+  return url.replace(/\/+$/, '');
+}
+
+let _rzpLoading = null;
+function loadRazorpay() {
+  if (window.Razorpay) return Promise.resolve();
+  if (_rzpLoading) return _rzpLoading;
+  _rzpLoading = new Promise((ok, no) => {
+    const s = document.createElement('script');
+    s.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    s.onload = ok;
+    s.onerror = () => no(new Error('Could not reach the payment page. Check your connection.'));
+    document.head.appendChild(s);
+  });
+  return _rzpLoading;
+}
+
+window.tsscStartCheckout = async function (order) {
+  const cat = await catalog();
+  const api = payApi(cat);
+  const user = _auth.currentUser;
+  if (!user) throw new Error('Please sign in again.');
+
+  await loadRazorpay();
+  const idToken = await user.getIdToken();
+
+  // 1. server creates the order and decides the amount
+  const res = await fetch(api + '/order', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      idToken,
+      courseId: order.courseId,
+      name: order.name,
+      mobile: order.mobile,
+      place: order.place
+    })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Could not start the payment.');
+
+  // 2. hand over to Razorpay
+  await new Promise((done) => {
+    const rzp = new window.Razorpay({
+      key: data.keyId,
+      order_id: data.orderId,
+      amount: data.amount,
+      currency: data.currency || 'INR',
+      name: 'TrickySSC',
+      description: data.productLabel || 'Premium access',
+      prefill: { name: order.name, contact: order.mobile, email: order.email || '' },
+      notes: { place: order.place },
+      theme: { color: '#FF6B00' },
+      modal: {
+        ondismiss: () => {
+          // Closing the window is not a failure — the webhook still lands if
+          // the payment actually went through.
+          fail('Payment window closed. Nothing has been charged. ' +
+               'If money did leave your account, it will unlock automatically ' +
+               'within a few minutes.');
+          done();
+        }
+      },
+      handler: async function (resp) {
+        try {
+          const v = await fetch(api + '/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              idToken: await user.getIdToken(),
+              razorpay_order_id: resp.razorpay_order_id,
+              razorpay_payment_id: resp.razorpay_payment_id,
+              razorpay_signature: resp.razorpay_signature
+            })
+          });
+          const vd = await v.json().catch(() => ({}));
+          if (!v.ok) throw new Error(vd.error || 'Payment could not be confirmed.');
+          await window.tsscOnPaymentSuccess(
+            'Payment received. ' + (vd.product || 'Your course') +
+            ' is unlocked on this account.');
+        } catch (e) {
+          // Money may well have been taken — never imply otherwise here.
+          fail('Payment went through but confirming it failed. ' +
+               'Your access will appear within a few minutes. ' +
+               'If it does not, contact us with payment id ' +
+               (resp.razorpay_payment_id || '—') + '.');
+        } finally { done(); }
+      }
+    });
+    rzp.on('payment.failed', function (e) {
+      fail((e?.error?.description || 'The payment did not go through.') +
+           ' Nothing has been charged.');
+      done();
+    });
+    rzp.open();
+  });
+};
+
 /* ---- read the entitlement ---- */
 function readCache(uid) {
   try {

@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta name="robots" content="noindex,nofollow">
+<title>Premium Candidates — TrickySSC Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F2F7;color:#1E293B;padding:1.2rem;}
+.wrap{max-width:1240px;margin:0 auto;}
+h1{font-family:'Rajdhani',sans-serif;font-size:1.6rem;font-weight:800;}
+.sub{font-size:.85rem;color:#64748B;margin-top:.15rem;}
+.top{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-bottom:1rem;}
+button{font-family:'Rajdhani',sans-serif;font-weight:700;cursor:pointer;border:none;border-radius:9px;}
+.btn{background:#fff;border:1px solid #E2E8F0;color:#475569;padding:.55rem 1rem;font-size:.85rem;}
+.btn:hover{border-color:#94A3B8;}
+.btn-p{background:linear-gradient(135deg,#FF6B00,#FF8C38);color:#fff;padding:.6rem 1.3rem;font-size:.92rem;}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:.7rem;margin-bottom:1rem;}
+.stat{background:#fff;border:1px solid #E8ECF2;border-radius:12px;padding:.8rem .95rem;}
+.stat .k{font-size:.68rem;text-transform:uppercase;letter-spacing:.05em;color:#94A3B8;font-weight:700;}
+.stat .v{font-family:'Rajdhani',sans-serif;font-size:1.6rem;font-weight:800;line-height:1.15;margin-top:.15rem;}
+.stat.green .v{color:#059669;} .stat.orange .v{color:#EA580C;} .stat.red .v{color:#B91C1C;}
+.card{background:#fff;border:1px solid #E8ECF2;border-radius:14px;padding:1rem 1.15rem;margin-bottom:1rem;}
+.tools{display:flex;gap:.55rem;flex-wrap:wrap;margin-bottom:.85rem;}
+.tools input,.tools select{border:1px solid #E2E8F0;border-radius:9px;padding:.5rem .7rem;font-size:.85rem;
+font-family:'Plus Jakarta Sans',sans-serif;outline:none;}
+.tools input{flex:1;min-width:190px;}
+.tools input:focus,.tools select:focus{border-color:#FF6B00;}
+table{width:100%;border-collapse:collapse;font-size:.83rem;}
+th{text-align:left;font-size:.67rem;text-transform:uppercase;letter-spacing:.04em;color:#94A3B8;
+padding:.45rem .5rem;border-bottom:1px solid #E2E8F0;white-space:nowrap;cursor:pointer;user-select:none;}
+th:hover{color:#FF6B00;}
+td{padding:.5rem;border-bottom:1px solid #F1F5F9;vertical-align:top;}
+tr:hover td{background:#FAFBFC;}
+.nm{font-weight:700;color:#1E293B;}
+.em{font-size:.73rem;color:#94A3B8;}
+.mono{font-family:'JetBrains Mono',monospace;font-size:.78rem;}
+.pill{display:inline-block;border-radius:100px;padding:.1rem .55rem;font-size:.68rem;font-weight:800;
+font-family:'Rajdhani',sans-serif;letter-spacing:.02em;white-space:nowrap;}
+.p-paid{background:#DCFCE7;color:#15803D;} .p-created{background:#FEF3C7;color:#B45309;}
+.p-active{background:#DCFCE7;color:#15803D;} .p-exp{background:#FEE2E2;color:#B91C1C;}
+.p-test{background:#E0E7FF;color:#3730A3;} .p-live{background:#FCE7F3;color:#9D174D;}
+.p-soon{background:#FFEDD5;color:#C2410C;}
+.msg{padding:.6rem .85rem;border-radius:9px;font-size:.83rem;margin-bottom:.9rem;display:none;line-height:1.6;}
+.msg.err{background:#FEF2F2;border:1px solid #FECACA;color:#B91C1C;display:block;}
+.msg.ok{background:#ECFDF5;border:1px solid #A7F3D0;color:#047857;display:block;}
+.msg.warn{background:#FFFBEB;border:1px solid #FDE68A;color:#92400E;display:block;}
+.gate{max-width:400px;margin:12vh auto;text-align:center;}
+.empty{color:#94A3B8;text-align:center;padding:2rem 1rem;font-size:.9rem;line-height:1.7;}
+@media(max-width:860px){table,thead,tbody,th,td,tr{display:block;}thead{display:none;}
+tr{border:1px solid #E2E8F0;border-radius:10px;padding:.55rem;margin-bottom:.6rem;}
+td{border:none;padding:.28rem;}
+td::before{content:attr(data-l);display:block;font-size:.64rem;text-transform:uppercase;
+letter-spacing:.04em;color:#94A3B8;}}
+</style>
+</head>
+<body>
+
+<div id="gate" class="gate">
+  <h1>Premium candidates</h1>
+  <p class="sub" style="margin:.5rem 0 1.1rem;">Sign in with an admin account.</p>
+  <button class="btn-p" id="signin">Sign in with Google</button>
+  <div class="msg" id="gateMsg" style="margin-top:1rem;"></div>
+</div>
+
+<div class="wrap" id="app" hidden>
+  <div class="top">
+    <div>
+      <h1>Premium candidates</h1>
+      <div class="sub">Everyone who has started or completed a purchase.</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:.6rem;">
+      <span class="sub" id="who"></span>
+      <button class="btn" id="reload">↻ Refresh</button>
+      <button class="btn" id="csv">Export CSV</button>
+      <button class="btn" id="signout">Sign out</button>
+    </div>
+  </div>
+
+  <div class="msg" id="msg"></div>
+  <div class="cards" id="stats"></div>
+
+  <div class="card">
+    <div class="tools">
+      <input id="q" placeholder="🔍 Search name, mobile, email, place, order id…">
+      <select id="fStatus">
+        <option value="">All statuses</option>
+        <option value="paid">Paid only</option>
+        <option value="created">Started, not paid</option>
+      </select>
+      <select id="fMode">
+        <option value="">Test + Live</option>
+        <option value="live">Live only</option>
+        <option value="test">Test only</option>
+      </select>
+      <select id="fCourse"><option value="">All courses</option></select>
+    </div>
+    <table>
+      <thead><tr>
+        <th data-s="name">Candidate</th>
+        <th data-s="mobile">Mobile</th>
+        <th data-s="place">Place</th>
+        <th data-s="productLabel">Course</th>
+        <th data-s="amount">Amount</th>
+        <th data-s="status">Status</th>
+        <th data-s="expiresAt">Access until</th>
+        <th data-s="createdAt">Purchased</th>
+      </tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <div class="empty" id="empty" hidden></div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut }
+  from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import { getFirestore, collection, getDocs, doc, getDoc }
+  from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+const app = initializeApp({
+  apiKey:"AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",
+  authDomain:"trickyssc-17bb3.firebaseapp.com",
+  projectId:"trickyssc-17bb3",
+  storageBucket:"trickyssc-17bb3.firebasestorage.app",
+  messagingSenderId:"450627057220",
+  appId:"1:450627057220:web:366267bf437d94f20c6e11"
+});
+const auth = getAuth(app);
+const db   = getFirestore(app);
+
+const ADMINS = ['nirala01@gmail.com','ashish@trickyssc.com'];
+const isAdmin = e => !!e && (ADMINS.includes(e) || /@trickyssc\.com$/.test(e));
+
+const $ = id => document.getElementById(id);
+const say = (t, cls) => { const m = $('msg'); m.innerHTML = t; m.className = 'msg ' + (cls||'ok'); };
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g,
+  c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+const IST = 'Asia/Kolkata';
+const CACHE_KEY = 'tssc_premium_cache';
+const CACHE_TTL = 5 * 60 * 1000;
+
+let ROWS = [];
+let sortKey = 'createdAt', sortDir = -1;
+
+/* ------------------------------------------------------------------ auth */
+$('signin').onclick = async () => {
+  try { await signInWithPopup(auth, new GoogleAuthProvider()); }
+  catch (e) { const g = $('gateMsg'); g.className = 'msg err'; g.textContent = e.message; }
+};
+$('signout').onclick = () => signOut(auth);
+
+onAuthStateChanged(auth, async user => {
+  if (!user) { $('gate').hidden = false; $('app').hidden = true; return; }
+  if (!isAdmin(user.email)) {
+    const g = $('gateMsg'); g.className = 'msg err';
+    g.textContent = user.email + ' is not an admin account.';
+    await signOut(auth); return;
+  }
+  $('gate').hidden = true; $('app').hidden = false;
+  $('who').textContent = user.email;
+  await load(false);
+});
+
+/* ------------------------------------------------------------------ data */
+const ts = v => {
+  if (!v) return null;
+  if (typeof v === 'string') { const t = Date.parse(v); return isFinite(t) ? t : null; }
+  if (v.toDate) return v.toDate().getTime();
+  if (v.seconds) return v.seconds * 1000;
+  return null;
+};
+const fmt = t => t ? new Date(t).toLocaleDateString('en-IN',
+  { day:'numeric', month:'short', year:'numeric', timeZone: IST }) : '—';
+
+async function load(force) {
+  say('Loading…', 'ok');
+  if (!force) {
+    try {
+      const c = JSON.parse(sessionStorage.getItem(CACHE_KEY) || 'null');
+      if (c && Date.now() - c.ts < CACHE_TTL) {
+        ROWS = c.rows; afterLoad(true); return;
+      }
+    } catch (e) {}
+  }
+  try {
+    // payments is the spine: one row per purchase attempt.
+    const paySnap = await getDocs(collection(db, 'payments'));
+    const pays = paySnap.docs.map(d => ({ id: d.id, ...(d.data() || {}) }));
+
+    // entitlements tell us what is actually unlocked right now
+    const entSnap = await getDocs(collection(db, 'entitlements'));
+    const ents = {};
+    entSnap.docs.forEach(d => { ents[d.id] = d.data() || {}; });
+
+    ROWS = pays.map(p => {
+      const mods = (ents[p.uid] || {}).modules || {};
+      // the longest-dated key this purchase granted
+      let until = null;
+      (p.grantedKeys || Object.keys(mods)).forEach(k => {
+        const m = mods[k];
+        if (m && m.active) { const t = ts(m.expiresAt); if (t && (!until || t > until)) until = t; }
+      });
+      return {
+        orderId: p.orderId || p.id,
+        uid: p.uid || '',
+        name: p.name || '',
+        email: p.email || '',
+        mobile: p.mobile || '',
+        place: p.place || '',
+        courseId: p.courseId || '',
+        productLabel: p.productLabel || p.courseId || '',
+        amount: Number(p.amount) || 0,
+        status: p.status || 'created',
+        mode: p.mode || 'live',
+        paymentId: p.paymentId || '',
+        createdAt: ts(p.createdAt),
+        paidAt: ts(p.paidAt),
+        expiresAt: until
+      };
+    });
+    try { sessionStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), rows: ROWS })); }
+    catch (e) {}
+    afterLoad(false);
+  } catch (e) {
+    if (String(e.message).includes('permission')) {
+      say('Permission denied reading payments. This page needs the updated ' +
+          'firestore.rules published (the ones granting admins read on ' +
+          '<b>payments</b> and <b>entitlements</b>).', 'err');
+    } else {
+      say('Could not load: ' + esc(e.message), 'err');
+    }
+  }
+}
+$('reload').onclick = () => load(true);
+
+function afterLoad(cached) {
+  const courses = [...new Set(ROWS.map(r => r.productLabel).filter(Boolean))].sort();
+  $('fCourse').innerHTML = '<option value="">All courses</option>' +
+    courses.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  if (!ROWS.length) {
+    say('No purchases yet. Once someone completes a payment they appear here ' +
+        'within seconds.', 'warn');
+  } else {
+    say(ROWS.length + ' purchase record' + (ROWS.length > 1 ? 's' : '') +
+        (cached ? ' (cached — hit ↻ Refresh for the latest)' : '') + '.', 'ok');
+  }
+  render();
+}
+
+/* --------------------------------------------------------------- render */
+function filtered() {
+  const q = $('q').value.trim().toLowerCase();
+  const st = $('fStatus').value, md = $('fMode').value, cs = $('fCourse').value;
+  let out = ROWS.filter(r => {
+    if (st && r.status !== st) return false;
+    if (md && r.mode !== md) return false;
+    if (cs && r.productLabel !== cs) return false;
+    if (!q) return true;
+    return [r.name, r.mobile, r.email, r.place, r.orderId, r.paymentId, r.productLabel]
+      .join(' ').toLowerCase().includes(q);
+  });
+  out.sort((a, b) => {
+    const x = a[sortKey], y = b[sortKey];
+    if (x == null && y == null) return 0;
+    if (x == null) return 1;
+    if (y == null) return -1;
+    return (typeof x === 'number' ? x - y : String(x).localeCompare(String(y))) * sortDir;
+  });
+  return out;
+}
+
+function render() {
+  const rows = filtered();
+  const paid = ROWS.filter(r => r.status === 'paid');
+  const live = paid.filter(r => r.mode === 'live');
+  const now = Date.now();
+  const active = paid.filter(r => r.expiresAt && r.expiresAt > now);
+  const abandoned = ROWS.filter(r => r.status !== 'paid');
+  const revenue = live.reduce((s, r) => s + r.amount, 0);
+
+  $('stats').innerHTML = `
+    <div class="stat green"><div class="k">Paid (live)</div><div class="v">${live.length}</div></div>
+    <div class="stat green"><div class="k">Revenue</div><div class="v">₹${revenue.toLocaleString('en-IN')}</div></div>
+    <div class="stat"><div class="k">Active access</div><div class="v">${active.length}</div></div>
+    <div class="stat orange"><div class="k">Started, not paid</div><div class="v">${abandoned.length}</div></div>
+    <div class="stat"><div class="k">Test payments</div><div class="v">${paid.length - live.length}</div></div>`;
+
+  $('empty').hidden = rows.length > 0;
+  if (!rows.length) {
+    $('empty').textContent = ROWS.length
+      ? 'No rows match those filters.'
+      : 'Nothing here yet.';
+  }
+
+  const DAY = 86400000;
+  $('rows').innerHTML = rows.map(r => {
+    const expPill = !r.expiresAt ? '<span class="pill p-exp">none</span>'
+      : r.expiresAt < now ? `<span class="pill p-exp">expired ${fmt(r.expiresAt)}</span>`
+      : r.expiresAt - now < 30 * DAY ? `<span class="pill p-soon">${fmt(r.expiresAt)}</span>`
+      : `<span class="pill p-active">${fmt(r.expiresAt)}</span>`;
+    return `<tr>
+      <td data-l="Candidate">
+        <div class="nm">${esc(r.name) || '—'}</div>
+        ${r.email ? `<div class="em">${esc(r.email)}</div>` : ''}
+        <div class="em mono">${esc(r.orderId)}</div>
+      </td>
+      <td data-l="Mobile" class="mono">${esc(r.mobile) || '—'}</td>
+      <td data-l="Place">${esc(r.place) || '—'}</td>
+      <td data-l="Course">${esc(r.productLabel) || '—'}</td>
+      <td data-l="Amount" class="mono">₹${r.amount}</td>
+      <td data-l="Status">
+        <span class="pill p-${r.status === 'paid' ? 'paid' : 'created'}">${esc(r.status)}</span>
+        <span class="pill p-${r.mode === 'test' ? 'test' : 'live'}">${esc(r.mode)}</span>
+      </td>
+      <td data-l="Access until">${expPill}</td>
+      <td data-l="Purchased">${fmt(r.paidAt || r.createdAt)}</td>
+    </tr>`;
+  }).join('');
+}
+
+['q','fStatus','fMode','fCourse'].forEach(id =>
+  $(id).addEventListener('input', render));
+
+document.querySelectorAll('th[data-s]').forEach(th => {
+  th.onclick = () => {
+    const k = th.getAttribute('data-s');
+    if (sortKey === k) sortDir = -sortDir; else { sortKey = k; sortDir = 1; }
+    render();
+  };
+});
+
+/* ------------------------------------------------------------------ csv */
+$('csv').onclick = () => {
+  const rows = filtered();
+  const head = ['Name','Email','Mobile','Place','Course','Amount','Status','Mode',
+                'Order ID','Payment ID','Access until','Purchased'];
+  const cell = v => `"${String(v == null ? '' : v).replace(/"/g, '""')}"`;
+  const body = rows.map(r => [r.name, r.email, r.mobile, r.place, r.productLabel,
+    r.amount, r.status, r.mode, r.orderId, r.paymentId,
+    r.expiresAt ? new Date(r.expiresAt).toISOString().slice(0,10) : '',
+    (r.paidAt || r.createdAt) ? new Date(r.paidAt || r.createdAt).toISOString().slice(0,10) : ''
+  ].map(cell).join(','));
+  const blob = new Blob([[head.map(cell).join(',')].concat(body).join('\n')],
+    { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'trickyssc-premium-' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
+};
+</script>
+</body>
+</html>

@@ -83,6 +83,17 @@ letter-spacing:.04em;color:#94A3B8;margin-bottom:.1rem;}}
   <div class="msg" id="msg"></div>
 
   <div class="card">
+    <h2>Payment server</h2>
+    <p class="hint">
+      The address of your trickyssc-pay Worker. Until this is filled in, the
+      &#8377;49 button tells buyers payments aren't switched on yet &mdash; which is the
+      right thing to say, rather than failing silently.
+    </p>
+    <input id="payApi" placeholder="https://trickyssc-pay.YOURNAME.workers.dev"
+      style="max-width:520px;">
+  </div>
+
+  <div class="card">
     <h2>Entitlement keys</h2>
     <p class="hint">
       What a purchase actually unlocks. Pages check these; products grant them.
@@ -179,6 +190,7 @@ async function loadCatalog() {
       CAT = snap.data();
       CAT.entitlements = CAT.entitlements || {};
       CAT.products = CAT.products || [];
+      $('payApi').value = CAT.payApi || '';
       say('Loaded catalog v' + (CAT.version || 0) + '.', 'ok');
     } else {
       CAT = seed();
@@ -373,6 +385,9 @@ function validate() {
       if (!CAT.entitlements[g]) errs.push(`"${who}": grants unknown key "${g}".`);
     });
   });
+  const api = ($('payApi').value || '').trim();
+  if (api && !/^https:\/\/[^\s]+$/.test(api))
+    errs.push('Payment server must be a full https:// address, or left blank.');
   Object.keys(CAT.entitlements).forEach(k => {
     if (!/^[a-z0-9-]+$/.test(k)) errs.push(`Key "${k}": lowercase letters, numbers and hyphens only.`);
   });
@@ -388,6 +403,7 @@ $('save').onclick = async () => {
   const payload = {
     version: next,
     currency: CAT.currency || 'INR',
+    payApi: ($('payApi').value || '').trim().replace(/\/+$/, ''),
     entitlements: CAT.entitlements,
     products: CAT.products.map(p => ({
       id: p.id, label: p.label, exam: p.exam, blurb: p.blurb || '',
