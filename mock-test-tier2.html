@@ -1461,11 +1461,109 @@ if(storedUser){
 }
 
 // Firebase Auth runs in parallel
+
+/* ===================== TSSC-TESTGATE-V1 — premium gate =====================
+   The listing pages gate the BUTTON. This gates the PAGE, so a shared URL
+   cannot hand out a premium paper. Runs before startTest(), so a locked
+   visitor never triggers the question fetch.
+=========================================================================== */
+const TG_MODULE      = 'ssc-cgl-mocks';
+const TG_FREE_UP_TO  = 4;
+const TG_ENFORCE_FROM= '2026-08-25T00:00:00+05:30';   // null = enforce now
+const TG_BUY_URL     = 'ssc-cgl-mock-test.html';
+
+/* ?paywall=on|off|clear — same per-tab switch the listing pages use, so a
+   test session behaves identically on both. */
+(function(){
+  try{
+    const q=new URLSearchParams(location.search).get('paywall');
+    if(!q)return;
+    if(q==='on'||q==='off') sessionStorage.setItem('tssc_paywall_override',q);
+    if(q==='clear') sessionStorage.removeItem('tssc_paywall_override');
+  }catch(e){}
+})();
+
+function tgEnforcing(){
+  let o=null;
+  try{ o=sessionStorage.getItem('tssc_paywall_override'); }catch(e){}
+  if(o==='on') return true;
+  if(o==='off') return false;
+  return !TG_ENFORCE_FROM || Date.now()>=new Date(TG_ENFORCE_FROM).getTime();
+}
+
+/* Which mock is this? Returns 0 when the URL is not a mock at all (a PYQ
+   paper), which means "never gate it". */
+function tgMockNumber(){
+  const p=new URLSearchParams(location.search);
+  const id=p.get('mockId')||'';
+  const m=id.match(/mock(\d+)/i);
+  if(m) return parseInt(m[1],10);
+  const n=parseInt(p.get('mockNum')||'',10);
+  if(isFinite(n)&&n>0) return n;
+  // legacy ?exam=ssc-cgl&year=N addressed mocks by number before mockId existed
+  if(!p.get('paperId')){
+    const y=parseInt(p.get('year')||'',10);
+    if(isFinite(y)&&y>0&&y<200) return y;
+  }
+  return 0;
+}
+
+function tgGrantActive(g){
+  if(!g||g.active!==true) return false;
+  const e=g.expiresAt;
+  if(!e) return true;                       // no expiry = permanent
+  const ms=e.toDate?e.toDate().getTime():(e.seconds?e.seconds*1000:Date.parse(e));
+  return !isFinite(ms)||ms>Date.now();
+}
+
+async function tgOwns(uid){
+  try{
+    const snap=await getDoc(doc(db,'entitlements',uid));
+    const d=snap.exists()?(snap.data()||{}):{};
+    return tgGrantActive(d.allAccess)||tgGrantActive((d.modules||{})[TG_MODULE]);
+  }catch(e){
+    // A network or rules failure must not lock out someone who has paid.
+    console.warn('[gate] entitlement read failed, allowing:',e.message);
+    return true;
+  }
+}
+
+function tgShowLocked(mockNum){
+  const loader=document.getElementById('loader');
+  if(!loader) { location.href=TG_BUY_URL; return; }
+  loader.innerHTML=
+    '<div style="text-align:center;padding:2rem;max-width:340px;">'
+    +'<div style="font-size:3rem;margin-bottom:1rem;">&#128274;</div>'
+    +'<div style="font-family:\'Rajdhani\',sans-serif;font-size:1.5rem;font-weight:700;'
+    +'margin-bottom:0.6rem;">Mock Test '+mockNum+' is part of Premium</div>'
+    +'<div style="font-size:0.9rem;opacity:0.9;line-height:1.65;margin-bottom:1.5rem;">'
+    +'Mock 1 to '+TG_FREE_UP_TO+' are free to attempt. Unlock the full series &mdash; '
+    +'all Tier I and Tier II mocks &mdash; with one payment.</div>'
+    +'<a href="'+TG_BUY_URL+'" style="display:inline-block;background:white;color:#FF6B00;'
+    +'font-family:\'Rajdhani\',sans-serif;font-weight:700;font-size:1rem;padding:0.7rem 2rem;'
+    +'border-radius:10px;text-decoration:none;margin-bottom:1rem;">Unlock all mocks &rarr;</a><br>'
+    +'<a href="'+TG_BUY_URL+'" style="font-size:0.82rem;opacity:0.75;color:white;">'
+    +'&larr; Back to mock tests</a></div>';
+}
+
+/* true = let them in, false = locked screen shown, do not start the test */
+async function tgAllowed(uid){
+  const n=tgMockNumber();
+  if(!n||n<=TG_FREE_UP_TO) return true;      // PYQ paper, or a free mock
+  if(!tgEnforcing()) return true;            // before the paid launch date
+  if(await tgOwns(uid)) return true;
+  tgShowLocked(n);
+  return false;
+}
+/* ================= end TSSC-TESTGATE-V1 ================= */
+
 onAuthStateChanged(auth,async user=>{
   if(testStarted)return;
   if(user){
     const ex=getStoredUser()||{};
     localStorage.setItem('tssc_user',JSON.stringify({...ex,uid:user.uid,name:user.displayName||ex.name||'Student'}));
+    setLoaderMsg('Checking your access...');            /* TSSC-TESTGATE-V1 */
+    if(!(await tgAllowed(user.uid))) return;            /* TSSC-TESTGATE-V1 */
     setLoaderMsg('Loading questions...');
     startTest({uid:user.uid,displayName:user.displayName||'Student'});
   } else if(!storedUser){

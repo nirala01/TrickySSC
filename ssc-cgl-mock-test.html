@@ -161,6 +161,12 @@ body.tssc-enforce .pn-buy{display:inline-block;}
 body.tssc-owned-user .pn-buy{display:none!important;}
 #mockBuyPop .mbp-hint{background:#F0F9FF;border:1px solid #BAE6FD;color:#075985;
 border-radius:9px;padding:.5rem .7rem;font-size:.78rem;margin-bottom:.75rem;line-height:1.5;}
+/* TSSC-LOGINNOTE-V1 — which login the buyer must keep using */
+#mockBuyPop .mbp-login{background:#FFF7ED;border:1px solid #FDBA74;color:#7C2D12;
+border-radius:9px;padding:.6rem .75rem;font-size:.78rem;margin-bottom:.75rem;line-height:1.55;}
+#mockBuyPop .mbp-login b{color:#9A3412;}
+#mockBuyPop .mbp-login .mbp-who{display:block;font-family:'Rajdhani',sans-serif;
+font-weight:800;font-size:.95rem;margin-bottom:.15rem;letter-spacing:.01em;}
 #mockBuyPop .mbp-field.known label::after{content:'from your account';float:right;
 font-weight:600;color:#0EA5E9;font-size:.68rem;text-transform:none;letter-spacing:0;}
 #mockBuyPop .mbp-field.need label::after{content:'needs filling';float:right;
@@ -3593,6 +3599,7 @@ onAuthStateChanged(_aAuth, user => {
     <!-- ---------- step 2: buyer details ---------- -->
     <div class="mbp-body mbp-step" data-step="2" hidden>
       <div class="mbp-hint" id="mbpHint" hidden></div>
+      <div class="mbp-login" id="mbpLogin" hidden></div>   <!-- TSSC-LOGINNOTE-V1 -->
       <div class="mbp-field">
         <label for="mbpName">Full name <b>*</b></label>
         <input id="mbpName" type="text" autocomplete="name" placeholder="As you want it on the receipt">
@@ -3623,6 +3630,8 @@ onAuthStateChanged(_aAuth, user => {
       <div class="mbp-donetitle" id="mbpDoneTitle">Course unlocked</div>
       <p class="mbp-donetxt" id="mbpDoneTxt">
         Your payment went through. Every premium mock is open on this account now.</p>
+      <div class="mbp-login" id="mbpLoginDone" hidden
+           style="text-align:left;margin-bottom:.9rem;"></div>   <!-- TSSC-LOGINNOTE-V1 -->
       <button class="mbp-go" data-close>Start practising &rarr;</button>
     </div>
   </div>
@@ -3647,7 +3656,7 @@ onAuthStateChanged(_aAuth, user => {
 */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-import { getFirestore, doc, getDoc, setDoc, serverTimestamp, increment } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getFirestore, doc, getDoc, setDoc, serverTimestamp, increment, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 const CFG = {
   exam:        'ssc-cgl',           // which catalog block the dropdown reads
@@ -3844,6 +3853,42 @@ async function openBuy(card) {
   PREFILL = prefill();
 }
 
+/* ---- TSSC-LOGINNOTE-V1 ----------------------------------------------------
+   Google sign-in and mobile OTP are two separate accounts in Firebase, and
+   premium sticks to the one that paid. Say so here, while they are paying,
+   naming the method this session actually used. providerData is the source of
+   truth — a stored loginMethod field can be stale. */
+function loginMethodInfo() {
+  const u = _auth.currentUser;
+  if (!u) return null;
+  const ids = (u.providerData || []).map(p => p && p.providerId);
+  if (ids.includes('phone') && !ids.includes('google.com')) {
+    const n = (u.phoneNumber || '').replace(/^\+91/, '');
+    return { how: 'your mobile number', who: n ? n : 'mobile OTP', kind: 'phone' };
+  }
+  if (ids.includes('google.com')) {
+    return { how: 'Google', who: u.email || 'your Google account', kind: 'google' };
+  }
+  return { how: 'this account', who: u.email || u.phoneNumber || '', kind: 'other' };
+}
+
+function paintLoginNotice(elId, short) {
+  const box = document.getElementById(elId);
+  if (!box) return;
+  const info = loginMethodInfo();
+  if (!info) { box.hidden = true; return; }
+  const who = info.who ? ' (' + info.who + ')' : '';
+  box.innerHTML = short
+    ? '<span class="mbp-who">Signed in with ' + info.how + who + '</span>' +
+      'Log in the same way next time. A different login opens a different ' +
+      'account, and your mocks will look locked.'
+    : '<span class="mbp-who">You are signed in with ' + info.how + who + '</span>' +
+      '<b>Please keep using this same login</b> to open your mocks. Logging in ' +
+      'another way creates a separate account, and the course you paid for will ' +
+      'show as locked there.';
+  box.hidden = false;
+}
+
 function closeBuy() {
   if (pop) pop.style.display = 'none';
   document.body.style.overflow = '';
@@ -3852,6 +3897,7 @@ function closeBuy() {
 function showUnlocked(msg) {
   if (!pop) return;
   if (msg) document.getElementById('mbpDoneTxt').textContent = msg;
+  paintLoginNotice('mbpLoginDone', true);       /* TSSC-LOGINNOTE-V1 */
   showStep(3);
   pop.style.display = 'flex';
   document.body.style.overflow = 'hidden';
@@ -4016,9 +4062,49 @@ document.getElementById('mbpNext')?.addEventListener('click', async () => {
   try { await PREFILL; } catch (e) {}
   btn.disabled = false;
   markFields();
+  paintLoginNotice('mbpLogin', false);          /* TSSC-LOGINNOTE-V1 */
   showStep(2);
   focusFirstGap();
 });
+
+/* ---- TSSC-BUYPHONE-V1 -----------------------------------------------------
+   One mobile number, one account. Premium support runs on this number: if two
+   accounts share it, deciding who to unlock becomes guesswork.
+
+   The number is no longer collected at Google signup, so this is the only
+   place the rule is applied for Google buyers.
+
+   NOTE: this proves the number is unused, not that the buyer owns it. No OTP
+   is sent here. Verified ownership needs linkWithPhoneNumber. */
+function buyNormPhone(v) {
+  let d = String(v == null ? '' : v).replace(/\D/g, '');
+  if (d.length === 12 && d.startsWith('91')) d = d.slice(2);
+  if (d.length === 11 && d.startsWith('0'))  d = d.slice(1);
+  return d.length === 10 ? d : '';
+}
+
+/* Throws on failure — the caller must fail closed. A check that could not run
+   is not a check that passed. */
+async function buyPhoneTakenBy(tenDigits, exceptUid) {
+  // Older rows stored the bare ten digits; newer ones use the +91 form.
+  for (const form of ['+91' + tenDigits, tenDigits]) {
+    const snap = await getDocs(query(collection(_db, 'users'), where('phone', '==', form)));
+    for (const d of snap.docs) {
+      if (d.id !== exceptUid) return d.id;
+    }
+  }
+  return null;
+}
+
+/* Keep the buyer's own profile in step, so their next purchase is prefilled
+   and support can find them by number. Never blocks the sale. */
+async function buySavePhone(uid, tenDigits) {
+  try {
+    await setDoc(doc(_db, 'users', uid), { phone: '+91' + tenDigits }, { merge: true });
+  } catch (e) {
+    console.warn('[checkout] could not save phone to profile:', e.message);
+  }
+}
 
 /* ---- validate, then hand off to checkout ---- */
 function fail(msg, id) {
@@ -4060,6 +4146,32 @@ document.getElementById('mbpPay')?.addEventListener('click', async () => {
 
   const btn = document.getElementById('mbpPay');
   btn.disabled = true;
+  btn.textContent = 'Checking your number\u2026';   /* TSSC-BUYPHONE-V1 */
+
+  /* TSSC-BUYPHONE-V1 — one account per number, enforced before any money
+     moves. Fails closed: a check that errors stops the sale rather than
+     letting a duplicate through. */
+  const buyTen = buyNormPhone(d.mobile);
+  if (!buyTen) {
+    btn.disabled = false; btn.textContent = 'Continue to payment \u2192';
+    return fail('Enter a valid 10-digit Indian mobile number.', 'mbpMobile');
+  }
+  try {
+    const takenBy = await buyPhoneTakenBy(buyTen, user.uid);
+    if (takenBy) {
+      btn.disabled = false; btn.textContent = 'Continue to payment \u2192';
+      return fail('This mobile number is already registered to another '
+        + 'TrickySSC account. Use the number for this account, or log in to '
+        + 'the account that already has it.', 'mbpMobile');
+    }
+  } catch (e) {
+    console.error('[checkout] phone check failed:', e);
+    btn.disabled = false; btn.textContent = 'Continue to payment \u2192';
+    return fail('Could not verify that mobile number just now. Please check '
+      + 'your connection and try again.', 'mbpMobile');
+  }
+  buySavePhone(user.uid, buyTen);          /* fire and forget */
+
   btn.textContent = 'Opening payment\u2026';
   ORDER = { ...d, uid: user.uid, email: user.email || '' };
   /* TSSC-INTENT-V1 — they have given us their details and pressed pay. If the
@@ -4262,6 +4374,7 @@ async function resumePending() {
   await openBuy(null);
   try { await PREFILL; } catch (e) {}
   markFields();
+  paintLoginNotice('mbpLogin', false);          /* TSSC-LOGINNOTE-V1 */
   showStep(2);
   focusFirstGap();
 }

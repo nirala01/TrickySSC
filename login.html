@@ -322,7 +322,7 @@ import { getFirestore, doc, setDoc, getDoc, getDocs, collection, query, where, s
 import {
   getAuth, signInWithPopup, GoogleAuthProvider,
   signInAnonymously, onAuthStateChanged,
-  signInWithPhoneNumber, RecaptchaVerifier, updateProfile
+  signInWithPhoneNumber, RecaptchaVerifier, updateProfile, signOut
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 const app = initializeApp({
@@ -346,6 +346,34 @@ onAuthStateChanged(auth, user => {
 });
 
 // ── Save user profile to Firestore ──
+
+/* ---- TSSC-PHONEUNIQ-V1 ---------------------------------------------------
+   One mobile number, one account. Premium access is identified by this number
+   in support, so a duplicate makes that identification meaningless.
+
+   Returns: null  = free to use
+            {uid} = already taken by that account
+   Throws on failure, so callers must fail CLOSED. A check that cannot run is
+   not a check that passed. */
+function tsscNormPhone(v) {
+  let d = String(v == null ? '' : v).replace(/\D/g, '');
+  if (d.length === 12 && d.startsWith('91')) d = d.slice(2);
+  if (d.length === 11 && d.startsWith('0'))  d = d.slice(1);
+  return d.length === 10 ? d : '';
+}
+
+async function tsscPhoneOwner(tenDigits, exceptUid) {
+  // Numbers were written as '+91XXXXXXXXXX' historically; a few older rows may
+  // hold the bare ten digits, so both shapes are checked.
+  for (const form of ['+91' + tenDigits, tenDigits]) {
+    const snap = await getDocs(query(collection(db, 'users'), where('phone', '==', form)));
+    for (const d of snap.docs) {
+      if (d.id !== exceptUid) return { uid: d.id, data: d.data() || {} };
+    }
+  }
+  return null;
+}
+
 async function saveUserProfile(user, extraPhone='', extraName='') {
   const ref = doc(db, 'users', user.uid);
   const snap = await getDoc(ref);
@@ -368,140 +396,31 @@ async function saveUserProfile(user, extraPhone='', extraName='') {
   }
 }
 
-// ── Show Google extra info modal (name + phone for new users) ──
+// ── TSSC-NOPHONE-V1 — Google sign-in goes straight through ──
+// No mobile number is asked for here any more. It is collected at checkout,
+// where it is actually needed and where the buyer has a reason to get it right.
+// If the profile write fails, we still let them in: they are authenticated, and
+// a missing profile row is recoverable, whereas a dead signup is not.
 async function checkGoogleUserInfo(user) {
-  const ref = doc(db, 'users', user.uid);
-  const snap = await getDoc(ref);
-  if (!snap.exists() || !snap.data().phone) {
-    // Show modal to collect phone
-    showGoogleInfoModal(user, snap.exists() ? snap.data() : null);
-  } else {
+  try {
     await saveUserProfile(user);
-    goToDashboard(user);
+  } catch (e) {
+    console.error('[register] profile write failed, continuing anyway:', e);
   }
-}
-
-function showGoogleInfoModal(user, existingData) {
-  const modal = document.createElement('div');
-  modal.id = 'extraInfoModal';
-  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:1rem;';
-  const userName = existingData?.name || user.displayName || '';
-  const needsName = !userName || userName === 'Student';
-  modal.innerHTML = `
-    <div style="position:relative;background:#fff;border-radius:20px;padding:2rem;max-width:400px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.2);">
-      <button onclick="skipGoogleExtra()" aria-label="Close" title="Skip for now"
-        style="position:absolute;top:0.85rem;right:0.85rem;width:32px;height:32px;padding:0;border:none;background:#F1F5F9;color:#64748B;border-radius:50%;font-size:1.25rem;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s,color .15s;"
-        onmouseover="this.style.background='#E2E8F0';this.style.color='#1A202C';"
-        onmouseout="this.style.background='#F1F5F9';this.style.color='#64748B';">&times;</button>
-      ${user.photoURL ? `<img src="${user.photoURL}" style="width:60px;height:60px;border-radius:50%;margin-bottom:0.75rem;border:3px solid #FF6B00;">` : '<div style="font-size:2.5rem;margin-bottom:0.75rem;">👋</div>'}
-      <h2 style="font-family:'Rajdhani',sans-serif;font-size:1.4rem;font-weight:700;color:#1A202C;margin-bottom:0.25rem;">Almost there!</h2>
-      <p style="font-size:0.85rem;color:#64748B;margin-bottom:1.5rem;">Complete your TrickySSC profile to get started.</p>
-      ${needsName ? `
-      <div style="text-align:left;margin-bottom:1rem;">
-        <label style="display:block;font-family:'Rajdhani',sans-serif;font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#64748B;margin-bottom:0.4rem;">👤 Full Name</label>
-        <input id="gName" type="text" placeholder="Enter your full name"
-          onfocus="this.style.borderColor='#FF6B00'" onblur="this.style.borderColor='#E2E8F0'"
-          style="width:100%;border:2px solid #E2E8F0;border-radius:12px;padding:0.85rem 1rem;font-family:'Hind',sans-serif;font-size:1rem;color:#1A202C;outline:none;box-sizing:border-box;">
-      </div>` : `<input id="gName" type="hidden" value="${userName}">`}
-      <div style="text-align:left;margin-bottom:1rem;">
-        <label style="display:block;font-family:'Rajdhani',sans-serif;font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#64748B;margin-bottom:0.4rem;">📱 Mobile Number</label>
-        <div style="display:flex;border:2px solid #E2E8F0;border-radius:12px;overflow:hidden;" id="gPhoneWrap">
-          <div style="padding:0 1rem;background:#F8FAFC;font-family:'Rajdhani',sans-serif;font-size:0.95rem;font-weight:700;color:#1A202C;display:flex;align-items:center;border-right:2px solid #E2E8F0;">🇮🇳 +91</div>
-          <input id="gPhone" type="tel" maxlength="10" placeholder="10-digit mobile number"
-            oninput="this.value=this.value.replace(/\D/g,'').slice(0,10)"
-            onfocus="document.getElementById('gPhoneWrap').style.borderColor='#FF6B00'"
-            onblur="document.getElementById('gPhoneWrap').style.borderColor='#E2E8F0'"
-            style="flex:1;padding:0.85rem 1rem;border:none;outline:none;font-family:'Hind',sans-serif;font-size:1rem;color:#1A202C;background:#fff;">
-        </div>
-      </div>
-      <div id="gModalMsg" style="font-size:0.85rem;color:#DC2626;margin-bottom:0.75rem;display:none;"></div>
-      <button onclick="submitGoogleExtra('${user.uid}')"
-        style="width:100%;background:linear-gradient(135deg,#FF6B00,#FF8C38);color:#fff;border:none;border-radius:10px;padding:0.9rem;font-family:'Rajdhani',sans-serif;font-size:1rem;font-weight:700;cursor:pointer;box-shadow:0 4px 15px rgba(255,107,0,0.3);">
-        Complete Registration →
-      </button>
-      <p style="font-size:0.78rem;color:#94A3B8;margin-top:0.75rem;">Free · No spam · Your data is safe</p>
-    </div>`;
-  document.body.appendChild(modal);
-  window._pendingGoogleUser = user;
-  setTimeout(() => document.getElementById('gPhone')?.focus(), 100);
-}
-
-window.submitGoogleExtra = async (uid) => {
-  const phone = document.getElementById('gPhone').value.trim();
-  const msgEl = document.getElementById('gModalMsg');
-  if(phone.length !== 10){
-    msgEl.style.display='block'; msgEl.style.color='#DC2626';
-    msgEl.textContent='⚠️ Enter valid 10-digit mobile number'; return;
-  }
-  msgEl.style.display='block'; msgEl.style.color='#64748B'; msgEl.textContent='⏳ Verifying...';
-
-  try {
-    const existing = await getDocs(query(collection(db,'users'), where('phone','==','+91'+phone)));
-    if(!existing.empty && existing.docs[0].id !== uid){
-      msgEl.style.display='block'; msgEl.style.color='#DC2626';
-      msgEl.textContent='⚠️ This mobile number is already linked to another account.';
-      return;
-    }
-  } catch(e) {}
-
-  const user = window._pendingGoogleUser;
-  const nameInput = document.getElementById('gName');
-  const finalName = (nameInput?.value?.trim()) || user.displayName || 'Student';
-  if(finalName.length < 2){ msgEl.style.display='block'; msgEl.style.color='#DC2626'; msgEl.textContent='⚠️ Please enter your full name'; return; }
-
-  /* TSSC-LOGINERR-V1 — never let a Firestore failure leave the student on a
-     dead spinner. Before this, a refused write rejected the promise with no
-     handler: the console logged it, the button stayed on "Verifying..." and
-     registration was impossible. */
-  const gBtn = document.querySelector('#extraInfoModal button[onclick^="submitGoogleExtra"]');
-  if (gBtn) { gBtn.disabled = true; }
-  try {
-    await saveUserProfile(user, '+91'+phone, finalName);
-  } catch (err) {
-    console.error('[register] profile write failed:', err);
-    msgEl.style.display = 'block';
-    msgEl.style.color = '#DC2626';
-    msgEl.textContent = (err && err.code === 'permission-denied')
-      ? '⚠️ We could not save your profile just now. Please tap "Skip for now" '
-        + 'to continue — you are already signed in, and you can add your mobile '
-        + 'number later from your profile.'
-      : '⚠️ Could not save your details: ' + ((err && err.message) || 'unknown error')
-        + '. Please try again, or tap "Skip for now" to continue.';
-    if (gBtn) { gBtn.disabled = false; }
-    return;
-  }
-  if (gBtn) { gBtn.disabled = false; }
-
-  document.getElementById('extraInfoModal').remove();
-  // Save finalName (from modal) to localStorage so dashboard shows correct name immediately
-  localStorage.setItem('tssc_user', JSON.stringify({
-    uid: user.uid, name: finalName, phone: '+91'+phone,
-    email: user.email||'', photoURL: user.photoURL||'', loginMethod:'google'
-  }));
   goToDashboard(user);
-};
+}
+
+/* TSSC-NOPHONE-V1 — showGoogleInfoModal, submitGoogleExtra and
+   skipGoogleExtra were removed here. The mobile number is collected in
+   the checkout popup instead. */
+
+
 
 // Dismiss the "complete your profile" modal without adding a phone. The user is
 // already authenticated via Google, so we persist a minimal profile (name/email/
 // photo, no phone) and continue to the dashboard. This also unblocks the case
 // where the entered phone is "already linked to another account".
-window.skipGoogleExtra = async () => {
-  const user  = window._pendingGoogleUser;
-  const modal = document.getElementById('extraInfoModal');
-  try {
-    if (user) {
-      const nameInput = document.getElementById('gName');
-      const finalName = (nameInput?.value?.trim()) || user.displayName || 'Student';
-      try { await saveUserProfile(user, '', finalName); } catch(_) {}
-      localStorage.setItem('tssc_user', JSON.stringify({
-        uid: user.uid, name: finalName, phone: '',
-        email: user.email||'', photoURL: user.photoURL||'', loginMethod:'google'
-      }));
-    }
-  } catch(_) {}
-  if (modal) modal.remove();
-  if (user) goToDashboard(user);
-};
+
 
 // ── Redirect after login ──
 function goToDashboard(user) {
@@ -739,6 +658,33 @@ window.completeMobileLogin = async () => {
   }
   btn.disabled = true; btn.textContent = '⏳ Saving...';
   const user = window._pendingPhoneUser;
+
+  /* TSSC-PHONEUNIQ-V1 — this number may already belong to a Google account.
+     Firebase gives phone logins a different uid, so letting this through would
+     quietly create a second account: same person, same number, and any course
+     they paid for sitting in the other one. Send them to the right door. */
+  try {
+    const ten = tsscNormPhone(window._otpPhone || user.phoneNumber || '');
+    const owner = ten ? await tsscPhoneOwner(ten, user.uid) : null;
+    if(owner){
+      msgEl.className='msg-box msg-error'; msgEl.style.display='block';
+      msgEl.innerHTML='This mobile number is already registered with a '
+        + '<b>Google login</b>. Please go back and sign in with Google to reach '
+        + 'that account — everything you have, including any course you bought, '
+        + 'is there.';
+      btn.disabled = false; btn.textContent = 'Start Learning →';
+      try { await signOut(auth); } catch(_) {}
+      return;
+    }
+  } catch(e) {
+    console.error('[otp] phone uniqueness check failed:', e);
+    msgEl.className='msg-box msg-error'; msgEl.style.display='block';
+    msgEl.textContent='Could not verify your number just now. Please check your '
+      + 'connection and try again.';
+    btn.disabled = false; btn.textContent = 'Start Learning →';
+    return;
+  }
+
   try {
     await setDoc(doc(db, 'users', user.uid), {
       uid: user.uid, name, phone: window._otpPhone, email:'',
