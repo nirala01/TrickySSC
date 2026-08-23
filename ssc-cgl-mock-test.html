@@ -161,6 +161,11 @@ body.tssc-enforce .pn-buy{display:inline-block;}
 body.tssc-owned-user .pn-buy{display:none!important;}
 #mockBuyPop .mbp-hint{background:#F0F9FF;border:1px solid #BAE6FD;color:#075985;
 border-radius:9px;padding:.5rem .7rem;font-size:.78rem;margin-bottom:.75rem;line-height:1.5;}
+/* TSSC-RELNOTE-V1 — what is live now vs still releasing */
+#mockBuyPop .mbp-release{background:#F0FDF4;border:1px solid #86EFAC;color:#14532D;
+border-radius:9px;padding:.55rem .7rem;font-size:.76rem;line-height:1.55;
+margin:.1rem 0 .9rem;text-align:left;}
+#mockBuyPop .mbp-release b{color:#15803D;}
 /* TSSC-LOGINNOTE-V1 — which login the buyer must keep using */
 #mockBuyPop .mbp-login{background:#FFF7ED;border:1px solid #FDBA74;color:#7C2D12;
 border-radius:9px;padding:.6rem .75rem;font-size:.78rem;margin-bottom:.75rem;line-height:1.55;}
@@ -3592,6 +3597,7 @@ onAuthStateChanged(_aAuth, user => {
       <div class="mbp-mock" id="mbpMock"></div>
       <div class="mbp-price" id="mbpPrice"></div>
       <ul id="mbpPerks"></ul>
+      <div class="mbp-release" id="mbpRelease" hidden></div>   <!-- TSSC-RELNOTE-V1 -->
       <button class="mbp-go" id="mbpNext">Proceed to checkout &rarr;</button>
       <div class="mbp-no" data-close>Maybe later</div>
     </div>
@@ -3778,6 +3784,44 @@ function showStep(n) {
   });
 }
 
+/* ---- TSSC-RELNOTE-V1 ------------------------------------------------------
+   Say what is live now, before they pay, so the release schedule is something
+   they already knew rather than something they discover afterwards.
+
+   The count comes off the page (cards carry .live once availability resolves),
+   so it stays honest on its own as mocks go out. After the completion date the
+   note stops rendering — no stale promise left behind, no cleanup to remember. */
+const TSSC_REL_UNTIL = '2026-09-01T23:59:59+05:30';
+const TSSC_REL_TOTAL = 50;
+
+function liveMockCount() {
+  let top = 0, seen = 0;
+  document.querySelectorAll('.mock-card').forEach(c => {
+    if (!c.classList.contains('live')) return;
+    seen++;
+    const n = parseInt(c.getAttribute('data-n') || '0', 10);
+    if (n > top) top = n;
+  });
+  return seen ? top : 0;
+}
+
+function paintReleaseNote() {
+  const box = document.getElementById('mbpRelease');
+  if (!box) return;
+  if (Date.now() > new Date(TSSC_REL_UNTIL).getTime()) { box.hidden = true; return; }
+
+  const n = liveMockCount();
+  if (n >= TSSC_REL_TOTAL) { box.hidden = true; return; }   // everything is out
+
+  box.innerHTML = (n > 0
+      ? '<b>Mocks 1&ndash;' + n + ' are live right now.</b> '
+      : '<b>Some mocks are still on the way.</b> ')
+    + 'The rest release one per day and the full set of ' + TSSC_REL_TOTAL
+    + ' completes on <b>1 September</b> &mdash; included in this payment, '
+    + 'nothing more to pay.';
+  box.hidden = false;
+}
+
 function money(c) {
   return (c.mrp ? '<s>\u20b9' + c.mrp + '</s> ' : '') +
          '\u20b9' + c.price + ' <span style="font-size:.8rem;">/ year</span>';
@@ -3841,6 +3885,8 @@ async function openBuy(card) {
     combos.map(c =>
       '<li><b>' + c.label + '</b> \u2014 \u20b9' + c.price +
       ' for ' + c.grants.length + ' modules. Pick it in the next step.</li>').join('');
+
+  paintReleaseNote();                            /* TSSC-RELNOTE-V1 */
 
   // step 2 dropdown: every live product for this exam, combos included
   const all = P.productsFor(cat, CFG.exam);
@@ -3955,16 +4001,30 @@ function tenDigits(v) {
   return d.length === 10 ? d : '';
 }
 
-function fillFrom(u) {
+/* TSSC-PREFILL-V1 — the signed-in account outranks anything cached.
+
+   `trusted` false = localStorage: fill only what is still empty. Handy, but it
+   can belong to whoever used this browser last.
+   `trusted` true  = the signed-in Firestore profile: overwrite. This is who is
+   actually paying.
+
+   Before this, cached values could never be corrected, so on a shared phone the
+   previous user's mobile number was offered to the next buyer. With the number
+   now identifying who paid, that is not a cosmetic problem. */
+function fillFrom(u, trusted) {
   if (!u) return;
   const n = document.getElementById('mbpName');
   const m = document.getElementById('mbpMobile');
   const pl = document.getElementById('mbpPlace');
+
   const nm = u.name || u.displayName || '';
-  if (n && !n.value && nm && nm !== 'Student') n.value = nm;
+  if (n && nm && nm !== 'Student' && (trusted || !n.value)) n.value = nm;
+
   const ph = tenDigits(u.phone);
-  if (m && !m.value && ph) m.value = ph;
-  // `place` isn't on the profile — it comes back from the last checkout
+  if (m && ph && (trusted || !m.value)) m.value = ph;
+
+  // `place` isn't on the profile — the last checkout is its only source, so a
+  // cached value is never overruled here.
   const pc = u.place || u.city || '';
   if (pl && !pl.value && pc) pl.value = pc;
 }
@@ -4005,15 +4065,17 @@ function focusFirstGap() {
 }
 
 async function prefill() {
-  try { fillFrom(JSON.parse(localStorage.getItem('tssc_user') || '{}')); } catch (e) {}
-  try { fillFrom(JSON.parse(localStorage.getItem('tssc_checkout') || '{}')); } catch (e) {}
+  /* Cached first so the form is not blank while Firestore is read, but marked
+     untrusted — the profile below corrects it. TSSC-PREFILL-V1 */
+  try { fillFrom(JSON.parse(localStorage.getItem('tssc_user') || '{}'), false); } catch (e) {}
+  try { fillFrom(JSON.parse(localStorage.getItem('tssc_checkout') || '{}'), false); } catch (e) {}
   const user = _auth.currentUser;
   if (!user) return;
   try {
     const snap = await getDoc(doc(_db, 'users', user.uid));
     if (snap.exists()) {
       const u = snap.data() || {};
-      fillFrom(u);
+      fillFrom(u, true);                        /* TSSC-PREFILL-V1 */
       // keep the local copy current so the next checkout needs no read
       try {
         const cur = JSON.parse(localStorage.getItem('tssc_user') || '{}');
