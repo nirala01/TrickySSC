@@ -150,6 +150,15 @@ border-radius:9px;padding:.6rem .75rem;font-size:.9rem;font-family:'Plus Jakarta
 outline:none;background:#fff;color:#1E293B;}
 #mockBuyPop .mbp-field input:focus,#mockBuyPop .mbp-field select:focus{border-color:#FF6B00;}
 #mockBuyPop .mbp-field input.bad,#mockBuyPop .mbp-field select.bad{border-color:#DC2626;background:#FEF2F2;}
+/* "Go Premium" button in the pricing banner. Hidden until the paywall is
+   actually enforcing, so nobody can pay for something still free. */
+.pn-buy{display:none;margin-top:.55rem;background:linear-gradient(135deg,#FF6B00,#FF8C38);
+color:#fff;border:none;border-radius:10px;padding:.55rem 1.15rem;font-family:'Rajdhani',sans-serif;
+font-weight:800;font-size:.95rem;cursor:pointer;-webkit-tap-highlight-color:transparent;
+box-shadow:0 3px 10px rgba(255,107,0,.28);}
+.pn-buy:hover{filter:brightness(1.08);}
+body.tssc-enforce .pn-buy{display:inline-block;}
+body.tssc-owned-user .pn-buy{display:none!important;}
 #mockBuyPop .mbp-hint{background:#F0F9FF;border:1px solid #BAE6FD;color:#075985;
 border-radius:9px;padding:.5rem .7rem;font-size:.78rem;margin-bottom:.75rem;line-height:1.5;}
 #mockBuyPop .mbp-field.known label::after{content:'from your account';float:right;
@@ -3773,11 +3782,15 @@ async function openBuy(card) {
   // one mock they happened to tap, so naming "Mock Test 5" would mislead.
   const tierLabel = (card?.getAttribute('data-tier') === 'tier2') ? 'Tier II' : 'Tier I';
   const examLabel = (CFG.exam || 'ssc-cgl').replace(/^ssc-/, 'SSC ').toUpperCase();
-  const title = examLabel + ' ' + tierLabel + ' Mock Test 2026';
+  // No card means they came from the banner button or resumed after logging
+  // in, so there is no single mock to name — just sell the series.
+  const title = card ? (examLabel + ' ' + tierLabel + ' Mock Test 2026') : '';
   const stats = [...(card?.querySelectorAll('.mc-stat') || [])]
                   .map(s => s.textContent.replace(/\s+/g, ' ').trim()).join('  \u00b7  ');
-  document.getElementById('mbpMock').innerHTML =
+  const mockBox = document.getElementById('mbpMock');
+  mockBox.innerHTML =
     (title ? '<b>' + title + '</b>' : '') + (stats ? '<span>' + stats + '</span>' : '');
+  mockBox.style.display = (title || stats) ? '' : 'none';
   document.getElementById('mbpPrice').innerHTML = '<span style="font-size:.9rem;">Loading price\u2026</span>';
   document.getElementById('mbpPerks').innerHTML = '';
   document.getElementById('mbpSub').textContent = '';
@@ -3945,12 +3958,27 @@ pop?.querySelectorAll('[data-back]').forEach(el => el.addEventListener('click', 
 pop?.addEventListener('click', e => { if (e.target === pop) closeBuy(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeBuy(); });
 
+const PENDING_KEY = 'tssc_pending_checkout';
+
+/* Signed-out buyer: stash what they were buying, then send them to log in.
+   On the way back we reopen the checkout instead of dumping them on a page
+   with no idea what they were doing. */
+function goLogin() {
+  try {
+    localStorage.setItem(PENDING_KEY, JSON.stringify({
+      courseId: (ORDER && ORDER.courseId) || CFG.module,
+      ts: Date.now()
+    }));
+    // login.html already honours this key in goToDashboard() — every one of
+    // its sign-in paths (Google, mobile OTP, returning session) goes through
+    // that function, so setting it here is all that's needed to come back.
+    localStorage.setItem('loginReturnTo', location.href);
+  } catch (e) {}
+  location = 'https://trickyssc.com/login.html';
+}
+
 document.getElementById('mbpNext')?.addEventListener('click', async () => {
-  if (!_auth.currentUser) {
-    const back = encodeURIComponent(location.href);
-    location = 'https://trickyssc.com/login.html?next=' + back;
-    return;
-  }
+  if (!_auth.currentUser) { goLogin(); return; }
   const btn = document.getElementById('mbpNext');
   btn.disabled = true;
   // A registered buyer should never see empty boxes they could have avoided:
@@ -3998,7 +4026,7 @@ document.getElementById('mbpPay')?.addEventListener('click', async () => {
   const d = collect();
   if (!d) return;
   const user = _auth.currentUser;
-  if (!user) { location = 'https://trickyssc.com/login.html'; return; }
+  if (!user) { goLogin(); return; }
 
   const btn = document.getElementById('mbpPay');
   btn.disabled = true;
@@ -4169,6 +4197,39 @@ window.tsscStartCheckout = async function (order) {
   });
 };
 
+/* ---- "Go Premium" button in the pricing banner ---- */
+(function () {
+  const note = document.querySelector('.price-note .pn-txt');
+  if (!note || document.getElementById('pnBuy')) return;
+  const b = document.createElement('button');
+  b.id = 'pnBuy';
+  b.className = 'pn-buy';
+  b.type = 'button';
+  b.innerHTML = '\u{1F513} Go Premium';
+  b.addEventListener('click', () => {
+    if (!_auth.currentUser) { openBuy(null); return; }
+    openBuy(null);
+  });
+  note.appendChild(document.createElement('br'));
+  note.appendChild(b);
+})();
+
+/* ---- resume a checkout that was interrupted by logging in ---- */
+async function resumePending() {
+  let pend = null;
+  try { pend = JSON.parse(localStorage.getItem(PENDING_KEY) || 'null'); } catch (e) {}
+  if (!pend) return;
+  try { localStorage.removeItem(PENDING_KEY); } catch (e) {}
+  // Only resume something recent — a week-old intent is not what they meant.
+  if (Date.now() - (pend.ts || 0) > 30 * 60 * 1000) return;
+  if (OWNED) return;                      // they already bought it
+  await openBuy(null);
+  try { await PREFILL; } catch (e) {}
+  markFields();
+  showStep(2);
+  focusFirstGap();
+}
+
 /* ---- read the entitlement ---- */
 function readCache(uid) {
   try {
@@ -4213,6 +4274,7 @@ onAuthStateChanged(_auth, async user => {
   if (!user) { OWNED = false; applyEntitlement(); return; }
   OWNED = await loadEntitlement(user.uid);
   applyEntitlement();
+  resumePending();
 });
 </script>
 </body>
