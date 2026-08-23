@@ -45,7 +45,7 @@ CSS_ANCHOR = ("@media(prefers-reduced-motion:reduce)"
 
 CSS_BLOCK = """
 /* ===== premium lock (""" + MARKER + """) ===== */
-.mc-locktag{display:inline-flex!important;align-items:center;gap:.24rem;margin-left:.32rem;
+.mc-locktag{display:none!important;align-items:center;gap:.24rem;margin-left:.32rem;
 vertical-align:middle;border:none;cursor:pointer;font-family:'Rajdhani',sans-serif;
 font-size:.68rem!important;font-weight:800;letter-spacing:.03em;padding:.2rem .55rem;
 border-radius:100px;background:linear-gradient(135deg,#1E293B,#475569);color:#fff;
@@ -54,7 +54,9 @@ box-shadow:0 2px 8px rgba(15,23,42,.3),inset 0 1px 0 rgba(255,255,255,.18);
 .mc-locktag:hover{filter:brightness(1.2);transform:translateY(-1px);}
 .mc-locktag i{font-style:normal;font-size:.76rem;line-height:1;}
 /* owned: the lock disappears and the gold Premium pill goes green */
-.mock-card.tssc-owned .mc-locktag{display:none!important;}
+/* the lock appears ONLY once the paywall is enforcing, and only on a card
+   this user hasn't bought. Before 25 Aug nobody sees it at all. */
+body.tssc-enforce .mock-card.tssc-premium:not(.tssc-owned) .mc-locktag{display:inline-flex!important;}
 .mock-card.tssc-owned .mc-paid-tag span{
 background:linear-gradient(135deg,#059669,#34D399)!important;color:#fff!important;
 text-shadow:none!important;
@@ -461,6 +463,7 @@ function classify() {
 /* ---- paint ownership onto the cards ---- */
 function applyEntitlement() {
   document.body.classList.add('tssc-ent-resolved');
+  document.body.classList.toggle('tssc-enforce', enforcing());
   document.body.classList.toggle('tssc-owned-user', OWNED);
   document.querySelectorAll('.mock-card.tssc-premium')
     .forEach(c => c.classList.toggle('tssc-owned', OWNED));
