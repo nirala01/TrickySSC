@@ -153,6 +153,7 @@ border-radius:9px;padding:.5rem .7rem;font-size:.78rem;margin-bottom:.75rem;line
 font-weight:600;color:#0EA5E9;font-size:.68rem;text-transform:none;letter-spacing:0;}
 #mockBuyPop .mbp-field.need label::after{content:'needs filling';float:right;
 font-weight:600;color:#C2410C;font-size:.68rem;}
+#mockBuyPop .mbp-note{font-size:.72rem;color:#64748B;line-height:1.5;margin-top:.3rem;}
 #mockBuyPop .mbp-err{background:#FEF2F2;border:1px solid #FECACA;color:#B91C1C;border-radius:9px;
 padding:.55rem .7rem;font-size:.8rem;margin-bottom:.7rem;line-height:1.5;}
 /* success */
@@ -384,7 +385,7 @@ function tsscHideDrop(li){ var m=li.querySelector('.nav-drop-menu'); if(m)m.styl
     <h2>SSC CGL Mock Test Series 2026 — Free Online</h2>
     <p>Full-length Tier I &amp; Tier II mock tests · Real exam interface · Timer · Section analysis · Step-by-step solutions</p>
     <div class="hero-badges">
-      <span class="hero-badge">📝 42 Tier I Mocks Live</span>
+      <span class="hero-badge">📝 35 Tier I Mocks Live</span>
       <span class="hero-badge">📝 Tier II from 15 Oct 2026</span>
       <span class="hero-badge">🌐 Hindi &amp; English</span>
       <span class="hero-badge">✅ 4 Free Mocks</span>
@@ -3414,6 +3415,9 @@ onAuthStateChanged(_auth, async user => {
       <div class="mbp-field">
         <label for="mbpMobile">Registered mobile number <b>*</b></label>
         <input id="mbpMobile" type="tel" inputmode="numeric" maxlength="10" autocomplete="tel-national" placeholder="10-digit mobile">
+        <div class="mbp-note">This will be your registered mobile number.
+          All communication about your purchase will go to this number only,
+          so please check it before continuing.</div>
       </div>
       <div class="mbp-field">
         <label for="mbpPlace">Place <b>*</b></label>
@@ -3588,8 +3592,12 @@ function money(c) {
 async function openBuy(card) {
   if (!pop) return;
 
-  // paint the mock straight away — the catalog fetch shouldn't delay this
-  const title = card?.querySelector('.mc-title')?.textContent?.trim() || '';
+  // paint the mock straight away — the catalog fetch shouldn't delay this.
+  // Deliberately generic: the buyer is purchasing the whole series, not the
+  // one mock they happened to tap, so naming "Mock Test 5" would mislead.
+  const tierLabel = (card?.getAttribute('data-tier') === 'tier2') ? 'Tier II' : 'Tier I';
+  const examLabel = (CFG.exam || 'ssc-cgl').replace(/^ssc-/, 'SSC ').toUpperCase();
+  const title = examLabel + ' ' + tierLabel + ' Mock Test 2026';
   const stats = [...(card?.querySelectorAll('.mc-stat') || [])]
                   .map(s => s.textContent.replace(/\s+/g, ' ').trim()).join('  \u00b7  ');
   document.getElementById('mbpMock').innerHTML =
@@ -3622,8 +3630,7 @@ async function openBuy(card) {
   }
   ORDER = { courseId: lead.id };
 
-  document.getElementById('mbpSub').textContent =
-    title ? 'This mock is part of ' + lead.label : lead.label;
+  document.getElementById('mbpSub').textContent = lead.label;
   document.getElementById('mbpPrice').innerHTML = money(lead);
 
   // combos that also include this module, shown as an upsell line

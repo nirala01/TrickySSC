@@ -51,18 +51,13 @@
     version: 0,
     fallback: true,
     entitlements: {
-      'ssc-cgl-mocks': { label: 'SSC CGL Mock Tests', exam: 'ssc-cgl' },
-      'ssc-cgl-pyq':   { label: 'SSC CGL Previous Year Papers', exam: 'ssc-cgl' }
+      'ssc-cgl-mocks': { label: 'SSC CGL Mock Tests', exam: 'ssc-cgl' }
     },
     products: [
       { id: 'p-ssc-cgl-mocks', label: 'SSC CGL Mock Test Series', exam: 'ssc-cgl',
         grants: ['ssc-cgl-mocks'], price: 49, mrp: 199, durationDays: 365,
         live: true, order: 1,
-        blurb: 'All 50 Tier I + all 50 Tier II mocks, including every mock released during the year.' },
-      { id: 'p-ssc-cgl-pyq', label: 'SSC CGL Previous Year Papers', exam: 'ssc-cgl',
-        grants: ['ssc-cgl-pyq'], price: 49, mrp: 199, durationDays: 365,
-        live: true, order: 2,
-        blurb: 'The full SSC CGL previous-year paper bank with solutions in English and Hindi.' }
+        blurb: 'All 50 Tier I + all 50 Tier II mocks, including every mock released during the year.' }
     ]
   };
 
