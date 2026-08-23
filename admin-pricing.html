@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta name="robots" content="noindex,nofollow">
+<title>Pricing — TrickySSC Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F2F7;color:#1E293B;padding:1.2rem;}
+.wrap{max-width:1120px;margin:0 auto;}
+h1{font-family:'Rajdhani',sans-serif;font-size:1.6rem;font-weight:800;}
+.sub{font-size:.85rem;color:#64748B;margin-top:.15rem;}
+.top{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-bottom:1rem;}
+.who{font-size:.8rem;color:#475569;}
+button{font-family:'Rajdhani',sans-serif;font-weight:700;cursor:pointer;border:none;border-radius:9px;}
+.btn{background:#fff;border:1px solid #E2E8F0;color:#475569;padding:.55rem 1rem;font-size:.85rem;}
+.btn:hover{border-color:#94A3B8;}
+.btn-p{background:linear-gradient(135deg,#FF6B00,#FF8C38);color:#fff;padding:.6rem 1.3rem;font-size:.92rem;}
+.btn-d{background:#FEF2F2;border:1px solid #FECACA;color:#B91C1C;padding:.4rem .7rem;font-size:.78rem;}
+.card{background:#fff;border:1px solid #E8ECF2;border-radius:14px;padding:1rem 1.15rem;margin-bottom:1rem;}
+.card h2{font-family:'Rajdhani',sans-serif;font-size:1.08rem;font-weight:800;margin-bottom:.15rem;}
+.card .hint{font-size:.78rem;color:#64748B;line-height:1.6;margin-bottom:.85rem;}
+table{width:100%;border-collapse:collapse;font-size:.84rem;}
+th{text-align:left;font-size:.7rem;text-transform:uppercase;letter-spacing:.04em;color:#94A3B8;
+padding:.4rem .45rem;border-bottom:1px solid #E2E8F0;white-space:nowrap;}
+td{padding:.4rem .45rem;border-bottom:1px solid #F1F5F9;vertical-align:top;}
+input,select,textarea{width:100%;border:1px solid #E2E8F0;border-radius:7px;padding:.4rem .5rem;
+font-size:.83rem;font-family:'Plus Jakarta Sans',sans-serif;background:#fff;color:#1E293B;outline:none;}
+input:focus,select:focus,textarea:focus{border-color:#FF6B00;}
+input.num{text-align:right;}
+td.w-id{width:150px;} td.w-num{width:78px;} td.w-live{width:56px;text-align:center;}
+td.w-act{width:64px;text-align:right;}
+.grants{display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.25rem;}
+.grant{display:inline-flex;align-items:center;gap:.28rem;background:#F1F5F9;border:1px solid #E2E8F0;
+border-radius:100px;padding:.13rem .5rem;font-size:.72rem;cursor:pointer;user-select:none;}
+.grant.on{background:#FFF7ED;border-color:#FF6B00;color:#C2410C;font-weight:700;}
+.grant input{display:none;}
+.combo{background:#FFFBEB;}
+.msg{padding:.6rem .85rem;border-radius:9px;font-size:.83rem;margin-bottom:.9rem;display:none;line-height:1.55;}
+.msg.err{background:#FEF2F2;border:1px solid #FECACA;color:#B91C1C;display:block;}
+.msg.ok{background:#ECFDF5;border:1px solid #A7F3D0;color:#047857;display:block;}
+.msg.warn{background:#FFFBEB;border:1px solid #FDE68A;color:#92400E;display:block;}
+.gate{max-width:400px;margin:12vh auto;text-align:center;}
+.bar{position:sticky;bottom:0;background:#fff;border-top:1px solid #E2E8F0;padding:.8rem 1rem;
+display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;
+margin:0 -1.2rem -1.2rem;}
+.ver{font-size:.75rem;color:#94A3B8;}
+.prev{font-size:.8rem;color:#475569;line-height:1.7;}
+.prev b{font-family:'Rajdhani',sans-serif;font-size:.95rem;color:#1E293B;}
+.prev s{color:#94A3B8;}
+.prev .tagc{background:#FEF3C7;color:#92400E;border-radius:100px;padding:.05rem .45rem;font-size:.68rem;font-weight:700;}
+@media(max-width:760px){table,thead,tbody,th,td,tr{display:block;}thead{display:none;}
+tr{border:1px solid #E2E8F0;border-radius:10px;padding:.5rem;margin-bottom:.6rem;}
+td{border:none;padding:.25rem;}td.w-id,td.w-num,td.w-live,td.w-act{width:auto;text-align:left;}
+td::before{content:attr(data-l);display:block;font-size:.66rem;text-transform:uppercase;
+letter-spacing:.04em;color:#94A3B8;margin-bottom:.1rem;}}
+</style>
+</head>
+<body>
+
+<div id="gate" class="gate">
+  <h1>Pricing admin</h1>
+  <p class="sub" style="margin:.5rem 0 1.1rem;">Sign in with an admin account.</p>
+  <button class="btn-p" id="signin">Sign in with Google</button>
+  <div class="msg" id="gateMsg" style="margin-top:1rem;"></div>
+</div>
+
+<div class="wrap" id="app" hidden>
+  <div class="top">
+    <div>
+      <h1>Pricing</h1>
+      <div class="sub">Live catalog — the site and the payment Worker both read this.</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:.6rem;">
+      <span class="who" id="who"></span>
+      <button class="btn" id="reload">Reload</button>
+      <button class="btn" id="signout">Sign out</button>
+    </div>
+  </div>
+
+  <div class="msg" id="msg"></div>
+
+  <div class="card">
+    <h2>Entitlement keys</h2>
+    <p class="hint">
+      What a purchase actually unlocks. Pages check these; products grant them.
+      <b>Never rename a key that has been sold</b> — every entitlement already
+      granted under the old name would stop working. To retire one, un-tick it
+      from all products instead.
+    </p>
+    <table><thead><tr>
+      <th style="width:230px;">Key</th><th>Label</th><th style="width:130px;">Exam</th><th style="width:64px;"></th>
+    </tr></thead><tbody id="keys"></tbody></table>
+    <button class="btn" id="addKey" style="margin-top:.7rem;">+ Add key</button>
+  </div>
+
+  <div class="card">
+    <h2>Products</h2>
+    <p class="hint">
+      What a buyer pays for. A product granting <b>two or more</b> keys is a
+      combo — it needs no special handling, and shows highlighted below.
+      Leave <b>MRP</b> blank for no strike-through price. Un-tick <b>Live</b> to
+      pull a product from sale without deleting its history.
+    </p>
+    <table><thead><tr>
+      <th class="w-id">Product ID</th><th>Label &amp; grants</th>
+      <th class="w-num">Price ₹</th><th class="w-num">MRP ₹</th>
+      <th class="w-num">Days</th><th class="w-num">Order</th>
+      <th class="w-live">Live</th><th class="w-act"></th>
+    </tr></thead><tbody id="prods"></tbody></table>
+    <button class="btn" id="addProd" style="margin-top:.7rem;">+ Add product</button>
+  </div>
+
+  <div class="card">
+    <h2>What buyers will see</h2>
+    <div class="prev" id="preview"></div>
+  </div>
+
+  <div class="bar">
+    <span class="ver" id="ver"></span>
+    <button class="btn-p" id="save">Save &amp; publish</button>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut }
+  from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc, serverTimestamp }
+  from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+const app = initializeApp({
+  apiKey:"AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",
+  authDomain:"trickyssc-17bb3.firebaseapp.com",
+  projectId:"trickyssc-17bb3",
+  storageBucket:"trickyssc-17bb3.firebasestorage.app",
+  messagingSenderId:"450627057220",
+  appId:"1:450627057220:web:366267bf437d94f20c6e11"
+});
+const auth = getAuth(app);
+const db   = getFirestore(app);
+
+// Mirrors isAdmin() in firestore.rules. This gate is convenience only —
+// the rules are what actually stop a non-admin write.
+const ADMINS = ['nirala01@gmail.com','ashish@trickyssc.com'];
+const isAdmin = e => !!e && (ADMINS.includes(e) || /@trickyssc\.com$/.test(e));
+
+const $ = id => document.getElementById(id);
+const say = (t, cls) => { const m = $('msg'); m.textContent = t; m.className = 'msg ' + (cls||'ok'); };
+
+let CAT = { version: 0, entitlements: {}, products: [] };
+
+/* ------------------------------------------------------------------ auth */
+$('signin').onclick = async () => {
+  try { await signInWithPopup(auth, new GoogleAuthProvider()); }
+  catch (e) { const g=$('gateMsg'); g.className='msg err'; g.textContent = e.message; }
+};
+$('signout').onclick = () => signOut(auth);
+
+onAuthStateChanged(auth, async user => {
+  if (!user) { $('gate').hidden = false; $('app').hidden = true; return; }
+  if (!isAdmin(user.email)) {
+    const g = $('gateMsg'); g.className = 'msg err';
+    g.textContent = user.email + ' is not an admin account.';
+    await signOut(auth); return;
+  }
+  $('gate').hidden = true; $('app').hidden = false;
+  $('who').textContent = user.email;
+  await loadCatalog();
+});
+
+/* ------------------------------------------------------------------ load */
+async function loadCatalog() {
+  try {
+    const snap = await getDoc(doc(db, 'config', 'pricing'));
+    if (snap.exists()) {
+      CAT = snap.data();
+      CAT.entitlements = CAT.entitlements || {};
+      CAT.products = CAT.products || [];
+      say('Loaded catalog v' + (CAT.version || 0) + '.', 'ok');
+    } else {
+      CAT = seed();
+      say('No config/pricing document yet — this is a starter catalog. ' +
+          'Check it over, then Save & publish to create it.', 'warn');
+    }
+  } catch (e) {
+    say('Could not load: ' + e.message, 'err');
+    return;
+  }
+  render();
+}
+$('reload').onclick = loadCatalog;
+
+function seed() {
+  return {
+    version: 0, currency: 'INR',
+    entitlements: {
+      'ssc-cgl-mocks': { label: 'SSC CGL Mock Tests', exam: 'ssc-cgl' },
+      'ssc-cgl-pyq':   { label: 'SSC CGL Previous Year Papers', exam: 'ssc-cgl' }
+    },
+    products: [
+      { id:'p-ssc-cgl-mocks', label:'SSC CGL Mock Test Series', exam:'ssc-cgl',
+        grants:['ssc-cgl-mocks'], price:49, mrp:199, durationDays:365, live:true, order:1,
+        blurb:'All 50 Tier I + all 50 Tier II mocks, including every mock released during the year.' },
+      { id:'p-ssc-cgl-pyq', label:'SSC CGL Previous Year Papers', exam:'ssc-cgl',
+        grants:['ssc-cgl-pyq'], price:49, mrp:199, durationDays:365, live:true, order:2,
+        blurb:'The full SSC CGL previous-year paper bank with solutions in English and Hindi.' }
+    ]
+  };
+}
+
+/* ---------------------------------------------------------------- render */
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g,
+  c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function render() { renderKeys(); renderProds(); renderPreview(); $('ver').textContent =
+  'Current version: ' + (CAT.version || 0) + ' · saving bumps it to ' + ((CAT.version || 0) + 1); }
+
+function renderKeys() {
+  const rows = Object.keys(CAT.entitlements).sort().map(k => {
+    const e = CAT.entitlements[k] || {};
+    const used = CAT.products.some(p => (p.grants||[]).includes(k));
+    return `<tr>
+      <td data-l="Key"><input data-k="${esc(k)}" data-f="__id" value="${esc(k)}"></td>
+      <td data-l="Label"><input data-k="${esc(k)}" data-f="label" value="${esc(e.label)}"></td>
+      <td data-l="Exam"><input data-k="${esc(k)}" data-f="exam" value="${esc(e.exam)}"></td>
+      <td data-l=""><button class="btn-d" data-delkey="${esc(k)}" ${used?'disabled title="Used by a product"':''}>Del</button></td>
+    </tr>`;
+  });
+  $('keys').innerHTML = rows.join('') ||
+    '<tr><td colspan="4" style="color:#94A3B8;">No keys yet.</td></tr>';
+}
+
+function renderProds() {
+  const keys = Object.keys(CAT.entitlements).sort();
+  $('prods').innerHTML = CAT.products.map((p, i) => {
+    const combo = (p.grants || []).length > 1;
+    const chips = keys.map(k => `<label class="grant ${(p.grants||[]).includes(k)?'on':''}">
+        <input type="checkbox" data-i="${i}" data-grant="${esc(k)}" ${(p.grants||[]).includes(k)?'checked':''}>${esc(k)}
+      </label>`).join('');
+    return `<tr class="${combo?'combo':''}">
+      <td class="w-id" data-l="Product ID"><input data-i="${i}" data-f="id" value="${esc(p.id)}"></td>
+      <td data-l="Label & grants">
+        <input data-i="${i}" data-f="label" value="${esc(p.label)}" placeholder="Shown to buyers">
+        <input data-i="${i}" data-f="exam" value="${esc(p.exam)}" placeholder="exam e.g. ssc-cgl" style="margin-top:.25rem;">
+        <textarea data-i="${i}" data-f="blurb" rows="2" placeholder="One line describing what they get" style="margin-top:.25rem;">${esc(p.blurb)}</textarea>
+        <div class="grants">${chips || '<span style="font-size:.72rem;color:#94A3B8;">Add a key first</span>'}</div>
+      </td>
+      <td class="w-num" data-l="Price ₹"><input class="num" type="number" min="1" data-i="${i}" data-f="price" value="${esc(p.price)}"></td>
+      <td class="w-num" data-l="MRP ₹"><input class="num" type="number" min="0" data-i="${i}" data-f="mrp" value="${p.mrp==null?'':esc(p.mrp)}" placeholder="—"></td>
+      <td class="w-num" data-l="Days"><input class="num" type="number" min="1" data-i="${i}" data-f="durationDays" value="${esc(p.durationDays||365)}"></td>
+      <td class="w-num" data-l="Order"><input class="num" type="number" data-i="${i}" data-f="order" value="${esc(p.order==null?i+1:p.order)}"></td>
+      <td class="w-live" data-l="Live"><input type="checkbox" data-i="${i}" data-f="live" ${p.live!==false?'checked':''} style="width:auto;"></td>
+      <td class="w-act" data-l=""><button class="btn-d" data-delprod="${i}">Del</button></td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="8" style="color:#94A3B8;">No products yet.</td></tr>';
+}
+
+function renderPreview() {
+  const byExam = {};
+  CAT.products.filter(p => p.live !== false)
+    .sort((a,b) => (a.order||0)-(b.order||0))
+    .forEach(p => { (byExam[p.exam||'—'] = byExam[p.exam||'—'] || []).push(p); });
+  const out = Object.keys(byExam).sort().map(ex => {
+    const lines = byExam[ex].map(p => {
+      const n = (p.grants||[]).length;
+      return `<div>• <b>${esc(p.label)}</b> — ${p.mrp?`<s>₹${esc(p.mrp)}</s> `:''}₹${esc(p.price)}
+        <span style="color:#94A3B8;">/ ${esc(p.durationDays||365)} days</span>
+        ${n>1?`<span class="tagc">combo · ${n} modules</span>`:''}</div>`;
+    }).join('');
+    return `<div style="margin-bottom:.7rem;"><b style="color:#FF6B00;">${esc(ex)}</b>${lines}</div>`;
+  }).join('');
+  $('preview').innerHTML = out || '<span style="color:#94A3B8;">Nothing live.</span>';
+}
+
+/* ----------------------------------------------------------------- edits */
+document.addEventListener('input', e => {
+  const t = e.target;
+  if (t.dataset.k !== undefined && t.dataset.f) {
+    const k = t.dataset.k, f = t.dataset.f;
+    if (f === '__id') return;                       // renames applied on blur
+    CAT.entitlements[k] = CAT.entitlements[k] || {};
+    CAT.entitlements[k][f] = t.value;
+    return;
+  }
+  if (t.dataset.i !== undefined && t.dataset.f) {
+    const p = CAT.products[+t.dataset.i]; if (!p) return;
+    const f = t.dataset.f;
+    if (f === 'live') p.live = t.checked;
+    else if (['price','mrp','durationDays','order'].includes(f))
+      p[f] = t.value === '' ? (f === 'mrp' ? null : 0) : Number(t.value);
+    else p[f] = t.value;
+    if (['price','mrp','label','durationDays','order','live'].includes(f)) renderPreview();
+  }
+});
+
+document.addEventListener('change', e => {
+  const t = e.target;
+  if (t.dataset.grant !== undefined) {
+    const p = CAT.products[+t.dataset.i]; if (!p) return;
+    p.grants = p.grants || [];
+    const k = t.dataset.grant, at = p.grants.indexOf(k);
+    if (t.checked && at === -1) p.grants.push(k);
+    if (!t.checked && at !== -1) p.grants.splice(at, 1);
+    renderProds(); renderPreview();
+  }
+});
+
+// key rename: rewrite the map AND every product that grants it, together
+document.addEventListener('blur', e => {
+  const t = e.target;
+  if (!(t.dataset.k !== undefined && t.dataset.f === '__id')) return;
+  const oldK = t.dataset.k, newK = t.value.trim();
+  if (!newK || newK === oldK) { t.value = oldK; return; }
+  if (CAT.entitlements[newK]) { say('Key "' + newK + '" already exists.', 'err'); t.value = oldK; return; }
+  CAT.entitlements[newK] = CAT.entitlements[oldK];
+  delete CAT.entitlements[oldK];
+  CAT.products.forEach(p => {
+    p.grants = (p.grants||[]).map(g => g === oldK ? newK : g);
+  });
+  say('Renamed "' + oldK + '" to "' + newK + '". If it had already been sold, ' +
+      'existing entitlements still hold the OLD key and will stop unlocking.', 'warn');
+  render();
+}, true);
+
+$('addKey').onclick = () => {
+  let base = 'new-key', k = base, n = 1;
+  while (CAT.entitlements[k]) k = base + '-' + (++n);
+  CAT.entitlements[k] = { label: '', exam: 'ssc-cgl' };
+  render();
+};
+$('addProd').onclick = () => {
+  CAT.products.push({ id: 'p-new-' + (CAT.products.length + 1), label: '', exam: 'ssc-cgl',
+    grants: [], price: 49, mrp: null, durationDays: 365, live: false,
+    order: CAT.products.length + 1, blurb: '' });
+  render();
+};
+
+document.addEventListener('click', e => {
+  const dk = e.target.dataset?.delkey, dp = e.target.dataset?.delprod;
+  if (dk) {
+    if (CAT.products.some(p => (p.grants||[]).includes(dk)))
+      return say('Cannot delete — a product still grants this key.', 'err');
+    if (!confirm('Delete key "' + dk + '"?')) return;
+    delete CAT.entitlements[dk]; render();
+  }
+  if (dp !== undefined && dp !== '') {
+    const p = CAT.products[+dp];
+    if (!confirm('Delete product "' + (p.label || p.id) + '"?\n\n' +
+        'Entitlements already sold through it are NOT affected. ' +
+        'Un-ticking Live is usually the better move.')) return;
+    CAT.products.splice(+dp, 1); render();
+  }
+});
+
+/* ------------------------------------------------------------------ save */
+function validate() {
+  const errs = [];
+  const ids = new Set();
+  CAT.products.forEach((p, i) => {
+    const who = p.label || p.id || ('row ' + (i + 1));
+    if (!p.id || !/^[a-z0-9-]+$/.test(p.id))
+      errs.push(`"${who}": product ID must be lowercase letters, numbers and hyphens.`);
+    if (ids.has(p.id)) errs.push(`Duplicate product ID "${p.id}".`);
+    ids.add(p.id);
+    if (!p.label) errs.push(`"${p.id}": needs a label — buyers see it.`);
+    if (!p.exam) errs.push(`"${who}": needs an exam.`);
+    if (!(p.price > 0)) errs.push(`"${who}": price must be more than 0.`);
+    if (p.mrp != null && p.mrp !== '' && p.mrp <= p.price)
+      errs.push(`"${who}": MRP ₹${p.mrp} is not above the price ₹${p.price} — the strike-through would look wrong. Clear it or raise it.`);
+    if (!(p.durationDays > 0)) errs.push(`"${who}": days must be more than 0.`);
+    if (p.live !== false && !(p.grants || []).length)
+      errs.push(`"${who}": is live but grants nothing — buyers would pay and unlock nothing.`);
+    (p.grants || []).forEach(g => {
+      if (!CAT.entitlements[g]) errs.push(`"${who}": grants unknown key "${g}".`);
+    });
+  });
+  Object.keys(CAT.entitlements).forEach(k => {
+    if (!/^[a-z0-9-]+$/.test(k)) errs.push(`Key "${k}": lowercase letters, numbers and hyphens only.`);
+  });
+  return errs;
+}
+
+$('save').onclick = async () => {
+  const errs = validate();
+  if (errs.length) { say('Not saved:\n• ' + errs.join('\n• '), 'err'); return; }
+
+  const btn = $('save'); btn.disabled = true; btn.textContent = 'Saving…';
+  const next = (CAT.version || 0) + 1;
+  const payload = {
+    version: next,
+    currency: CAT.currency || 'INR',
+    entitlements: CAT.entitlements,
+    products: CAT.products.map(p => ({
+      id: p.id, label: p.label, exam: p.exam, blurb: p.blurb || '',
+      grants: p.grants || [], price: Number(p.price),
+      mrp: (p.mrp === '' || p.mrp == null) ? null : Number(p.mrp),
+      durationDays: Number(p.durationDays) || 365,
+      live: p.live !== false, order: Number(p.order) || 0
+    })),
+    updatedAt: serverTimestamp(),
+    updatedBy: auth.currentUser?.email || ''
+  };
+  try {
+    await setDoc(doc(db, 'config', 'pricing'), payload);
+    // keep an immutable trail of what was live when
+    await setDoc(doc(db, 'pricing_history', String(next)), payload);
+    CAT.version = next;
+    try { sessionStorage.removeItem('tssc_pricing_v1'); } catch (e) {}
+    say('Published v' + next + '. Live within 10 minutes for everyone ' +
+        '(sooner for anyone opening a fresh session).', 'ok');
+    render();
+  } catch (e) {
+    say('Save failed: ' + e.message +
+        '\nIf this says permission denied, publish the firestore.rules that grant admins write on config/pricing.', 'err');
+  } finally { btn.disabled = false; btn.textContent = 'Save & publish'; }
+};
+</script>
+</body>
+</html>

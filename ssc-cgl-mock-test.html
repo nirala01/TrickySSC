@@ -126,7 +126,42 @@ font-weight:800;font-size:1.5rem;color:#C2410C;}
 #mockBuyPop .mbp-go{width:100%;background:linear-gradient(135deg,#FF6B00,#FF8C38);color:#fff;
 border:none;border-radius:11px;padding:.8rem;font-family:'Rajdhani',sans-serif;font-weight:800;
 font-size:1.02rem;cursor:pointer;}
+#mockBuyPop .mbp-go[disabled]{opacity:.6;cursor:progress;}
 #mockBuyPop .mbp-no{text-align:center;margin-top:.6rem;font-size:.78rem;color:#94A3B8;cursor:pointer;}
+/* step dots */
+#mockBuyPop .mbp-steps{display:flex;gap:.35rem;margin-top:.7rem;}
+#mockBuyPop .mbp-dot{width:26px;height:4px;border-radius:100px;background:rgba(255,255,255,.35);}
+#mockBuyPop .mbp-dot.on{background:#fff;}
+/* which mock you clicked */
+#mockBuyPop .mbp-mock{background:#F8FAFC;border:1px solid #E2E8F0;border-radius:11px;
+padding:.7rem .85rem;margin-bottom:.9rem;}
+#mockBuyPop .mbp-mock b{display:block;font-family:'Rajdhani',sans-serif;font-size:1rem;
+color:#1E293B;line-height:1.3;}
+#mockBuyPop .mbp-mock span{font-size:.74rem;color:#64748B;}
+/* form */
+#mockBuyPop .mbp-field{margin-bottom:.7rem;}
+#mockBuyPop .mbp-field label{display:block;font-size:.76rem;font-weight:700;color:#475569;
+margin-bottom:.25rem;}
+#mockBuyPop .mbp-field label b{color:#DC2626;}
+#mockBuyPop .mbp-field input,#mockBuyPop .mbp-field select{width:100%;border:1px solid #E2E8F0;
+border-radius:9px;padding:.6rem .75rem;font-size:.9rem;font-family:'Plus Jakarta Sans',sans-serif;
+outline:none;background:#fff;color:#1E293B;}
+#mockBuyPop .mbp-field input:focus,#mockBuyPop .mbp-field select:focus{border-color:#FF6B00;}
+#mockBuyPop .mbp-field input.bad,#mockBuyPop .mbp-field select.bad{border-color:#DC2626;background:#FEF2F2;}
+#mockBuyPop .mbp-hint{background:#F0F9FF;border:1px solid #BAE6FD;color:#075985;
+border-radius:9px;padding:.5rem .7rem;font-size:.78rem;margin-bottom:.75rem;line-height:1.5;}
+#mockBuyPop .mbp-field.known label::after{content:'from your account';float:right;
+font-weight:600;color:#0EA5E9;font-size:.68rem;text-transform:none;letter-spacing:0;}
+#mockBuyPop .mbp-field.need label::after{content:'needs filling';float:right;
+font-weight:600;color:#C2410C;font-size:.68rem;}
+#mockBuyPop .mbp-err{background:#FEF2F2;border:1px solid #FECACA;color:#B91C1C;border-radius:9px;
+padding:.55rem .7rem;font-size:.8rem;margin-bottom:.7rem;line-height:1.5;}
+/* success */
+#mockBuyPop .mbp-done{font-size:2.6rem;text-align:center;line-height:1;margin-bottom:.5rem;}
+#mockBuyPop .mbp-donetitle{font-family:'Rajdhani',sans-serif;font-weight:800;font-size:1.35rem;
+color:#059669;text-align:center;margin-bottom:.45rem;}
+#mockBuyPop .mbp-donetxt{font-size:.86rem;color:#334155;line-height:1.6;text-align:center;
+margin:0 0 1rem;}
 
 .mc-chal{display:inline-block;background:#B91C1C;color:#fff;border-radius:6px;padding:.1rem .4rem;font-size:.62rem;font-weight:800;letter-spacing:.02em;margin-top:.2rem;}
 .mock-explain{display:grid;grid-template-columns:1fr 1fr;gap:.9rem;margin:0 0 1rem;}
@@ -3513,23 +3548,67 @@ onAuthStateChanged(_aAuth, user => {
 });
 </script>
 
-<!-- ===== premium unlock popup (TSSC-PAYWALL-V1) ===== -->
+<!-- pricing catalog loader: prices live in Firestore config/pricing,
+     edited in admin-pricing.html. No code change to alter a price. -->
+<script src="https://trickyssc.com/tssc-pricing.js"></script>
+
+<!-- ===== premium unlock: 3-step checkout (TSSC-PAYWALL-V1) =====
+     step 1  what this mock is        (details card)
+     step 2  buyer details + course   (mandatory form)
+     step 3  handed to Razorpay, then "unlocked" confirmation
+-->
 <div id="mockBuyPop">
   <div class="mbp-card">
     <div class="mbp-head">
-      <div class="mbp-h1">&#128274; Premium mock test</div>
+      <div class="mbp-h1" id="mbpTitle">&#128274; Premium mock test</div>
       <div class="mbp-h2" id="mbpSub">Unlock the full SSC CGL mock series</div>
+      <div class="mbp-steps" id="mbpSteps">
+        <span class="mbp-dot on" data-step="1"></span>
+        <span class="mbp-dot" data-step="2"></span>
+        <span class="mbp-dot" data-step="3"></span>
+      </div>
     </div>
-    <div class="mbp-body">
-      <div class="mbp-price"><s>&#8377;199</s> &#8377;49 <span style="font-size:.8rem;">/ year</span></div>
-      <ul>
-        <li>All 50 Tier I + all 50 Tier II mocks</li>
-        <li>Every mock released during the year</li>
-        <li>Real sectional timing, English &amp; Hindi</li>
-        <li>Full solutions and section analysis</li>
-      </ul>
-      <button class="mbp-go" id="mbpGo">Unlock for &#8377;49 &rarr;</button>
-      <div class="mbp-no" id="mbpNo">Maybe later</div>
+
+    <!-- ---------- step 1: what you are buying ---------- -->
+    <div class="mbp-body mbp-step" data-step="1">
+      <div class="mbp-mock" id="mbpMock"></div>
+      <div class="mbp-price" id="mbpPrice"></div>
+      <ul id="mbpPerks"></ul>
+      <button class="mbp-go" id="mbpNext">Proceed to checkout &rarr;</button>
+      <div class="mbp-no" data-close>Maybe later</div>
+    </div>
+
+    <!-- ---------- step 2: buyer details ---------- -->
+    <div class="mbp-body mbp-step" data-step="2" hidden>
+      <div class="mbp-hint" id="mbpHint" hidden></div>
+      <div class="mbp-field">
+        <label for="mbpName">Full name <b>*</b></label>
+        <input id="mbpName" type="text" autocomplete="name" placeholder="As you want it on the receipt">
+      </div>
+      <div class="mbp-field">
+        <label for="mbpMobile">Registered mobile number <b>*</b></label>
+        <input id="mbpMobile" type="tel" inputmode="numeric" maxlength="10" autocomplete="tel-national" placeholder="10-digit mobile">
+      </div>
+      <div class="mbp-field">
+        <label for="mbpPlace">Place <b>*</b></label>
+        <input id="mbpPlace" type="text" autocomplete="address-level2" placeholder="City / district">
+      </div>
+      <div class="mbp-field">
+        <label for="mbpCourse">Course <b>*</b></label>
+        <select id="mbpCourse"></select>
+      </div>
+      <div class="mbp-err" id="mbpErr" hidden></div>
+      <button class="mbp-go" id="mbpPay">Continue to payment &rarr;</button>
+      <div class="mbp-no" data-back>&larr; Back</div>
+    </div>
+
+    <!-- ---------- step 3: unlocked ---------- -->
+    <div class="mbp-body mbp-step" data-step="3" hidden>
+      <div class="mbp-done">&#127881;</div>
+      <div class="mbp-donetitle" id="mbpDoneTitle">Course unlocked</div>
+      <p class="mbp-donetxt" id="mbpDoneTxt">
+        Your payment went through. Every premium mock is open on this account now.</p>
+      <button class="mbp-go" data-close>Start practising &rarr;</button>
     </div>
   </div>
 </div>
@@ -3556,7 +3635,8 @@ import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/
 import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 const CFG = {
-  module:      'ssc-cgl-mocks',
+  exam:        'ssc-cgl',           // which catalog block the dropdown reads
+  module:      'ssc-cgl-mocks',     // what THIS page sells (preselected)
   freeUpTo:    4,
   // Locks are VISIBLE from now, but only BLOCK from this moment onward.
   // Keeps the "everything free until 24 Aug" promise on this page honest.
@@ -3579,7 +3659,43 @@ const _db   = getFirestore(_app);
 
 let OWNED = false;
 
-const enforcing = () => !CFG.enforceFrom || Date.now() >= new Date(CFG.enforceFrom).getTime();
+const enforcing = () => {
+  let o = null;
+  try { o = sessionStorage.getItem('tssc_paywall_override'); } catch (e) {}
+  if (o === 'on')  return true;   // testing: paywall live for THIS browser only
+  if (o === 'off') return false;
+  return !CFG.enforceFrom || Date.now() >= new Date(CFG.enforceFrom).getTime();
+};
+
+/* ---- test switches -------------------------------------------------------
+   Affect only the browser tab you type them in. Students are never touched.
+
+     ?paywall=on      force the paywall ON  (test the locked flow before 25 Aug)
+     ?paywall=off     force it OFF
+     ?paywall=clear   drop the override AND the cached entitlement
+
+   The entitlement is cached for 10 minutes, so after a test purchase — or
+   after deleting your entitlement doc to re-test the locked state — use
+   ?paywall=clear, otherwise the stale cache keeps answering.
+--------------------------------------------------------------------------- */
+(function () {
+  try {
+    const q = new URLSearchParams(location.search).get('paywall');
+    if (!q) return;
+    if (q === 'on' || q === 'off') sessionStorage.setItem('tssc_paywall_override', q);
+    if (q === 'clear') sessionStorage.removeItem('tssc_paywall_override');
+    // any explicit switch also busts the entitlement cache.
+    // Uses the indexed Storage API (length/key) rather than Object.keys, which
+    // only works on Storage by accident of the named-property getter.
+    const stale = [];
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const k = sessionStorage.key(i);
+      if (k && k.indexOf('tssc_ent_') === 0) stale.push(k);
+    }
+    stale.forEach(k => sessionStorage.removeItem(k));
+    console.info('[paywall] override =', sessionStorage.getItem('tssc_paywall_override') || 'none');
+  } catch (e) {}
+})();
 
 /* ---- mark every card free / premium from its data-n ---- */
 function classify() {
@@ -3608,32 +3724,306 @@ function isGated(card) {
 window.tsscIsGated = isGated;
 
 /* ---- unlock popup ---- */
+/* ------------------------------------------------------------------
+   3-step unlock modal.  Step 1 explains the mock, step 2 collects the
+   mandatory details, step 3 confirms.  The course dropdown is built from
+   the Firestore pricing catalog, so changing a price or adding a combo
+   needs no edit here and no deploy.
+------------------------------------------------------------------ */
 const pop = document.getElementById('mockBuyPop');
-function openBuy(title) {
-  const sub = document.getElementById('mbpSub');
-  if (sub) sub.textContent = title || 'Unlock the full SSC CGL mock series';
-  if (pop) { pop.style.display = 'flex'; document.body.style.overflow = 'hidden'; }
+let ORDER = {};   // what the buyer is purchasing, assembled across the steps
+
+let CATALOG = null;   // resolved pricing catalog, loaded once
+let PREFILL = null;   // in-flight profile read, awaited before step 2
+
+async function catalog() {
+  if (CATALOG) return CATALOG;
+  const P = window.TSSC_PRICING;
+  if (!P) throw new Error('Pricing catalog is unavailable. Please refresh.');
+  CATALOG = await P.load();
+  return CATALOG;
 }
+
+function showStep(n) {
+  pop.querySelectorAll('.mbp-step').forEach(s => {
+    s.hidden = s.getAttribute('data-step') !== String(n);
+  });
+  pop.querySelectorAll('.mbp-dot').forEach(d => {
+    d.classList.toggle('on', parseInt(d.getAttribute('data-step'), 10) <= n);
+  });
+}
+
+function money(c) {
+  return (c.mrp ? '<s>\u20b9' + c.mrp + '</s> ' : '') +
+         '\u20b9' + c.price + ' <span style="font-size:.8rem;">/ year</span>';
+}
+
+async function openBuy(card) {
+  if (!pop) return;
+
+  // paint the mock straight away — the catalog fetch shouldn't delay this
+  const title = card?.querySelector('.mc-title')?.textContent?.trim() || '';
+  const stats = [...(card?.querySelectorAll('.mc-stat') || [])]
+                  .map(s => s.textContent.replace(/\s+/g, ' ').trim()).join('  \u00b7  ');
+  document.getElementById('mbpMock').innerHTML =
+    (title ? '<b>' + title + '</b>' : '') + (stats ? '<span>' + stats + '</span>' : '');
+  document.getElementById('mbpPrice').innerHTML = '<span style="font-size:.9rem;">Loading price\u2026</span>';
+  document.getElementById('mbpPerks').innerHTML = '';
+  document.getElementById('mbpSub').textContent = '';
+  showStep(1);
+  pop.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+
+  let cat, P;
+  try {
+    P = window.TSSC_PRICING;
+    cat = await catalog();
+  } catch (e) {
+    document.getElementById('mbpPrice').innerHTML =
+      '<span style="font-size:.85rem;color:#B91C1C;">Prices unavailable \u2014 please refresh.</span>';
+    return;
+  }
+
+  // Lead with the cheapest product that unlocks what this page gates. That is
+  // usually the single course, but if you ever price a combo below it, the
+  // combo leads automatically.
+  const lead = P.bestFor(cat, CFG.module);
+  if (!lead) {
+    document.getElementById('mbpPrice').innerHTML =
+      '<span style="font-size:.85rem;color:#B91C1C;">Nothing is on sale for this yet.</span>';
+    return;
+  }
+  ORDER = { courseId: lead.id };
+
+  document.getElementById('mbpSub').textContent =
+    title ? 'This mock is part of ' + lead.label : lead.label;
+  document.getElementById('mbpPrice').innerHTML = money(lead);
+
+  // combos that also include this module, shown as an upsell line
+  const combos = P.combosFor(cat, CFG.module).filter(c => c.id !== lead.id);
+  document.getElementById('mbpPerks').innerHTML =
+    (lead.blurb ? '<li>' + lead.blurb + '</li>' : '') +
+    '<li>One payment \u2014 not per test</li>' +
+    '<li>Access for ' + (lead.durationDays || 365) + ' days</li>' +
+    combos.map(c =>
+      '<li><b>' + c.label + '</b> \u2014 \u20b9' + c.price +
+      ' for ' + c.grants.length + ' modules. Pick it in the next step.</li>').join('');
+
+  // step 2 dropdown: every live product for this exam, combos included
+  const all = P.productsFor(cat, CFG.exam);
+  const sel = document.getElementById('mbpCourse');
+  sel.innerHTML = all.map(c =>
+    '<option value="' + c.id + '">' + c.label + ' \u2014 \u20b9' + c.price +
+    (c.grants.length > 1 ? ' (' + c.grants.length + ' modules)' : '') + '</option>').join('');
+  sel.value = lead.id;
+
+  PREFILL = prefill();
+}
+
 function closeBuy() {
   if (pop) pop.style.display = 'none';
   document.body.style.overflow = '';
 }
-window.tsscOpenBuy  = openBuy;
-window.tsscCloseBuy = closeBuy;
 
-document.getElementById('mbpNo')?.addEventListener('click', closeBuy);
+function showUnlocked(msg) {
+  if (!pop) return;
+  if (msg) document.getElementById('mbpDoneTxt').textContent = msg;
+  showStep(3);
+  pop.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+window.tsscOpenBuy     = openBuy;
+window.tsscCloseBuy    = closeBuy;
+window.tsscShowUnlocked = showUnlocked;
+
+/* prefill name + mobile from the signed-in profile so the form is one tap */
+/* Prefill from the signed-in profile so the form is a couple of taps.
+
+   users/{uid} really holds:  name, displayName, email, phone, loginMethod,
+   createdAt, lastActive, uid.  The number field is `phone` (NOT `mobile`),
+   and it may be stored with a +91 prefix depending on how the OTP flow saved
+   it — normalise() strips that.
+
+   Google sign-ups often have no phone at all, which is normal, not an error:
+   the field just stays empty for them to fill in.
+
+   localStorage first (instant, no read), then one Firestore read to confirm. */
+function tenDigits(v) {
+  let d = String(v == null ? '' : v).replace(/\D/g, '');
+  if (d.length === 12 && d.startsWith('91')) d = d.slice(2);
+  if (d.length === 11 && d.startsWith('0'))  d = d.slice(1);
+  return d.length === 10 ? d : '';
+}
+
+function fillFrom(u) {
+  if (!u) return;
+  const n = document.getElementById('mbpName');
+  const m = document.getElementById('mbpMobile');
+  const pl = document.getElementById('mbpPlace');
+  const nm = u.name || u.displayName || '';
+  if (n && !n.value && nm && nm !== 'Student') n.value = nm;
+  const ph = tenDigits(u.phone);
+  if (m && !m.value && ph) m.value = ph;
+  // `place` isn't on the profile — it comes back from the last checkout
+  const pc = u.place || u.city || '';
+  if (pl && !pl.value && pc) pl.value = pc;
+}
+
+/* Tag each field so the buyer can see at a glance what came from their
+   account and what they still have to type. */
+function markFields() {
+  const map = { mbpName: 'name', mbpMobile: 'mobile number', mbpPlace: 'place' };
+  const missing = [];
+  Object.keys(map).forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const box = el.closest('.mbp-field');
+    if (!box) return;
+    const has = !!el.value.trim();
+    box.classList.toggle('known', has);
+    box.classList.toggle('need', !has);
+    if (!has) missing.push(map[id]);
+  });
+  const hint = document.getElementById('mbpHint');
+  if (hint) {
+    if (!_auth.currentUser) { hint.hidden = true; return; }
+    hint.hidden = false;
+    hint.innerHTML = missing.length
+      ? 'We\'ve filled in what your account already has. Please add your <b>' +
+        missing.join('</b>, <b>') + '</b> \u2014 then pick your course.'
+      : 'Filled in from your account. Change anything that\u2019s out of date, then pick your course.';
+  }
+  return missing;
+}
+
+/** Focus the first field still empty, so the buyer lands where the work is. */
+function focusFirstGap() {
+  const first = ['mbpName', 'mbpMobile', 'mbpPlace']
+    .map(id => document.getElementById(id))
+    .filter(el => el && !el.value.trim())[0];
+  (first || document.getElementById('mbpCourse'))?.focus();
+}
+
+async function prefill() {
+  try { fillFrom(JSON.parse(localStorage.getItem('tssc_user') || '{}')); } catch (e) {}
+  try { fillFrom(JSON.parse(localStorage.getItem('tssc_checkout') || '{}')); } catch (e) {}
+  const user = _auth.currentUser;
+  if (!user) return;
+  try {
+    const snap = await getDoc(doc(_db, 'users', user.uid));
+    if (snap.exists()) {
+      const u = snap.data() || {};
+      fillFrom(u);
+      // keep the local copy current so the next checkout needs no read
+      try {
+        const cur = JSON.parse(localStorage.getItem('tssc_user') || '{}');
+        localStorage.setItem('tssc_user', JSON.stringify({
+          ...cur, uid: user.uid,
+          name: u.name || u.displayName || cur.name,
+          phone: u.phone || cur.phone || '',
+          place: cur.place || ''
+        }));
+      } catch (e) {}
+    }
+  } catch (e) { /* profile unreadable: the buyer just types it in */ }
+  markFields();
+}
+
+pop?.querySelectorAll('[data-close]').forEach(el => el.addEventListener('click', closeBuy));
+pop?.querySelectorAll('[data-back]').forEach(el => el.addEventListener('click', () => showStep(1)));
 pop?.addEventListener('click', e => { if (e.target === pop) closeBuy(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeBuy(); });
 
-/* Razorpay hook: define window.tsscStartCheckout(module) elsewhere and this
-   button will call it. Until then it falls back to the pricing page. */
-document.getElementById('mbpGo')?.addEventListener('click', () => {
-  if (typeof window.tsscStartCheckout === 'function') {
-    window.tsscStartCheckout(CFG.module);
-  } else {
-    window.location = CFG.buyUrl;
+document.getElementById('mbpNext')?.addEventListener('click', async () => {
+  if (!_auth.currentUser) {
+    const back = encodeURIComponent(location.href);
+    location = 'https://trickyssc.com/login.html?next=' + back;
+    return;
+  }
+  const btn = document.getElementById('mbpNext');
+  btn.disabled = true;
+  // A registered buyer should never see empty boxes they could have avoided:
+  // wait for the profile read before showing the form.
+  try { await PREFILL; } catch (e) {}
+  btn.disabled = false;
+  markFields();
+  showStep(2);
+  focusFirstGap();
+});
+
+/* ---- validate, then hand off to checkout ---- */
+function fail(msg, id) {
+  const box = document.getElementById('mbpErr');
+  box.textContent = msg; box.hidden = false;
+  const f = id && document.getElementById(id);
+  if (f) { f.classList.add('bad'); f.focus(); }
+  return false;
+}
+
+function collect() {
+  const box = document.getElementById('mbpErr');
+  box.hidden = true;
+  ['mbpName', 'mbpMobile', 'mbpPlace', 'mbpCourse']
+    .forEach(id => document.getElementById(id)?.classList.remove('bad'));
+
+  const name   = document.getElementById('mbpName').value.trim();
+  // browser autofill often supplies +91XXXXXXXXXX or 0XXXXXXXXXX — normalise
+  // to the bare 10 digits rather than rejecting a number that is actually fine
+  let mobile = document.getElementById('mbpMobile').value.replace(/\D/g, '');
+  if (mobile.length === 12 && mobile.startsWith('91')) mobile = mobile.slice(2);
+  if (mobile.length === 11 && mobile.startsWith('0'))  mobile = mobile.slice(1);
+  const place  = document.getElementById('mbpPlace').value.trim();
+  const course = document.getElementById('mbpCourse').value;
+
+  if (name.length < 2)             return fail('Please enter your full name.', 'mbpName');
+  if (!/^[6-9]\d{9}$/.test(mobile)) return fail('Enter a valid 10-digit Indian mobile number.', 'mbpMobile');
+  if (place.length < 2)            return fail('Please enter your city or district.', 'mbpPlace');
+  if (!course)                     return fail('Please choose a course.', 'mbpCourse');
+
+  return { name, mobile, place, courseId: course };
+}
+
+document.getElementById('mbpPay')?.addEventListener('click', async () => {
+  const d = collect();
+  if (!d) return;
+  const user = _auth.currentUser;
+  if (!user) { location = 'https://trickyssc.com/login.html'; return; }
+
+  const btn = document.getElementById('mbpPay');
+  btn.disabled = true;
+  btn.textContent = 'Opening payment\u2026';
+  ORDER = { ...d, uid: user.uid, email: user.email || '' };
+  // so a second purchase is prefilled end to end, place included
+  try {
+    localStorage.setItem('tssc_checkout', JSON.stringify(
+      { name: d.name, phone: d.mobile, place: d.place }));
+  } catch (e) {}
+
+  try {
+    if (typeof window.tsscStartCheckout !== 'function') {
+      throw new Error('Checkout is not wired up yet on this page.');
+    }
+    await window.tsscStartCheckout(ORDER);
+  } catch (e) {
+    fail(e.message || 'Could not start the payment. Please try again.');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Continue to payment \u2192';
   }
 });
+
+/* Called by the checkout layer once the Worker has confirmed the payment.
+   Re-reads the entitlement (cache-busted) and repaints every card. */
+window.tsscOnPaymentSuccess = async function (msg) {
+  const user = _auth.currentUser;
+  if (user) {
+    try { sessionStorage.removeItem('tssc_ent_' + user.uid); } catch (e) {}
+    OWNED = await loadEntitlement(user.uid);
+  }
+  applyEntitlement();
+  showUnlocked(msg);
+};
 
 /* ---- lock pill click ---- */
 document.addEventListener('click', e => {
@@ -3642,7 +4032,7 @@ document.addEventListener('click', e => {
   e.preventDefault();
   e.stopPropagation();
   const card = lock.closest('.mock-card');
-  openBuy(card?.querySelector('.mc-title')?.textContent || '');
+  openBuy(card);
 });
 
 /* ---- gate the attempt button by wrapping the existing chooser ---- */
@@ -3651,7 +4041,7 @@ if (typeof _origChooser === 'function') {
   window.openLangChooser = function (btn) {
     const card = btn?.closest?.('.mock-card');
     if (isGated(card)) {
-      openBuy(btn.getAttribute('data-title') || '');
+      openBuy(card);
       return;
     }
     return _origChooser.apply(this, arguments);
