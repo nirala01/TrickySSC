@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>My Orders — TrickySSC</title>
+<meta name="robots" content="noindex,nofollow">
+<meta name="description" content="View your TrickySSC purchases, payment details and course access.">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Baloo+2:wght@800&display=swap" rel="stylesheet">
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-3MMDNVBJQN"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-3MMDNVBJQN');</script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F2F7;color:#1E293B;min-height:100vh;}
+
+/* ===== TrickySSC standard nav (matches main site) ===== */
+:root{ --saffron:#FF6B00; --saffron-light:#FF8C38; --text-dim:#4A5568; }
+nav.tssc-nav{ position:sticky; top:0; z-index:1000; background:#fff; box-shadow:0 2px 12px rgba(0,0,0,.06); border-bottom:1px solid #E2E8F0; padding:0 2rem; }
+nav.tssc-nav .nav-inner{ max-width:1280px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; height:64px; }
+nav.tssc-nav .logo{ font-family:'Baloo 2',cursive; font-size:1.7rem; font-weight:800; letter-spacing:-0.5px; color:#1A202C; text-decoration:none; cursor:pointer; }
+nav.tssc-nav .logo span{ color:var(--saffron); }
+nav.tssc-nav .nav-links{ display:flex; gap:0.15rem; list-style:none; align-items:center; margin:0; padding:0; }
+nav.tssc-nav .nav-links a{ display:block; padding:0.45rem 0.85rem; font-family:'Rajdhani',sans-serif; font-size:0.88rem; font-weight:600; letter-spacing:0.5px; text-transform:uppercase; color:#4A5568; text-decoration:none; border-radius:6px; transition:all 0.2s; cursor:pointer; }
+nav.tssc-nav .nav-links a:hover{ color:var(--saffron); background:rgba(255,107,0,0.08); }
+nav.tssc-nav .hamburger{ display:none; cursor:pointer; flex-direction:column; gap:5px; }
+nav.tssc-nav .hamburger span{ display:block; width:24px; height:2px; background:#1A202C; border-radius:2px; }
+@media (max-width:768px){
+  nav.tssc-nav{ padding:0 1rem; }
+  nav.tssc-nav .nav-links{ display:none; }
+  nav.tssc-nav .hamburger{ display:flex; }
+}
+.tssc-mobile-menu{ display:none; position:fixed; top:64px; left:0; right:0; background:#fff; border-bottom:1px solid #E2E8F0; padding:1rem; z-index:999; flex-direction:column; gap:0.25rem; max-height:calc(100vh - 64px); overflow-y:auto; }
+.tssc-mobile-menu.open{ display:flex; }
+.tssc-mobile-menu > a{ padding:0.75rem 1rem; font-family:'Rajdhani',sans-serif; font-weight:600; font-size:1rem; letter-spacing:0.5px; color:var(--text-dim); text-decoration:none; border-radius:8px; }
+.tssc-mobile-menu > a:hover{ background:rgba(255,107,0,0.08); color:var(--saffron); }
+
+.wrap{max-width:860px;margin:0 auto;padding:1.5rem 1.25rem 3rem;}
+.crumb{font-size:0.78rem;color:#94A3B8;margin-bottom:1rem;}
+.crumb a{color:#FF6B00;text-decoration:none;font-weight:600;}
+
+.hero{background:linear-gradient(135deg,#1E1B4B 0%,#1E3A5F 55%,#0F4C81 100%);border-radius:18px;padding:1.6rem 1.75rem;margin-bottom:1.25rem;box-shadow:0 8px 32px rgba(15,30,60,0.2);}
+.hero h1{font-family:'Rajdhani',sans-serif;font-size:clamp(1.3rem,4vw,1.7rem);font-weight:800;color:#fff;line-height:1.15;}
+.hero p{color:rgba(255,255,255,0.55);font-size:0.82rem;margin-top:0.3rem;}
+
+.panel{background:#fff;border:1px solid #E8ECF2;border-radius:14px;padding:1.5rem;text-align:center;}
+.panel h2{font-family:'Rajdhani',sans-serif;font-size:1.15rem;font-weight:700;margin-bottom:0.4rem;}
+.panel p{font-size:0.88rem;color:#64748B;line-height:1.6;}
+.btn{display:inline-block;margin-top:1rem;background:linear-gradient(135deg,#FF6B00,#FF8C38);color:#fff;text-decoration:none;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.95rem;padding:0.65rem 1.5rem;border-radius:100px;border:none;cursor:pointer;}
+.btn.ghost{background:none;color:#FF6B00;border:1px solid #FFD5B8;}
+
+.order{background:#fff;border:1px solid #E8ECF2;border-radius:14px;padding:1.25rem 1.4rem;margin-bottom:1rem;}
+.order-top{display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;margin-bottom:0.9rem;}
+.order-course{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.08rem;color:#1A202C;}
+.order-amt{font-family:'Rajdhani',sans-serif;font-weight:800;font-size:1.25rem;color:#1A202C;white-space:nowrap;}
+.pill{display:inline-block;border-radius:100px;padding:0.15rem 0.6rem;font-size:0.7rem;font-weight:700;font-family:'Rajdhani',sans-serif;letter-spacing:0.3px;text-transform:uppercase;}
+.p-paid{background:#DCFCE7;color:#15803D;}
+.p-pending{background:#FEF3C7;color:#B45309;}
+.p-active{background:#DCFCE7;color:#15803D;}
+.p-exp{background:#FEE2E2;color:#B91C1C;}
+
+.rows{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:0.65rem 1.25rem;border-top:1px solid #F1F5F9;padding-top:0.9rem;}
+.row-l{font-size:0.68rem;color:#94A3B8;text-transform:uppercase;letter-spacing:0.4px;font-weight:600;}
+.row-v{font-size:0.86rem;color:#1E293B;font-weight:500;margin-top:0.1rem;word-break:break-all;}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:0.8rem;}
+
+.note{background:#FFF7ED;border:1px solid #FFE4CC;border-radius:12px;padding:0.9rem 1.1rem;font-size:0.82rem;color:#7C4A17;line-height:1.6;margin-top:1.25rem;}
+.note a{color:#C2410C;font-weight:600;}
+.shimmer{background:#fff;border:1px solid #E8ECF2;border-radius:14px;height:150px;margin-bottom:1rem;position:relative;overflow:hidden;}
+.shimmer::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(0,0,0,0.035),transparent);animation:sh 1.3s infinite;}
+@keyframes sh{to{transform:translateX(100%);}}
+</style>
+</head>
+<body>
+
+<nav class="tssc-nav">
+  <div class="nav-inner">
+    <a href="https://trickyssc.com/index.html" class="logo">Tricky<span>SSC</span></a>
+    <ul class="nav-links">
+      <li><a href="https://trickyssc.com/index.html">Home</a></li>
+      <li><a href="https://trickyssc.com/ssc-cgl-pyq.html">PYQ Bank</a></li>
+      <li><a href="https://trickyssc.com/mock-list.html?exam=ssc-cgl">Mock Tests</a></li>
+      <li><a href="https://trickyssc.com/current-affairs.html">Current Affairs</a></li>
+      <li><a href="https://trickyssc.com/my-orders.html" style="color:#FF6B00;background:rgba(255,107,0,0.08);">My Orders</a></li>
+      <li><a href="https://trickyssc.com/login.html" style="background:linear-gradient(135deg,#FF6B00,#FF8C38);color:white!important;padding:0.45rem 1.1rem;border-radius:100px;font-weight:700;">👤 Login</a></li>
+    </ul>
+    <div class="hamburger" onclick="tsscToggleMenu()"><span></span><span></span><span></span></div>
+  </div>
+</nav>
+<div class="tssc-mobile-menu" id="tsscMobileMenu">
+  <a href="https://trickyssc.com/index.html">Home</a>
+  <a href="https://trickyssc.com/ssc-cgl-pyq.html">PYQ Bank</a>
+  <a href="https://trickyssc.com/mock-list.html?exam=ssc-cgl">Mock Tests</a>
+  <a href="https://trickyssc.com/current-affairs.html">Current Affairs</a>
+  <a href="https://trickyssc.com/my-orders.html">My Orders</a>
+  <a href="https://trickyssc.com/login.html">Login / Register</a>
+</div>
+<script>
+function tsscToggleMenu(){document.getElementById('tsscMobileMenu').classList.toggle('open');}
+</script>
+
+<div class="wrap">
+  <div class="crumb"><a href="https://trickyssc.com/index.html">Home</a> &rsaquo; My Orders</div>
+
+  <div class="hero">
+    <h1>My Orders</h1>
+    <p>Your purchases, payment details and course access</p>
+  </div>
+
+  <div id="out">
+    <div class="shimmer"></div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import { getFirestore, doc, getDoc, collection, query, where, getDocs }
+  from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+const app = initializeApp({
+  apiKey:"AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",
+  authDomain:"trickyssc-17bb3.firebaseapp.com",
+  projectId:"trickyssc-17bb3",
+  storageBucket:"trickyssc-17bb3.firebasestorage.app",
+  messagingSenderId:"450627057220",
+  appId:"1:450627057220:web:366267bf437d94f20c6e11"
+});
+const auth = getAuth(app);
+const db   = getFirestore(app);
+const out  = document.getElementById('out');
+
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c =>
+  ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* Firestore timestamps arrive either as ISO strings or as {seconds}. */
+const ts = v => {
+  if (!v) return 0;
+  if (typeof v === 'string') return Date.parse(v) || 0;
+  if (typeof v === 'number') return v < 1e12 ? v * 1000 : v;
+  if (v.seconds) return v.seconds * 1000;
+  if (v.toDate)  { try { return v.toDate().getTime(); } catch { return 0; } }
+  return 0;
+};
+
+/* Date AND time — students ask "when exactly did I pay". */
+const fmtDT = t => t
+  ? new Date(t).toLocaleString('en-IN',
+      { day:'numeric', month:'short', year:'numeric',
+        hour:'numeric', minute:'2-digit', hour12:true })
+  : '—';
+
+const fmtD = t => t
+  ? new Date(t).toLocaleDateString('en-IN',
+      { day:'numeric', month:'short', year:'numeric' })
+  : '—';
+
+function signedOut() {
+  out.innerHTML = `
+    <div class="panel">
+      <h2>Please sign in</h2>
+      <p>Sign in with the same method you used when you bought the course &mdash;
+         Google or mobile OTP. Each login method creates a separate account, so a
+         purchase made with one will not appear under the other.</p>
+      <a class="btn" href="https://trickyssc.com/login.html">Sign in</a>
+    </div>`;
+}
+
+function noOrders(email) {
+  out.innerHTML = `
+    <div class="panel">
+      <h2>No orders yet</h2>
+      <p>You are signed in${email ? ' as <strong>' + esc(email) + '</strong>' : ''},
+         but there are no purchases on this account.</p>
+      <p style="margin-top:.6rem;">If you have paid and this looks wrong, you may have
+         bought using a different login method. Write to
+         <a href="mailto:contact@trickyssc.com" style="color:#FF6B00;font-weight:600;">contact@trickyssc.com</a>
+         with your payment ID and we will fix it.</p>
+      <a class="btn" href="https://trickyssc.com/mock-list.html?exam=ssc-cgl">Browse mock tests</a>
+    </div>`;
+}
+
+function card(p, ent) {
+  const paid    = p.status === 'paid';
+  const paidAt  = ts(p.paidAt) || ts(p.createdAt);
+  const expires = ent ? ts(ent.expiresAt) : 0;
+  const live    = ent && ent.active === true && expires > Date.now();
+
+  const access = !paid
+    ? '<span class="pill p-pending">not completed</span>'
+    : live
+      ? `<span class="pill p-active">till ${esc(fmtD(expires))}</span>`
+      : expires
+        ? `<span class="pill p-exp">expired ${esc(fmtD(expires))}</span>`
+        : '<span class="pill p-pending">not active</span>';
+
+  return `
+  <div class="order">
+    <div class="order-top">
+      <div>
+        <div class="order-course">${esc(p.productLabel || p.courseId || 'Course')}</div>
+        <div style="margin-top:.35rem;">
+          <span class="pill ${paid ? 'p-paid' : 'p-pending'}">${esc(p.status || 'created')}</span>
+          ${access}
+        </div>
+      </div>
+      <div class="order-amt">&#8377;${esc(p.amount ?? '')}</div>
+    </div>
+    <div class="rows">
+      <div><div class="row-l">Paid on</div><div class="row-v">${esc(fmtDT(paidAt))}</div></div>
+      <div><div class="row-l">Payment ID</div><div class="row-v mono">${esc(p.paymentId || '—')}</div></div>
+      <div><div class="row-l">Order ID</div><div class="row-v mono">${esc(p.orderId || '—')}</div></div>
+      <div><div class="row-l">Registered mobile</div><div class="row-v mono">${esc(p.mobile || '—')}</div></div>
+    </div>
+  </div>`;
+}
+
+onAuthStateChanged(auth, async user => {
+  if (!user) { signedOut(); return; }
+
+  try {
+    /* Rules allow a signed-in user to read payment docs where uid matches. */
+    const snap = await getDocs(
+      query(collection(db, 'payments'), where('uid', '==', user.uid))
+    );
+
+    if (snap.empty) { noOrders(user.email); return; }
+
+    /* One entitlement doc per user, keyed by uid. */
+    let ent = null;
+    try {
+      const e = await getDoc(doc(db, 'entitlements', user.uid));
+      if (e.exists()) ent = e.data();
+    } catch (_) { /* absent or unreadable — cards still render */ }
+
+    const rows = snap.docs.map(d => d.data())
+      .sort((a, b) => (ts(b.paidAt) || ts(b.createdAt)) - (ts(a.paidAt) || ts(a.createdAt)));
+
+    const html = rows.map(p => {
+      const key = p.courseId || p.productId;
+      const mod = ent && ent.modules
+        ? (ent.modules[key] || ent.modules[String(key).replace(/^p-/, '')] || null)
+        : null;
+      return card(p, mod);
+    }).join('');
+
+    out.innerHTML = html + `
+      <div class="note">
+        Keep your <strong>Payment ID</strong> handy if you ever need to contact us about a
+        purchase. A receipt was also emailed to you by Razorpay at the time of payment.
+        Questions? Write to
+        <a href="mailto:contact@trickyssc.com">contact@trickyssc.com</a> &mdash;
+        we reply within 24 hours.
+      </div>`;
+
+  } catch (err) {
+    console.error(err);
+    out.innerHTML = `
+      <div class="panel">
+        <h2>Could not load your orders</h2>
+        <p>Something went wrong while fetching your purchases. Please refresh the page.
+           If it keeps happening, write to
+           <a href="mailto:contact@trickyssc.com" style="color:#FF6B00;font-weight:600;">contact@trickyssc.com</a>.</p>
+        <button class="btn ghost" onclick="location.reload()">Try again</button>
+      </div>`;
+  }
+});
+</script>
+
+</body>
+</html>
