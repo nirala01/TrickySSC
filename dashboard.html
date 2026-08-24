@@ -73,6 +73,17 @@
   }
   .welcome-text h2 span{color:var(--orange);}
   .welcome-text p{font-size:0.9rem;color:rgba(255,255,255,0.6);}
+  /* Plan badge under the welcome name */
+  .plan-line{margin:0.4rem 0 0.35rem;display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;}
+  .plan-badge{
+    display:inline-flex;align-items:center;gap:0.3rem;border-radius:100px;
+    padding:0.2rem 0.7rem;font-family:'Rajdhani',sans-serif;font-size:0.76rem;
+    font-weight:800;letter-spacing:0.02em;white-space:nowrap;
+  }
+  .plan-premium{background:linear-gradient(135deg,#FBBF24,#F59E0B);color:#442200;}
+  .plan-free{background:rgba(255,255,255,0.14);color:rgba(255,255,255,0.75);}
+  .plan-meta{font-size:0.8rem;color:rgba(255,255,255,0.62);}
+  .plan-meta a{color:#FFB570;text-decoration:none;font-weight:600;}
   .welcome-cta{
     position:relative;
     background:linear-gradient(135deg,var(--orange),var(--orange2));
@@ -321,6 +332,7 @@
   <div class="topbar-right">
     <a href="https://trickyssc.com/index.html" class="nav-link" style="font-family:'Rajdhani',sans-serif;font-size:0.88rem;font-weight:700;color:#64748B;text-decoration:none;border:1px solid #E2E8F0;padding:0.35rem 0.9rem;border-radius:8px;transition:all 0.2s;" onmouseover="this.style.borderColor='#FF6B00';this.style.color='#FF6B00'" onmouseout="this.style.borderColor='#E2E8F0';this.style.color='#64748B'">🏠 <span class="nav-label">Home</span></a>
     <a href="rank.html" class="nav-link" style="font-family:'Rajdhani',sans-serif;font-size:0.88rem;font-weight:700;color:#64748B;text-decoration:none;border:1px solid #E2E8F0;padding:0.35rem 0.9rem;border-radius:8px;transition:all 0.2s;" onmouseover="this.style.borderColor='#FF6B00';this.style.color='#FF6B00'" onmouseout="this.style.borderColor='#E2E8F0';this.style.color='#64748B'">🏆 <span class="nav-label">Leaderboard</span></a>
+    <a href="my-orders.html" class="nav-link" style="font-family:'Rajdhani',sans-serif;font-size:0.88rem;font-weight:700;color:#64748B;text-decoration:none;border:1px solid #E2E8F0;padding:0.35rem 0.9rem;border-radius:8px;transition:all 0.2s;" onmouseover="this.style.borderColor='#FF6B00';this.style.color='#FF6B00'" onmouseout="this.style.borderColor='#E2E8F0';this.style.color='#64748B'">🧾 <span class="nav-label">My Orders</span></a>
     <span class="topbar-name" id="topName">Student</span>
     <div class="avatar" id="topAvatar">S</div>
     <button class="logout-btn" onclick="doLogout()">Logout</button>
@@ -334,6 +346,7 @@
   <div class="welcome-banner">
     <div class="welcome-text">
       <h2>Welcome back, <span id="wName">Student</span>! 👋</h2>
+      <div id="wPlan" class="plan-line"></div>
       <p id="wSub">Ready to practice? Your SSC journey continues here.</p>
     </div>
     
@@ -587,28 +600,45 @@ async function loadDashboard(user) {
        unreadable entitlement can never break the rest of the dashboard. ── */
     (async () => {
       const el = document.getElementById('ordAccess');
-      if (!el) return;
+      const pl = document.getElementById('wPlan');
       try {
         const eSnap = await getDoc(doc(db, 'entitlements', effectiveUid));
         const mods  = eSnap.exists() ? (eSnap.data().modules || {}) : {};
-        let best = 0;
-        Object.values(mods).forEach(m => {
+        let best = 0, bestKey = '';
+        Object.entries(mods).forEach(([k, m]) => {
           if (!m || m.active !== true) return;
           const t = Date.parse(m.expiresAt || '') || 0;
-          if (t > best) best = t;
+          if (t > best) { best = t; bestKey = k; }
         });
+
+        /* Readable plan names, keyed on the productId/courseId the worker writes. */
+        const LABELS = {
+          'ssc-cgl-mocks':   'SSC CGL Mock Test Series 2026',
+          'p-ssc-cgl-mocks': 'SSC CGL Mock Test Series 2026'
+        };
+        const planName = LABELS[bestKey] || LABELS[String(bestKey).replace(/^p-/, '')]
+                       || 'Premium plan';
+
         if (best > Date.now()) {
           const d = new Date(best).toLocaleDateString('en-IN',
             { day:'numeric', month:'short', year:'numeric' });
-          el.innerHTML = '<span class="orders-pill op-active">premium active</span>'
-                       + 'Access till ' + d;
+          if (pl) pl.innerHTML =
+            '<span class="plan-badge plan-premium">⭐ PREMIUM</span>'
+          + '<span class="plan-meta">' + planName + ' &middot; valid till ' + d + '</span>';
+          if (el) el.innerHTML =
+            '<span class="orders-pill op-active">premium active</span>Access till ' + d;
         } else {
-          el.innerHTML = '<span class="orders-pill op-none">free plan</span>'
-                       + 'No active purchase on this account';
+          if (pl) pl.innerHTML =
+            '<span class="plan-badge plan-free">FREE PLAN</span>'
+          + '<span class="plan-meta">Mocks 1&ndash;4 free &middot; '
+          + '<a href="https://trickyssc.com/mock-list.html?exam=ssc-cgl">unlock all 50 for &#8377;49</a></span>';
+          if (el) el.innerHTML =
+            '<span class="orders-pill op-none">free plan</span>No active purchase on this account';
         }
       } catch (err) {
-        el.innerHTML = '<span class="orders-pill op-none">—</span>'
-                     + 'Open My Orders to see your purchases';
+        if (pl) pl.innerHTML = '';
+        if (el) el.innerHTML =
+          '<span class="orders-pill op-none">—</span>Open My Orders to see your purchases';
       }
     })();
     const avatarEl = document.getElementById('topAvatar');
