@@ -88,14 +88,38 @@ transform:skewX(-22deg);animation:mcShine 3.6s ease-in-out infinite;}
 @keyframes mcShine{0%{left:-140%;}55%,100%{left:160%;}}
 @media(prefers-reduced-motion:reduce){.mc-paid-tag i,.mc-paid-tag span::after{animation:none;}}
 /* ===== premium lock (TSSC-PAYWALL-V1) ===== */
-.mc-locktag{display:none!important;align-items:center;gap:.24rem;margin-left:.32rem;
+.mc-locktag{display:none!important;align-items:center;gap:.34rem;margin-left:.4rem;
 vertical-align:middle;border:none;cursor:pointer;font-family:'Rajdhani',sans-serif;
-font-size:.68rem!important;font-weight:800;letter-spacing:.03em;padding:.2rem .55rem;
+font-size:.92rem!important;font-weight:800;letter-spacing:.04em;padding:.36rem .95rem;
 border-radius:100px;background:linear-gradient(135deg,#1E293B,#475569);color:#fff;
-box-shadow:0 2px 8px rgba(15,23,42,.3),inset 0 1px 0 rgba(255,255,255,.18);
+box-shadow:0 3px 12px rgba(15,23,42,.34),inset 0 1px 0 rgba(255,255,255,.18);
 -webkit-tap-highlight-color:transparent;transition:filter .15s ease,transform .15s ease;}
 .mc-locktag:hover{filter:brightness(1.2);transform:translateY(-1px);}
-.mc-locktag i{font-style:normal;font-size:.76rem;line-height:1;}
+.mc-locktag i{font-style:normal;font-size:1.05rem;line-height:1;}
+/* TSSC-CARDCLICK-V1 — the whole locked card is a buy target, so show it */
+body.tssc-enforce .mock-card.tssc-premium:not(.tssc-owned){cursor:pointer;}
+body.tssc-enforce .mock-card.tssc-premium:not(.tssc-owned):hover .mc-locktag{
+filter:brightness(1.25);transform:translateY(-1px);}
+
+/* TSSC-LOCKOVERLAY-V1 — translucent unlock panel over the lower half of a
+   locked card. Sits on top, so the card's own layout is untouched: nothing
+   reflows when it appears or disappears. */
+.mc-lockover{display:none;position:absolute;left:0;right:0;bottom:0;height:50%;
+z-index:4;align-items:center;justify-content:center;flex-direction:column;gap:.3rem;
+background:linear-gradient(to bottom,rgba(30,41,59,.32) 0%,rgba(15,23,42,.82) 55%);
+backdrop-filter:blur(2.5px);-webkit-backdrop-filter:blur(2.5px);
+border-radius:0 0 13px 13px;cursor:pointer;text-align:center;padding:.5rem;
+transition:background .18s ease;-webkit-tap-highlight-color:transparent;}
+body.tssc-enforce .mock-card.tssc-premium:not(.tssc-owned) .mc-lockover{display:flex;}
+.mock-card:hover .mc-lockover{background:linear-gradient(to bottom,
+rgba(30,41,59,.4) 0%,rgba(15,23,42,.9) 55%);}
+.mc-lockover .lo-ico{font-size:1.5rem;line-height:1;filter:drop-shadow(0 2px 4px rgba(0,0,0,.4));}
+.mc-lockover .lo-txt{font-family:'Rajdhani',sans-serif;font-weight:800;font-size:.9rem;
+letter-spacing:.06em;color:#fff;text-transform:uppercase;text-shadow:0 1px 4px rgba(0,0,0,.5);}
+.mc-lockover .lo-sub{font-size:.66rem;color:rgba(255,255,255,.82);font-weight:600;}
+/* the small pill is redundant once the panel is showing */
+body.tssc-enforce .mock-card.tssc-premium:not(.tssc-owned) .mc-locktag{display:none!important;}
+body:not(.tssc-ent-resolved) .mc-lockover{opacity:.5;pointer-events:none;}
 /* owned: the lock disappears and the gold Premium pill goes green */
 /* the lock appears ONLY once the paywall is enforcing, and only on a card
    this user hasn't bought. Before 25 Aug nobody sees it at all. */
@@ -108,6 +132,33 @@ box-shadow:0 2px 8px rgba(5,150,105,.32),inset 0 1px 0 rgba(255,255,255,.35)!imp
 .mock-card.tssc-owned .mc-paid-tag i{animation:none!important;}
 /* while entitlement is still being read, don't flash a wrong state */
 body:not(.tssc-ent-resolved) .mc-locktag{opacity:.55;pointer-events:none;}
+/* TSSC-KEEPOPEN-V1 — last screen before Razorpay. While the webhook is the
+   backstop, the browser round-trip is what actually grants access, so it is
+   worth one deliberate beat to stop people closing the tab. */
+#tsscKeepOpen{display:none;position:fixed;inset:0;z-index:10000;
+background:rgba(15,23,42,.72);align-items:center;justify-content:center;padding:1rem;
+backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);}
+#tsscKeepOpen.on{display:flex;}
+#tsscKeepOpen .ko-card{background:#fff;border-radius:18px;max-width:400px;width:100%;
+overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.34);
+font-family:'Plus Jakarta Sans',sans-serif;}
+#tsscKeepOpen .ko-head{background:linear-gradient(135deg,#B45309,#F59E0B);
+padding:1.1rem 1.3rem;color:#fff;display:flex;align-items:center;gap:.6rem;}
+#tsscKeepOpen .ko-head b{font-family:'Rajdhani',sans-serif;font-size:1.12rem;
+font-weight:800;letter-spacing:.02em;}
+#tsscKeepOpen .ko-body{padding:1.2rem 1.35rem 1.35rem;}
+#tsscKeepOpen .ko-lead{font-size:.92rem;color:#1E293B;line-height:1.6;font-weight:600;
+margin-bottom:.85rem;}
+#tsscKeepOpen ul{margin:0 0 1rem;padding-left:1.15rem;}
+#tsscKeepOpen li{font-size:.83rem;color:#475569;line-height:1.6;margin-bottom:.4rem;}
+#tsscKeepOpen .ko-safe{background:#F0FDF4;border:1px solid #BBF7D0;border-radius:10px;
+padding:.65rem .8rem;font-size:.78rem;color:#15803D;line-height:1.55;margin-bottom:1rem;}
+#tsscKeepOpen .ko-go{width:100%;border:none;cursor:pointer;
+background:linear-gradient(135deg,#FF6B00,#FF8C38);color:#fff;
+font-family:'Rajdhani',sans-serif;font-weight:800;font-size:1.02rem;letter-spacing:.02em;
+padding:.8rem;border-radius:100px;}
+#tsscKeepOpen .ko-back{display:block;width:100%;background:none;border:none;
+cursor:pointer;margin-top:.6rem;font-size:.8rem;color:#94A3B8;font-weight:600;}
 /* unlock popup */
 #mockBuyPop{display:none;position:fixed;inset:0;z-index:9998;background:rgba(15,23,42,.6);
 align-items:center;justify-content:center;padding:1rem;backdrop-filter:blur(3px);}
@@ -3414,6 +3465,28 @@ onAuthStateChanged(_auth, async user => {
      step 2  buyer details + course   (mandatory form)
      step 3  handed to Razorpay, then "unlocked" confirmation
 -->
+<!-- TSSC-KEEPOPEN-V1 -->
+<div id="tsscKeepOpen">
+  <div class="ko-card">
+    <div class="ko-head"><span style="font-size:1.3rem;">&#9888;&#65039;</span>
+      <b>Before you pay &mdash; please read</b></div>
+    <div class="ko-body">
+      <div class="ko-lead">Do not close the payment window until you are brought
+        back to the mock test page.</div>
+      <ul>
+        <li>The next screen is Razorpay&rsquo;s secure payment page.</li>
+        <li>After paying, <strong>wait</strong> &mdash; you will be returned here
+            automatically and your mocks will unlock.</li>
+        <li>Do not press Back, close the tab, or switch apps while it is loading.</li>
+      </ul>
+      <div class="ko-safe">If something does go wrong, your payment is safe.
+        Write to contact@trickyssc.com with your payment ID and we will
+        unlock your account.</div>
+      <button class="ko-go" id="koGo">I understand &mdash; continue to payment &rarr;</button>
+      <button class="ko-back" id="koBack">Cancel</button>
+    </div>
+  </div>
+</div>
 <div id="mockBuyPop">
   <div class="mbp-card">
     <div class="mbp-head">
@@ -3579,6 +3652,8 @@ function applyEntitlement() {
   document.body.classList.toggle('tssc-owned-user', OWNED);
   document.querySelectorAll('.mock-card.tssc-premium')
     .forEach(c => c.classList.toggle('tssc-owned', OWNED));
+  /* TSSC-LOCKOVERLAY-V1 — repaint panels whenever ownership changes. */
+  try { if (window.tsscPaintLockOverlays) window.tsscPaintLockOverlays(); } catch (e) {}
 }
 window.tsscApplyEntitlement = applyEntitlement;
 
@@ -4084,18 +4159,40 @@ document.getElementById('mbpPay')?.addEventListener('click', async () => {
       { name: d.name, phone: d.mobile, place: d.place }));
   } catch (e) {}
 
-  try {
-    if (typeof window.tsscStartCheckout !== 'function') {
-      throw new Error('Checkout is not wired up yet on this page.');
+  /* TSSC-KEEPOPEN-V1 — one deliberate beat before handing off to Razorpay. */
+  btn.disabled = false;
+  btn.textContent = 'Continue to payment \u2192';
+  tsscAskKeepOpen(async () => {
+    try {
+      if (typeof window.tsscStartCheckout !== 'function') {
+        throw new Error('Checkout is not wired up yet on this page.');
+      }
+      await window.tsscStartCheckout(ORDER);
+    } catch (e) {
+      fail(e.message || 'Could not start the payment. Please try again.');
     }
-    await window.tsscStartCheckout(ORDER);
-  } catch (e) {
-    fail(e.message || 'Could not start the payment. Please try again.');
-  } finally {
-    btn.disabled = false;
-    btn.textContent = 'Continue to payment \u2192';
-  }
+  });
 });
+
+/* TSSC-KEEPOPEN-V1 — shows the warning, runs `proceed` only if they accept. */
+function tsscAskKeepOpen(proceed) {
+  const ko = document.getElementById('tsscKeepOpen');
+  if (!ko) { proceed(); return; }          /* markup missing: never block a sale */
+  const go   = document.getElementById('koGo');
+  const back = document.getElementById('koBack');
+  const close = () => { ko.classList.remove('on'); };
+  go.onclick = () => {
+    go.disabled = true;
+    go.textContent = 'Opening payment\u2026';
+    close();
+    go.disabled = false;
+    go.textContent = 'I understand \u2014 continue to payment \u2192';
+    proceed();
+  };
+  back.onclick = close;
+  ko.onclick = e => { if (e.target === ko) close(); };
+  ko.classList.add('on');
+}
 
 /* Called by the checkout layer once the Worker has confirmed the payment.
    Re-reads the entitlement (cache-busted) and repaints every card. */
@@ -4111,12 +4208,51 @@ window.tsscOnPaymentSuccess = async function (msg) {
 };
 
 /* ---- lock pill click ---- */
+/* TSSC-LOCKOVERLAY-V1 — add the panel to any locked card that lacks one.
+   Runs after paint and on every entitlement repaint, so cards rendered later
+   (filters, tab switches) get it too. */
+function tsscPaintLockOverlays() {
+  document.querySelectorAll('.mock-card.tssc-premium:not(.tssc-owned)').forEach(card => {
+    if (card.querySelector('.mc-lockover')) return;
+    const o = document.createElement('div');
+    o.className = 'mc-lockover';
+    o.innerHTML = '<div class="lo-ico">\u{1F512}</div>'
+                + '<div class="lo-txt">Unlock \u20B949</div>'
+                + '<div class="lo-sub">Tap to get all 50 mocks</div>';
+    card.appendChild(o);
+  });
+  document.querySelectorAll('.mock-card.tssc-owned .mc-lockover')
+          .forEach(o => o.remove());
+}
+window.tsscPaintLockOverlays = tsscPaintLockOverlays;
+document.addEventListener('DOMContentLoaded', tsscPaintLockOverlays);
+setTimeout(tsscPaintLockOverlays, 400);
+setTimeout(tsscPaintLockOverlays, 1500);
+
 document.addEventListener('click', e => {
+  const over = e.target.closest?.('.mc-lockover');
+  if (over) {
+    e.preventDefault();
+    e.stopPropagation();
+    openBuy(over.closest('.mock-card'));
+    return;
+  }
   const lock = e.target.closest?.('.mc-locktag');
-  if (!lock) return;
+  if (lock) {
+    e.preventDefault();
+    e.stopPropagation();
+    openBuy(lock.closest('.mock-card'));
+    return;
+  }
+
+  /* TSSC-CARDCLICK-V1 — anywhere on a locked premium card opens checkout.
+     Real links, buttons and inputs inside the card keep their own behaviour
+     so nothing that already worked is swallowed by this. */
+  const card = e.target.closest?.('.mock-card');
+  if (!card || !isGated(card)) return;
+  if (e.target.closest('a[href], button, input, select, textarea, label')) return;
   e.preventDefault();
   e.stopPropagation();
-  const card = lock.closest('.mock-card');
   openBuy(card);
 });
 
