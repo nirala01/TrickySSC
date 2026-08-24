@@ -206,6 +206,31 @@
   .pf-label{font-family:'Rajdhani',sans-serif;font-size:0.75rem;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:0.2rem;}
   .pf-val{font-size:0.9rem;color:var(--dark);font-weight:500;}
 
+  /* ── My Orders card ── */
+  .orders-card{
+    background:#fff;border-radius:16px;padding:1.5rem;
+    border:1px solid var(--border);margin-bottom:1.5rem;
+    display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;
+  }
+  .orders-status{font-size:0.9rem;color:var(--dark);font-weight:500;}
+  .orders-sub{font-size:0.82rem;color:var(--gray);margin-top:0.25rem;line-height:1.5;}
+  .orders-pill{
+    display:inline-block;border-radius:100px;padding:0.15rem 0.6rem;
+    font-family:'Rajdhani',sans-serif;font-size:0.72rem;font-weight:700;
+    text-transform:uppercase;letter-spacing:0.3px;margin-right:0.4rem;
+  }
+  .op-active{background:#DCFCE7;color:#15803D;}
+  .op-none{background:#F1F5F9;color:#64748B;}
+  .orders-btn{
+    background:linear-gradient(135deg,var(--orange),var(--orange2));color:#fff;
+    text-decoration:none;font-family:'Rajdhani',sans-serif;font-weight:700;
+    font-size:0.92rem;padding:0.6rem 1.35rem;border-radius:100px;white-space:nowrap;
+  }
+  @media (max-width:768px){
+    .orders-card{flex-direction:column;align-items:flex-start;}
+    .orders-btn{width:100%;text-align:center;}
+  }
+
   /* Loading overlay */
   #pageLoader{
     position:fixed;inset:0;background:#F1F5F9;
@@ -426,6 +451,22 @@
     </div>
   </div>
 
+  <!-- My Orders -->
+  <div class="section-head">
+    <div class="section-title">🧾 My Orders</div>
+  </div>
+  <div class="orders-card">
+    <div>
+      <div class="orders-status" id="ordAccess">
+        <span class="orders-pill op-none">checking…</span>
+      </div>
+      <div class="orders-sub">
+        See your purchases, payment IDs and access validity.
+      </div>
+    </div>
+    <a class="orders-btn" href="https://trickyssc.com/my-orders.html">View my orders →</a>
+  </div>
+
 </div><!-- /main -->
 
 <script type="module">
@@ -541,6 +582,35 @@ async function loadDashboard(user) {
     document.getElementById('pfEmail').textContent = userProfile.email || user.email || '—';
     document.getElementById('pfPhone').textContent = userProfile.phone || user.phoneNumber || '—';
     document.getElementById('pfMethod').textContent = '🔵 Google';
+
+    /* ── My Orders: show current access status. Wrapped so a missing or
+       unreadable entitlement can never break the rest of the dashboard. ── */
+    (async () => {
+      const el = document.getElementById('ordAccess');
+      if (!el) return;
+      try {
+        const eSnap = await getDoc(doc(db, 'entitlements', effectiveUid));
+        const mods  = eSnap.exists() ? (eSnap.data().modules || {}) : {};
+        let best = 0;
+        Object.values(mods).forEach(m => {
+          if (!m || m.active !== true) return;
+          const t = Date.parse(m.expiresAt || '') || 0;
+          if (t > best) best = t;
+        });
+        if (best > Date.now()) {
+          const d = new Date(best).toLocaleDateString('en-IN',
+            { day:'numeric', month:'short', year:'numeric' });
+          el.innerHTML = '<span class="orders-pill op-active">premium active</span>'
+                       + 'Access till ' + d;
+        } else {
+          el.innerHTML = '<span class="orders-pill op-none">free plan</span>'
+                       + 'No active purchase on this account';
+        }
+      } catch (err) {
+        el.innerHTML = '<span class="orders-pill op-none">—</span>'
+                     + 'Open My Orders to see your purchases';
+      }
+    })();
     const avatarEl = document.getElementById('topAvatar');
     const profileAv = document.getElementById('profileAvatar');
     if(user.photoURL){
