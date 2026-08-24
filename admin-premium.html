@@ -43,6 +43,8 @@ font-family:'Rajdhani',sans-serif;letter-spacing:.02em;white-space:nowrap;}
 .p-active{background:#DCFCE7;color:#15803D;} .p-exp{background:#FEE2E2;color:#B91C1C;}
 .p-test{background:#E0E7FF;color:#3730A3;} .p-live{background:#FCE7F3;color:#9D174D;}
 .p-soon{background:#FFEDD5;color:#C2410C;}
+.p-google{background:#DBEAFE;color:#1D4ED8;} .p-phone{background:#F3E8FF;color:#6B21A8;}
+.login-id{font-size:.72rem;color:#64748B;margin-top:.15rem;word-break:break-all;}
 .msg{padding:.6rem .85rem;border-radius:9px;font-size:.83rem;margin-bottom:.9rem;display:none;line-height:1.6;}
 .msg.err{background:#FEF2F2;border:1px solid #FECACA;color:#B91C1C;display:block;}
 .msg.ok{background:#ECFDF5;border:1px solid #A7F3D0;color:#047857;display:block;}
@@ -123,6 +125,7 @@ letter-spacing:.04em;color:#94A3B8;}}
       <thead><tr>
         <th data-s="name">Candidate</th>
         <th data-s="mobile">Mobile</th>
+        <th data-s="loginMethod">Login</th>
         <th data-s="place">Place</th>
         <th data-s="productLabel">Course</th>
         <th data-s="amount">Amount</th>
@@ -308,6 +311,12 @@ async function load(force) {
         status: p.status || 'created',
         mode: p.mode || 'live',
         paymentId: p.paymentId || '',
+        /* Login method: a Google account carries an email on the payment doc;
+           a mobile-OTP account has none, so the mobile is the only identifier. */
+        loginMethod: (p.email && String(p.email).trim()) ? 'google' : 'phone',
+        loginId: (p.email && String(p.email).trim())
+                   ? String(p.email).trim()
+                   : (p.mobile || ''),
         createdAt: ts(p.createdAt),
         paidAt: ts(p.paidAt),
         expiresAt: until
@@ -419,6 +428,10 @@ function render() {
         <div class="em mono">${esc(r.orderId)}</div>
       </td>
       <td data-l="Mobile" class="mono">${esc(r.mobile) || '—'}</td>
+      <td data-l="Login">
+        <span class="pill p-${r.loginMethod}">${r.loginMethod === 'google' ? 'Google' : 'Mobile OTP'}</span>
+        <div class="login-id mono">${esc(r.loginId) || '—'}</div>
+      </td>
       <td data-l="Place">${esc(r.place) || '—'}</td>
       <td data-l="Course">${esc(r.productLabel) || '—'}</td>
       <td data-l="Amount" class="mono">₹${r.amount}</td>
@@ -668,10 +681,12 @@ $('intentCsv').onclick = () => {
 /* ------------------------------------------------------------------ csv */
 $('csv').onclick = () => {
   const rows = filtered();
-  const head = ['Name','Email','Mobile','Place','Course','Amount','Status','Mode',
+  const head = ['Name','Email','Mobile','Login method','Login ID','Place','Course','Amount','Status','Mode',
                 'Order ID','Payment ID','Access until','Purchased'];
   const cell = v => `"${String(v == null ? '' : v).replace(/"/g, '""')}"`;
-  const body = rows.map(r => [r.name, r.email, r.mobile, r.place, r.productLabel,
+  const body = rows.map(r => [r.name, r.email, r.mobile,
+    r.loginMethod === 'google' ? 'Google' : 'Mobile OTP', r.loginId,
+    r.place, r.productLabel,
     r.amount, r.status, r.mode, r.orderId, r.paymentId,
     r.expiresAt ? new Date(r.expiresAt).toISOString().slice(0,10) : '',
     (r.paidAt || r.createdAt) ? new Date(r.paidAt || r.createdAt).toISOString().slice(0,10) : ''
