@@ -80,6 +80,53 @@ body{font-family:'Noto Sans',sans-serif;background:var(--bg);color:var(--text);m
 .stat-val.green{color:var(--green);}
 .stat-val.blue{color:var(--blue);}
 
+/* Cards that open a drill-down of who did what */
+.stat-card.clickable{cursor:pointer;position:relative;transition:border-color 0.2s,transform 0.15s;}
+.stat-card.clickable:hover{border-color:var(--orange);transform:translateY(-2px);}
+.stat-card.clickable:focus-visible{outline:2px solid var(--orange);outline-offset:2px;}
+.stat-card.clickable::after{
+  content:'view ▸';position:absolute;top:1.1rem;right:1.25rem;
+  font-family:'Rajdhani',sans-serif;font-size:0.7rem;font-weight:600;
+  letter-spacing:0.5px;color:var(--muted);opacity:0;transition:opacity 0.2s;
+}
+.stat-card.clickable:hover::after{opacity:1;color:var(--orange);}
+
+/* DRILL-DOWN */
+.modal.wide{max-width:860px;}
+.drill-bar{display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;margin-bottom:1rem;}
+.drill-tab{
+  background:var(--surface2);border:1px solid var(--border);color:var(--muted);
+  border-radius:8px;padding:0.4rem 0.9rem;cursor:pointer;
+  font-family:'Rajdhani',sans-serif;font-weight:600;font-size:0.85rem;
+}
+.drill-tab.on{border-color:var(--orange);color:var(--orange);background:rgba(255,107,0,0.12);}
+.drill-csv{
+  margin-left:auto;background:transparent;border:1px solid var(--green);color:var(--green);
+  border-radius:8px;padding:0.4rem 0.9rem;cursor:pointer;
+  font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.85rem;
+}
+.drill-note{font-size:0.75rem;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-bottom:1rem;}
+.drill-search{
+  width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;
+  padding:0.55rem 0.85rem;color:var(--text);font-size:0.85rem;outline:none;
+  font-family:'Noto Sans',sans-serif;margin-bottom:1rem;
+}
+.drill-search:focus{border-color:var(--orange);}
+.drill-group{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:0.85rem 1rem;margin-bottom:0.7rem;}
+.drill-head{display:flex;justify-content:space-between;align-items:baseline;gap:1rem;}
+.drill-name{font-weight:600;font-size:0.9rem;color:var(--text);cursor:pointer;}
+.drill-name:hover{color:var(--orange);text-decoration:underline;}
+.drill-sub{font-size:0.72rem;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-top:2px;}
+.drill-count{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.85rem;color:var(--orange);white-space:nowrap;}
+.drill-item{display:flex;justify-content:space-between;gap:1rem;padding:0.4rem 0;border-top:1px dashed var(--border);font-size:0.82rem;margin-top:0.5rem;}
+.drill-item:not(:first-of-type){margin-top:0;}
+.drill-test{color:var(--text);line-height:1.35;}
+.drill-score{font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:var(--muted);white-space:nowrap;text-align:right;}
+.drill-tag{display:inline-block;font-family:'Rajdhani',sans-serif;font-size:0.68rem;font-weight:700;padding:0.05rem 0.4rem;border-radius:4px;margin-right:0.4rem;vertical-align:1px;}
+.drill-tag.pyq{background:rgba(255,107,0,0.15);color:var(--orange);}
+.drill-tag.mock{background:rgba(0,196,122,0.15);color:var(--green);}
+.drill-idle{font-size:0.78rem;color:var(--muted);font-style:italic;margin-top:0.45rem;}
+
 /* CONTROLS */
 .controls{display:flex;gap:1rem;margin-bottom:1.25rem;flex-wrap:wrap;align-items:center;}
 .search-box{
@@ -213,16 +260,16 @@ body{font-family:'Noto Sans',sans-serif;background:var(--bg);color:var(--text);m
       <div class="stat-label">Avg Score (All)</div>
       <div class="stat-val blue" id="overallAvg">—</div>
     </div>
-    <div class="stat-card">
+    <div class="stat-card clickable" tabindex="0" onclick="showDrill('active')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();showDrill('active');}">
       <div class="stat-label">Active Today</div>
       <div class="stat-val" id="activeToday">—</div>
     </div>
-    <div class="stat-card">
+    <div class="stat-card clickable" tabindex="0" onclick="showDrill('pyq')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();showDrill('pyq');}">
       <div class="stat-label">PYQ Tests Today</div>
       <div class="stat-val orange" id="pyqToday">—</div>
       <div class="stat-sub" id="pyqTodaySub">—</div>
     </div>
-    <div class="stat-card">
+    <div class="stat-card clickable" tabindex="0" onclick="showDrill('mock')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();showDrill('mock');}">
       <div class="stat-label">Mock Tests Today</div>
       <div class="stat-val green" id="mockToday">—</div>
       <div class="stat-sub" id="mockTodaySub">—</div>
@@ -288,6 +335,22 @@ body{font-family:'Noto Sans',sans-serif;background:var(--bg);color:var(--text);m
   <div style="margin-top:1rem;font-size:0.8rem;color:var(--muted);text-align:right;" id="countLabel"></div>
 </div>
 
+<!-- DRILL-DOWN MODAL -->
+<div class="modal-overlay" id="drillModal">
+  <div class="modal wide">
+    <div class="modal-title" id="drillTitle">Activity</div>
+    <div class="drill-note" id="drillNote"></div>
+    <div class="drill-bar">
+      <button class="drill-tab on" id="tabCandidate" onclick="setDrillView('candidate')">By candidate</button>
+      <button class="drill-tab" id="tabTest" onclick="setDrillView('test')">By test</button>
+      <button class="drill-csv" onclick="exportDrill()">⬇ CSV</button>
+    </div>
+    <input class="drill-search" type="text" id="drillSearch" placeholder="🔍 Filter by candidate, mobile or test name..." oninput="renderDrill()">
+    <div id="drillBody"></div>
+    <button class="modal-close" onclick="closeDrill()">Close</button>
+  </div>
+</div>
+
 <!-- DETAIL MODAL -->
 <div class="modal-overlay" id="detailModal">
   <div class="modal">
@@ -310,6 +373,13 @@ const ADMIN_PASS = 'TrickySSC@Admin2024';
 let allUsers = [];
 let allAttempts = [];
 
+// Snapshot of the current report day, filled in by loadData(). The drill-down
+// panels read from this so clicking a stat card never re-queries Firestore —
+// the numbers on the card and the names behind it always come from one load.
+let todayCtx = { attempts: [], activeUsers: [], reportStart: null, reportEnd: null };
+let drillKind = 'active';    // 'active' | 'pyq' | 'mock'
+let drillView = 'candidate'; // 'candidate' | 'test'
+
 // Every date on this dashboard is rendered in Indian Standard Time, regardless of
 // the timezone of the machine viewing it. Firestore Timestamps are absolute, so the
 // only thing that ever varied was the formatter's default (browser-local) zone.
@@ -329,6 +399,46 @@ function attemptType(a){
   // Default: treat anything not identified as a mock as a PYQ attempt.
   return 'pyq';
 }
+
+// Readable name for a single attempt — the paper the candidate actually sat.
+// Pulls whichever name field the doc carries and appends year / shift only
+// when they aren't already part of the name, so labels stay tidy.
+function testLabel(a){
+  let base = (a.mockName || a.examName || a.exam || a.testName || a.paperName || a.paperId || a.mockId || 'Unknown test')
+             .toString().replace(/\s+/g,' ').trim();
+  const extra = [a.year, a.shift, a.paperDate, a.date]
+    .filter(v => v !== undefined && v !== null && v !== '')
+    .map(String)
+    .filter(v => !base.toLowerCase().includes(v.toLowerCase()));
+  return extra.length ? base + ' · ' + extra.join(' · ') : base;
+}
+
+// Score line for an attempt: marks when the paper is marks-based, else percentage.
+function scoreLabel(a){
+  const parts = [];
+  if(a.marks !== undefined && a.marks !== null && a.marks !== '') parts.push((parseFloat(a.marks)||0).toFixed(1)+'/200');
+  else if(a.percentage !== undefined && a.percentage !== null && a.percentage !== '') parts.push((parseFloat(a.percentage)||0)+'%');
+  if(a.correct !== undefined || a.wrong !== undefined) parts.push((a.correct||0)+'✅ '+(a.wrong||0)+'❌');
+  return parts.join(' · ') || '—';
+}
+
+function timeLabel(ts){
+  const d = ts && ts.toDate ? ts.toDate() : null;
+  return d ? d.toLocaleTimeString('en-IN',{timeZone:IST_TZ,hour:'2-digit',minute:'2-digit'}) : '—';
+}
+
+function candidateName(u){ return u ? (u.name || u.displayName || 'Unknown') : 'Unknown (deleted candidate)'; }
+
+// uid → user lookup. Attempts join on a.uid; most docs use the uid as their id
+// too, so both are indexed and the uid field wins on a clash.
+function userIndex(){
+  const m = {};
+  allUsers.forEach(u => { if(u.id) m[u.id] = u; });
+  allUsers.forEach(u => { if(u.uid) m[u.uid] = u; });
+  return m;
+}
+
+function esc(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
 window.checkAuth = async () => {
   const pass = document.getElementById('adminPass').value;
@@ -408,7 +518,9 @@ window.loadData = async () => {
     const skewMs = _nowMs + 60000;   // 1 min slack for ordinary clock drift
     const futureJoins = allUsers.filter(u => { const d=_td(u.createdAt); return d && d.getTime()>skewMs; }).length;
 
-    const activeToday = allUsers.filter(u => inDay(_td(u.lastActive))).length;
+    // Keep the list itself, not just the count — the Active Today card opens it.
+    const activeUsersToday = allUsers.filter(u => inDay(_td(u.lastActive)));
+    const activeToday = activeUsersToday.length;
     // Registered users added in the current / previous 7 AM report windows.
     const newUsersToday     = allUsers.filter(u => inDay(_td(u.createdAt))).length;
     const newUsersYesterday = allUsers.filter(u => inYday(_td(u.createdAt))).length;
@@ -424,6 +536,10 @@ window.loadData = async () => {
       if(attemptType(a)==='mock'){ mockUsersToday.add(a.uid); mockAttemptsToday++; }
       else { pyqUsersToday.add(a.uid); pyqAttemptsToday++; }
     });
+
+    // Hand the same numbers to the drill-down panels.
+    todayCtx = { attempts: todaysAttempts, activeUsers: activeUsersToday, reportStart, reportEnd };
+    if(document.getElementById('drillModal').classList.contains('open')) renderDrill();
 
     document.getElementById('totalUsers').textContent = allUsers.length;
     document.getElementById('totalTests').textContent = allAttempts.length;
@@ -518,6 +634,201 @@ window.filterTable = () => {
   });
 
   renderTable(filtered);
+};
+
+// ── DRILL-DOWN: who is doing what today ─────────────────────────────────────
+const DRILL_TITLES = { active:'Active today', pyq:'PYQ tests today', mock:'Mock tests today' };
+
+function dayLabel(dt){ return dt ? dt.toLocaleDateString('en-IN',{day:'numeric',month:'short',timeZone:IST_TZ}) : '—'; }
+
+// The attempts this drill is about. 'active' shows everything done today so the
+// list explains what each active candidate was actually up to.
+function drillAttempts(){
+  if(drillKind === 'pyq')  return todayCtx.attempts.filter(a => attemptType(a) === 'pyq');
+  if(drillKind === 'mock') return todayCtx.attempts.filter(a => attemptType(a) === 'mock');
+  // Scoped to the candidates the card counted, so the list totals never disagree
+  // with the number on the card (orphaned attempts from deleted accounts would).
+  const live = new Set();
+  todayCtx.activeUsers.forEach(u => { live.add(u.uid || u.id); });
+  return todayCtx.attempts.filter(a => live.has(a.uid));
+}
+
+function attemptTime(a){ return (a.timestamp && a.timestamp.toDate) ? a.timestamp.toDate().getTime() : 0; }
+
+function typeTag(a){
+  const t = attemptType(a);
+  return `<span class="drill-tag ${t}">${t === 'mock' ? 'MOCK' : 'PYQ'}</span>`;
+}
+
+window.showDrill = (kind) => {
+  drillKind = kind;
+  drillView = 'candidate';
+  document.getElementById('drillSearch').value = '';
+  renderDrill();
+  document.getElementById('drillModal').classList.add('open');
+};
+
+window.setDrillView = (v) => { drillView = v; renderDrill(); };
+
+window.closeDrill = () => document.getElementById('drillModal').classList.remove('open');
+
+// Jump from a drill row into that candidate's full record.
+window.openCandidate = (id) => { closeDrill(); showDetail(id); };
+
+window.renderDrill = () => {
+  const q    = (document.getElementById('drillSearch').value || '').trim().toLowerCase();
+  const idx  = userIndex();
+  const atts = drillAttempts();
+  const body = document.getElementById('drillBody');
+
+  document.getElementById('drillTitle').textContent = DRILL_TITLES[drillKind];
+  document.getElementById('drillNote').textContent =
+    'Report window: 7 AM ' + dayLabel(todayCtx.reportStart) + ' → 7 AM ' + dayLabel(todayCtx.reportEnd) + ' IST';
+  document.getElementById('tabCandidate').classList.toggle('on', drillView === 'candidate');
+  document.getElementById('tabTest').classList.toggle('on', drillView === 'test');
+
+  let html = '';
+
+  if(drillView === 'candidate'){
+    const groups = new Map();
+    const touch = (uid) => {
+      if(!groups.has(uid)) groups.set(uid, { uid, user: idx[uid] || null, attempts: [] });
+      return groups.get(uid);
+    };
+    // Active-today candidates appear even with zero attempts — that absence is
+    // itself the answer to "what is this person doing?".
+    if(drillKind === 'active') todayCtx.activeUsers.forEach(u => { touch(u.uid || u.id).user = u; });
+    atts.forEach(a => touch(a.uid).attempts.push(a));
+
+    let rows = [...groups.values()];
+    rows.forEach(g => g.attempts.sort((x,y) => attemptTime(x) - attemptTime(y)));
+
+    if(q) rows = rows.filter(g => {
+      const u = g.user || {};
+      const hay = [u.name, u.displayName, u.phone, u.email].filter(Boolean).join(' ').toLowerCase();
+      return hay.includes(q) || g.attempts.some(a => testLabel(a).toLowerCase().includes(q));
+    });
+
+    rows.sort((a,b) =>
+      b.attempts.length - a.attempts.length ||
+      (b.attempts.length ? attemptTime(b.attempts[b.attempts.length-1]) - attemptTime(a.attempts[a.attempts.length-1]) : 0) ||
+      candidateName(a.user).localeCompare(candidateName(b.user))
+    );
+
+    const totalAtt = rows.reduce((n,g) => n + g.attempts.length, 0);
+    html += `<div class="drill-note">${rows.length} candidate${rows.length===1?'':'s'} · ${totalAtt} attempt${totalAtt===1?'':'s'}</div>`;
+
+    html += rows.map(g => {
+      const u = g.user;
+      const last = u && u.lastActive && u.lastActive.toDate ? timeLabel(u.lastActive) : '—';
+      const meta = [u && u.phone ? esc(u.phone) : null, u && u.email ? esc(u.email) : null, 'last active ' + last]
+        .filter(Boolean).join(' · ');
+      const nameHtml = u
+        ? `<div class="drill-name" onclick="openCandidate('${u.id}')">${esc(candidateName(u))}</div>`
+        : `<div class="drill-name" style="cursor:default;color:var(--muted);">${esc(candidateName(null))}</div>`;
+      const items = g.attempts.length
+        ? g.attempts.map(a => `
+            <div class="drill-item">
+              <div class="drill-test">${typeTag(a)}${esc(testLabel(a))}</div>
+              <div class="drill-score">${timeLabel(a.timestamp)}<br>${esc(scoreLabel(a))}</div>
+            </div>`).join('')
+        : `<div class="drill-idle">Signed in — no test attempted in this window</div>`;
+      return `<div class="drill-group">
+        <div class="drill-head">
+          <div>${nameHtml}<div class="drill-sub">${meta}</div></div>
+          <div class="drill-count">${g.attempts.length} test${g.attempts.length===1?'':'s'}</div>
+        </div>
+        ${items}
+      </div>`;
+    }).join('');
+
+    if(!rows.length) html = `<div class="empty-state"><div>🔍</div>No candidates match this filter</div>`;
+
+  } else {
+    // By test: which papers are being attempted right now, and by whom.
+    const tests = new Map();
+    atts.forEach(a => {
+      const k = testLabel(a);
+      if(!tests.has(k)) tests.set(k, { label:k, type:attemptType(a), attempts:[] });
+      tests.get(k).attempts.push(a);
+    });
+
+    let rows = [...tests.values()];
+    rows.forEach(t => t.attempts.sort((x,y) => attemptTime(x) - attemptTime(y)));
+
+    if(q) rows = rows.filter(t => {
+      if(t.label.toLowerCase().includes(q)) return true;
+      return t.attempts.some(a => {
+        const u = idx[a.uid] || {};
+        return [u.name, u.displayName, u.phone, u.email].filter(Boolean).join(' ').toLowerCase().includes(q);
+      });
+    });
+
+    rows.sort((a,b) => b.attempts.length - a.attempts.length || a.label.localeCompare(b.label));
+
+    const totalAtt = rows.reduce((n,t) => n + t.attempts.length, 0);
+    html += `<div class="drill-note">${rows.length} paper${rows.length===1?'':'s'} · ${totalAtt} attempt${totalAtt===1?'':'s'}</div>`;
+
+    html += rows.map(t => {
+      const heads = new Set(t.attempts.map(a => a.uid));
+      const items = t.attempts.map(a => {
+        const u = idx[a.uid];
+        const nm = u
+          ? `<span class="drill-name" onclick="openCandidate('${u.id}')">${esc(candidateName(u))}</span>`
+          : `<span style="color:var(--muted);">${esc(candidateName(null))}</span>`;
+        const ph = u && u.phone ? ` <span style="color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:0.72rem;">${esc(u.phone)}</span>` : '';
+        return `<div class="drill-item">
+          <div class="drill-test">${nm}${ph}</div>
+          <div class="drill-score">${timeLabel(a.timestamp)}<br>${esc(scoreLabel(a))}</div>
+        </div>`;
+      }).join('');
+      return `<div class="drill-group">
+        <div class="drill-head">
+          <div>
+            <div class="drill-name" style="cursor:default;">${typeTag(t.attempts[0])}${esc(t.label)}</div>
+            <div class="drill-sub">${heads.size} candidate${heads.size===1?'':'s'}</div>
+          </div>
+          <div class="drill-count">${t.attempts.length} attempt${t.attempts.length===1?'':'s'}</div>
+        </div>
+        ${items}
+      </div>`;
+    }).join('');
+
+    if(!rows.length) html = `<div class="empty-state"><div>📄</div>No tests attempted in this window</div>`;
+  }
+
+  body.innerHTML = html;
+};
+
+// Export exactly what the drill is showing, one row per attempt.
+window.exportDrill = () => {
+  const q   = (document.getElementById('drillSearch').value || '').trim().toLowerCase();
+  const idx = userIndex();
+  const rows = [['Candidate','Mobile','Email','Type','Test','Score','Correct','Wrong','Time (IST)']];
+
+  drillAttempts().forEach(a => {
+    const u = idx[a.uid] || {};
+    const label = testLabel(a);
+    if(q){
+      const hay = [u.name, u.displayName, u.phone, u.email, label].filter(Boolean).join(' ').toLowerCase();
+      if(!hay.includes(q)) return;
+    }
+    rows.push([
+      candidateName(idx[a.uid]), u.phone || '', u.email || '',
+      attemptType(a).toUpperCase(), label,
+      (a.marks !== undefined && a.marks !== null && a.marks !== '') ? a.marks : (a.percentage !== undefined ? a.percentage + '%' : ''),
+      a.correct || 0, a.wrong || 0,
+      timeLabel(a.timestamp)
+    ]);
+  });
+
+  if(rows.length === 1){ alert('Nothing to export for this filter.'); return; }
+
+  const csv = rows.map(r => r.map(x => `"${String(x).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'TrickySSC_' + drillKind + '_today_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
 };
 
 window.showDetail = (uid) => {
@@ -657,6 +968,12 @@ window.deleteAllAttempts = async () => {
 // Close modal on overlay click
 document.getElementById('detailModal').addEventListener('click', e=>{
   if(e.target===document.getElementById('detailModal')) closeModal();
+});
+document.getElementById('drillModal').addEventListener('click', e=>{
+  if(e.target===document.getElementById('drillModal')) closeDrill();
+});
+document.addEventListener('keydown', e=>{
+  if(e.key==='Escape'){ closeModal(); closeDrill(); }
 });
 </script>
 </body>
