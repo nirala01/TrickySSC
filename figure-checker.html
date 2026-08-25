@@ -113,7 +113,7 @@
   <!-- Step 1 — drop docx -->
   <div class="card">
     <h2><span class="step-n">1</span> Drop the figures .docx files</h2>
-    <p class="hint">Drop one or many <span class="mono">…-figures-upload.docx</span> files. The mock number, exam and tier are read from the heading line inside each file — nothing else to fill in. Fix the detected values in the table if any look wrong.</p>
+    <p class="hint">Drop one or many <span class="mono">…-figures-upload.docx</span> files. Mock papers are identified by the mock number in the heading; PYQ papers by their paperId, matched against the <span class="mono">papers</span> collection from the year, date and shift in the filename. Fix anything the table got wrong.</p>
     <div class="drop" id="drop" onclick="document.getElementById('fileInput').click()">
       <div class="big">Drop .docx files here</div>
       <div class="sub">or click to browse &nbsp;·&nbsp; only the figures docx is needed, no CSVs</div>
@@ -129,7 +129,8 @@
         <thead><tr>
           <th style="width:34px"><input type="checkbox" id="selAll" checked onchange="toggleAll(this.checked)"></th>
           <th>File</th><th style="width:120px">Exam</th><th style="width:90px">Tier</th>
-          <th style="width:80px">Mock #</th><th>mockId</th>
+          <th style="width:78px">Kind</th>
+          <th style="width:210px">Mock # / paper</th><th>document id</th>
           <th style="width:150px">In the docx</th>
         </tr></thead>
         <tbody id="manifestBody"></tbody>
@@ -370,20 +371,112 @@ async function parseFiguresDocx(file) {
   return { title, blobs, questions, unassigned, dirEntries };
 }
 
-/* ═══════════════ mock identity, read from the docx heading ═══════════════ */
+/* ═══════════════ paper identity, read from the docx heading ═══════════════
+   Two kinds of paper live in the questions collection and they are keyed
+   differently. A mock carries mockId = exam_tier_mockN_lang, built here from
+   the mock number. A PYQ paper carries paperId, which batch-uploader.html
+   assembles from exam/year/tier/shift/heldOn — a shape this page cannot
+   reliably guess, so PYQ ids are DISCOVERED from the papers collection and
+   matched to the file by year, date and shift.                             */
 const EXAMS = ['ssc-cgl','ssc-chsl','ssc-mts','ssc-gd','ssc-cpo','ssc-jht','ssc-je'];
+const MONTHS = { jan:1, feb:2, mar:3, apr:4, may:5, jun:6, jul:7, aug:8, sep:9, oct:10, nov:11, dec:12 };
+
 function metaFromDocxTitle(title, fileName) {
   const t = ((title || '') + ' ' + (fileName || '')).toLowerCase();
-  const out = { exam: 'ssc-cgl', tier: 'tier1', mockNum: '', year: '' };
+  const out = { exam: 'ssc-cgl', tier: 'tier1', mockNum: '', year: '', kind: 'mock',
+                paperBase: '', month: '', day: '', shift: '' };
   const ex = t.match(/ssc[-_ ]?(cgl|chsl|mts|gd|cpo|jht|je)/); if (ex) out.exam = 'ssc-' + ex[1];
-  if (/tier[-_ ]?(2|ii)\b/.test(t)) out.tier = 'tier2';
+  if (/tier[-_ ]?(2|ii)\b/.test(t) || /[-_ ]t(?:2|ii)[-_ ]/.test(t)) out.tier = 'tier2';
   const yr = t.match(/(20\d{2})/); if (yr) out.year = yr[1];
   const mk = t.match(/mock[-_ ]?(?:test[-_ ]?)?[-#]?\s*0*(\d{1,3})/) || t.match(/[-_]m0*(\d{1,3})(?:$|[-_])/);
   if (mk) out.mockNum = String(parseInt(mk[1]));
+
+  // A held-on date or a shift number, with no mock number, means a PYQ paper.
+  const flat = t.replace(/_/g, '-');
+  const MN = 'jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec';
+  let mn = flat.match(new RegExp('\\b(' + MN + ')[a-z]*[- ]?(\\d{1,2})\\b'));       // jul-01
+  if (!mn) {
+    const rev = flat.match(new RegExp('\\b(\\d{1,2})[- ]?(' + MN + ')[a-z]*\\b')); // 02-mar
+    if (rev) mn = [rev[0], rev[2], rev[1]];
+  }
+  if (mn) { out.month = String(MONTHS[mn[1]]).padStart(2,'0'); out.day = String(parseInt(mn[2])).padStart(2,'0'); }
+  else {
+    const iso = flat.match(/(20\d{2})-(\d{2})-(\d{2})/);
+    if (iso) { out.year = iso[1]; out.month = iso[2]; out.day = iso[3]; }
+  }
+  const sh = flat.match(/shift[- ]?(\d)\b/) || flat.match(/-s(\d)(?:-|$)/);
+  if (sh) out.shift = sh[1];
+  if (!out.mockNum && (out.month || out.shift)) out.kind = 'pyq';
   return out;
 }
-const buildMockId = (m, lang) =>
-  `${m.exam}_${m.tier}_mock${m.mockNum}_${lang}`.toLowerCase().replace(/\s+/g, '-');
+
+/** The document id without its language suffix. Empty when the paper is not
+    yet identified, which is what stops a check from running. */
+const idBase = (m) => m.kind === 'pyq'
+  ? (m.paperBase || '').trim().toLowerCase().replace(/_(en|hi)$/, '')
+  : (m.mockNum ? `${m.exam}_${m.tier}_mock${m.mockNum}`.toLowerCase().replace(/\s+/g, '-') : '');
+
+const buildMockId = (m, lang) => idBase(m) ? `${idBase(m)}_${lang}` : '';
+
+/* ── discover real paperIds from the papers collection ── */
+const PAPER_CACHE = {};   // exam -> [{base, year, tier, shift, heldOn, langs}]
+
+async function loadPaperCards(exam) {
+  if (PAPER_CACHE[exam]) return PAPER_CACHE[exam];
+  const snap = await getDocs(query(collection(db, 'papers'), where('exam', '==', exam)));
+  const byBase = {};
+  snap.forEach(d => {
+    const x = d.data();
+    const pid = String(x.paperId || d.id || '');
+    if (!pid) return;
+    const base = pid.replace(/_(en|hi)$/, '');
+    const rec = byBase[base] || (byBase[base] = {
+      base, year: x.year || '', tier: x.tier || '', shift: x.shift || '', heldOn: x.heldOn || '', langs: []
+    });
+    const lg = /_hi$/.test(pid) ? 'hi' : 'en';
+    if (!rec.langs.includes(lg)) rec.langs.push(lg);
+  });
+  PAPER_CACHE[exam] = Object.values(byBase).sort((a, b) => a.base.localeCompare(b.base));
+  log(`   ${PAPER_CACHE[exam].length} paper(s) known for ${exam} in the papers collection`,
+      PAPER_CACHE[exam].length ? 'info' : 'warn');
+  return PAPER_CACHE[exam];
+}
+
+/** Score a paper card against the year / date / shift read off the filename.
+    Deliberately loose about how heldOn is formatted — it only has to beat the
+    other cards, and the table's dropdown is there when it picks wrong. */
+function scorePaper(rec, m) {
+  const hay = [rec.base, rec.year, rec.tier, rec.shift, rec.heldOn].join(' ').toLowerCase();
+  let s = 0;
+  if (m.year  && hay.includes(m.year)) s += 2;
+  if (m.tier  && hay.includes(m.tier)) s += 1;
+  if (m.shift && new RegExp('shift[-_ ]?0?' + m.shift + '(?!\\d)').test(hay)) s += 3;
+  if (m.month && m.day) {
+    const name = Object.keys(MONTHS).find(k => String(MONTHS[k]).padStart(2,'0') === m.month);
+    const d = parseInt(m.day);
+    // The day only counts when it sits NEXT TO the month — otherwise "shift-1"
+    // reads as day 1 and every shift of a date ties with every other.
+    const near = name && new RegExp(`(?:\\b0?${d}[-_ ]?${name}|${name}[a-z]*[-_ ]?0?${d}\\b)`);
+    if (hay.includes(`-${m.month}-${m.day}`) || hay.includes(`${m.month}-${m.day}`)) s += 4;
+    else if (near && near.test(hay)) s += 4;
+  }
+  return s;
+}
+
+async function matchPaper(meta) {
+  let cards = [];
+  try { cards = await loadPaperCards(meta.exam); }
+  catch (e) { log(`   could not read the papers collection: ${e.message}`, 'err'); return null; }
+  if (!cards.length) return null;
+  const ranked = cards.map(r => ({ r, s: scorePaper(r, meta) })).sort((a, b) => b.s - a.s);
+  const top = ranked[0];
+  if (!top || top.s < 5) return null;                       // year alone is not enough
+  if (ranked[1] && ranked[1].s === top.s) {
+    log(`   more than one paper scores the same — pick the right one in the table`, 'warn');
+    return null;
+  }
+  return top.r;
+}
 
 /* ═══════════════ state ═══════════════ */
 let mocks = [];          // {file, docx, meta, selected}
@@ -421,19 +514,35 @@ async function ingest(fileList) {
     try { parsed = await parseFiguresDocx(f); }
     catch (e) { log(`Could not read ${f.name}: ${e.message}`, 'err'); continue; }
     const meta = metaFromDocxTitle(parsed.title, f.name);
-    if (!meta.mockNum) log(`${f.name}: no mock number in the heading — set it by hand in the table`, 'warn');
     const real = Object.keys(parsed.blobs).length;
+
+    let label;
+    if (meta.kind === 'pyq') {
+      const hit = await matchPaper(meta);
+      if (hit) { meta.paperBase = hit.base; label = hit.base; }
+      else {
+        label = '(paper not matched)';
+        log(`${f.name}: PYQ paper — could not match it to a papers card. Pick or type the paperId in the table.`, 'warn');
+      }
+    } else if (!meta.mockNum) {
+      label = '(unknown mock)';
+      log(`${f.name}: no mock number in the heading — set it by hand in the table`, 'warn');
+    } else {
+      label = 'Mock ' + meta.mockNum;
+    }
+
     mocks.push({ file: f, docx: parsed, meta, selected: true });
-    log(`${f.name} → ${meta.mockNum ? 'Mock ' + meta.mockNum : '(unknown mock)'} · ` +
-        `${parsed.questions.length} figure question(s), ${real} image(s)`, 'ok');
+    log(`${f.name} → ${label} · ${parsed.questions.length} figure question(s), ${real} image(s)`, 'ok');
     if (parsed.dirEntries.length)
       log(`   note: this docx carries ${parsed.dirEntries.length} folder entr(y/ies); the ` +
           `uploader would report a phantom unattached image. Harmless here.`, 'warn');
     if (parsed.unassigned.length)
       log(`   ${parsed.unassigned.length} image(s) in the docx are attached to no question`, 'warn');
   }
-  mocks.sort((a,b) => (parseInt(a.meta.mockNum)||0) - (parseInt(b.meta.mockNum)||0));
-  document.getElementById('mockCount').textContent = mocks.length + ' mocks';
+  mocks.sort((a,b) => (a.meta.kind).localeCompare(b.meta.kind)
+                    || (parseInt(a.meta.mockNum)||0) - (parseInt(b.meta.mockNum)||0)
+                    || a.file.name.localeCompare(b.file.name));
+  document.getElementById('mockCount').textContent = mocks.length + ' paper' + (mocks.length===1?'':'s');
   renderManifest();
 }
 
@@ -442,6 +551,12 @@ function renderManifest() {
   body.innerHTML = mocks.map((p, i) => {
     const q = p.docx.questions.length;
     const imgs = Object.keys(p.docx.blobs).length;
+    const cards = PAPER_CACHE[p.meta.exam] || [];
+    const idCell = p.meta.kind === 'pyq'
+      ? `<input class="mono" style="width:100%;font-size:11px" list="dl-${i}" placeholder="paperId (no _en/_hi)"
+                value="${p.meta.paperBase}" onchange="setMeta(${i},'paperBase',this.value)">
+         <datalist id="dl-${i}">${cards.map(c=>`<option value="${c.base}">${[c.year,c.shift,c.heldOn].filter(Boolean).join(' · ')}</option>`).join('')}</datalist>`
+      : `<input type="number" min="1" class="narrow" value="${p.meta.mockNum}" onchange="setMeta(${i},'mockNum',this.value)">`;
     return `<tr>
       <td><input type="checkbox" ${p.selected?'checked':''} onchange="setSel(${i},this.checked)"></td>
       <td class="mono">${p.file.name}<br><span class="muted" style="font-size:10.5px">${p.docx.title.slice(0,64)}</span></td>
@@ -452,8 +567,12 @@ function renderManifest() {
             <option value="tier1" ${p.meta.tier==='tier1'?'selected':''}>tier1</option>
             <option value="tier2" ${p.meta.tier==='tier2'?'selected':''}>tier2</option>
           </select></td>
-      <td><input type="number" min="1" class="narrow" value="${p.meta.mockNum}" onchange="setMeta(${i},'mockNum',this.value)"></td>
-      <td class="mono" id="mid-${i}">${p.meta.mockNum ? buildMockId(p.meta,'en') : '—'}</td>
+      <td><select onchange="setMeta(${i},'kind',this.value)">
+            <option value="mock" ${p.meta.kind==='mock'?'selected':''}>mock</option>
+            <option value="pyq" ${p.meta.kind==='pyq'?'selected':''}>pyq</option>
+          </select></td>
+      <td>${idCell}</td>
+      <td class="mono" id="mid-${i}">${buildMockId(p.meta,'en') || '—'}</td>
       <td class="mono muted">${q} figure Q · ${imgs} image${imgs===1?'':'s'}</td>
     </tr>`;
   }).join('');
@@ -461,19 +580,40 @@ function renderManifest() {
 }
 window.setSel = (i, v) => { mocks[i].selected = v; };
 window.toggleAll = v => { mocks.forEach(m => m.selected = v); renderManifest(); };
-window.setMeta = (i, k, v) => {
+window.setMeta = async (i, k, v) => {
   mocks[i].meta[k] = v;
-  document.getElementById('mid-'+i).textContent = mocks[i].meta.mockNum ? buildMockId(mocks[i].meta,'en') : '—';
+  // Switching a row to pyq, or changing its exam, needs the paper list for the picker.
+  if ((k === 'kind' && v === 'pyq') || (k === 'exam' && mocks[i].meta.kind === 'pyq')) {
+    if (!PAPER_CACHE[mocks[i].meta.exam]) {
+      try { await loadPaperCards(mocks[i].meta.exam); } catch (e) { log('Could not read papers: ' + e.message, 'err'); }
+    }
+    if (!mocks[i].meta.paperBase) {
+      const hit = await matchPaper(mocks[i].meta);
+      if (hit) mocks[i].meta.paperBase = hit.base;
+    }
+    renderManifest();
+    return;
+  }
+  if (k === 'kind') { renderManifest(); return; }
+  document.getElementById('mid-'+i).textContent = buildMockId(mocks[i].meta,'en') || '—';
 };
 
 /* ═══════════════ firestore ═══════════════ */
-async function fetchMock(mockId) {
+// Which field carries a given document id. Recorded when a check builds the id,
+// with a fallback on the id's own shape so the repair path (which only ever has
+// the string) can look up the Hindi twin on its own.
+const ID_FIELD = {};
+const fieldForId = id => ID_FIELD[id] || (/_mock\d+_(en|hi)$/.test(id) ? 'mockId' : 'paperId');
+
+async function fetchMock(mockId, field) {
   if (fsCache[mockId]) return fsCache[mockId];
-  const snap = await getDocs(query(collection(db, 'questions'), where('mockId', '==', mockId)));
+  const f = field || fieldForId(mockId);
+  ID_FIELD[mockId] = f;
+  const snap = await getDocs(query(collection(db, 'questions'), where(f, '==', mockId)));
   const out = {};
   snap.forEach(d => { const x = d.data(); x._id = d.id; out[parseInt(x.qNum)] = x; });
   fsCache[mockId] = out;
-  log(`   read ${Object.keys(out).length} question(s) from ${mockId}`, 'info');
+  log(`   read ${Object.keys(out).length} question(s) from ${f} ${mockId}`, 'info');
   return out;
 }
 
@@ -603,29 +743,35 @@ orientations, labels or values mean false.`;
 
 /* ═══════════════ the three checks ═══════════════ */
 window.runCheck = async (n) => {
-  const list = mocks.filter(m => m.selected && m.meta.mockNum);
-  if (!list.length) { log('Nothing selected, or no mock number set.', 'warn'); return; }
+  const list = mocks.filter(m => m.selected && idBase(m.meta));
+  if (!list.length) { log('Nothing selected, or no mock number / paperId set in the table.', 'warn'); return; }
   for (let i = 1; i <= 3; i++) document.getElementById('btn'+i).disabled = true;
   const st = document.getElementById('st'+n);
   st.textContent = 'running…'; st.className = 'badge info';
   results = []; renderData = []; window.__corsFailed = false; window.__fetchErrShown = false;
   document.getElementById('corsHelp').style.display = 'none';
-  log(`── CHECK ${n}: ${['','images present','images match the docx','answer & solution'][n]} — ${list.length} mock(s) ──`, 'head');
+  log(`── CHECK ${n}: ${['','images present','images match the docx','answer & solution'][n]} — ${list.length} paper(s) ──`, 'head');
 
   try {
     let done = 0;
     for (const mock of list) {
       for (const lang of langsToRun()) {
         const mockId = buildMockId(mock.meta, lang);
+        const field = mock.meta.kind === 'pyq' ? 'paperId' : 'mockId';
+        ID_FIELD[mockId] = field;
         log(`${mockId}`, 'head');
-        const docs = await fetchMock(mockId);
-        if (!Object.keys(docs).length) { log(`   nothing in Firestore for ${mockId} — skipped`, 'err'); continue; }
+        const docs = await fetchMock(mockId, field);
+        if (!Object.keys(docs).length) {
+          log(`   no question has ${field} = ${mockId} — check the id in the table` +
+              (lang === 'hi' ? ' (a Hindi copy may simply not exist)' : ''), 'err');
+          continue;
+        }
         if (n === 1) await check1(mock, mockId, lang, docs);
         if (n === 2) await check2(mock, mockId, lang, docs);
         if (n === 3) await check3(mock, mockId, lang, docs);
       }
       done++;
-      setProg(done / list.length * 100, `${done}/${list.length} mocks`);
+      setProg(done / list.length * 100, `${done}/${list.length} papers`);
     }
     const blockers = results.filter(r => r.sev === 0).length;
     if (n === 2 && window.__corsFailed) {
