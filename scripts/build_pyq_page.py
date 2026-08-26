@@ -69,70 +69,70 @@ MONTHS = {
 MOCK_PROMO = r"""
 <!-- TSSC:MOCK-PROMO:START -->
 <style id="tsscMockPromoCSS">
-#tsscMP{{position:fixed;inset:0;z-index:99999;display:none;align-items:center;justify-content:center;
-  background:rgba(9,12,24,.72);backdrop-filter:blur(5px);padding:16px;overflow-y:auto;}}
-#tsscMP.on{{display:flex;animation:tsscMPin .28s ease-out;}}
-@keyframes tsscMPin{{from{{opacity:0}}to{{opacity:1}}}}
-.tsscMP-box{{position:relative;width:100%;max-width:452px;margin:auto;border-radius:22px;overflow:hidden;
+#tsscMP{position:fixed;inset:0;z-index:99999;display:none;align-items:center;justify-content:center;
+  background:rgba(9,12,24,.72);backdrop-filter:blur(5px);padding:16px;overflow-y:auto;}
+#tsscMP.on{display:flex;animation:tsscMPin .28s ease-out;}
+@keyframes tsscMPin{from{opacity:0}to{opacity:1}}
+.tsscMP-box{position:relative;width:100%;max-width:452px;margin:auto;border-radius:22px;overflow:hidden;
   background:linear-gradient(180deg,#111827 0%,#0B1120 100%);
   border:1px solid rgba(253,230,138,.34);
   box-shadow:0 30px 80px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.04) inset;
   font-family:'Rajdhani',system-ui,-apple-system,sans-serif;color:#E8EDF7;
-  animation:tsscMPup .34s cubic-bezier(.16,1,.3,1);}}
-@keyframes tsscMPup{{from{{transform:translateY(26px) scale(.97);opacity:0}}to{{transform:none;opacity:1}}}}
-.tsscMP-ribbon{{position:relative;overflow:hidden;text-align:center;padding:.5rem .8rem;
+  animation:tsscMPup .34s cubic-bezier(.16,1,.3,1);}
+@keyframes tsscMPup{from{transform:translateY(26px) scale(.97);opacity:0}to{transform:none;opacity:1}}
+.tsscMP-ribbon{position:relative;overflow:hidden;text-align:center;padding:.5rem .8rem;
   font-weight:800;font-size:.74rem;letter-spacing:.12em;color:#3B2704;
-  background:linear-gradient(90deg,#B45309,#F59E0B,#FDE68A,#D97706);}}
-.tsscMP-ribbon::after{{content:'';position:absolute;top:0;left:-60%;width:45%;height:100%;
+  background:linear-gradient(90deg,#B45309,#F59E0B,#FDE68A,#D97706);}
+.tsscMP-ribbon::after{content:'';position:absolute;top:0;left:-60%;width:45%;height:100%;
   background:linear-gradient(100deg,transparent,rgba(255,255,255,.75),transparent);
-  animation:tsscMPshine 3.4s ease-in-out infinite;}}
-@keyframes tsscMPshine{{0%{{left:-60%}}55%,100%{{left:130%}}}}
-.tsscMP-x{{position:absolute;top:10px;right:12px;z-index:3;width:32px;height:32px;border:0;border-radius:50%;
-  background:rgba(255,255,255,.1);color:#CBD5E1;font-size:1.1rem;line-height:1;cursor:pointer;}}
-.tsscMP-x:hover{{background:rgba(255,255,255,.2);color:#fff;}}
-.tsscMP-body{{padding:1.15rem 1.25rem 1.3rem;}}
-.tsscMP-h{{font-family:'Baloo 2',cursive;font-weight:800;font-size:1.42rem;line-height:1.24;margin:.15rem 0 .5rem;color:#fff;}}
-.tsscMP-h em{{font-style:normal;color:#FDE68A;}}
-.tsscMP-sub{{font-size:.94rem;line-height:1.55;color:#AEB9CC;margin:0 0 .9rem;}}
-.tsscMP-sub b{{color:#FDE68A;font-weight:700;}}
-.tsscMP-ul{{list-style:none;margin:0 0 .95rem;padding:0;display:grid;gap:.5rem;}}
-.tsscMP-ul li{{display:flex;gap:.55rem;font-size:.9rem;line-height:1.45;color:#D5DDEA;}}
-.tsscMP-ul i{{font-style:normal;flex:0 0 auto;}}
-.tsscMP-ul b{{color:#fff;font-weight:700;}}
-.tsscMP-price{{position:relative;overflow:hidden;text-align:center;border-radius:15px;padding:.85rem .7rem;margin-bottom:.55rem;
+  animation:tsscMPshine 3.4s ease-in-out infinite;}
+@keyframes tsscMPshine{0%{left:-60%}55%,100%{left:130%}}
+.tsscMP-x{position:absolute;top:10px;right:12px;z-index:3;width:32px;height:32px;border:0;border-radius:50%;
+  background:rgba(255,255,255,.1);color:#CBD5E1;font-size:1.1rem;line-height:1;cursor:pointer;}
+.tsscMP-x:hover{background:rgba(255,255,255,.2);color:#fff;}
+.tsscMP-body{padding:1.15rem 1.25rem 1.3rem;}
+.tsscMP-h{font-family:'Baloo 2',cursive;font-weight:800;font-size:1.42rem;line-height:1.24;margin:.15rem 0 .5rem;color:#fff;}
+.tsscMP-h em{font-style:normal;color:#FDE68A;}
+.tsscMP-sub{font-size:.94rem;line-height:1.55;color:#AEB9CC;margin:0 0 .9rem;}
+.tsscMP-sub b{color:#FDE68A;font-weight:700;}
+.tsscMP-ul{list-style:none;margin:0 0 .95rem;padding:0;display:grid;gap:.5rem;}
+.tsscMP-ul li{display:flex;gap:.55rem;font-size:.9rem;line-height:1.45;color:#D5DDEA;}
+.tsscMP-ul i{font-style:normal;flex:0 0 auto;}
+.tsscMP-ul b{color:#fff;font-weight:700;}
+.tsscMP-price{position:relative;overflow:hidden;text-align:center;border-radius:15px;padding:.85rem .7rem;margin-bottom:.55rem;
   background:linear-gradient(135deg,rgba(180,83,9,.28),rgba(245,158,11,.16));
-  border:1px solid rgba(253,230,138,.42);}}
-.tsscMP-was{{font-size:1rem;color:#94A3B8;text-decoration:line-through;}}
-.tsscMP-now{{font-family:'Baloo 2',cursive;font-weight:800;font-size:2.5rem;line-height:1;color:#FDE68A;
-  margin:0 .1rem 0 .45rem;text-shadow:0 0 26px rgba(253,230,138,.45);}}
-.tsscMP-for{{font-size:.86rem;color:#E2E8F0;margin-top:.3rem;}}
-.tsscMP-for b{{color:#FDE68A;}}
-.tsscMP-vs{{font-size:.78rem;color:#94A3B8;margin-top:.22rem;}}
-.tsscMP-free{{text-align:center;font-size:.88rem;font-weight:700;color:#6EE7B7;
+  border:1px solid rgba(253,230,138,.42);}
+.tsscMP-was{font-size:1rem;color:#94A3B8;text-decoration:line-through;}
+.tsscMP-now{font-family:'Baloo 2',cursive;font-weight:800;font-size:2.5rem;line-height:1;color:#FDE68A;
+  margin:0 .1rem 0 .45rem;text-shadow:0 0 26px rgba(253,230,138,.45);}
+.tsscMP-for{font-size:.86rem;color:#E2E8F0;margin-top:.3rem;}
+.tsscMP-for b{color:#FDE68A;}
+.tsscMP-vs{font-size:.78rem;color:#94A3B8;margin-top:.22rem;}
+.tsscMP-free{text-align:center;font-size:.88rem;font-weight:700;color:#6EE7B7;
   background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.3);
-  border-radius:12px;padding:.5rem;margin-bottom:.85rem;}}
-.tsscMP-btns{{display:grid;gap:.5rem;}}
-.tsscMP-go{{position:relative;overflow:hidden;display:block;text-align:center;text-decoration:none;
+  border-radius:12px;padding:.5rem;margin-bottom:.85rem;}
+.tsscMP-btns{display:grid;gap:.5rem;}
+.tsscMP-go{position:relative;overflow:hidden;display:block;text-align:center;text-decoration:none;
   border-radius:13px;padding:.82rem .9rem;font-weight:800;font-size:1.02rem;color:#3B2704;
   background:linear-gradient(90deg,#B45309,#F59E0B,#FDE68A,#D97706);
-  box-shadow:0 10px 26px rgba(245,158,11,.4);}}
-.tsscMP-go::after{{content:'';position:absolute;top:0;left:-60%;width:40%;height:100%;
+  box-shadow:0 10px 26px rgba(245,158,11,.4);}
+.tsscMP-go::after{content:'';position:absolute;top:0;left:-60%;width:40%;height:100%;
   background:linear-gradient(100deg,transparent,rgba(255,255,255,.6),transparent);
-  animation:tsscMPshine 2.9s ease-in-out infinite;}}
-.tsscMP-alt{{display:block;text-align:center;text-decoration:none;border-radius:13px;padding:.66rem;
-  font-weight:700;font-size:.94rem;color:#CBD5E1;border:1px solid rgba(255,255,255,.16);}}
-.tsscMP-alt:hover{{color:#fff;border-color:rgba(255,255,255,.34);}}
-.tsscMP-fine{{text-align:center;font-size:.74rem;color:#8A97AB;margin:.7rem 0 0;line-height:1.5;}}
-.tsscMP-later{{display:block;width:100%;margin-top:.55rem;background:none;border:0;
-  color:#8A97AB;font-size:.82rem;font-family:inherit;cursor:pointer;text-decoration:underline;}}
-@media(max-width:420px){{
-  .tsscMP-h{{font-size:1.24rem}}.tsscMP-now{{font-size:2.15rem}}
-  .tsscMP-body{{padding:1rem 1rem 1.15rem}}.tsscMP-ul li{{font-size:.86rem}}
-}}
-@media(prefers-reduced-motion:reduce){{
-  #tsscMP.on,.tsscMP-box{{animation:none}}
-  .tsscMP-ribbon::after,.tsscMP-go::after{{animation:none;display:none}}
-}}
+  animation:tsscMPshine 2.9s ease-in-out infinite;}
+.tsscMP-alt{display:block;text-align:center;text-decoration:none;border-radius:13px;padding:.66rem;
+  font-weight:700;font-size:.94rem;color:#CBD5E1;border:1px solid rgba(255,255,255,.16);}
+.tsscMP-alt:hover{color:#fff;border-color:rgba(255,255,255,.34);}
+.tsscMP-fine{text-align:center;font-size:.74rem;color:#8A97AB;margin:.7rem 0 0;line-height:1.5;}
+.tsscMP-later{display:block;width:100%;margin-top:.55rem;background:none;border:0;
+  color:#8A97AB;font-size:.82rem;font-family:inherit;cursor:pointer;text-decoration:underline;}
+@media(max-width:420px){
+  .tsscMP-h{font-size:1.24rem}.tsscMP-now{font-size:2.15rem}
+  .tsscMP-body{padding:1rem 1rem 1.15rem}.tsscMP-ul li{font-size:.86rem}
+}
+@media(prefers-reduced-motion:reduce){
+  #tsscMP.on,.tsscMP-box{animation:none}
+  .tsscMP-ribbon::after,.tsscMP-go::after{animation:none;display:none}
+}
 </style>
 
 <div id="tsscMP" role="dialog" aria-modal="true" aria-labelledby="tsscMPh">
@@ -167,33 +167,33 @@ MOCK_PROMO = r"""
 </div>
 
 <script>
-(function(){{
+(function(){
   var KEY='tsscMockPromoSeen', PAID='tssc_entitlement', EVERY=false, DELAY=1200;
   var box=document.getElementById('tsscMP');
   if(!box) return;
-  function ls(k){{ try{{ return localStorage.getItem(k); }}catch(e){{ return null; }} }}
+  function ls(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
   // Never nag someone who already paid.
   var paid=ls(PAID);
   if(paid && paid!=='false' && paid!=='null' && paid!=='0') return;
-  if(!EVERY){{
+  if(!EVERY){
     var last=parseInt(ls(KEY)||'0',10);
     if(last && (Date.now()-last) < 864e5) return;   // once per 24h
-  }}
-  function close(){{
+  }
+  function close(){
     box.classList.remove('on');
-    try{{ localStorage.setItem(KEY,String(Date.now())); }}catch(e){{}}
-  }}
-  setTimeout(function(){{ box.classList.add('on'); }}, DELAY);
+    try{ localStorage.setItem(KEY,String(Date.now())); }catch(e){}
+  }
+  setTimeout(function(){ box.classList.add('on'); }, DELAY);
   box.querySelector('.tsscMP-x').addEventListener('click',close);
   box.querySelector('.tsscMP-later').addEventListener('click',close);
-  box.addEventListener('click',function(e){{ if(e.target===box) close(); }});
-  document.addEventListener('keydown',function(e){{ if(e.key==='Escape') close(); }});
+  box.addEventListener('click',function(e){ if(e.target===box) close(); });
+  document.addEventListener('keydown',function(e){ if(e.key==='Escape') close(); });
   // Remember the dismissal when they click through, so the popup does not
   // greet them again the moment they come back from the mock page.
-  Array.prototype.forEach.call(box.querySelectorAll('a'),function(a){{
-    a.addEventListener('click',function(){{ try{{ localStorage.setItem(KEY,String(Date.now())); }}catch(e){{}} }});
-  }});
-}})();
+  Array.prototype.forEach.call(box.querySelectorAll('a'),function(a){
+    a.addEventListener('click',function(){ try{ localStorage.setItem(KEY,String(Date.now())); }catch(e){} });
+  });
+})();
 </script>
 <!-- TSSC:MOCK-PROMO:END -->
 """
