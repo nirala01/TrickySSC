@@ -73,7 +73,7 @@ MOCK_PROMO = r"""
   background:rgba(26,32,44,.45);backdrop-filter:blur(2px);padding:18px;}
 #tsscMP.on{display:flex;animation:tsscMPin .22s ease-out;}
 @keyframes tsscMPin{from{opacity:0}to{opacity:1}}
-.tsscMP-box{position:relative;width:100%;max-width:330px;max-height:66vh;overflow-y:auto;overflow-x:hidden;
+.tsscMP-box{position:relative;width:100%;max-width:400px;max-height:78vh;overflow-y:auto;overflow-x:hidden;
   border-radius:16px;background:#FFFFFF;border:1px solid #E2E8F0;text-align:center;
   box-shadow:0 8px 30px rgba(0,0,0,0.12);
   font-family:'Rajdhani',sans-serif;font-style:normal;color:#1A202C;
@@ -81,34 +81,34 @@ MOCK_PROMO = r"""
 .tsscMP-box *{font-style:normal;}
 @keyframes tsscMPup{from{transform:translateY(12px);opacity:0}to{transform:none;opacity:1}}
 .tsscMP-top{background:linear-gradient(135deg,#FF6B00,#FF8C38);color:#fff;
-  padding:.5rem .8rem;font-weight:700;font-size:.76rem;letter-spacing:.5px;}
-.tsscMP-x{position:absolute;top:6px;right:8px;width:26px;height:26px;border:0;border-radius:100px;
+  padding:.62rem .9rem;font-weight:700;font-size:.86rem;letter-spacing:.5px;}
+.tsscMP-x{position:absolute;top:8px;right:10px;width:30px;height:30px;border:0;border-radius:100px;
   background:rgba(255,255,255,.24);color:#fff;font-size:1rem;line-height:1;cursor:pointer;}
 .tsscMP-x:hover{background:rgba(255,255,255,.42);}
-.tsscMP-body{padding:.9rem 1rem 1rem;}
-.tsscMP-big{font-family:'Baloo 2',sans-serif;font-weight:800;font-size:2.1rem;line-height:1;
+.tsscMP-body{padding:1.15rem 1.25rem 1.25rem;}
+.tsscMP-big{font-family:'Baloo 2',sans-serif;font-weight:800;font-size:2.75rem;line-height:1;
   margin:0;color:#1A202C;}
 .tsscMP-big span{color:#FF6B00;}
-.tsscMP-kicker{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.9rem;
-  color:#4A5568;margin:.15rem 0 .6rem;}
-.tsscMP-pills{display:flex;gap:.35rem;justify-content:center;flex-wrap:wrap;margin-bottom:.6rem;}
-.tsscMP-pill{border-radius:100px;padding:.2rem .6rem;font-size:.72rem;font-weight:600;
+.tsscMP-kicker{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.04rem;
+  color:#4A5568;margin:.25rem 0 .8rem;}
+.tsscMP-pills{display:flex;gap:.4rem;justify-content:center;flex-wrap:wrap;margin-bottom:.8rem;}
+.tsscMP-pill{border-radius:100px;padding:.3rem .75rem;font-size:.82rem;font-weight:600;
   letter-spacing:.5px;background:#FFF7F0;border:1px solid #FFEDD5;color:#CC5500;}
 .tsscMP-pill.g{background:#ECFDF5;border-color:#A7F3D0;color:#00875A;}
 .tsscMP-band{background:linear-gradient(135deg,#FFF7F0,#FFEDD5);color:#CC5500;
-  font-weight:700;font-size:.85rem;padding:.42rem .5rem;margin:0 -1rem .7rem;
+  font-weight:700;font-size:.98rem;padding:.55rem .6rem;margin:0 -1.25rem .9rem;
   border-top:1px solid #FFEDD5;border-bottom:1px solid #FFEDD5;}
-.tsscMP-price{font-weight:600;font-size:.88rem;color:#718096;margin-bottom:.65rem;}
+.tsscMP-price{font-weight:600;font-size:1.02rem;color:#718096;margin-bottom:.85rem;}
 .tsscMP-was{text-decoration:line-through;}
-.tsscMP-now{font-family:'Baloo 2',sans-serif;font-weight:800;font-size:1.6rem;
-  color:#00A86B;margin:0 .3rem;vertical-align:-3px;}
+.tsscMP-now{font-family:'Baloo 2',sans-serif;font-weight:800;font-size:2.05rem;
+  color:#00A86B;margin:0 .35rem;vertical-align:-4px;}
 .tsscMP-go{display:flex;align-items:center;justify-content:center;gap:.5rem;text-decoration:none;
-  border-radius:10px;padding:.85rem 1rem;color:#fff;letter-spacing:.4px;
-  font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1rem;
+  border-radius:10px;padding:1rem 1.1rem;color:#fff;letter-spacing:.4px;
+  font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.15rem;
   background:linear-gradient(120deg,#6D28D9,#DB2777,#F59E0B);background-size:200% 200%;
   box-shadow:0 4px 22px rgba(219,39,119,0.4);animation:tsscMPgrad 5s ease infinite;}
 @keyframes tsscMPgrad{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
-.tsscMP-free{font-size:.78rem;font-weight:600;color:#00875A;margin:.55rem 0 0;}
+.tsscMP-free{font-size:.88rem;font-weight:600;color:#00875A;margin:.7rem 0 0;}
 @media(prefers-reduced-motion:reduce){#tsscMP.on,.tsscMP-box,.tsscMP-go{animation:none}}
 </style>
 
