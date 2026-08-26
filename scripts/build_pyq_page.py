@@ -51,6 +51,155 @@ MONTHS = {
 
 
 # ---------------------------------------------------------------------------
+# MOCK-SERIES PROMO POPUP
+# ---------------------------------------------------------------------------
+# Injected verbatim just before </body> in the page template below.
+# This page is rendered from scratch on every build, so the popup MUST live
+# here — editing ssc-cgl-pyq.html by hand is undone by the next cron run.
+#
+# Two knobs inside the inline <script> at the bottom of this string:
+#   PAID   — localStorage key the paywall sets on a successful unlock;
+#            when present and truthy the popup is suppressed. No Firestore
+#            read is made here, deliberately: this page must stay at zero
+#            read cost per pageview.
+#   EVERY  — false = once per 24h per device, true = every page load.
+#
+# NOTE: it is a plain string, not an f-string, so its CSS/JS braces need no
+# doubling. It is interpolated into the f-string template as {MOCK_PROMO}.
+MOCK_PROMO = r"""
+<!-- TSSC:MOCK-PROMO:START -->
+<style id="tsscMockPromoCSS">
+#tsscMP{{position:fixed;inset:0;z-index:99999;display:none;align-items:center;justify-content:center;
+  background:rgba(9,12,24,.72);backdrop-filter:blur(5px);padding:16px;overflow-y:auto;}}
+#tsscMP.on{{display:flex;animation:tsscMPin .28s ease-out;}}
+@keyframes tsscMPin{{from{{opacity:0}}to{{opacity:1}}}}
+.tsscMP-box{{position:relative;width:100%;max-width:452px;margin:auto;border-radius:22px;overflow:hidden;
+  background:linear-gradient(180deg,#111827 0%,#0B1120 100%);
+  border:1px solid rgba(253,230,138,.34);
+  box-shadow:0 30px 80px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.04) inset;
+  font-family:'Rajdhani',system-ui,-apple-system,sans-serif;color:#E8EDF7;
+  animation:tsscMPup .34s cubic-bezier(.16,1,.3,1);}}
+@keyframes tsscMPup{{from{{transform:translateY(26px) scale(.97);opacity:0}}to{{transform:none;opacity:1}}}}
+.tsscMP-ribbon{{position:relative;overflow:hidden;text-align:center;padding:.5rem .8rem;
+  font-weight:800;font-size:.74rem;letter-spacing:.12em;color:#3B2704;
+  background:linear-gradient(90deg,#B45309,#F59E0B,#FDE68A,#D97706);}}
+.tsscMP-ribbon::after{{content:'';position:absolute;top:0;left:-60%;width:45%;height:100%;
+  background:linear-gradient(100deg,transparent,rgba(255,255,255,.75),transparent);
+  animation:tsscMPshine 3.4s ease-in-out infinite;}}
+@keyframes tsscMPshine{{0%{{left:-60%}}55%,100%{{left:130%}}}}
+.tsscMP-x{{position:absolute;top:10px;right:12px;z-index:3;width:32px;height:32px;border:0;border-radius:50%;
+  background:rgba(255,255,255,.1);color:#CBD5E1;font-size:1.1rem;line-height:1;cursor:pointer;}}
+.tsscMP-x:hover{{background:rgba(255,255,255,.2);color:#fff;}}
+.tsscMP-body{{padding:1.15rem 1.25rem 1.3rem;}}
+.tsscMP-h{{font-family:'Baloo 2',cursive;font-weight:800;font-size:1.42rem;line-height:1.24;margin:.15rem 0 .5rem;color:#fff;}}
+.tsscMP-h em{{font-style:normal;color:#FDE68A;}}
+.tsscMP-sub{{font-size:.94rem;line-height:1.55;color:#AEB9CC;margin:0 0 .9rem;}}
+.tsscMP-sub b{{color:#FDE68A;font-weight:700;}}
+.tsscMP-ul{{list-style:none;margin:0 0 .95rem;padding:0;display:grid;gap:.5rem;}}
+.tsscMP-ul li{{display:flex;gap:.55rem;font-size:.9rem;line-height:1.45;color:#D5DDEA;}}
+.tsscMP-ul i{{font-style:normal;flex:0 0 auto;}}
+.tsscMP-ul b{{color:#fff;font-weight:700;}}
+.tsscMP-price{{position:relative;overflow:hidden;text-align:center;border-radius:15px;padding:.85rem .7rem;margin-bottom:.55rem;
+  background:linear-gradient(135deg,rgba(180,83,9,.28),rgba(245,158,11,.16));
+  border:1px solid rgba(253,230,138,.42);}}
+.tsscMP-was{{font-size:1rem;color:#94A3B8;text-decoration:line-through;}}
+.tsscMP-now{{font-family:'Baloo 2',cursive;font-weight:800;font-size:2.5rem;line-height:1;color:#FDE68A;
+  margin:0 .1rem 0 .45rem;text-shadow:0 0 26px rgba(253,230,138,.45);}}
+.tsscMP-for{{font-size:.86rem;color:#E2E8F0;margin-top:.3rem;}}
+.tsscMP-for b{{color:#FDE68A;}}
+.tsscMP-vs{{font-size:.78rem;color:#94A3B8;margin-top:.22rem;}}
+.tsscMP-free{{text-align:center;font-size:.88rem;font-weight:700;color:#6EE7B7;
+  background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.3);
+  border-radius:12px;padding:.5rem;margin-bottom:.85rem;}}
+.tsscMP-btns{{display:grid;gap:.5rem;}}
+.tsscMP-go{{position:relative;overflow:hidden;display:block;text-align:center;text-decoration:none;
+  border-radius:13px;padding:.82rem .9rem;font-weight:800;font-size:1.02rem;color:#3B2704;
+  background:linear-gradient(90deg,#B45309,#F59E0B,#FDE68A,#D97706);
+  box-shadow:0 10px 26px rgba(245,158,11,.4);}}
+.tsscMP-go::after{{content:'';position:absolute;top:0;left:-60%;width:40%;height:100%;
+  background:linear-gradient(100deg,transparent,rgba(255,255,255,.6),transparent);
+  animation:tsscMPshine 2.9s ease-in-out infinite;}}
+.tsscMP-alt{{display:block;text-align:center;text-decoration:none;border-radius:13px;padding:.66rem;
+  font-weight:700;font-size:.94rem;color:#CBD5E1;border:1px solid rgba(255,255,255,.16);}}
+.tsscMP-alt:hover{{color:#fff;border-color:rgba(255,255,255,.34);}}
+.tsscMP-fine{{text-align:center;font-size:.74rem;color:#8A97AB;margin:.7rem 0 0;line-height:1.5;}}
+.tsscMP-later{{display:block;width:100%;margin-top:.55rem;background:none;border:0;
+  color:#8A97AB;font-size:.82rem;font-family:inherit;cursor:pointer;text-decoration:underline;}}
+@media(max-width:420px){{
+  .tsscMP-h{{font-size:1.24rem}}.tsscMP-now{{font-size:2.15rem}}
+  .tsscMP-body{{padding:1rem 1rem 1.15rem}}.tsscMP-ul li{{font-size:.86rem}}
+}}
+@media(prefers-reduced-motion:reduce){{
+  #tsscMP.on,.tsscMP-box{{animation:none}}
+  .tsscMP-ribbon::after,.tsscMP-go::after{{animation:none;display:none}}
+}}
+</style>
+
+<div id="tsscMP" role="dialog" aria-modal="true" aria-labelledby="tsscMPh">
+  <div class="tsscMP-box">
+    <div class="tsscMP-ribbon">&#129689; PREMIUM UNLOCKED FOR THE 2026 CYCLE</div>
+    <button class="tsscMP-x" type="button" aria-label="Close">&times;</button>
+    <div class="tsscMP-body">
+      <h2 class="tsscMP-h" id="tsscMPh">PYQs tell you the pattern.<br><em>Mocks tell you your rank.</em></h2>
+      <p class="tsscMP-sub">50 full-length SSC CGL Tier I mocks + 50 Tier II mocks &mdash; built on the real 2026 pattern with <b>locked sectional timing</b>. The thing that actually breaks candidates in the hall.</p>
+      <ul class="tsscMP-ul">
+        <li><i>&#9201;&#65039;</i><span><b>Real sectional timing</b> — four locked 15-minute sections, exactly like SSC CGL 2026. Most free mocks still run one open 60-minute timer. That is not the exam you are sitting.</span></li>
+        <li><i>&#128202;</i><span><b>Instant rank + section-wise analysis</b> — see your weak subject after every attempt, not after the result.</span></li>
+        <li><i>&#127470;&#127475;</i><span><b>English + &#2361;&#2367;&#2306;&#2342;&#2368;</b> — every mock, every solution, both languages.</span></li>
+        <li><i>&#128293;</i><span><b>Mocks 41-50: Challenge Series</b> — deliberately harder than the real paper. Clear these and the exam feels slow.</span></li>
+        <li><i>&#9989;</i><span><b>Detailed solutions</b> with tricks and concepts on every question.</span></li>
+        <li><i>&#128197;</i><span><b>All 50 Tier I mocks live by 1 September</b> — one new mock every day. <b>Tier II mocks go live 15 October 2026</b>, included in the same plan.</span></li>
+      </ul>
+      <div class="tsscMP-price">
+        <span class="tsscMP-was">&#8377;199</span><span class="tsscMP-now">&#8377;49</span>
+        <div class="tsscMP-for">for <b>one full year</b> — all 50 Tier I + all 50 Tier II mocks, including every mock released during your year.</div>
+        <div class="tsscMP-vs">Others charge &#8377;699-&#8377;1,500 for the same thing.</div>
+      </div>
+      <div class="tsscMP-free">Mock 1-4 are free forever. Attempt them first.</div>
+      <div class="tsscMP-btns">
+        <a class="tsscMP-go" href="https://trickyssc.com/ssc-cgl-mock-test">&#129689; Unlock All 50 Mocks &mdash; &#8377;49</a>
+        <a class="tsscMP-alt" href="https://trickyssc.com/ssc-cgl-mock-test">Try 4 Free Mocks First &rarr;</a>
+      </div>
+      <p class="tsscMP-fine">One-time payment &middot; Valid 12 months &middot; Secure Razorpay checkout &middot; No auto-renewal</p>
+      <button class="tsscMP-later" type="button">Maybe later</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){{
+  var KEY='tsscMockPromoSeen', PAID='tssc_entitlement', EVERY=false, DELAY=1200;
+  var box=document.getElementById('tsscMP');
+  if(!box) return;
+  function ls(k){{ try{{ return localStorage.getItem(k); }}catch(e){{ return null; }} }}
+  // Never nag someone who already paid.
+  var paid=ls(PAID);
+  if(paid && paid!=='false' && paid!=='null' && paid!=='0') return;
+  if(!EVERY){{
+    var last=parseInt(ls(KEY)||'0',10);
+    if(last && (Date.now()-last) < 864e5) return;   // once per 24h
+  }}
+  function close(){{
+    box.classList.remove('on');
+    try{{ localStorage.setItem(KEY,String(Date.now())); }}catch(e){{}}
+  }}
+  setTimeout(function(){{ box.classList.add('on'); }}, DELAY);
+  box.querySelector('.tsscMP-x').addEventListener('click',close);
+  box.querySelector('.tsscMP-later').addEventListener('click',close);
+  box.addEventListener('click',function(e){{ if(e.target===box) close(); }});
+  document.addEventListener('keydown',function(e){{ if(e.key==='Escape') close(); }});
+  // Remember the dismissal when they click through, so the popup does not
+  // greet them again the moment they come back from the mock page.
+  Array.prototype.forEach.call(box.querySelectorAll('a'),function(a){{
+    a.addEventListener('click',function(){{ try{{ localStorage.setItem(KEY,String(Date.now())); }}catch(e){{}} }});
+  }});
+}})();
+</script>
+<!-- TSSC:MOCK-PROMO:END -->
+"""
+
+
+# ---------------------------------------------------------------------------
 # 1. FETCH ALL PAPERS (with pagination)
 # ---------------------------------------------------------------------------
 def fetch_all_papers():
@@ -961,6 +1110,7 @@ onAuthStateChanged(_auth, async user => {{
   _syncAttempts(user.uid);
 }});
 </script>
+{MOCK_PROMO}
 </body>
 </html>
 """
