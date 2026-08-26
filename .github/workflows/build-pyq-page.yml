@@ -35,14 +35,34 @@ jobs:
       - name: Commit changes if the page changed
         run: |
           git config user.name  "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           # Stage both files. `git diff` alone ignores brand-new untracked
           # files, which caused the page to never get committed on first run.
           git add ssc-cgl-pyq.html sitemap.xml
           if git diff --cached --quiet; then
             echo "No change in PYQ page or sitemap — nothing to commit."
-          else
-            git commit -m "Auto-update SSC CGL PYQ page + sitemap [skip ci]"
-            git push
-            echo "Committed updated ssc-cgl-pyq.html and sitemap.xml."
+            exit 0
           fi
+
+          # NO [skip ci] HERE. On this repo GitHub Pages publishes via the
+          # `pages build and deployment` workflow, and [skip ci] suppresses it —
+          # the commit lands on main and the site keeps serving the old file.
+          # That is exactly what hid 8 uploaded CHSL papers on 2026-08-20, and
+          # this workflow carried the same flag until 2026-08-25.
+          # This workflow only runs on `schedule` and `workflow_dispatch`, never
+          # on `push`, so there is no loop to guard against anyway.
+          git commit -m "Auto-update SSC CGL PYQ page + sitemap"
+
+          # The CHSL build (or update-mock-live) may have pushed while this one
+          # was running. Rebase and retry rather than failing the run and
+          # losing the rebuild.
+          for i in 1 2 3; do
+            if git push; then
+              echo "pushed on attempt $i — committed ssc-cgl-pyq.html and sitemap.xml"
+              exit 0
+            fi
+            echo "push rejected — rebasing onto origin/main and retrying"
+            git pull --rebase --autostash origin main
+          done
+          echo "::error::could not push after 3 attempts"
+          exit 1
