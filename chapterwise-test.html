@@ -1505,6 +1505,7 @@ const CHID=qs.get('chapter')||qs.get('chapterId')||'';
 // so a Start Level button on a chapter page skips the level chooser.
 const DEEP_LEVEL=(function(){const n=parseInt(qs.get('level'),10);return (n>=1&&n<=3)?n:0;})();
 const DEEP_TEST=(function(){const n=parseInt(qs.get('test'),10);return (n>=1&&n<=20)?n:0;})();
+let DEEP_DIRECT=false;   // true when the page was opened straight onto one test
 const sMeta=subjectMeta(SUBJ);
 const cMeta=chapterMeta(SUBJ,CHID);
 
@@ -1647,12 +1648,18 @@ async function init(){
   // A deep link goes straight to the test grid — but only if that level actually
   // has tests. If it does not, fall back to the level chooser rather than
   // dropping the student on an empty grid.
-  if(DEEP_LEVEL && levelStats(DEEP_LEVEL) > 0){
+  const deepMeta = DEEP_TEST ? ((S.idx[DEEP_LEVEL]||{})[DEEP_TEST]) : null;
+  if(DEEP_LEVEL && deepMeta && (deepMeta.en||deepMeta.hi)){
+    // &level=N&test=M — a Start button on a chapter page. The student already
+    // chose the test there, so the level and test chooser is never rendered:
+    // they go straight to the language/timer picker. It is built (not shown)
+    // underneath, so closing the picker leaves them somewhere sensible.
     openLevel(DEEP_LEVEL);
-    // &test=N as well — open that test's language/timer picker straight away,
-    // so a Start button on a chapter page lands the student one tap from playing.
-    const tMeta=(S.idx[DEEP_LEVEL]||{})[DEEP_TEST];
-    if(DEEP_TEST && tMeta && (tMeta.en||tMeta.hi)) window.pickTest(DEEP_LEVEL, DEEP_TEST);
+    document.getElementById('stepTests').style.display='none';
+    DEEP_DIRECT = true;
+    window.pickTest(DEEP_LEVEL, DEEP_TEST);
+  }else if(DEEP_LEVEL && levelStats(DEEP_LEVEL) > 0){
+    openLevel(DEEP_LEVEL);
   }else{
     renderLevels();
   }
@@ -1758,7 +1765,12 @@ window.pickBack=()=>{
   document.getElementById('paneTimer').style.display='none';
   document.getElementById('paneLang').style.display='block';
 };
-window.closePick=()=>{ document.getElementById('pick').style.display='none'; document.body.style.overflow=''; };
+window.closePick=()=>{
+  document.getElementById('pick').style.display='none'; document.body.style.overflow='';
+  // Opened straight onto one test and then backed out — now show the test grid
+  // so the student is not left staring at an empty page.
+  if(DEEP_DIRECT){ DEEP_DIRECT=false; document.getElementById('stepTests').style.display='block'; }
+};
 document.getElementById('pick').addEventListener('click',(e)=>{ if(e.target.id==='pick') closePick(); });
 /* ══════════════════════════════════════════════════════════════════
    BUILT-IN CHAPTER PLAYER — PYQ-test GUI (topbar, palette, drawer,
@@ -1797,6 +1809,8 @@ window.launch=async(timed)=>{
     alert('This test could not be loaded just now. Please check your connection and try again.');
     return;
   }
+  DEEP_DIRECT=false;
+  document.getElementById('stepTests').style.display='block';
   CW.lv=lv; CW.tn=tn; CW.lang=useLang; CW.timed=!!timed; CW.mins=30;
 
   // English counterpart map (powers "View in English" + review "View solution
