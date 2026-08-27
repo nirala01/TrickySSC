@@ -1096,7 +1096,7 @@
 </header>
 
 <div class="wrap">
-  <div id="loadState" style="padding:3rem;text-align:center;color:var(--muted);">⏳ Loading chapter…</div>
+  <div id="loadState" style="padding:3rem;text-align:center;color:var(--muted);">⏳ Loading test…</div>
   <script>
   /* Watchdog. Plain inline script on purpose — it still runs when the Firebase
      module fails to load (offline, blocked CDN, or the file opened straight from
@@ -1110,8 +1110,10 @@
       el.innerHTML = msg;
       el.style.color = '#B45309';
     }
+    // No chapter in the URL: there is nothing this page can do, so leave
+    // immediately rather than showing the student a dead end.
     if(!qp.get('chapter') && !qp.get('chapterId')){
-      stop('No chapter selected. <a href="/ssc-cgl-chapterwise.html" style="color:var(--saffron,#FF6B00);font-weight:700;">Browse SSC CGL chapters &rarr;</a>');
+      location.replace('/ssc-cgl-chapterwise.html');
       return;
     }
     setTimeout(function(){
@@ -1537,44 +1539,69 @@ function fail(msg){
      2. a test's questions are read only when it is started;
      3. anything read once is kept in memory for the rest of the visit.
 ══════════════════════════════════════════════════════════════════ */
-let _allDocs = null;
-async function loadWholeChapter(){
-  if(_allDocs) return _allDocs;
-  try{
-    const snap = await getDocs(query(collection(db,'questions'), where('chapterId','==',CHID)));
-    _allDocs = snap.docs.map(d=>({id:d.id, ...d.data()}))
-                        .filter(q=>q.type==='chapterwise' && q.exam===EXAM);
-    console.warn('[chapterwise] SLOW PATH — read '+_allDocs.length+' documents for the whole chapter. Check that level, testNum and qNum are stored as numbers.');
-    return _allDocs;
-  }catch(e){
-    console.error('[chapterwise] whole-chapter read failed', e);
-    return null;
+/* ── REST, not the SDK ──────────────────────────────────────────────────
+   The Firestore JS SDK's getDocs() stalls indefinitely on some networks
+   (its WebChannel transport gets blocked), which is exactly what was
+   happening here. mock-test.html hit the same wall and solved it by
+   querying Firestore over its REST API with the public web key. Same
+   approach here.                                                        */
+const PROJECT='trickyssc-17bb3', APIKEY='AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA';
+const REST_URL='https://firestore.googleapis.com/v1/projects/'+PROJECT+'/databases/(default)/documents:runQuery?key='+APIKEY;
+
+function parseField(v){
+  if(!v) return '';
+  if(v.stringValue  !==undefined) return v.stringValue;
+  if(v.integerValue !==undefined) return v.integerValue;
+  if(v.booleanValue !==undefined) return v.booleanValue;
+  if(v.doubleValue  !==undefined) return v.doubleValue;
+  if(v.nullValue    !==undefined) return null;
+  if(v.arrayValue   !==undefined) return (v.arrayValue.values||[]).map(parseField);
+  if(v.mapValue     !==undefined){
+    const m={};
+    for(const k of Object.keys(v.mapValue.fields||{})) m[k]=parseField(v.mapValue.fields[k]);
+    return m;
   }
+  return '';
 }
+function fromRest(json){
+  return (json||[]).filter(r=>r.document&&r.document.fields).map(r=>{
+    const f=r.document.fields;
+    const obj={id:r.document.name.split('/').pop()};
+    for(const k of Object.keys(f)) obj[k]=parseField(f[k]);
+    // REST returns integers as strings — put them back to numbers so the rest
+    // of the engine (sorting, palette, marking) behaves exactly as before.
+    if(obj.qNum   !==undefined) obj.qNum   = parseInt(obj.qNum)   || 0;
+    if(obj.level  !==undefined) obj.level  = parseInt(obj.level)  || 0;
+    if(obj.testNum!==undefined) obj.testNum= parseInt(obj.testNum)|| 0;
+    return obj;
+  });
+}
+async function restQuery(filters){
+  const body={structuredQuery:{from:[{collectionId:'questions'}],
+    where:{compositeFilter:{op:'AND',filters:filters}}}};
+  const r=await fetch(REST_URL,{method:'POST',headers:{'Content-Type':'application/json'},
+                                body:JSON.stringify(body)});
+  if(!r.ok) throw new Error('Firestore REST '+r.status);
+  return fromRest(await r.json());
+}
+const fEq=(path,val)=>({fieldFilter:{field:{fieldPath:path},op:'EQUAL',
+  value:(typeof val==='number')?{integerValue:String(val)}:{stringValue:String(val)}}});
 
 async function fetchTest(lv, tn){
-  let docs = [];
-  try{
-    // THREE equality filters — the shape Firestore serves from its automatic
-    // single-field indexes. Returns the ~100 documents of this one test (both
-    // languages); exam, type and language are filtered here.
-    const snap = await getDocs(query(
-      collection(db,'questions'),
-      where('chapterId','==',CHID),
-      where('level','==',lv),
-      where('testNum','==',tn)
-    ));
-    docs = snap.docs.map(d=>({id:d.id, ...d.data()}));
-    console.info('[chapterwise] test '+lv+'-'+tn+': '+docs.length+' documents read');
-  }catch(e){
-    console.warn('[chapterwise] test query rejected — '+(e&&e.message||''));
-  }
+  // Three equality filters: chapter + level + test. Returns the ~100 documents
+  // of this one test (both languages).
+  let docs = await restQuery([fEq('chapterId',CHID), fEq('level',lv), fEq('testNum',tn)]);
   if(!docs.length){
-    // Last resort: level or testNum not stored as numbers on these documents.
-    const all = await loadWholeChapter();
-    docs = (all || []).filter(q =>
-      (parseInt(q.level)||1) === lv &&
-      (parseInt(q.testNum || q.test)||0) === tn);
+    // level / testNum stored as strings on older imports
+    docs = await restQuery([fEq('chapterId',CHID), fEq('level',String(lv)), fEq('testNum',String(tn))]);
+  }
+  console.info('[chapterwise] REST test '+lv+'-'+tn+': '+docs.length+' documents read');
+  if(!docs.length){
+    // Very old documents: no testNum at all. Read the chapter and filter here.
+    const all = await restQuery([fEq('chapterId',CHID)]);
+    console.warn('[chapterwise] fell back to whole chapter: '+all.length+' documents');
+    docs = all.filter(q => (parseInt(q.level)||1)===lv &&
+                           (parseInt(q.testNum||q.test)||0)===tn);
   }
   const pack = {en:[], hi:[], read:docs.length, wrongMeta:0};
   docs.forEach(q => {
@@ -1599,7 +1626,7 @@ function cwLoading(on){
 }
 
 async function init(){
-  if(!sMeta||!cMeta){ fail('Open a test from its chapter page to start it — this address has no chapter in it. <div style="margin-top:0.6rem;"><a href="/ssc-cgl-chapterwise.html" style="color:var(--saffron);font-weight:700;">Browse SSC CGL chapters →</a></div>'); return; }
+  if(!sMeta||!cMeta){ location.replace('/ssc-cgl-chapterwise.html'); return; }
   // header
   document.getElementById('crumb').innerHTML=
     '<a href="https://trickyssc.com/index.html">Home</a><span class="sep">/</span>'+
