@@ -22,6 +22,9 @@
 .rad-sign{position:absolute;left:0;top:0;bottom:0;width:.6em;}
 .rad-sign svg{display:block;width:100%;height:100%;overflow:visible;}
 .rad-cand{display:inline-block;border-top:1.5px solid currentColor;padding:.08em .24em 0 0;line-height:1.1;}
+.cw-mode{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.92rem;padding:0.55rem 1.1rem;border-radius:100px;border:1.5px solid #CBD5E1;background:#fff;color:#64748B;cursor:pointer;transition:all .15s;}
+.cw-mode.on{border-color:#FF6B00;background:#FFF3E9;color:#C2410C;box-shadow:0 3px 10px rgba(255,107,0,0.18);}
+
 </style>
 <style id="cw-frac-style">
 /* TrickySSC — stacked (vertical) fractions for algebraic/parenthesised a/b */
@@ -1127,35 +1130,23 @@
 </div>
 
 <!-- PICKER: language -> timer, then open mock-test.html -->
-<div id="pick" style="display:none;position:fixed;inset:0;z-index:6000;background:rgba(15,23,42,0.55);backdrop-filter:blur(2px);">
-  <div class="pick-card">
-    <button class="pick-x" onclick="closePick()">✕</button>
-    <div class="pick-h" id="pickH">Test</div>
-    <div class="pick-sub" id="pickSub"></div>
-    <!-- step 1: language -->
-    <div id="paneLang">
-      <div class="pick-step"><span class="dotnum">1</span> Choose language</div>
-      <div class="pick-opts" id="langOpts"></div>
-    </div>
-    <!-- step 2: timer -->
-    <div id="paneTimer" style="display:none;">
-      <div class="pick-step"><span class="dotnum">2</span> Timer</div>
-      <div class="pick-opts">
-        <button class="pick-opt" id="optTimed" onclick="launch(true)">
-          <span class="ic">⏱️</span>
-          <span class="ct"><b>With timer</b><i id="timerMins"></i></span>
-        </button>
-        <button class="pick-opt" onclick="launch(false)">
-          <span class="ic">♾️</span>
-          <span class="ct"><b>Without timer</b><i>Practice at your own pace</i></span>
-        </button>
-      </div>
-      <button class="pick-back" onclick="pickBack()">← Language</button>
-    </div>
-  </div>
+<div id="cwBoot" style="display:none;position:fixed;inset:0;z-index:7000;background:linear-gradient(150deg,#1A202C 0%,#0F172A 55%,#1E3A2F 100%);color:#fff;flex-direction:column;align-items:center;justify-content:center;gap:0.9rem;text-align:center;">
+  <div style="font-family:'Baloo 2',cursive;font-weight:800;font-size:1.6rem;">⚡ Tricky<span style="color:#FF6B00;">SSC</span></div>
+  <div style="font-family:'Rajdhani',sans-serif;font-weight:600;font-size:1rem;color:rgba(255,255,255,0.8);">Loading your test…</div>
+  <div style="width:150px;height:4px;border-radius:4px;background:rgba(255,255,255,0.15);overflow:hidden;"><div id="cwBootBar" style="width:30%;height:100%;border-radius:4px;background:linear-gradient(90deg,#FF6B00,#FF8C38);animation:cwBoot 1.1s ease-in-out infinite alternate;"></div></div>
+  <style>@keyframes cwBoot{from{transform:translateX(-40%);}to{transform:translateX(220%);}}</style>
 </div>
+<script>
+/* Show the loader immediately for a real test link, before any framework runs,
+   so the page behind it never appears — same first paint as mock-test.html. */
+(function(){
+  var q=new URLSearchParams(location.search);
+  if((q.get('chapter')||q.get('chapterId')) && q.get('level') && q.get('test')){
+    var el=document.getElementById('cwBoot'); if(el) el.style.display='flex';
+  }
+})();
+</script>
 
-<!-- BUILT-IN CHAPTER PLAYER (self-contained; does not use mock-test.html) -->
 <div id="cwPlayer" style="display:none;position:fixed;inset:0;z-index:6500;background:#F0F4F8;overflow-y:auto;">
 
   <!-- ===== Instructions ===== -->
@@ -1200,6 +1191,10 @@
             <li><strong>&#128278; Mark</strong> flags a question for review; a marked answer is still evaluated.</li>
             <li>You can switch a Hindi question to English with <strong>&#127468;&#127463; View in English</strong>.</li>
           </ol>
+        </div>
+        <div class="instr-mode" style="display:flex;gap:0.6rem;justify-content:center;margin:0 0 1rem;">
+          <button type="button" class="cw-mode on" id="cwModeTimed" onclick="cwSetTimed(true)">⏱ Timed · 30:00</button>
+          <button type="button" class="cw-mode" id="cwModeFree" onclick="cwSetTimed(false)">🧘 Untimed practice</button>
         </div>
         <div class="instr-footer">
           <button class="instr-back-btn" onclick="cwClose()">&larr; Back to tests</button>
@@ -1525,6 +1520,7 @@ const cMeta=chapterMeta(SUBJ,CHID);
 const S={ cur:{en:[],hi:[]} };   // the one test this page plays
 
 function fail(msg){
+  const bt=document.getElementById('cwBoot'); if(bt) bt.style.display='none';
   document.getElementById('loadState').style.display='none';
   // The hero still says "Loading…" at this point — swap it for something that
   // makes sense next to an error message.
@@ -1675,14 +1671,15 @@ async function init(){
   // somehow does not become visible, say so on the page — a blank screen tells
   // the student nothing and tells us nothing either.
   try{
-    window.pickTest(DEEP_LEVEL, DEEP_TEST);
-    // The chapter page's EN / हिं buttons carry the language in the URL, so the
-    // only question left here is timed or untimed. Same when just one language
-    // exists — asking a one-option question is noise.
+    // Same sequence as mock-test.html: the card already decided everything, so
+    // go straight to the full-screen instructions page. Language came on the
+    // URL from the EN / हिंदी button; timed is the default, with a toggle on
+    // the instructions screen itself.
     const availLang={en:S.cur.en.length, hi:S.cur.hi.length};
-    if(DEEP_LANG && availLang[DEEP_LANG]) window.pickLang(DEEP_LANG);
-    else if(availLang.en && !availLang.hi) window.pickLang('en');
-    else if(availLang.hi && !availLang.en) window.pickLang('hi');
+    PK.lv=DEEP_LEVEL; PK.tn=DEEP_TEST;
+    PK.lang=(DEEP_LANG && availLang[DEEP_LANG]) ? DEEP_LANG : (availLang.en?'en':'hi');
+    await window.launch(true);
+    const bt=document.getElementById('cwBoot'); if(bt) bt.style.display='none';
   }catch(err){
     fail('Could not open this test.<div style="margin-top:0.6rem;font-size:0.85rem;color:#64748B;">'+
          (err && err.message ? err.message : String(err)) +
@@ -1690,10 +1687,10 @@ async function init(){
     return;
   }
   setTimeout(function(){
-    const pk=document.getElementById('pick');
-    if(pk && pk.style.display!=='block'){
+    const sc=document.getElementById('instrScreen');
+    if(sc && sc.style.display!=='block'){
       fail('Loaded '+S.cur.en.length+' English and '+S.cur.hi.length+' Hindi questions for Level '+
-           DEEP_LEVEL+' Test '+DEEP_TEST+', but the start dialog did not open.'+
+           DEEP_LEVEL+' Test '+DEEP_TEST+', but the start screen did not open.'+
            '<div style="margin-top:0.6rem;"><a href="/ssc-cgl-chapterwise.html" style="color:var(--saffron,#FF6B00);font-weight:700;">Browse SSC CGL chapters &rarr;</a></div>');
     }
   }, 400);
@@ -1705,57 +1702,17 @@ async function init(){
 // Which test the picker is currently offering.
 const PK={lv:null,tn:null,lang:null};
 
-window.pickTest=(lv,tn)=>{
-  const x={en:S.cur.en.length, hi:S.cur.hi.length};
-  PK.lv=lv; PK.tn=tn; PK.lang=null;
-  document.getElementById('pickH').textContent=cMeta.name+' · Test '+tn;
-  document.getElementById('pickSub').textContent='Level '+lv+' · '+sMeta.short+' · SSC CGL';
-  // step 1: only offer languages that actually have questions
-  const opts=[];
-  if(x.en) opts.push({v:'en',flag:'🇬🇧',name:'English',n:x.en});
-  if(x.hi) opts.push({v:'hi',flag:'🇮🇳',name:'हिंदी (Hindi)',n:x.hi});
-  document.getElementById('langOpts').innerHTML=opts.map(o=>
-    '<button class="pick-opt" data-lang="'+o.v+'">'+
-      '<span class="ic">'+o.flag+'</span>'+
-      '<span class="ct"><b>'+o.name+'</b><i>'+o.n+' questions</i></span>'+
-    '</button>').join('');
-  document.querySelectorAll('#langOpts .pick-opt').forEach(b=>{ b.onclick=()=>pickLang(b.dataset.lang); });
-  document.getElementById('paneLang').style.display='block';
-  document.getElementById('paneTimer').style.display='none';
-  document.getElementById('pick').style.display='block';
-  document.body.style.overflow='hidden';
+/* The language/timer pop-up used to live here. Language now arrives on the
+   URL from the chapter page's EN / हिंदी buttons, and the timer choice sits on
+   the instructions screen — the same flow as mock-test.html. */
+window.cwSetTimed=(t)=>{
+  CW.timed=!!t; CW.mins=30;
+  const bT=document.getElementById('cwModeTimed'), bF=document.getElementById('cwModeFree');
+  if(bT) bT.classList.toggle('on', !!t);
+  if(bF) bF.classList.toggle('on', !t);
+  cwFillInstr();
 };
-window.pickLang=(lang)=>{
-  PK.lang=lang;
-  document.getElementById('timerMins').textContent='30 min · auto-submit';
-  document.getElementById('paneLang').style.display='none';
-  document.getElementById('paneTimer').style.display='block';
-};
-window.pickBack=()=>{
-  document.getElementById('paneTimer').style.display='none';
-  document.getElementById('paneLang').style.display='block';
-};
-window.closePick=()=>{
-  document.getElementById('pick').style.display='none'; document.body.style.overflow='';
-  // Nothing sits behind the picker on this page, so backing out means going
-  // back to the chapter page they came from.
-  if(cwEl() && cwEl().style.display==='block') return;   // a test is already running
-  if(history.length > 1) history.back(); else location.href='/ssc-cgl-chapterwise.html';
-};
-document.getElementById('pick').addEventListener('click',(e)=>{ if(e.target.id==='pick') closePick(); });
-/* ══════════════════════════════════════════════════════════════════
-   BUILT-IN CHAPTER PLAYER — PYQ-test GUI (topbar, palette, drawer,
-   report, View-in-English, per-solution EN toggle, KaTeX solutions)
-   Single flat 50-Q section · +2 / −0.5 · timed(30 min) or untimed.
-══════════════════════════════════════════════════════════════════ */
-let questions=[],answers={},markedForReview={},currentQ=0,sections=[],curTS=0;
-let enQMap={},showEnglishQ={},enMapLoaded=false,enMapLoading=false,enFetchError=false;
-let enFetchParams=null;
-let timeLeft=0,timerInterval=null,paused=false,isSubmitting=false;
-let currentUser=null;
-let exam='ssc-cgl',year='',mockMeta=null,_reportTestId='';
-const CW={lv:null,tn:null,lang:'en',timed:false,mins:30};
-const cwEl=()=>document.getElementById('cwPlayer');
+function closePick(){}   // stub: launch() still calls it once
 
 window.launch=async(timed)=>{
   const lv=PK.lv, tn=PK.tn, lang=PK.lang||'en';
@@ -1772,6 +1729,9 @@ window.launch=async(timed)=>{
     return;
   }
   CW.lv=lv; CW.tn=tn; CW.lang=useLang; CW.timed=!!timed; CW.mins=30;
+  const _bT=document.getElementById('cwModeTimed'), _bF=document.getElementById('cwModeFree');
+  if(_bT) _bT.classList.toggle('on', CW.timed);
+  if(_bF) _bF.classList.toggle('on', !CW.timed);
 
   // English counterpart map (powers "View in English" + review "View solution
   // in English") — built from the same test's English set.
@@ -1836,6 +1796,8 @@ window.cwClose=()=>{
   paused=false; const po=document.getElementById('pauseOverlay'); if(po)po.style.display='none';
   cwEl().style.display='none';
   document.body.style.overflow=''; document.body.style.position=''; document.body.style.width='';
+  // This page has nothing to show behind the player — return to the chapter page.
+  if(history.length > 1) history.back(); else location.href='/ssc-cgl-chapterwise.html';
 };
 window.cwRetry=()=>{
   answers={}; markedForReview={}; currentQ=0; isSubmitting=false; paused=false; showEnglishQ={};
