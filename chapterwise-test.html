@@ -1576,9 +1576,11 @@ async function fetchTest(lv, tn){
       (parseInt(q.level)||1) === lv &&
       (parseInt(q.testNum || q.test)||0) === tn);
   }
-  const pack = {en:[], hi:[]};
-  docs.filter(q => q.type==='chapterwise' && q.exam===EXAM)
-      .forEach(q => { pack[((q.language||q.lang)==='hi') ? 'hi' : 'en'].push(q); });
+  const pack = {en:[], hi:[], read:docs.length, wrongMeta:0};
+  docs.forEach(q => {
+    if(q.type!=='chapterwise' || q.exam!==EXAM){ pack.wrongMeta++; return; }
+    pack[((q.language||q.lang)==='hi') ? 'hi' : 'en'].push(q);
+  });
   pack.en.sort((a,b)=>(a.qNum||0)-(b.qNum||0));
   pack.hi.sort((a,b)=>(a.qNum||0)-(b.qNum||0));
   console.info('[chapterwise] usable: '+pack.en.length+' EN, '+pack.hi.length+' HI');
@@ -1621,23 +1623,52 @@ async function init(){
     return;
   }
 
-  const pack = await fetchTest(DEEP_LEVEL, DEEP_TEST);
+  let pack;
+  try{
+    pack = await fetchTest(DEEP_LEVEL, DEEP_TEST);
+  }catch(err){
+    fail('Could not read this test from the database.<div style="margin-top:0.6rem;font-size:0.85rem;color:#64748B;">'+
+         (err && err.message ? err.message : String(err))+'</div>');
+    return;
+  }
   if(!pack.en.length && !pack.hi.length){
-    fail('This test is not available yet.<div style="margin-top:0.6rem;">'+
-         '<a href="/ssc-cgl-chapterwise.html" style="color:var(--saffron,#FF6B00);font-weight:700;">Browse SSC CGL chapters &rarr;</a></div>');
+    fail('No questions found for Level '+DEEP_LEVEL+', Test '+DEEP_TEST+' of this chapter.'+
+         '<div style="margin-top:0.6rem;font-size:0.85rem;color:#64748B;">'+
+         (pack.read||0)+' documents matched the chapter, level and test number; '+
+         (pack.wrongMeta||0)+' of them were not tagged type "chapterwise" for exam '+EXAM+'.</div>'+
+         '<div style="margin-top:0.6rem;"><a href="/ssc-cgl-chapterwise.html" style="color:var(--saffron,#FF6B00);font-weight:700;">Browse SSC CGL chapters &rarr;</a></div>');
     return;
   }
   S.cur = pack;
 
   document.getElementById('loadState').style.display='none';
-  // A deep link goes straight to the test grid — but only if that level actually
-  // has tests. If it does not, fall back to the level chooser rather than
-  // dropping the student on an empty grid.
-  window.pickTest(DEEP_LEVEL, DEEP_TEST);
+
+  // Open the language/timer picker. If anything in here throws, or the picker
+  // somehow does not become visible, say so on the page — a blank screen tells
+  // the student nothing and tells us nothing either.
+  try{
+    window.pickTest(DEEP_LEVEL, DEEP_TEST);
+  }catch(err){
+    fail('Could not open this test.<div style="margin-top:0.6rem;font-size:0.85rem;color:#64748B;">'+
+         (err && err.message ? err.message : String(err)) +
+         '</div><div style="margin-top:0.6rem;"><a href="/ssc-cgl-chapterwise.html" style="color:var(--saffron,#FF6B00);font-weight:700;">Browse SSC CGL chapters &rarr;</a></div>');
+    return;
+  }
+  setTimeout(function(){
+    const pk=document.getElementById('pick');
+    if(pk && pk.style.display!=='block'){
+      fail('Loaded '+S.cur.en.length+' English and '+S.cur.hi.length+' Hindi questions for Level '+
+           DEEP_LEVEL+' Test '+DEEP_TEST+', but the start dialog did not open.'+
+           '<div style="margin-top:0.6rem;"><a href="/ssc-cgl-chapterwise.html" style="color:var(--saffron,#FF6B00);font-weight:700;">Browse SSC CGL chapters &rarr;</a></div>');
+    }
+  }, 400);
 }
 
 /* The level chooser and test grid used to live here. They are gone: this page
    is reached only from a chapter page, which already picked the test. */
+
+// Which test the picker is currently offering.
+const PK={lv:null,tn:null,lang:null};
 
 window.pickTest=(lv,tn)=>{
   const x={en:S.cur.en.length, hi:S.cur.hi.length};
