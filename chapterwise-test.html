@@ -1516,6 +1516,7 @@ const CHID=qs.get('chapter')||qs.get('chapterId')||'';
 // so a Start Level button on a chapter page skips the level chooser.
 const DEEP_LEVEL=(function(){const n=parseInt(qs.get('level'),10);return (n>=1&&n<=3)?n:0;})();
 const DEEP_TEST=(function(){const n=parseInt(qs.get('test'),10);return (n>=1&&n<=20)?n:0;})();
+const DEEP_LANG=(function(){const l=qs.get('lang');return (l==='en'||l==='hi')?l:'';})();
 const sMeta=subjectMeta(SUBJ);
 const cMeta=chapterMeta(SUBJ,CHID);
 
@@ -1675,6 +1676,13 @@ async function init(){
   // the student nothing and tells us nothing either.
   try{
     window.pickTest(DEEP_LEVEL, DEEP_TEST);
+    // The chapter page's EN / हिं buttons carry the language in the URL, so the
+    // only question left here is timed or untimed. Same when just one language
+    // exists — asking a one-option question is noise.
+    const availLang={en:S.cur.en.length, hi:S.cur.hi.length};
+    if(DEEP_LANG && availLang[DEEP_LANG]) window.pickLang(DEEP_LANG);
+    else if(availLang.en && !availLang.hi) window.pickLang('en');
+    else if(availLang.hi && !availLang.en) window.pickLang('hi');
   }catch(err){
     fail('Could not open this test.<div style="margin-top:0.6rem;font-size:0.85rem;color:#64748B;">'+
          (err && err.message ? err.message : String(err)) +

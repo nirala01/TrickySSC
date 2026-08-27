@@ -118,14 +118,13 @@ li{margin-bottom:.35rem;color:#2D3748;}
 .test-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:.65rem;}
 .tg-load{grid-column:1/-1;font-size:.86rem;color:#A0AEC0;padding:.4rem 0;}
 .tg-err{grid-column:1/-1;font-size:.88rem;color:#B45309;background:#FFF7ED;border:1px solid #FED7AA;border-radius:10px;padding:.7rem .9rem;}
-.tt{display:flex;flex-direction:column;align-items:center;gap:.3rem;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:12px;padding:.8rem .6rem;text-decoration:none;transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease,background .15s ease;}
+.tt{display:flex;flex-direction:column;align-items:center;gap:.3rem;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:12px;padding:.8rem .6rem;transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease,background .15s ease;}
 .tt:hover{background:#fff;border-color:var(--lc,var(--accent));transform:translateY(-2px);box-shadow:0 8px 20px rgba(0,0,0,.09);}
 .tt-n{font-family:'Rajdhani',sans-serif;font-weight:800;font-size:1rem;color:#1A202C;}
-.tt-q{font-size:.74rem;color:#718096;}
-.tt-lg{display:flex;gap:.25rem;margin:.1rem 0 .35rem;}
-.tt-lg i{font-style:normal;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.62rem;letter-spacing:.3px;border-radius:5px;padding:.1rem .3rem;background:#EDF2F7;color:#718096;border:1px solid #E2E8F0;}
-.tt-lg i.on{background:var(--lcs,var(--accent-soft));color:var(--lc,var(--accent));border-color:transparent;}
-.tt-go{width:100%;text-align:center;padding:.4rem;border-radius:100px;background:linear-gradient(135deg,var(--lc,var(--accent)),var(--lc2,var(--accent-dark)));color:#fff;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.82rem;letter-spacing:.3px;}
+.tt-q{font-size:.74rem;color:#718096;margin-bottom:.3rem;}
+.tt-go{display:block;width:100%;text-align:center;padding:.4rem;border-radius:100px;background:linear-gradient(135deg,var(--lc,var(--accent)),var(--lc2,var(--accent-dark)));color:#fff;text-decoration:none;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.8rem;letter-spacing:.3px;margin-top:.25rem;}
+.tt-go:hover{opacity:.92;}
+.tt-go.tt-hi{background:#fff;color:var(--lc,var(--accent));border:1.5px solid var(--lc,var(--accent));}
 @media(prefers-reduced-motion:reduce){.lv-acc,.lv-chev,.tt{transition:none;}.tt:hover{transform:none;}}
 
 /* TABLES */
@@ -614,14 +613,14 @@ footer a:hover{color:#FF6B00;}
     var nums = Object.keys(tests).map(Number).sort(function(a,b){ return a-b; });
     if (!nums.length) { box.innerHTML = '<div class="tg-err">No tests in this level yet.</div>'; return; }
     box.innerHTML = nums.map(function(tn){
-      var t = tests[tn];
-      return '<a class="tt" href="' + testHref(lv, tn) + '">' +
+      var t = tests[tn], btns = '';
+      if (t.en) btns += '<a class="tt-go" href="' + testHref(lv, tn) + '&lang=en">English &rarr;</a>';
+      if (t.hi) btns += '<a class="tt-go tt-hi" href="' + testHref(lv, tn) + '&lang=hi">हिंदी &rarr;</a>';
+      return '<div class="tt">' +
                '<span class="tt-n">Test ' + tn + '</span>' +
                '<span class="tt-q">' + TARGET_Q + ' questions</span>' +
-               '<span class="tt-lg"><i class="' + (t.en?'on':'') + '">EN</i>' +
-                                  '<i class="' + (t.hi?'on':'') + '">हिं</i></span>' +
-               '<span class="tt-go">Start &rarr;</span>' +
-             '</a>';
+               btns +
+             '</div>';
     }).join('');
   }
 

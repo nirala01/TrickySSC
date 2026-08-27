@@ -156,13 +156,12 @@ img.acct-av{border:1px solid #E2E8F0;}
 .cp-t{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.9rem;color:#2D3748;}
 .cp-c{font-size:.78rem;color:#A0AEC0;}
 .cp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:.5rem;}
-.cp-t2{display:flex;flex-direction:column;align-items:center;gap:.2rem;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:11px;padding:.6rem .5rem;text-decoration:none;transition:transform .15s,box-shadow .15s,border-color .15s,background .15s;}
+.cp-t2{display:flex;flex-direction:column;align-items:center;gap:.25rem;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:11px;padding:.6rem .5rem;transition:transform .15s,box-shadow .15s,border-color .15s,background .15s;}
 .cp-t2:hover{background:#fff;border-color:var(--lc);transform:translateY(-2px);box-shadow:0 8px 18px rgba(0,0,0,.09);}
-.cp-n{font-family:'Rajdhani',sans-serif;font-weight:800;font-size:.92rem;color:#1A202C;}
-.cp-lg{display:flex;gap:.2rem;margin:.05rem 0 .3rem;}
-.cp-lg i{font-style:normal;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.58rem;border-radius:4px;padding:.05rem .25rem;background:#EDF2F7;color:#A0AEC0;border:1px solid #E2E8F0;}
-.cp-lg i.on{background:#fff;color:var(--lc);border-color:var(--lc);}
-.cp-go{width:100%;text-align:center;padding:.3rem;border-radius:100px;background:var(--lc);color:#fff;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.75rem;}
+.cp-n{font-family:'Rajdhani',sans-serif;font-weight:800;font-size:.92rem;color:#1A202C;margin-bottom:.15rem;}
+.cp-go{display:block;width:100%;text-align:center;padding:.32rem;border-radius:100px;background:var(--lc);color:#fff;text-decoration:none;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.72rem;}
+.cp-go:hover{opacity:.92;}
+.cp-go.cp-hi{background:#fff;color:var(--lc);border:1.5px solid var(--lc);}
 @media(prefers-reduced-motion:reduce){.ch-exp,.ch-exp span,.cp-t2{transition:none;}.cp-t2:hover{transform:none;}}
 
 /* HINDI */
@@ -958,11 +957,12 @@ onAuthStateChanged(auth, user=>{
                 '<span class="cp-t">'+L.t+'</span>'+
                 '<span class="cp-c">'+nums.length+' test'+(nums.length===1?'':'s')+'</span></div>'+
               '<div class="cp-grid">'+ nums.map(function(tn){
-                var t=tests[tn];
-                return '<a class="cp-t2" href="'+href(ch,L.n,tn)+'">'+
+                var t=tests[tn], btns='';
+                if(t.en) btns+='<a class="cp-go" href="'+href(ch,L.n,tn)+'&lang=en">English &rarr;</a>';
+                if(t.hi) btns+='<a class="cp-go cp-hi" href="'+href(ch,L.n,tn)+'&lang=hi">हिंदी &rarr;</a>';
+                return '<div class="cp-t2">'+
                          '<span class="cp-n">Test '+tn+'</span>'+
-                         '<span class="cp-lg"><i class="'+(t.en?'on':'')+'">EN</i><i class="'+(t.hi?'on':'')+'">हिं</i></span>'+
-                         '<span class="cp-go">Start &rarr;</span></a>';
+                         btns+'</div>';
               }).join('') +'</div></div>';
     });
     panel.innerHTML = any ? html : '<div class="cp-err">No tests in this chapter yet.</div>';
