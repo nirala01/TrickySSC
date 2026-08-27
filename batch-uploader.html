@@ -272,13 +272,20 @@ window.doSignIn = async () => {
 };
 
 onAuthStateChanged(auth, user => {
-  const ok = user && (ADMIN_EMAILS.includes(user.email) || user.email.endsWith('@trickyssc.com'));
+  // A session can exist with email === null (anonymous sign-in, or a provider that
+  // withholds it). Reading .endsWith off that threw and killed the rest of this
+  // callback, leaving the gate showing whatever state the previous event left behind.
+  const email = (user && user.email) || '';
+  const ok = !!user && (ADMIN_EMAILS.includes(email) || email.endsWith('@trickyssc.com'));
   document.getElementById('gate').style.display = ok ? 'none' : 'block';
   document.getElementById('main').style.display = ok ? 'block' : 'none';
   document.getElementById('signBtn').style.display = ok ? 'none' : 'inline-block';
   const b = document.getElementById('userBadge');
-  if (ok) { b.textContent = user.email; b.className = 'badge ok'; }
-  else if (user) { b.textContent = 'not an admin'; b.className = 'badge bad'; }
+  if (ok) { b.textContent = email; b.className = 'badge ok'; }
+  else if (user) {
+    b.textContent = email ? 'not an admin' : 'signed in with no email — sign in again';
+    b.className = 'badge bad';
+  }
   else { b.textContent = 'not signed in'; b.className = 'badge'; }
 });
 
@@ -854,8 +861,19 @@ function setProg(pct, txt) {
 const SAFE_MIME = { png:'image/png', jpg:'image/jpeg', jpeg:'image/jpeg',
                     gif:'image/gif', webp:'image/webp', bmp:'image/bmp' };
 
+/** Storage errors arrive as a bare 403 in the console; the real reason is in the body. */
+function storageErrDetail(e) {
+  const raw = (e && (e.serverResponse || (e.customData && e.customData.serverResponse))) || '';
+  if (!raw) return e && (e.code || e.message) || String(e);
+  let msg = raw;
+  try { const j = JSON.parse(raw); msg = (j.error && (j.error.message || j.error.status)) || raw; }
+  catch (_) { /* not JSON — show it as-is */ }
+  return `${(e.code || 'error')} — ${msg}`;
+}
+
 /** One tiny write, so a rules problem surfaces in two seconds instead of 18 images in. */
 async function preflight() {
+  if (!auth.currentUser) throw new Error('Not signed in — sign in again and re-run.');
   const uid = auth.currentUser.uid;
   const bytes = Uint8Array.from(atob(
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='),
@@ -1025,7 +1043,11 @@ window.runAll = async () => {
       const uid = await preflight();
       log(`Storage write check passed as ${auth.currentUser.email} (uid ${uid})`, 'ok');
     } catch (e) {
-      log(`Storage write check FAILED as ${auth.currentUser.email} (uid ${auth.currentUser.uid}) — ${e.code || e.message}`, 'err');
+      const who = auth.currentUser
+        ? `${auth.currentUser.email || 'no email on this account'} (uid ${auth.currentUser.uid})`
+        : 'nobody — the session is gone';
+      log(`Storage write check FAILED as ${who} — ${storageErrDetail(e)}`, 'err');
+      log(`Path tried: question-images/${auth.currentUser ? auth.currentUser.uid : '?'}/_preflight.png`, 'err');
       log(`Your Storage rules are refusing writes for this account. Fix the rules or sign in as the admin that works, then re-run. Nothing was written.`, 'err');
       document.getElementById('runBtn').disabled = false;
       document.getElementById('runBadge').textContent = 'blocked';
