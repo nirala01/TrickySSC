@@ -1504,6 +1504,7 @@ const CHID=qs.get('chapter')||qs.get('chapterId')||'';
 // Optional &level=1|2|3 — deep-links straight to that level's test grid,
 // so a Start Level button on a chapter page skips the level chooser.
 const DEEP_LEVEL=(function(){const n=parseInt(qs.get('level'),10);return (n>=1&&n<=3)?n:0;})();
+const DEEP_TEST=(function(){const n=parseInt(qs.get('test'),10);return (n>=1&&n<=20)?n:0;})();
 const sMeta=subjectMeta(SUBJ);
 const cMeta=chapterMeta(SUBJ,CHID);
 
@@ -1648,6 +1649,10 @@ async function init(){
   // dropping the student on an empty grid.
   if(DEEP_LEVEL && levelStats(DEEP_LEVEL) > 0){
     openLevel(DEEP_LEVEL);
+    // &test=N as well — open that test's language/timer picker straight away,
+    // so a Start button on a chapter page lands the student one tap from playing.
+    const tMeta=(S.idx[DEEP_LEVEL]||{})[DEEP_TEST];
+    if(DEEP_TEST && tMeta && (tMeta.en||tMeta.hi)) window.pickTest(DEEP_LEVEL, DEEP_TEST);
   }else{
     renderLevels();
   }
@@ -1685,7 +1690,7 @@ function renderLevels(){
 window.openLevel=(lv)=>{
   S.level=lv;
   try{ const u=new URL(location.href); u.searchParams.set('level',lv);
-       history.replaceState(null,'',u); }catch(e){}
+       u.searchParams.delete('test'); history.replaceState(null,'',u); }catch(e){}
   document.getElementById('stepLevels').style.display='none';
   document.getElementById('stepTests').style.display='block';
   document.getElementById('lvlBadge').textContent='Level '+lv;
@@ -1717,7 +1722,7 @@ window.backToLevels=()=>{
   renderLevels();
   // drop &level= so a refresh or a shared link lands on the chooser, as shown
   try{ const u=new URL(location.href); u.searchParams.delete('level');
-       history.replaceState(null,'',u); }catch(e){}
+       u.searchParams.delete('test'); history.replaceState(null,'',u); }catch(e){}
   window.scrollTo({top:0,behavior:'smooth'});
 };
 
