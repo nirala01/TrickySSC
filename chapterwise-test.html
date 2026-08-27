@@ -1048,6 +1048,14 @@
     *,*::before,*::after{animation-duration:.001ms!important;transition-duration:.001ms!important;}
   }
 </style>
+<style>
+#cwLoad{display:none;position:fixed;inset:0;z-index:9000;background:rgba(15,23,42,0.55);backdrop-filter:blur(2px);align-items:center;justify-content:center;}
+#cwLoad .cwl-box{background:#fff;border-radius:16px;padding:1.6rem 2.1rem;text-align:center;box-shadow:0 24px 60px rgba(15,23,42,0.3);}
+#cwLoad .cwl-spin{width:36px;height:36px;margin:0 auto 0.8rem;border:3px solid #E2E8F0;border-top-color:#FF6B00;border-radius:50%;animation:cwlSpin .8s linear infinite;}
+#cwLoad .cwl-t{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1rem;color:#1A202C;}
+@keyframes cwlSpin{to{transform:rotate(360deg);}}
+@media(prefers-reduced-motion:reduce){#cwLoad .cwl-spin{animation-duration:2s;}}
+</style>
 </head>
 <body>
 <nav>
@@ -1403,7 +1411,7 @@ import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/10.7.
 import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, getDocs, getDoc, query, where, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { getAuth, onAuthStateChanged, signOut, updateProfile } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
-const CANON = {"version":1,"note":"Canonical chapter taxonomy for TrickySSC tagging. chapterId is the stable key (never rename an id once questions are tagged to it; only edit the display name). Subject is derived from the module: for Tier I by Q-range (1-25 reasoning, 26-50 ga, 51-75 quant, 76-100 english); Tier II reuses those same four subjects plus the dedicated 'computer', 'statistics' (Paper II) and 'finance_economics' (Paper III, AAO) modules. The tagger only chooses within one subject's chapter list. Every subject has an '*.other' safety-valve for genuinely uncategorizable questions - these should be rare and reviewed.","subjects":{"reasoning":{"range":"1-25","chapters":[{"id":"reason.analogy","name":"Analogy (Word / Letter / Number)","group":"Verbal"},{"id":"reason.classification","name":"Classification (Odd One Out)","group":"Verbal"},{"id":"reason.series","name":"Series (Number / Alphabet / Mixed)","group":"Verbal"},{"id":"reason.coding-decoding","name":"Coding-Decoding","group":"Verbal"},{"id":"reason.blood-relation","name":"Blood Relations","group":"Verbal"},{"id":"reason.direction-distance","name":"Direction & Distance","group":"Verbal"},{"id":"reason.ranking-arrangement","name":"Ranking & Order Arrangement","group":"Verbal"},{"id":"reason.seating-arrangement","name":"Seating Arrangement","group":"Verbal"},{"id":"reason.syllogism","name":"Syllogism","group":"Verbal"},{"id":"reason.statement-conclusion","name":"Statement & Conclusion / Inference","group":"Verbal"},{"id":"reason.venn-diagram","name":"Venn Diagram","group":"Verbal"},{"id":"reason.mathematical-operations","name":"Mathematical Operations (BODMAS / Symbols)","group":"Verbal"},{"id":"reason.word-formation","name":"Word Formation & Dictionary Order","group":"Verbal"},{"id":"reason.missing-number","name":"Missing Number (Matrix)","group":"Verbal"},{"id":"reason.puzzle","name":"Puzzle / Data Arrangement","group":"Verbal"},{"id":"reason.calendar-clock","name":"Calendar & Clock","group":"Verbal"},{"id":"reason.mirror-image","name":"Mirror Image","group":"Non-Verbal"},{"id":"reason.water-image","name":"Water Image","group":"Non-Verbal"},{"id":"reason.paper-folding","name":"Paper Folding & Cutting","group":"Non-Verbal"},{"id":"reason.embedded-figure","name":"Embedded / Hidden Figures","group":"Non-Verbal"},{"id":"reason.figure-completion","name":"Figure / Pattern Completion","group":"Non-Verbal"},{"id":"reason.figure-series","name":"Figure Series","group":"Non-Verbal"},{"id":"reason.figure-classification","name":"Figure Classification","group":"Non-Verbal"},{"id":"reason.figure-analogy","name":"Figure Analogy","group":"Non-Verbal"},{"id":"reason.counting-figures","name":"Counting of Figures (Triangles etc.)","group":"Non-Verbal"},{"id":"reason.dice","name":"Dice","group":"Non-Verbal"},{"id":"reason.cube-cuboid","name":"Cube & Cuboid","group":"Non-Verbal"},{"id":"reason.dot-situation","name":"Dot Situation","group":"Non-Verbal"},{"id":"reason.other","name":"Other / Uncategorized Reasoning","group":"Other"}]},"ga":{"range":"26-50","chapters":[{"id":"ga.history-ancient","name":"History: Ancient India","group":"History"},{"id":"ga.history-medieval","name":"History: Medieval India","group":"History"},{"id":"ga.history-modern","name":"History: Modern India & Freedom Struggle","group":"History"},{"id":"ga.art-culture","name":"Art & Culture","group":"History"},{"id":"ga.geography-india","name":"Geography: India","group":"Geography"},{"id":"ga.geography-world","name":"Geography: World & Physical","group":"Geography"},{"id":"ga.polity","name":"Polity & Constitution","group":"Polity"},{"id":"ga.economics","name":"Economics","group":"Economy"},{"id":"ga.physics","name":"Science: Physics","group":"Science"},{"id":"ga.chemistry","name":"Science: Chemistry","group":"Science"},{"id":"ga.biology","name":"Science: Biology","group":"Science"},{"id":"ga.computer","name":"Computer & Technology","group":"Science"},{"id":"ga.static-books-authors","name":"Static: Books & Authors","group":"Static GK"},{"id":"ga.static-awards","name":"Static: Awards & Honours","group":"Static GK"},{"id":"ga.static-days-events","name":"Static: Important Days & Events","group":"Static GK"},{"id":"ga.static-sports","name":"Static: Sports","group":"Static GK"},{"id":"ga.static-schemes","name":"Govt Schemes","group":"Static GK"},{"id":"ga.static-organizations","name":"National & International Organizations","group":"Static GK"},{"id":"ga.static-misc","name":"Static GK: Misc (Dances, Festivals, Symbols, Superlatives)","group":"Static GK"},{"id":"ga.current-affairs","name":"Current Affairs","group":"Current Affairs"},{"id":"ga.other","name":"Other / Uncategorized GA","group":"Other"}]},"quant":{"range":"51-75","chapters":[{"id":"quant.number-system","name":"Number System, HCF & LCM","group":"Arithmetic"},{"id":"quant.simplification","name":"Simplification, Surds & Indices","group":"Arithmetic"},{"id":"quant.percentage","name":"Percentage","group":"Arithmetic"},{"id":"quant.profit-loss","name":"Profit, Loss & Discount","group":"Arithmetic"},{"id":"quant.ratio-proportion","name":"Ratio & Proportion","group":"Arithmetic"},{"id":"quant.average","name":"Average","group":"Arithmetic"},{"id":"quant.mixture-alligation","name":"Mixture & Alligation","group":"Arithmetic"},{"id":"quant.time-work","name":"Time & Work, Pipes & Cistern","group":"Arithmetic"},{"id":"quant.time-speed-distance","name":"Time, Speed & Distance, Trains, Boats","group":"Arithmetic"},{"id":"quant.simple-compound-interest","name":"Simple & Compound Interest","group":"Arithmetic"},{"id":"quant.partnership","name":"Partnership","group":"Arithmetic"},{"id":"quant.ages","name":"Problems on Ages","group":"Arithmetic"},{"id":"quant.algebra","name":"Algebra","group":"Advanced Maths"},{"id":"quant.geometry","name":"Geometry","group":"Advanced Maths"},{"id":"quant.mensuration","name":"Mensuration (2D & 3D)","group":"Advanced Maths"},{"id":"quant.trigonometry","name":"Trigonometry","group":"Advanced Maths"},{"id":"quant.height-distance","name":"Height & Distance","group":"Advanced Maths"},{"id":"quant.data-interpretation","name":"Data Interpretation (Bar/Pie/Line/Table)","group":"Data"},{"id":"quant.statistics","name":"Statistics (Mean / Median / Mode)","group":"Data"},{"id":"quant.other","name":"Other / Uncategorized Quant","group":"Other"}]},"english":{"range":"76-100","chapters":[{"id":"eng.error-spotting","name":"Spot the Error","group":"Grammar"},{"id":"eng.sentence-improvement","name":"Sentence Improvement","group":"Grammar"},{"id":"eng.fill-blanks","name":"Fill in the Blanks","group":"Grammar"},{"id":"eng.active-passive","name":"Active & Passive Voice","group":"Grammar"},{"id":"eng.narration","name":"Direct & Indirect Narration","group":"Grammar"},{"id":"eng.para-jumbles","name":"Sentence Rearrangement / Para Jumbles","group":"Grammar"},{"id":"eng.synonyms","name":"Synonyms","group":"Vocabulary"},{"id":"eng.antonyms","name":"Antonyms","group":"Vocabulary"},{"id":"eng.spelling","name":"Spelling Correction","group":"Vocabulary"},{"id":"eng.idioms-phrases","name":"Idioms & Phrases","group":"Vocabulary"},{"id":"eng.one-word","name":"One Word Substitution","group":"Vocabulary"},{"id":"eng.homonyms","name":"Homonyms","group":"Vocabulary"},{"id":"eng.cloze-test","name":"Cloze Test","group":"Comprehension"},{"id":"eng.reading-comprehension","name":"Reading Comprehension","group":"Comprehension"},{"id":"eng.other","name":"Other / Uncategorized English","group":"Other"}]},"computer":{"range":"tier2-computer-module","chapters":[{"id":"computer.fundamentals","name":"Computer Fundamentals & Organization (CPU, I/O, Ports, Generations)","group":"Basics"},{"id":"computer.memory-storage","name":"Memory & Storage Devices","group":"Basics"},{"id":"computer.os-windows","name":"Operating System & Windows (Explorer, Shortcuts)","group":"Software"},{"id":"computer.ms-office","name":"MS Office (Word, Excel, PowerPoint)","group":"Software"},{"id":"computer.internet-email","name":"Internet, Web Browsing & E-mail (incl. e-Banking)","group":"Internet"},{"id":"computer.networking","name":"Networking (Devices & Protocols)","group":"Networking & Security"},{"id":"computer.cyber-security","name":"Cyber Security (Virus, Hacking, Threats)","group":"Networking & Security"},{"id":"computer.other","name":"Other / Uncategorized Computer","group":"Other"}]},"statistics":{"range":"tier2-paper2","chapters":[{"id":"statistics.data-collection","name":"Collection, Classification & Presentation of Data","group":"Descriptive"},{"id":"statistics.central-tendency","name":"Measures of Central Tendency","group":"Descriptive"},{"id":"statistics.dispersion","name":"Measures of Dispersion","group":"Descriptive"},{"id":"statistics.moments-skewness-kurtosis","name":"Moments, Skewness & Kurtosis","group":"Descriptive"},{"id":"statistics.correlation-regression","name":"Correlation & Regression","group":"Relationships"},{"id":"statistics.probability","name":"Probability Theory","group":"Probability"},{"id":"statistics.random-variable","name":"Random Variable & Probability Distributions","group":"Probability"},{"id":"statistics.sampling","name":"Sampling Theory","group":"Inference"},{"id":"statistics.inference","name":"Statistical Inference (Estimation & Testing)","group":"Inference"},{"id":"statistics.anova","name":"Analysis of Variance (ANOVA)","group":"Inference"},{"id":"statistics.time-series","name":"Time Series Analysis","group":"Applied"},{"id":"statistics.index-numbers","name":"Index Numbers","group":"Applied"},{"id":"statistics.other","name":"Other / Uncategorized Statistics","group":"Other"}]},"finance_economics":{"range":"tier2-paper3","chapters":[{"id":"fineco.accounting-fundamentals","name":"Financial Accounting: Nature, Concepts & Conventions (GAAP)","group":"Finance & Accounts"},{"id":"fineco.accounting-basics","name":"Basic Accounting: Single/Double Entry, Journal, Ledger, Trial Balance","group":"Finance & Accounts"},{"id":"fineco.bank-reconciliation","name":"Bank Reconciliation Statement","group":"Finance & Accounts"},{"id":"fineco.rectification-errors","name":"Rectification of Errors","group":"Finance & Accounts"},{"id":"fineco.final-accounts","name":"Final Accounts (Trading, P&L, Balance Sheet)","group":"Finance & Accounts"},{"id":"fineco.capital-revenue","name":"Capital & Revenue Expenditure","group":"Finance & Accounts"},{"id":"fineco.depreciation","name":"Depreciation Accounting","group":"Finance & Accounts"},{"id":"fineco.inventory-valuation","name":"Valuation of Inventories","group":"Finance & Accounts"},{"id":"fineco.non-profit-accounts","name":"Non-Profit Org Accounts (Receipts & Payments, Income & Expenditure)","group":"Finance & Accounts"},{"id":"fineco.bills-exchange","name":"Bills of Exchange","group":"Finance & Accounts"},{"id":"fineco.self-balancing-ledgers","name":"Self-Balancing Ledgers","group":"Finance & Accounts"},{"id":"fineco.constitutional-bodies","name":"Constitutional Bodies: CAG & Finance Commission","group":"Governance"},{"id":"fineco.economics-basics","name":"Basic Concepts & Micro Economics Intro (PPC, Central Problems)","group":"Micro Economics"},{"id":"fineco.demand-supply","name":"Theory of Demand & Supply (Elasticity, Consumer Behaviour)","group":"Micro Economics"},{"id":"fineco.production-cost","name":"Theory of Production & Cost (Returns to Scale)","group":"Micro Economics"},{"id":"fineco.market-forms","name":"Forms of Market & Price Determination","group":"Micro Economics"},{"id":"fineco.indian-economy","name":"Indian Economy: Sectors (Agriculture, Industry, Services)","group":"Indian Economy"},{"id":"fineco.national-income","name":"National Income (Concepts & Measurement)","group":"Indian Economy"},{"id":"fineco.population","name":"Population & Growth","group":"Indian Economy"},{"id":"fineco.poverty-unemployment","name":"Poverty & Unemployment","group":"Indian Economy"},{"id":"fineco.infrastructure","name":"Infrastructure (Energy, Transport, Communication)","group":"Indian Economy"},{"id":"fineco.economic-reforms","name":"Economic Reforms since 1991 (LPG & Disinvestment)","group":"Indian Economy"},{"id":"fineco.money-banking","name":"Money & Banking (RBI, Commercial Banks, Monetary Policy)","group":"Money & Banking"},{"id":"fineco.budget-fiscal","name":"Budget, Fiscal Deficit, BoP & FRBM Act","group":"Money & Banking"},{"id":"fineco.it-governance","name":"Role of IT in Governance","group":"Governance"},{"id":"fineco.other","name":"Other / Uncategorized Finance & Economics","group":"Other"}]}}};
+const CANON = {"version":1,"note":"Canonical chapter taxonomy for TrickySSC tagging. chapterId is the stable key (never rename an id once questions are tagged to it; only edit the display name). Subject is derived from the module: for Tier I by Q-range (1-25 reasoning, 26-50 ga, 51-75 quant, 76-100 english); Tier II reuses those same four subjects plus the dedicated 'computer', 'statistics' (Paper II) and 'finance_economics' (Paper III, AAO) modules. The tagger only chooses within one subject's chapter list. Every subject has an '*.other' safety-valve for genuinely uncategorizable questions - these should be rare and reviewed.","subjects":{"reasoning":{"range":"1-25","chapters":[{"id":"reason.analogy","name":"Analogy (Word / Letter / Number)","group":"Verbal"},{"id":"reason.classification","name":"Classification (Odd One Out)","group":"Verbal"},{"id":"reason.series","name":"Series (Number / Alphabet / Mixed)","group":"Verbal"},{"id":"reason.coding-decoding","name":"Coding-Decoding","group":"Verbal"},{"id":"reason.blood-relation","name":"Blood Relations","group":"Verbal"},{"id":"reason.direction-distance","name":"Direction & Distance","group":"Verbal"},{"id":"reason.ranking-arrangement","name":"Ranking & Order Arrangement","group":"Verbal"},{"id":"reason.seating-arrangement","name":"Seating Arrangement","group":"Verbal"},{"id":"reason.syllogism","name":"Syllogism","group":"Verbal"},{"id":"reason.statement-conclusion","name":"Statement & Conclusion / Inference","group":"Verbal"},{"id":"reason.venn-diagram","name":"Venn Diagram","group":"Verbal"},{"id":"reason.mathematical-operations","name":"Mathematical Operations (BODMAS / Symbols)","group":"Verbal"},{"id":"reason.word-formation","name":"Word Formation & Dictionary Order","group":"Verbal"},{"id":"reason.missing-number","name":"Missing Number (Matrix)","group":"Verbal"},{"id":"reason.puzzle","name":"Puzzle / Data Arrangement","group":"Verbal"},{"id":"reason.calendar-clock","name":"Calendar & Clock","group":"Verbal"},{"id":"reason.mirror-image","name":"Mirror Image","group":"Non-Verbal"},{"id":"reason.water-image","name":"Water Image","group":"Non-Verbal"},{"id":"reason.paper-folding","name":"Paper Folding & Cutting","group":"Non-Verbal"},{"id":"reason.embedded-figure","name":"Embedded / Hidden Figures","group":"Non-Verbal"},{"id":"reason.figure-completion","name":"Figure / Pattern Completion","group":"Non-Verbal"},{"id":"reason.figure-series","name":"Figure Series","group":"Non-Verbal"},{"id":"reason.figure-classification","name":"Figure Classification","group":"Non-Verbal"},{"id":"reason.figure-analogy","name":"Figure Analogy","group":"Non-Verbal"},{"id":"reason.counting-figures","name":"Counting of Figures (Triangles etc.)","group":"Non-Verbal"},{"id":"reason.dice","name":"Dice","group":"Non-Verbal"},{"id":"reason.cube-cuboid","name":"Cube & Cuboid","group":"Non-Verbal"},{"id":"reason.dot-situation","name":"Dot Situation","group":"Non-Verbal"},{"id":"reason.other","name":"Other / Uncategorized Reasoning","group":"Other"}]},"ga":{"range":"26-50","chapters":[{"id":"ga.history-ancient","name":"History: Ancient India","group":"History"},{"id":"ga.history-medieval","name":"History: Medieval India","group":"History"},{"id":"ga.history-modern","name":"History: Modern India & Freedom Struggle","group":"History"},{"id":"ga.art-culture","name":"Art & Culture","group":"History"},{"id":"ga.geography-india","name":"Geography: India","group":"Geography"},{"id":"ga.geography-world","name":"Geography: World & Physical","group":"Geography"},{"id":"ga.polity","name":"Polity & Constitution","group":"Polity"},{"id":"ga.economics","name":"Economics","group":"Economy"},{"id":"ga.physics","name":"Science: Physics","group":"Science"},{"id":"ga.chemistry","name":"Science: Chemistry","group":"Science"},{"id":"ga.biology","name":"Science: Biology","group":"Science"},{"id":"ga.computer","name":"Computer & Technology","group":"Science"},{"id":"ga.static-books-authors","name":"Static: Books & Authors","group":"Static GK"},{"id":"ga.static-awards","name":"Static: Awards & Honours","group":"Static GK"},{"id":"ga.static-days-events","name":"Static: Important Days & Events","group":"Static GK"},{"id":"ga.static-sports","name":"Static: Sports","group":"Static GK"},{"id":"ga.static-schemes","name":"Govt Schemes","group":"Static GK"},{"id":"ga.static-organizations","name":"National & International Organizations","group":"Static GK"},{"id":"ga.static-misc","name":"Static GK: Misc (Dances, Festivals, Symbols, Superlatives)","group":"Static GK"},{"id":"ga.current-affairs","name":"Current Affairs","group":"Current Affairs"},{"id":"ga.other","name":"Other / Uncategorized GA","group":"Other"}]},"quant":{"range":"51-75","chapters":[{"id": "quant.number-system", "name": "Number System", "group": "Chapters"}, {"id": "quant.divisibility", "name": "Rule of Divisibility", "group": "Chapters"}, {"id": "quant.remainder-theorem", "name": "Remainder Theorem", "group": "Chapters"}, {"id": "quant.decimal-fraction", "name": "Decimal & Fraction", "group": "Chapters"}, {"id": "quant.lcm-hcf", "name": "LCM & HCF", "group": "Chapters"}, {"id": "quant.square-cube-root", "name": "Square, Square Root & Cube, Cube Root", "group": "Chapters"}, {"id": "quant.series-ap-gp", "name": "Series (AP & GP)", "group": "Chapters"}, {"id": "quant.simplification", "name": "Power, Indices & Surds", "group": "Chapters"}, {"id": "quant.algebraic-formula", "name": "Algebraic Formula", "group": "Chapters"}, {"id": "quant.algebraic-result", "name": "Algebraic Result", "group": "Chapters"}, {"id": "quant.percentage", "name": "Percentage", "group": "Chapters"}, {"id": "quant.profit-loss", "name": "Profit & Loss", "group": "Chapters"}, {"id": "quant.discount", "name": "Discount", "group": "Chapters"}, {"id": "quant.simple-interest", "name": "Simple Interest", "group": "Chapters"}, {"id": "quant.compound-interest", "name": "Compound Interest", "group": "Chapters"}, {"id": "quant.ratio-proportion", "name": "Ratio & Proportion", "group": "Chapters"}, {"id": "quant.partnership", "name": "Partnership", "group": "Chapters"}, {"id": "quant.average", "name": "Average", "group": "Chapters"}, {"id": "quant.ages", "name": "Age", "group": "Chapters"}, {"id": "quant.mixture-alligation", "name": "Mixture & Alligation", "group": "Chapters"}, {"id": "quant.time-work", "name": "Time & Work", "group": "Chapters"}, {"id": "quant.pipe-cistern", "name": "Pipe & Cistern", "group": "Chapters"}, {"id": "quant.time-speed-distance", "name": "Time, Speed, Distance & Train", "group": "Chapters"}, {"id": "quant.algebra", "name": "Algebraic Expression & Identities", "group": "Chapters"}, {"id": "quant.quadratic-equation", "name": "Quadratic Equation", "group": "Chapters"}, {"id": "quant.boat-stream", "name": "Boat & Stream", "group": "Chapters"}, {"id": "quant.race", "name": "Race", "group": "Chapters"}, {"id": "quant.trigonometry", "name": "Trigonometry", "group": "Chapters"}, {"id": "quant.height-distance", "name": "Height & Distance", "group": "Chapters"}, {"id": "quant.geometry", "name": "Geometry & Circle", "group": "Chapters"}, {"id": "quant.mensuration", "name": "Mensuration (2D & 3D)", "group": "Chapters"}, {"id": "quant.coordinate-geometry", "name": "Co-ordinate Geometry", "group": "Chapters"}, {"id": "quant.probability", "name": "Probability", "group": "Chapters"}, {"id": "quant.statistics", "name": "Statistics", "group": "Chapters"}, {"id": "quant.data-interpretation", "name": "Data Interpretation", "group": "Chapters"}, {"id": "quant.other", "name": "Other / Uncategorized Quant", "group": "Chapters"}, {"id": "quant.simple-compound-interest", "name": "Simple & Compound Interest (legacy)", "group": "Chapters"}]},"english":{"range":"76-100","chapters":[{"id":"eng.error-spotting","name":"Spot the Error","group":"Grammar"},{"id":"eng.sentence-improvement","name":"Sentence Improvement","group":"Grammar"},{"id":"eng.fill-blanks","name":"Fill in the Blanks","group":"Grammar"},{"id":"eng.active-passive","name":"Active & Passive Voice","group":"Grammar"},{"id":"eng.narration","name":"Direct & Indirect Narration","group":"Grammar"},{"id":"eng.para-jumbles","name":"Sentence Rearrangement / Para Jumbles","group":"Grammar"},{"id":"eng.synonyms","name":"Synonyms","group":"Vocabulary"},{"id":"eng.antonyms","name":"Antonyms","group":"Vocabulary"},{"id":"eng.spelling","name":"Spelling Correction","group":"Vocabulary"},{"id":"eng.idioms-phrases","name":"Idioms & Phrases","group":"Vocabulary"},{"id":"eng.one-word","name":"One Word Substitution","group":"Vocabulary"},{"id":"eng.homonyms","name":"Homonyms","group":"Vocabulary"},{"id":"eng.cloze-test","name":"Cloze Test","group":"Comprehension"},{"id":"eng.reading-comprehension","name":"Reading Comprehension","group":"Comprehension"},{"id":"eng.other","name":"Other / Uncategorized English","group":"Other"}]},"computer":{"range":"tier2-computer-module","chapters":[{"id":"computer.fundamentals","name":"Computer Fundamentals & Organization (CPU, I/O, Ports, Generations)","group":"Basics"},{"id":"computer.memory-storage","name":"Memory & Storage Devices","group":"Basics"},{"id":"computer.os-windows","name":"Operating System & Windows (Explorer, Shortcuts)","group":"Software"},{"id":"computer.ms-office","name":"MS Office (Word, Excel, PowerPoint)","group":"Software"},{"id":"computer.internet-email","name":"Internet, Web Browsing & E-mail (incl. e-Banking)","group":"Internet"},{"id":"computer.networking","name":"Networking (Devices & Protocols)","group":"Networking & Security"},{"id":"computer.cyber-security","name":"Cyber Security (Virus, Hacking, Threats)","group":"Networking & Security"},{"id":"computer.other","name":"Other / Uncategorized Computer","group":"Other"}]},"statistics":{"range":"tier2-paper2","chapters":[{"id":"statistics.data-collection","name":"Collection, Classification & Presentation of Data","group":"Descriptive"},{"id":"statistics.central-tendency","name":"Measures of Central Tendency","group":"Descriptive"},{"id":"statistics.dispersion","name":"Measures of Dispersion","group":"Descriptive"},{"id":"statistics.moments-skewness-kurtosis","name":"Moments, Skewness & Kurtosis","group":"Descriptive"},{"id":"statistics.correlation-regression","name":"Correlation & Regression","group":"Relationships"},{"id":"statistics.probability","name":"Probability Theory","group":"Probability"},{"id":"statistics.random-variable","name":"Random Variable & Probability Distributions","group":"Probability"},{"id":"statistics.sampling","name":"Sampling Theory","group":"Inference"},{"id":"statistics.inference","name":"Statistical Inference (Estimation & Testing)","group":"Inference"},{"id":"statistics.anova","name":"Analysis of Variance (ANOVA)","group":"Inference"},{"id":"statistics.time-series","name":"Time Series Analysis","group":"Applied"},{"id":"statistics.index-numbers","name":"Index Numbers","group":"Applied"},{"id":"statistics.other","name":"Other / Uncategorized Statistics","group":"Other"}]},"finance_economics":{"range":"tier2-paper3","chapters":[{"id":"fineco.accounting-fundamentals","name":"Financial Accounting: Nature, Concepts & Conventions (GAAP)","group":"Finance & Accounts"},{"id":"fineco.accounting-basics","name":"Basic Accounting: Single/Double Entry, Journal, Ledger, Trial Balance","group":"Finance & Accounts"},{"id":"fineco.bank-reconciliation","name":"Bank Reconciliation Statement","group":"Finance & Accounts"},{"id":"fineco.rectification-errors","name":"Rectification of Errors","group":"Finance & Accounts"},{"id":"fineco.final-accounts","name":"Final Accounts (Trading, P&L, Balance Sheet)","group":"Finance & Accounts"},{"id":"fineco.capital-revenue","name":"Capital & Revenue Expenditure","group":"Finance & Accounts"},{"id":"fineco.depreciation","name":"Depreciation Accounting","group":"Finance & Accounts"},{"id":"fineco.inventory-valuation","name":"Valuation of Inventories","group":"Finance & Accounts"},{"id":"fineco.non-profit-accounts","name":"Non-Profit Org Accounts (Receipts & Payments, Income & Expenditure)","group":"Finance & Accounts"},{"id":"fineco.bills-exchange","name":"Bills of Exchange","group":"Finance & Accounts"},{"id":"fineco.self-balancing-ledgers","name":"Self-Balancing Ledgers","group":"Finance & Accounts"},{"id":"fineco.constitutional-bodies","name":"Constitutional Bodies: CAG & Finance Commission","group":"Governance"},{"id":"fineco.economics-basics","name":"Basic Concepts & Micro Economics Intro (PPC, Central Problems)","group":"Micro Economics"},{"id":"fineco.demand-supply","name":"Theory of Demand & Supply (Elasticity, Consumer Behaviour)","group":"Micro Economics"},{"id":"fineco.production-cost","name":"Theory of Production & Cost (Returns to Scale)","group":"Micro Economics"},{"id":"fineco.market-forms","name":"Forms of Market & Price Determination","group":"Micro Economics"},{"id":"fineco.indian-economy","name":"Indian Economy: Sectors (Agriculture, Industry, Services)","group":"Indian Economy"},{"id":"fineco.national-income","name":"National Income (Concepts & Measurement)","group":"Indian Economy"},{"id":"fineco.population","name":"Population & Growth","group":"Indian Economy"},{"id":"fineco.poverty-unemployment","name":"Poverty & Unemployment","group":"Indian Economy"},{"id":"fineco.infrastructure","name":"Infrastructure (Energy, Transport, Communication)","group":"Indian Economy"},{"id":"fineco.economic-reforms","name":"Economic Reforms since 1991 (LPG & Disinvestment)","group":"Indian Economy"},{"id":"fineco.money-banking","name":"Money & Banking (RBI, Commercial Banks, Monetary Policy)","group":"Money & Banking"},{"id":"fineco.budget-fiscal","name":"Budget, Fiscal Deficit, BoP & FRBM Act","group":"Money & Banking"},{"id":"fineco.it-governance","name":"Role of IT in Governance","group":"Governance"},{"id":"fineco.other","name":"Other / Uncategorized Finance & Economics","group":"Other"}]}}};
 const EXAM='ssc-cgl';
 // Exam -> subjects. `v` is the value STORED by admin-chapterwise; SUBJECT_TO_CANON maps it to the taxonomy key.
 const SUBJECTS=[
@@ -1498,11 +1506,88 @@ const cMeta=chapterMeta(SUBJ,CHID);
 
 
 // state
-const S={ map:{}, level:null };
+const S={ idx:{}, level:null, qcache:{} };
 
 function fail(msg){
   document.getElementById('loadState').style.display='none';
   const e=document.getElementById('errState'); e.style.display='block'; e.innerHTML=msg;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   DATA ACCESS
+   Three rules keep this page fast and cheap:
+     1. the first paint reads one document per test, not every question;
+     2. a test's questions are read only when it is started;
+     3. anything read once is kept in memory for the rest of the visit.
+══════════════════════════════════════════════════════════════════ */
+function buildIndex(docs){
+  const idx = {};
+  let dropped = 0;
+  docs.forEach(q=>{
+    const lv = parseInt(q.level) || 1;
+    const tn = parseInt(q.testNum || q.test) || 0;
+    if(tn < 1 || tn > TEST_COUNT){ dropped++; return; }
+    const lang = ((q.language || q.lang) === 'hi') ? 'hi' : 'en';
+    ((idx[lv] = idx[lv] || {})[tn] = idx[lv][tn] || {en:0, hi:0})[lang] = 1;
+  });
+  if(dropped) console.warn('[chapterwise] '+dropped+' document(s) ignored — missing or invalid testNum (must be 1-'+TEST_COUNT+'). Re-import them in admin-chapterwise.html with the Test# override set.');
+  return idx;
+}
+
+let _allDocs = null;
+async function loadWholeChapter(){
+  if(_allDocs) return _allDocs;
+  try{
+    const snap = await getDocs(query(collection(db,'questions'), where('chapterId','==',CHID)));
+    _allDocs = snap.docs.map(d=>({id:d.id, ...d.data()}))
+                        .filter(q=>q.type==='chapterwise' && q.exam===EXAM);
+    console.warn('[chapterwise] SLOW PATH — read '+_allDocs.length+' documents for the whole chapter. Check that level, testNum and qNum are stored as numbers.');
+    return _allDocs;
+  }catch(e){
+    console.error('[chapterwise] whole-chapter read failed', e);
+    return null;
+  }
+}
+
+async function fetchTest(lv, tn, lang){
+  const key = lv+'|'+tn+'|'+lang;
+  if(S.qcache[key]) return S.qcache[key];
+  let docs = [];
+  try{
+    const snap = await getDocs(query(
+      collection(db,'questions'),
+      where('exam','==',EXAM),
+      where('type','==','chapterwise'),
+      where('chapterId','==',CHID),
+      where('level','==',lv),
+      where('testNum','==',tn),
+      where('language','==',lang)
+    ));
+    docs = snap.docs.map(d=>({id:d.id, ...d.data()}));
+  }catch(e){
+    console.warn('[chapterwise] test query rejected — '+(e&&e.message||''));
+  }
+  if(!docs.length){
+    const all = await loadWholeChapter();
+    docs = (all || []).filter(q =>
+      (parseInt(q.level)||1) === lv &&
+      (parseInt(q.testNum || q.test)||0) === tn &&
+      (((q.language || q.lang) === 'hi') ? 'hi' : 'en') === lang);
+  }
+  docs.sort((a,b)=>(a.qNum||0)-(b.qNum||0));
+  S.qcache[key] = docs;
+  return docs;
+}
+
+function cwLoading(on){
+  let el = document.getElementById('cwLoad');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'cwLoad';
+    el.innerHTML = '<div class="cwl-box"><div class="cwl-spin"></div><div class="cwl-t">Loading your test…</div></div>';
+    document.body.appendChild(el);
+  }
+  el.style.display = on ? 'flex' : 'none';
 }
 
 async function init(){
@@ -1518,53 +1603,41 @@ async function init(){
   document.getElementById('chSub').innerHTML='<b style="color:'+sMeta.color+'">'+sMeta.l+'</b> · SSC CGL chapter-wise practice';
   document.title=cMeta.name+' – SSC CGL Chapter-wise Test | TrickySSC';
 
-  // Pull ONLY this chapter's chapterwise questions for this exam — not every PYQ /
-  // mock tagged to the same chapter. Three equality filters are served by the
-  // automatic single-field indexes, so no composite index is required.
-  let docs=[];
+  /* ── FAST FIRST PAINT ──────────────────────────────────────────────────
+     Only the FIRST question of each test is read here (qNum == 1). That is
+     everything the level grid and the test grid need — which tests exist, at
+     which level, in which language — and it is roughly 120 documents for a
+     full chapter instead of roughly 6,000. The 50 questions of one test are
+     fetched only when the student actually starts it, in fetchTest() below.
+     Four equality filters are served by the automatic single-field indexes,
+     so no composite index is required.                                     */
+  let idxDocs = [];
   try{
-    const snap=await getDocs(query(
+    const snap = await getDocs(query(
       collection(db,'questions'),
       where('exam','==',EXAM),
       where('type','==','chapterwise'),
-      where('chapterId','==',CHID)
+      where('chapterId','==',CHID),
+      where('qNum','==',1)
     ));
-    docs=snap.docs.map(d=>({id:d.id,...d.data()}));
+    idxDocs = snap.docs.map(d=>d.data());
   }catch(e){
-    // Fallback: if the narrowed query is ever rejected (e.g. Firestore prompts for an
-    // index), drop back to the old single-field query + client filter so the page
-    // still loads. Check the console link in e.message and add the index if you see this.
-    try{
-      const snap=await getDocs(query(collection(db,'questions'), where('chapterId','==',CHID)));
-      docs=snap.docs.map(d=>({id:d.id,...d.data()})).filter(q=>q.type==='chapterwise' && q.exam===EXAM);
-    }catch(e2){
-      fail('Could not load questions right now. Please refresh. <div style="color:var(--muted);font-size:0.8rem;margin-top:0.5rem;">'+(e2.message||'')+'</div>'); return;
-    }
+    console.warn('[chapterwise] index query rejected — '+(e&&e.message||''));
+    idxDocs = null;
   }
 
-  // build map: level -> testNum -> {en:[],hi:[]}
-  const map={};
-  let dropped=0;
-  docs.forEach(q=>{
-    const lv=parseInt(q.level)||1;
-    const tn=parseInt(q.testNum||q.test)||0;
-    if(tn<1||tn>TEST_COUNT){
-      dropped++;
-      console.warn('[chapterwise] dropped question — missing/invalid testNum',
-        {id:q.id, level:q.level, testNum:q.testNum, test:q.test, chapterId:q.chapterId});
-      return;
+  if(!idxDocs || !idxDocs.length){
+    // Either the query was rejected, or qNum is not stored as a number on these
+    // documents. Read the chapter once the old way so the page still works, and
+    // build the index from that. Slow, but correct — and it only happens once.
+    const all = await loadWholeChapter();
+    if(all === null){
+      fail('Could not load this chapter right now. Please refresh.'); return;
     }
-    const lang=(q.language==='hi')?'hi':'en';
-    ((map[lv]=map[lv]||{})[tn]=map[lv][tn]||{en:[],hi:[]})[lang].push(q);
-  });
-  console.info('[chapterwise] '+CHID+': '+docs.length+' loaded, '+(docs.length-dropped)+' placed'+
-    (dropped?', '+dropped+' dropped for missing/invalid testNum (must be 1-'+TEST_COUNT+
-    ') — re-import them in admin-chapterwise.html with the Test# override set.':'.'));
-  Object.values(map).forEach(tests=>Object.values(tests).forEach(t=>{
-    t.en.sort((a,b)=>(a.qNum||0)-(b.qNum||0));
-    t.hi.sort((a,b)=>(a.qNum||0)-(b.qNum||0));
-  }));
-  S.map=map;
+    idxDocs = all;
+  }
+
+  S.idx = buildIndex(idxDocs);
 
   document.getElementById('loadState').style.display='none';
   renderLevels();
@@ -1576,9 +1649,9 @@ const LEVELS=[
   {n:3,tag:'Advanced · hard',color:'#EF4444'}
 ];
 function levelStats(lv){
-  const tests=S.map[lv]||{};
+  const tests=S.idx[lv]||{};
   let live=0;
-  for(let t=1;t<=TEST_COUNT;t++){const x=tests[t];if(x&&(x.en.length||x.hi.length))live++;}
+  for(let t=1;t<=TEST_COUNT;t++){const x=tests[t];if(x&&(x.en||x.hi))live++;}
   return live;
 }
 function renderLevels(){
@@ -1595,7 +1668,7 @@ function renderLevels(){
       '</div>'+
       '<div class="n">'+L.tag.split(' · ')[0]+'</div>'+
       '<div class="tag">'+(L.tag.split(' · ')[1]||'')+'</div>'+
-      '<div class="stat '+(locked?'off':'on')+'">'+(locked?'🔒 Coming soon':('✅ '+live+' / '+TEST_COUNT+' tests live'))+'</div>'+
+      '<div class="stat '+(locked?'off':'on')+'">'+(locked?'🔒 Coming soon':('✅ '+live+' test'+(live===1?'':'s')+' available'))+'</div>'+
     '</div>';
   }).join('');
 }
@@ -1604,17 +1677,16 @@ window.openLevel=(lv)=>{
   document.getElementById('stepLevels').style.display='none';
   document.getElementById('stepTests').style.display='block';
   document.getElementById('lvlBadge').textContent='Level '+lv;
-  const tests=S.map[lv]||{};
+  const tests=S.idx[lv]||{};
   let html='';
   for(let t=1;t<=TEST_COUNT;t++){
-    const x=tests[t]||{en:[],hi:[]};
-    const en=x.en.length, hi=x.hi.length;
+    const x=tests[t]||{en:0,hi:0};
+    const en=x.en, hi=x.hi;
     const live=en||hi;
     if(live){
-      const count=Math.max(en,hi);
       html+='<div class="test live" onclick="pickTest('+lv+','+t+')">'+
         '<div class="tn">Test '+t+'</div>'+
-        '<div class="qc">'+count+' / '+TARGET_Q+' Q</div>'+
+        '<div class="qc">'+TARGET_Q+' questions</div>'+
         '<div class="langs">'+
           '<span class="lg '+(en?'en':'off')+'">EN</span>'+
           '<span class="lg '+(hi?'hi':'off')+'">हिं</span>'+
@@ -1637,14 +1709,14 @@ window.backToLevels=()=>{ renderLevels(); window.scrollTo({top:0,behavior:'smoot
 // ---------------- PICKER (language -> timer) -> open mock-test.html ----------------
 const PK={lv:null,tn:null,lang:null};
 window.pickTest=(lv,tn)=>{
-  const x=(S.map[lv]||{})[tn]||{en:[],hi:[]};
+  const x=(S.idx[lv]||{})[tn]||{en:0,hi:0};
   PK.lv=lv; PK.tn=tn; PK.lang=null;
   document.getElementById('pickH').textContent=cMeta.name+' · Test '+tn;
   document.getElementById('pickSub').textContent='Level '+lv+' · '+sMeta.short+' · SSC CGL';
   // step 1: only offer languages that actually have questions
   const opts=[];
-  if(x.en.length) opts.push({v:'en',flag:'🇬🇧',name:'English',n:x.en.length});
-  if(x.hi.length) opts.push({v:'hi',flag:'🇮🇳',name:'हिंदी (Hindi)',n:x.hi.length});
+  if(x.en) opts.push({v:'en',flag:'🇬🇧',name:'English',n:TARGET_Q});
+  if(x.hi) opts.push({v:'hi',flag:'🇮🇳',name:'हिंदी (Hindi)',n:TARGET_Q});
   document.getElementById('langOpts').innerHTML=opts.map(o=>
     '<button class="pick-opt" data-lang="'+o.v+'">'+
       '<span class="ic">'+o.flag+'</span>'+
@@ -1682,18 +1754,36 @@ let exam='ssc-cgl',year='',mockMeta=null,_reportTestId='';
 const CW={lv:null,tn:null,lang:'en',timed:false,mins:30};
 const cwEl=()=>document.getElementById('cwPlayer');
 
-window.launch=(timed)=>{
+window.launch=async(timed)=>{
   const lv=PK.lv, tn=PK.tn, lang=PK.lang||'en';
-  const x=(S.map[lv]||{})[tn]||{en:[],hi:[]};
-  const useLang=(x[lang]&&x[lang].length)?lang:(x.en.length?'en':'hi');
-  const src=x[useLang]||[];
+  const avail=(S.idx[lv]||{})[tn]||{en:0,hi:0};
+  const useLang=avail[lang]?lang:(avail.en?'en':'hi');
+
+  // The 50 questions of THIS test are fetched now, not at page load.
+  cwLoading(true);
+  let src=[], enSet=[];
+  try{
+    if(useLang==='hi' && avail.en){
+      const both=await Promise.all([fetchTest(lv,tn,'hi'), fetchTest(lv,tn,'en')]);
+      src=both[0]; enSet=both[1];
+    }else{
+      src=await fetchTest(lv,tn,useLang);
+    }
+  }catch(e){
+    console.error('[chapterwise] could not load test', e);
+  }
+  cwLoading(false);
+  if(!src.length){
+    alert('This test could not be loaded just now. Please check your connection and try again.');
+    return;
+  }
   CW.lv=lv; CW.tn=tn; CW.lang=useLang; CW.timed=!!timed; CW.mins=30;
 
   // English counterpart map (powers "View in English" + review "View solution
-  // in English") — built locally from the same test's English set, no fetch.
+  // in English") — built from the same test's English set.
   enQMap={}; showEnglishQ={}; enMapLoaded=false; enMapLoading=false; enFetchError=false;
-  if(useLang==='hi' && x.en && x.en.length){
-    x.en.forEach(q=>{ const n=parseInt(q.qNum)||0; if(n) enQMap[n]=q; });
+  if(useLang==='hi' && enSet.length){
+    enSet.forEach(q=>{ const n=parseInt(q.qNum)||0; if(n) enQMap[n]=q; });
     enMapLoaded=true;
   }
 
