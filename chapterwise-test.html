@@ -1559,20 +1559,24 @@ async function fetchTest(lv, tn, lang){
   if(S.qcache[key]) return S.qcache[key];
   let docs = [];
   try{
+    // THREE equality filters — the same shape the page has always used
+    // successfully. This returns the ~100 documents of one test (both
+    // languages); exam, type and language are filtered below.
     const snap = await getDocs(query(
       collection(db,'questions'),
-      where('exam','==',EXAM),
-      where('type','==','chapterwise'),
       where('chapterId','==',CHID),
       where('level','==',lv),
-      where('testNum','==',tn),
-      where('language','==',lang)
+      where('testNum','==',tn)
     ));
-    docs = snap.docs.map(d=>({id:d.id, ...d.data()}));
+    docs = snap.docs.map(d=>({id:d.id, ...d.data()}))
+                    .filter(q => q.type==='chapterwise' && q.exam===EXAM &&
+                                 (((q.language||q.lang)==='hi')?'hi':'en') === lang);
+    console.info('[chapterwise] test '+lv+'-'+tn+'-'+lang+': '+snap.docs.length+' read, '+docs.length+' used');
   }catch(e){
     console.warn('[chapterwise] test query rejected — '+(e&&e.message||''));
   }
   if(!docs.length){
+    // Last resort only: level or testNum not stored as numbers on these docs.
     const all = await loadWholeChapter();
     docs = (all || []).filter(q =>
       (parseInt(q.level)||1) === lv &&
@@ -1618,14 +1622,18 @@ async function init(){
      so no composite index is required.                                     */
   let idxDocs = [];
   try{
+    // TWO equality filters only. Firestore serves these from the automatic
+    // single-field indexes; adding exam/type/level/language as well pushes the
+    // query past what the index-free merge join will handle, and it gets
+    // rejected. Those fields are cheap to check here instead.
     const snap = await getDocs(query(
       collection(db,'questions'),
-      where('exam','==',EXAM),
-      where('type','==','chapterwise'),
       where('chapterId','==',CHID),
       where('qNum','==',1)
     ));
-    idxDocs = snap.docs.map(d=>d.data());
+    idxDocs = snap.docs.map(d=>d.data())
+                       .filter(q=>q.type==='chapterwise' && q.exam===EXAM);
+    console.info('[chapterwise] index: '+snap.docs.length+' first-questions read, '+idxDocs.length+' for this exam');
   }catch(e){
     console.warn('[chapterwise] index query rejected — '+(e&&e.message||''));
     idxDocs = null;
@@ -1807,6 +1815,8 @@ window.launch=async(timed)=>{
   cwLoading(false);
   if(!src.length){
     alert('This test could not be loaded just now. Please check your connection and try again.');
+    console.error('[chapterwise] no questions returned for level '+lv+', test '+tn+', language '+useLang+
+                  ' — check that level, testNum and qNum are stored as numbers and type is "chapterwise".');
     return;
   }
   DEEP_DIRECT=false;
