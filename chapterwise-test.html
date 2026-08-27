@@ -1501,6 +1501,9 @@ onAuthStateChanged(auth, async user=>{
 const qs=new URLSearchParams(location.search);
 const SUBJ=qs.get('subject')||'';
 const CHID=qs.get('chapter')||qs.get('chapterId')||'';
+// Optional &level=1|2|3 — deep-links straight to that level's test grid,
+// so a Start Level button on a chapter page skips the level chooser.
+const DEEP_LEVEL=(function(){const n=parseInt(qs.get('level'),10);return (n>=1&&n<=3)?n:0;})();
 const sMeta=subjectMeta(SUBJ);
 const cMeta=chapterMeta(SUBJ,CHID);
 
@@ -1640,7 +1643,14 @@ async function init(){
   S.idx = buildIndex(idxDocs);
 
   document.getElementById('loadState').style.display='none';
-  renderLevels();
+  // A deep link goes straight to the test grid — but only if that level actually
+  // has tests. If it does not, fall back to the level chooser rather than
+  // dropping the student on an empty grid.
+  if(DEEP_LEVEL && levelStats(DEEP_LEVEL) > 0){
+    openLevel(DEEP_LEVEL);
+  }else{
+    renderLevels();
+  }
 }
 
 const LEVELS=[
@@ -1674,6 +1684,8 @@ function renderLevels(){
 }
 window.openLevel=(lv)=>{
   S.level=lv;
+  try{ const u=new URL(location.href); u.searchParams.set('level',lv);
+       history.replaceState(null,'',u); }catch(e){}
   document.getElementById('stepLevels').style.display='none';
   document.getElementById('stepTests').style.display='block';
   document.getElementById('lvlBadge').textContent='Level '+lv;
@@ -1693,18 +1705,21 @@ window.openLevel=(lv)=>{
         '</div>'+
         '<button class="start" onclick="event.stopPropagation();pickTest('+lv+','+t+')">Start →</button>'+
       '</div>';
-    }else{
-      html+='<div class="test soon">'+
-        '<div class="tn">Test '+t+'</div>'+
-        '<div class="qc">50 questions</div>'+
-        '<div class="soon-tag">🔒 Coming soon</div>'+
-      '</div>';
     }
+    // Tests that do not exist yet are simply not rendered. How many tests a
+    // chapter ends up with depends on how many questions of each type exist,
+    // so there is no fixed target to show a placeholder against.
   }
   document.getElementById('tests').innerHTML=html;
   window.scrollTo({top:0,behavior:'smooth'});
 };
-window.backToLevels=()=>{ renderLevels(); window.scrollTo({top:0,behavior:'smooth'}); };
+window.backToLevels=()=>{
+  renderLevels();
+  // drop &level= so a refresh or a shared link lands on the chooser, as shown
+  try{ const u=new URL(location.href); u.searchParams.delete('level');
+       history.replaceState(null,'',u); }catch(e){}
+  window.scrollTo({top:0,behavior:'smooth'});
+};
 
 // ---------------- PICKER (language -> timer) -> open mock-test.html ----------------
 const PK={lv:null,tn:null,lang:null};
