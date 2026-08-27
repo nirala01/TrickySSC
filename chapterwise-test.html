@@ -1112,6 +1112,30 @@
   </div>
 
   <div id="loadState" style="padding:3rem;text-align:center;color:var(--muted);">⏳ Loading chapter…</div>
+  <script>
+  /* Watchdog. Plain inline script on purpose — it still runs when the Firebase
+     module fails to load (offline, blocked CDN, or the file opened straight from
+     disk instead of the site), which is exactly when the page would otherwise
+     sit on "Loading chapter…" for ever. */
+  (function(){
+    var qp = new URLSearchParams(location.search);
+    var el = document.getElementById('loadState');
+    function stop(msg){
+      if(!el || el.style.display === 'none') return;
+      el.innerHTML = msg;
+      el.style.color = '#B45309';
+    }
+    if(!qp.get('chapter') && !qp.get('chapterId')){
+      stop('No chapter selected. <a href="/ssc-cgl-chapterwise.html" style="color:var(--saffron,#FF6B00);font-weight:700;">Browse SSC CGL chapters &rarr;</a>');
+      return;
+    }
+    setTimeout(function(){
+      stop('Still loading. If this does not clear, check your connection and refresh. ' +
+           '<div style="font-size:0.82rem;margin-top:0.5rem;color:var(--muted,#64748B);">' +
+           '<a href="/ssc-cgl-chapterwise.html" style="color:var(--saffron,#FF6B00);font-weight:700;">Browse all chapters &rarr;</a></div>');
+    }, 12000);
+  })();
+  </script>
   <div id="errState" style="display:none;padding:2rem;text-align:center;color:#B91C1C;"></div>
 </div>
 
