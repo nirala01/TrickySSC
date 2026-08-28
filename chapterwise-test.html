@@ -1192,6 +1192,9 @@
             <li>You can switch a Hindi question to English with <strong>&#127468;&#127463; View in English</strong>.</li>
           </ol>
         </div>
+        <div id="cwLoginHint" style="display:none;margin:0 0 0.9rem;padding:0.7rem 0.9rem;border-radius:12px;background:#FFF7ED;border:1px solid #FED7AA;color:#9A3412;font-family:'Rajdhani',sans-serif;font-weight:600;font-size:0.92rem;text-align:center;">
+          🔒 Login to attempt this test — your score, solutions and progress are saved to your account.
+        </div>
         <div class="instr-mode" style="display:flex;gap:0.6rem;justify-content:center;margin:0 0 1rem;">
           <button type="button" class="cw-mode on" id="cwModeTimed" onclick="cwSetTimed(true)">⏱ Timed · 30:00</button>
           <button type="button" class="cw-mode" id="cwModeFree" onclick="cwSetTimed(false)">🧘 Untimed practice</button>
@@ -1477,6 +1480,8 @@ try{ const c=JSON.parse(localStorage.getItem('tssc_user')||'null'); if(c&&c.uid)
 // reconcile with Firebase auth (source of truth)
 onAuthStateChanged(auth, async user=>{
   currentUser=user;
+  authReady=true;
+  cwPaintStartBtn();          // the start button depends on who is signed in
   if(user){
     const data={uid:user.uid,name:user.displayName||'',phone:user.phoneNumber||'',email:user.email||'',photoURL:user.photoURL||'',loginMethod:user.phoneNumber?'phone':'google'};
     // 1) instant fill from the cache login.html wrote
@@ -1712,6 +1717,7 @@ let enQMap={},showEnglishQ={},enMapLoaded=false,enMapLoading=false,enFetchError=
 let enFetchParams=null;
 let timeLeft=0,timerInterval=null,paused=false,isSubmitting=false;
 let currentUser=null;
+let authReady=false;          // true once onAuthStateChanged has fired at least once
 let exam='ssc-cgl',year='',mockMeta=null,_reportTestId='';
 const CW={lv:null,tn:null,lang:'en',timed:false,mins:30};
 const cwEl=()=>document.getElementById('cwPlayer');
@@ -1767,7 +1773,7 @@ window.launch=async(timed)=>{
   cwEl().style.display='block';
   document.getElementById('testScreen').style.display='none';
   document.getElementById('resultScreen').style.display='none';
-  document.getElementById('instrScreen').style.display='block';
+  document.getElementById('instrScreen').style.display='block'; cwPaintStartBtn();
   document.body.style.overflow='hidden';
   window.scrollTo(0,0);
 };
@@ -1785,7 +1791,39 @@ function cwFillInstr(){
       +'<li>Submit whenever you are ready with the <strong>Submit Test</strong> button.</li>';
 }
 
+/* Chapter tests require an account: attempts, scores and progress are saved
+   against the user, and a test started signed-out cannot be recorded. */
+function cwRequireLogin(){
+  try{ localStorage.setItem('loginReturnTo', location.href); }catch(e){}
+  location.href='/login.html';
+}
+function cwPaintStartBtn(){
+  const btn=document.getElementById('cwInstrStart');
+  const hint=document.getElementById('cwLoginHint');
+  if(!btn) return;
+  if(authReady && !currentUser){
+    btn.textContent='Login to start \u25b6';
+    if(hint) hint.style.display='block';
+  }else{
+    btn.textContent='I am ready to begin \u25b6';
+    if(hint) hint.style.display='none';
+  }
+}
+
 window.beginTest=function(){
+  if(!currentUser){
+    if(!authReady){          // auth still resolving — wait rather than guess
+      const b=document.getElementById('cwInstrStart');
+      if(b){b.disabled=true;b.textContent='Checking\u2026';}
+      setTimeout(function(){
+        const b2=document.getElementById('cwInstrStart'); if(b2) b2.disabled=false;
+        cwPaintStartBtn();
+        if(currentUser) window.beginTest(); else cwRequireLogin();
+      }, 1200);
+      return;
+    }
+    cwRequireLogin(); return;
+  }
   const btn=document.getElementById('cwInstrStart'); if(btn){btn.disabled=true;btn.textContent='Starting\u2026';}
   document.getElementById('instrScreen').style.display='none';
   document.getElementById('testScreen').style.display='flex';
@@ -1816,7 +1854,7 @@ window.cwRetry=()=>{
   document.getElementById('testScreen').style.display='none';
   const btn=document.getElementById('cwInstrStart'); if(btn){btn.disabled=false;btn.textContent='I am ready to begin \u25b6';}
   cwFillInstr();
-  document.getElementById('instrScreen').style.display='block';
+  document.getElementById('instrScreen').style.display='block'; cwPaintStartBtn();
   cwEl().scrollTop=0; window.scrollTo(0,0);
 };
 
