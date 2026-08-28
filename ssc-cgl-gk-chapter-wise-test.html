@@ -247,9 +247,9 @@ footer a:hover{color:#FF6B00;}
 
   <main>
 <section id="chapters">
-  <h2>All 20 SSC CGL General Awareness Chapters — Pick a Chapter to Practice</h2>
+  <h2 id="chH">All 20 SSC CGL General Awareness Chapters — Pick a Chapter to Practice</h2>
   <p>Each chapter below is a separate SSC CGL General Awareness practice set. Tap a chapter to pick a level and start a test.</p>
-  <div class="note">The test count beside each chapter is live — it goes up as new tests are uploaded. Chapters marked <b>Coming soon</b> have no tests yet; everything else on this page (syllabus, weightage, strategy) is useful right away.</div>
+  <div class="note" id="chNote">The test count beside each chapter is live — it goes up as new tests are uploaded. Chapters marked <b>Coming soon</b> have no tests yet; everything else on this page (syllabus, weightage, strategy) is useful right away.</div>
   <!-- CHAPTERS:START -->
   <ol class="ch-list" id="chList" data-subject="gk" data-exam="ssc-cgl">
       <li class="ch-item" data-chapter="ga.history-ancient" data-page="0">
@@ -555,7 +555,7 @@ footer a:hover{color:#FF6B00;}
   </ol>
   <!-- CHAPTERS:END -->
 </section>
-<section>
+<section id="intro">
   <p>General Awareness is the shortest section to attempt and the hardest to prepare, because there is no method to fall back on — you either know the fact or you do not. Twenty-five questions in Tier I are usually finished in six or seven minutes, which makes GA the section that <b>buys time for maths</b>. Every mark you leave here is a mark you have to earn back under a much tighter clock.</p>
   <p>This page splits General Awareness into twenty chapters so you can prepare it the way it is actually asked: ancient, medieval and modern history separately; Indian and world geography separately; polity, economics, physics, chemistry and biology on their own; and static GK broken into books and authors, awards, important days, sports, government schemes, organisations and miscellaneous. Current affairs has its own chapter and is refreshed continuously.</p>
   <div class="cta-row">
@@ -806,6 +806,32 @@ onAuthStateChanged(auth, user=>{
   }
   function paintAll(map){
     rows.forEach(function(r){ paintRow(r, map[r.getAttribute('data-chapter')]); });
+    reflow(map);
+  }
+
+  /* If not one chapter in this subject has a test yet, opening the page with a
+     screenful of "Coming soon" rows is a poor welcome and makes a 2,000-word
+     page look empty. In that case the intro and tables move above the chapter
+     list. The moment any chapter has a test, the list goes back on top by
+     itself — nothing to edit. */
+  function reflow(map){
+    var known=0, live=0;
+    rows.forEach(function(r){
+      var n=map[r.getAttribute('data-chapter')];
+      if(n===null||n===undefined) return;
+      known++; if(n>0) live++;
+    });
+    if(!known || live>0) return;                 // unknown, or something is live
+    var chapters=document.getElementById('chapters');
+    var weightage=document.getElementById('weightage');
+    if(!chapters||!weightage) return;
+    weightage.parentNode.insertBefore(chapters, weightage);
+    var h=document.getElementById('chH');
+    if(h) h.textContent=h.textContent.replace(/ — Pick a Chapter to Practice$/,' — Tests Coming Soon');
+    var note=document.getElementById('chNote');
+    if(note) note.innerHTML='Chapter tests for this subject are being written now and will appear here as they go '+
+      'live — the counts below update automatically. In the meantime the weightage tables, syllabus and '+
+      'preparation plan on this page are ready to use.';
   }
 
   var hit=null;
