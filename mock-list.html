@@ -391,6 +391,10 @@ a.mc-attempt{display:inline-block;text-decoration:none;text-align:center;line-he
 a.mc-attempt:hover{filter:brightness(1.05);}
 .mock-card.locked a.mc-attempt,.mock-card:not(.resolved) a.mc-attempt{pointer-events:none;}
 </style>
+<!-- TSSC-LOGINMODAL-V1: in-place login popup + no-flicker auth chip -->
+<style>[data-auth]{visibility:hidden}html.tssc-auth-in [data-auth="in"],html.tssc-auth-out [data-auth="out"]{visibility:visible}</style>
+<script>setTimeout(function(){var h=document.documentElement;if(!/tssc-auth-/.test(h.className))h.classList.add('tssc-auth-out');},3000);</script>
+<script type="module" src="/login-modal.js"></script>
 </head>
 <body>
 
@@ -417,7 +421,7 @@ a.mc-attempt:hover{filter:brightness(1.05);}
       <li><a href="https://trickyssc.com/index.html#ai">AI Practice</a></li>
       <li><a href="https://trickyssc.com/current-affairs.html">Current Affairs</a></li>
       <li><a href="https://trickyssc.com/index.html#notes">Study Notes</a></li>
-      <li><a href="https://trickyssc.com/login.html" style="background:linear-gradient(135deg,#FF6B00,#FF8C38);color:white!important;padding:0.45rem 1.1rem;border-radius:100px;font-weight:700;">👤 Login / Register</a></li>
+      <li><a href="https://trickyssc.com/login.html" data-auth="out" style="background:linear-gradient(135deg,#FF6B00,#FF8C38);color:white!important;padding:0.45rem 1.1rem;border-radius:100px;font-weight:700;">👤 Login / Register</a></li>
     </ul>
     <div class="hamburger" onclick="tsscToggleMenu()"><span></span><span></span><span></span></div>
   </div>
@@ -445,7 +449,7 @@ a.mc-attempt:hover{filter:brightness(1.05);}
   <a href="https://trickyssc.com/index.html#ai">🤖 AI Practice</a>
   <a href="https://trickyssc.com/current-affairs.html">📰 Current Affairs</a>
   <a href="https://trickyssc.com/index.html#notes">📓 Study Notes</a>
-  <a href="https://trickyssc.com/login.html" style="background:linear-gradient(135deg,#FF6B00,#FF8C38);color:white;font-weight:700;border-radius:10px;margin:0.25rem 1rem;">👤 Login / Register</a>
+  <a href="https://trickyssc.com/login.html" data-auth="out" style="background:linear-gradient(135deg,#FF6B00,#FF8C38);color:white;font-weight:700;border-radius:10px;margin:0.25rem 1rem;">👤 Login / Register</a>
 </div>
 
 <script>
@@ -3336,6 +3340,7 @@ const _db   = getFirestore(_app);
 function _setNavUser(name) {
   document.querySelectorAll('a[href="https://trickyssc.com/login.html"], a[href="login.html"]').forEach(el => {
     el.href = 'https://trickyssc.com/dashboard.html';
+    el.setAttribute('data-auth', 'in');           /* TSSC-LOGINMODAL-V1 */
     el.style.background = 'linear-gradient(135deg,#00A86B,#0EA5E9)';
     el.innerHTML = '👤 ' + name.split(' ')[0];
   });
@@ -4011,11 +4016,13 @@ function goLogin() {
       courseId: (ORDER && ORDER.courseId) || CFG.module,
       ts: Date.now()
     }));
-    // login.html already honours this key in goToDashboard() — every one of
-    // its sign-in paths (Google, mobile OTP, returning session) goes through
-    // that function, so setting it here is all that's needed to come back.
-    localStorage.setItem('loginReturnTo', location.href);
   } catch (e) {}
+  /* TSSC-LOGINMODAL-V1 — open the login popup right here. The sign-in fires
+     onAuthStateChanged below, which re-reads the entitlement, repaints the
+     cards and calls resumePending() to reopen this checkout. No page hop. */
+  if (window.tsscLogin) { window.tsscLogin.open(); return; }
+  // Fallback (popup script not loaded): the old round trip via login.html.
+  try { localStorage.setItem('loginReturnTo', location.href); } catch (e) {}
   location = 'https://trickyssc.com/login.html';
 }
 
