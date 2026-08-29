@@ -1,5 +1,5 @@
 /* ============================================================================
-   login-modal.js — TrickySSC in-place login popup            TSSC-LOGINMODAL-V1
+   login-modal.js — TrickySSC in-place login popup            TSSC-LOGINMODAL-V1.1
    ----------------------------------------------------------------------------
    Include ONCE on any page (before </body> is fine):
 
@@ -34,7 +34,7 @@ import { initializeApp, getApps, getApp }
 import { getFirestore, doc, setDoc, getDoc, getDocs, collection, query, where, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { getAuth, signInWithPopup, GoogleAuthProvider, signInWithPhoneNumber,
-         RecaptchaVerifier, updateProfile, signOut }
+         RecaptchaVerifier, updateProfile, signOut, onAuthStateChanged }
   from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 const FIREBASE_CONFIG = {
@@ -521,5 +521,34 @@ document.addEventListener('click', e => {
   }
   handleLoginClick(next);
 }, true);
+
+/* ─────────── auth state on <html> + self-healing tssc_user ───────────
+   No-flicker nav: a page marks its Login chip data-auth="out" and its
+   signed-in chip data-auth="in", with this CSS in <head>:
+     [data-auth]{visibility:hidden}
+     html.tssc-auth-in [data-auth="in"],html.tssc-auth-out [data-auth="out"]{visibility:visible}
+   Neither is shown until Firebase has actually restored the session, so a
+   signed-in student never sees "Login" flash for a moment.
+   The same pass rewrites localStorage.tssc_user from the real session when it
+   is missing or belongs to a different uid, so pages that read that cache
+   never disagree with Firebase about who is signed in. Existing richer
+   records (name from Firestore, phone, etc.) are left alone. */
+function markAuth(user){
+  const h = document.documentElement;
+  h.classList.toggle('tssc-auth-in',  !!user);
+  h.classList.toggle('tssc-auth-out', !user);
+  if(!user) return;
+  try{
+    const cur = JSON.parse(localStorage.getItem('tssc_user') || 'null');
+    if(cur && cur.uid === user.uid) return;
+    const prov = (user.providerData || []).map(p => p && p.providerId);
+    localStorage.setItem('tssc_user', JSON.stringify({
+      uid: user.uid, name: user.displayName || 'Student', phone: user.phoneNumber || '',
+      email: user.email || '', photoURL: user.photoURL || '',
+      loginMethod: prov.includes('phone') ? 'phone' : 'google',
+    }));
+  }catch(_){}
+}
+onAuthStateChanged(auth, markAuth);
 
 window.tsscLogin = { open, require, close: () => close(false), user: () => auth.currentUser, logout, auth };
