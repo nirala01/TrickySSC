@@ -389,6 +389,10 @@ margin:0 0 1rem;}
 .seo-faq details > p{margin:0;padding:0.2rem 1rem 0.9rem;color:#475569;}
 @media(max-width:640px){.seo-content{padding:1.25rem 1.1rem 1.5rem;font-size:0.9rem;border-radius:14px;}}
 </style>
+<!-- TSSC-LOGINMODAL-V1: in-place login popup + no-flicker auth chip -->
+<style>[data-auth]{visibility:hidden}html.tssc-auth-in [data-auth="in"],html.tssc-auth-out [data-auth="out"]{visibility:visible}</style>
+<script>setTimeout(function(){var h=document.documentElement;if(!/tssc-auth-/.test(h.className))h.classList.add('tssc-auth-out');},3000);</script>
+<script type="module" src="/login-modal.js"></script>
 </head>
 <body>
 
@@ -415,7 +419,7 @@ margin:0 0 1rem;}
       <li><a href="https://trickyssc.com/index.html#ai">AI Practice</a></li>
       <li><a href="https://trickyssc.com/current-affairs.html">Current Affairs</a></li>
       <li><a href="https://trickyssc.com/index.html#notes">Study Notes</a></li>
-      <li><a href="https://trickyssc.com/login.html" style="background:linear-gradient(135deg,#FF6B00,#FF8C38);color:white!important;padding:0.45rem 1.1rem;border-radius:100px;font-weight:700;">👤 Login / Register</a></li>
+      <li><a href="https://trickyssc.com/login.html" data-auth="out" style="background:linear-gradient(135deg,#FF6B00,#FF8C38);color:white!important;padding:0.45rem 1.1rem;border-radius:100px;font-weight:700;">👤 Login / Register</a></li>
     </ul>
     <div class="hamburger" onclick="tsscToggleMenu()"><span></span><span></span><span></span></div>
   </div>
@@ -443,7 +447,7 @@ margin:0 0 1rem;}
   <a href="https://trickyssc.com/index.html#ai">🤖 AI Practice</a>
   <a href="https://trickyssc.com/current-affairs.html">📰 Current Affairs</a>
   <a href="https://trickyssc.com/index.html#notes">📓 Study Notes</a>
-  <a href="https://trickyssc.com/login.html" style="background:linear-gradient(135deg,#FF6B00,#FF8C38);color:white;font-weight:700;border-radius:10px;margin:0.25rem 1rem;">👤 Login / Register</a>
+  <a href="https://trickyssc.com/login.html" data-auth="out" style="background:linear-gradient(135deg,#FF6B00,#FF8C38);color:white;font-weight:700;border-radius:10px;margin:0.25rem 1rem;">👤 Login / Register</a>
 </div>
 
 <script>
@@ -3478,6 +3482,7 @@ const _db   = getFirestore(_app);
 function _setNavUser(name) {
   document.querySelectorAll('a[href="https://trickyssc.com/login.html"], a[href="login.html"]').forEach(el => {
     el.href = 'https://trickyssc.com/dashboard.html';
+    el.setAttribute('data-auth', 'in');           /* TSSC-LOGINMODAL-V1 */
     el.style.background = 'linear-gradient(135deg,#00A86B,#0EA5E9)';
     el.innerHTML = '👤 ' + name.split(' ')[0];
   });
@@ -3910,6 +3915,29 @@ function money(c) {
 async function openBuy(card) {
   if (!pop) return;
 
+  /* TSSC-LOGINFIRST-V1 — a signed-out visitor gets the LOGIN popup first, not
+     the price. Reason: a paid student who happens to be logged out is not a
+     buyer, and showing him a payment screen for something he already owns is
+     the worst thing this page can do. Once he signs in we re-read the
+     entitlement from Firestore (cache busted, so a purchase made in another
+     session counts) and only open checkout if he genuinely does not own it. */
+  if (!_auth.currentUser && window.tsscLogin) {
+    const u = await window.tsscLogin.open();
+    if (!u) return;                              // dismissed — nothing to sell
+    try { sessionStorage.removeItem('tssc_ent_' + u.uid); } catch (e) {}
+    OWNED = await loadEntitlement(u.uid);
+    applyEntitlement();
+    try { tsscPaintLockOverlays(); } catch (e) {}
+    if (OWNED) {
+      // Already paid. Take him to the mock he tapped instead of a price list.
+      const btn = card && card.querySelector('.mc-attempt');
+      if (btn && typeof window.openLangChooser === 'function') {
+        try { window.openLangChooser(btn); } catch (e) {}
+      }
+      return;
+    }
+  }
+
   // paint the mock straight away — the catalog fetch shouldn't delay this.
   // Deliberately generic: the buyer is purchasing the whole series, not the
   // one mock they happened to tap, so naming "Mock Test 5" would mislead.
@@ -4187,11 +4215,13 @@ function goLogin() {
       courseId: (ORDER && ORDER.courseId) || CFG.module,
       ts: Date.now()
     }));
-    // login.html already honours this key in goToDashboard() — every one of
-    // its sign-in paths (Google, mobile OTP, returning session) goes through
-    // that function, so setting it here is all that's needed to come back.
-    localStorage.setItem('loginReturnTo', location.href);
   } catch (e) {}
+  /* TSSC-LOGINMODAL-V1 — open the login popup right here. The sign-in fires
+     onAuthStateChanged below, which re-reads the entitlement, repaints the
+     cards and calls resumePending() to reopen this checkout. No page hop. */
+  if (window.tsscLogin) { window.tsscLogin.open(); return; }
+  // Fallback (popup script not loaded): the old round trip via login.html.
+  try { localStorage.setItem('loginReturnTo', location.href); } catch (e) {}
   location = 'https://trickyssc.com/login.html';
 }
 

@@ -3739,6 +3739,29 @@ function money(c) {
 async function openBuy(card) {
   if (!pop) return;
 
+  /* TSSC-LOGINFIRST-V1 — a signed-out visitor gets the LOGIN popup first, not
+     the price. Reason: a paid student who happens to be logged out is not a
+     buyer, and showing him a payment screen for something he already owns is
+     the worst thing this page can do. Once he signs in we re-read the
+     entitlement from Firestore (cache busted, so a purchase made in another
+     session counts) and only open checkout if he genuinely does not own it. */
+  if (!_auth.currentUser && window.tsscLogin) {
+    const u = await window.tsscLogin.open();
+    if (!u) return;                              // dismissed — nothing to sell
+    try { sessionStorage.removeItem('tssc_ent_' + u.uid); } catch (e) {}
+    OWNED = await loadEntitlement(u.uid);
+    applyEntitlement();
+    try { tsscPaintLockOverlays(); } catch (e) {}
+    if (OWNED) {
+      // Already paid. Take him to the mock he tapped instead of a price list.
+      const btn = card && card.querySelector('.mc-attempt');
+      if (btn && typeof window.openLangChooser === 'function') {
+        try { window.openLangChooser(btn); } catch (e) {}
+      }
+      return;
+    }
+  }
+
   // paint the mock straight away — the catalog fetch shouldn't delay this.
   // Deliberately generic: the buyer is purchasing the whole series, not the
   // one mock they happened to tap, so naming "Mock Test 5" would mislead.
