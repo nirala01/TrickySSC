@@ -40,6 +40,10 @@ h1{font-family:'Baloo 2',cursive;font-size:1.9rem;font-weight:800;line-height:1.
 h1 span{color:#FF6B00;}
 .lede{color:#4A5568;font-size:1rem;max-width:62ch;}
 /* ACCOUNT CHIP */
+/* no-flicker auth chip (states are set by login-modal.js) */
+[data-auth]{display:none;}
+html.tssc-auth-out [data-auth="out"]{display:inline-flex;}
+html.tssc-auth-in  [data-auth="in"]{display:flex;}
 .nav-acct{display:flex;align-items:center;gap:.5rem;flex-shrink:0;}
 .nav-login{display:inline-flex;align-items:center;gap:.35rem;background:linear-gradient(135deg,#FF6B00,#FF8C38);color:#fff!important;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.85rem;padding:.4rem .9rem;border-radius:100px;text-decoration:none;box-shadow:0 4px 14px rgba(255,107,0,.3);}
 .nav-login:hover{opacity:.92;}
@@ -136,7 +140,13 @@ h2.sec{font-family:'Baloo 2',cursive;font-size:1.4rem;margin:1.8rem 0 .6rem;}
       <a href="/study-notes.html">Study Notes</a>
     </div>
     <div class="nav-acct" id="navAccount">
-      <a class="nav-login" href="/login.html" onclick="tsscStashReturn&amp;&amp;tsscStashReturn()">&#128100; Login</a>
+      <a class="nav-login" data-auth="out" href="/login.html">&#128100; Login</a>
+      <div class="acct" data-auth="in">
+        <a class="acct-chip" href="/index.html" title="My dashboard">
+          <span class="acct-av" id="tsscAv">A</span><span class="acct-name" id="tsscName">Account</span>
+        </a>
+        <button class="acct-out" type="button" id="tsscOut">Log out</button>
+      </div>
     </div>
   </div>
 </nav>
@@ -362,46 +372,35 @@ h2.sec{font-family:'Baloo 2',cursive;font-size:1.4rem;margin:1.8rem 0 .6rem;}
     <p style="margin-top:.9rem;font-size:.82rem;">&copy; 2026 TrickySSC — free SSC CGL previous year papers, mock tests and chapter wise practice.</p>
   </div>
 </footer>
-<script type="module">
-/* ── SHARED LOGIN STATE ──────────────────────────────────────────────
-   Same Firebase project as login.html, so the session is restored here
-   automatically and the nav shows the signed-in student on every page.
-   Auth only — this page makes no Firestore reads for the account chip. */
-import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
-const FIRE_CFG={apiKey:"AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",authDomain:"trickyssc-17bb3.firebaseapp.com",projectId:"trickyssc-17bb3",storageBucket:"trickyssc-17bb3.firebasestorage.app",messagingSenderId:"450627057220",appId:"1:450627057220:web:366267bf437d94f20c6e11"};
-const app=getApps().length?getApps()[0]:initializeApp(FIRE_CFG);
-const auth=getAuth(app);
-function tsscFirstName(n){ return (String(n||'').trim().split(/\s+/)[0])||'Account'; }
-function tsscPaintAccount(u){
-  const el=document.getElementById('navAccount'); if(!el) return;
-  if(u&&u.uid){
-    const fn=tsscFirstName(u.name), initial=(fn[0]||'A').toUpperCase();
-    const av=u.photoURL?('<img class="acct-av" src="'+u.photoURL+'" alt="" referrerpolicy="no-referrer">'):('<span class="acct-av">'+initial+'</span>');
-    el.innerHTML='<div class="acct">'+
-      '<a class="acct-chip" href="/index.html" title="My dashboard">'+av+'<span class="acct-name">'+fn+'</span></a>'+
-      '<button class="acct-out" type="button" onclick="tsscLogout()">Log out</button>'+
-    '</div>';
-  }else{
-    el.innerHTML='<a class="nav-login" href="/login.html" onclick="tsscStashReturn()">👤 Login</a>';
+<script>
+/* paint the signed-in chip from the shared tssc_user cache; login-modal.js
+   owns the auth state and toggles html.tssc-auth-in / .tssc-auth-out */
+(function(){
+  function first(n){ return (String(n||'').trim().split(/\s+/)[0]) || 'Account'; }
+  function paint(u){
+    var av = document.getElementById('tsscAv'), nm = document.getElementById('tsscName');
+    if(!av || !nm) return;
+    if(!u || !u.uid){ nm.textContent='Account'; av.textContent='A'; return; }
+    var fn = first(u.name); nm.textContent = fn;
+    if(u.photoURL){
+      var img = new Image(); img.className='acct-av'; img.id='tsscAv';
+      img.src=u.photoURL; img.alt=''; img.referrerPolicy='no-referrer';
+      av.replaceWith(img);
+    } else { av.textContent = (fn[0]||'A').toUpperCase(); }
   }
-}
-window.tsscStashReturn=()=>{ try{ localStorage.setItem('loginReturnTo', location.href); }catch(e){} };
-window.tsscLogout=async()=>{ try{ await signOut(auth); }catch(e){} try{ localStorage.removeItem('tssc_user'); }catch(e){} tsscPaintAccount(null); };
-/* instant paint from the cache login.html writes, then confirm with Firebase */
-try{ const c=JSON.parse(localStorage.getItem('tssc_user')||'null'); if(c&&c.uid) tsscPaintAccount(c); }catch(e){}
-onAuthStateChanged(auth, user=>{
-  if(user){
-    const data={uid:user.uid,name:user.displayName||'Student',phone:user.phoneNumber||'',email:user.email||'',photoURL:user.photoURL||'',loginMethod:user.phoneNumber?'phone':'google'};
-    try{ const c=JSON.parse(localStorage.getItem('tssc_user')||'null'); if(c&&c.uid===user.uid){ if((!data.name||data.name==='Student')&&c.name) data.name=c.name; if(!data.photoURL&&c.photoURL) data.photoURL=c.photoURL; } }catch(e){}
-    try{ localStorage.setItem('tssc_user', JSON.stringify(data)); }catch(e){}
-    tsscPaintAccount(data);
-  }else{
-    try{ localStorage.removeItem('tssc_user'); }catch(e){}
-    tsscPaintAccount(null);
-  }
-});
+  function fromCache(){ try{ return JSON.parse(localStorage.getItem('tssc_user')||'null'); }catch(e){ return null; } }
+  paint(fromCache());
+  addEventListener('tssc:login',  function(e){ paint((e.detail && e.detail.profile) || fromCache()); });
+  addEventListener('tssc:logout', function(){ paint(null); });
+  document.addEventListener('click', function(e){
+    if(e.target && e.target.id === 'tsscOut'){
+      e.preventDefault();
+      if(window.tsscLogin && window.tsscLogin.logout) window.tsscLogin.logout();
+    }
+  });
+})();
 </script>
+<script type="module" src="/login-modal.js"></script>
 </body>
 </html>
