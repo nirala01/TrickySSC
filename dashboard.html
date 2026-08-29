@@ -314,6 +314,8 @@
     .logout-btn{padding:0.3rem 0.55rem;font-size:0.75rem;}
   }
 </style>
+<!-- TSSC-LOGINMODAL-V1: in-place login popup -->
+<script type="module" src="/login-modal.js"></script>
 </head>
 <body>
 
@@ -516,10 +518,46 @@ onAuthStateChanged(auth, async user => {
       const mUser = JSON.parse(stored);
       await loadDashboardMobile(mUser);
     } else {
-      window.location.href = 'login.html';
+      tsscRequestLogin();                       /* TSSC-LOGINMODAL-V1 */
     }
   }
 });
+
+/* TSSC-LOGINMODAL-V1 — ask for login in place instead of leaving the page.
+   Signing in fires onAuthStateChanged above, which loads the dashboard, so
+   the student stays on the URL he asked for. Dismissing the popup leaves him
+   on an empty dashboard with a way back in, rather than bouncing him away. */
+function tsscRequestLogin(tries){
+  if(window.tsscLogin){
+    window.tsscLogin.open().then(u => { if(!u) tsscShowSignedOut(); });
+    return;
+  }
+  /* The popup module is a separate <script type="module"> and may still be
+     fetching on a slow connection. Wait for it rather than redirecting. */
+  tries = (tries || 0) + 1;
+  if(tries <= 25){ setTimeout(() => tsscRequestLogin(tries), 100); return; }
+  console.error('[TrickySSC] /login-modal.js did not load — falling back to login.html');
+  localStorage.setItem('loginReturnTo', location.href);
+  window.location.href = 'login.html';
+}
+
+function tsscShowSignedOut(){
+  const b = document.createElement('div');
+  b.style.cssText = 'max-width:420px;margin:3rem auto;padding:2rem;text-align:center;'
+    + 'background:#fff;border:1px solid #E2E8F0;border-radius:16px;'
+    + 'font-family:\'Hind\',sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.06);';
+  b.innerHTML = '<div style="font-size:2rem;margin-bottom:.6rem;">&#128274;</div>'
+    + '<div style="font-family:\'Rajdhani\',sans-serif;font-weight:700;font-size:1.25rem;'
+    + 'margin-bottom:.4rem;">Log in to see your dashboard</div>'
+    + '<div style="font-size:.9rem;color:#64748B;margin-bottom:1.2rem;">Your scores, rank and '
+    + 'section analysis live in your account.</div>'
+    + '<button style="background:linear-gradient(135deg,#FF6B00,#FF8C38);color:#fff;border:none;'
+    + 'border-radius:10px;padding:.75rem 1.6rem;font-family:\'Rajdhani\',sans-serif;font-weight:700;'
+    + 'font-size:1rem;cursor:pointer;">Login / Register</button>';
+  b.querySelector('button').onclick = () => tsscRequestLogin();
+  document.body.innerHTML = '';
+  document.body.appendChild(b);
+}
 
 async function loadDashboard(user) {
   // ── Set name & avatar ──
