@@ -75,7 +75,7 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F1F5F9;color:#1E293B
 .news-list{display:flex;flex-direction:column;gap:0.75rem;}
 .news-card{background:#fff;border-radius:12px;padding:1rem 1.1rem;border:1px solid #E2E8F0;transition:box-shadow 0.2s;}
 .news-card:hover{box-shadow:0 3px 12px rgba(0,0,0,0.07);}
-.card-top{margin-bottom:0.5rem;}
+.card-top{margin-bottom:0.5rem;display:flex;align-items:center;gap:0.4rem;}
 .cat-badge{font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;padding:0.16rem 0.55rem;border-radius:100px;}
 .card-title{font-size:0.92rem;font-weight:700;color:#1E293B;line-height:1.45;margin-bottom:0.45rem;margin-top:0.35rem;}
 
@@ -93,6 +93,15 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F1F5F9;color:#1E293B
 .imp-list li{font-size:0.76rem;color:#166534;line-height:1.6;}
 .tip-block{background:#FFF7ED;border-left:3px solid #FF6B00;border-radius:0 6px 6px 0;padding:0.3rem 0.6rem;font-size:0.73rem;color:#92400E;margin-top:0.35rem;}
 .tip-block strong{color:#C2410C;}
+.mcq-block{background:#F5F3FF;border-left:3px solid #7C3AED;border-radius:0 6px 6px 0;padding:0.4rem 0.65rem;margin-top:0.45rem;}
+.mcq-lbl{font-size:0.64rem;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:#5B21B6;margin-bottom:0.18rem;}
+.mcq-q{font-size:0.78rem;font-weight:600;color:#312E81;line-height:1.5;margin-bottom:0.25rem;}
+.mcq-opt{font-size:0.75rem;color:#4C1D95;line-height:1.6;padding-left:0.2rem;}
+.mcq-ans{margin-top:0.25rem;}
+.mcq-ans summary{font-size:0.7rem;font-weight:700;color:#7C3AED;cursor:pointer;list-style:none;}
+.mcq-ans summary::-webkit-details-marker{display:none;}
+.mcq-ans p{font-size:0.75rem;color:#166534;font-weight:600;margin-top:0.15rem;}
+.ministry{font-size:0.66rem;color:#64748B;margin-left:auto;font-style:italic;}
 .card-tags{display:flex;gap:0.25rem;flex-wrap:wrap;margin-top:0.5rem;}
 .tag{background:#F1F5F9;color:#64748B;padding:0.12rem 0.5rem;border-radius:100px;font-size:0.65rem;font-weight:500;}
 
@@ -107,6 +116,11 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F1F5F9;color:#1E293B
 .cat-sports  {background:#FFFBEB;color:#92400E;}
 .cat-awards  {background:#F5F3FF;color:#5B21B6;}
 .cat-general {background:#F1F5F9;color:#475569;}
+.cat-schemes {background:#EFF6FF;color:#1D4ED8;}
+.cat-cabinet {background:#FEF2F2;color:#B91C1C;}
+.cat-appointments {background:#F0F9FF;color:#0369A1;}
+.cat-agri    {background:#F7FEE7;color:#3F6212;}
+.cat-culture {background:#FFF1F2;color:#9F1239;}
 
 /* Loading/error */
 .spinner{width:32px;height:32px;border:3px solid #E2E8F0;border-top-color:#FF6B00;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 1rem;}
@@ -200,9 +214,11 @@ const ARCHIVE_BASE = `${RAW}/ca-archive`;
 const MONTHS       = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
 const CATS = {
-  polity:'Polity & Governance', economy:'Economy', science:'Science & Tech',
-  intl:'International', environ:'Environment', society:'Society & Education',
-  defence:'Defence', sports:'Sports', awards:'Awards & Rankings', general:'General'
+  schemes:'Govt Schemes', cabinet:'Cabinet Decisions', appointments:'Appointments',
+  awards:'Awards & Honours', science:'Science & Tech', defence:'Defence',
+  economy:'Economy & Banking', intl:'International', environ:'Environment',
+  agri:'Agriculture', culture:'Culture & Heritage', sports:'Sports',
+  polity:'Polity & Governance', society:'Society & Education', general:'General'
 };
 
 let archiveIndex = [];
@@ -374,10 +390,16 @@ function buildCard(item) {
   const kp     = (item.keyPoints||[]).slice(0,4).map(p=>`<li>${esc(p)}</li>`).join('');
   const ip     = (item.importantPoints||[]).slice(0,5).map(p=>`<li>${esc(p)}</li>`).join('');
   const tags   = (item.tags||[]).slice(0,4).map(t=>`<span class="tag">${esc(t)}</span>`).join('');
+  const m      = item.mcq && item.mcq.question ? item.mcq : null;
+  const mcq    = m ? `<div class="mcq-block"><div class="mcq-lbl">🎯 Practice MCQ</div>
+      <div class="mcq-q">${esc(m.question)}</div>
+      ${(m.options||[]).slice(0,4).map(o=>`<div class="mcq-opt">${esc(o)}</div>`).join('')}
+      <details class="mcq-ans"><summary>Show answer ▾</summary><p>Answer: ${esc(m.answer||'')}</p></details></div>` : '';
 
   return `<div class="news-card">
     <div class="card-top">
       <span class="cat-badge cat-${cat}">${catLbl}</span>
+      ${item.ministry?`<span class="ministry">${esc(item.ministry)}</span>`:''}
     </div>
     <div class="card-title">${esc(item.title||'')}</div>
     ${item.whyInNews?`<div class="why-block"><div class="why-lbl">📌 Why in News?</div><div class="why-text">${esc(item.whyInNews)}</div></div>`:''}
@@ -385,6 +407,7 @@ function buildCard(item) {
     ${kp?`<div class="kp-lbl">🔑 Key Facts</div><ul class="kp-list">${kp}</ul>`:''}
     ${ip?`<div class="imp-block"><div class="imp-lbl">📝 Important Points to Remember</div><ul class="imp-list">${ip}</ul></div>`:''}
     ${item.examRelevance?`<div class="tip-block"><strong>📚 SSC Tip:</strong> ${esc(item.examRelevance)}</div>`:''}
+    ${mcq}
     ${tags?`<div class="card-tags">${tags}</div>`:''}
   </div>`;
 }
@@ -392,7 +415,7 @@ function buildCard(item) {
 // ── Filter ────────────────────────────────────────────────────────────────────
 window.filterCat = (cat, btn) => {
   activeFilter = cat;
-  const colors = {all:'#FF6B00',polity:'#1D4ED8',economy:'#15803D',science:'#7C3AED',intl:'#C2410C',environ:'#065F46',society:'#BE123C',defence:'#334155',sports:'#92400E',awards:'#5B21B6',general:'#475569'};
+  const colors = {all:'#FF6B00',schemes:'#1D4ED8',cabinet:'#B91C1C',appointments:'#0369A1',agri:'#3F6212',culture:'#9F1239',polity:'#1D4ED8',economy:'#15803D',science:'#7C3AED',intl:'#C2410C',environ:'#065F46',society:'#BE123C',defence:'#334155',sports:'#92400E',awards:'#5B21B6',general:'#475569'};
   document.querySelectorAll('.cat-pill').forEach(p => {
     const on = p.dataset.cat === cat;
     p.classList.toggle('active', on);
