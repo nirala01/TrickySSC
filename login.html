@@ -321,7 +321,7 @@ import { getFirestore, doc, setDoc, getDoc, getDocs, collection, query, where, s
   from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import {
   getAuth, signInWithPopup, GoogleAuthProvider,
-  signInAnonymously, onAuthStateChanged,
+  onAuthStateChanged,
   signInWithPhoneNumber, RecaptchaVerifier, updateProfile, signOut
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
@@ -436,95 +436,36 @@ function goToDashboard(user) {
       loginMethod: 'google'
     }));
   }
-  const returnTo = localStorage.getItem('loginReturnTo');
-  if (returnTo) {
-    localStorage.removeItem('loginReturnTo');
-    window.location.href = returnTo;
-  } else {
-    window.location.href = 'index.html';
-  }
+  /* TSSC-RETURN-V2 — where to go after login, in order of trust:
+       1. ?next= / ?return= / ?redirect= on THIS page's URL (set by the caller)
+       2. localStorage.loginReturnTo (legacy flow)
+       3. index.html
+     Only same-origin paths are accepted, and the legacy key is ALWAYS cleared so
+     a stale value from an earlier session can never send someone elsewhere. */
+  const qs = new URLSearchParams(location.search);
+  const legacy = localStorage.getItem('loginReturnTo');
+  localStorage.removeItem('loginReturnTo');
+  const target = safeReturn(qs.get('next') || qs.get('return') || qs.get('redirect'))
+              || safeReturn(legacy)
+              || 'index.html';
+  window.location.replace(target);
+}
+function safeReturn(n) {
+  if (!n) return '';
+  try {
+    const u = new URL(n, location.href);
+    if (u.origin !== location.origin) return '';
+    if (/(^|\/)login\.html$/i.test(u.pathname)) return '';   // never bounce back to ourselves
+    return u.pathname + u.search + u.hash;
+  } catch (_) { return ''; }
 }
 
 // ── GOOGLE LOGIN ──
 // Tab removed — Google login only
 
 
-// ── NAME + MOBILE LOGIN ──
-window.mobileLogin = async () => {
-  const name  = document.getElementById('mName').value.trim();
-  const phone = document.getElementById('mPhone').value.trim();
-  const exam  = document.getElementById('mExam').value;
-  const msgEl = document.getElementById('msg-mobile');
-
-  function showM(type, text){
-    msgEl.style.display='block';
-    msgEl.style.background = type==='error' ? '#FEF2F2' : '#F0FDF4';
-    msgEl.style.border = type==='error' ? '1px solid #FECACA' : '1px solid #BBF7D0';
-    msgEl.style.color = type==='error' ? '#DC2626' : '#16A34A';
-    msgEl.textContent = text;
-  }
-
-  if(name.length < 2){ showM('error','⚠️ Please enter your full name'); return; }
-  if(phone.length !== 10){ showM('error','⚠️ Please enter a valid 10-digit mobile number'); return; }
-
-  const btn = document.getElementById('mLoginBtn');
-  btn.disabled = true; btn.textContent = '⏳ Please wait...';
-
-  try {
-    // Sign in anonymously first so Firestore rules allow the query
-    // (unauthenticated users can't read/write — anonymous auth gives a temp UID)
-    const currentUser = auth.currentUser;
-    if (!currentUser) {
-      await signInAnonymously(auth);
-    }
-
-    // Check if this phone number already has an account
-    const existing = await getDocs(
-      query(collection(db, 'users'), where('phone', '==', '+91'+phone))
-    );
-
-    let userData;
-    if (!existing.empty) {
-      // Returning user — load their data
-      userData = existing.docs[0].data();
-      // Update name if changed
-      if(userData.name !== name) {
-        await setDoc(doc(db,'users',userData.uid), {name}, {merge:true});
-        userData.name = name;
-      }
-      showM('success', '✅ Welcome back, ' + userData.name + '!');
-    } else {
-      // New user — create account
-      userData = {
-        uid: 'phone_' + phone,
-        name: name,
-        phone: '+91' + phone,
-        email: '',
-        photoURL: '',
-        targetExam: exam,
-        loginMethod: 'mobile',
-        totalTests: 0,
-        createdAt: serverTimestamp(),
-      };
-      await setDoc(doc(db, 'users', 'phone_' + phone), userData);
-      showM('success', '✅ Account created! Welcome, ' + name + '!');
-    }
-
-    // Save to sessionStorage so all pages can show the name
-    localStorage.setItem('tssc_user', JSON.stringify({
-      uid: userData.uid,
-      name: userData.name,
-      phone: userData.phone,
-      targetExam: userData.targetExam || exam,
-      loginMethod: 'mobile'
-    }));
-
-    setTimeout(goToDashboard, 800);
-  } catch(e) {
-    btn.disabled = false; btn.textContent = 'Register / Login →';
-    showM('error', 'Error: ' + e.message);
-  }
-};
+/* TSSC-DEADCODE — the old anonymous-auth name+mobile login (window.mobileLogin)
+   was removed here: its inputs no longer existed and it signed in anonymously. */
 
 // ── TAB SWITCH ──
 window.switchTab = (tab) => {
