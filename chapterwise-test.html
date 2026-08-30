@@ -361,6 +361,20 @@
 .rm-done{text-align:center;color:#15803D;font-weight:700;padding:14px 0;}
 .rm-x{position:absolute;top:8px;right:10px;background:none;border:0;font-size:26px;line-height:1;color:#94A3B8;cursor:pointer;padding:2px 8px;border-radius:8px;}
 .rm-x:hover{color:#334155;background:#F1F5F9;}
+/* Post-test rating - same card as mock-test.html */
+.rate-card{background:#fff;border:1px solid #EDF1F6;border-radius:16px;padding:20px;margin-top:16px;box-shadow:0 3px 14px rgba(15,23,42,.05);}
+.rate-card h3{font-family:'Rajdhani';font-size:18px;margin:0 0 2px;color:#1E293B;}
+.rate-card .rc-sub{font-size:12px;color:#94A3B8;margin-bottom:14px;}
+.rc-stars{display:flex;gap:6px;justify-content:center;margin-bottom:16px;}
+.rc-star{font-size:34px;line-height:1;cursor:pointer;color:#CBD5E1;transition:transform .1s;}
+.rc-star.on{color:#F59E0B;}
+.rc-star:active{transform:scale(.9);}
+.rc-diff{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:16px;}
+.rc-chip{padding:8px 16px;border-radius:999px;border:1.5px solid #E2E8F0;background:#F8FAFC;color:#334155;font-size:13px;font-weight:600;cursor:pointer;}
+.rc-chip.sel{border-color:#FF6B00;background:#FFF7ED;color:#C2410C;}
+.rc-submit{display:block;margin:0 auto;padding:11px 28px;border-radius:10px;background:#FF6B00;color:#fff;font-weight:700;font-size:14px;border:0;cursor:pointer;}
+.rc-submit:disabled{opacity:.5;cursor:default;}
+.rc-done{text-align:center;color:#15803D;font-weight:700;}
 
 /* ── Sectional timer / submit-section ── */
 .btn-section{background:#1E293B;color:#fff;box-shadow:0 3px 12px rgba(30,41,59,0.2);}
@@ -1351,6 +1365,26 @@
   <!-- result screen -->
   <div id="resultScreen">
     <div id="cwResultCard"></div>
+    <div class="rate-card" id="rateCard">
+      <h3>&#11088; Rate this test</h3>
+      <div class="rc-sub">Your feedback helps us improve the chapter tests.</div>
+      <div class="rc-stars" id="rcStars">
+        <span class="rc-star" data-s="1">&#9733;</span>
+        <span class="rc-star" data-s="2">&#9733;</span>
+        <span class="rc-star" data-s="3">&#9733;</span>
+        <span class="rc-star" data-s="4">&#9733;</span>
+        <span class="rc-star" data-s="5">&#9733;</span>
+      </div>
+      <div class="rc-sub" style="text-align:center;margin-bottom:10px;">How did you find the difficulty?</div>
+      <div class="rc-diff" id="rcDiff">
+        <button class="rc-chip" data-d="Same as CGL">Same as CGL</button>
+        <button class="rc-chip" data-d="Easy">Easy</button>
+        <button class="rc-chip" data-d="Difficult">Difficult</button>
+        <button class="rc-chip" data-d="Very Difficult">Very Difficult</button>
+      </div>
+      <button class="rc-submit" id="rcSubmit" onclick="submitRating()" disabled>Submit rating</button>
+      <div class="rc-done" id="rcDone" style="display:none;">&#10003; Thanks for your feedback!</div>
+    </div>
     <div id="review"></div>
   </div>
 
@@ -1761,6 +1795,7 @@ window.launch=async(timed)=>{
   answers={}; markedForReview={}; currentQ=0; curTS=0; isSubmitting=false; paused=false;
   sections=[{name:'',label:(cMeta?cMeta.name:'Chapter Test'),from:0,to:Math.max(0,questions.length-1)}];
   _reportTestId=(CHID||'chapter')+'_L'+lv+'_T'+tn+(useLang==='hi'?'_hi':'_en');
+  if(window.cwResetRating) window.cwResetRating();
 
   const subTxt='Level '+lv+' \u00b7 '+(sMeta?sMeta.short:'')+' \u00b7 SSC CGL \u00b7 '+(useLang==='hi'?'\u0939\u093f\u0902\u0926\u0940':'English');
   document.getElementById('examTitle').textContent=(cMeta?cMeta.name:'Chapter Test')+' \u00b7 Test '+tn;
@@ -1874,6 +1909,7 @@ window.cwClose=()=>{
 };
 window.cwRetry=()=>{
   answers={}; markedForReview={}; currentQ=0; isSubmitting=false; paused=false; showEnglishQ={};
+  if(window.cwResetRating) window.cwResetRating();
   if(timerInterval){clearInterval(timerInterval);timerInterval=null;}
   document.getElementById('resultScreen').style.display='none';
   document.getElementById('testScreen').style.display='none';
@@ -2202,6 +2238,69 @@ document.addEventListener('click',function(e){
   const rl=e.target.closest('.rv-report-link');
   if(rl){ e.preventDefault(); const qi=parseInt(rl.getAttribute('data-i')); window.openReport(isNaN(qi)?currentQ:qi); }
 });
+/* ── Post-test rating (writes to mock_ratings; one per user per test) ──
+   Same collection and field shape as mock-test.html, so reports-admin.html
+   lists chapter tests alongside mocks with no change there. mockId is the
+   chapter test key already used for question reports, e.g.
+   quant.divisibility_L1_T3_en. */
+let _rateStars=0,_rateDiff='';
+document.addEventListener('click',function(e){
+  const st=e.target.closest('#rcStars .rc-star');
+  if(st){ _rateStars=parseInt(st.getAttribute('data-s'))||0;
+    document.querySelectorAll('#rcStars .rc-star').forEach(s=>s.classList.toggle('on',(parseInt(s.getAttribute('data-s'))||0)<=_rateStars));
+    const sb=document.getElementById('rcSubmit'); if(sb) sb.disabled=(_rateStars<1);
+  }
+  const ch=e.target.closest('#rcDiff .rc-chip');
+  if(ch){ document.querySelectorAll('#rcDiff .rc-chip').forEach(c=>c.classList.remove('sel')); ch.classList.add('sel'); _rateDiff=ch.getAttribute('data-d'); }
+});
+/* The player reuses one DOM for every test it opens, so the card has to be put
+   back to its blank state on Retry and whenever a different test is opened. */
+window.cwResetRating=function(){
+  _rateStars=0; _rateDiff='';
+  document.querySelectorAll('#rcStars .rc-star').forEach(s=>s.classList.remove('on'));
+  document.querySelectorAll('#rcDiff .rc-chip').forEach(c=>c.classList.remove('sel'));
+  const sn=document.getElementById('rcStars'); if(sn) sn.style.display='';
+  const dn=document.getElementById('rcDiff'); if(dn) dn.style.display='';
+  const sb=document.getElementById('rcSubmit');
+  if(sb){ sb.style.display=''; sb.disabled=true; sb.textContent='Submit rating'; }
+  document.querySelectorAll('#rateCard .rc-sub').forEach(el=>el.style.display='');
+  const d=document.getElementById('rcDone'); if(d) d.style.display='none';
+};
+window.submitRating=async function(){
+  if(_rateStars<1) return;
+  const sb=document.getElementById('rcSubmit'); if(sb){sb.disabled=true;sb.textContent='Submitting\u2026';}
+  try{
+    const rid=(_reportTestId||'test')+'_'+((currentUser&&currentUser.uid)||('anon_'+Date.now()));
+    const label=(cMeta?cMeta.name:'Chapter Test')+' \u00b7 Test '+(CW.tn||'')
+      +' (Level '+(CW.lv||'')+' \u00b7 '+(CW.lang==='hi'?'Hindi':'English')+')';
+    await setDoc(doc(db,'mock_ratings',rid),{
+      mockId: _reportTestId,
+      uid: (currentUser&&currentUser.uid)||'',
+      name: (currentUser&&currentUser.displayName)||'',
+      stars: _rateStars,
+      difficulty: _rateDiff||'',
+      testName: label,
+      testType: 'chapterwise',
+      chapterId: CHID||'',
+      level: CW.lv||null,
+      testNum: CW.tn||null,
+      language: CW.lang||'en',
+      createdAt: serverTimestamp()
+    },{merge:true});
+    const sn=document.getElementById('rcStars'); if(sn) sn.style.display='none';
+    const dn=document.getElementById('rcDiff'); if(dn) dn.style.display='none';
+    if(sb) sb.style.display='none';
+    document.querySelectorAll('#rateCard .rc-sub').forEach(el=>el.style.display='none');
+    const d=document.getElementById('rcDone'); if(d) d.style.display='block';
+  }catch(err){
+    if(sb){sb.disabled=false;sb.textContent='Submit rating';}
+    const code=''+((err&&(err.code||err.status))||'');
+    alert(code.indexOf('permission')>=0
+      ? 'Rating blocked by Firestore rules. Please ensure the mock_ratings rules are published.'
+      : 'Could not submit your rating'+(code?(' ('+code+')'):'')+'. Please try again.');
+  }
+};
+
 window.submitReport=async function(){
   if(!_reportReason){ alert('Please choose what is wrong with this question.'); return; }
   const sb=document.getElementById('reportSubmitBtn'); if(sb){sb.disabled=true;sb.textContent='Submitting…';}
