@@ -47,6 +47,14 @@ body{font-family:'Noto Sans',sans-serif;background:var(--bg);color:var(--text);m
   font-family:'Rajdhani',sans-serif;font-size:1rem;font-weight:700;cursor:pointer;
 }
 .auth-err{color:var(--red);font-size:0.85rem;margin-top:0.75rem;display:none;}
+.auth-btn.google{
+  background:#fff;color:#1f1f1f;display:flex;align-items:center;justify-content:center;gap:0.6rem;
+  font-family:'Noto Sans',sans-serif;font-weight:600;
+}
+.auth-btn.google:disabled{opacity:0.6;cursor:wait;}
+.auth-btn.google svg{width:20px;height:20px;flex:none;}
+.auth-note{font-size:0.75rem;color:var(--muted);margin-top:1rem;font-family:'JetBrains Mono',monospace;}
+.who{font-size:0.8rem;color:var(--muted);font-family:'JetBrains Mono',monospace;}
 
 /* TOPBAR */
 .topbar{
@@ -225,9 +233,12 @@ body{font-family:'Noto Sans',sans-serif;background:var(--bg);color:var(--text);m
   <div class="auth-card">
     <div class="auth-logo">⚡ TrickySSC</div>
     <div class="auth-sub">Admin Panel — Restricted Access</div>
-    <input class="auth-input" type="password" id="adminPass" placeholder="Enter admin password" onkeydown="if(event.key==='Enter')checkAuth()">
-    <button class="auth-btn" onclick="checkAuth()">Access Panel →</button>
-    <div class="auth-err" id="authErr">⚠️ Incorrect password</div>
+    <button class="auth-btn google" id="googleBtn" onclick="googleLogin()">
+      <svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.5 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.5 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.7 6c4.5-4.2 6.9-10.3 6.9-17.7z"/><path fill="#FBBC05" d="M10.5 28.7A14.5 14.5 0 0 1 9.5 24c0-1.6.3-3.2.8-4.7l-7.9-6.1A24 24 0 0 0 0 24c0 3.9.9 7.5 2.6 10.8l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.3 0 11.7-2.1 15.6-5.7l-7.7-6c-2.1 1.4-4.8 2.3-7.9 2.3-6.3 0-11.6-4-13.5-9.7l-7.9 6.1C6.5 42.6 14.6 48 24 48z"/></svg>
+      <span id="googleBtnTxt">Sign in with Google</span>
+    </button>
+    <div class="auth-err" id="authErr">⚠️ This Google account is not authorised</div>
+    <div class="auth-note">Only the admin Google account can open this panel</div>
   </div>
 </div>
 
@@ -239,7 +250,9 @@ body{font-family:'Noto Sans',sans-serif;background:var(--bg);color:var(--text);m
   </div>
   <div class="topbar-right">
     <span id="lastRefresh" style="font-size:0.8rem;color:var(--muted);"></span>
+    <span class="who" id="whoAmI"></span>
     <button class="refresh-btn" onclick="loadData()">↻ Refresh</button>
+    <button class="refresh-btn" onclick="adminLogout()">Sign out</button>
   </div>
 </div>
 
@@ -363,13 +376,16 @@ body{font-family:'Noto Sans',sans-serif;background:var(--bg);color:var(--text);m
 <script type="module">
 import{initializeApp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import{getFirestore,collection,getDocs,query,orderBy,deleteDoc,doc,writeBatch}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-import{getAuth,signInAnonymously}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import{getAuth,GoogleAuthProvider,signInWithPopup,signInWithRedirect,getRedirectResult,onAuthStateChanged,signOut,setPersistence,browserLocalPersistence}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 const app=initializeApp({apiKey:"AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",authDomain:"trickyssc-17bb3.firebaseapp.com",projectId:"trickyssc-17bb3",storageBucket:"trickyssc-17bb3.firebasestorage.app",messagingSenderId:"450627057220",appId:"1:450627057220:web:366267bf437d94f20c6e11"});
 const db=getFirestore(app);
 const auth=getAuth(app);
 
-const ADMIN_PASS = 'TrickySSC@Admin2024';
+// Only this Google account may open the panel. Anyone else who signs in is
+// signed straight back out and shown the "not authorised" message.
+const ADMIN_EMAILS = ['nirala01@gmail.com'];
+const isAdmin = user => !!user && !!user.email && ADMIN_EMAILS.includes(user.email.toLowerCase());
 let allUsers = [];
 let allAttempts = [];
 
@@ -440,19 +456,65 @@ function userIndex(){
 
 function esc(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
-window.checkAuth = async () => {
-  const pass = document.getElementById('adminPass').value;
-  if(pass === ADMIN_PASS){
-    // Sign in anonymously so Firestore rules allow writes/deletes
-    try { await signInAnonymously(auth); } catch(e) { console.warn('anon auth failed:', e.message); }
-    document.getElementById('authGate').style.display='none';
-    document.getElementById('adminUI').style.display='flex';
-    document.getElementById('adminMain').style.display='block';
-    loadData();
-  } else {
-    document.getElementById('authErr').style.display='block';
+// ── GOOGLE SIGN-IN GATE ─────────────────────────────────────────────────────
+const provider = new GoogleAuthProvider();
+provider.setCustomParameters({ prompt: 'select_account' });
+
+function showPanel(user){
+  document.getElementById('authGate').style.display='none';
+  document.getElementById('adminUI').style.display='flex';
+  document.getElementById('adminMain').style.display='block';
+  document.getElementById('whoAmI').textContent = user.email;
+  loadData();
+}
+function showGate(errMsg){
+  document.getElementById('authGate').style.display='flex';
+  document.getElementById('adminUI').style.display='none';
+  document.getElementById('adminMain').style.display='none';
+  const err = document.getElementById('authErr');
+  if(errMsg){ err.textContent = errMsg; err.style.display='block'; } else { err.style.display='none'; }
+  const btn = document.getElementById('googleBtn');
+  btn.disabled = false;
+  document.getElementById('googleBtnTxt').textContent = 'Sign in with Google';
+}
+
+// Called by the button. Popup first; falls back to a redirect where popups are
+// blocked (some mobile browsers / in-app webviews).
+window.googleLogin = async () => {
+  const btn = document.getElementById('googleBtn');
+  btn.disabled = true;
+  document.getElementById('googleBtnTxt').textContent = 'Opening Google…';
+  document.getElementById('authErr').style.display='none';
+  try {
+    await setPersistence(auth, browserLocalPersistence);
+    await signInWithPopup(auth, provider);
+    // onAuthStateChanged below decides whether this account is allowed in.
+  } catch(e) {
+    if(e.code === 'auth/popup-blocked' || e.code === 'auth/operation-not-supported-in-this-environment'){
+      try { await signInWithRedirect(auth, provider); return; } catch(e2){ showGate('⚠️ ' + e2.message); return; }
+    }
+    if(e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request'){ showGate(); return; }
+    showGate('⚠️ ' + e.message);
   }
 };
+
+window.adminLogout = async () => {
+  try { await signOut(auth); } catch(e) {}
+  showGate();
+};
+
+// Surface any error from a redirect-based sign-in.
+getRedirectResult(auth).catch(e => showGate('⚠️ ' + e.message));
+
+// Single source of truth: whenever Firebase's auth state changes, either open
+// the panel (allowed admin), bounce the account (anyone else) or show the gate.
+onAuthStateChanged(auth, async user => {
+  if(!user){ showGate(); return; }
+  if(isAdmin(user)){ showPanel(user); return; }
+  const who = user.email || 'this account';
+  try { await signOut(auth); } catch(e) {}
+  showGate('⚠️ ' + who + ' is not authorised to open the admin panel');
+});
 
 window.loadData = async () => {
   document.getElementById('tableBody').innerHTML='<div id="loader"><div class="spinner"></div>Loading candidates...</div>';
@@ -905,8 +967,7 @@ window.deleteSelected = async () => {
   if(!checked.length) return;
   if(!confirm(`Delete ${checked.length} selected candidate(s)? This cannot be undone.`)) return;
   try {
-    // Ensure authenticated before delete
-    if(!auth.currentUser) await signInAnonymously(auth);
+    if(!isAdmin(auth.currentUser)) { alert('Session expired — please sign in again.'); showGate(); return; }
     const batch = writeBatch(db);
     checked.forEach(uid => batch.delete(doc(db,'users',uid)));
     await batch.commit();
@@ -924,8 +985,7 @@ window.deleteAll = async () => {
   const typed = window.prompt(`Type "DELETE ALL" to confirm:`);
   if(typed !== 'DELETE ALL') { alert('Cancelled — text did not match.'); return; }
   try {
-    // Ensure authenticated before delete
-    if(!auth.currentUser) await signInAnonymously(auth);
+    if(!isAdmin(auth.currentUser)) { alert('Session expired — please sign in again.'); showGate(); return; }
     // Delete in batches of 400 (Firestore limit)
     const chunks = [];
     for(let i=0; i<allUsers.length; i+=400) chunks.push(allUsers.slice(i,i+400));
@@ -946,7 +1006,7 @@ window.deleteAllAttempts = async () => {
   const typed = window.prompt('Type "DELETE ATTEMPTS" to confirm:');
   if(typed !== 'DELETE ATTEMPTS') { alert('Cancelled — text did not match.'); return; }
   try {
-    if(!auth.currentUser) await signInAnonymously(auth);
+    if(!isAdmin(auth.currentUser)) { alert('Session expired — please sign in again.'); showGate(); return; }
     const snap = await getDocs(collection(db, 'attempts'));
     if(snap.empty) { alert('No attempts found.'); return; }
     const total = snap.size;
