@@ -1792,11 +1792,36 @@ function cwFillInstr(){
 }
 
 /* Chapter tests require an account: attempts, scores and progress are saved
-   against the user, and a test started signed-out cannot be recorded. */
-function cwRequireLogin(){
+   against the user, and a test started signed-out cannot be recorded.
+
+   The student stays on this page: /login-modal.js opens the shared TrickySSC
+   login popup (Google or mobile OTP) over the instructions screen and resolves
+   with the user, so `after` can start the test straight away. If that module
+   failed to load for any reason we fall back to the old redirect rather than
+   leaving the student with a dead button. */
+function cwRequireLogin(after){
+  const go=function(u){
+    if(!u) return;                       // popup dismissed — stay on instructions
+    currentUser=u; authReady=true;
+    cwPaintStartBtn();
+    if(typeof after==='function') after();
+  };
+  if(window.tsscLogin&&window.tsscLogin.require){
+    window.tsscLogin.require({
+      title:'Login to start this test \ud83d\udd12',
+      sub:'Your score, solutions and progress are saved to your account.'
+    }).then(go).catch(function(){});
+    return;
+  }
   try{ localStorage.setItem('loginReturnTo', location.href); }catch(e){}
   location.href='/login.html';
 }
+/* Signing in from the nav while the instructions screen is open should flip the
+   start button without a reload — the popup fires this on success. */
+window.addEventListener('tssc:login', function(ev){
+  const u=ev&&ev.detail&&ev.detail.user; if(!u) return;
+  currentUser=u; authReady=true; cwPaintStartBtn();
+});
 function cwPaintStartBtn(){
   const btn=document.getElementById('cwInstrStart');
   const hint=document.getElementById('cwLoginHint');
@@ -1818,11 +1843,11 @@ window.beginTest=function(){
       setTimeout(function(){
         const b2=document.getElementById('cwInstrStart'); if(b2) b2.disabled=false;
         cwPaintStartBtn();
-        if(currentUser) window.beginTest(); else cwRequireLogin();
+        if(currentUser) window.beginTest(); else cwRequireLogin(window.beginTest);
       }, 1200);
       return;
     }
-    cwRequireLogin(); return;
+    cwRequireLogin(window.beginTest); return;
   }
   const btn=document.getElementById('cwInstrStart'); if(btn){btn.disabled=true;btn.textContent='Starting\u2026';}
   document.getElementById('instrScreen').style.display='none';
@@ -2916,5 +2941,10 @@ init();
   <div>Free SSC exam prep · <a href="https://trickyssc.com/index.html">TrickySSC.com</a></div>
   <div style="margin-top:0.4rem;">Chapter-wise tests are built from PYQs + model questions and grow as the bank grows.</div>
 </div>
+
+<!-- Shared in-place login popup. Loaded LAST so this page's module has already
+     called initializeFirestore(); the modal then reuses that same app and db.
+     It also intercepts the nav Login link, so that no longer leaves the page. -->
+<script type="module" src="/login-modal.js"></script>
 </body>
 </html>
