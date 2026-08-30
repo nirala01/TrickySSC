@@ -10,441 +10,163 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:'Plus Jakarta Sans',sans-serif;background:#F1F5F9;color:#1E293B;min-height:100vh;}
-
-/* ── Topbar ── */
 .topbar{background:linear-gradient(135deg,#FF6B00,#FF8C38);padding:0.75rem 1rem;display:flex;align-items:center;justify-content:space-between;gap:0.5rem;position:sticky;top:0;z-index:300;}
 .topbar-left{display:flex;align-items:center;gap:8px;}
 .brand{width:32px;height:32px;background:rgba(255,255,255,0.2);border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:'Rajdhani';font-size:14px;font-weight:700;color:#fff;flex-shrink:0;}
 .topbar-brand{font-family:'Rajdhani';font-size:1rem;font-weight:700;color:#fff;}
-.topbar-right{display:flex;align-items:center;gap:0.5rem;}
 .back-btn{background:rgba(255,255,255,0.2);color:#fff;padding:0.28rem 0.75rem;border-radius:100px;font-size:0.75rem;font-weight:600;text-decoration:none;}
-.menu-btn{display:none;background:rgba(255,255,255,0.2);color:#fff;border:none;border-radius:8px;padding:0.28rem 0.65rem;font-size:1rem;cursor:pointer;}
-
-/* ── Layout ── */
-.layout{display:grid;grid-template-columns:270px 1fr;min-height:calc(100vh - 50px);}
-
-/* ── Sidebar ── */
-.sidebar{background:#fff;border-right:1px solid #E2E8F0;display:flex;flex-direction:column;position:sticky;top:50px;height:calc(100vh - 50px);overflow:hidden;z-index:100;}
-.sidebar-header{background:linear-gradient(135deg,#FF6B00,#FF8C38);color:#fff;padding:0.85rem 1rem;font-family:'Rajdhani';font-size:1rem;font-weight:700;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
-.sidebar-close{display:none;background:none;border:none;color:#fff;font-size:1.2rem;cursor:pointer;padding:0 0.25rem;}
-.date-list{overflow-y:auto;flex:1;}
-.date-list::-webkit-scrollbar{width:3px;}
-.date-list::-webkit-scrollbar-thumb{background:#CBD5E1;border-radius:4px;}
-
-/* Month group */
-.month-group{}
-.month-header{display:flex;align-items:center;justify-content:space-between;padding:0.5rem 1rem 0.4rem;background:#F8FAFC;border-bottom:1px solid #E2E8F0;cursor:pointer;user-select:none;position:sticky;top:0;z-index:1;}
-.month-label{font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#64748B;}
-.month-count{background:#E2E8F0;color:#64748B;border-radius:100px;padding:0.1rem 0.45rem;font-size:0.65rem;font-weight:600;}
-.month-arrow{font-size:0.7rem;color:#94A3B8;transition:transform 0.2s;}
-.month-group.collapsed .month-arrow{transform:rotate(-90deg);}
-.month-group.collapsed .month-dates{display:none;}
-
-/* Date entries */
-.date-entry{display:flex;align-items:center;gap:0.55rem;padding:0.7rem 1rem;cursor:pointer;border-bottom:1px solid #F8FAFC;transition:all 0.12s;border-left:3px solid transparent;}
-.date-entry:hover{background:#FFF7ED;border-left-color:#FF6B00;}
-.date-entry.active{background:#FFF7ED;border-left-color:#FF6B00;}
-.date-entry.active .date-label{color:#FF6B00;font-weight:700;}
-.date-entry.active .date-count{background:#FF6B00;color:#fff;}
-.date-icon{font-size:0.78rem;color:#CBD5E1;flex-shrink:0;}
-.date-label{font-size:0.83rem;font-weight:500;color:#374151;flex:1;}
-.date-count{background:#F1F5F9;color:#64748B;border-radius:100px;padding:0.08rem 0.45rem;font-size:0.65rem;font-weight:600;flex-shrink:0;}
-.no-dates{padding:2rem 1rem;text-align:center;color:#94A3B8;font-size:0.82rem;line-height:1.6;}
-
-/* ── Content panel ── */
-.content-panel{padding:1.25rem 1rem;min-width:0;}
-
-/* Content header */
-.content-header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.6rem;margin-bottom:1rem;}
-.content-title{font-family:'Rajdhani';font-size:1.4rem;font-weight:700;color:#1E293B;}
-.content-date-chip{background:#FF6B00;color:#fff;border-radius:8px;padding:0.28rem 0.8rem;font-size:0.78rem;font-weight:600;}
-
-/* Stats */
-.stats-bar{background:#fff;border:1px solid #E2E8F0;border-radius:10px;padding:0.6rem 0.9rem;display:flex;gap:0.75rem;flex-wrap:wrap;align-items:center;margin-bottom:0.9rem;font-size:0.76rem;}
-.stat{display:flex;align-items:center;gap:0.3rem;color:#64748B;}
-.stat strong{color:#1E293B;}
-.upd-time{margin-left:auto;font-size:0.68rem;color:#94A3B8;}
-
-/* Category filter */
-.cat-bar{display:flex;gap:0.3rem;flex-wrap:wrap;margin-bottom:0.9rem;}
-.cat-pill{background:#fff;border:1.5px solid #E2E8F0;border-radius:100px;padding:0.25rem 0.7rem;font-size:0.71rem;font-weight:600;cursor:pointer;color:#64748B;transition:all 0.12s;white-space:nowrap;}
-.cat-pill.active{color:#fff;border-color:transparent;}
-.cat-pill:hover:not(.active){border-color:#FF6B00;color:#FF6B00;}
-
-/* News cards */
-.news-list{display:flex;flex-direction:column;gap:0.75rem;}
-.news-card{background:#fff;border-radius:12px;padding:1rem 1.1rem;border:1px solid #E2E8F0;transition:box-shadow 0.2s;}
-.news-card:hover{box-shadow:0 3px 12px rgba(0,0,0,0.07);}
-.card-top{margin-bottom:0.5rem;display:flex;align-items:center;gap:0.4rem;}
-.cat-badge{font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;padding:0.16rem 0.55rem;border-radius:100px;}
-.card-title{font-size:0.92rem;font-weight:700;color:#1E293B;line-height:1.45;margin-bottom:0.45rem;margin-top:0.35rem;}
-
-/* Section blocks */
-.why-block{background:#EFF6FF;border-left:3px solid #3B82F6;border-radius:0 6px 6px 0;padding:0.4rem 0.65rem;margin-bottom:0.45rem;}
-.why-lbl{font-size:0.64rem;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:#1D4ED8;margin-bottom:0.18rem;}
-.why-text{font-size:0.78rem;color:#1E40AF;line-height:1.6;}
-.summary{font-size:0.8rem;color:#475569;line-height:1.65;margin-bottom:0.45rem;}
-.kp-lbl{font-size:0.64rem;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:#64748B;margin-bottom:0.2rem;}
-.kp-list{padding-left:1rem;margin-bottom:0.45rem;}
-.kp-list li{font-size:0.76rem;color:#374151;line-height:1.6;}
-.imp-block{background:#F0FDF4;border-left:3px solid #16A34A;border-radius:0 6px 6px 0;padding:0.4rem 0.65rem;margin-bottom:0.45rem;}
-.imp-lbl{font-size:0.64rem;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:#15803D;margin-bottom:0.18rem;}
-.imp-list{padding-left:1rem;}
-.imp-list li{font-size:0.76rem;color:#166534;line-height:1.6;}
-.tip-block{background:#FFF7ED;border-left:3px solid #FF6B00;border-radius:0 6px 6px 0;padding:0.3rem 0.6rem;font-size:0.73rem;color:#92400E;margin-top:0.35rem;}
-.tip-block strong{color:#C2410C;}
-.mcq-block{background:#F5F3FF;border-left:3px solid #7C3AED;border-radius:0 6px 6px 0;padding:0.4rem 0.65rem;margin-top:0.45rem;}
-.mcq-lbl{font-size:0.64rem;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:#5B21B6;margin-bottom:0.18rem;}
-.mcq-q{font-size:0.78rem;font-weight:600;color:#312E81;line-height:1.5;margin-bottom:0.25rem;}
-.mcq-opt{font-size:0.75rem;color:#4C1D95;line-height:1.6;padding-left:0.2rem;}
-.mcq-ans{margin-top:0.25rem;}
-.mcq-ans summary{font-size:0.7rem;font-weight:700;color:#7C3AED;cursor:pointer;list-style:none;}
-.mcq-ans summary::-webkit-details-marker{display:none;}
-.mcq-ans p{font-size:0.75rem;color:#166534;font-weight:600;margin-top:0.15rem;}
-.ministry{font-size:0.66rem;color:#64748B;margin-left:auto;font-style:italic;}
-.card-tags{display:flex;gap:0.25rem;flex-wrap:wrap;margin-top:0.5rem;}
-.tag{background:#F1F5F9;color:#64748B;padding:0.12rem 0.5rem;border-radius:100px;font-size:0.65rem;font-weight:500;}
-
-/* Category colors */
-.cat-polity  {background:#EFF6FF;color:#1D4ED8;}
-.cat-economy {background:#F0FDF4;color:#15803D;}
-.cat-science {background:#FDF4FF;color:#7C3AED;}
-.cat-intl    {background:#FFF7ED;color:#C2410C;}
-.cat-environ {background:#ECFDF5;color:#065F46;}
-.cat-society {background:#FFF1F2;color:#BE123C;}
-.cat-defence {background:#F8FAFC;color:#334155;}
-.cat-sports  {background:#FFFBEB;color:#92400E;}
-.cat-awards  {background:#F5F3FF;color:#5B21B6;}
-.cat-general {background:#F1F5F9;color:#475569;}
-.cat-schemes {background:#EFF6FF;color:#1D4ED8;}
-.cat-cabinet {background:#FEF2F2;color:#B91C1C;}
-.cat-appointments {background:#F0F9FF;color:#0369A1;}
-.cat-agri    {background:#F7FEE7;color:#3F6212;}
-.cat-culture {background:#FFF1F2;color:#9F1239;}
-
-/* Loading/error */
+.wrap{max-width:820px;margin:0 auto;padding:1.25rem 1rem 3rem;}
+.hero{background:#fff;border:1px solid #E2E8F0;border-radius:14px;padding:1.1rem 1.25rem;margin-bottom:1rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.6rem;}
+.hero h1{font-family:'Rajdhani';font-size:1.5rem;font-weight:700;}
+.hero p{font-size:0.78rem;color:#64748B;margin-top:0.15rem;}
+.latest{background:linear-gradient(135deg,#FF6B00,#FF8C38);color:#fff;border-radius:10px;padding:0.55rem 1rem;font-size:0.8rem;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:0.4rem;box-shadow:0 4px 14px rgba(255,107,0,0.3);}
+.latest:hover{filter:brightness(1.05);}
+.month{margin-top:1.1rem;}
+.month h2{font-family:'Rajdhani';font-size:1.05rem;font-weight:700;color:#334155;padding:0.2rem 0.25rem 0.45rem;border-bottom:2px solid #E2E8F0;margin-bottom:0.6rem;display:flex;justify-content:space-between;align-items:center;}
+.month h2 span{font-family:'Plus Jakarta Sans';font-size:0.68rem;font-weight:600;color:#94A3B8;}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:0.6rem;}
+.day{background:#fff;border:1px solid #E2E8F0;border-radius:12px;padding:0.8rem 0.95rem;text-decoration:none;color:inherit;display:flex;align-items:center;gap:0.75rem;transition:all 0.15s;border-left:4px solid #E2E8F0;}
+.day:hover{border-color:#FF6B00;box-shadow:0 4px 14px rgba(255,107,0,0.12);transform:translateY(-1px);}
+.day.new{border-left-color:#FF6B00;}
+.dnum{font-family:'Rajdhani';font-size:1.7rem;font-weight:700;color:#FF6B00;line-height:1;min-width:2.1rem;text-align:center;}
+.dtxt{flex:1;min-width:0;}
+.dlabel{font-size:0.86rem;font-weight:600;color:#1E293B;}
+.dsub{font-size:0.68rem;color:#94A3B8;margin-top:0.1rem;}
+.badge{font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;background:#FFF7ED;color:#C2410C;border-radius:100px;padding:0.12rem 0.5rem;}
+.arrow{color:#CBD5E1;font-size:0.9rem;}
+.day:hover .arrow{color:#FF6B00;}
+.center-box{text-align:center;padding:3rem 1rem;color:#94A3B8;font-size:0.85rem;line-height:1.7;}
 .spinner{width:32px;height:32px;border:3px solid #E2E8F0;border-top-color:#FF6B00;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 1rem;}
 @keyframes spin{to{transform:rotate(360deg);}}
-.center-box{text-align:center;padding:2.5rem 1rem;color:#94A3B8;}
-.center-box h3{font-family:'Rajdhani';font-size:1.1rem;color:#64748B;margin-bottom:0.3rem;}
-.err-box{background:#FEF2F2;border:1px solid #FECACA;border-radius:10px;padding:1.1rem;text-align:center;}
-.err-title{color:#EF4444;font-weight:700;margin-bottom:0.35rem;font-size:0.9rem;}
-
-/* Overlay for mobile sidebar */
-.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:200;}
-.overlay.show{display:block;}
-
-/* ── MOBILE ── */
-@media(max-width:768px){
-  .layout{grid-template-columns:1fr;}
-  .menu-btn{display:block;}
-  .sidebar{
-    position:fixed;
-    top:0; left:-280px;
-    height:100vh;
-    width:280px;
-    transition:left 0.25s ease;
-    z-index:250;
-    top:0;
-  }
-  .sidebar.open{left:0;}
-  .sidebar-close{display:block;}
-  .sidebar-header{padding-top:calc(0.85rem + env(safe-area-inset-top));}
-  .content-panel{padding:1rem 0.85rem;}
-  .content-title{font-size:1.2rem;}
-  .news-card{padding:0.85rem 0.9rem;}
-  .card-title{font-size:0.88rem;}
-  .cat-bar{gap:0.25rem;}
-  .cat-pill{font-size:0.68rem;padding:0.22rem 0.6rem;}
-  .stats-bar{gap:0.5rem;padding:0.5rem 0.75rem;}
-}
+.err-box{background:#fff;border:1px solid #FECACA;border-radius:12px;padding:1.25rem;text-align:center;font-size:0.82rem;color:#991B1B;}
+.err-box a{color:#C2410C;font-weight:600;}
+.search{width:100%;border:1.5px solid #E2E8F0;border-radius:10px;padding:0.55rem 0.9rem;font-size:0.82rem;font-family:inherit;outline:none;margin-bottom:0.25rem;background:#fff;}
+.search:focus{border-color:#FF6B00;}
+@media(max-width:600px){.hero h1{font-size:1.25rem;}.grid{grid-template-columns:1fr;}}
 </style>
 </head>
 <body>
-
-<!-- Topbar -->
 <div class="topbar">
   <div class="topbar-left">
     <div class="brand">T</div>
     <span class="topbar-brand">TrickySSC — Current Affairs</span>
   </div>
-  <div class="topbar-right">
-    <a href="index.html" class="back-btn">← Home</a>
-    <button class="menu-btn" onclick="toggleSidebar()" aria-label="Open dates">☰</button>
-  </div>
+  <a href="index.html" class="back-btn">← Home</a>
 </div>
 
-<!-- Overlay (mobile) -->
-<div class="overlay" id="overlay" onclick="toggleSidebar()"></div>
-
-<!-- Layout -->
-<div class="layout">
-
-  <!-- Sidebar -->
-  <div class="sidebar" id="sidebar">
-    <div class="sidebar-header">
-      <span>📅 Current Affairs</span>
-      <button class="sidebar-close" onclick="toggleSidebar()">✕</button>
+<div class="wrap">
+  <div class="hero">
+    <div>
+      <h1>📰 Daily Current Affairs</h1>
+      <p>One page per day, hand-picked for SSC CGL / CHSL / MTS. Newest first.</p>
     </div>
-    <div class="date-list" id="dateList">
-      <div class="no-dates">
-        <div class="spinner"></div>
-        Loading dates...
-      </div>
-    </div>
+    <a class="latest" id="latestBtn" href="#" style="display:none;">⚡ Today's CA <span id="latestLabel"></span> →</a>
   </div>
-
-  <!-- Content -->
-  <div class="content-panel" id="contentPanel">
-    <div class="center-box">
-      <div class="spinner"></div>
-      <h3>Loading...</h3>
-    </div>
-  </div>
-
+  <input class="search" id="search" type="search" placeholder="Jump to a date… e.g. 29 Aug, August 2026, 2026" oninput="render()">
+  <div id="list"><div class="center-box"><div class="spinner"></div>Loading dates…</div></div>
 </div>
 
 <script>
-const REPO         = 'nirala01/TrickySSC';
-const BRANCH       = 'main';
-const RAW          = `https://raw.githubusercontent.com/${REPO}/${BRANCH}`;
-const INDEX_URL    = `${RAW}/ca-archive/index.json`;
-const TODAY_URL    = `${RAW}/current-affairs-data.json`;
-const ARCHIVE_BASE = `${RAW}/ca-archive`;
-const MONTHS       = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+// ═══════════════════════════════════════════════════════════════════════════
+//  HOW THIS WORKS — nothing to build, nothing to run.
+//
+//  Upload one static HTML page per day into the FOLDER below, named by date:
+//        ca-archive/29-08-2026.html        (DD-MM-YYYY.html)
+//  Also accepted: 2026-08-29.html, 29-08-2026-current-affairs.html,
+//                 ca-29-08-2026.html — the date is picked out of the file name.
+//
+//  This page asks GitHub's API for the folder's file list on every load, so a
+//  newly uploaded day appears within ~1 minute. If the API is rate-limited
+//  (shared mobile IPs), it falls back to ca-archive/index.json, which the
+//  "List CA pages" workflow rewrites automatically on every upload.
+//  Any non-HTML files in the folder are ignored.
+// ═══════════════════════════════════════════════════════════════════════════
+const REPO   = 'nirala01/TrickySSC';
+const BRANCH = 'main';
+const FOLDER = 'ca-archive';          // <- change if you upload elsewhere
 
-const CATS = {
-  schemes:'Govt Schemes', cabinet:'Cabinet Decisions', appointments:'Appointments',
-  awards:'Awards & Honours', science:'Science & Tech', defence:'Defence',
-  economy:'Economy & Banking', intl:'International', environ:'Environment',
-  agri:'Agriculture', culture:'Culture & Heritage', sports:'Sports',
-  polity:'Polity & Governance', society:'Society & Education', general:'General'
-};
+const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const DAYS   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+let entries = [];
 
-let archiveIndex = [];
-let activeDate   = null;
-let allItems     = [];
-let activeFilter = 'all';
+function parseDate(name) {
+  let m = name.match(/(\d{2})-(\d{2})-(\d{4})/);            // DD-MM-YYYY
+  if (m) return new Date(Date.UTC(+m[3], +m[2]-1, +m[1]));
+  m = name.match(/(\d{4})-(\d{2})-(\d{2})/);                // YYYY-MM-DD
+  if (m) return new Date(Date.UTC(+m[1], +m[2]-1, +m[3]));
+  return null;
+}
+function key(d){ return `${String(d.getUTCDate()).padStart(2,'0')}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${d.getUTCFullYear()}`; }
 
-// ── Boot ──────────────────────────────────────────────────────────────────────
-window.addEventListener('DOMContentLoaded', async () => {
-  await loadIndex();
-  if (archiveIndex.length) loadDate(archiveIndex[0].dateKey);
-  else loadTodayFallback();
-});
-
-async function loadIndex() {
-  try {
-    const res = await fetch(INDEX_URL + '?v=' + Date.now());
-    if (res.ok) archiveIndex = await res.json();
-  } catch(e) {}
-  renderSidebar();
+async function listFromApi() {
+  const r = await fetch(`https://api.github.com/repos/${REPO}/contents/${FOLDER}?ref=${BRANCH}`,
+    { headers: { 'Accept': 'application/vnd.github+json' } });
+  if (!r.ok) throw new Error(`GitHub API ${r.status}`);
+  const files = await r.json();
+  return files.filter(f => f.type === 'file').map(f => f.name);
+}
+async function listFromIndex() {
+  // Written by .github/workflows/list-ca-pages.yml on every push to the folder.
+  const r = await fetch(`${FOLDER}/index.json?t=${Date.now()}`, { cache: 'no-store' });
+  if (!r.ok) throw new Error(`index.json ${r.status}`);
+  const j = await r.json();
+  return Array.isArray(j) ? j : (j.files || []);
 }
 
-// ── Sidebar toggle (mobile) ───────────────────────────────────────────────────
-window.toggleSidebar = () => {
-  const sb  = document.getElementById('sidebar');
-  const ov  = document.getElementById('overlay');
-  const open = sb.classList.toggle('open');
-  ov.classList.toggle('show', open);
-  document.body.style.overflow = open ? 'hidden' : '';
-};
-
-function closeSidebar() {
-  document.getElementById('sidebar').classList.remove('open');
-  document.getElementById('overlay').classList.remove('show');
-  document.body.style.overflow = '';
-}
-
-// ── Load date ─────────────────────────────────────────────────────────────────
-async function loadDate(dateKey) {
-  activeDate   = dateKey;
-  activeFilter = 'all';
-  highlightSidebar(dateKey);
-  closeSidebar();
-  showContentLoading();
-
+async function load() {
   try {
-    let res = await fetch(`${ARCHIVE_BASE}/ca-${dateKey}.json?v=` + Date.now());
-    if (!res.ok) res = await fetch(TODAY_URL + '?v=' + Date.now());
-    if (!res.ok) throw new Error('Content not found for ' + dateKey);
-    const data = await res.json();
-    if (!data.items?.length) throw new Error('No items for this date');
-    allItems = data.items;
-    renderContent(data);
-  } catch(err) {
-    showContentError(err.message);
+    let names;
+    try { names = await listFromApi(); }
+    catch (e) { console.warn('API failed, using index.json:', e.message); names = await listFromIndex(); }
+    entries = names
+      .filter(n => /\.html?$/i.test(n))
+      .map(n => ({ name: n, date: parseDate(n), href: `${FOLDER}/${n}` }))
+      .filter(e => e.date)
+      .sort((a,b) => b.date - a.date);
+    if (!entries.length) {
+      document.getElementById('list').innerHTML =
+        `<div class="center-box">No current-affairs pages yet.<br>Upload <b>${FOLDER}/DD-MM-YYYY.html</b> and it will show up here.</div>`;
+      return;
+    }
+    const latest = entries[0];
+    const btn = document.getElementById('latestBtn');
+    btn.href = latest.href; btn.style.display = 'inline-flex';
+    document.getElementById('latestLabel').textContent = `· ${latest.date.getUTCDate()} ${MONTHS[latest.date.getUTCMonth()].slice(0,3)}`;
+    render();
+  } catch (e) {
+    document.getElementById('list').innerHTML =
+      `<div class="err-box">⚠️ Could not load the date list (${e.message}).<br>
+       <a href="https://github.com/${REPO}/tree/${BRANCH}/${FOLDER}">Open the archive folder directly</a></div>`;
   }
 }
 
-async function loadTodayFallback() {
-  try {
-    const res  = await fetch(TODAY_URL + '?v=' + Date.now());
-    if (!res.ok) throw new Error('No current affairs yet — check back soon');
-    const data = await res.json();
-    if (!data.items?.length) throw new Error('No items available yet');
-    allItems   = data.items;
-    activeDate = data.dateKey;
-    renderContent(data);
-  } catch(err) {
-    showContentError(err.message);
-  }
-}
-
-// ── Sidebar with month grouping ───────────────────────────────────────────────
-function renderSidebar() {
-  const list = document.getElementById('dateList');
-  if (!archiveIndex.length) {
-    list.innerHTML = '<div class="no-dates">No dates yet.<br>Add content via CA Admin.</div>';
-    return;
-  }
-
-  // Group by month-year
+function render() {
+  const q = document.getElementById('search').value.trim().toLowerCase();
+  const today = key(new Date(Date.now() + 5.5*3600*1000));
   const groups = {};
-  archiveIndex.forEach(entry => {
-    const [dd, mm, yyyy] = entry.dateKey.split('-');
-    const key   = `${yyyy}-${mm}`;
-    const label = `${MONTHS[parseInt(mm)-1]} ${yyyy}`;
-    if (!groups[key]) groups[key] = { label, entries: [] };
-    groups[key].entries.push(entry);
+  entries.forEach(e => {
+    const d = e.date;
+    const label = `${DAYS[d.getUTCDay()]}, ${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+    const mkey  = `${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+    const hay   = `${label} ${mkey} ${key(d)} ${e.name}`.toLowerCase();
+    if (q && !hay.includes(q)) return;
+    (groups[mkey] = groups[mkey] || []).push({ ...e, label, isToday: key(d) === today });
   });
-
-  // Sort groups newest first
-  const sortedKeys = Object.keys(groups).sort((a,b) => b.localeCompare(a));
-
-  list.innerHTML = sortedKeys.map((key, gi) => {
-    const g     = groups[key];
-    const total = g.entries.reduce((s,e) => s + (e.count||0), 0);
-    const dates = g.entries.map(entry => `
-      <div class="date-entry" data-key="${entry.dateKey}" onclick="loadDate('${entry.dateKey}')">
-        <span class="date-icon">📅</span>
-        <span class="date-label">${entry.date}</span>
-        <span class="date-count">${entry.count||0}</span>
-      </div>`).join('');
-
-    return `<div class="month-group" id="mg-${key}">
-      <div class="month-header" onclick="toggleMonth('${key}')">
-        <span class="month-label">${g.label}</span>
-        <div style="display:flex;align-items:center;gap:0.4rem;">
-          <span class="month-count">${g.entries.length} days</span>
-          <span class="month-arrow">▾</span>
-        </div>
-      </div>
-      <div class="month-dates">${dates}</div>
-    </div>`;
-  }).join('');
+  const html = Object.entries(groups).map(([m, ds]) => `
+    <div class="month"><h2>${m}<span>${ds.length} day${ds.length>1?'s':''}</span></h2>
+      <div class="grid">${ds.map(e => `
+        <a class="day ${e === ds[0] && m === Object.keys(groups)[0] ? 'new' : ''}" href="${e.href}">
+          <div class="dnum">${e.date.getUTCDate()}</div>
+          <div class="dtxt">
+            <div class="dlabel">${e.label.split(', ')[1]}</div>
+            <div class="dsub">${e.label.split(', ')[0]}${e.isToday ? ' &nbsp;<span class="badge">Today</span>' : ''}</div>
+          </div>
+          <span class="arrow">➜</span>
+        </a>`).join('')}</div>
+    </div>`).join('');
+  document.getElementById('list').innerHTML = html || `<div class="center-box">No dates match “${q}”.</div>`;
 }
-
-window.toggleMonth = (key) => {
-  document.getElementById('mg-' + key)?.classList.toggle('collapsed');
-};
-
-function highlightSidebar(dateKey) {
-  document.querySelectorAll('.date-entry').forEach(el => {
-    el.classList.toggle('active', el.dataset.key === dateKey);
-  });
-}
-
-// ── Render content ────────────────────────────────────────────────────────────
-function renderContent(data) {
-  const usedCats = [...new Set(allItems.map(i => i.category||'general'))];
-
-  let pillsHtml = `<button class="cat-pill active" data-cat="all"
-    style="background:#FF6B00;color:#fff;border-color:#FF6B00;"
-    onclick="filterCat('all',this)">All (${allItems.length})</button>`;
-  usedCats.forEach(cat => {
-    const count = allItems.filter(i=>(i.category||'general')===cat).length;
-    pillsHtml += `<button class="cat-pill" data-cat="${cat}"
-      onclick="filterCat('${cat}',this)">${CATS[cat]||cat} (${count})</button>`;
-  });
-
-  document.getElementById('contentPanel').innerHTML = `
-    <div class="content-header">
-      <div class="content-title">📰 Current Affairs</div>
-      <div class="content-date-chip">${data.date||activeDate}</div>
-    </div>
-    <div class="stats-bar">
-      <div class="stat">📰 <strong>${allItems.length}</strong> items</div>
-      <div class="stat">📅 <strong>${data.date||''}</strong></div>
-      ${data.generatedAt?`<div class="upd-time">Updated: ${fmtTime(data.generatedAt)}</div>`:''}
-    </div>
-    <div class="cat-bar" id="catBar">${pillsHtml}</div>
-    <div class="news-list" id="newsList"></div>`;
-
-  renderCards(allItems);
-}
-
-function renderCards(items) {
-  const list = document.getElementById('newsList');
-  if (!list) return;
-  if (!items.length) {
-    list.innerHTML = '<div class="center-box"><p style="font-size:0.85rem;">No items for this filter</p></div>';
-    return;
-  }
-  list.innerHTML = items.map(buildCard).join('');
-}
-
-function buildCard(item) {
-  const cat    = item.category||'general';
-  const catLbl = CATS[cat]||'General';
-  const kp     = (item.keyPoints||[]).slice(0,4).map(p=>`<li>${esc(p)}</li>`).join('');
-  const ip     = (item.importantPoints||[]).slice(0,5).map(p=>`<li>${esc(p)}</li>`).join('');
-  const tags   = (item.tags||[]).slice(0,4).map(t=>`<span class="tag">${esc(t)}</span>`).join('');
-  const m      = item.mcq && item.mcq.question ? item.mcq : null;
-  const mcq    = m ? `<div class="mcq-block"><div class="mcq-lbl">🎯 Practice MCQ</div>
-      <div class="mcq-q">${esc(m.question)}</div>
-      ${(m.options||[]).slice(0,4).map(o=>`<div class="mcq-opt">${esc(o)}</div>`).join('')}
-      <details class="mcq-ans"><summary>Show answer ▾</summary><p>Answer: ${esc(m.answer||'')}</p></details></div>` : '';
-
-  return `<div class="news-card">
-    <div class="card-top">
-      <span class="cat-badge cat-${cat}">${catLbl}</span>
-      ${item.ministry?`<span class="ministry">${esc(item.ministry)}</span>`:''}
-    </div>
-    <div class="card-title">${esc(item.title||'')}</div>
-    ${item.whyInNews?`<div class="why-block"><div class="why-lbl">📌 Why in News?</div><div class="why-text">${esc(item.whyInNews)}</div></div>`:''}
-    ${item.summary?`<div class="summary">${esc(item.summary)}</div>`:''}
-    ${kp?`<div class="kp-lbl">🔑 Key Facts</div><ul class="kp-list">${kp}</ul>`:''}
-    ${ip?`<div class="imp-block"><div class="imp-lbl">📝 Important Points to Remember</div><ul class="imp-list">${ip}</ul></div>`:''}
-    ${item.examRelevance?`<div class="tip-block"><strong>📚 SSC Tip:</strong> ${esc(item.examRelevance)}</div>`:''}
-    ${mcq}
-    ${tags?`<div class="card-tags">${tags}</div>`:''}
-  </div>`;
-}
-
-// ── Filter ────────────────────────────────────────────────────────────────────
-window.filterCat = (cat, btn) => {
-  activeFilter = cat;
-  const colors = {all:'#FF6B00',schemes:'#1D4ED8',cabinet:'#B91C1C',appointments:'#0369A1',agri:'#3F6212',culture:'#9F1239',polity:'#1D4ED8',economy:'#15803D',science:'#7C3AED',intl:'#C2410C',environ:'#065F46',society:'#BE123C',defence:'#334155',sports:'#92400E',awards:'#5B21B6',general:'#475569'};
-  document.querySelectorAll('.cat-pill').forEach(p => {
-    const on = p.dataset.cat === cat;
-    p.classList.toggle('active', on);
-    p.style.background  = on ? (colors[cat]||'#FF6B00') : '';
-    p.style.color       = on ? '#fff' : '';
-    p.style.borderColor = on ? 'transparent' : '';
-  });
-  renderCards(cat === 'all' ? allItems : allItems.filter(i=>(i.category||'general')===cat));
-};
-
-// ── States ────────────────────────────────────────────────────────────────────
-function showContentLoading() {
-  document.getElementById('contentPanel').innerHTML = `
-    <div class="center-box"><div class="spinner"></div><h3>Loading...</h3></div>`;
-}
-function showContentError(msg) {
-  document.getElementById('contentPanel').innerHTML = `
-    <div class="err-box">
-      <div class="err-title">⚠️ Could not load content</div>
-      <div style="font-size:0.8rem;color:#94A3B8;margin-top:0.3rem;">${esc(msg)||'Please try again'}</div>
-    </div>`;
-}
-
-// ── Utils ─────────────────────────────────────────────────────────────────────
-function fmtTime(iso) {
-  try { return new Date(iso).toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',hour12:true}); }
-  catch(e){ return ''; }
-}
-function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+load();
 </script>
 </body>
 </html>
