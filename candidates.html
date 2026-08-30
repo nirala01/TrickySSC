@@ -137,6 +137,21 @@ body{font-family:'Noto Sans',sans-serif;background:var(--bg);color:var(--text);m
 
 /* CONTROLS */
 .controls{display:flex;gap:1rem;margin-bottom:1.25rem;flex-wrap:wrap;align-items:center;}
+
+/* LOAD-ON-DEMAND GATE (candidate list stays unread until asked for) */
+.load-gate{padding:3rem 1.5rem;text-align:center;}
+.load-gate-icon{font-size:2.2rem;margin-bottom:0.75rem;}
+.load-gate-txt{font-family:'Rajdhani',sans-serif;font-size:1.05rem;font-weight:600;color:var(--text);margin-bottom:1.1rem;}
+.load-btn{
+  background:linear-gradient(135deg,var(--orange),var(--orange2));color:#fff;border:none;
+  border-radius:10px;padding:0.8rem 1.7rem;font-family:'Rajdhani',sans-serif;
+  font-size:1rem;font-weight:700;cursor:pointer;
+}
+.load-btn:disabled{opacity:0.55;cursor:default;}
+.load-gate-sub{
+  font-size:0.78rem;color:var(--muted);margin:0.9rem auto 0;
+  max-width:480px;line-height:1.55;
+}
 .search-box{
   flex:1;min-width:200px;background:var(--surface);border:1px solid var(--border);
   border-radius:10px;padding:0.65rem 1rem;color:var(--text);font-size:0.9rem;
@@ -251,7 +266,7 @@ body{font-family:'Noto Sans',sans-serif;background:var(--bg);color:var(--text);m
   <div class="topbar-right">
     <span id="lastRefresh" style="font-size:0.8rem;color:var(--muted);"></span>
     <span class="who" id="whoAmI"></span>
-    <button class="refresh-btn" onclick="loadData()">↻ Refresh</button>
+    <button class="refresh-btn" onclick="refreshAll()">↻ Refresh</button>
     <button class="refresh-btn" onclick="adminLogout()">Sign out</button>
   </div>
 </div>
@@ -298,8 +313,8 @@ body{font-family:'Noto Sans',sans-serif;background:var(--bg);color:var(--text);m
     </div>
   </div>
 
-  <!-- Controls -->
-  <div class="controls">
+  <!-- Controls (revealed once the candidate list is actually loaded) -->
+  <div class="controls" id="controls" style="display:none;">
     <input class="search-box" type="text" id="searchBox" placeholder="🔍 Search by name or mobile..." oninput="filterTable()">
     <select class="filter-select" id="filterLogin" onchange="filterTable()">
       <option value="">All Login Types</option>
@@ -338,9 +353,11 @@ body{font-family:'Noto Sans',sans-serif;background:var(--bg);color:var(--text);m
       <span>Joined</span>
     </div>
     <div id="tableBody">
-      <div id="loader">
-        <div class="spinner"></div>
-        Loading candidates...
+      <div class="load-gate">
+        <div class="load-gate-icon">📋</div>
+        <div class="load-gate-txt">Candidate names and details are not loaded yet</div>
+        <button class="load-btn" id="loadCandBtn" onclick="loadCandidates()">📥 Load Candidate Details</button>
+        <div class="load-gate-sub">Reads every candidate and every attempt document, so it only runs when you ask for it. The stats above are built from small daily queries and cost only a few reads.</div>
       </div>
     </div>
   </div>
@@ -375,7 +392,7 @@ body{font-family:'Noto Sans',sans-serif;background:var(--bg);color:var(--text);m
 
 <script type="module">
 import{initializeApp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import{getFirestore,collection,getDocs,query,orderBy,deleteDoc,doc,writeBatch}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import{getFirestore,collection,getDocs,query,orderBy,where,documentId,getCountFromServer,getAggregateFromServer,average,deleteDoc,doc,writeBatch}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import{getAuth,GoogleAuthProvider,signInWithPopup,signInWithRedirect,getRedirectResult,onAuthStateChanged,signOut,setPersistence,browserLocalPersistence}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 const app=initializeApp({apiKey:"AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",authDomain:"trickyssc-17bb3.firebaseapp.com",projectId:"trickyssc-17bb3",storageBucket:"trickyssc-17bb3.firebasestorage.app",messagingSenderId:"450627057220",appId:"1:450627057220:web:366267bf437d94f20c6e11"});
@@ -386,10 +403,24 @@ const auth=getAuth(app);
 // signed straight back out and shown the "not authorised" message.
 const ADMIN_EMAILS = ['nirala01@gmail.com'];
 const isAdmin = user => !!user && !!user.email && ADMIN_EMAILS.includes(user.email.toLowerCase());
+// The full candidate list and the full attempt list are NOT fetched when the
+// panel opens. They stay empty until "Load Candidate Details" is pressed, which
+// is what keeps a routine look at the dashboard down to a handful of reads.
 let allUsers = [];
 let allAttempts = [];
+let detailsLoaded = false;
+let totalUsersCount = 0, totalAttemptsCount = 0;
 
-// Snapshot of the current report day, filled in by loadData(). The drill-down
+// Users pulled by the light stats load (active today, joined today/yesterday,
+// plus anyone who sat a test today). Keyed by both doc id and uid.
+const userCache = new Map();
+function cacheUser(u){
+  if(!u) return;
+  if(u.id)  userCache.set(u.id, u);
+  if(u.uid) userCache.set(u.uid, u);
+}
+
+// Snapshot of the current report day, filled in by loadStats(). The drill-down
 // panels read from this so clicking a stat card never re-queries Firestore —
 // the numbers on the card and the names behind it always come from one load.
 let todayCtx = { attempts: [], activeUsers: [], reportStart: null, reportEnd: null };
@@ -449,6 +480,7 @@ function candidateName(u){ return u ? (u.name || u.displayName || 'Unknown') : '
 // too, so both are indexed and the uid field wins on a clash.
 function userIndex(){
   const m = {};
+  userCache.forEach((u,k) => { m[k] = u; });
   allUsers.forEach(u => { if(u.id) m[u.id] = u; });
   allUsers.forEach(u => { if(u.uid) m[u.uid] = u; });
   return m;
@@ -465,7 +497,7 @@ function showPanel(user){
   document.getElementById('adminUI').style.display='flex';
   document.getElementById('adminMain').style.display='block';
   document.getElementById('whoAmI').textContent = user.email;
-  loadData();
+  loadStats();   // stats only — the candidate list waits for the button
 }
 function showGate(errMsg){
   document.getElementById('authGate').style.display='flex';
@@ -516,7 +548,159 @@ onAuthStateChanged(auth, async user => {
   showGate('⚠️ ' + who + ' is not authorised to open the admin panel');
 });
 
-window.loadData = async () => {
+// ── Ask Firestore for the few user docs a drill-down needs but the light load
+// didn't fetch. 30 ids per request, so a busy day costs a handful of reads.
+async function resolveUsers(uids){
+  const want = [...new Set(uids.filter(Boolean))].filter(id => !userCache.has(id));
+  if(!want.length) return;
+  const usersCol = collection(db,'users');
+  const byField = async (field) => {
+    const left = want.filter(id => !userCache.has(id));
+    for(let i=0; i<left.length; i+=30){
+      try{
+        const snap = await getDocs(query(usersCol, where(field,'in', left.slice(i,i+30))));
+        snap.forEach(d => cacheUser({id:d.id, ...d.data()}));
+      }catch(e){ return; }   // field missing / rules refuse — fall through quietly
+    }
+  };
+  await byField(documentId());   // most user docs are keyed by the uid
+  await byField('uid');          // …and any that aren't
+}
+
+// Avg Score (All) is the one figure that genuinely needs every attempt. Before
+// the details are loaded it's averaged server-side (a couple of reads); after,
+// it's recomputed locally from the docs already in memory.
+async function paintOverallAvg(){
+  const el = document.getElementById('overallAvg');
+  if(detailsLoaded){
+    const s = allAttempts.map(a => parseFloat(a.percentage)||0);
+    el.textContent = s.length ? (s.reduce((a,b)=>a+b,0)/s.length).toFixed(1)+'%' : '—';
+    return;
+  }
+  try{
+    const agg = await getAggregateFromServer(collection(db,'attempts'), { avg: average('percentage') });
+    const v = agg.data().avg;
+    el.textContent = (v===null || v===undefined) ? '—' : Number(v).toFixed(1)+'%';
+  }catch(e){ el.textContent = '—'; }
+}
+
+function renderLoadGate(msg){
+  document.getElementById('tableBody').innerHTML = `
+    <div class="load-gate">
+      <div class="load-gate-icon">📋</div>
+      <div class="load-gate-txt">${msg || 'Candidate names and details are not loaded yet'}</div>
+      <button class="load-btn" id="loadCandBtn" onclick="loadCandidates()">📥 Load Candidate Details</button>
+      <div class="load-gate-sub">Reads every candidate and every attempt document, so it only runs when you ask for it. The stats above are built from small daily queries and cost only a few reads.</div>
+    </div>`;
+  document.getElementById('countLabel').textContent = '';
+}
+
+// ── LIGHT LOAD: dashboard stats, no full collection scans ──────────────────
+// Totals come from server-side count aggregations (billed 1 read per 1000 docs)
+// and every "today" number comes from a date-filtered query, so opening the
+// panel reads today's rows instead of the whole database.
+window.loadStats = async () => {
+  const stamp = document.getElementById('lastRefresh');
+  stamp.textContent = 'Loading stats…';
+
+  try {
+    const usersCol = collection(db,'users');
+    const attCol   = collection(db,'attempts');
+
+    // ── Report day runs 7:00 AM → 7:00 AM INDIAN STANDARD TIME, not midnight ──
+    // Anchored to Asia/Kolkata explicitly, NOT the viewing machine's timezone —
+    // opening this dashboard from a device set to the wrong zone used to shift
+    // the whole report day. Before 7 AM IST the current report day still belongs
+    // to the previous calendar date.
+    const IST_MS = 5.5*3600*1000, DAY_MS = 86400000;
+    const _nowMs = Date.now();
+    const _istNow = new Date(_nowMs + IST_MS);   // clock shifted so UTC getters read as IST
+    let _startMs = Date.UTC(_istNow.getUTCFullYear(), _istNow.getUTCMonth(), _istNow.getUTCDate(), 7, 0, 0) - IST_MS;
+    if(_nowMs < _startMs){ _startMs -= DAY_MS; }
+    const reportStart = new Date(_startMs);                 // 7 AM IST, report day start
+    const reportEnd   = new Date(_startMs + DAY_MS);        // next 7 AM IST
+    const ydayStart   = new Date(_startMs - DAY_MS);        // previous 7 AM IST
+    const _td   = x => (x && x.toDate) ? x.toDate() : null;                 // safe Firestore Timestamp → Date
+    const inDay  = d => d && d>=reportStart && d<reportEnd;                 // current 7 AM window ("today")
+    const inYday = d => d && d>=ydayStart   && d<reportStart;               // previous 7 AM window ("yesterday")
+    const _dLabel = dt => dt.toLocaleDateString('en-IN',{day:'numeric',month:'short',timeZone:IST_TZ});
+
+    // Five small requests in place of two full-collection reads.
+    const [uCount, aCount, activeSnap, joinSnap, attSnap] = await Promise.all([
+      getCountFromServer(usersCol),
+      getCountFromServer(attCol),
+      getDocs(query(usersCol, where('lastActive','>=', reportStart))),
+      getDocs(query(usersCol, where('createdAt','>=', ydayStart))),
+      getDocs(query(attCol,   where('timestamp','>=', reportStart)))
+    ]);
+
+    totalUsersCount    = uCount.data().count;
+    totalAttemptsCount = aCount.data().count;
+
+    // Keep the list itself, not just the count — the Active Today card opens it.
+    const activeUsersToday = [];
+    activeSnap.forEach(d => {
+      const u = {id:d.id, ...d.data()};
+      cacheUser(u);
+      if(inDay(_td(u.lastActive))) activeUsersToday.push(u);
+    });
+
+    // Users whose createdAt lies in the future = the signing-up device's clock was
+    // wrong (createdAt is written client-side). They land in the wrong report window,
+    // so surface the count instead of silently mis-bucketing them.
+    const skewMs = _nowMs + 60000;   // 1 min slack for ordinary clock drift
+    let newUsersToday = 0, newUsersYesterday = 0, futureJoins = 0;
+    joinSnap.forEach(d => {
+      const u = {id:d.id, ...d.data()};
+      cacheUser(u);
+      const c = _td(u.createdAt);
+      if(c && c.getTime() > skewMs) futureJoins++;
+      if(inDay(c)) newUsersToday++;
+      else if(inYday(c)) newUsersYesterday++;
+    });
+
+    // Tests given today (7 AM window), PYQ and Mock counted separately.
+    // Primary number = unique candidates; sub-line = total attempts.
+    const todaysAttempts = [];
+    attSnap.forEach(d => { const a = {id:d.id, ...d.data()}; if(inDay(_td(a.timestamp))) todaysAttempts.push(a); });
+
+    const pyqUsersToday = new Set(), mockUsersToday = new Set();
+    let pyqAttemptsToday = 0, mockAttemptsToday = 0;
+    todaysAttempts.forEach(a => {
+      if(attemptType(a)==='mock'){ mockUsersToday.add(a.uid); mockAttemptsToday++; }
+      else { pyqUsersToday.add(a.uid); pyqAttemptsToday++; }
+    });
+
+    // Names for anyone who sat a test today but isn't in the active-today slice.
+    await resolveUsers(todaysAttempts.map(a => a.uid));
+
+    // Hand the same numbers to the drill-down panels.
+    todayCtx = { attempts: todaysAttempts, activeUsers: activeUsersToday, reportStart, reportEnd };
+    if(document.getElementById('drillModal').classList.contains('open')) renderDrill();
+
+    document.getElementById('totalUsers').textContent = detailsLoaded ? allUsers.length    : totalUsersCount;
+    document.getElementById('totalTests').textContent = detailsLoaded ? allAttempts.length : totalAttemptsCount;
+    document.getElementById('activeToday').textContent = activeUsersToday.length;
+    document.getElementById('pyqToday').textContent = pyqUsersToday.size;
+    document.getElementById('pyqTodaySub').textContent = pyqAttemptsToday+' attempt'+(pyqAttemptsToday===1?'':'s');
+    document.getElementById('mockToday').textContent = mockUsersToday.size;
+    document.getElementById('mockTodaySub').textContent = mockAttemptsToday+' attempt'+(mockAttemptsToday===1?'':'s');
+    document.getElementById('newUsersToday').textContent = newUsersToday;
+    document.getElementById('newUsersYesterday').textContent = newUsersYesterday;
+    document.getElementById('newUsersYesterdaySub').textContent = '7 AM '+_dLabel(ydayStart)+' → 7 AM '+_dLabel(reportStart);
+    stamp.textContent = 'Updated: '+new Date().toLocaleTimeString('en-IN',{timeZone:IST_TZ})+' IST · report day 7 AM–7 AM IST'
+      + (futureJoins ? ' · ⚠ '+futureJoins+' future-dated join'+(futureJoins===1?'':'s') : '');
+
+    await paintOverallAvg();
+  } catch(e) {
+    stamp.textContent = '⚠ Stats error: ' + e.message;
+  }
+};
+
+// ── HEAVY LOAD: every candidate + every attempt, on demand only ────────────
+window.loadCandidates = async () => {
+  const btn = document.getElementById('loadCandBtn');
+  if(btn){ btn.disabled = true; btn.textContent = 'Loading…'; }
   document.getElementById('tableBody').innerHTML='<div id="loader"><div class="spinner"></div>Loading candidates...</div>';
 
   try {
@@ -554,74 +738,28 @@ window.loadData = async () => {
         usesMarks: hasMarks,
       };
     });
+    allUsers.forEach(cacheUser);
 
-    // Overall stats
-    // ── Report day runs 7:00 AM → 7:00 AM INDIAN STANDARD TIME, not midnight ──
-    // Anchored to Asia/Kolkata explicitly, NOT the viewing machine's timezone —
-    // opening this dashboard from a device set to the wrong zone used to shift
-    // the whole report day. Before 7 AM IST the current report day still belongs
-    // to the previous calendar date.
-    const IST_MS = 5.5*3600*1000, DAY_MS = 86400000;
-    const _nowMs = Date.now();
-    const _istNow = new Date(_nowMs + IST_MS);   // clock shifted so UTC getters read as IST
-    let _startMs = Date.UTC(_istNow.getUTCFullYear(), _istNow.getUTCMonth(), _istNow.getUTCDate(), 7, 0, 0) - IST_MS;
-    if(_nowMs < _startMs){ _startMs -= DAY_MS; }
-    const reportStart = new Date(_startMs);                 // 7 AM IST, report day start
-    const reportEnd   = new Date(_startMs + DAY_MS);        // next 7 AM IST
-    const ydayStart   = new Date(_startMs - DAY_MS);        // previous 7 AM IST
-    const _td   = x => (x && x.toDate) ? x.toDate() : null;                 // safe Firestore Timestamp → Date
-    const inDay  = d => d && d>=reportStart && d<reportEnd;                 // current 7 AM window ("today")
-    const inYday = d => d && d>=ydayStart   && d<reportStart;               // previous 7 AM window ("yesterday")
-    const _dLabel = dt => dt.toLocaleDateString('en-IN',{day:'numeric',month:'short',timeZone:IST_TZ});
-
-    // Users whose createdAt lies in the future = the signing-up device's clock was
-    // wrong (createdAt is written client-side). They land in the wrong report window,
-    // so surface the count instead of silently mis-bucketing them.
-    const skewMs = _nowMs + 60000;   // 1 min slack for ordinary clock drift
-    const futureJoins = allUsers.filter(u => { const d=_td(u.createdAt); return d && d.getTime()>skewMs; }).length;
-
-    // Keep the list itself, not just the count — the Active Today card opens it.
-    const activeUsersToday = allUsers.filter(u => inDay(_td(u.lastActive)));
-    const activeToday = activeUsersToday.length;
-    // Registered users added in the current / previous 7 AM report windows.
-    const newUsersToday     = allUsers.filter(u => inDay(_td(u.createdAt))).length;
-    const newUsersYesterday = allUsers.filter(u => inYday(_td(u.createdAt))).length;
-    const allScores = allAttempts.map(a=>parseFloat(a.percentage)||0);
-    const overallAvg = allScores.length ? (allScores.reduce((a,b)=>a+b,0)/allScores.length).toFixed(1) : '—';
-
-    // Tests given today (7 AM window), PYQ and Mock counted separately.
-    // Primary number = unique candidates; sub-line = total attempts.
-    const todaysAttempts = allAttempts.filter(a => inDay(_td(a.timestamp)));
-    const pyqUsersToday = new Set(), mockUsersToday = new Set();
-    let pyqAttemptsToday = 0, mockAttemptsToday = 0;
-    todaysAttempts.forEach(a => {
-      if(attemptType(a)==='mock'){ mockUsersToday.add(a.uid); mockAttemptsToday++; }
-      else { pyqUsersToday.add(a.uid); pyqAttemptsToday++; }
-    });
-
-    // Hand the same numbers to the drill-down panels.
-    todayCtx = { attempts: todaysAttempts, activeUsers: activeUsersToday, reportStart, reportEnd };
-    if(document.getElementById('drillModal').classList.contains('open')) renderDrill();
-
+    detailsLoaded = true;
+    document.getElementById('controls').style.display = 'flex';
+    // Now that every doc is in hand, the totals are exact counts of what's loaded.
     document.getElementById('totalUsers').textContent = allUsers.length;
     document.getElementById('totalTests').textContent = allAttempts.length;
-    document.getElementById('overallAvg').textContent = allScores.length ? overallAvg+'%' : '—';
-    document.getElementById('activeToday').textContent = activeToday;
-    document.getElementById('pyqToday').textContent = pyqUsersToday.size;
-    document.getElementById('pyqTodaySub').textContent = pyqAttemptsToday+' attempt'+(pyqAttemptsToday===1?'':'s');
-    document.getElementById('mockToday').textContent = mockUsersToday.size;
-    document.getElementById('mockTodaySub').textContent = mockAttemptsToday+' attempt'+(mockAttemptsToday===1?'':'s');
-    document.getElementById('newUsersToday').textContent = newUsersToday;
-    document.getElementById('newUsersYesterday').textContent = newUsersYesterday;
-    document.getElementById('newUsersYesterdaySub').textContent = '7 AM '+_dLabel(ydayStart)+' → 7 AM '+_dLabel(reportStart);
-    document.getElementById('lastRefresh').textContent = 'Updated: '+new Date().toLocaleTimeString('en-IN',{timeZone:IST_TZ})+' IST · report day 7 AM–7 AM IST'
-      + (futureJoins ? ' · ⚠ '+futureJoins+' future-dated join'+(futureJoins===1?'':'s') : '');
+    paintOverallAvg();
 
-    renderTable(allUsers);
+    filterTable();   // honours whatever search / filter / sort is set
   } catch(e) {
-    document.getElementById('tableBody').innerHTML=`<div class="empty-state"><div>⚠️</div>Error loading data: ${e.message}</div>`;
+    renderLoadGate('⚠️ Error loading candidates: ' + e.message);
   }
 };
+
+// Topbar refresh: always redo the cheap stats, redo the heavy list only if it
+// was already on screen.
+window.refreshAll = async () => {
+  await loadStats();
+  if(detailsLoaded) await loadCandidates();
+};
+window.loadData = () => refreshAll();   // kept so older call sites still work
 
 function renderTable(users) {
   if(users.length === 0){
@@ -663,6 +801,7 @@ function renderTable(users) {
 }
 
 window.filterTable = () => {
+  if(!detailsLoaded){ renderLoadGate(); return; }
   const search = document.getElementById('searchBox').value.toLowerCase();
   const loginFilter = document.getElementById('filterLogin').value;
   const actFilter = document.getElementById('filterActivity').value;
@@ -894,10 +1033,12 @@ window.exportDrill = () => {
 };
 
 window.showDetail = (uid) => {
-  const u = allUsers.find(x=>x.id===uid);
+  // Reachable from the drill-downs before the full list is loaded, so fall back
+  // to the lightly-cached user doc and to today's attempts.
+  const u = allUsers.find(x=>x.id===uid) || userCache.get(uid) || null;
   if(!u) return;
   const name = u.name||u.displayName||'Unknown';
-  const uAttempts = allAttempts.filter(a=>a.uid===u.uid);
+  const uAttempts = (detailsLoaded ? allAttempts : todayCtx.attempts).filter(a=>a.uid===u.uid);
   const _joinedDt = u.createdAt?.toDate ? u.createdAt.toDate() : null;
   const _skewed = _joinedDt && _joinedDt.getTime() > Date.now()+60000;   // future join = bad device clock
   const joined = (_joinedDt ? _joinedDt.toLocaleString('en-IN',{timeZone:IST_TZ}) : '—')
@@ -912,9 +1053,10 @@ window.showDetail = (uid) => {
     <div class="modal-row"><span class="modal-key">Login Method</span><span class="modal-val">${u.loginMethod==='google'||u.email?'🔵 Google':'📱 Mobile'}</span></div>
     <div class="modal-row"><span class="modal-key">Joined</span><span class="modal-val">${joined}</span></div>
     <div class="modal-row"><span class="modal-key">Last Active</span><span class="modal-val">${lastActive}</span></div>
-    <div class="modal-row"><span class="modal-key">Tests Attempted</span><span class="modal-val" style="color:var(--orange);font-weight:700;">${u.liveTests||0}</span></div>
+    <div class="modal-row"><span class="modal-key">Tests Attempted</span><span class="modal-val" style="color:var(--orange);font-weight:700;">${detailsLoaded ? (u.liveTests||0) : uAttempts.length}</span></div>
     <div class="modal-row"><span class="modal-key">Avg Marks</span><span class="modal-val">${u.liveAvg?(u.usesMarks?u.liveAvg+'/200':u.liveAvg+'%'):'—'}</span></div>
     <div class="modal-row"><span class="modal-key">Best Marks</span><span class="modal-val" style="color:var(--green);">${u.liveBest?(u.usesMarks?u.liveBest+'/200':u.liveBest+'%'):'—'}</span></div>
+    ${detailsLoaded?'':`<div class="modal-row"><span class="modal-key" style="color:var(--orange);">Note</span><span class="modal-val" style="color:var(--muted);">Lifetime figures need the full candidate details — load them from the table below.</span></div>`}
     ${uAttempts.length>0?`
     <div style="margin-top:1rem;font-family:'Rajdhani',sans-serif;font-size:0.85rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:0.5rem;">Recent Attempts</div>
     ${uAttempts.slice(0,5).map(a=>{
@@ -928,6 +1070,7 @@ window.showDetail = (uid) => {
 window.closeModal = () => document.getElementById('detailModal').classList.remove('open');
 
 window.exportCSV = () => {
+  if(!detailsLoaded){ alert('Load candidate details first — there is nothing in memory to export yet.'); return; }
   const rows = [['Name','Email','Mobile','Login','Tests Taken','Avg Score','Best Score','Joined']];
   allUsers.forEach(u=>{
     const joined = u.createdAt?.toDate ? u.createdAt.toDate().toLocaleDateString('en-IN',{timeZone:IST_TZ}) : '';
@@ -972,7 +1115,7 @@ window.deleteSelected = async () => {
     checked.forEach(uid => batch.delete(doc(db,'users',uid)));
     await batch.commit();
     alert(`✅ Deleted ${checked.length} candidate(s).`);
-    loadData();
+    refreshAll();
   } catch(e) { alert('Error: ' + e.message); }
 };
 
@@ -995,7 +1138,7 @@ window.deleteAll = async () => {
       await batch.commit();
     }
     alert(`✅ Deleted all ${count} candidates.`);
-    loadData();
+    refreshAll();
   } catch(e) { alert('Error: ' + e.message); }
 };
 
@@ -1021,7 +1164,7 @@ window.deleteAllAttempts = async () => {
       await batch.commit();
     }
     alert(`✅ Deleted ${total} attempt records.`);
-    loadData();
+    refreshAll();
   } catch(e) { alert('Error: ' + e.message); }
 };
 
