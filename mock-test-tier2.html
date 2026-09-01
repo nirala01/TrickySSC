@@ -1472,14 +1472,21 @@ const TG_FREE_UP_TO  = 4;
 const TG_ENFORCE_FROM= '2026-08-25T00:00:00+05:30';   // null = enforce now
 const TG_BUY_URL     = 'ssc-cgl-mock-test.html';
 
-/* ?paywall=on|off|clear — same per-tab switch the listing pages use, so a
-   test session behaves identically on both. */
+/* TSSC-TESTGATE-V3 — ?paywall=off REMOVED.
+   It wrote sessionStorage.tssc_paywall_override='off', which made
+   tgEnforcing() return false, which made tgNeedsCheck() false — so the
+   localStorage fast-start ran and ANY Premium mock opened for anyone who
+   appended the parameter to the URL. No login, no entitlement, no trace.
+   Only ?paywall=on (tighten) survives; 'off' and 'clear' now just clear the
+   key, and any 'off' left in an old tab is discarded on load. */
 (function(){
   try{
+    if(sessionStorage.getItem('tssc_paywall_override')==='off')
+      sessionStorage.removeItem('tssc_paywall_override');
     const q=new URLSearchParams(location.search).get('paywall');
     if(!q)return;
-    if(q==='on'||q==='off') sessionStorage.setItem('tssc_paywall_override',q);
-    if(q==='clear') sessionStorage.removeItem('tssc_paywall_override');
+    if(q==='on') sessionStorage.setItem('tssc_paywall_override','on');
+    if(q==='clear'||q==='off') sessionStorage.removeItem('tssc_paywall_override');
   }catch(e){}
 })();
 
@@ -1487,7 +1494,8 @@ function tgEnforcing(){
   let o=null;
   try{ o=sessionStorage.getItem('tssc_paywall_override'); }catch(e){}
   if(o==='on') return true;
-  if(o==='off') return false;
+  /* TSSC-TESTGATE-V3 — the 'off' branch is gone. Enforcement can now only be
+     turned ON by hand, never off. */
   return !TG_ENFORCE_FROM || Date.now()>=new Date(TG_ENFORCE_FROM).getTime();
 }
 
@@ -1516,16 +1524,29 @@ function tgGrantActive(g){
   return !isFinite(ms)||ms>Date.now();
 }
 
+/* TSSC-TESTGATE-V3 — set when all read attempts failed, so tgAllowed() can
+   tell "you have not paid" apart from "we could not check right now". */
+let tgReadFailed=false;
+
 async function tgOwns(uid){
-  try{
-    const snap=await getDoc(doc(db,'entitlements',uid));
-    const d=snap.exists()?(snap.data()||{}):{};
-    return tgGrantActive(d.allAccess)||tgGrantActive((d.modules||{})[TG_MODULE]);
-  }catch(e){
-    // A network or rules failure must not lock out someone who has paid.
-    console.warn('[gate] entitlement read failed, allowing:',e.message);
-    return true;
+  tgReadFailed=false;
+  for(let i=0;i<3;i++){
+    try{
+      const snap=await getDoc(doc(db,'entitlements',uid));
+      const d=snap.exists()?(snap.data()||{}):{};
+      return tgGrantActive(d.allAccess)||tgGrantActive((d.modules||{})[TG_MODULE]);
+    }catch(e){
+      console.warn('[gate] entitlement read failed (attempt '+(i+1)+' of 3):',e.message);
+      if(i<2) await new Promise(r=>setTimeout(r,600*(i+1)));
+    }
   }
+  /* FAIL CLOSED. This used to `return true` so a paid user was never locked
+     out — but it meant one Firestore error (offline, airplane mode, a rules
+     denial) handed out the whole paid series. Three tries with backoff cover
+     the honest network blip; after that we stop and offer a retry screen
+     instead of the paper. */
+  tgReadFailed=true;
+  return false;
 }
 
 function tgShowLocked(mockNum){
@@ -1546,6 +1567,27 @@ function tgShowLocked(mockNum){
     +'&larr; Back to mock tests</a></div>';
 }
 
+/* TSSC-TESTGATE-V3 — shown when the entitlement read itself failed. Never
+   mentions buying: the person may well have paid already. */
+function tgShowCheckFailed(){
+  const loader=document.getElementById('loader');
+  if(!loader) return;
+  loader.innerHTML=
+    '<div style="text-align:center;padding:2rem;max-width:340px;">'
+    +'<div style="font-size:3rem;margin-bottom:1rem;">&#128260;</div>'
+    +'<div style="font-family:\'Rajdhani\',sans-serif;font-size:1.4rem;font-weight:700;'
+    +'margin-bottom:0.6rem;">Could not verify your access</div>'
+    +'<div style="font-size:0.9rem;opacity:0.9;line-height:1.65;margin-bottom:1.5rem;">'
+    +'Your connection dropped while we were checking. If you have already '
+    +'unlocked the mocks, nothing is lost &mdash; just try again.</div>'
+    +'<a href="javascript:location.reload()" style="display:inline-block;background:white;'
+    +'color:#FF6B00;font-family:\'Rajdhani\',sans-serif;font-weight:700;font-size:1rem;'
+    +'padding:0.7rem 2rem;border-radius:10px;text-decoration:none;margin-bottom:1rem;">'
+    +'Try again &rarr;</a><br>'
+    +'<a href="mock-list.html" style="font-size:0.82rem;opacity:0.75;color:white;">'
+    +'&larr; Back to mock tests</a></div>';
+}
+
 /* true = this open needs the entitlement check before the test may start */
 function tgNeedsCheck(){
   const n=tgMockNumber();
@@ -1558,7 +1600,8 @@ async function tgAllowed(uid){
   if(!n||n<=TG_FREE_UP_TO) return true;      // PYQ paper, or a free mock
   if(!tgEnforcing()) return true;            // before the paid launch date
   if(await tgOwns(uid)) return true;
-  tgShowLocked(n);
+  /* A paid user on a flaky connection must never see a payment screen. */
+  if(tgReadFailed) tgShowCheckFailed(); else tgShowLocked(n);
   return false;
 }
 /* ================= end TSSC-TESTGATE-V1 ================= */

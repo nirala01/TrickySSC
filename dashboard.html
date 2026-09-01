@@ -611,8 +611,19 @@ async function loadDashboard(user) {
       const _s = localStorage.getItem('tssc_user');
       if (_s) {
         const _u = JSON.parse(_s);
+        /* TSSC-UIDGUARD-V1 — only honour the stored uid when it AGREES with
+           the live Firebase session. Firestore authorises every read against
+           request.auth.uid, so once the rules are owner-scoped a divergent
+           stored uid (stale tssc_user on a shared device, an older account)
+           silently denied the profile, entitlement and attempts reads and the
+           dashboard came up empty for a paying user. Same value in the normal
+           case; falls back to the session uid instead of breaking. */
         if (_u && _u.uid && !String(_u.uid).startsWith('phone_')) {
-          effectiveUid = _u.uid;
+          if (_u.uid === user.uid) {
+            effectiveUid = _u.uid;
+          } else {
+            console.warn('[Dashboard] stored uid differs from session uid — using session uid');
+          }
         }
       }
     } catch(e) {}
