@@ -1329,6 +1329,28 @@ try { db = initializeFirestore(app,{experimentalAutoDetectLongPolling:true}); }
 catch(_){ db = getFirestore(app); }   // Firestore already initialized elsewhere (e.g. leaderboard.js) — reuse it
 const auth=getAuth(app);
 
+/* TSSC-RESTAUTH-V1 — attach the signed-in user's Firebase ID token to the
+   Firestore REST (documents:runQuery) calls below.
+   Those calls used to send only the public API key, i.e. they were
+   UNAUTHENTICATED. That was harmless while `questions` was world-readable,
+   but once the security rules began gating premium mocks on an entitlement,
+   an unauthenticated REST query is denied for Mock 5+ for EVERYONE — paid
+   users included. They then fell through to the SDK getDocs path, which is
+   the very path this REST call exists to work around because it stalls on
+   some networks. Sending the token makes the fast path work for paid users
+   again, and changes nothing for free content. */
+async function tgRestHeaders(){
+  const h={'Content-Type':'application/json'};
+  try{
+    const u=auth.currentUser;
+    if(u){
+      const t=await u.getIdToken();
+      if(t) h['Authorization']='Bearer '+t;
+    }
+  }catch(e){ console.warn('[rest] could not attach ID token:',e&&e.message); }
+  return h;
+}
+
 let questions=[],answers={},markedForReview={},currentQ=0,timeLeft=3600,timerInterval,currentUser=null,sections=[],paused=false;
 const SECTION_DUR=15*60; // 15 minutes per section
 let curTS=0, tsRemaining=[], tsSubmitted=[];
@@ -1746,10 +1768,10 @@ async function loadTest(){
 
       // Try exam+year+heldOn (fast: ~100 docs)
       if(heldOnVal){
-        let res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(mkBody({stringValue:yStr},true))});
+        let res=await fetch(url,{method:'POST',headers:(await tgRestHeaders()),body:JSON.stringify(mkBody({stringValue:yStr},true))});
         let docs=fromRest(await res.json());
         if(!docs.length&&!isNaN(yNum)){
-          res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(mkBody({integerValue:String(yNum)},true))});
+          res=await fetch(url,{method:'POST',headers:(await tgRestHeaders()),body:JSON.stringify(mkBody({integerValue:String(yNum)},true))});
           docs=fromRest(await res.json());
         }
         if(docs.length){ console.log('[TrickySSC] REST heldOn-filtered:',docs.length); return docs; }
@@ -1757,10 +1779,10 @@ async function loadTest(){
       }
 
       // Fallback: exam+year only (fetches all shifts, JS will filter)
-      let res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(mkBody({stringValue:yStr},false))});
+      let res=await fetch(url,{method:'POST',headers:(await tgRestHeaders()),body:JSON.stringify(mkBody({stringValue:yStr},false))});
       let docs=fromRest(await res.json());
       if(!docs.length&&!isNaN(yNum)){
-        res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(mkBody({integerValue:String(yNum)},false))});
+        res=await fetch(url,{method:'POST',headers:(await tgRestHeaders()),body:JSON.stringify(mkBody({integerValue:String(yNum)},false))});
         docs=fromRest(await res.json());
       }
       console.log('[TrickySSC] REST year-only:',docs.length);
@@ -1842,7 +1864,7 @@ async function loadTest(){
               const d=[];snap.forEach(x=>d.push({id:x.id,...x.data()}));
               console.log('[TrickySSC] mockId SDK:',d.length);return d;
             }),
-            ft(fetch(_url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(_body)})).then(async r=>{
+            ft(fetch(_url,{method:'POST',headers:(await tgRestHeaders()),body:JSON.stringify(_body)})).then(async r=>{
               const d=fromRest(await r.json());
               if(!d.length) throw new Error('REST: 0 docs');
               console.log('[TrickySSC] mockId REST:',d.length);return d;
@@ -2248,7 +2270,7 @@ function enMockCandidates(hiId){
 async function _enRest(field,value){
   const url='https://firestore.googleapis.com/v1/projects/trickyssc-17bb3/databases/(default)/documents:runQuery?key=AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA';
   const body={structuredQuery:{from:[{collectionId:'questions'}],where:{fieldFilter:{field:{fieldPath:field},op:'EQUAL',value:{stringValue:value}}}}};
-  const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const r=await fetch(url,{method:'POST',headers:(await tgRestHeaders()),body:JSON.stringify(body)});
   const j=await r.json(); const out=[];
   // Recursive unwrap so option MAPS and arrays survive (not just scalar fields)
   const uw=v=>{
