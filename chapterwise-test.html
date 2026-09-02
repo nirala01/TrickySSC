@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SSC CGL Chapter-wise Test – TrickySSC</title>
-<meta name="description" content="Attempt a 50-question SSC CGL chapter-wise test with solutions in English and Hindi.">
+<meta name="description" content="Attempt a 25-question SSC CGL chapter-wise test with solutions in English and Hindi.">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="https://trickyssc.com/chapterwise-test.html">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1103,7 +1103,7 @@
       <h1 id="chTitle">Loading…</h1>
       <p id="chSub"></p>
       <div class="pill-row">
-        <span class="pill">📝 <b>50</b> questions / test</span>
+        <span class="pill">📝 <b>25</b> questions / test</span>
         <span class="pill">🌐 English + हिंदी</span>
         <span class="pill">⏱️ Timed or untimed</span>
         <span class="pill">💡 Solutions &amp; tricks</span>
@@ -1210,7 +1210,7 @@
           🔒 Login to attempt this test — your score, solutions and progress are saved to your account.
         </div>
         <div class="instr-mode" style="display:flex;gap:0.6rem;justify-content:center;margin:0 0 1rem;">
-          <button type="button" class="cw-mode on" id="cwModeTimed" onclick="cwSetTimed(true)">⏱ Timed · 30:00</button>
+          <button type="button" class="cw-mode on" id="cwModeTimed" onclick="cwSetTimed(true)">⏱ Timed · 15:00</button>
           <button type="button" class="cw-mode" id="cwModeFree" onclick="cwSetTimed(false)">🧘 Untimed practice</button>
         </div>
         <div class="instr-footer">
@@ -1236,7 +1236,7 @@
           <div class="sec-timer-name" id="secTimerName"></div>
           <div style="display:flex;align-items:center;gap:8px;">
             <span class="timer-icon">&#9201;</span>
-            <div class="timer" id="timer">30:00</div>
+            <div class="timer" id="timer">15:00</div>
           </div>
         </div>
         <button class="pause-btn" id="pauseBtn" onclick="togglePause()">&#9208; Pause</button>
@@ -1471,7 +1471,7 @@ function subjectMeta(v){return SUBJECTS.find(s=>s.v===v);}
 function chaptersFor(v){const k=SUBJECT_TO_CANON[v];const s=CANON.subjects&&CANON.subjects[k];return s?s.chapters:[];}
 function chapterMeta(subjV,chId){return chaptersFor(subjV).find(c=>c.id===chId);}
 const FIRE_CFG={apiKey:"AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",authDomain:"trickyssc-17bb3.firebaseapp.com",projectId:"trickyssc-17bb3",storageBucket:"trickyssc-17bb3.firebasestorage.app",messagingSenderId:"450627057220",appId:"1:450627057220:web:366267bf437d94f20c6e11"};
-const TEST_COUNT=20, TARGET_Q=50;
+const TEST_COUNT=20, TARGET_Q=25;
 
 const app=getApps().length?getApps()[0]:initializeApp(FIRE_CFG);
 let db;
@@ -1546,9 +1546,9 @@ onAuthStateChanged(auth, async user=>{
 const qs=new URLSearchParams(location.search);
 const SUBJ=qs.get('subject')||'';
 const CHID=qs.get('chapter')||qs.get('chapterId')||'';
-// Optional &level=1|2|3 — deep-links straight to that level's test grid,
+// Optional &level=1|2 — deep-links straight to that level's test grid,
 // so a Start Level button on a chapter page skips the level chooser.
-const DEEP_LEVEL=(function(){const n=parseInt(qs.get('level'),10);return (n>=1&&n<=3)?n:0;})();
+const DEEP_LEVEL=(function(){const n=parseInt(qs.get('level'),10);return (n>=1&&n<=2)?n:0;})();
 const DEEP_TEST=(function(){const n=parseInt(qs.get('test'),10);return (n>=1&&n<=20)?n:0;})();
 const DEEP_LANG=(function(){const l=qs.get('lang');return (l==='en'||l==='hi')?l:'';})();
 const sMeta=subjectMeta(SUBJ);
@@ -1624,7 +1624,7 @@ const fEq=(path,val)=>({fieldFilter:{field:{fieldPath:path},op:'EQUAL',
   value:(typeof val==='number')?{integerValue:String(val)}:{stringValue:String(val)}}});
 
 async function fetchTest(lv, tn){
-  // Three equality filters: chapter + level + test. Returns the ~100 documents
+  // Three equality filters: chapter + level + test. Returns the ~50 documents
   // of this one test (both languages).
   let docs = await restQuery([fEq('chapterId',CHID), fEq('level',lv), fEq('testNum',tn)]);
   if(!docs.length){
@@ -1753,10 +1753,10 @@ let timeLeft=0,timerInterval=null,paused=false,isSubmitting=false;
 let currentUser=null;
 let authReady=false;          // true once onAuthStateChanged has fired at least once
 let exam='ssc-cgl',year='',mockMeta=null,_reportTestId='';
-const CW={lv:null,tn:null,lang:'en',timed:false,mins:30};
+const CW={lv:null,tn:null,lang:'en',timed:false,mins:15};
 const cwEl=()=>document.getElementById('cwPlayer');
 window.cwSetTimed=(t)=>{
-  CW.timed=!!t; CW.mins=30;
+  CW.timed=!!t; CW.mins=15;
   const bT=document.getElementById('cwModeTimed'), bF=document.getElementById('cwModeFree');
   if(bT) bT.classList.toggle('on', !!t);
   if(bF) bF.classList.toggle('on', !t);
@@ -1769,7 +1769,7 @@ window.launch=async(timed)=>{
   const avail={en:S.cur.en.length, hi:S.cur.hi.length};
   const useLang=avail[lang]?lang:(avail.en?'en':'hi');
 
-  // The 50 questions of THIS test are fetched now, not at page load.
+  // The 25 questions of THIS test are fetched now, not at page load.
   const src = S.cur[useLang] || [];
   const enSet = S.cur.en || [];
   if(!src.length){
@@ -1778,7 +1778,7 @@ window.launch=async(timed)=>{
                   ' — check that level, testNum and qNum are stored as numbers and type is "chapterwise".');
     return;
   }
-  CW.lv=lv; CW.tn=tn; CW.lang=useLang; CW.timed=!!timed; CW.mins=30;
+  CW.lv=lv; CW.tn=tn; CW.lang=useLang; CW.timed=!!timed; CW.mins=15;
   const _bT=document.getElementById('cwModeTimed'), _bF=document.getElementById('cwModeFree');
   if(_bT) _bT.classList.toggle('on', CW.timed);
   if(_bF) _bF.classList.toggle('on', !CW.timed);
