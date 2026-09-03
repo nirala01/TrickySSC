@@ -4054,14 +4054,13 @@ function closeBuy() {
    and the entitlement re-read run. Without this the step-2 form (price,
    "Continue to payment") was visible again for a second or two after the
    money left, which read as "it didn't work". Same card, no form. */
-function showConfirming() {
+function showWaitCard(title, txt) {
   if (!pop) return;
   const icon = document.getElementById('mbpDoneIcon');
   const go   = document.getElementById('mbpDoneGo');
   if (icon) icon.textContent = '\u23F3';
-  document.getElementById('mbpDoneTitle').textContent = 'Confirming your payment\u2026';
-  document.getElementById('mbpDoneTxt').textContent =
-    'Payment received. One moment while we unlock your mocks \u2014 please don\u2019t close this window.';
+  document.getElementById('mbpDoneTitle').textContent = title;
+  document.getElementById('mbpDoneTxt').textContent = txt;
   const note = document.getElementById('mbpLoginDone');
   if (note) note.hidden = true;
   if (go) go.hidden = true;
@@ -4070,6 +4069,19 @@ function showConfirming() {
   pop.style.display = 'flex';
   document.body.style.overflow = 'hidden';
 }
+/* TSSC-PREPARING-V1 (2026-09-03) — shown from the tap on "Continue to
+   payment" until Razorpay's window actually opens (script load, token,
+   /order round-trip: a few seconds on mobile data). Before this the form
+   just sat there looking dead. */
+function showPreparing() {
+  showWaitCard('Opening secure payment\u2026',
+    'Processing your payment request. The Razorpay window will open in a moment \u2014 please wait.');
+}
+function showConfirming() {
+  showWaitCard('Confirming your payment\u2026',
+    'Payment received. One moment while we unlock your mocks \u2014 please don\u2019t close this window.');
+}
+window.tsscOnPaymentPreparing  = showPreparing;
 window.tsscOnPaymentConfirming = showConfirming;
 
 function showUnlocked(msg) {
@@ -4335,8 +4347,10 @@ document.getElementById('mbpPay')?.addEventListener('click', async () => {
       if (typeof window.tsscStartCheckout !== 'function') {
         throw new Error('Checkout is not wired up yet on this page.');
       }
+      showPreparing();                                   /* TSSC-PREPARING-V1 */
       await window.tsscStartCheckout(ORDER);
     } catch (e) {
+      showStep(2);                                       /* TSSC-PREPARING-V1 */
       fail(e.message || 'Could not start the payment. Please try again.');
     }
   });
@@ -4506,6 +4520,7 @@ window.tsscStartCheckout = async function (order) {
       theme: { color: '#FF6B00' },
       modal: {
         ondismiss: () => {
+          if (window.tsscShowStep) window.tsscShowStep(2);   /* TSSC-PREPARING-V1: back to the form */
           // Closing the window is not a failure — the webhook still lands if
           // the payment actually went through.
           fail('Payment window closed. Nothing has been charged. ' +
@@ -4543,6 +4558,7 @@ window.tsscStartCheckout = async function (order) {
       }
     });
     rzp.on('payment.failed', function (e) {
+      if (window.tsscShowStep) window.tsscShowStep(2);       /* TSSC-PREPARING-V1: back to the form */
       fail((e?.error?.description || 'The payment did not go through.') +
            ' Nothing has been charged.');
       done();
