@@ -3696,10 +3696,6 @@ onAuthStateChanged(_aAuth, user => {
         <input id="mbpName" type="text" autocomplete="name" placeholder="As you want it on the receipt">
       </div>
       <div class="mbp-field">
-        <label for="mbpMobile">Registered mobile number <b>*</b></label>
-        <input id="mbpMobile" type="tel" inputmode="numeric" maxlength="10" autocomplete="tel-national" placeholder="10-digit mobile">
-      </div>
-      <div class="mbp-field">
         <label for="mbpPlace">Place <b>*</b></label>
         <input id="mbpPlace" type="text" autocomplete="address-level2" placeholder="City / district">
       </div>
@@ -4095,7 +4091,7 @@ function recordIntent(stage, extra) {
 }
 window.tsscRecordIntent = recordIntent;
 
-/* prefill name + mobile from the signed-in profile so the form is one tap */
+/* prefill name from the signed-in profile so the form is one tap */
 /* Prefill from the signed-in profile so the form is a couple of taps.
 
    users/{uid} really holds:  name, displayName, email, phone, loginMethod,
@@ -4124,17 +4120,19 @@ function tenDigits(v) {
    Before this, cached values could never be corrected, so on a shared phone the
    previous user's mobile number was offered to the next buyer. With the number
    now identifying who paid, that is not a cosmetic problem. */
+let KNOWN_PHONE = '';   /* TSSC-NOPHONE-V1 */
 function fillFrom(u, trusted) {
   if (!u) return;
   const n = document.getElementById('mbpName');
-  const m = document.getElementById('mbpMobile');
   const pl = document.getElementById('mbpPlace');
 
   const nm = u.name || u.displayName || '';
   if (n && nm && nm !== 'Student' && (trusted || !n.value)) n.value = nm;
 
+  /* TSSC-NOPHONE-V1 — the mobile field is gone from the form (2026-09-03).
+     A number already on the profile is kept only as a Razorpay prefill. */
   const ph = tenDigits(u.phone);
-  if (m && ph && (trusted || !m.value)) m.value = ph;
+  if (ph && (trusted || !KNOWN_PHONE)) KNOWN_PHONE = ph;
 
   // `place` isn't on the profile — the last checkout is its only source, so a
   // cached value is never overruled here.
@@ -4145,7 +4143,7 @@ function fillFrom(u, trusted) {
 /* Tag each field so the buyer can see at a glance what came from their
    account and what they still have to type. */
 function markFields() {
-  const map = { mbpName: 'name', mbpMobile: 'mobile number', mbpPlace: 'place' };
+  const map = { mbpName: 'name', mbpPlace: 'place' };
   const missing = [];
   Object.keys(map).forEach(id => {
     const el = document.getElementById(id);
@@ -4171,7 +4169,7 @@ function markFields() {
 
 /** Focus the first field still empty, so the buyer lands where the work is. */
 function focusFirstGap() {
-  const first = ['mbpName', 'mbpMobile', 'mbpPlace']
+  const first = ['mbpName', 'mbpPlace']
     .map(id => document.getElementById(id))
     .filter(el => el && !el.value.trim())[0];
   (first || document.getElementById('mbpCourse'))?.focus();
@@ -4244,44 +4242,12 @@ document.getElementById('mbpNext')?.addEventListener('click', async () => {
   focusFirstGap();
 });
 
-/* ---- TSSC-BUYPHONE-V1 -----------------------------------------------------
-   One mobile number, one account. Premium support runs on this number: if two
-   accounts share it, deciding who to unlock becomes guesswork.
-
-   The number is no longer collected at Google signup, so this is the only
-   place the rule is applied for Google buyers.
-
-   NOTE: this proves the number is unused, not that the buyer owns it. No OTP
-   is sent here. Verified ownership needs linkWithPhoneNumber. */
-function buyNormPhone(v) {
-  let d = String(v == null ? '' : v).replace(/\D/g, '');
-  if (d.length === 12 && d.startsWith('91')) d = d.slice(2);
-  if (d.length === 11 && d.startsWith('0'))  d = d.slice(1);
-  return d.length === 10 ? d : '';
-}
-
-/* Throws on failure — the caller must fail closed. A check that could not run
-   is not a check that passed. */
-async function buyPhoneTakenBy(tenDigits, exceptUid) {
-  // Older rows stored the bare ten digits; newer ones use the +91 form.
-  for (const form of ['+91' + tenDigits, tenDigits]) {
-    const snap = await getDocs(query(collection(_db, 'users'), where('phone', '==', form)));
-    for (const d of snap.docs) {
-      if (d.id !== exceptUid) return d.id;
-    }
-  }
-  return null;
-}
-
-/* Keep the buyer's own profile in step, so their next purchase is prefilled
-   and support can find them by number. Never blocks the sale. */
-async function buySavePhone(uid, tenDigits) {
-  try {
-    await setDoc(doc(_db, 'users', uid), { phone: '+91' + tenDigits }, { merge: true });
-  } catch (e) {
-    console.warn('[checkout] could not save phone to profile:', e.message);
-  }
-}
+/* TSSC-NOPHONE-V1 (2026-09-03) — the "Registered mobile number" field and
+   the TSSC-BUYPHONE-V1 one-number-one-account check are removed. The check
+   queried the whole `users` collection from the browser, which the hardened
+   Firestore rules of 2026-09-01 deny, so every buyer was stopped with
+   "Could not verify that mobile number ... check your connection". Name and
+   place are enough for the order; Razorpay collects the contact itself. */
 
 /* ---- validate, then hand off to checkout ---- */
 function fail(msg, id) {
@@ -4295,20 +4261,17 @@ function fail(msg, id) {
 function collect() {
   const box = document.getElementById('mbpErr');
   box.hidden = true;
-  ['mbpName', 'mbpMobile', 'mbpPlace', 'mbpCourse']
+  ['mbpName', 'mbpPlace', 'mbpCourse']
     .forEach(id => document.getElementById(id)?.classList.remove('bad'));
 
   const name   = document.getElementById('mbpName').value.trim();
-  // browser autofill often supplies +91XXXXXXXXXX or 0XXXXXXXXXX — normalise
-  // to the bare 10 digits rather than rejecting a number that is actually fine
-  let mobile = document.getElementById('mbpMobile').value.replace(/\D/g, '');
-  if (mobile.length === 12 && mobile.startsWith('91')) mobile = mobile.slice(2);
-  if (mobile.length === 11 && mobile.startsWith('0'))  mobile = mobile.slice(1);
+  // TSSC-NOPHONE-V1 — not asked for any more; pass along a number the
+  // profile already had (Razorpay prefill only), else empty.
+  const mobile = KNOWN_PHONE || '';
   const place  = document.getElementById('mbpPlace').value.trim();
   const course = document.getElementById('mbpCourse').value;
 
   if (name.length < 2)             return fail('Please enter your full name.', 'mbpName');
-  if (!/^[6-9]\d{9}$/.test(mobile)) return fail('Enter a valid 10-digit Indian mobile number.', 'mbpMobile');
   if (place.length < 2)            return fail('Please enter your city or district.', 'mbpPlace');
   if (!course)                     return fail('Please choose a course.', 'mbpCourse');
 
@@ -4323,32 +4286,6 @@ document.getElementById('mbpPay')?.addEventListener('click', async () => {
 
   const btn = document.getElementById('mbpPay');
   btn.disabled = true;
-  btn.textContent = 'Checking your number\u2026';   /* TSSC-BUYPHONE-V1 */
-
-  /* TSSC-BUYPHONE-V1 — one account per number, enforced before any money
-     moves. Fails closed: a check that errors stops the sale rather than
-     letting a duplicate through. */
-  const buyTen = buyNormPhone(d.mobile);
-  if (!buyTen) {
-    btn.disabled = false; btn.textContent = 'Continue to payment \u2192';
-    return fail('Enter a valid 10-digit Indian mobile number.', 'mbpMobile');
-  }
-  try {
-    const takenBy = await buyPhoneTakenBy(buyTen, user.uid);
-    if (takenBy) {
-      btn.disabled = false; btn.textContent = 'Continue to payment \u2192';
-      return fail('This mobile number is already registered to another '
-        + 'TrickySSC account. Use the number for this account, or log in to '
-        + 'the account that already has it.', 'mbpMobile');
-    }
-  } catch (e) {
-    console.error('[checkout] phone check failed:', e);
-    btn.disabled = false; btn.textContent = 'Continue to payment \u2192';
-    return fail('Could not verify that mobile number just now. Please check '
-      + 'your connection and try again.', 'mbpMobile');
-  }
-  buySavePhone(user.uid, buyTen);          /* fire and forget */
-
   btn.textContent = 'Opening payment\u2026';
   ORDER = { ...d, uid: user.uid, email: user.email || '' };
   /* TSSC-INTENT-V1 — they have given us their details and pressed pay. If the
