@@ -3534,13 +3534,13 @@ onAuthStateChanged(_auth, async user => {
 
     <!-- ---------- step 3: unlocked ---------- -->
     <div class="mbp-body mbp-step" data-step="3" hidden>
-      <div class="mbp-done">&#127881;</div>
+      <div class="mbp-done" id="mbpDoneIcon">&#127881;</div>
       <div class="mbp-donetitle" id="mbpDoneTitle">Course unlocked</div>
       <p class="mbp-donetxt" id="mbpDoneTxt">
         Your payment went through. Every premium mock is open on this account now.</p>
       <div class="mbp-login" id="mbpLoginDone" hidden
            style="text-align:left;margin-bottom:.9rem;"></div>   <!-- TSSC-LOGINNOTE-V1 -->
-      <button class="mbp-go" data-close>Start practising &rarr;</button>
+      <button class="mbp-go" id="mbpDoneGo" data-close>Start practising &rarr;</button>
     </div>
   </div>
 </div>
@@ -3867,8 +3867,36 @@ function closeBuy() {
   document.body.style.overflow = '';
 }
 
+/* TSSC-CONFIRMING-V1 (2026-09-03) — the moment Razorpay's window closes on a
+   successful payment, swap the popup to a "confirming" card BEFORE /verify
+   and the entitlement re-read run. Without this the step-2 form (price,
+   "Continue to payment") was visible again for a second or two after the
+   money left, which read as "it didn't work". Same card, no form. */
+function showConfirming() {
+  if (!pop) return;
+  const icon = document.getElementById('mbpDoneIcon');
+  const go   = document.getElementById('mbpDoneGo');
+  if (icon) icon.textContent = '\u23F3';
+  document.getElementById('mbpDoneTitle').textContent = 'Confirming your payment\u2026';
+  document.getElementById('mbpDoneTxt').textContent =
+    'Payment received. One moment while we unlock your mocks \u2014 please don\u2019t close this window.';
+  const note = document.getElementById('mbpLoginDone');
+  if (note) note.hidden = true;
+  if (go) go.hidden = true;
+  document.getElementById('mbpErr')?.setAttribute('hidden', '');
+  showStep(3);
+  pop.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+window.tsscOnPaymentConfirming = showConfirming;
+
 function showUnlocked(msg) {
   if (!pop) return;
+  const icon = document.getElementById('mbpDoneIcon');
+  const go   = document.getElementById('mbpDoneGo');
+  if (icon) icon.textContent = '\u{1F389}';
+  document.getElementById('mbpDoneTitle').textContent = 'Course unlocked';
+  if (go) go.hidden = false;
   if (msg) document.getElementById('mbpDoneTxt').textContent = msg;
   paintLoginNotice('mbpLoginDone', true);       /* TSSC-LOGINNOTE-V1 */
   showStep(3);
@@ -4154,6 +4182,7 @@ function tsscAskKeepOpen(proceed) {
 
 /* Called by the checkout layer once the Worker has confirmed the payment.
    Re-reads the entitlement (cache-busted) and repaints every card. */
+window.tsscShowStep = showStep;                       /* TSSC-CONFIRMING-V1 */
 window.tsscOnPaymentSuccess = async function (msg) {
   recordIntent('paid');                         /* TSSC-INTENT-V1 */
   const user = _auth.currentUser;
@@ -4304,6 +4333,7 @@ window.tsscStartCheckout = async function (order) {
         }
       },
       handler: async function (resp) {
+        if (window.tsscOnPaymentConfirming) window.tsscOnPaymentConfirming();   /* TSSC-CONFIRMING-V1 */
         try {
           const v = await fetch(api + '/verify', {
             method: 'POST',
@@ -4322,6 +4352,7 @@ window.tsscStartCheckout = async function (order) {
             ' is unlocked on this account.');
         } catch (e) {
           // Money may well have been taken — never imply otherwise here.
+          if (window.tsscShowStep) window.tsscShowStep(2);                       /* TSSC-CONFIRMING-V1 */
           fail('Payment went through but confirming it failed. ' +
                'Your access will appear within a few minutes. ' +
                'If it does not, contact us with payment id ' +
