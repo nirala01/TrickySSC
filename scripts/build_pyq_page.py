@@ -66,6 +66,35 @@ MONTHS = {
 #
 # NOTE: it is a plain string, not an f-string, so its CSS/JS braces need no
 # doubling. It is interpolated into the f-string template as {MOCK_PROMO}.
+# ---------------------------------------------------------------------------
+# Subject-wise PYQ practice links (Quant / Reasoning / GK / English).
+# Plain raw string (no brace doubling) interpolated into the template as
+# {SUBJECT_LINKS}, right after the intro paragraph and before the tier buttons.
+# ---------------------------------------------------------------------------
+SUBJECT_LINKS = r"""
+    <!-- TSSC:SUBJECT-PYQ-LINKS:START -->
+    <style>
+      .subj-pyq-links { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:0.6rem; margin:0 0 1.4rem; }
+      .subj-pyq-links a { position:relative; overflow:hidden; display:flex; align-items:center; gap:0.55rem; background:#fff; border:1.5px solid #E2E8F0; border-radius:12px; padding:0.7rem 0.9rem; color:#1A202C; font-family:'Rajdhani',sans-serif; font-weight:700; font-size:0.92rem; transition:all .2s; }
+      .subj-pyq-links a:hover { transform:translateY(-2px); }
+      .subj-pyq-links a.q:hover { border-color:#FF6B00; box-shadow:0 6px 18px rgba(255,107,0,.2); }
+      .subj-pyq-links a.r:hover { border-color:#6366F1; box-shadow:0 6px 18px rgba(99,102,241,.2); }
+      .subj-pyq-links a.g:hover { border-color:#00A86B; box-shadow:0 6px 18px rgba(0,168,107,.2); }
+      .subj-pyq-links a.e:hover { border-color:#0EA5E9; box-shadow:0 6px 18px rgba(14,165,233,.2); }
+      .subj-pyq-links .spl-new { margin-left:auto; background:linear-gradient(135deg,#EF4444,#F97316); color:#fff; font-size:0.62rem; font-weight:800; letter-spacing:1.5px; padding:0.18rem 0.5rem; border-radius:100px; animation:tsscSplBlink 1.15s ease-in-out infinite; }
+      @keyframes tsscSplBlink { 0%,100%{opacity:1} 50%{opacity:.2} }
+      @media (prefers-reduced-motion:reduce) { .subj-pyq-links .spl-new { animation:none; } }
+    </style>
+    <div style="font-family:'Rajdhani',sans-serif;font-weight:800;font-size:0.95rem;color:#1E293B;margin:0 0 0.55rem;">🧮 Practice one subject at a time — 25 Qs · 15 min per shift</div>
+    <div class="subj-pyq-links">
+      <a class="q" href="https://trickyssc.com/ssc-cgl-quant-previous-year-questions.html"><span style="font-size:1.2rem;">🧮</span>Quant Previous Year Questions<span class="spl-new">NEW</span></a>
+      <a class="r" href="https://trickyssc.com/ssc-cgl-reasoning-previous-year-questions.html"><span style="font-size:1.2rem;">🧠</span>Reasoning Previous Year Questions<span class="spl-new">NEW</span></a>
+      <a class="g" href="https://trickyssc.com/ssc-cgl-gk-previous-year-questions.html"><span style="font-size:1.2rem;">🌍</span>GK Previous Year Questions<span class="spl-new">NEW</span></a>
+      <a class="e" href="https://trickyssc.com/ssc-cgl-english-previous-year-questions.html"><span style="font-size:1.2rem;">📖</span>English Previous Year Questions<span class="spl-new">NEW</span></a>
+    </div>
+    <!-- TSSC:SUBJECT-PYQ-LINKS:END -->
+"""
+
 MOCK_PROMO = r"""
 <!-- TSSC:MOCK-PROMO:START -->
 <style id="tsscMockPromoCSS">
@@ -842,6 +871,7 @@ def render(ordered):
     </div>
 
     <p style="color:#475569;font-size:0.9rem;line-height:1.55;margin:0 0 1.1rem;">Attempt <strong>free SSC CGL PYQ tests</strong> online — shift-wise Tier I &amp; Tier II previous year papers in Hindi &amp; English, with answer keys, detailed solutions and a real exam timer.</p>
+{SUBJECT_LINKS}
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:1.5rem;">
       <button id="t1-btn" onclick="switchTier('t1')" style="padding:0.9rem 1rem;border-radius:13px;border:2px solid #FF6B00;background:linear-gradient(135deg,#FF6B00,#FF8C38);color:white;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1rem;cursor:pointer;box-shadow:0 4px 16px rgba(255,107,0,0.28);display:flex;align-items:center;justify-content:center;gap:0.45rem;">🎯 Tier I</button>
