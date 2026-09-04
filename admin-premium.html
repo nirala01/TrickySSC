@@ -57,6 +57,7 @@ font-family:'Rajdhani',sans-serif;letter-spacing:.02em;white-space:nowrap;}
 .act[disabled]{opacity:.45;cursor:not-allowed;}
 .p-manual{background:#EDE9FE;color:#5B21B6;}
 .p-stage{background:#F1F5F9;color:#475569;}
+.p-fail{background:#FEE2E2;color:#B91C1C;}   /* TSSC-INTENT-V2 */
 .dlg{position:fixed;inset:0;background:rgba(15,23,42,.5);display:none;
 align-items:center;justify-content:center;padding:1rem;z-index:99;}
 .dlg.on{display:flex;}
@@ -333,7 +334,9 @@ async function load(force) {
           place: v.place || '', courseId: v.courseId || '',
           stage: v.stage || 'opened',
           clicks: Number(v.clicks) || 1,
-          lastAt: ts(v.lastAt)
+          lastAt: ts(v.lastAt),
+          failedAt: v.failedAt || '',            /* TSSC-INTENT-V2 */
+          lastError: v.lastError || ''
         };
       });
     } catch (e) {
@@ -486,7 +489,19 @@ function renderIntents() {
       : 'No one has opened the unlock popup yet.';
   }
 
-  const label = { opened: 'Opened the popup', details: 'Filled in details', paid: 'Paid' };
+  /* TSSC-INTENT-V2 — the checkout pages now also log `razorpay` (window
+     opened) and `failed` (+ failedAt / lastError) so a stuck buyer's row
+     says WHERE the try died, not just that it did. */
+  const label = { opened: 'Opened the popup', details: 'Filled in details',
+                  razorpay: 'Razorpay opened', paid: 'Paid', failed: 'Failed' };
+  const whereLabel = { order: 'order call failed', razorpay: 'payment failed in Razorpay',
+                       dismissed: 'closed the Razorpay window' };
+  const stageCell = i => {
+    const pill = `<span class="pill ${i.stage === 'failed' ? 'p-fail' : 'p-stage'}">${esc(label[i.stage] || i.stage)}</span>`;
+    if (i.stage !== 'failed' && !i.lastError) return pill;
+    const where = whereLabel[i.failedAt] || i.failedAt || '';
+    return pill + `<div class="em" style="margin-top:.25rem">${esc(where)}${where && i.lastError ? ' — ' : ''}${esc(i.lastError)}</div>`;
+  };
   document.getElementById('intentRows').innerHTML = rows.map(i => `<tr>
     <td data-l="Candidate">
       <div class="nm">${esc(i.name) || '—'}</div>
@@ -494,7 +509,7 @@ function renderIntents() {
       ${i.mobile ? `<div class="em mono">${esc(i.mobile)}</div>` : ''}
     </td>
     <td data-l="Course">${esc(i.courseId) || '—'}</td>
-    <td data-l="Got as far as"><span class="pill p-stage">${esc(label[i.stage] || i.stage)}</span></td>
+    <td data-l="Got as far as">${stageCell(i)}</td>
     <td data-l="Tries" class="mono">${i.clicks}</td>
     <td data-l="Last seen">${fmt(i.lastAt)}</td>
     <td data-l="Actions">${actionCell(i.uid, i.courseId)}</td>
@@ -664,10 +679,10 @@ document.addEventListener('click', async e => {
 $('intentCsv').onclick = () => {
   const withOrders = new Set(ROWS.map(x => x.uid).filter(Boolean));
   const rows = INTENTS.filter(i => !withOrders.has(i.uid));
-  const head = ['Name','Email','Mobile','Place','Course','Stage','Tries','Last seen','UID'];
+  const head = ['Name','Email','Mobile','Place','Course','Stage','Failed at','Last error','Tries','Last seen','UID'];
   const cell = v => `"${String(v == null ? '' : v).replace(/"/g, '""')}"`;
   const body = rows.map(i => [i.name, i.email, i.mobile, i.place, i.courseId,
-    i.stage, i.clicks, i.lastAt ? new Date(i.lastAt).toISOString().slice(0,10) : '', i.uid
+    i.stage, i.failedAt, i.lastError, i.clicks, i.lastAt ? new Date(i.lastAt).toISOString().slice(0,10) : '', i.uid
   ].map(cell).join(','));
   const blob = new Blob([[head.map(cell).join(',')].concat(body).join('\n')],
     { type: 'text/csv;charset=utf-8;' });
