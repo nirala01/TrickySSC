@@ -3,6 +3,47 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
+<!-- TSSC-FRESH-V1:START (2026-09-04) — self-healing page version.
+     BUMP the content below on EVERY deploy of this file. A browser holding a
+     cached older copy re-fetches this page on open, sees a newer stamp, and
+     reloads itself once — the candidate just sees the page load. -->
+<meta name="tssc-build" content="fresh-2026-09-04">
+<script>
+(function () {
+  var META = 'meta[name="tssc-build"]';
+  var cur  = (document.querySelector(META) || {}).content || '';
+  var KEY  = 'tssc_fresh_reloaded';
+  function freshStamp() {
+    return fetch(location.pathname + location.search, { cache: 'no-store', credentials: 'omit' })
+      .then(function (r) { return r.ok ? r.text() : ''; })
+      .then(function (html) {
+        var m = html.match(/<meta name="tssc-build" content="([^"]+)"/);
+        return m ? m[1] : '';
+      })
+      .catch(function () { return ''; });
+  }
+  /* Resolves true when the page just triggered a reload (caller should stop). */
+  function ensureFresh() {
+    if (!cur) return Promise.resolve(false);
+    return freshStamp().then(function (fresh) {
+      if (!fresh || fresh === cur) return false;
+      var done = '';
+      try { done = sessionStorage.getItem(KEY) || ''; } catch (e) {}
+      if (done === fresh) return false;            /* already reloaded for this stamp: never loop */
+      try { sessionStorage.setItem(KEY, fresh); } catch (e) {}
+      location.reload();
+      return true;
+    });
+  }
+  window.tsscBuild = cur;
+  window.tsscEnsureFresh = ensureFresh;
+  ensureFresh();                                    /* on open, silently */
+  window.addEventListener('pageshow', function (ev) {   /* tab restored from bfcache / back button */
+    if (ev.persisted) ensureFresh();
+  });
+})();
+</script>
+<!-- TSSC-FRESH-V1:END -->
 <title>SSC CGL Mock Test 2026 Free — Sectional Timing | TrickySSC</title>
 <meta name="description" content="4 free full-length SSC CGL mock tests with real exam interface and timer. Go Premium to unlock every mock for one &#8377;49 payment (not per test). Free account required. Real exam interface, timer, section analysis and solutions in English &amp; Hindi.">
 <link rel="canonical" href="https://trickyssc.com/ssc-cgl-mock-test">
@@ -4123,7 +4164,7 @@ function recordIntent(stage, extra) {
     stage:    stage,
     courseId: (ORDER && ORDER.courseId) || CFG.module,
     page:     (location.pathname.split('/').pop() || 'mock-list.html'),
-    build:    'nophone-2026-09-04',   /* TSSC-INTENT-V2: which checkout code the buyer ran */
+    build:    (window.tsscBuild || 'nophone-2026-09-04'),   /* TSSC-INTENT-V2 / TSSC-FRESH-V1: the page's build stamp */
     clicks:   increment(1),
     lastAt:   serverTimestamp()
   }, extra || {});
@@ -4351,6 +4392,13 @@ document.getElementById('mbpPay')?.addEventListener('click', async () => {
   btn.textContent = 'Continue to payment \u2192';
   tsscAskKeepOpen(async () => {
     try {
+      /* TSSC-FRESH-V1 — a tab left open across a deploy must never reach
+         Razorpay with stale code: check once more, reload if newer. */
+      if (typeof window.tsscEnsureFresh === 'function') {
+        showPreparing();
+        const reloading = await window.tsscEnsureFresh();
+        if (reloading) return;
+      }
       if (typeof window.tsscStartCheckout !== 'function') {
         throw new Error('Checkout is not wired up yet on this page.');
       }
