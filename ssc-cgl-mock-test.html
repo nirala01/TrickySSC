@@ -4130,6 +4130,12 @@ function recordIntent(stage, extra) {
     .catch(e => console.warn('[intent] not recorded:', e.message));
 }
 window.tsscRecordIntent = recordIntent;
+/* TSSC-INTENT-V2 (2026-09-04) — remember WHY a try failed so the admin page
+   can tell "order call failed" from "closed Razorpay" from "bank declined". */
+function recordFailure(where, msg) {
+  recordIntent('failed', { failedAt: where, lastError: String(msg || '').slice(0, 200) });
+}
+window.tsscRecordFailure = recordFailure;
 
 /* prefill name from the signed-in profile so the form is one tap */
 /* Prefill from the signed-in profile so the form is a couple of taps.
@@ -4351,6 +4357,7 @@ document.getElementById('mbpPay')?.addEventListener('click', async () => {
       await window.tsscStartCheckout(ORDER);
     } catch (e) {
       showStep(2);                                       /* TSSC-PREPARING-V1 */
+      recordFailure('order', e.message);                 /* TSSC-INTENT-V2 */
       fail(e.message || 'Could not start the payment. Please try again.');
     }
   });
@@ -4521,6 +4528,7 @@ window.tsscStartCheckout = async function (order) {
       modal: {
         ondismiss: () => {
           if (window.tsscShowStep) window.tsscShowStep(2);   /* TSSC-PREPARING-V1: back to the form */
+          if (window.tsscRecordFailure) window.tsscRecordFailure('dismissed', 'closed the Razorpay window');  /* TSSC-INTENT-V2 */
           // Closing the window is not a failure — the webhook still lands if
           // the payment actually went through.
           fail('Payment window closed. Nothing has been charged. ' +
@@ -4559,10 +4567,12 @@ window.tsscStartCheckout = async function (order) {
     });
     rzp.on('payment.failed', function (e) {
       if (window.tsscShowStep) window.tsscShowStep(2);       /* TSSC-PREPARING-V1: back to the form */
+      if (window.tsscRecordFailure) window.tsscRecordFailure('razorpay', e?.error?.description || e?.error?.reason || 'payment failed');  /* TSSC-INTENT-V2 */
       fail((e?.error?.description || 'The payment did not go through.') +
            ' Nothing has been charged.');
       done();
     });
+    if (window.tsscRecordIntent) window.tsscRecordIntent('razorpay');   /* TSSC-INTENT-V2: window opened */
     rzp.open();
   });
 };
