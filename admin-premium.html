@@ -336,7 +336,8 @@ async function load(force) {
           clicks: Number(v.clicks) || 1,
           lastAt: ts(v.lastAt),
           failedAt: v.failedAt || '',            /* TSSC-INTENT-V2 */
-          lastError: v.lastError || ''
+          lastError: v.lastError || '',
+          build: v.build || ''
         };
       });
     } catch (e) {
@@ -502,6 +503,11 @@ function renderIntents() {
     const where = whereLabel[i.failedAt] || i.failedAt || '';
     return pill + `<div class="em" style="margin-top:.25rem">${esc(where)}${where && i.lastError ? ' — ' : ''}${esc(i.lastError)}</div>`;
   };
+  /* No build stamp = the intent was written by the pre-4-Sept page (the one
+     with the broken mobile check) — a stale copy in the buyer's browser. */
+  const buildCell = i => i.build
+    ? `<div class="em mono">${esc(i.build)}</div>`
+    : `<div class="em" style="color:#B45309;font-weight:700">old page (no build stamp)</div>`;
   document.getElementById('intentRows').innerHTML = rows.map(i => `<tr>
     <td data-l="Candidate">
       <div class="nm">${esc(i.name) || '—'}</div>
@@ -509,7 +515,7 @@ function renderIntents() {
       ${i.mobile ? `<div class="em mono">${esc(i.mobile)}</div>` : ''}
     </td>
     <td data-l="Course">${esc(i.courseId) || '—'}</td>
-    <td data-l="Got as far as">${stageCell(i)}</td>
+    <td data-l="Got as far as">${stageCell(i)}${buildCell(i)}</td>
     <td data-l="Tries" class="mono">${i.clicks}</td>
     <td data-l="Last seen">${fmt(i.lastAt)}</td>
     <td data-l="Actions">${actionCell(i.uid, i.courseId)}</td>
@@ -679,10 +685,10 @@ document.addEventListener('click', async e => {
 $('intentCsv').onclick = () => {
   const withOrders = new Set(ROWS.map(x => x.uid).filter(Boolean));
   const rows = INTENTS.filter(i => !withOrders.has(i.uid));
-  const head = ['Name','Email','Mobile','Place','Course','Stage','Failed at','Last error','Tries','Last seen','UID'];
+  const head = ['Name','Email','Mobile','Place','Course','Stage','Failed at','Last error','Build','Tries','Last seen','UID'];
   const cell = v => `"${String(v == null ? '' : v).replace(/"/g, '""')}"`;
   const body = rows.map(i => [i.name, i.email, i.mobile, i.place, i.courseId,
-    i.stage, i.failedAt, i.lastError, i.clicks, i.lastAt ? new Date(i.lastAt).toISOString().slice(0,10) : '', i.uid
+    i.stage, i.failedAt, i.lastError, i.build, i.clicks, i.lastAt ? new Date(i.lastAt).toISOString().slice(0,10) : '', i.uid
   ].map(cell).join(','));
   const blob = new Blob([[head.map(cell).join(',')].concat(body).join('\n')],
     { type: 'text/csv;charset=utf-8;' });
