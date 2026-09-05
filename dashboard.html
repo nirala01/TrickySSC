@@ -1351,6 +1351,7 @@ const $ = id => document.getElementById(id);
 const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const n1 = v => (Math.round(v*10)/10).toString();
 const isChapter = a => a.type==='chapterwise';
+const isFullPaper = a => !isChapter(a) && a.testKind!=='pyq-subject';   // subject-wise PYQ sets and chapter tests have no cut-off
 const isMock = a => !isChapter(a) && !!(a.mockId || a.type==='mock' || (a.paperId||'').includes('_mock'));
 const isTier2 = a => a.tier==='tier2' || /tier2|tier-2|tier_2/i.test((a.paperId||'')+(a.mockId||''));
 const marksOf = a => { const h=a.marks!==undefined&&a.marks!==null&&a.marks!==''; return h?(parseFloat(a.marks)||0):Math.round(((parseFloat(a.percentage)||0)/100)*maxOf(a)); };
@@ -1443,7 +1444,7 @@ function paintTop(){
   if(full.length){ const a=full[0]; const m=marksOf(a), mx=maxOf(a); $('bsMarks').textContent=n1(m); $('bsMax').textContent='/'+mx; $('bsLabel').textContent='Last test · '+testName(a).slice(0,26);
     const avg=marks.length?marks.reduce((x,y)=>x+y,0)/marks.length:m; const df=m-avg; const e=$('bsDelta'); e.textContent=(df>=0?'▲ ':'▼ ')+n1(Math.abs(df))+' vs your average'; e.className=df>=0?'':'down'; $('bannerScore').style.display=''; }
   // goal line: % of the way to GEN cut-off on the latest 5 tier-1 tests
-  const g=$('wGoal'); if(g){ const t1=full.filter(a=>CUTOFFS[examTier(a)]&&examTier(a)===examTier(full.find(x=>CUTOFFS[examTier(x)])||a)).slice(0,5); if(t1.length){ const c=CUTOFFS[examTier(t1[0])]; const av=t1.reduce((s,a)=>s+meritMarks(a),0)/t1.length; const p=Math.min(100,Math.round(av/c.cut[CAT]*100)); g.textContent='🎯 '+p+'% of the way to last year\'s '+CAT+' cut-off ('+(c.merit?'Tier II':'Tier I')+')'; } }
+  const g=$('wGoal'); if(g){ const ff=full.filter(isFullPaper); const t1=ff.filter(a=>CUTOFFS[examTier(a)]&&examTier(a)===examTier(ff.find(x=>CUTOFFS[examTier(x)])||a)).slice(0,5); if(t1.length){ const c=CUTOFFS[examTier(t1[0])]; const av=t1.reduce((s,a)=>s+meritMarks(a),0)/t1.length; const p=Math.min(100,Math.round(av/c.cut[CAT]*100)); g.textContent='🎯 '+p+'% of the way to last year\'s '+CAT+' cut-off ('+(c.merit?'Tier II':'Tier I')+')'; } }
 }
 
 /* ───────── leaderboard lookups (paid) ───────── */
@@ -1573,9 +1574,10 @@ function renderRank(a){
 }
 
 function renderCutoff(full){
-  const el=$('cCutoff'); const first=full.find(a=>CUTOFFS[examTier(a)]); const t1=first?full.filter(a=>examTier(a)===examTier(first)):[];
+  const el=$('cCutoff'); const first=full.find(a=>isFullPaper(a)&&CUTOFFS[examTier(a)]); const t1=first?full.filter(a=>isFullPaper(a)&&examTier(a)===examTier(first)):[];
   const sel='<select class="cat-sel" id="catSel">'+CATS.map(c=>'<option value="'+c+'"'+(c===CAT?' selected':'')+'>'+c+'</option>').join('')+'</select>';
-  if(!t1.length){ el.innerHTML='<h4>Cut-off gap</h4><div class="pnote">Take a PYQ or mock of an exam with a published cut-off (SSC CGL Tier I / Tier II, CHSL Tier I) to compare.</div>'; return; }
+  if(!t1.length){ el.style.display='none'; return; }   // subject-wise PYQ / chapter tests only: no cut-off pane
+  el.style.display='';
   const a=t1[0]; const c=CUTOFFS[examTier(a)]; const m=OWNED?meritMarks(a):(c.merit?301:141); const cut=c.cut[CAT]; const mx=c.max; const {pos,neg}=posneg(a);
   const gap=m-cut; const qs=Math.ceil(Math.abs(gap)/pos);
   const av=t1.slice(0,5).reduce((s,x)=>s+meritMarks(x),0)/Math.min(5,t1.length);
@@ -1768,7 +1770,7 @@ function reportCard(full){
   let y=440; const latest=full[0]; const v=LB[lbKey(latest)];
   g.fillStyle='#fff'; g.font='bold 36px Rajdhani, sans-serif'; g.fillText('Latest: '+testName(latest).slice(0,40),60,y); y+=50;
   g.fillStyle='#CBD5E1'; g.font='30px Hind, sans-serif'; g.fillText(n1(marksOf(latest))+' / '+maxOf(latest)+' marks'+(rankOf(v)?'  ·  Rank #'+rankOf(v)+' of '+v.total+'  ·  '+pctile(v)+' percentile':''),60,y); y+=70;
-  const ct=CUTOFFS[examTier(latest)]; if(ct){ const gap=meritMarks(latest)-ct.cut[CAT]; g.fillStyle=gap>=0?'#86EFAC':'#FCA5A5'; g.font='bold 30px Rajdhani, sans-serif'; g.fillText((gap>=0?'Above ':'Below ')+CAT+' cut-off ('+n1(ct.cut[CAT])+') by '+n1(Math.abs(gap))+' marks',60,y); y+=70; }
+  const ct=isFullPaper(latest)?CUTOFFS[examTier(latest)]:null; if(ct){ const gap=meritMarks(latest)-ct.cut[CAT]; g.fillStyle=gap>=0?'#86EFAC':'#FCA5A5'; g.font='bold 30px Rajdhani, sans-serif'; g.fillText((gap>=0?'Above ':'Below ')+CAT+' cut-off ('+n1(ct.cut[CAT])+') by '+n1(Math.abs(gap))+' marks',60,y); y+=70; }
   const ch=chapterStats(full).filter(x=>x.name!=='Untagged'&&x.n>=3);
   const weak=ch.filter(x=>x.acc<0.7).sort((a,b)=>a.acc-b.acc).slice(0,4), strong=ch.filter(x=>x.acc>=0.7).sort((a,b)=>b.acc-a.acc).slice(0,4);
   const col=(x,title,items,color)=>{ let yy=y; g.fillStyle='#fff'; g.font='bold 34px Rajdhani, sans-serif'; g.fillText(title,x,yy); yy+=48; g.font='28px Hind, sans-serif'; if(!items.length){ g.fillStyle='#64748B'; g.fillText('— after a few more tests',x,yy); } items.forEach(i=>{ g.fillStyle=color; g.fillText(i.name.slice(0,22)+'  '+Math.round(i.acc*100)+'%',x,yy); yy+=42; }); };
