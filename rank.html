@@ -94,6 +94,23 @@
     </div>
     <div id="boardName" style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:16px;color:#475569;margin:-6px 0 16px;"></div>
 
+    <!-- TSSC-DASHPROMO-V1 -->
+    <a class="dp-promo" href="https://trickyssc.com/dashboard.html#pro">
+      <span class="dp-ribbon">✨ NEW</span>
+      <span class="dp-body"><b>Your dashboard just got an upgrade</b><span>Rank &amp; percentile on every test · cut-off gap for your category · chapter-wise weak areas · question-by-question report · compare with the topper</span></span>
+      <span class="dp-cta">Explore now →</span>
+    </a>
+    <style>
+    .dp-promo{position:relative;display:flex;align-items:center;gap:14px;margin:0 0 16px;padding:14px 18px;border-radius:14px;text-decoration:none;color:#fff;background:linear-gradient(135deg,#1A202C 0%,#0F172A 55%,#3B1D06 100%);border:1px solid rgba(251,191,36,.45);box-shadow:0 8px 28px rgba(15,23,42,.25);overflow:hidden;text-align:left;}
+    .dp-promo::after{content:'';position:absolute;top:0;left:-140%;width:60%;height:100%;background:linear-gradient(120deg,transparent,rgba(255,255,255,.14),transparent);transform:skewX(-22deg);animation:dpShine 4s ease-in-out infinite;}
+    @keyframes dpShine{0%{left:-140%;}55%,100%{left:160%;}}
+    .dp-ribbon{flex:0 0 auto;font-family:'Rajdhani',sans-serif;font-weight:800;font-size:12px;letter-spacing:.06em;background:linear-gradient(135deg,#FBBF24,#F59E0B);color:#442200;border-radius:100px;padding:4px 10px;}
+    .dp-body{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:3px;}
+    .dp-body b{font-family:'Rajdhani',sans-serif;font-size:17px;font-weight:800;color:#fff;}
+    .dp-body span{font-size:12px;color:rgba(255,255,255,.72);line-height:1.5;}
+    .dp-cta{flex:0 0 auto;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:14px;background:linear-gradient(135deg,#FF6B00,#FF8C38);color:#fff;border-radius:10px;padding:9px 16px;white-space:nowrap;box-shadow:0 4px 16px rgba(255,107,0,.4);}
+    @media(max-width:560px){.dp-promo{flex-wrap:wrap;}.dp-cta{width:100%;text-align:center;}}
+    </style>
     <div id="content">
       <div class="empty"><div class="spin"></div><div style="margin-top:12px;">Loading…</div></div>
     </div>
@@ -214,9 +231,37 @@ const params = new URLSearchParams(location.search);
 let CURRENT_UID = null;
 let CURRENT_PAPER = params.get('paper') || '';
 
+/* TSSC-RANKGATE-V1 — the leaderboard is part of Dashboard Pro (Rs 29). Same gate as
+   dashboard.html: allAccess OR modules['ssc-cgl-dashboard'] OR modules['ssc-cgl-mocks'].
+   Signed-out or free visitors see the unlock card instead of any rank. */
+const RG_ENFORCE=false;   /* PAYWALL SWITCH — false = rank free for everyone (preview). Set true to lock it behind Rs 29. */
+const RG_MODULES=['ssc-cgl-dashboard','ssc-cgl-mocks'];
+function rgActive(g){ if(!g||g.active!==true) return false; const e=g.expiresAt; if(!e) return true; const ms=e.toDate?e.toDate().getTime():(e.seconds?e.seconds*1000:Date.parse(e)); return !isFinite(ms)||ms>Date.now(); }
+async function rgOwned(uid){
+  if(!RG_ENFORCE) return true;
+  if(!uid) return false;
+  try{ const c=JSON.parse(sessionStorage.getItem('tssc_entd_'+uid)||'null'); if(c&&Date.now()-(c.ts||0)<600000) return !!c.owned; }catch(e){}
+  try{ const s=await getDoc(doc(db,'entitlements',uid)); const d=s.exists()?(s.data()||{}):{};
+    const o=rgActive(d.allAccess)||RG_MODULES.some(k=>rgActive((d.modules||{})[k]));
+    try{ sessionStorage.setItem('tssc_entd_'+uid,JSON.stringify({ts:Date.now(),owned:o})); }catch(e){}
+    return o; }catch(e){ return false; }
+}
+function rgLockedCard(signedIn){
+  return `<div class="hero" style="text-align:center;">
+    <div style="font-size:34px;line-height:1;">&#128274;</div>
+    <div style="font-family:'Rajdhani';font-weight:800;font-size:22px;color:#1E293B;margin-top:8px;">Rank &amp; leaderboard are part of Dashboard Pro</div>
+    <div style="font-size:13px;color:#64748B;margin:8px auto 14px;max-width:460px;line-height:1.6;">${signedIn?'':'Log in and unlock to see your rank. '}Rank, percentile, cut-off gap, chapter-wise weak areas, time analysis and Error Book &mdash; &#8377;29 for a year. Included free with the &#8377;49 mock series. Your marks and solutions stay free.</div>
+    <a href="https://trickyssc.com/dashboard.html#pro" style="display:inline-block;background:linear-gradient(135deg,#FF6B00,#FF8C38);color:#fff;font-family:'Rajdhani';font-weight:700;font-size:16px;padding:12px 26px;border-radius:10px;text-decoration:none;box-shadow:0 4px 16px rgba(255,107,0,.35);">Unlock for &#8377;29 &mdash; click here to know more</a>
+  </div>`;
+}
+
 onAuthStateChanged(auth, async (user) => {
   CURRENT_UID = user ? user.uid : null;
   CURRENT_PAPER = lbBaseId(CURRENT_PAPER);   // collapse hi/en → one board up front
+  if (!(await rgOwned(CURRENT_UID))) {        /* TSSC-RANKGATE-V1 */
+    $('content').innerHTML = rgLockedCard(!!user);
+    return;
+  }
   await buildPaperPicker(user);
   if (CURRENT_PAPER) loadLeaderboard(CURRENT_PAPER);
   else $('content').innerHTML = `<div class="empty">Select a test above to view its leaderboard.</div>`;
