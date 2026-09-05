@@ -419,6 +419,35 @@
   .eb-table td{padding:.5rem .4rem;border-bottom:1px solid #F1F5F9;vertical-align:middle;}
   .pro-empty{background:#F8FAFC;border-radius:14px;padding:1.4rem;text-align:center;color:#94A3B8;font-size:.9rem;}
   @media(max-width:760px){.pgrid2,.pgrid3{grid-template-columns:1fr;}.welcome-right{width:100%;justify-content:space-between;}.banner-score{text-align:left;}.teaser{padding:.5rem;}.teaser-box{padding:1rem;}}
+
+  /* ═══ mobile layout for the Pro cards ═══ */
+  @media(max-width:640px){
+    .pcard{padding:.9rem .9rem;border-radius:14px;}
+    .pcard h4{font-size:.95rem;}
+    .pcard h4 em{display:block;font-size:.76rem;margin-top:.1rem;}
+    .pcard h4 span[style*="float:right"]{float:none!important;display:block;margin-top:.4rem;}
+    .cat-sel{max-width:100%;}
+    .prow .lbl{width:44%;}
+    .prow .val{width:52px;font-size:.8rem;}
+    .kv{font-size:.84rem;}
+    .pbig{font-size:1.7rem;}
+    .ready{grid-template-columns:90px 1fr;gap:.7rem;}
+    .ring{width:90px;height:90px;}.ring div{width:68px;height:68px;}.ring b{font-size:1.3rem;}
+    /* question-by-question table becomes a card per question */
+    .eb-table,.eb-table tbody,.eb-table tr,.eb-table td{display:block;width:100%;}
+    .eb-table thead{display:none;}
+    .eb-table tr{border:1px solid var(--border);border-left-width:4px;border-radius:10px;padding:.55rem .7rem;margin-bottom:.55rem;background:#fff;}
+    .eb-table tr.pr-c{border-left-color:var(--green);}.eb-table tr.pr-w{border-left-color:#DC2626;}.eb-table tr.pr-k{border-left-color:#94A3B8;}
+    .eb-table td{border:none;padding:.15rem 0;max-width:none!important;}
+    .eb-table td[data-l="Q"]{display:inline-block;width:auto;font-family:'Rajdhani',sans-serif;font-weight:800;color:var(--gray);font-size:.78rem;}
+    .eb-table td[data-l="Q"]::before{content:"Q";}
+    .eb-table td.pq{font-size:.86rem;line-height:1.45;color:var(--dark);padding-bottom:.35rem;}
+    .eb-table td[data-l="Correct"],.eb-table td[data-l="You"],.eb-table td[data-l="% got it right"],.eb-table td[data-l="Level"]{display:inline-block;width:auto;margin-right:.9rem;font-size:.82rem;}
+    .eb-table td[data-l="Correct"]::before,.eb-table td[data-l="You"]::before,.eb-table td[data-l="% got it right"]::before,.eb-table td[data-l="Level"]::before{content:attr(data-l) ": ";color:var(--gray);font-weight:500;}
+    .eb-table td[data-l="% got it right"]::before{content:"Got right: ";}
+    .teaser-box{padding:.9rem;}
+    .gets{font-size:.8rem;}
+  }
 </style>
 <!-- TSSC-LOGINMODAL-V1: in-place login popup -->
 <script type="module" src="/login-modal.js"></script>
@@ -1683,7 +1712,7 @@ async function loadQtext(a){
   try{ const field=(a.mockId&&!a.paperId)?'mockId':'paperId';
     const sn=await getDocs(query(collection(db,'questions'),where(field,'==',id)));
     const m={}; sn.forEach(d=>{ const q=d.data()||{}; const n=parseInt(String(q.qNum||q.number||'').replace(/\D/g,''),10); if(!n) return;
-      const t=String(q.text||q.question||q.questionText||q.q||'').replace(/^\[FIGURE-BASED\]\s*/i,'').replace(/\[BR\]/g,' ').replace(/<[^>]*>?/g,' ').replace(/\$[^$]*\$/g,m=>m.replace(/\$/g,'')).replace(/\s+/g,' ').trim().slice(0,90);
+      const t=String(q.text||q.question||q.questionText||q.q||'').replace(/^\[FIGURE-BASED\]\s*/i,'').replace(/\[BR\]|\|\|/g,' ').replace(/<[^>]*>?/g,' ').replace(/\$[^$]*\$/g,m=>m.replace(/\$/g,'')).replace(/\s+/g,' ').trim().slice(0,90);
       m[n]={t, c:String(q.correct||'')}; });
     QT[id]=m; cacheSet('tssc_dp_qt_'+id,m); return m;
   }catch(e){ console.warn('[pro] questions',e.message); QT[id]={}; return QT[id]; }
@@ -1709,7 +1738,7 @@ function renderPerf(full){
        students: anchored on the question's difficulty tag when it has one, else a stable value per
        question in the 42-80% band. Marked with ~ and explained in the footnote. */
     const MIN_N=20; const est=n<MIN_N;
-    const seed=(q)=>{ let x=0; const str=k+'|'+q; for(let i=0;i<str.length;i++) x=(x*31+str.charCodeAt(i))>>>0; return x%1000/1000; };
+    const seed=(q)=>{ let x=2166136261; const str=k+'|'+q; for(let i=0;i<str.length;i++){ x^=str.charCodeAt(i); x=Math.imul(x,16777619)>>>0; } x^=x>>>13; x=Math.imul(x,0x5bd1e995)>>>0; x^=x>>>15; return (x%10007)/10007; };
     const estimate=(x)=>{ const base=x.d==='easy'?76:x.d==='hard'?34:x.d==='moderate'?56:(42+Math.round(seed(x.q)*38)); const jit=Math.round((seed(x.q+'j')-0.5)*14); return Math.max(12,Math.min(94,base+jit)); };
     let t='<div style="overflow-x:auto"><table class="eb-table"><thead><tr><th>Q</th><th>Question</th><th>Correct</th><th>You</th><th>% got it right</th><th>Level</th></tr></thead><tbody>';
     let e=0,m=0,hd=0;
@@ -1718,7 +1747,7 @@ function renderPerf(full){
       if(tag){ if(tag[0]==='Easy')e++; else if(tag[0]==='Hard')hd++; else m++; }
       const txt=sample?'Sample question text — appears here for your real tests':((qt[x.q]&&qt[x.q].t)||('Question '+x.q+(x.s?' · '+(SUBJ_NAME[skey(x.s)]||x.s):'')));
       const corr=x.c||(qt[x.q]&&qt[x.q].c)||'—';
-      t+='<tr><td>'+x.q+'</td><td style="max-width:420px;">'+esc(txt)+'</td><td class="good"><b>'+esc(corr)+'</b></td><td class="'+(x.r==='c'?'good':x.r==='w'?'bad':'muted')+'"><b>'+(x.r==='k'?'Skipped':esc(x.a))+'</b>'+(x.t?' <span class="muted">'+x.t+'s</span>':'')+'</td><td>'+(pc==null?'<span class="muted">—</span>':(est&&!sample?'~':'')+pc+'%')+'</td><td>'+(tag?'<span class="'+tag[1]+'">'+tag[0]+'</span>':'<span class="muted">—</span>')+'</td></tr>'; });
+      t+='<tr class="'+(x.r==='c'?'pr-c':x.r==='w'?'pr-w':'pr-k')+'"><td data-l="Q">'+x.q+'</td><td data-l="Question" class="pq" style="max-width:420px;">'+esc(txt)+'</td><td data-l="Correct" class="good"><b>'+esc(corr)+'</b></td><td data-l="You" class="'+(x.r==='c'?'good':x.r==='w'?'bad':'muted')+'"><b>'+(x.r==='k'?'Skipped':esc(x.a))+'</b>'+(x.t?' <span class="muted">'+x.t+'s</span>':'')+'</td><td data-l="% got it right">'+(pc==null?'<span class="muted">—</span>':(est&&!sample?'~':'')+pc+'%')+'</td><td data-l="Level">'+(tag?'<span class="'+tag[1]+'">'+tag[0]+'</span>':'<span class="muted">—</span>')+'</td></tr>'; });
     t+='</tbody></table></div>';
     const wrongEasy=ans.filter(x=>x.r!=='c'&&(est?estimate(x)>=70:(()=>{const st=(qs.q||{})['q'+x.q];return st&&Number(st.c)/n>=0.7;})())).length;
     t+='<div class="pnote">'+(est?'"% got it right" is an estimate (~) until more candidates have taken this test. ':'Based on '+n+' candidates who took this test. ')+(e+m+hd?'Easy '+e+' · Moderate '+m+' · Hard '+hd+'. ':'')+(wrongEasy?'<b>'+wrongEasy+' easy question'+(wrongEasy>1?'s':'')+'</b> (70%+ got them right) you missed — the cheapest marks to recover.':'')+'</div>';
