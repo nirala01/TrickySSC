@@ -1708,13 +1708,35 @@ function cacheGet(k){ try{ const o=JSON.parse(sessionStorage.getItem(k)||'null')
 function cacheSet(k,v){ try{ sessionStorage.setItem(k,JSON.stringify({ts:Date.now(),v})); }catch(e){} }
 async function loadQstats(k){ if(QS[k]) return QS[k]; const c=cacheGet('tssc_dp_qs_'+k); if(c){ QS[k]=c; return c; }
   try{ const sn=await getDoc(doc(db,'qstats',k)); const v=sn.exists()?(sn.data()||{}):{}; QS[k]=v; cacheSet('tssc_dp_qs_'+k,v); return v; }catch(e){ console.warn('[pro] qstats',e.message); QS[k]={}; return QS[k]; } }
+/* LaTeX → readable plain text for the question glimpse (the test pages render it with KaTeX; here we only
+   show a truncated snippet, so a renderer would break on cut formulas). */
+const TEX_SYM={alpha:'α',beta:'β',gamma:'γ',delta:'δ',theta:'θ',lambda:'λ',mu:'μ',pi:'π',sigma:'σ',phi:'φ',omega:'ω',Delta:'Δ',
+  times:'×',div:'÷',cdot:'·',pm:'±',le:'≤',leq:'≤',ge:'≥',geq:'≥',ne:'≠',neq:'≠',approx:'≈',infty:'∞',rightarrow:'→',to:'→',
+  angle:'∠',triangle:'△',perp:'⊥',parallel:'∥',degree:'°',circ:'°',ldots:'…',cdots:'…',sqrt:'√',percent:'%',rupee:'₹',Rs:'₹'};
+const SUP={'0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹','n':'ⁿ','-':'⁻','+':'⁺'};
+function texToText(t){
+  let s=String(t||'');
+  s=s.replace(/\\[\(\)\[\]]/g,' ').replace(/\$\$?/g,' ');                               // \( \) \[ \] $ delimiters
+  for(let i=0;i<3;i++) s=s.replace(/\\[dt]?frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}/g,'$1/$2');   // \frac{a}{b}
+  s=s.replace(/\\sqrt\s*\[([^\]]*)\]\s*\{([^{}]*)\}/g,'$1√($2)').replace(/\\sqrt\s*\{([^{}]*)\}/g,'√$1').replace(/\\sqrt\s*(\S)/g,'√$1');
+  s=s.replace(/\\(?:text|mathrm|mathbf|operatorname|mbox)\s*\{([^{}]*)\}/g,'$1');
+  s=s.replace(/\^\s*\{\\circ\}|\^\s*\\circ|\^\s*\{?°\}?/g,'°');
+  s=s.replace(/\^\s*\{([^{}]*)\}/g,(m,a)=>[...a].every(c=>SUP[c])?[...a].map(c=>SUP[c]).join(''):'^('+a+')');
+  s=s.replace(/\^([0-9n])/g,(m,a)=>SUP[a]);
+  s=s.replace(/_\s*\{([^{}]*)\}/g,'$1').replace(/_([0-9a-z])/g,'$1');
+  s=s.replace(/\\(sin|cos|tan|cot|sec|cosec|csc|log|ln)\b/g,'$1');
+  s=s.replace(/\\([A-Za-z]+)/g,(m,k)=>TEX_SYM[k]!==undefined?TEX_SYM[k]:k);
+  s=s.replace(/\\([^A-Za-z])/g,'$1');                                                      // \% \, \{
+  s=s.replace(/[{}]/g,'').replace(/\s+([,.;:)])/g,'$1').replace(/\s+/g,' ').trim();
+  return s;
+}
 async function loadQtext(a){
   const id=a.paperId||a.mockId||''; if(!id) return {};
   if(QT[id]) return QT[id]; const c=cacheGet('tssc_dp_qt_'+id); if(c){ QT[id]=c; return c; }
   try{ const field=(a.mockId&&!a.paperId)?'mockId':'paperId';
     const sn=await getDocs(query(collection(db,'questions'),where(field,'==',id)));
     const m={}; sn.forEach(d=>{ const q=d.data()||{}; const n=parseInt(String(q.qNum||q.number||'').replace(/\D/g,''),10); if(!n) return;
-      const t=String(q.text||q.question||q.questionText||q.q||'').replace(/^\[FIGURE-BASED\]\s*/i,'').replace(/\[BR\]|\|\|/g,' ').replace(/<[^>]*>?/g,' ').replace(/\$[^$]*\$/g,m=>m.replace(/\$/g,'')).replace(/\s+/g,' ').trim().slice(0,90);
+      const t=texToText(String(q.text||q.question||q.questionText||q.q||'')).replace(/^\[FIGURE-BASED\]\s*/i,'').replace(/\[BR\]|\|\|/g,' ').replace(/<[^>]*>?/g,' ').replace(/\$[^$]*\$/g,m=>m.replace(/\$/g,'')).replace(/\s+/g,' ').trim().slice(0,90);
       m[n]={t, c:String(q.correct||'')}; });
     QT[id]=m; cacheSet('tssc_dp_qt_'+id,m); return m;
   }catch(e){ console.warn('[pro] questions',e.message); QT[id]={}; return QT[id]; }
