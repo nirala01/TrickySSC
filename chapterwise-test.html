@@ -1750,6 +1750,11 @@ let questions=[],answers={},markedForReview={},currentQ=0,sections=[],curTS=0;
 let enQMap={},showEnglishQ={},enMapLoaded=false,enMapLoading=false,enFetchError=false;
 let enFetchParams=null;
 let timeLeft=0,timerInterval=null,paused=false,isSubmitting=false;
+/* ── TSSC-ANSWERS-V1: per-question time tracker (feeds dashboard analytics).
+   Purely additive: nothing here touches the paywall, gate, login or REST paths. ── */
+const _qtime={};let _qtLast=null,_qtAt=0;
+function _qtTick(){try{const now=Date.now();if(_qtLast!==null&&!paused&&_qtAt)_qtime[_qtLast]=(_qtime[_qtLast]||0)+(now-_qtAt);_qtAt=now;_qtLast=currentQ;}catch(_){}}
+
 let currentUser=null;
 let authReady=false;          // true once onAuthStateChanged has fired at least once
 let exam='ssc-cgl',year='',mockMeta=null,_reportTestId='';
@@ -1946,7 +1951,7 @@ function startTimer(){
   timerInterval=setInterval(()=>{ timeLeft--; tick(); },1000);
 }
 
-window.togglePause=function(){
+window.togglePause=function(){_qtTick();
   if(!CW.timed || isSubmitting) return;
   if(!paused && !timerInterval) return;
   if(!paused){
@@ -2000,6 +2005,7 @@ async function saveChapterAttempt(correct,wrong,skip,marks,pct){
     total:questions.length,
     marks, percentage:pct,
     name:uname, email:uemail, phone:uphone,
+    answers:(window._cwAnsLog||[]), timeUsed:(window._cwTimeUsed||0), analyticsV:1,   // TSSC-ANSWERS-V1
     timestamp:serverTimestamp(),
     clientSubmittedAt:new Date().toISOString()
   };
@@ -2013,7 +2019,10 @@ window.submitTest=async(auto)=>{
   if(timerInterval){clearInterval(timerInterval);timerInterval=null;}
   paused=false; const po=document.getElementById('pauseOverlay'); if(po)po.style.display='none';
   let correct=0,wrong=0,skip=0;
-  questions.forEach((q,i)=>{ const a=answers[i]; if(!a) skip++; else if(a===q.correct) correct++; else wrong++; });
+  _qtTick();window._cwAnsLog=[];  // TSSC-ANSWERS-V1
+  questions.forEach((q,i)=>{ const a=answers[i]; if(!a) skip++; else if(a===q.correct) correct++; else wrong++;
+    window._cwAnsLog.push({q:(parseInt(q.qNum,10)||(i+1)),ch:String(q.chapter||CHID||'').trim(),d:String(q.difficulty||'').trim().toLowerCase(),a:a||'',c:String(q.correct||''),r:(!a?'k':(a===q.correct?'c':'w')),t:Math.round((_qtime[i]||0)/1000)}); });
+  window._cwTimeUsed=Math.round(Object.values(_qtime).reduce((x,y)=>x+y,0)/1000);
   const marks=(correct*2-wrong*0.5);
   const max=questions.length*2;
   const pct= max? Math.round((marks/max)*1000)/10 : 0;
@@ -2097,7 +2106,7 @@ function normaliseQ(q) {
   }
 }
 
-function renderQ(){
+function renderQ(){_qtTick();
   if(!questions.length){
     document.getElementById('qText').innerHTML='<span style="color:#94A3B8;">Loading questions...</span>';
     document.getElementById('options').innerHTML='';

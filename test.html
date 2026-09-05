@@ -1371,6 +1371,11 @@ catch(_){ db = getFirestore(app); }   // Firestore already initialized elsewhere
 const auth=getAuth(app);
 
 let questions=[],answers={},markedForReview={},currentQ=0,timeLeft=3600,timerInterval,currentUser=null,sections=[],paused=false;
+/* ── TSSC-ANSWERS-V1: per-question time tracker (feeds dashboard analytics).
+   Purely additive: nothing here touches the paywall, gate, login or REST paths. ── */
+const _qtime={};let _qtLast=null,_qtAt=0;
+function _qtTick(){try{const now=Date.now();if(_qtLast!==null&&!paused&&_qtAt)_qtime[_qtLast]=(_qtime[_qtLast]||0)+(now-_qtAt);_qtAt=now;_qtLast=currentQ;}catch(_){}}
+
 const SECTION_DUR=15*60; // 15 minutes per section
 let curTS=0, tsRemaining=[], tsSubmitted=[];
 const SUBJECT_SHORT={
@@ -1895,7 +1900,7 @@ window.beginTest=function(){
   }));
 };
 
-function renderQ(){
+function renderQ(){_qtTick();
   if(!questions.length){
     document.getElementById('qText').innerHTML='<span style="color:#94A3B8;">Loading questions...</span>';
     document.getElementById('options').innerHTML='';
@@ -2365,7 +2370,7 @@ function updateSubmitBtn(){
   }
 }
 
-window.togglePause=function(){
+window.togglePause=function(){_qtTick();
   // Don't allow pausing before the test has started or after submission
   if(!paused && !timerInterval) return;
   if(typeof isSubmitting!=='undefined' && isSubmitting) return;
@@ -2468,6 +2473,7 @@ window.submitTest=async()=>{
   isSubmitting=true;clearInterval(timerInterval);setSaveUi('saving','⏳ Saving your result...');
   let correct=0,wrong=0,skip=0;
   const subjectStats={};
+  _qtTick();const _ansLog=[];  // TSSC-ANSWERS-V1
   questions.forEach((q,i)=>{
     const a=answers[i];
     const subj=(SUBJECT_SHORT[(q.subject||q.section||'').trim()]||(q.subject||q.section||'General').trim()||'General');
@@ -2475,8 +2481,11 @@ window.submitTest=async()=>{
     if(!a){skip++;subjectStats[subj].skip++;}
     else if(a===q.correct){correct++;subjectStats[subj].correct++;}
     else{wrong++;subjectStats[subj].wrong++;}
+    _ansLog.push({q:(parseInt(q.qNum,10)||(i+1)),s:subj,ch:String(q.chapter||'').trim(),d:String(q.difficulty||'').trim().toLowerCase(),a:a||'',c:String(q.correct||''),r:(!a?'k':(a===q.correct?'c':'w')),t:Math.round((_qtime[i]||0)/1000)});
   });
   const marks=(correct*2-wrong*0.5).toFixed(1);
+  const _subjMarks={};Object.keys(subjectStats).forEach(k=>{const _s=subjectStats[k];_subjMarks[k]=+(_s.correct*2-_s.wrong*0.5).toFixed(1);});
+  const _timeUsed=Math.round(Object.values(_qtime).reduce((x,y)=>x+y,0)/1000);  // TSSC-ANSWERS-V1
   const maxMarks = questions.length * 2;
   const pct = parseFloat(((parseFloat(marks)/maxMarks)*100).toFixed(1));
   document.getElementById('testScreen').style.display='none';
@@ -2603,14 +2612,14 @@ window.submitTest=async()=>{
   const _examLabel = mockMeta?.title || ((_examNames[exam]||(exam||'').toUpperCase().replace(/-/g,' '))+(year?' '+year:''));
   const _pid=new URLSearchParams(window.location.search).get('paperId')||'';
   const _mid=new URLSearchParams(window.location.search).get('mockId')||'';
-  const payload={uid:currentUser.uid,exam,year:year||'',examName:_examLabel,paperId:_pid,mockId:_mid,total:questions.length,correct,wrong,skip,marks:parseFloat(marks),percentage:pct,subjectStats,timestamp:serverTimestamp(),clientSubmittedAt:new Date().toISOString()};
+  const payload={uid:currentUser.uid,exam,year:year||'',examName:_examLabel,paperId:_pid,mockId:_mid,total:questions.length,correct,wrong,skip,marks:parseFloat(marks),percentage:pct,subjectStats,subjectMarks:_subjMarks,answers:_ansLog,timeUsed:_timeUsed,analyticsV:1,timestamp:serverTimestamp(),clientSubmittedAt:new Date().toISOString()};
   // Leaderboard: record best score for this paper (non-blocking) + reveal Rank button
   const _lbId=_pid||_mid;
   // Language-agnostic leaderboard key so Hindi & English candidates for the
   // same paper/mock share ONE ranking (drop a trailing hi/en/hindi/english).
   const _lbBase=String(_lbId||'').replace(/([_\-])(hi|en|hindi|english)$/i,'');
   if(_lbId){
-    recordScore({uid:currentUser.uid,displayName:currentUser?.displayName,paperId:_lbBase,paperName:_examLabel,marks:parseFloat(marks),maxMarks:maxMarks,accuracy:pct}).catch(()=>{});
+    recordScore({uid:currentUser.uid,displayName:currentUser?.displayName,paperId:_lbBase,paperName:_examLabel,marks:parseFloat(marks),maxMarks:maxMarks,accuracy:pct,subjectMarks:_subjMarks,timeUsed:_timeUsed}).catch(()=>{});
     const _rb=document.getElementById('viewRankBtn');
     if(_rb){_rb.href='rank.html?paper='+encodeURIComponent(_lbBase)+'&from=test';_rb.style.display='inline-block';}
   }

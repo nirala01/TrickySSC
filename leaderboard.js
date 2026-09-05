@@ -56,6 +56,16 @@ export async function recordScore(o) {
     const maxMarks = Number(o.maxMarks) || 0;
     const accuracy = (o.accuracy != null && !isNaN(o.accuracy)) ? Number(o.accuracy) : null;
     if (!paperId) return;
+    // TSSC-ANSWERS-V1: per-subject marks (for section rank on the dashboard)
+    // and time used. Only numbers are kept; anything odd is dropped silently.
+    const subjectMarks = {};
+    if (o.subjectMarks && typeof o.subjectMarks === 'object') {
+      for (const k of Object.keys(o.subjectMarks)) {
+        const v = Number(o.subjectMarks[k]);
+        if (k && !isNaN(v)) subjectMarks[String(k).slice(0, 40)] = v;
+      }
+    }
+    const timeUsed = (o.timeUsed != null && !isNaN(o.timeUsed)) ? Math.max(0, Math.round(Number(o.timeUsed))) : null;
 
     const name = await resolveName(uid, o.displayName);
     const ref  = doc(db, 'leaderboards', paperId, 'scores', uid);
@@ -69,6 +79,7 @@ export async function recordScore(o) {
           uid, name, paperId,
           paperName: (o.paperName || (cur.exists() ? cur.data().paperName : '') || '').trim(),
           marks, maxMarks, accuracy,
+          subjectMarks, timeUsed,                       // TSSC-ANSWERS-V1
           submittedAt: serverTimestamp()
         });
       } else if (cur.exists() && cur.data().name !== name && name !== 'Student') {
