@@ -1251,7 +1251,7 @@ window.doLogout = async () => {
    ═══════════════════════════════════════════════════════════════════════════ */
 import { getApps, getApp, initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getFirestore, doc, getDoc, updateDoc, collection, query, where, orderBy, limit, getDocs,
-         getCountFromServer, getAggregateFromServer, average, count }
+         getCountFromServer, getAggregateFromServer, average, count, FieldPath }
   from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { getAuth } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
@@ -1313,7 +1313,7 @@ const CH_ALIAS = { 'trigo':'Trigonometry','trigonometry':'Trigonometry','geometr
   'coding decoding':'Coding-Decoding','coding-decoding':'Coding-Decoding','blood relation':'Blood Relations','blood relations':'Blood Relations',
   'polity':'Polity','indian polity':'Polity','history':'History','geography':'Geography','economy':'Economy','economics':'Economy',
   'science':'Science','general science':'Science','current affairs':'Current Affairs','static gk':'Static GK' };
-function chName(raw){ const r=String(raw||'').trim(); if(!r) return ''; return CH_ALIAS[r.toLowerCase()] || r.replace(/\b\w/g,c=>c.toUpperCase()); }
+function chName(raw){ const r=String(raw||'').replace(/<[^>]*>/g,' ').replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/\s+/g,' ').trim().slice(0,40); if(!r) return ''; return CH_ALIAS[r.toLowerCase()] || r.replace(/\b\w/g,c=>c.toUpperCase()); }
 const chSlug = n => String(n||'').toLowerCase().replace(/&/g,'and').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
 
 /* ───────── helpers ───────── */
@@ -1430,7 +1430,7 @@ async function fetchRanks(full){
       if(!me.exists()) { LB[k]={none:true}; return; }
       const md=me.data(); const my=Number(md.marks)||0;
       const spec={ total:count(), avg:average('marks'), tAvg:average('timeUsed') };
-      const sm=md.subjectMarks||{}; Object.keys(sm).forEach(s=>{ spec['s_'+s.replace(/[^a-zA-Z0-9]/g,'_')]=average('subjectMarks.'+s); });
+      const sm=md.subjectMarks||{}; Object.keys(sm).forEach(s=>{ spec['s_'+s.replace(/[^a-zA-Z0-9]/g,'_')]=average(new FieldPath('subjectMarks',s)); });   // FieldPath: keys like 'Gen. Awareness' contain a dot
       const [agg, ahead, top] = await Promise.all([
         getAggregateFromServer(col, spec),
         getCountFromServer(query(col, where('marks','>',my))),
@@ -1441,7 +1441,7 @@ async function fetchRanks(full){
       top.forEach(d=>{ v.top=Number(d.data().marks)||0; v.topName=d.data().name||''; });
       // section ranks: one count per subject the score row carries
       const secs=Object.keys(sm);
-      const counts=await Promise.all(secs.map(s=>getCountFromServer(query(col, where('subjectMarks.'+s,'>',Number(sm[s])||0)))));
+      const counts=await Promise.all(secs.map(s=>getCountFromServer(query(col, where(new FieldPath('subjectMarks',s),'>',Number(sm[s])||0)))));
       secs.forEach((s,i)=>{ v.subj[s]={ my:Number(sm[s])||0, ahead:counts[i].data().count||0, avg:ad['s_'+s.replace(/[^a-zA-Z0-9]/g,'_')]||0 }; });
       LB[k]=v; lbCacheSet(k,v);
     }catch(e){ console.warn('[pro] leaderboard',k,e.message); LB[k]={err:true}; }

@@ -2526,7 +2526,7 @@ window.submitTest=async()=>{
     if(!a){skip++;subjectStats[subj].skip++;}
     else if(a===q.correct){correct++;subjectStats[subj].correct++;}
     else{wrong++;subjectStats[subj].wrong++;}
-    _ansLog.push({q:(parseInt(q.qNum,10)||(i+1)),s:subj,ch:String(q.chapter||q.concept||'').trim().slice(0,40),   /* chapter, else the solution's concept tag */d:String(q.difficulty||'').trim().toLowerCase(),a:a||'',c:String(q.correct||''),r:(!a?'k':(a===q.correct?'c':'w')),t:Math.round((_qtime[i]||0)/1000)});
+    _ansLog.push({q:(parseInt(q.qNum,10)||(i+1)),s:subj,ch:String(q.chapter||q.concept||'').replace(/<[^>]*>/g,' ').replace(/&nbsp;|&amp;/g,m=>m==='&amp;'?'&':' ').replace(/\s+/g,' ').trim().slice(0,40),   /* chapter, else the solution's concept tag (HTML stripped) */d:String(q.difficulty||'').trim().toLowerCase(),a:a||'',c:String(q.correct||''),r:(!a?'k':(a===q.correct?'c':'w')),t:Math.round((_qtime[i]||0)/1000)});
   });
   const marks=(correct*2-wrong*0.5).toFixed(1);
   const _subjMarks={};Object.keys(subjectStats).forEach(k=>{const _s=subjectStats[k];_subjMarks[k]=+(_s.correct*2-_s.wrong*0.5).toFixed(1);});
