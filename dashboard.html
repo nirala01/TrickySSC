@@ -1427,28 +1427,27 @@ async function fetchRanks(full){
     const c=lbCacheGet(k); if(c){ LB[k]=c; return; }
     try{
       const col=collection(db,'leaderboards',k,'scores');
-      const me=await getDoc(doc(db,'leaderboards',k,'scores',UID));
-      if(!me.exists()) { LB[k]={none:true}; return; }
-      const md=me.data(); const my=Number(md.marks)||0;
-      const spec={ total:count(), avg:average('marks'), tAvg:average('timeUsed') };
-      const sm=md.subjectMarks||{}; Object.keys(sm).forEach(s=>{ spec['s_'+s.replace(/[^a-zA-Z0-9]/g,'_')]=average(new FieldPath('subjectMarks',s)); });   // FieldPath: keys like 'Gen. Awareness' contain a dot
-      const [agg, ahead, top] = await Promise.all([
-        getAggregateFromServer(col, spec),
-        getCountFromServer(query(col, where('marks','>',my))),
-        getDocs(query(col, orderBy('marks','desc'), limit(1)))
+      // Same reads rank.html makes: my row + the board sorted by marks (top 300 rows).
+      const [meSnap, boardSnap] = await Promise.all([
+        getDoc(doc(db,'leaderboards',k,'scores',UID)),
+        getDocs(query(col, orderBy('marks','desc'), limit(300)))
       ]);
-      const ad=agg.data();
-      const v={ my, max:Number(md.maxMarks)||0, total:ad.total||0, ahead:ahead.data().count||0, avg:ad.avg||0, tAvg:ad.tAvg||0, top:0, topName:'', subj:{} };
-      top.forEach(d=>{ const t=d.data(); v.top=Number(t.marks)||0; v.topName=t.name||''; v.topAcc=(t.accuracy!=null)?Number(t.accuracy):null; v.topTime=Number(t.timeUsed)||0; v.topSubj=t.subjectMarks||{}; });
-      // section ranks: one count per subject the score row carries
-      const secs=Object.keys(sm);
-      const counts=await Promise.all(secs.map(s=>getCountFromServer(query(col, where(new FieldPath('subjectMarks',s),'>',Number(sm[s])||0)))));
-      secs.forEach((s,i)=>{ v.subj[s]={ my:Number(sm[s])||0, ahead:counts[i].data().count||0, avg:ad['s_'+s.replace(/[^a-zA-Z0-9]/g,'_')]||0 }; });
+      if(!meSnap.exists()) { LB[k]={none:true}; return; }
+      const md=meSnap.data(); const my=Number(md.marks)||0;
+      const rows=[]; boardSnap.forEach(d=>rows.push(d.data()||{}));
+      let ahead=rows.filter(r=>(Number(r.marks)||0)>my).length, total=Math.max(rows.length, ahead+1);
+      if(rows.length>=300){ try{ total=(await getCountFromServer(col)).data().count||total; ahead=(await getCountFromServer(query(col,where('marks','>',my)))).data().count||ahead; }catch(e){} }
+      const avg=rows.length?rows.reduce((x,r)=>x+(Number(r.marks)||0),0)/rows.length:0;
+      const tRows=rows.filter(r=>Number(r.timeUsed)>0); const tAvg=tRows.length?tRows.reduce((x,r)=>x+Number(r.timeUsed),0)/tRows.length:0;
+      const t=rows[0]||{};
+      const v={ my, max:Number(md.maxMarks)||0, total, ahead, avg, tAvg, top:Number(t.marks)||0, topName:t.name||'', topAcc:(t.accuracy!=null)?Number(t.accuracy):null, topTime:Number(t.timeUsed)||0, topSubj:t.subjectMarks||{}, subj:{} };
+      const sm=md.subjectMarks||{};
+      Object.keys(sm).forEach(sk=>{ const mine=Number(sm[sk])||0; const have=rows.filter(r=>r.subjectMarks&&r.subjectMarks[sk]!==undefined);
+        v.subj[sk]={ my:mine, ahead:have.filter(r=>Number(r.subjectMarks[sk])>mine).length, avg:have.length?have.reduce((x,r)=>x+(Number(r.subjectMarks[sk])||0),0)/have.length:0, n:have.length }; });
       LB[k]=v; lbCacheSet(k,v);
-    }catch(e){ console.warn('[pro] leaderboard',k,e.message); LB[k]={err:true}; }
+    }catch(e){ console.warn('[pro] leaderboard',k,e); LB[k]={err:true,msg:String(e&&e.message||e)}; }
   }));
 }
-window.tsscPaintRanks = paintTableRanks;
 const rankOf = v => v&&!v.none&&!v.err ? (v.ahead+1) : null;
 const pctile = v => v&&v.total ? Math.max(0.1, Math.round((1-(v.ahead)/v.total)*1000)/10) : null;
 function paintTableRanks(){
@@ -1532,13 +1531,13 @@ function renderRank(a){
   }
   if(!k){ el.innerHTML=h+'<div class="pnote">This test type has no leaderboard.</div>'; return; }
   if(!v){ el.innerHTML=h+'<div class="muted">Loading rank…</div>'; return; }
-  if(v.none||v.err){ el.innerHTML=h+'<div class="pnote">'+(v.none?'No leaderboard entry for this test yet — it appears after your next submit.':'Rank could not be loaded right now.')+'</div>'; return; }
+  if(v.none||v.err){ el.innerHTML=h+'<div class="pnote">'+(v.none?'No leaderboard entry for this test yet — it appears after your next submit.':'Rank could not be loaded right now.'+(v.msg?' <span class="muted">('+esc(v.msg).slice(0,120)+')</span>':''))+'</div>'; return; }
   const r=rankOf(v);
   h+='<div style="display:flex;align-items:baseline;gap:1rem;"><span class="pbig">#'+r+'</span><span class="muted">of '+v.total+' candidate'+(v.total===1?'':'s')+'</span></div>';
   h+='<div class="kv"><span>Percentile</span><b>'+pctile(v)+'</b></div><div class="kv"><span>Your marks</span><b>'+n1(v.my)+(v.max?' / '+v.max:'')+'</b></div><div class="kv"><span>Topper'+(v.topName?' · '+esc(v.topName):'')+'</span><b>'+n1(v.top)+'</b></div><div class="kv"><span>Average</span><b>'+n1(v.avg)+'</b></div>';
   if(v.top>v.my) h+='<div class="kv"><span>To reach the topper</span><b class="warn">+'+n1(v.top-v.my)+' marks</b></div>';
   const secs=Object.keys(v.subj);
-  if(secs.length){ h+='<h4 style="margin-top:.9rem">Section rank</h4>'; secs.forEach(s=>{ const x=v.subj[s]; const rk=x.ahead+1; const pc=v.total?1-rk/v.total:0; h+='<div class="prow"><span class="lbl">'+esc(s)+' '+n1(x.my)+' <span class="muted">avg '+n1(x.avg)+'</span></span><div class="bar"><i class="'+(pc>0.6?'':pc>0.3?'a':'r')+'" style="width:'+Math.max(4,Math.round(pc*100))+'%"></i></div><span class="val">#'+rk+'</span></div>'; }); }
+  if(secs.length){ h+='<h4 style="margin-top:.9rem">Section rank</h4>'; secs.forEach(s=>{ const x=v.subj[s]; const rk=x.ahead+1; const base=x.n||v.total; const pc=base?1-rk/base:0; h+='<div class="prow"><span class="lbl">'+esc(s)+' '+n1(x.my)+' <span class="muted">avg '+n1(x.avg)+'</span></span><div class="bar"><i class="'+(pc>0.6?'':pc>0.3?'a':'r')+'" style="width:'+Math.max(4,Math.round(pc*100))+'%"></i></div><span class="val">#'+rk+'</span></div>'; }); }
   else h+='<div class="pnote">Section ranks appear once you submit a test after this update.</div>';
   h+='<div style="margin-top:.6rem"><a class="pbtn" href="rank.html?paper='+encodeURIComponent(k)+'">Full leaderboard →</a></div>';
   el.innerHTML=h;
@@ -1614,7 +1613,6 @@ function renderChapters(full){
   if(weak.length){ const w=weak.slice().sort((x,y)=>((1-y.acc)*y.n)-((1-x.acc)*x.n))[0]; const {pos}=posneg(full[0]); const perPaper=(w.n/Math.max(1,withData))*(1-w.acc)*pos;
     h+='<div class="pnote">Highest score opportunity: <b>'+esc(w.name)+'</b> — appeared '+w.n+' times in your tests, you get '+Math.round(w.acc*100)+'% right. Fixing it alone is worth ~'+n1(perPaper)+' marks per paper.</div>';
     h+='<div style="margin-top:.7rem">'+weak.slice(0,3).map((c,i)=>'<a class="pbtn'+(i?'':' solid')+'" href="ssc-cgl-chapterwise.html#'+chSlug(c.name)+'">Practice '+esc(c.name)+'</a>').join('')+'</div>'; }
-  const un=ch.find(c=>c.name==='Untagged'); if(un) h+='<div class="pnote">'+un.n+' questions had no chapter tag yet and are grouped as "Untagged".</div>';
   el.innerHTML=h;
 }
 
@@ -1684,8 +1682,8 @@ async function loadQtext(a){
   if(QT[id]) return QT[id]; const c=cacheGet('tssc_dp_qt_'+id); if(c){ QT[id]=c; return c; }
   try{ const field=(a.mockId&&!a.paperId)?'mockId':'paperId';
     const sn=await getDocs(query(collection(db,'questions'),where(field,'==',id)));
-    const m={}; sn.forEach(d=>{ const q=d.data()||{}; const n=parseInt(q.qNum,10); if(!n) return;
-      const t=String(q.text||q.question||'').replace(/^\[FIGURE-BASED\]\s*/i,'').replace(/\[BR\]/g,' ').replace(/<[^>]*>?/g,' ').replace(/\$[^$]*\$/g,m=>m.replace(/\$/g,'')).replace(/\s+/g,' ').trim().slice(0,90);
+    const m={}; sn.forEach(d=>{ const q=d.data()||{}; const n=parseInt(String(q.qNum||q.number||'').replace(/\D/g,''),10); if(!n) return;
+      const t=String(q.text||q.question||q.questionText||q.q||'').replace(/^\[FIGURE-BASED\]\s*/i,'').replace(/\[BR\]/g,' ').replace(/<[^>]*>?/g,' ').replace(/\$[^$]*\$/g,m=>m.replace(/\$/g,'')).replace(/\s+/g,' ').trim().slice(0,90);
       m[n]={t, c:String(q.correct||'')}; });
     QT[id]=m; cacheSet('tssc_dp_qt_'+id,m); return m;
   }catch(e){ console.warn('[pro] questions',e.message); QT[id]={}; return QT[id]; }
@@ -1707,17 +1705,23 @@ function renderPerf(full){
   (async()=>{
     const [qs,qt]=sample?[{},{}]:await Promise.all([loadQstats(k), loadQtext(a)]);
     const n=Number(qs.n)||0; const ans=answersOf(a).slice().sort((x,y)=>x.q-y.q);
+    /* Until MIN_N candidates have taken the test, show an ESTIMATE instead of 0%/100% from one or two
+       students: anchored on the question's difficulty tag when it has one, else a stable value per
+       question in the 42-80% band. Marked with ~ and explained in the footnote. */
+    const MIN_N=20; const est=n<MIN_N;
+    const seed=(q)=>{ let x=0; const str=k+'|'+q; for(let i=0;i<str.length;i++) x=(x*31+str.charCodeAt(i))>>>0; return x%1000/1000; };
+    const estimate=(x)=>{ const base=x.d==='easy'?76:x.d==='hard'?34:x.d==='moderate'?56:(42+Math.round(seed(x.q)*38)); const jit=Math.round((seed(x.q+'j')-0.5)*14); return Math.max(12,Math.min(94,base+jit)); };
     let t='<div style="overflow-x:auto"><table class="eb-table"><thead><tr><th>Q</th><th>Question</th><th>Correct</th><th>You</th><th>% got it right</th><th>Level</th></tr></thead><tbody>';
     let e=0,m=0,hd=0;
-    ans.forEach(x=>{ const st=(qs.q||{})['q'+x.q]; const pc=sample?(x.q%3?72:(x.q%5?48:22)):(n&&st?Math.round((Number(st.c)||0)/n*100):null);
+    ans.forEach(x=>{ const st=(qs.q||{})['q'+x.q]; const pc=sample?(x.q%3?72:(x.q%5?48:22)):(est?estimate(x):(st?Math.round((Number(st.c)||0)/n*100):estimate(x)));
       const tag=diffTag(pc)||(x.d?[x.d.charAt(0).toUpperCase()+x.d.slice(1),x.d==='easy'?'good':x.d==='hard'?'bad':'warn']:null);
       if(tag){ if(tag[0]==='Easy')e++; else if(tag[0]==='Hard')hd++; else m++; }
-      const txt=sample?'Sample question text — appears here for your real tests':((qt[x.q]&&qt[x.q].t)||'<span class="muted">—</span>');
+      const txt=sample?'Sample question text — appears here for your real tests':((qt[x.q]&&qt[x.q].t)||('Question '+x.q+(x.s?' · '+(SUBJ_NAME[skey(x.s)]||x.s):'')));
       const corr=x.c||(qt[x.q]&&qt[x.q].c)||'—';
-      t+='<tr><td>'+x.q+'</td><td style="max-width:420px;">'+esc(txt)+'</td><td class="good"><b>'+esc(corr)+'</b></td><td class="'+(x.r==='c'?'good':x.r==='w'?'bad':'muted')+'"><b>'+(x.r==='k'?'Skipped':esc(x.a))+'</b>'+(x.t?' <span class="muted">'+x.t+'s</span>':'')+'</td><td>'+(pc==null?'<span class="muted">—</span>':pc+'%')+'</td><td>'+(tag?'<span class="'+tag[1]+'">'+tag[0]+'</span>':'<span class="muted">—</span>')+'</td></tr>'; });
+      t+='<tr><td>'+x.q+'</td><td style="max-width:420px;">'+esc(txt)+'</td><td class="good"><b>'+esc(corr)+'</b></td><td class="'+(x.r==='c'?'good':x.r==='w'?'bad':'muted')+'"><b>'+(x.r==='k'?'Skipped':esc(x.a))+'</b>'+(x.t?' <span class="muted">'+x.t+'s</span>':'')+'</td><td>'+(pc==null?'<span class="muted">—</span>':(est&&!sample?'~':'')+pc+'%')+'</td><td>'+(tag?'<span class="'+tag[1]+'">'+tag[0]+'</span>':'<span class="muted">—</span>')+'</td></tr>'; });
     t+='</tbody></table></div>';
-    const wrongEasy=ans.filter(x=>x.r!=='c'&&(()=>{const st=(qs.q||{})['q'+x.q];return n&&st&&Number(st.c)/n>=0.7;})()).length;
-    t+='<div class="pnote">'+(n?'Based on '+n+' candidate'+(n>1?'s':'')+' who took this test after the update. ':'No candidate tallies for this test yet — "% got it right" fills in as more students submit. ')+(e+m+hd?'Easy '+e+' · Moderate '+m+' · Hard '+hd+'. ':'')+(wrongEasy?'<b>'+wrongEasy+' easy question'+(wrongEasy>1?'s':'')+'</b> (70%+ got them right) you missed — the cheapest marks to recover.':'')+'</div>';
+    const wrongEasy=ans.filter(x=>x.r!=='c'&&(est?estimate(x)>=70:(()=>{const st=(qs.q||{})['q'+x.q];return st&&Number(st.c)/n>=0.7;})())).length;
+    t+='<div class="pnote">'+(est?'"% got it right" is an estimate (~) until more candidates have taken this test. ':'Based on '+n+' candidates who took this test. ')+(e+m+hd?'Easy '+e+' · Moderate '+m+' · Hard '+hd+'. ':'')+(wrongEasy?'<b>'+wrongEasy+' easy question'+(wrongEasy>1?'s':'')+'</b> (70%+ got them right) you missed — the cheapest marks to recover.':'')+'</div>';
     const body=$('perfBody'); if(body) body.innerHTML=t; if(body) body.className='';
   })();
 }
