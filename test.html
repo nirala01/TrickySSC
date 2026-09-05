@@ -1370,7 +1370,7 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:10
 
 <script type="module">
 import{initializeApp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import{getFirestore,initializeFirestore,collection,query,where,getDocs,doc,getDoc,setDoc,serverTimestamp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import{getFirestore,initializeFirestore,collection,query,where,getDocs,doc,getDoc,setDoc,serverTimestamp,increment}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";   /* increment: TSSC-QSTATS-V1 */
 import{getAuth,onAuthStateChanged,signOut}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import{recordScore}from"./leaderboard.js";
 
@@ -2678,6 +2678,11 @@ window.submitTest=async()=>{
     localStorage.setItem(_aKey,JSON.stringify(_seen));
   }catch(e){}
   lastResultPayload={attemptId,payload};
+  /* TSSC-QSTATS-V1 — per-question tallies for the dashboard's 'My performance' card:
+     qstats/{paper} = { n: candidates, q: { <qNum>: { a: attempted, c: correct } } }.
+     One merged write per submit, never awaited, errors ignored (needs a qstats rule). */
+  try{ if(_lbBase){ const _qs={}; _ansLog.forEach(x=>{ _qs['q'+x.q]={a:increment(x.r==='k'?0:1),c:increment(x.r==='c'?1:0)}; });
+    setDoc(doc(db,'qstats',_lbBase),{n:increment(1),total:questions.length,updatedAt:serverTimestamp(),q:_qs},{merge:true}).catch(()=>{}); } }catch(e){}
   try{await persistWithRetry(payload,attemptId,3);localStorage.removeItem('pending_attempt_'+attemptId);setSaveUi('saved','✅ Result saved successfully.');}
   catch(e){console.warn('Save failed:',e);localStorage.setItem('pending_attempt_'+attemptId,JSON.stringify(lastResultPayload));setSaveUi('error','⚠️ Could not save. Check internet and tap Retry Save.');}
   // Snapshot the finished result screen so returning via Back restores it (no restart)

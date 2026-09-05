@@ -526,7 +526,7 @@
           <li><b>Chapter-wise report</b> — Geometry, Trigo, Polity… and how often SSC asks each</li>
           <li><b>Marks-lost breakdown</b> — wrong vs negative vs skipped, and what to fix first</li>
           <li><b>Topper comparison</b> and time spent per question</li>
-          <li><b>Error Book</b> — every mistake saved, tagged by why you got it wrong</li>
+          <li><b>Question-by-question report</b> — your answer vs correct, and % of candidates who got it right</li>
           <li><b>Study plan</b> built from your own weak chapters</li>
         </ul>
         <p style="font-size:.82rem;color:var(--dark);margin-bottom:.6rem;">Less than one cup of tea a month. One rank check on a coaching app costs more.</p>
@@ -1439,7 +1439,7 @@ async function fetchRanks(full){
       ]);
       const ad=agg.data();
       const v={ my, max:Number(md.maxMarks)||0, total:ad.total||0, ahead:ahead.data().count||0, avg:ad.avg||0, tAvg:ad.tAvg||0, top:0, topName:'', subj:{} };
-      top.forEach(d=>{ v.top=Number(d.data().marks)||0; v.topName=d.data().name||''; });
+      top.forEach(d=>{ const t=d.data(); v.top=Number(t.marks)||0; v.topName=t.name||''; v.topAcc=(t.accuracy!=null)?Number(t.accuracy):null; v.topTime=Number(t.timeUsed)||0; v.topSubj=t.subjectMarks||{}; });
       // section ranks: one count per subject the score row carries
       const secs=Object.keys(sm);
       const counts=await Promise.all(secs.map(s=>getCountFromServer(query(col, where(new FieldPath('subjectMarks',s),'>',Number(sm[s])||0)))));
@@ -1485,12 +1485,12 @@ function renderAll(){
     renderTeaser(full);
     const smp=sampleAttempts(full[0]);
     renderRank(smp[0]); renderCutoff(smp); renderLost(smp[0]); renderSelect(smp[0]);
-    renderChapters(smp); renderReady(smp); renderNext(smp); renderTime(smp[0]); renderErrors(smp);
+    renderChapters(smp); renderReady(smp); renderTopper(smp[0]); renderTime(smp[0]); renderPerf(smp);
     return;
   }
   const latest=full[0];
   renderRank(latest); renderCutoff(full); renderLost(latest); renderSelect(latest);
-  renderChapters(full); renderReady(full); renderNext(full); renderTime(latest); renderErrors(full);
+  renderChapters(full); renderReady(full); renderTopper(latest); renderTime(latest); renderPerf(full);
 }
 function sampleAttempts(like){
   const exam=(like&&like.exam)||'ssc-cgl'; const out=[];
@@ -1517,7 +1517,7 @@ function renderTeaser(full){
   else if(!ch.length) li.push('<li><span>Chapter-wise weak spots (from your next tests)</span>'+lk+'</li>');
   if(lost.recover>0) li.push('<li><span><b>'+n1(lost.recover)+'</b> marks you can recover without learning anything new</span>'+lk+'</li>');
   if(ct) li.push('<li><span>How far you are from last year\'s '+CAT+' cut-off</span>'+lk+'</li>');
-  if(errs) li.push('<li><span><b>'+errs+'</b> wrong/skipped questions waiting in your Error Book</span>'+lk+'</li>');
+  if(errs) li.push('<li><span><b>'+errs+'</b> wrong/skipped questions with how many candidates got each right</span>'+lk+'</li>');
   $('tzFound').innerHTML=li.join('');
   // when locked, the blurred cards show sample numbers, not the student's real ones
 }
@@ -1572,9 +1572,9 @@ function renderLost(a){
   h+=row('Wrong answers ('+L.w+')',L.wrongMiss,'r')+row('Negative marking',L.penalty,'a')+row('Skipped ('+L.k+')',L.skipped,'b');
   const names={concept:'Concept mistakes',calc:'Calculation mistakes',silly:'Silly / misread',guess:'Guessed',time:'Ran out of time',fact:'Forgot fact / formula'};
   if(L.tagged){ h+='<div style="margin-top:.5rem"></div>'; Object.keys(names).forEach(k=>{ if(L.cnt[k]) h+='<div class="kv"><span>'+names[k]+'</span><b>'+L.cnt[k]+' question'+(L.cnt[k]>1?'s':'')+'</b></div>'; }); }
-  else h+='<div class="pnote">Tag why each wrong answer happened in the Error Book below and this splits into concept / calculation / silly mistakes.</div>';
+  
   const guess=L.cnt.guess||0;
-  h+='<div class="pnote"><b>Recoverable: ~'+n1(L.recover)+' marks</b> '+(L.tagged?'by fixing calculation and silly mistakes alone.':'if you cut careless errors (estimate — tag your mistakes for an exact figure).')+(L.attempted?' You attempted '+L.attempted+' of '+L.total+' at '+Math.round(L.acc*100)+'% accuracy'+(guess?'; '+guess+' guess'+(guess>1?'es':'')+' cost '+n1(guess*L.neg)+' marks':'')+'.':'')+'</div>';
+  h+='<div class="pnote"><b>Recoverable: ~'+n1(L.recover)+' marks</b> '+(L.tagged?'by fixing calculation and silly mistakes alone.':'if you cut careless errors (estimate).')+(L.attempted?' You attempted '+L.attempted+' of '+L.total+' at '+Math.round(L.acc*100)+'% accuracy'+(guess?'; '+guess+' guess'+(guess>1?'es':'')+' cost '+n1(guess*L.neg)+' marks':'')+'.':'')+'</div>';
   el.innerHTML=h;
 }
 
@@ -1607,9 +1607,10 @@ function renderChapters(full){
   if(!ch.length){ el.innerHTML=h+'<div class="pnote">Chapter analysis covers tests taken after this update. Your older tests show subject-level marks in the table above.</div>'; return; }
   const tagged=ch.filter(c=>c.name!=='Untagged'&&c.n>=3);
   const weak=tagged.filter(c=>c.acc<0.7).sort((x,y)=>(x.acc-y.acc)||(y.n-x.n)).slice(0,6);
-  const strong=tagged.filter(c=>c.acc>=0.7).sort((x,y)=>(y.acc-x.acc)||(y.n-x.n)).slice(0,6);
+  // strongest = best accuracy among chapters you got at least one right in; empty only when everything is wrong
+  const strong=tagged.filter(c=>c.c>0&&!weak.includes(c)).sort((x,y)=>(y.acc-x.acc)||(y.n-x.n)).slice(0,6);
   const row=c=>{ const p=Math.round(c.acc*100); return '<div class="prow"><span class="lbl">'+esc(c.name)+' <span class="muted">· '+c.n+'×</span></span><div class="bar"><i class="'+(p>=70?'':p>=50?'a':'r')+'" style="width:'+p+'%"></i></div><span class="val">'+c.c+'/'+c.n+'</span></div>'; };
-  h+='<div class="pgrid2"><div><p class="muted" style="margin-bottom:.3rem">Weakest chapters</p>'+(weak.length?weak.map(row).join(''):'<div class="muted">Nothing below 70% yet — nice.</div>')+'</div><div><p class="muted" style="margin-bottom:.3rem">Strongest chapters</p>'+(strong.length?strong.map(row).join(''):'<div class="muted">Keep going — strengths show after a few tests.</div>')+'</div></div>';
+  h+='<div class="pgrid2"><div><p class="muted" style="margin-bottom:.3rem">Weakest chapters</p>'+(weak.length?weak.map(row).join(''):'<div class="muted">Nothing below 70% yet — nice.</div>')+'</div><div><p class="muted" style="margin-bottom:.3rem">Strongest chapters</p>'+(strong.length?strong.map(row).join(''):'<div class="muted">No chapter with a correct answer yet — every tagged question so far was wrong or skipped.</div>')+'</div></div>';
   if(weak.length){ const w=weak.slice().sort((x,y)=>((1-y.acc)*y.n)-((1-x.acc)*x.n))[0]; const {pos}=posneg(full[0]); const perPaper=(w.n/Math.max(1,withData))*(1-w.acc)*pos;
     h+='<div class="pnote">Highest score opportunity: <b>'+esc(w.name)+'</b> — appeared '+w.n+' times in your tests, you get '+Math.round(w.acc*100)+'% right. Fixing it alone is worth ~'+n1(perPaper)+' marks per paper.</div>';
     h+='<div style="margin-top:.7rem">'+weak.slice(0,3).map((c,i)=>'<a class="pbtn'+(i?'':' solid')+'" href="ssc-cgl-chapterwise.html#'+chSlug(c.name)+'">Practice '+esc(c.name)+'</a>').join('')+'</div>'; }
@@ -1633,16 +1634,24 @@ function renderReady(full){
   if(subj.length){ const w=subj[subj.length-1]; h+='<div class="pnote">Biggest score opportunity: <b>'+w.name+'</b>.</div>'; }
   el.innerHTML=h;
 }
-function renderNext(full){
-  const el=$('cNext'); const latest=full[0]; const ch=chapterStats(full).filter(c=>c.name!=='Untagged'&&c.n>=3).sort((x,y)=>((1-y.acc)*y.n)-((1-x.acc)*x.n));
-  const weak=ch.filter(c=>c.acc<0.7).slice(0,3); const subj=subjectAcc(full.slice(0,5)).sort((x,y)=>x.acc-y.acc);
-  let h='<h4>What to study next</h4>';
-  if(weak.length){ h+='<div class="kv"><span>Tomorrow</span><b>'+esc(weak[0].name)+' — 20 PYQs</b></div>'; if(weak[1]) h+='<div class="kv"><span></span><b>'+esc(weak[1].name)+' — 15 PYQs</b></div>'; if(weak[2]) h+='<div class="kv"><span>Revise</span><b>'+esc(weak[2].name)+' formulas / facts</b></div>'; }
-  else if(subj.length) h+='<div class="kv"><span>Focus</span><b>'+subj[0].name+' — your weakest subject</b></div>';
-  const wrong=answersOf(latest).filter(x=>x.r==='w').length||parseInt(latest.wrong)||0;
-  if(wrong) h+='<div class="kv"><span>Re-attempt</span><b>'+wrong+' wrong from '+esc(testName(latest)).slice(0,20)+'</b></div>';
-  const g=subj.find(x=>x.s==='G'); if(g&&g.acc<0.6) h+='<div class="kv"><span>GA</span><b>Static GK revision PDF</b></div>';
-  h+='<div style="margin-top:.7rem"><a class="pbtn solid" href="'+(weak.length?'ssc-cgl-chapterwise.html#'+chSlug(weak[0].name):'ssc-cgl-chapterwise.html')+'">Start today\'s plan</a></div>';
+function renderTopper(a){
+  const el=$('cNext'); const k=lbKey(a); const v=OWNED?LB[k]:null;
+  let h='<h4>Compare with topper <em>'+esc(testName(a))+'</em></h4>';
+  const row=(l,me,tp,cls)=>'<div class="kv"><span>'+l+'</span><b>'+me+' <span class="muted">vs</span> <span class="'+(cls||'')+'">'+tp+'</span></b></div>';
+  if(!OWNED){ el.innerHTML=h+'<div class="kv"><span></span><b><span class="muted">You · Topper</span></b></div>'+row('Score','141','178.5')+row('Accuracy','78%','92%')+row('Avg time / Q','36 s','29 s')+row('Quant','38','47')+row('Reasoning','42','48')+row('English','36','44')+row('Gen. Awareness','25','39.5')+'<div class="pnote">You need <b>+37.5 marks</b> to match the topper.</div>'; return; }
+  if(!k){ el.innerHTML=h+'<div class="pnote">This test type has no leaderboard.</div>'; return; }
+  if(!v){ el.innerHTML=h+'<div class="muted">Loading…</div>'; return; }
+  if(v.none||v.err){ el.innerHTML=h+'<div class="pnote">'+(v.none?'Your score for this test is not on the leaderboard yet.':'Topper data could not be loaded right now.')+'</div>'; return; }
+  const meAcc=(parseInt(a.correct)+parseInt(a.wrong))?Math.round(parseInt(a.correct)/(parseInt(a.correct)+parseInt(a.wrong))*100):null;
+  const nq=parseInt(a.total)||100; const meT=a.timeUsed?Math.round(a.timeUsed/nq):null; const tpT=v.topTime?Math.round(v.topTime/nq):null;
+  h+='<div class="kv"><span></span><b><span class="muted">You · '+(v.topName?esc(v.topName):'Topper')+'</span></b></div>';
+  h+=row('Score',n1(v.my),n1(v.top),v.top>v.my?'warn':'good');
+  if(meAcc!=null&&v.topAcc!=null) h+=row('Accuracy',meAcc+'%',Math.round(v.topAcc)+'%',v.topAcc>meAcc?'warn':'good');
+  if(meT&&tpT) h+=row('Avg time / Q',meT+' s',tpT+' s',tpT<meT?'warn':'good');
+  const mine=a.subjectMarks||{}; Object.keys(v.topSubj||{}).forEach(sk=>{ if(mine[sk]===undefined) return; h+=row(esc(sk),n1(Number(mine[sk])||0),n1(Number(v.topSubj[sk])||0),Number(v.topSubj[sk])>Number(mine[sk])?'warn':'good'); });
+  h+=row('Average student',n1(v.my),n1(v.avg),v.avg>v.my?'warn':'good');
+  const gap=v.top-v.my;
+  h+='<div class="pnote">'+(gap>0?'You need <b>+'+n1(gap)+' marks</b> to match the topper'+(v.total?' · you are #'+(v.ahead+1)+' of '+v.total:'')+'.':'You are the topper on this test. 🏆')+'</div>';
   el.innerHTML=h;
 }
 function renderTime(a){
@@ -1662,33 +1671,56 @@ function renderTime(a){
   el.innerHTML=h;
 }
 
-/* ───────── error book ───────── */
-const ERR_TAGS=[['concept','Concept'],['calc','Calculation'],['silly','Misread'],['guess','Guess'],['time','Time'],['fact','Forgot fact']];
-function renderErrors(full){
-  const el=$('cErrors'); const rows=[];
-  full.forEach(a=>{ answersOf(a).forEach(x=>{ if(x.r==='c') return; rows.push({a, x, ch: chName(x.ch)||'Untagged'}); }); });
-  let h='<h4>My Error Book <em>'+rows.filter(r=>r.x.r==='w').length+' wrong · '+rows.filter(r=>r.x.r==='k').length+' skipped, across all tests</em></h4>';
-  if(!rows.length){ el.innerHTML=h+'<div class="pnote">Your wrong and skipped questions collect here from tests taken after this update. Tag each one with why it went wrong and the marks-lost card splits by cause.</div>'; return; }
-  const chs={}; rows.forEach(r=>{ chs[r.ch]=(chs[r.ch]||0)+1; });
-  h+='<div style="margin-bottom:.6rem"><span class="chip'+(ERR_FILTER?'':' sel')+'" data-f="">All '+rows.length+'</span>'+Object.entries(chs).sort((x,y)=>y[1]-x[1]).slice(0,8).map(([c,n])=>'<span class="chip'+(ERR_FILTER===c?' sel':'')+'" data-f="'+esc(c)+'">'+esc(c)+' '+n+'</span>').join('')+'</div>';
-  const list=rows.filter(r=>!ERR_FILTER||r.ch===ERR_FILTER).slice(0,60);
-  h+='<div style="overflow-x:auto"><table class="eb-table"><thead><tr><th>Question</th><th>Chapter</th><th>You</th><th>Correct</th><th>Why did you get it wrong?</th><th></th></tr></thead><tbody>';
-  list.forEach(r=>{ const tag=(r.a.errTags||{})[r.x.q]||''; const dt=tsOf(r.a)?new Date(tsOf(r.a)).toLocaleDateString('en-IN',{day:'numeric',month:'short'}):'';
-    h+='<tr><td>Q'+r.x.q+' · '+esc(testName(r.a)).slice(0,28)+' <span class="muted">'+dt+'</span></td><td>'+esc(r.ch)+'</td><td class="'+(r.x.r==='w'?'bad':'muted')+'">'+(r.x.r==='w'?esc(r.x.a):'Skipped')+'</td><td class="good">'+esc(r.x.c)+'</td><td>'+ERR_TAGS.map(([k,l])=>'<span class="chip'+(tag===k?' sel':'')+'" data-tag="'+k+'" data-att="'+esc(r.a.id)+'" data-q="'+r.x.q+'">'+l+'</span>').join('')+'</td><td><a class="pbtn" href="'+testUrl(r.a)+'">Open test</a></td></tr>'; });
-  h+='</tbody></table></div>';
-  if(rows.length>list.length) h+='<div class="muted" style="margin-top:.4rem">Showing '+list.length+' of '+rows.length+'. Filter by chapter to see the rest.</div>';
+/* ───────── My performance — every question of one test ───────── */
+let PERF_SEL='';
+const QS={};   // qstats per paper, QT={} question text per paper id
+const QT={};
+function cacheGet(k){ try{ const o=JSON.parse(sessionStorage.getItem(k)||'null'); if(o&&Date.now()-o.ts<LB_TTL) return o.v; }catch(e){} return null; }
+function cacheSet(k,v){ try{ sessionStorage.setItem(k,JSON.stringify({ts:Date.now(),v})); }catch(e){} }
+async function loadQstats(k){ if(QS[k]) return QS[k]; const c=cacheGet('tssc_dp_qs_'+k); if(c){ QS[k]=c; return c; }
+  try{ const sn=await getDoc(doc(db,'qstats',k)); const v=sn.exists()?(sn.data()||{}):{}; QS[k]=v; cacheSet('tssc_dp_qs_'+k,v); return v; }catch(e){ console.warn('[pro] qstats',e.message); QS[k]={}; return QS[k]; } }
+async function loadQtext(a){
+  const id=a.paperId||a.mockId||''; if(!id) return {};
+  if(QT[id]) return QT[id]; const c=cacheGet('tssc_dp_qt_'+id); if(c){ QT[id]=c; return c; }
+  try{ const field=(a.mockId&&!a.paperId)?'mockId':'paperId';
+    const sn=await getDocs(query(collection(db,'questions'),where(field,'==',id)));
+    const m={}; sn.forEach(d=>{ const q=d.data()||{}; const n=parseInt(q.qNum,10); if(!n) return;
+      const t=String(q.text||q.question||'').replace(/^\[FIGURE-BASED\]\s*/i,'').replace(/\[BR\]/g,' ').replace(/<[^>]*>?/g,' ').replace(/\$[^$]*\$/g,m=>m.replace(/\$/g,'')).replace(/\s+/g,' ').trim().slice(0,90);
+      m[n]={t, c:String(q.correct||'')}; });
+    QT[id]=m; cacheSet('tssc_dp_qt_'+id,m); return m;
+  }catch(e){ console.warn('[pro] questions',e.message); QT[id]={}; return QT[id]; }
+}
+const diffTag=p=>p==null?null:p>=70?['Easy','good']:p>=40?['Moderate','warn']:['Hard','bad'];
+function renderPerf(full){
+  const el=$('cErrors'); const tests=full.filter(a=>answersOf(a).length).slice(0,12);
+  let h='<h4>My performance <em>question by question</em>';
+  if(!tests.length){ el.innerHTML=h+'</h4><div class="pnote">Question-wise performance is available for tests taken after this update.</div>'; return; }
+  if(!PERF_SEL||!tests.some(t=>t.id===PERF_SEL)) PERF_SEL=tests[0].id;
+  h+=' <span style="float:right"><select class="cat-sel" id="perfSel">'+tests.map(t=>'<option value="'+esc(t.id)+'"'+(t.id===PERF_SEL?' selected':'')+'>'+esc(testName(t)).slice(0,40)+(tsOf(t)?' · '+new Date(tsOf(t)).toLocaleDateString('en-IN',{day:'numeric',month:'short'}):'')+'</option>').join('')+'</select></span></h4>';
+  const a=tests.find(t=>t.id===PERF_SEL);
+  h+='<div id="perfBody" class="muted">Loading questions…</div>';
   h+='<div style="margin-top:.7rem"><button class="pbtn solid" id="reportBtn">Download my report card</button></div>';
   el.innerHTML=h;
-  el.querySelectorAll('.chip[data-f]').forEach(c=>c.onclick=()=>{ ERR_FILTER=c.getAttribute('data-f'); renderErrors(full); });
-  el.querySelectorAll('.chip[data-tag]').forEach(c=>c.onclick=async()=>{
-    const id=c.getAttribute('data-att'), q=c.getAttribute('data-q'), tag=c.getAttribute('data-tag');
-    const a=ATT.find(x=>x.id===id); if(!a) return; a.errTags=a.errTags||{}; const cur=a.errTags[q]===tag?'':tag; a.errTags[q]=cur;
-    try{ await updateDoc(doc(db,'attempts',id), { ['errTags.'+q]: cur }); }catch(e){ console.warn('[pro] tag save',e.message); }
-    renderErrors(full); renderLost(full[0]);
-  });
+  $('perfSel').onchange=e=>{ PERF_SEL=e.target.value; renderPerf(full); };
   const rb=$('reportBtn'); if(rb) rb.onclick=()=>reportCard(full);
+  const k=lbKey(a); const sample=String(a.id||'').startsWith('sample');
+  (async()=>{
+    const [qs,qt]=sample?[{},{}]:await Promise.all([loadQstats(k), loadQtext(a)]);
+    const n=Number(qs.n)||0; const ans=answersOf(a).slice().sort((x,y)=>x.q-y.q);
+    let t='<div style="overflow-x:auto"><table class="eb-table"><thead><tr><th>Q</th><th>Question</th><th>Correct</th><th>You</th><th>% got it right</th><th>Level</th></tr></thead><tbody>';
+    let e=0,m=0,hd=0;
+    ans.forEach(x=>{ const st=(qs.q||{})['q'+x.q]; const pc=sample?(x.q%3?72:(x.q%5?48:22)):(n&&st?Math.round((Number(st.c)||0)/n*100):null);
+      const tag=diffTag(pc)||(x.d?[x.d.charAt(0).toUpperCase()+x.d.slice(1),x.d==='easy'?'good':x.d==='hard'?'bad':'warn']:null);
+      if(tag){ if(tag[0]==='Easy')e++; else if(tag[0]==='Hard')hd++; else m++; }
+      const txt=sample?'Sample question text — appears here for your real tests':((qt[x.q]&&qt[x.q].t)||'<span class="muted">—</span>');
+      const corr=x.c||(qt[x.q]&&qt[x.q].c)||'—';
+      t+='<tr><td>'+x.q+'</td><td style="max-width:420px;">'+esc(txt)+'</td><td class="good"><b>'+esc(corr)+'</b></td><td class="'+(x.r==='c'?'good':x.r==='w'?'bad':'muted')+'"><b>'+(x.r==='k'?'Skipped':esc(x.a))+'</b>'+(x.t?' <span class="muted">'+x.t+'s</span>':'')+'</td><td>'+(pc==null?'<span class="muted">—</span>':pc+'%')+'</td><td>'+(tag?'<span class="'+tag[1]+'">'+tag[0]+'</span>':'<span class="muted">—</span>')+'</td></tr>'; });
+    t+='</tbody></table></div>';
+    const wrongEasy=ans.filter(x=>x.r!=='c'&&(()=>{const st=(qs.q||{})['q'+x.q];return n&&st&&Number(st.c)/n>=0.7;})()).length;
+    t+='<div class="pnote">'+(n?'Based on '+n+' candidate'+(n>1?'s':'')+' who took this test after the update. ':'No candidate tallies for this test yet — "% got it right" fills in as more students submit. ')+(e+m+hd?'Easy '+e+' · Moderate '+m+' · Hard '+hd+'. ':'')+(wrongEasy?'<b>'+wrongEasy+' easy question'+(wrongEasy>1?'s':'')+'</b> (70%+ got them right) you missed — the cheapest marks to recover.':'')+'</div>';
+    const body=$('perfBody'); if(body) body.innerHTML=t; if(body) body.className='';
+  })();
 }
-
 /* ───────── shareable report card (PNG) ───────── */
 function reportCard(full){
   const c=document.createElement('canvas'); c.width=1080; c.height=1350; const g=c.getContext('2d');
