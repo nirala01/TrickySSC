@@ -1263,6 +1263,16 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:10
 </div>
 
 <!-- Result Screen -->
+<style id="rgStyle">
+/* TSSC-RANKGATE-V1 — rank & analysis locked for non-Pro users (marks + solutions stay free) */
+#rankEstCard.rg-locked{position:relative;}
+#rankEstCard.rg-locked .rank-est-grid,#rankEstCard.rg-locked .rank-est-notes{filter:blur(7px);pointer-events:none;user-select:none;}
+.rg-over{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center;padding:16px;z-index:2;}
+.rg-ttl{font-family:'Rajdhani',sans-serif;font-weight:800;font-size:18px;color:#1E293B;}
+.rg-sub{font-size:12px;color:#64748B;max-width:420px;line-height:1.5;}
+.rg-btn{display:inline-block;background:linear-gradient(135deg,#FF6B00,#FF8C38);color:#fff;font-weight:700;font-family:'Rajdhani',sans-serif;font-size:15px;padding:11px 22px;border-radius:10px;text-decoration:none;box-shadow:0 4px 16px rgba(255,107,0,.35);}
+#viewRankBtn.rg-lockbtn{background:linear-gradient(135deg,#1E293B,#475569)!important;color:#fff!important;border-color:#1E293B!important;}
+</style>
 <div id="resultScreen">
   <div class="result-card">
     <div style="font-family:'Rajdhani';font-size:22px;font-weight:700;color:#1E293B;margin-bottom:14px;" id="resultExamName"></div>
@@ -2488,6 +2498,41 @@ window.confirmSubmit=()=>{
   if(confirm('Submit test? You cannot change answers after submission.'))submitTest();
 };
 
+/* ── TSSC-RANKGATE-V1: rank & detailed analysis are part of Dashboard Pro (Rs 29) ──
+   Marks, correct/wrong and solutions stay free. After the result renders we read
+   entitlements/{uid} once (10-min sessionStorage cache shared with dashboard.html).
+   Owned (allAccess / ssc-cgl-dashboard / ssc-cgl-mocks): the rank card and the
+   "View Rank" button work exactly as before. Not owned: the card is blurred over
+   SAMPLE numbers with an unlock overlay, and the button becomes the unlock link. */
+const RG_ENFORCE=false;   /* PAYWALL SWITCH — false = rank free for everyone (preview). Set true to lock it behind Rs 29. */
+const RG_MODULES=['ssc-cgl-dashboard','ssc-cgl-mocks'];
+const RG_URL='https://trickyssc.com/dashboard.html#pro';
+function rgActive(g){ if(!g||g.active!==true) return false; const e=g.expiresAt; if(!e) return true; const ms=e.toDate?e.toDate().getTime():(e.seconds?e.seconds*1000:Date.parse(e)); return !isFinite(ms)||ms>Date.now(); }
+async function rgOwned(){
+  if(!RG_ENFORCE) return true;
+  const u=currentUser; if(!u||!u.uid) return false;
+  try{ const c=JSON.parse(sessionStorage.getItem('tssc_entd_'+u.uid)||'null'); if(c&&Date.now()-(c.ts||0)<600000) return !!c.owned; }catch(e){}
+  try{ const s=await getDoc(doc(db,'entitlements',u.uid)); const d=s.exists()?(s.data()||{}):{};
+    const o=rgActive(d.allAccess)||RG_MODULES.some(k=>rgActive((d.modules||{})[k]));
+    try{ sessionStorage.setItem('tssc_entd_'+u.uid,JSON.stringify({ts:Date.now(),owned:o})); }catch(e){}
+    return o; }catch(e){ return false; }
+}
+async function rgApply(){
+  const owned=await rgOwned();
+  const card=document.getElementById('rankEstCard'), btn=document.getElementById('viewRankBtn');
+  if(owned){ if(btn&&btn.dataset.rgHref){ btn.href=btn.dataset.rgHref; btn.style.display='inline-block'; } return; }
+  if(btn){ btn.href=RG_URL; btn.classList.add('rg-lockbtn'); btn.innerHTML='&#128274; Unlock Rank &amp; Detailed Analysis &mdash; &#8377;29 <span style="font-weight:600;font-size:12px;opacity:.85;">(click here to know more)</span>'; btn.style.display='inline-block'; }
+  if(card&&card.style.display!=='none'&&!card.classList.contains('rg-locked')){
+    card.classList.add('rg-locked');
+    const r=document.getElementById('rankEstRank'), c=document.getElementById('rankEstChance');
+    if(r) r.textContent='Top 42,500'; if(c) c.textContent='Good for UR';           // sample values, not the student's
+    const o=document.createElement('div'); o.className='rg-over';
+    o.innerHTML='<div class="rg-ttl">&#128274; Your rank &amp; detailed analysis are locked</div>'
+      +'<div class="rg-sub">Rank, percentile, cut-off gap, chapter-wise weak areas, time analysis and Error Book &mdash; Dashboard Pro, &#8377;29 for a year. Included free with the &#8377;49 mock series.</div>'
+      +'<a class="rg-btn" href="'+RG_URL+'">Unlock for &#8377;29 &mdash; click here to know more</a>';
+    card.appendChild(o);
+  }
+}
 window.submitTest=async()=>{
   if(isSubmitting)return;
   isSubmitting=true;clearInterval(timerInterval);setSaveUi('saving','⏳ Saving your result...');
@@ -2501,7 +2546,7 @@ window.submitTest=async()=>{
     if(!a){skip++;subjectStats[subj].skip++;}
     else if(a===q.correct){correct++;subjectStats[subj].correct++;}
     else{wrong++;subjectStats[subj].wrong++;}
-    _ansLog.push({q:(parseInt(q.qNum,10)||(i+1)),s:subj,ch:String(q.chapter||'').trim(),d:String(q.difficulty||'').trim().toLowerCase(),a:a||'',c:String(q.correct||''),r:(!a?'k':(a===q.correct?'c':'w')),t:Math.round((_qtime[i]||0)/1000)});
+    _ansLog.push({q:(parseInt(q.qNum,10)||(i+1)),s:subj,ch:String(q.chapter||q.concept||'').trim().slice(0,40),   /* chapter, else the solution's concept tag */d:String(q.difficulty||'').trim().toLowerCase(),a:a||'',c:String(q.correct||''),r:(!a?'k':(a===q.correct?'c':'w')),t:Math.round((_qtime[i]||0)/1000)});
   });
   const marks=(correct*MARK_CORRECT-wrong*MARK_WRONG).toFixed(1);
   const _subjMarks={};Object.keys(subjectStats).forEach(k=>{const _s=subjectStats[k];_subjMarks[k]=+(_s.correct*MARK_CORRECT-_s.wrong*MARK_WRONG).toFixed(1);});
@@ -2627,8 +2672,9 @@ window.submitTest=async()=>{
   if(_lbId){
     recordScore({uid:currentUser.uid,displayName:currentUser?.displayName,paperId:_lbBase,paperName:_examLabel,marks:parseFloat(marks),maxMarks:maxMarks,accuracy:pct,subjectMarks:_subjMarks,timeUsed:_timeUsed}).catch(()=>{});
     const _rb=document.getElementById('viewRankBtn');
-    if(_rb){_rb.href='rank.html?paper='+encodeURIComponent(_lbBase)+'&from=test';_rb.style.display='inline-block';}
+    if(_rb){_rb.dataset.rgHref='rank.html?paper='+encodeURIComponent(_lbBase)+'&from=test';}   /* TSSC-RANKGATE-V1: shown by rgApply() */
   }
+  rgApply();   /* TSSC-RANKGATE-V1 */
   // Mark this paper/mock as attempted on-device so listing pages can show status instantly
   try{
     const _aKey='tssc_attempted';
