@@ -337,9 +337,25 @@ async function load(force) {
           lastAt: ts(v.lastAt),
           failedAt: v.failedAt || '',            /* TSSC-INTENT-V2 */
           lastError: v.lastError || '',
-          build: v.build || ''
+          build: v.build || '',
+          loginType: ''
         };
       });
+      /* TSSC-INTENT-PROFILE-V1 (2026-09-06) — an intent written from a
+         phone-OTP session (or before the profile loaded) has no name/email/
+         mobile. Fill the gaps from users/{uid}, which the admin may read. */
+      await Promise.all(INTENTS.map(async i => {
+        try {
+          const u = (await getDoc(doc(db, 'users', i.uid))).data();
+          if (!u) return;
+          i.name   = i.name   || u.name || u.displayName || '';
+          i.email  = i.email  || u.email || '';
+          i.mobile = i.mobile || u.phone || u.mobile || u.phoneNumber || '';
+          i.place  = i.place  || u.place || u.city || '';
+          i.loginType = u.loginType || u.provider || u.authProvider ||
+                        (u.email ? '' : (i.mobile ? 'phone' : ''));
+        } catch (e) { /* leave the row as the intent wrote it */ }
+      }));
     } catch (e) {
       INTENTS = [];
       console.warn('checkoutIntents unreadable:', e.message);
@@ -513,6 +529,8 @@ function renderIntents() {
       <div class="nm">${esc(i.name) || '—'}</div>
       ${i.email ? `<div class="em">${esc(i.email)}</div>` : ''}
       ${i.mobile ? `<div class="em mono">${esc(i.mobile)}</div>` : ''}
+      ${i.loginType ? `<div class="em">${esc(i.loginType)} login</div>` : ''}
+      <div class="em mono" title="uid">${esc(i.uid)}</div>
     </td>
     <td data-l="Course">${esc(i.courseId) || '—'}</td>
     <td data-l="Got as far as">${stageCell(i)}${buildCell(i)}</td>
