@@ -360,6 +360,17 @@
   .subj-pyq-head { text-align:center; margin-bottom:1.5rem; }
   .subj-pyq-head .spc-tag { font-family:'Rajdhani',sans-serif; font-size:0.8rem; font-weight:700; letter-spacing:2px; text-transform:uppercase; color:#718096; background:#F1F5F9; padding:0.4rem 1.2rem; border-radius:100px; }
   .subj-pyq-head .spc-new { display:inline-block; margin-left:0.45rem; background:linear-gradient(135deg,#EF4444,#F97316); color:#fff; font-size:0.66rem; font-weight:800; letter-spacing:1.5px; padding:0.22rem 0.55rem; border-radius:100px; animation:tsscNewBlink 1.15s ease-in-out infinite; vertical-align:middle; }
+
+  /* ── TSSC:WHATS-NEW — auto "just added" content strip, home page only ── */
+  .wn-strip { background:linear-gradient(135deg,#FFF7F0,#FFFFFF 65%); border-bottom:1px solid #FFE4CC; padding:1rem 2rem; }
+  .wn-inner { max-width:1280px; margin:0 auto; display:flex; align-items:center; gap:1rem; flex-wrap:wrap; }
+  .wn-label { font-family:'Rajdhani',sans-serif; font-weight:700; font-size:0.82rem; letter-spacing:1px; text-transform:uppercase; color:var(--saffron-dark); white-space:nowrap; display:flex; align-items:center; gap:0.4rem; }
+  .wn-items { display:flex; gap:0.6rem; flex-wrap:wrap; flex:1; }
+  .wn-item { display:inline-flex; align-items:center; gap:0.4rem; background:#fff; border:1px solid #FFD4B3; border-radius:100px; padding:0.35rem 0.9rem 0.35rem 0.6rem; text-decoration:none; font-family:'Rajdhani',sans-serif; font-weight:600; font-size:0.8rem; color:#4A5568; transition:all 0.2s; }
+  .wn-item:hover { border-color:var(--saffron); box-shadow:0 4px 14px rgba(255,107,0,0.18); transform:translateY(-1px); }
+  .wn-item .wn-tag { font-size:0.68rem; font-weight:700; color:var(--saffron); white-space:nowrap; }
+  .wn-item .spc-new { padding:0.14rem 0.45rem; font-size:0.58rem; }
+  @media (max-width:640px) { .wn-strip { padding:0.85rem 1.1rem; } .wn-label { font-size:0.76rem; } }
   @keyframes mockGradient {
     0% { background-position: 0% 50%; }
     50% { background-position: 100% 50%; }
@@ -1590,6 +1601,72 @@
       </div>
     </div>
   </div>
+
+  <!-- TSSC:WHATS-NEW:START — auto-updating "just added content" strip -->
+  <div class="wn-strip" id="wnStrip">
+    <div class="wn-inner">
+      <span class="wn-label">🆕 Just Added</span>
+      <div class="wn-items" id="wnItems"></div>
+    </div>
+  </div>
+  <script>
+  (function(){
+    /* =====================================================================
+       TSSC "What's New" feed — the ONLY place you need to touch to make
+       new content show up on the home page with a "NEW" tag.
+
+       HOW TO USE
+       Add ONE line to CONTENT_FEED below every time you ship NEW CONTENT —
+       a new mock test, a new PYQ paper/shift, a new chapter test, a new
+       revision PDF, a new SEO page, etc.
+
+       Do NOT add a line here for maintenance — bug fixes, wording edits,
+       CSS tweaks, CA-page updates, price/UI changes, solution corrections.
+       If a student can't go attempt/read something new because of it, it
+       doesn't belong in this list.
+
+       The "NEW" tag is fully automatic: an item is shown here for NEW_DAYS
+       days counting from its "date", then it quietly drops out of this
+       strip on its own — you never have to come back and remove anything.
+       If nothing is within that window, the whole strip just hides itself.
+       ===================================================================== */
+    var NEW_DAYS  = 14;   // how many days an item stays in this strip
+    var MAX_ITEMS = 6;    // max items shown at once (most recent first)
+
+    var CONTENT_FEED = [
+      // { title: "Mock-50 (Tier-1)",       tag: "Mock Test",    url: "https://trickyssc.com/ssc-cgl-mock-test",        date: "2026-09-05" },
+      // { title: "LCM & HCF Chapter Test", tag: "Chapter Test", url: "https://trickyssc.com/ssc-cgl-chapterwise.html", date: "2026-09-05" },
+      // { title: "CHSL Tier-2 Mock-10",    tag: "Mock Test",    url: "https://trickyssc.com/ssc-chsl-mock-test",       date: "2026-09-05" },
+    ];
+
+    var strip = document.getElementById('wnStrip');
+    var box   = document.getElementById('wnItems');
+    if (!strip || !box) return;
+
+    var msPerDay = 86400000;
+    var now = Date.now();
+
+    var items = CONTENT_FEED.filter(function(it){
+      var d = new Date(it.date + 'T00:00:00');
+      if (isNaN(d.getTime())) return false;
+      var ageDays = (now - d.getTime()) / msPerDay;
+      return ageDays >= 0 && ageDays <= NEW_DAYS;
+    }).sort(function(a, b){
+      return new Date(b.date) - new Date(a.date);
+    }).slice(0, MAX_ITEMS);
+
+    if (!items.length) { strip.style.display = 'none'; return; }
+
+    box.innerHTML = items.map(function(it){
+      return '<a class="wn-item" href="' + it.url + '">' +
+               '<span class="spc-new">NEW</span>' +
+               (it.tag ? '<span class="wn-tag">' + it.tag + '</span>' : '') +
+               '<span>' + it.title + '</span>' +
+             '</a>';
+    }).join('');
+  })();
+  </script>
+  <!-- TSSC:WHATS-NEW:END -->
 
   <!-- SEO CONTENT SECTION -->
   <div style="padding: 4.5rem 2rem; background: #FFFFFF;">
