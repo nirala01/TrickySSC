@@ -134,6 +134,8 @@ body{font-family:'Noto Sans',sans-serif;background:var(--bg);color:var(--text);m
 .drill-tag.pyq{background:rgba(255,107,0,0.15);color:var(--orange);}
 .drill-tag.mock{background:rgba(0,196,122,0.15);color:var(--green);}
 .drill-tag.chapter{background:rgba(78,142,255,0.15);color:var(--blue);}
+.drill-tag.paid{background:rgba(255,107,0,0.22);color:var(--orange);}
+.drill-tag.free{background:rgba(107,114,128,0.25);color:#9CA3AF;}
 .drill-new{
   display:inline-block;font-family:'Rajdhani',sans-serif;font-size:0.66rem;font-weight:700;
   padding:0.05rem 0.4rem;border-radius:4px;margin-left:0.4rem;vertical-align:1px;
@@ -490,6 +492,31 @@ function attemptType(a){
   return 'pyq';
 }
 
+// Mocks 1-4 are free forever; Mock 5 onward is the paid series. Change this one
+// number if the free band ever moves.
+const FREE_MOCK_MAX = 4;
+
+// The mock's series number, from the int fields first, then from the id/name
+// (mockId is ssc-cgl_tier1_mock5_en; names read "SSC CGL Mock-47").
+function mockNumber(a){
+  const raw = [a.mockNum, a.mockSeriesNum, a.mockNumber]
+    .find(v => v !== undefined && v !== null && v !== '');
+  const n = parseInt(raw, 10);
+  if(Number.isFinite(n) && n > 0) return n;
+  const s = [a.mockId, a.mockName, a.examName, a.testName, a.paperId].filter(Boolean).join(' ');
+  const m = s.match(/mock[\s._-]*(\d{1,3})/i);
+  return m ? parseInt(m[1], 10) : null;
+}
+
+// 'paid' | 'free' | null. Null means either not a mock, or a legacy doc whose
+// number can't be read — those stay untagged rather than being guessed at.
+function mockPlan(a){
+  if(attemptType(a) !== 'mock') return null;
+  const n = mockNumber(a);
+  if(!n) return null;
+  return n <= FREE_MOCK_MAX ? 'free' : 'paid';
+}
+
 // Readable name for a single attempt — the paper the candidate actually sat.
 // Pulls whichever name field the doc carries and appends year / shift only
 // when they aren't already part of the name, so labels stay tidy.
@@ -729,12 +756,20 @@ window.loadStats = async () => {
     attSnap.forEach(d => { const a = {id:d.id, ...d.data()}; if(inDay(_td(a.timestamp))) todaysAttempts.push(a); });
 
     const pyqUsersToday = new Set(), mockUsersToday = new Set(), chapterUsersToday = new Set();
+    const paidMockUsers = new Set(), freeMockUsers = new Set();
     const testTakersToday = new Set();
     let pyqAttemptsToday = 0, mockAttemptsToday = 0, chapterAttemptsToday = 0;
+    let paidMockAttempts = 0, freeMockAttempts = 0, untaggedMockAttempts = 0;
     todaysAttempts.forEach(a => {
       const t = attemptType(a);
       testTakersToday.add(a.uid);
-      if(t==='mock'){ mockUsersToday.add(a.uid); mockAttemptsToday++; }
+      if(t==='mock'){
+        mockUsersToday.add(a.uid); mockAttemptsToday++;
+        const p = mockPlan(a);
+        if(p==='paid'){ paidMockAttempts++; paidMockUsers.add(a.uid); }
+        else if(p==='free'){ freeMockAttempts++; freeMockUsers.add(a.uid); }
+        else untaggedMockAttempts++;
+      }
       else if(t==='chapter'){ chapterUsersToday.add(a.uid); chapterAttemptsToday++; }
       else { pyqUsersToday.add(a.uid); pyqAttemptsToday++; }
     });
@@ -759,7 +794,11 @@ window.loadStats = async () => {
     document.getElementById('pyqToday').textContent = pyqUsersToday.size;
     document.getElementById('pyqTodaySub').innerHTML = subLine(pyqAttemptsToday, pyqUsersToday);
     document.getElementById('mockToday').textContent = mockUsersToday.size;
-    document.getElementById('mockTodaySub').innerHTML = subLine(mockAttemptsToday, mockUsersToday);
+    document.getElementById('mockTodaySub').innerHTML = subLine(mockAttemptsToday, mockUsersToday)
+      + '<br><span style="color:var(--orange);">' + paidMockUsers.size + ' paid</span>'
+      + ' · ' + freeMockUsers.size + ' free'
+      + ' <span style="opacity:0.7;">(' + paidMockAttempts + '/' + freeMockAttempts + ' attempts'
+      + (untaggedMockAttempts ? ' · ' + untaggedMockAttempts + ' untagged' : '') + ')</span>';
     document.getElementById('chapterToday').textContent = chapterUsersToday.size;
     document.getElementById('chapterTodaySub').innerHTML = subLine(chapterAttemptsToday, chapterUsersToday);
     document.getElementById('newUsersToday').textContent = newUsersToday;
@@ -943,13 +982,22 @@ function attemptTime(a){ return (a.timestamp && a.timestamp.toDate) ? a.timestam
 function typeTag(a){
   const t = attemptType(a);
   const label = t === 'mock' ? 'MOCK' : t === 'chapter' ? 'CHAPTER' : 'PYQ';
-  return `<span class="drill-tag ${t}">${label}</span>`;
+  const plan = mockPlan(a);
+  const planTag = plan ? `<span class="drill-tag ${plan}">${plan.toUpperCase()}</span>` : '';
+  return `<span class="drill-tag ${t}">${label}</span>${planTag}`;
 }
 
 // Badge for a candidate who signed up inside the current report window.
 function newTag(u){
   const id = u ? (u.uid || u.id) : null;
   return id && newTodayIds.has(id) ? '<span class="drill-new">NEW</span>' : '';
+}
+
+// " · 6 paid · 3 free" for a set of attempts, empty when none of them are mocks.
+function planNote(atts){
+  let paid = 0, free = 0;
+  atts.forEach(a => { const p = mockPlan(a); if(p==='paid') paid++; else if(p==='free') free++; });
+  return (paid || free) ? ` · ${paid} paid · ${free} free` : '';
 }
 
 window.showDrill = (kind) => {
@@ -1012,7 +1060,7 @@ window.renderDrill = () => {
 
     const totalAtt = rows.reduce((n,g) => n + g.attempts.length, 0);
     const newRows  = rows.filter(g => newTodayIds.has(g.uid)).length;
-    html += `<div class="drill-note">${rows.length} candidate${rows.length===1?'':'s'} · ${totalAtt} attempt${totalAtt===1?'':'s'} · ${newRows} joined today</div>`;
+    html += `<div class="drill-note">${rows.length} candidate${rows.length===1?'':'s'} · ${totalAtt} attempt${totalAtt===1?'':'s'} · ${newRows} joined today${planNote(atts)}</div>`;
 
     html += rows.map(g => {
       const u = g.user;
@@ -1063,7 +1111,7 @@ window.renderDrill = () => {
     rows.sort((a,b) => b.attempts.length - a.attempts.length || a.label.localeCompare(b.label));
 
     const totalAtt = rows.reduce((n,t) => n + t.attempts.length, 0);
-    html += `<div class="drill-note">${rows.length} paper${rows.length===1?'':'s'} · ${totalAtt} attempt${totalAtt===1?'':'s'}</div>`;
+    html += `<div class="drill-note">${rows.length} paper${rows.length===1?'':'s'} · ${totalAtt} attempt${totalAtt===1?'':'s'}${planNote(atts)}</div>`;
 
     html += rows.map(t => {
       const heads = new Set(t.attempts.map(a => a.uid));
@@ -1100,7 +1148,7 @@ window.renderDrill = () => {
 window.exportDrill = () => {
   const q   = (document.getElementById('drillSearch').value || '').trim().toLowerCase();
   const idx = userIndex();
-  const rows = [['Candidate','Mobile','Email','Joined today','Type','Test','Score','Correct','Wrong','Time (IST)']];
+  const rows = [['Candidate','Mobile','Email','Joined today','Type','Plan','Test','Score','Correct','Wrong','Time (IST)']];
 
   drillAttempts().forEach(a => {
     const u = idx[a.uid] || {};
@@ -1112,7 +1160,7 @@ window.exportDrill = () => {
     rows.push([
       candidateName(idx[a.uid]), u.phone || '', u.email || '',
       newTodayIds.has(a.uid) ? 'Yes' : 'No',
-      attemptType(a).toUpperCase(), label,
+      attemptType(a).toUpperCase(), (mockPlan(a) || '').toUpperCase(), label,
       (a.marks !== undefined && a.marks !== null && a.marks !== '') ? a.marks : (a.percentage !== undefined ? a.percentage + '%' : ''),
       a.correct || 0, a.wrong || 0,
       timeLabel(a.timestamp)
