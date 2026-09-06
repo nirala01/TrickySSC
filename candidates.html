@@ -133,6 +133,13 @@ body{font-family:'Noto Sans',sans-serif;background:var(--bg);color:var(--text);m
 .drill-tag{display:inline-block;font-family:'Rajdhani',sans-serif;font-size:0.68rem;font-weight:700;padding:0.05rem 0.4rem;border-radius:4px;margin-right:0.4rem;vertical-align:1px;}
 .drill-tag.pyq{background:rgba(255,107,0,0.15);color:var(--orange);}
 .drill-tag.mock{background:rgba(0,196,122,0.15);color:var(--green);}
+.drill-tag.chapter{background:rgba(78,142,255,0.15);color:var(--blue);}
+.drill-new{
+  display:inline-block;font-family:'Rajdhani',sans-serif;font-size:0.66rem;font-weight:700;
+  padding:0.05rem 0.4rem;border-radius:4px;margin-left:0.4rem;vertical-align:1px;
+  background:rgba(78,142,255,0.18);color:var(--blue);
+}
+.stat-sub .nu{color:var(--blue);font-weight:600;}
 .drill-idle{font-size:0.78rem;color:var(--muted);font-style:italic;margin-top:0.45rem;}
 
 /* CONTROLS */
@@ -291,6 +298,7 @@ body{font-family:'Noto Sans',sans-serif;background:var(--bg);color:var(--text);m
     <div class="stat-card clickable" tabindex="0" onclick="showDrill('active')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();showDrill('active');}">
       <div class="stat-label">Active Today</div>
       <div class="stat-val" id="activeToday">—</div>
+      <div class="stat-sub" id="activeTodaySub">—</div>
     </div>
     <div class="stat-card clickable" tabindex="0" onclick="showDrill('pyq')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();showDrill('pyq');}">
       <div class="stat-label">PYQ Tests Today</div>
@@ -302,9 +310,15 @@ body{font-family:'Noto Sans',sans-serif;background:var(--bg);color:var(--text);m
       <div class="stat-val green" id="mockToday">—</div>
       <div class="stat-sub" id="mockTodaySub">—</div>
     </div>
-    <div class="stat-card">
+    <div class="stat-card clickable" tabindex="0" onclick="showDrill('chapter')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();showDrill('chapter');}">
+      <div class="stat-label">Chapter Tests Today</div>
+      <div class="stat-val blue" id="chapterToday">—</div>
+      <div class="stat-sub" id="chapterTodaySub">—</div>
+    </div>
+    <div class="stat-card clickable" tabindex="0" onclick="showDrill('new')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();showDrill('new');}">
       <div class="stat-label">New Users Today</div>
       <div class="stat-val blue" id="newUsersToday">—</div>
+      <div class="stat-sub" id="newUsersTodaySub">—</div>
     </div>
     <div class="stat-card">
       <div class="stat-label">New Users Yesterday</div>
@@ -423,8 +437,13 @@ function cacheUser(u){
 // Snapshot of the current report day, filled in by loadStats(). The drill-down
 // panels read from this so clicking a stat card never re-queries Firestore —
 // the numbers on the card and the names behind it always come from one load.
-let todayCtx = { attempts: [], activeUsers: [], reportStart: null, reportEnd: null };
-let drillKind = 'active';    // 'active' | 'pyq' | 'mock'
+let todayCtx = { attempts: [], activeUsers: [], newUsers: [], reportStart: null, reportEnd: null };
+
+// uids (and doc ids) of candidates who SIGNED UP inside the current report window.
+// Every "N new" figure on the cards and in the drill-downs is a lookup in here.
+let newTodayIds = new Set();
+
+let drillKind = 'active';    // 'active' | 'pyq' | 'mock' | 'chapter' | 'new'
 let drillView = 'candidate'; // 'candidate' | 'test'
 
 // Every date on this dashboard is rendered in Indian Standard Time, regardless of
@@ -435,7 +454,31 @@ const IST_TZ = 'Asia/Kolkata';
 // Classify an attempt as 'mock' or 'pyq'. Checks several possible schema
 // fields so it works whether your attempt docs carry mockId/paperId, a
 // type/mode field, or just the exam name. Adjust here if your field names differ.
+// Chapter tests (chapterwise-test.html) are the THIRD kind of paper on the site.
+// Their attempt docs are not tagged identically everywhere, so several possible
+// signals are checked and the first match wins. If the chapter player ever starts
+// writing a different field, add it here — nothing else needs changing.
+function isChapterAttempt(a){
+  const t = (a.type || a.mode || a.testType || a.category || a.kind || '').toString().toLowerCase();
+  if(t.includes('chapter') || t === 'cw' || t === 'chapterwise') return true;
+  // Top-level chapter fields. (answers[].ch is per-question and is NOT used here.)
+  if(a.chapterId || a.chapterName || a.chapterTestId || a.testKey || a.cwId) return true;
+  // The id the chapter player builds, e.g. quant.divisibility_L1_T3_en
+  const ids = [a.testId, a._reportTestId, a.reportTestId, a.mockId, a.paperId]
+    .filter(Boolean).join(' ');
+  if(/_l\s*\d+_t\s*\d+/i.test(ids)) return true;
+  const has = v => v !== undefined && v !== null && v !== '';
+  if(has(a.level) && has(a.testNum)) return true;
+  const name = (a.mockName || a.examName || a.exam || a.testName || a.paperName || '').toString().toLowerCase();
+  if(name.includes('chapter')) return true;
+  if(/level\s*\d[^]*test\s*\d/.test(name)) return true;
+  return false;
+}
+
 function attemptType(a){
+  // Checked FIRST: before this card existed, every chapter test fell through to
+  // the PYQ bucket, which is exactly what the PYQ number should stop counting.
+  if(isChapterAttempt(a)) return 'chapter';
   const t = (a.type || a.mode || a.testType || a.category || '').toString().toLowerCase();
   if(t.includes('mock')) return 'mock';
   if(t.includes('pyq') || t.includes('paper')) return 'pyq';
@@ -451,6 +494,16 @@ function attemptType(a){
 // Pulls whichever name field the doc carries and appends year / shift only
 // when they aren't already part of the name, so labels stay tidy.
 function testLabel(a){
+  if(isChapterAttempt(a)){
+    let base = (a.chapterName || a.chapter || a.chapterId || a.testName || a.examName ||
+                a.mockName || a.testKey || a.testId || a._reportTestId || 'Chapter test')
+               .toString().replace(/<[^>]*>/g,'').replace(/\s+/g,' ').trim() || 'Chapter test';
+    const bits = [];
+    const has = v => v !== undefined && v !== null && v !== '';
+    if(has(a.level)   && !/level/i.test(base))    bits.push('Level ' + a.level);
+    if(has(a.testNum) && !/test\s*\d/i.test(base)) bits.push('Test ' + a.testNum);
+    return bits.length ? base + ' · ' + bits.join(' · ') : base;
+  }
   let base = (a.mockName || a.examName || a.exam || a.testName || a.paperName || a.paperId || a.mockId || 'Unknown test')
              .toString().replace(/\s+/g,' ').trim();
   const extra = [a.year, a.shift, a.paperDate, a.date]
@@ -649,25 +702,40 @@ window.loadStats = async () => {
     // wrong (createdAt is written client-side). They land in the wrong report window,
     // so surface the count instead of silently mis-bucketing them.
     const skewMs = _nowMs + 60000;   // 1 min slack for ordinary clock drift
-    let newUsersToday = 0, newUsersYesterday = 0, futureJoins = 0;
+    let newUsersYesterday = 0, futureJoins = 0;
+    // Keep the joined-today candidates themselves, not just a tally — every
+    // "N new" figure below is a membership test against this set.
+    const newUsersTodayList = [];
+    newTodayIds = new Set();
     joinSnap.forEach(d => {
       const u = {id:d.id, ...d.data()};
       cacheUser(u);
       const c = _td(u.createdAt);
       if(c && c.getTime() > skewMs) futureJoins++;
-      if(inDay(c)) newUsersToday++;
+      if(inDay(c)){
+        newUsersTodayList.push(u);
+        if(u.id)  newTodayIds.add(u.id);
+        if(u.uid) newTodayIds.add(u.uid);
+      }
       else if(inYday(c)) newUsersYesterday++;
     });
+    const newUsersToday = newUsersTodayList.length;
+    const isNew = id => !!id && newTodayIds.has(id);
+    const newIn = set => [...set].filter(isNew).length;   // how many of a uid set joined today
 
     // Tests given today (7 AM window), PYQ and Mock counted separately.
     // Primary number = unique candidates; sub-line = total attempts.
     const todaysAttempts = [];
     attSnap.forEach(d => { const a = {id:d.id, ...d.data()}; if(inDay(_td(a.timestamp))) todaysAttempts.push(a); });
 
-    const pyqUsersToday = new Set(), mockUsersToday = new Set();
-    let pyqAttemptsToday = 0, mockAttemptsToday = 0;
+    const pyqUsersToday = new Set(), mockUsersToday = new Set(), chapterUsersToday = new Set();
+    const testTakersToday = new Set();
+    let pyqAttemptsToday = 0, mockAttemptsToday = 0, chapterAttemptsToday = 0;
     todaysAttempts.forEach(a => {
-      if(attemptType(a)==='mock'){ mockUsersToday.add(a.uid); mockAttemptsToday++; }
+      const t = attemptType(a);
+      testTakersToday.add(a.uid);
+      if(t==='mock'){ mockUsersToday.add(a.uid); mockAttemptsToday++; }
+      else if(t==='chapter'){ chapterUsersToday.add(a.uid); chapterAttemptsToday++; }
       else { pyqUsersToday.add(a.uid); pyqAttemptsToday++; }
     });
 
@@ -675,17 +743,27 @@ window.loadStats = async () => {
     await resolveUsers(todaysAttempts.map(a => a.uid));
 
     // Hand the same numbers to the drill-down panels.
-    todayCtx = { attempts: todaysAttempts, activeUsers: activeUsersToday, reportStart, reportEnd };
+    todayCtx = { attempts: todaysAttempts, activeUsers: activeUsersToday, newUsers: newUsersTodayList, reportStart, reportEnd };
     if(document.getElementById('drillModal').classList.contains('open')) renderDrill();
+
+    // "N new" = of the candidates counted on this card, how many signed up today.
+    const subLine = (attempts, users) =>
+      attempts+' attempt'+(attempts===1?'':'s')+' · <span class="nu">'+newIn(users)+' new</span>';
+    const newActive  = activeUsersToday.filter(u => isNew(u.uid || u.id)).length;
+    const newTesting = newIn(testTakersToday);   // joined today AND sat at least one test
 
     document.getElementById('totalUsers').textContent = detailsLoaded ? allUsers.length    : totalUsersCount;
     document.getElementById('totalTests').textContent = detailsLoaded ? allAttempts.length : totalAttemptsCount;
     document.getElementById('activeToday').textContent = activeUsersToday.length;
+    document.getElementById('activeTodaySub').innerHTML = '<span class="nu">'+newActive+' new</span> · '+testTakersToday.size+' sat a test';
     document.getElementById('pyqToday').textContent = pyqUsersToday.size;
-    document.getElementById('pyqTodaySub').textContent = pyqAttemptsToday+' attempt'+(pyqAttemptsToday===1?'':'s');
+    document.getElementById('pyqTodaySub').innerHTML = subLine(pyqAttemptsToday, pyqUsersToday);
     document.getElementById('mockToday').textContent = mockUsersToday.size;
-    document.getElementById('mockTodaySub').textContent = mockAttemptsToday+' attempt'+(mockAttemptsToday===1?'':'s');
+    document.getElementById('mockTodaySub').innerHTML = subLine(mockAttemptsToday, mockUsersToday);
+    document.getElementById('chapterToday').textContent = chapterUsersToday.size;
+    document.getElementById('chapterTodaySub').innerHTML = subLine(chapterAttemptsToday, chapterUsersToday);
     document.getElementById('newUsersToday').textContent = newUsersToday;
+    document.getElementById('newUsersTodaySub').innerHTML = '<span class="nu">'+newTesting+'</span> of them gave a test';
     document.getElementById('newUsersYesterday').textContent = newUsersYesterday;
     document.getElementById('newUsersYesterdaySub').textContent = '7 AM '+_dLabel(ydayStart)+' → 7 AM '+_dLabel(reportStart);
     stamp.textContent = 'Updated: '+new Date().toLocaleTimeString('en-IN',{timeZone:IST_TZ})+' IST · report day 7 AM–7 AM IST'
@@ -838,15 +916,21 @@ window.filterTable = () => {
 };
 
 // ── DRILL-DOWN: who is doing what today ─────────────────────────────────────
-const DRILL_TITLES = { active:'Active today', pyq:'PYQ tests today', mock:'Mock tests today' };
+const DRILL_TITLES = {
+  active:'Active today', pyq:'PYQ tests today', mock:'Mock tests today',
+  chapter:'Chapter tests today', new:'New candidates today'
+};
 
 function dayLabel(dt){ return dt ? dt.toLocaleDateString('en-IN',{day:'numeric',month:'short',timeZone:IST_TZ}) : '—'; }
 
 // The attempts this drill is about. 'active' shows everything done today so the
 // list explains what each active candidate was actually up to.
 function drillAttempts(){
-  if(drillKind === 'pyq')  return todayCtx.attempts.filter(a => attemptType(a) === 'pyq');
-  if(drillKind === 'mock') return todayCtx.attempts.filter(a => attemptType(a) === 'mock');
+  if(drillKind === 'pyq')     return todayCtx.attempts.filter(a => attemptType(a) === 'pyq');
+  if(drillKind === 'mock')    return todayCtx.attempts.filter(a => attemptType(a) === 'mock');
+  if(drillKind === 'chapter') return todayCtx.attempts.filter(a => attemptType(a) === 'chapter');
+  // Everything today's signups attempted, whichever kind of paper it was.
+  if(drillKind === 'new')     return todayCtx.attempts.filter(a => newTodayIds.has(a.uid));
   // Scoped to the candidates the card counted, so the list totals never disagree
   // with the number on the card (orphaned attempts from deleted accounts would).
   const live = new Set();
@@ -858,7 +942,14 @@ function attemptTime(a){ return (a.timestamp && a.timestamp.toDate) ? a.timestam
 
 function typeTag(a){
   const t = attemptType(a);
-  return `<span class="drill-tag ${t}">${t === 'mock' ? 'MOCK' : 'PYQ'}</span>`;
+  const label = t === 'mock' ? 'MOCK' : t === 'chapter' ? 'CHAPTER' : 'PYQ';
+  return `<span class="drill-tag ${t}">${label}</span>`;
+}
+
+// Badge for a candidate who signed up inside the current report window.
+function newTag(u){
+  const id = u ? (u.uid || u.id) : null;
+  return id && newTodayIds.has(id) ? '<span class="drill-new">NEW</span>' : '';
 }
 
 window.showDrill = (kind) => {
@@ -899,6 +990,9 @@ window.renderDrill = () => {
     // Active-today candidates appear even with zero attempts — that absence is
     // itself the answer to "what is this person doing?".
     if(drillKind === 'active') todayCtx.activeUsers.forEach(u => { touch(u.uid || u.id).user = u; });
+    // Same for today's signups — a new candidate who attempted nothing is the
+    // most useful row on that card, so they must not be dropped.
+    if(drillKind === 'new') todayCtx.newUsers.forEach(u => { touch(u.uid || u.id).user = u; });
     atts.forEach(a => touch(a.uid).attempts.push(a));
 
     let rows = [...groups.values()];
@@ -917,7 +1011,8 @@ window.renderDrill = () => {
     );
 
     const totalAtt = rows.reduce((n,g) => n + g.attempts.length, 0);
-    html += `<div class="drill-note">${rows.length} candidate${rows.length===1?'':'s'} · ${totalAtt} attempt${totalAtt===1?'':'s'}</div>`;
+    const newRows  = rows.filter(g => newTodayIds.has(g.uid)).length;
+    html += `<div class="drill-note">${rows.length} candidate${rows.length===1?'':'s'} · ${totalAtt} attempt${totalAtt===1?'':'s'} · ${newRows} joined today</div>`;
 
     html += rows.map(g => {
       const u = g.user;
@@ -925,7 +1020,7 @@ window.renderDrill = () => {
       const meta = [u && u.phone ? esc(u.phone) : null, u && u.email ? esc(u.email) : null, 'last active ' + last]
         .filter(Boolean).join(' · ');
       const nameHtml = u
-        ? `<div class="drill-name" onclick="openCandidate('${u.id}')">${esc(candidateName(u))}</div>`
+        ? `<div class="drill-name" onclick="openCandidate('${u.id}')">${esc(candidateName(u))}${newTag(u)}</div>`
         : `<div class="drill-name" style="cursor:default;color:var(--muted);">${esc(candidateName(null))}</div>`;
       const items = g.attempts.length
         ? g.attempts.map(a => `
@@ -975,7 +1070,7 @@ window.renderDrill = () => {
       const items = t.attempts.map(a => {
         const u = idx[a.uid];
         const nm = u
-          ? `<span class="drill-name" onclick="openCandidate('${u.id}')">${esc(candidateName(u))}</span>`
+          ? `<span class="drill-name" onclick="openCandidate('${u.id}')">${esc(candidateName(u))}${newTag(u)}</span>`
           : `<span style="color:var(--muted);">${esc(candidateName(null))}</span>`;
         const ph = u && u.phone ? ` <span style="color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:0.72rem;">${esc(u.phone)}</span>` : '';
         return `<div class="drill-item">
@@ -987,7 +1082,7 @@ window.renderDrill = () => {
         <div class="drill-head">
           <div>
             <div class="drill-name" style="cursor:default;">${typeTag(t.attempts[0])}${esc(t.label)}</div>
-            <div class="drill-sub">${heads.size} candidate${heads.size===1?'':'s'}</div>
+            <div class="drill-sub">${heads.size} candidate${heads.size===1?'':'s'} · ${[...heads].filter(id=>newTodayIds.has(id)).length} joined today</div>
           </div>
           <div class="drill-count">${t.attempts.length} attempt${t.attempts.length===1?'':'s'}</div>
         </div>
@@ -1005,7 +1100,7 @@ window.renderDrill = () => {
 window.exportDrill = () => {
   const q   = (document.getElementById('drillSearch').value || '').trim().toLowerCase();
   const idx = userIndex();
-  const rows = [['Candidate','Mobile','Email','Type','Test','Score','Correct','Wrong','Time (IST)']];
+  const rows = [['Candidate','Mobile','Email','Joined today','Type','Test','Score','Correct','Wrong','Time (IST)']];
 
   drillAttempts().forEach(a => {
     const u = idx[a.uid] || {};
@@ -1016,6 +1111,7 @@ window.exportDrill = () => {
     }
     rows.push([
       candidateName(idx[a.uid]), u.phone || '', u.email || '',
+      newTodayIds.has(a.uid) ? 'Yes' : 'No',
       attemptType(a).toUpperCase(), label,
       (a.marks !== undefined && a.marks !== null && a.marks !== '') ? a.marks : (a.percentage !== undefined ? a.percentage + '%' : ''),
       a.correct || 0, a.wrong || 0,
