@@ -204,6 +204,16 @@
 .katex-display>.katex{white-space:nowrap;}
 .katex::-webkit-scrollbar,.katex-display::-webkit-scrollbar{height:4px;}
 .katex::-webkit-scrollbar-thumb,.katex-display::-webkit-scrollbar-thumb{background:#CBD5E1;border-radius:4px;}
+/* ─── Equals sign legibility ───────────────────────────────────────
+   KaTeX_Main draws "=" with two hairline bars; on many screens the
+   upper bar washes out and the sign reads as a minus. Bold weight
+   (KaTeX_Main-Bold) plus a hairline stroke keeps both bars solid at
+   every size. Applied by boldEquals() after each math render. */
+.katex .tssc-eq{
+  font-weight:700;
+  -webkit-text-stroke:0.22px currentColor;
+  text-stroke:0.22px currentColor;
+}
 .q-instruction{
   display:block;
   font-size:15px;font-weight:500;color:#475569;
@@ -2698,7 +2708,25 @@ function fitMath(root){
     }catch(e){/* never break rendering */}
   });
 }
-function mathDress(el){ renderTrickyMath(el); dressRoots(el); dressFractions(el); fitMath(el); }
+/* ── TrickySSC: bold the "=" inside rendered math ────────────────
+   KaTeX emits each relation as its own <span class="mrel">. The plain
+   "=" glyph of KaTeX_Main is two hairlines, and at question/solution
+   sizes the top bar often blurs away, so "a = b" can look like "a - b".
+   We tag only the spans whose text is exactly "=" and let CSS give them
+   the bold face. Nothing else is touched: "≠", "≈", "≤" and friends keep
+   their normal weight, and no character is added or removed, so widths
+   stay honest for fitMath(). Display-only; stored data is untouched. */
+function boldEquals(root){
+  if(!root||!root.querySelectorAll) return;
+  try{
+    root.querySelectorAll('.katex .mrel').forEach(function(s){
+      if(s.classList.contains('tssc-eq')) return;          /* already done */
+      if(s.querySelector('.mrel')) return;                 /* wrapper, not the glyph */
+      if(s.textContent.trim()==='=') s.classList.add('tssc-eq');
+    });
+  }catch(e){/* never break rendering */}
+}
+function mathDress(el){ renderTrickyMath(el); boldEquals(el); dressRoots(el); dressFractions(el); fitMath(el); }
 /* re-fit when the viewport changes (rotation, resize) */
 (function(){
   var t;
