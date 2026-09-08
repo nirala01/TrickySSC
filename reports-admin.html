@@ -91,6 +91,22 @@
   table.inner th{background:#F8FAFC;position:static;}
   table.inner td,table.inner th{padding:6px 8px;font-size:12px;}
   .who2{font-weight:600;color:#0F172A;}
+  /* ── side-by-side solution review ── */
+  .sbs{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:start;}
+  @media(max-width:900px){ .sbs{grid-template-columns:1fr;} }
+  .pane{border:1px solid #E2E8F0;border-radius:10px;padding:8px 10px;background:#fff;min-width:0;}
+  .pane.oldp{background:#FFFBFB;border-color:#FECACA;}
+  .pane.newp{background:#F7FEF9;border-color:#BBF7D0;}
+  .pane h4{margin:0 0 6px;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#94A3B8;display:flex;gap:8px;align-items:center;}
+  .pane h4 button{margin-left:auto;background:none;border:0;font-size:11px;font-weight:800;color:#FF6B00;cursor:pointer;padding:0;}
+  .rend{font-size:13px;line-height:1.65;max-height:460px;overflow:auto;word-break:break-word;}
+  .rend img{max-width:100%;height:auto;}
+  .rend table{border-collapse:collapse;} .rend table td,.rend table th{border:1px solid #CBD5E1;padding:3px 6px;}
+  .raw{font-size:12px;white-space:pre-wrap;word-break:break-word;max-height:460px;overflow:auto;font-family:ui-monospace,Menlo,Consolas,monospace;color:#475569;}
+  .newta{width:100%;background:#fff;border:1px solid #BBF7D0;border-radius:8px;padding:7px 9px;font-size:12px;color:#14532D;font-family:ui-monospace,Menlo,Consolas,monospace;line-height:1.6;resize:vertical;min-height:120px;}
+  .fieldrow.risky{border-color:#FCA5A5;background:#FFF7F7;}
+  .riskbadge{display:inline-block;font-size:10px;font-weight:800;padding:1px 7px;border-radius:99px;background:#FEE2E2;color:#B91C1C;margin-left:6px;}
+  .grow{display:inline-block;font-size:10px;font-weight:800;padding:1px 7px;border-radius:99px;background:#EFF6FF;color:#1D4ED8;margin-left:6px;}
 </style>
 </head>
 <body>
@@ -689,9 +705,11 @@ function renderStage2(){
      ${FIX.docs.map(docCard).join('')}`;
   $('fixFoot').innerHTML =
     `<button class="btn btn-orange" id="goAI">✨ Analyse &amp; propose correction</button>
+     <button class="btn btn-green" id="goSol">📘 Rewrite solution in more detail</button>
      <button class="btn btn-ghost" onclick="closeFix()">Cancel</button>
      <span class="muted" style="margin-left:auto;">Nothing is written until you approve.</span>`;
-  $('goAI').onclick = runAI;
+  $('goAI').onclick  = () => runAI('fix');
+  $('goSol').onclick = () => runAI('solution');
 }
 
 // ── Stage 3: call Claude ───────────────────────────────────────────
@@ -739,6 +757,65 @@ function buildPrompt(){
   return L.join("\n");
 }
 
+/* ── PROMPT 2: rewrite the solution in more detail ──────────────────
+   Runs on ANY question — PYQ, mock or chapter test — whether or not the
+   stored solution is wrong. Verifies the key first, then rewrites the
+   teaching content in the same format, in simpler language.          */
+function buildSolutionPrompt(){
+  const L = [];
+  L.push("You are a senior SSC exam content writer for TrickySSC, an SSC exam-prep platform. Its students are Hindi-medium and English-medium CGL/CHSL aspirants, many of them weak in the basics.");
+  L.push("Your job here is NOT to hunt for errors. It is to REWRITE THE SOLUTION so it teaches: more detailed, more steps, simpler language, same format.");
+  L.push("");
+  if(FIX.reports.length){
+    L.push("### Candidate reports on this question (context only — rewrite the solution even if they are wrong)");
+    FIX.reports.forEach(r => L.push(`- PART: ${tgtOf(r)} | Reason: ${r.reason||'—'} | Note: ${r.note||'(none)'}`));
+    L.push("");
+  }
+  L.push(`### Test: ${FIX.mockId} · Question number ${FIX.qNum}`);
+  L.push("");
+  L.push("### Stored documents");
+  FIX.docs.forEach((d,i) => {
+    L.push(`D${i+1} (${d.coll}/${d.id}, language=${d.lang}):`);
+    L.push("```json");
+    L.push(JSON.stringify(d.data, null, 1));
+    L.push("```");
+  });
+  L.push("");
+  L.push("### Step 1 — verify before you write");
+  L.push("Solve the question yourself from first principles. Then:");
+  L.push("- If the stored answer key is CORRECT: leave the key, the question text and the options untouched. Only the solution fields change.");
+  L.push("- If the stored answer key is WRONG: correct it, and make every solution field in EVERY document — English and Hindi — derive the corrected option. Never leave one field contradicting another.");
+  L.push("- If the question itself is broken (two options identical, no correct option, missing data), say so in the diagnosis and set key_status to \"broken\"; still write the best solution you can and explain the defect.");
+  L.push("");
+  L.push("### Step 2 — rewrite the solution");
+  L.push("Fields you may rewrite: explanation, solution, solutionText, trick, concept (whichever exist in that document). Rewrite them in EVERY document above — the Hindi twin as well as the English one.");
+  L.push("1. 6-7 numbered steps. Longer than the original is expected; do not pad with filler.");
+  L.push("2. Simple lucid language, short everyday sentences. Assume the student did not follow the old solution — that is why it is being rewritten.");
+  L.push("3. State the formula, rule or identity in its own step in GENERAL LETTERS before you substitute any number, and carry it in the trick field too.");
+  L.push("4. DEFINE every technical term at first use — modulus, the greatest-integer brackets [ ], factorial, parity, co-prime, trailing zero, terminating decimal, perfect square, multiplicity, and any other term a beginner may not know.");
+  L.push("5. Give the REASON a step is allowed, not just the manipulation. Where students commonly take a wrong route, add a short 'trap to avoid' line.");
+  L.push("6. Finish with the verdict line naming the correct option letter AND that option's text, generated from that document's own option field so a Hindi document ends in Hindi.");
+  L.push("7. The trick field stays a genuine shortcut (the fast route in one or two lines), and the concept field stays the one-line topic label — do not turn either into a second full solution.");
+  L.push("");
+  L.push("### Step 3 — formatting is non-negotiable");
+  L.push("Copy the conventions already present in the stored fields exactly: KaTeX wrapped in \\\\( \\\\) with ^{} for powers and roots, [BR] for line breaks, <u> tags, || option separators, inline HTML, green step headings (#155724), orange dash bullets (#FF6B00), the single green verdict badge (#00A86B). Match the surrounding style — never invent a new one, and never emit a bare caret, a Unicode superscript, or an unbalanced \\\\( \\\\).");
+  L.push("Never translate a document. A Hindi document stays Hindi: sentences in Hindi, but numbers, KaTeX, the 'Step N' headings and technical terms in English exactly as it already does. English and Hindi must describe the SAME method, step for step.");
+  L.push("Use dot notation for nested fields exactly as it appears in the JSON, e.g. options.A");
+  L.push("");
+  L.push("### Output");
+  L.push("Return ONLY a JSON object, no markdown fences, no commentary before or after:");
+  L.push('{');
+  L.push('  "key_status": "correct" | "corrected" | "broken",');
+  L.push('  "confidence": "high" | "medium" | "low",');
+  L.push('  "correct_answer": "the option letter you independently derived",');
+  L.push('  "diagnosis": "2-5 sentences: how you solved it, and what you improved in the solution",');
+  L.push('  "changes": [ { "doc": "D1", "field": "explanation", "new": "the FULL rewritten field value", "why": "short reason" } ],');
+  L.push('  "clear_reports": true');
+  L.push('}');
+  L.push('Every rewritten field is one entry in "changes", carrying the COMPLETE new value of that field — never a fragment, never a diff.');
+  return L.join("\n");
+}
+
 function parseAI(raw){
   let t = String(raw||'').trim();
   t = t.replace(/^```(?:json)?/i,'').replace(/```$/,'').trim();
@@ -748,10 +825,15 @@ function parseAI(raw){
   return null;
 }
 
-async function runAI(){
-  $('fixBody').innerHTML = `<div class="steps">1 · Located → <b>2 · Analysing</b> → 3 · Preview → 4 · Apply</div>
+async function runAI(mode){
+  FIX.mode = (mode==='solution') ? 'solution' : 'fix';
+  const busy = FIX.mode==='solution'
+    ? 'Claude is solving the question and rewriting the solution in more detail…'
+    : 'Claude is solving the question and checking the stored content…';
+  $('fixBody').innerHTML = `<div class="steps">1 · Located → <b>2 · ${FIX.mode==='solution'?'Rewriting':'Analysing'}</b> → 3 · Review → 4 · Publish</div>
     <div style="text-align:center;padding:34px;"><div class="spin"></div>
-    <div class="muted" style="margin-top:10px;">Claude is solving the question and checking the stored content…</div></div>`;
+    <div class="muted" style="margin-top:10px;">${busy}</div>
+    <div class="muted" style="margin-top:6px;font-size:11px;">A full rewrite of both languages can take 40-60 seconds.</div></div>`;
   $('fixFoot').innerHTML = `<button class="btn btn-ghost" onclick="closeFix()">Cancel</button>`;
   let raw = '';
   try{
@@ -761,7 +843,7 @@ async function runAI(){
       body: JSON.stringify({
         model: AI_MODEL,
         max_tokens: AI_MAX_TOKENS,
-        messages:[{role:'user', content: buildPrompt()}]
+        messages:[{role:'user', content: FIX.mode==='solution' ? buildSolutionPrompt() : buildPrompt()}]
       })
     });
     const j = await res.json().catch(()=>null);
@@ -783,14 +865,50 @@ async function runAI(){
   renderStage3();
 }
 
+// ── KaTeX preview (loaded lazily, only when a preview is painted) ──
+let KATEX_P = null;
+function katexReady(){
+  if(KATEX_P) return KATEX_P;
+  const css = document.createElement('link');
+  css.rel='stylesheet'; css.href='https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css';
+  document.head.appendChild(css);
+  KATEX_P = Promise.all([
+    import('https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.mjs'),
+    import('https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.mjs')
+  ]).then(([k,a]) => { window.katex = k.default||k; return (a.default||a); })
+    .catch(e => { console.warn('KaTeX unavailable — showing raw \\( \\)', e); return null; });
+  return KATEX_P;
+}
+
+// Paint a stored field the way the test player shows it: [BR] → <br>, HTML live, KaTeX rendered.
+function paintRich(el, val){
+  el.innerHTML = String(val==null?'':val).replace(/\[BR\]/g,'<br>');
+  katexReady().then(render => { if(render) try{ render(el, {
+    delimiters:[{left:'\\(',right:'\\)',display:false},{left:'$$',right:'$$',display:true}],
+    throwOnError:false
+  }); }catch(_){} });
+}
+
+const RISKY_FIELD = f => /^(text|question|options?(\.|$)|option_[A-D]|correct|answer)/i.test(String(f));
+const SOL_FIELD   = f => /^(explanation|solution|solutionText|trick|concept)$/i.test(String(f));
+
 // ── Stage 4: editable preview ──────────────────────────────────────
 function renderStage3(){
-  const ai = FIX.ai;
-  const cls = ai.verdict==='fix_needed' ? 'v-fix' : (ai.verdict==='no_change' ? 'v-no' : 'v-un');
-  const head = ai.verdict==='fix_needed' ? '⚠ Correction proposed'
-             : ai.verdict==='no_change'  ? '✓ No change needed — the stored content looks correct'
-             : '? Unclear — needs your eyes';
-  let html = `<div class="steps">1 · Located → 2 · Analysed → <b>3 · Review</b> → 4 · Apply</div>
+  const ai = FIX.ai, sol = FIX.mode==='solution';
+  let cls, head;
+  if(sol){
+    const ks = String(ai.key_status||'correct').toLowerCase();
+    cls  = ks==='correct' ? 'v-no' : (ks==='broken' ? 'v-un' : 'v-fix');
+    head = ks==='correct' ? '✓ Answer key verified correct — solution rewritten in more detail'
+         : ks==='broken'  ? '? The question itself looks defective — read the diagnosis before publishing'
+         : '⚠ The answer key was wrong — corrected, and the solution rewritten to match';
+  } else {
+    cls  = ai.verdict==='fix_needed' ? 'v-fix' : (ai.verdict==='no_change' ? 'v-no' : 'v-un');
+    head = ai.verdict==='fix_needed' ? '⚠ Correction proposed'
+         : ai.verdict==='no_change'  ? '✓ No change needed — the stored content looks correct'
+         : '? Unclear — needs your eyes';
+  }
+  let html = `<div class="steps">1 · Located → 2 · ${sol?'Rewritten':'Analysed'} → <b>3 · Review</b> → 4 · Publish</div>
     <div class="verdict ${cls}"><b>${head}</b> <span class="muted">(confidence: ${esc(ai.confidence||'?')})</span>
       <div style="margin-top:6px;">${esc(ai.diagnosis||'')}</div>
       ${ai.correct_answer?`<div style="margin-top:6px;"><span class="lbl">Independently derived answer</span> <b>${esc(ai.correct_answer)}</b></div>`:''}
@@ -798,27 +916,79 @@ function renderStage3(){
     </div>`;
 
   if(FIX.changes.length){
-    html += `<div class="sec"><h3>Proposed edits (${FIX.changes.length}) — editable</h3>`;
+    html += `<div class="sec"><h3>${sol?'Old solution vs new solution':'Proposed edits'} (${FIX.changes.length}) — editable</h3>`;
     FIX.changes.forEach(c => {
       const oldTxt = c.old===undefined ? '(field does not exist yet)' : (typeof c.old==='object'? JSON.stringify(c.old) : String(c.old));
       const newTxt = typeof c.val==='object'? JSON.stringify(c.val) : String(c.val==null?'':c.val);
-      const rows = Math.min(14, Math.max(1, Math.ceil(newTxt.length/95) + (newTxt.match(/\n/g)||[]).length));
-      html += `<div class="fieldrow">
-        <label style="display:flex;gap:8px;align-items:center;">
-          <input type="checkbox" data-ci="${c.i}" class="ck" checked>
-          <span class="fn">${esc(c.d.coll)}/${esc(c.d.id)} → ${esc(c.field)}</span>
-        </label>
-        <div class="lbl" style="margin-top:6px;">Current</div><div class="old">${esc(oldTxt)}</div>
-        <div class="lbl">Corrected</div><textarea class="new" rows="${rows}" data-ci="${c.i}">${esc(newTxt)}</textarea>
-        ${c.why?`<div class="why">↳ ${esc(c.why)}</div>`:''}
-      </div>`;
+      const risky  = RISKY_FIELD(c.field);
+      const grow   = oldTxt.length ? Math.round((newTxt.length/Math.max(1,oldTxt.length))*100) : 0;
+      const badge  = risky ? `<span class="riskbadge">touches the question itself</span>` : '';
+      const growB  = (sol && oldTxt.length>40) ? `<span class="grow">${grow}% of old length</span>` : '';
+      const title  = `<span class="fn">${esc(c.d.coll)}/${esc(c.d.id)} → ${esc(c.field)}</span>
+                      ${c.d.lang!=='?'?`<span class="pill b">${esc(String(c.d.lang).toUpperCase())}</span>`:''}${badge}${growB}`;
+
+      if(sol && SOL_FIELD(c.field)){
+        // side-by-side, rendered the way the student sees it
+        const rows = Math.min(26, Math.max(6, Math.ceil(newTxt.length/90)));
+        html += `<div class="fieldrow${risky?' risky':''}">
+          <label style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <input type="checkbox" data-ci="${c.i}" class="ck" checked>${title}
+          </label>
+          <div class="sbs" style="margin-top:8px;">
+            <div class="pane oldp">
+              <h4>Current solution <button type="button" class="tog" data-ci="${c.i}" data-side="old">show source</button></h4>
+              <div class="rend" id="oldr${c.i}"></div>
+              <div class="raw hidden" id="oldx${c.i}">${esc(oldTxt)}</div>
+            </div>
+            <div class="pane newp">
+              <h4>New solution <button type="button" class="tog" data-ci="${c.i}" data-side="new">edit source</button></h4>
+              <div class="rend" id="newr${c.i}"></div>
+              <textarea class="newta hidden" rows="${rows}" id="newx${c.i}" data-ci="${c.i}">${esc(newTxt)}</textarea>
+            </div>
+          </div>
+          ${c.why?`<div class="why">↳ ${esc(c.why)}</div>`:''}
+        </div>`;
+      } else {
+        const rows = Math.min(14, Math.max(1, Math.ceil(newTxt.length/95) + (newTxt.match(/\n/g)||[]).length));
+        html += `<div class="fieldrow${risky?' risky':''}">
+          <label style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <input type="checkbox" data-ci="${c.i}" class="ck" checked>${title}
+          </label>
+          <div class="lbl" style="margin-top:6px;">Current</div><div class="old">${esc(oldTxt)}</div>
+          <div class="lbl">Corrected</div><textarea class="new" rows="${rows}" data-ci="${c.i}">${esc(newTxt)}</textarea>
+          ${c.why?`<div class="why">↳ ${esc(c.why)}</div>`:''}
+        </div>`;
+      }
     });
     html += `</div>`;
+  } else if(sol){
+    html += `<div class="sec"><span class="muted">The AI returned no rewritten fields. Try again, or use ✨ Analyse if you only wanted a correctness check.</span></div>`;
   }
   $('fixBody').innerHTML = html;
 
-  $('fixBody').querySelectorAll('textarea.new').forEach(t => {
-    t.oninput = () => { const c = FIX.changes.find(x=>x.i==t.dataset.ci); if(c) c.val = t.value; };
+  // paint the rendered panes + wire the source toggles
+  FIX.changes.forEach(c => {
+    const or = $('oldr'+c.i), nr = $('newr'+c.i);
+    if(or) paintRich(or, c.old===undefined ? '(field does not exist yet)' : c.old);
+    if(nr) paintRich(nr, c.val);
+  });
+  $('fixBody').querySelectorAll('button.tog').forEach(b => {
+    b.onclick = () => {
+      const i = b.dataset.ci, isNew = b.dataset.side==='new';
+      const rend = $((isNew?'newr':'oldr')+i), src = $((isNew?'newx':'oldx')+i);
+      const showSrc = src.classList.contains('hidden');
+      src.classList.toggle('hidden', !showSrc);
+      rend.classList.toggle('hidden', showSrc);
+      b.textContent = showSrc ? (isNew?'show preview':'show preview') : (isNew?'edit source':'show source');
+    };
+  });
+  // live edits — both the plain textareas and the side-by-side source boxes
+  $('fixBody').querySelectorAll('textarea.new, textarea.newta').forEach(t => {
+    t.oninput = () => {
+      const c = FIX.changes.find(x=>x.i==t.dataset.ci); if(!c) return;
+      c.val = t.value;
+      const nr = $('newr'+c.i); if(nr) paintRich(nr, c.val);
+    };
   });
   $('fixBody').querySelectorAll('input.ck').forEach(k => {
     k.onchange = () => { const c = FIX.changes.find(x=>x.i==k.dataset.ci); if(c) c.on = k.checked; };
@@ -827,12 +997,14 @@ function renderStage3(){
   const nRep = FIX.reports.length;
   $('fixFoot').innerHTML =
     (FIX.changes.length
-      ? `<button class="btn btn-green" id="apply">✓ Approve &amp; update Firestore</button>`
+      ? `<button class="btn btn-green" id="apply">✓ Approve &amp; publish</button>`
       : '') +
-    `<label class="muted" style="display:flex;gap:6px;align-items:center;">
-       <input type="checkbox" id="alsoClear" ${FIX.ai.clear_reports!==false?'checked':''}> also clear the ${nRep} report(s)</label>
-     <button class="btn btn-ghost" onclick="closeFix()">Close without changing</button>`;
+    (nRep ? `<label class="muted" style="display:flex;gap:6px;align-items:center;">
+       <input type="checkbox" id="alsoClear" ${FIX.ai.clear_reports!==false?'checked':''}> also clear the ${nRep} report(s)</label>` : '') +
+    `<button class="btn btn-ghost" onclick="closeFix()">Close without changing</button>` +
+    (FIX.mode==='solution' ? `<button class="btn btn-orange" id="reRun" style="margin-left:auto;">↻ Rewrite again</button>` : '');
   const ap = $('apply'); if(ap) ap.onclick = applyFix;
+  const rr = $('reRun'); if(rr) rr.onclick = () => runAI('solution');
 }
 
 // ── Stage 5: write ─────────────────────────────────────────────────
@@ -856,7 +1028,11 @@ async function applyFix(){
         mockId: FIX.mockId, qNum: FIX.qNum,
         by: auth.currentUser?.email || auth.currentUser?.uid || '',
         at: serverTimestamp(),
-        verdict: FIX.ai.verdict, confidence: FIX.ai.confidence||'',
+        mode: FIX.mode || 'fix',
+        verdict: FIX.ai.verdict || FIX.ai.key_status || '',
+        keyStatus: FIX.ai.key_status || '',
+        correctAnswer: FIX.ai.correct_answer || '',
+        confidence: FIX.ai.confidence||'',
         diagnosis: FIX.ai.diagnosis||'',
         reportReasons: FIX.reports.map(r=>r.reason||''),
         reportNotes: FIX.reports.map(r=>r.note||''),
@@ -876,12 +1052,12 @@ async function applyFix(){
       cleared = ids.length;
       renderReports();
     }
-    $('fixBody').innerHTML = `<div class="verdict v-no"><b>✓ Updated</b><br>
+    $('fixBody').innerHTML = `<div class="verdict v-no"><b>✓ Published</b><br>
       ${picked.length} field(s) written across ${byDoc.size} document(s)${cleared?`, ${cleared} report(s) cleared`:''}.
       <div class="why">Logged to <code>${esc(AUDIT_COLL)}</code>. Purge the Cloudflare cache if the test page still shows the old text.</div></div>`;
     $('fixFoot').innerHTML = `<button class="btn btn-orange" onclick="closeFix()">Done</button>`;
   }catch(e){
-    btn.disabled=false; btn.textContent='✓ Approve & update Firestore';
+    btn.disabled=false; btn.textContent='✓ Approve & publish';
     const code = ''+((e&&(e.code||e.message))||'');
     alert(code.includes('permission')
       ? `Write blocked by Firestore rules. Allow admin writes on the questions collection and on ${AUDIT_COLL}.`
