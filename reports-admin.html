@@ -435,7 +435,7 @@ const AI_MAX_TOKENS = 8000;
 const Q_COLLECTIONS = ["questions"];            // where question docs live
 const X_COLLECTIONS = ["solutions"];            // optional extra collections using the same doc-id convention
 const AUDIT_COLL    = "question_fixes";         // every applied correction is logged here
-const ID_FIELDS     = ["paperId","mockId","testId","paper_id","mock_id"];
+const ID_FIELDS     = ["paperId","mockId","testId","paper_id","mock_id","testKey"];
 const NUM_FIELDS    = ["qNum","questionNumber","qNo","qno","number","serial","position","q"];
 
 let FIX = null;   // live state for the open modal
@@ -495,7 +495,124 @@ async function findOne(coll, baseId, qn){
   return null;
 }
 
+/* ── CHAPTER TESTS ──────────────────────────────────────────────────
+   chapterwise-test.html reports its test id as
+       <chapterId>_L<level>_T<testNum>_<lang>     e.g. quant.number-system_L2_T7_en
+   but the docs live in `questions` with type:'chapterwise' and ids
+       cw_<chapter-slug>_l<L>_t<N>_<lang>_q<NNN>
+   so the mock/PYQ `{paperId}_q{NNN}` convention never matches and the
+   probe never fires (chapter docs carry no paperId/mockId).            */
+const CT_RE = /^(.+?)_L(\d+)_T(\d+)_(en|hi)$/i;
+let   CT_TRIED = [];                       // for the "not found" diagnostic
+const CT_CACHE = new Map();                // chapterId -> [{id,data}] (one read per chapter per modal)
+
+function parseChapterTestId(id){
+  const m = CT_RE.exec(String(id||'').trim());
+  if(!m) return null;
+  return { chapterId:m[1], level:parseInt(m[2],10), testNum:parseInt(m[3],10), lang:m[4].toLowerCase() };
+}
+
+const ctSlugs = ch => {
+  const s = String(ch||'').toLowerCase();
+  return [...new Set([
+    s.replace(/[^a-z0-9]+/g,'-'),                       // quant-number-system
+    s,                                                  // quant.number-system
+    s.split('.').slice(1).join('-').replace(/[^a-z0-9]+/g,'-')   // number-system
+  ].filter(Boolean))];
+};
+
+const ctKeys = ct => [...new Set([
+  `${ct.chapterId}_L${ct.level}_T${ct.testNum}_${ct.lang}`,
+  `${ct.chapterId}_l${ct.level}_t${ct.testNum}_${ct.lang}`,
+  ...ctSlugs(ct.chapterId).map(s => `cw_${s}_l${ct.level}_t${ct.testNum}_${ct.lang}`)
+])];
+
+function ctIdCandidates(ct, qn){
+  const n = parseInt(qn,10), out = [];
+  for(const slug of ctSlugs(ct.chapterId)){
+    const base = `cw_${slug}_l${ct.level}_t${ct.testNum}_${ct.lang}`;
+    if(!isNaN(n)){ out.push(`${base}_q${String(n).padStart(3,'0')}`); out.push(`${base}_q${n}`); }
+    else out.push(`${base}_q${qn}`);
+  }
+  return [...new Set(out)];
+}
+
+const ctNumEq = (v, n) => v!==undefined && v!==null && v!=='' && parseInt(v,10)===n;
+const ctLangOf = d => String(d.language ?? d.lang ?? '').toLowerCase().slice(0,2);
+const ctQNumOf = d => { for(const f of NUM_FIELDS){ if(d[f]!==undefined) return d[f]; } return undefined; };
+
+// pass 1: the language matches. pass 2 (untagged=true): the doc carries no
+// language field at all — never hand back an EN doc as the HI twin.
+function ctMatch(rows, ct, n, untagged){
+  const hit = rows.find(r => {
+    const d = r.data, lg = ctLangOf(d);
+    if(!ctNumEq(d.level, ct.level) || !ctNumEq(d.testNum, ct.testNum)) return false;
+    if(untagged ? lg : lg !== ct.lang) return false;
+    return ctNumEq(ctQNumOf(d), n);
+  });
+  return hit || null;
+}
+
+// One cached read of the whole chapter, then filter in JS — the same
+// index-free pattern chapterwise-test.html itself uses.
+async function ctChapterRows(coll, chapterId){
+  const key = coll+'|'+chapterId;
+  if(CT_CACHE.has(key)) return CT_CACHE.get(key);
+  let rows = [];
+  try{
+    const s = await getDocs(query(collection(db,coll), where('chapterId','==',chapterId)));
+    rows = s.docs.map(d => ({id:d.id, data:d.data()}));
+  }catch(e){ console.warn('[AI Fix] chapter query failed on '+coll, e); }
+  CT_CACHE.set(key, rows);
+  return rows;
+}
+
+async function findChapterQ(coll, ct, qn){
+  const n = parseInt(qn,10);
+  // 1) deterministic doc ids
+  for(const cand of ctIdCandidates(ct, qn)){
+    CT_TRIED.push(coll+'/'+cand);
+    try{
+      const snap = await getDoc(doc(db, coll, cand));
+      if(snap.exists()) return {coll, id:snap.id, data:snap.data()};
+    }catch(_){}
+  }
+  // 2) testKey query — pulls just this one test (~25 docs)
+  for(const k of ctKeys(ct)){
+    try{
+      const s = await getDocs(query(collection(db,coll), where('testKey','==',k)));
+      if(!s.empty){
+        const rows = s.docs.map(d=>({id:d.id, data:d.data()}));
+        const hit = rows.find(r => ctNumEq(ctQNumOf(r.data), n) && ctLangOf(r.data)===ct.lang)
+                 || rows.find(r => ctNumEq(ctQNumOf(r.data), n) && !ctLangOf(r.data));
+        if(hit) return {coll, id:hit.id, data:hit.data};
+      }
+    }catch(_){}
+  }
+  // 3) chapter-wide read, filtered client-side (covers legacy random-id imports)
+  const rows = await ctChapterRows(coll, ct.chapterId);
+  const hit = ctMatch(rows, ct, n, true) || ctMatch(rows, ct, n, false);
+  return hit ? {coll, id:hit.id, data:hit.data} : null;
+}
+
+async function locateChapterDocs(ct, qn){
+  const langs = [...new Set([ct.lang, ct.lang==='en' ? 'hi' : 'en'])];   // twin too
+  const found = [];
+  for(const lg of langs){
+    const c = {...ct, lang:lg};
+    for(const coll of [...Q_COLLECTIONS, ...X_COLLECTIONS]){
+      const hit = await findChapterQ(coll, c, qn);
+      if(hit && !found.some(f => f.coll===hit.coll && f.id===hit.id))
+        found.push({...hit, base:`${ct.chapterId}_L${ct.level}_T${ct.testNum}_${lg}`, lang:lg});
+    }
+  }
+  return found;
+}
+
 async function locateDocs(baseId, qn){
+  CT_TRIED = []; CT_CACHE.clear();
+  const ct = parseChapterTestId(baseId);
+  if(ct) return locateChapterDocs(ct, qn);      // chapter test — different id convention
   const bases = [baseId];
   const t = twinId(baseId);
   if(t !== baseId) bases.push(t);              // pull the Hindi/English twin too
@@ -526,8 +643,16 @@ window.openFix = async function(mockId, qNum){
     return fail('Lookup failed: '+(e.message||e));
   }
   if(!FIX.docs.length){
-    return fail(`Couldn't find a document for <code>${esc(mockId)}</code> Q${esc(qNum)} in ${[...Q_COLLECTIONS,...X_COLLECTIONS].join(', ')}.<br>
-      <span class="muted">Check the collection names / id convention in the config block at the top of the AI AUTO-CORRECT section.</span>`);
+    const ct = parseChapterTestId(mockId);
+    const extra = ct
+      ? `<div class="muted" style="margin-top:6px;">Read as a CHAPTER TEST — chapter <code>${esc(ct.chapterId)}</code>, level ${ct.level}, test ${ct.testNum}, ${esc(ct.lang)}.
+           Tried the <code>cw_…</code> ids, a <code>testKey</code> query, and a <code>chapterId</code> scan
+           (${CT_CACHE.get('questions|'+ct.chapterId)?.length ?? 0} docs found for that chapter).
+           If that count is 0 the questions are stored under a different <code>chapterId</code>.</div>
+         <details style="margin-top:6px;"><summary class="muted" style="cursor:pointer;">Doc ids tried</summary>
+           <pre style="font-size:11px;white-space:pre-wrap;">${esc(CT_TRIED.join('\n'))}</pre></details>`
+      : `<span class="muted">Check the collection names / id convention in the config block at the top of the AI AUTO-CORRECT section.</span>`;
+    return fail(`Couldn't find a document for <code>${esc(mockId)}</code> Q${esc(qNum)} in ${[...Q_COLLECTIONS,...X_COLLECTIONS].join(', ')}.<br>${extra}`);
   }
   renderStage2();
 };
