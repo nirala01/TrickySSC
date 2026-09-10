@@ -1569,6 +1569,11 @@ const CHID=qs.get('chapter')||qs.get('chapterId')||'';
 const DEEP_LEVEL=(function(){const n=parseInt(qs.get('level'),10);return (n>=1&&n<=2)?n:0;})();
 const DEEP_TEST=(function(){const n=parseInt(qs.get('test'),10);return (n>=1&&n<=20)?n:0;})();
 const DEEP_LANG=(function(){const l=qs.get('lang');return (l==='en'||l==='hi')?l:'';})();
+/* TSSC-REVIEW-V1 (2026-09-10) — `&review=<attemptId>` reopens the solutions of
+   a past attempt of this test: questions load as usual, the saved answers log
+   is restored and the result/review screen is rendered read-only. */
+const REVIEW_ID=(qs.get('review')||'').trim();
+let REVIEW_DOC=null;
 const sMeta=subjectMeta(SUBJ);
 const cMeta=chapterMeta(SUBJ,CHID);
 
@@ -1737,6 +1742,7 @@ async function init(){
     PK.lang=(DEEP_LANG && availLang[DEEP_LANG]) ? DEEP_LANG : (availLang.en?'en':'hi');
     await window.launch(true);
     const bt=document.getElementById('cwBoot'); if(bt) bt.style.display='none';
+    if(REVIEW_ID){ await cwEnterReview(); return; }   /* TSSC-REVIEW-V1 */
   }catch(err){
     fail('Could not open this test.<div style="margin-top:0.6rem;font-size:0.85rem;color:#64748B;">'+
          (err && err.message ? err.message : String(err)) +
@@ -1745,6 +1751,7 @@ async function init(){
   }
   setTimeout(function(){
     const sc=document.getElementById('instrScreen');
+    if(REVIEW_ID) return;                          /* TSSC-REVIEW-V1: no start screen in review */
     if(sc && sc.style.display!=='block'){
       fail('Loaded '+S.cur.en.length+' English and '+S.cur.hi.length+' Hindi questions for Level '+
            DEEP_LEVEL+' Test '+DEEP_TEST+', but the start screen did not open.'+
@@ -1930,7 +1937,48 @@ window.cwClose=()=>{
   // This page has nothing to show behind the player — return to the chapter page.
   if(history.length > 1) history.back(); else location.href='/ssc-cgl-chapterwise.html';
 };
+/* ── TSSC-REVIEW-V1 ── */
+function cwAuthUser(){
+  return new Promise(res=>{
+    if(currentUser&&currentUser.uid) return res(currentUser);
+    if(authReady) return res(null);
+    const off=onAuthStateChanged(auth,u=>{ off(); res(u); });
+    setTimeout(()=>res(currentUser),6000);
+  });
+}
+function cwReviewFail(msg){
+  document.getElementById('instrScreen').style.display='none';
+  document.getElementById('testScreen').style.display='none';
+  document.getElementById('resultScreen').style.display='block';
+  document.getElementById('cwResultCard').innerHTML=
+    '<div class="result-card"><div style="font-size:2.4rem;">\ud83d\udcd6</div>'
+    +'<div style="font-family:\'Rajdhani\';font-size:20px;font-weight:700;color:#1E293B;margin:8px 0;">Cannot open this review</div>'
+    +'<div style="font-size:14px;color:#64748B;line-height:1.6;margin-bottom:14px;">'+msg+'</div>'
+    +'<div class="cw-res-acts"><button class="cw-res-done" onclick="location.href=\'dashboard.html\'">\u2190 Back to Dashboard</button></div></div>';
+  const rv=document.getElementById('reviewContainer')||document.getElementById('review'); if(rv) rv.innerHTML='';
+  cwEl().scrollTop=0; window.scrollTo(0,0);
+}
+async function cwEnterReview(){
+  document.getElementById('instrScreen').style.display='none';
+  const u=await cwAuthUser();
+  if(!u||!u.uid){ cwReviewFail('Please log in with the account that made this attempt.'); return; }
+  let snap=null;
+  try{ snap=await getDoc(doc(db,'attempts',REVIEW_ID)); }
+  catch(e){ console.warn('[review] read failed',e); cwReviewFail('Could not load this attempt. Check your connection and try again.'); return; }
+  const d=(snap&&snap.exists())?snap.data():null;
+  if(!d||d.uid!==u.uid){ cwReviewFail('This attempt was not found on your account.'); return; }
+  if(!Array.isArray(d.answers)||!d.answers.length){ cwReviewFail('This attempt was made before answer review was added, so its solutions cannot be reopened. Every attempt from now on can be reviewed from the dashboard.'); return; }
+  REVIEW_DOC=d;
+  const byQ={}; questions.forEach((q,i)=>{ byQ[parseInt(q.qNum,10)||(i+1)]=i; });
+  answers={}; let matched=0;
+  d.answers.forEach(x=>{ const i=byQ[x.q]; if(i===undefined) return; matched++; if(x.a) answers[i]=String(x.a); });
+  if(!matched){ cwReviewFail('The saved answers do not match this test any more.'); return; }
+  CW.timed=false;
+  if(timerInterval){ clearInterval(timerInterval); timerInterval=null; }
+  await window.submitTest();
+}
 window.cwRetry=()=>{
+  if(REVIEW_ID){ const u=new URL(location.href); u.searchParams.delete('review'); location.href=u.toString(); return; }   /* TSSC-REVIEW-V1: a fresh attempt must save */
   answers={}; markedForReview={}; currentQ=0; isSubmitting=false; paused=false; showEnglishQ={};
   if(window.cwResetRating) window.cwResetRating();
   if(timerInterval){clearInterval(timerInterval);timerInterval=null;}
@@ -2044,7 +2092,7 @@ window.submitTest=async(auto)=>{
   const marks=(correct*2-wrong*0.5);
   const max=questions.length*2;
   const pct= max? Math.round((marks/max)*1000)/10 : 0;
-  saveChapterAttempt(correct,wrong,skip,marks,pct);   // record for the dashboard (best-effort)
+  if(!REVIEW_ID) saveChapterAttempt(correct,wrong,skip,marks,pct);   // record for the dashboard (best-effort) — never in review replay (TSSC-REVIEW-V1)
   let vcls,vmsg;
   if(pct>=70){vcls='great';vmsg='\ud83c\udf89 Excellent work \u2014 keep it up!';}
   else if(pct>=40){vcls='good';vmsg='\ud83d\udc4d Good effort \u2014 review and improve!';}
@@ -2056,6 +2104,7 @@ window.submitTest=async(auto)=>{
     +'<div class="score-label">out of '+max+' marks</div>'
     +'<div style="font-size:13px;color:#94A3B8;margin-top:2px;">'+pct+'% \u00b7 '+correct+' correct \u00b7 '+wrong+' wrong'+(auto?' \u00b7 time up':'')+'</div>'
     +'<div class="result-verdict '+vcls+'" style="display:inline-flex;">'+vmsg+'</div>'
+    +(REVIEW_ID?'<div style="font-size:12px;color:#22C55E;margin-top:8px;">\ud83d\udcd6 Reviewing your attempt'+(function(){try{const t=REVIEW_DOC&&(REVIEW_DOC.timestamp&&REVIEW_DOC.timestamp.toDate?REVIEW_DOC.timestamp.toDate():(REVIEW_DOC.clientSubmittedAt?new Date(REVIEW_DOC.clientSubmittedAt):null));return (t&&!isNaN(t))?' of '+t.toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'}):'';}catch(_){return '';}})()+' \u2014 nothing is saved or counted again.</div>':'')
     +'<div class="stats">'
       +'<div class="stat"><div class="stat-val" style="color:#22C55E">'+correct+'</div><div class="stat-lbl">Correct<br><span style="font-size:9px;color:#94A3B8;">+2 each</span></div></div>'
       +'<div class="stat"><div class="stat-val" style="color:#EF4444">'+wrong+'</div><div class="stat-lbl">Wrong<br><span style="font-size:9px;color:#94A3B8;">\u22120.5 each</span></div></div>'

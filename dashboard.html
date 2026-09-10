@@ -1184,6 +1184,8 @@ function renderAttempts(attempts) {
       retryUrl = 'chapterwise-test.html?exam='+(a.exam||'ssc-cgl')
         +'&subject='+encodeURIComponent(a.subject||'')
         +'&chapter='+encodeURIComponent(a.chapterId||a.chapter||'')
+        + (a.level?'&level='+encodeURIComponent(a.level):'')        /* TSSC-REVIEW-V1: the player needs level+test, */
+        + (a.testNum?'&test='+encodeURIComponent(a.testNum):'')     /* else it bounces to the chapter list */
         + (lang?'&lang='+lang:'');
       typeTag = '<span style="background:#F0FDFA;color:#0D9488;border-radius:5px;padding:0.05rem 0.4rem;font-size:0.66rem;font-weight:700;margin-left:0.4rem;">CHAPTER</span>';
       const bits = [];
@@ -1200,12 +1202,21 @@ function renderAttempts(attempts) {
       typeTag = '<span style="background:#EDE9FE;color:#7C3AED;border-radius:5px;padding:0.05rem 0.4rem;font-size:0.66rem;font-weight:700;margin-left:0.4rem;">MOCK</span>';
     } else {
       examName = a.examName || ((EXAM_NAMES[a.exam]||a.exam||'—') + (a.year?' '+a.year:''));
-      retryUrl = 'test.html?exam='+a.exam+(a.year?'&year='+a.year:'')+(a.paperId?'&paperId='+a.paperId:'');
+      /* TSSC-REVIEW-V1 — pick the engine that actually ran this paper */
+      const _t2 = (a.tier==='tier2') || String(a.paperId||'').includes('tier2');
+      const _isSubj = a.testKind==='pyq-subject' && a.subjectKey;
+      const _eng = _isSubj ? 'test-subject.html'
+                 : (a.exam==='ssc-chsl' ? (_t2?'test-chsl-tier2.html':'test-chsl.html') : (_t2?'test-tier2.html':'test.html'));
+      const _pidR = _isSubj ? (a.basePaperId||a.paperId||'') : (a.paperId||'');
+      const _hiR  = /(_|-)(hi|hindi)$/i.test(String(a.paperId||'')) ? '&lang=hi' : '';
+      retryUrl = _eng+'?exam='+a.exam+(a.year?'&year='+a.year:'')+(_pidR?'&paperId='+encodeURIComponent(_pidR):'')+(_isSubj?'&subject='+encodeURIComponent(a.subjectKey):'')+_hiR;
       typeTag = '<span style="background:#FFF7ED;color:#FF6B00;border-radius:5px;padding:0.05rem 0.4rem;font-size:0.66rem;font-weight:700;margin-left:0.4rem;">PYQ</span>';
     }
     /* TSSC-DASHPRO-V1 — subject marks (from subjectMarks, else subjectStats) + leaderboard key */
     const _sm = (!_isChapter && window.tsscSubjMarks) ? window.tsscSubjMarks(a) : {};
     const _lb = (_isChapter || a.testKind==='pyq-subject') ? '' : String(a.paperId||a.mockId||'').replace(/([_\-])(hi|en|hindi|english)$/i,'');
+    /* TSSC-REVIEW-V1 — only attempts that carry the answers log can be reopened */
+    const _canReview = !!(a.id && Array.isArray(a.answers) && a.answers.length);
     return `<tr>
       <td data-label="Exam"><b>${examName}</b>${typeTag}${detail}</td>
       <td data-label="Questions">${a.total||'—'} Qs</td>
@@ -1218,7 +1229,7 @@ function renderAttempts(attempts) {
       <td data-label="GA" class="num subj-cell hide-m">${_sm.G!==undefined?_sm.G:'—'}</td>
       <td data-label="Rank" class="num">${_lb?'<span class="dp-rank" data-lb="'+_lb+'"><span style="color:#94A3B8">…</span></span>':'<span style="color:#94A3B8">—</span>'}</td>
       <td data-label="Date" style="color:var(--gray);font-size:0.82rem;">${date}</td>
-      <td data-label="" style="text-align:right;"><a href="${retryUrl}" style="color:var(--orange);font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.85rem;text-decoration:none;">Retry →</a></td>
+      <td data-label="" style="text-align:right;white-space:nowrap;">${_canReview?`<a href="${retryUrl+(retryUrl.includes('?')?'&':'?')+'review='+encodeURIComponent(a.id)}" title="Reopen your answers and the solutions" style="color:#0D9488;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.85rem;text-decoration:none;margin-right:0.9rem;">Review →</a>`:''}<a href="${retryUrl}" style="color:var(--orange);font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.85rem;text-decoration:none;">Retry →</a></td>
     </tr>`;
   }).join('');
 

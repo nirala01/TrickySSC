@@ -1389,6 +1389,15 @@ try { db = initializeFirestore(app,{experimentalAutoDetectLongPolling:true}); }
 catch(_){ db = getFirestore(app); }   // Firestore already initialized elsewhere (e.g. leaderboard.js) — reuse it
 const auth=getAuth(app);
 
+/* ── TSSC-REVIEW-V1 (2026-09-10) ──────────────────────────────────────────
+   Re-open the solutions of a PAST attempt: dashboard links here with
+   `&review=<attemptId>` on top of the paper's normal params. The paper loads
+   as usual, the saved `answers` log (TSSC-ANSWERS-V1) is put back, and the
+   ordinary submit routine renders the result + review screen — but nothing
+   is saved, ranked or counted again. Attempts saved before the answers log
+   existed cannot be reviewed. */
+const REVIEW_ID=(new URLSearchParams(location.search).get('review')||'').trim();
+let REVIEW_DOC=null;
 let questions=[],answers={},markedForReview={},currentQ=0,timeLeft=3600,timerInterval,currentUser=null,sections=[],paused=false;
 /* ── TSSC-ANSWERS-V1: per-question time tracker (feeds dashboard analytics).
    Purely additive: nothing here touches the paywall, gate, login or REST paths. ── */
@@ -1847,6 +1856,7 @@ async function loadTest(){
     if(_instrUser) _instrUser.textContent=currentUser?.displayName||'Student';
     const _instrMax=document.getElementById('instrMaxMarks');
     if(_instrMax) _instrMax.textContent=questions.length*2;
+    if(REVIEW_ID){ await tsscEnterReview(); return; }   /* TSSC-REVIEW-V1 */
     document.getElementById('loader').style.display='none';
     document.getElementById('instrScreen').style.display='flex';
 
@@ -1856,6 +1866,48 @@ async function loadTest(){
     document.getElementById('loader').innerHTML='<div style="text-align:center;padding:2rem;"><div style="font-size:2rem;">❌</div><div style="margin:0.5rem 0;font-weight:700;">Error loading test</div><div style="font-size:0.85rem;opacity:0.8;margin-bottom:1rem;">'+e.message+'</div><a href="javascript:history.back()" style="background:white;color:#FF6B00;font-family:Rajdhani,sans-serif;font-weight:700;padding:0.6rem 1.5rem;border-radius:10px;text-decoration:none;">← Go Back</a><br><a href="javascript:location.reload()" style="font-size:0.8rem;opacity:0.7;color:white;margin-top:8px;display:inline-block;">↺ Retry</a></div>';
   }
 }
+/* ── TSSC-REVIEW-V1: enter review mode for a past attempt ── */
+function tsscReviewFail(msg){
+  const l=document.getElementById('loader');
+  if(!l) return;
+  l.style.display='flex';
+  l.innerHTML=`<div style="text-align:center;padding:2rem;max-width:340px;">
+    <div style="font-size:2.6rem;margin-bottom:.8rem;">📖</div>
+    <div style="font-family:'Rajdhani',sans-serif;font-size:1.35rem;font-weight:700;margin-bottom:.5rem;">Cannot open this review</div>
+    <div style="font-size:.9rem;opacity:.9;line-height:1.6;margin-bottom:1.4rem;">${msg}</div>
+    <a href="https://trickyssc.com/dashboard.html" style="display:inline-block;background:white;color:#FF6B00;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1rem;padding:.7rem 2rem;border-radius:10px;text-decoration:none;">← Back to Dashboard</a>
+  </div>`;
+}
+async function tsscEnterReview(){
+  setLoaderMsg('Loading your attempt...');
+  let snap=null;
+  try{ snap=await getDoc(doc(db,'attempts',REVIEW_ID)); }
+  catch(e){ console.warn('[review] read failed',e); tsscReviewFail('Could not load this attempt. Check your connection and try again.'); return; }
+  const d=(snap&&snap.exists())?snap.data():null;
+  if(!d||!currentUser||d.uid!==currentUser.uid){ tsscReviewFail('This attempt was not found on your account.'); return; }
+  if(!Array.isArray(d.answers)||!d.answers.length){ tsscReviewFail('This attempt was made before answer review was added, so its solutions cannot be reopened. Every attempt from now on can be reviewed from the dashboard.'); return; }
+  REVIEW_DOC=d;
+  const byQ={}; questions.forEach((q,i)=>{ byQ[parseInt(q.qNum,10)||(i+1)]=i; });
+  answers={}; let matched=0;
+  d.answers.forEach(x=>{ const i=byQ[x.q]; if(i===undefined) return; matched++; if(x.a) answers[i]=String(x.a); });
+  if(!matched){ tsscReviewFail('The saved answers do not match this paper any more.'); return; }
+  if(timerInterval){ clearInterval(timerInterval); timerInterval=null; }
+  document.getElementById('loader').style.display='none';
+  await window.submitTest();
+}
+function tsscReviewFinish(){
+  let when='';
+  try{
+    const t=REVIEW_DOC&&(REVIEW_DOC.timestamp&&REVIEW_DOC.timestamp.toDate?REVIEW_DOC.timestamp.toDate():(REVIEW_DOC.clientSubmittedAt?new Date(REVIEW_DOC.clientSubmittedAt):null));
+    if(t&&!isNaN(t)) when=t.toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'});
+  }catch(_){}
+  setSaveUi('saved','📖 Reviewing your attempt'+(when?' of '+when:'')+' — nothing is saved or counted again.');
+  const go=document.getElementById('goDashboardBtn'); if(go) go.textContent='← Back to Dashboard';
+  document.querySelectorAll('#resultScreen .rc-card,#resultScreen .rate-card,#resultScreen #rateCard').forEach(el=>{ el.style.display='none'; });
+  try{ document.title='Review · '+(document.getElementById('examTitle')?.textContent||'Attempt'); }catch(_){}
+  try{ window.scrollTo(0,0); }catch(_){}
+}
+
 /* ── Normalise a single question object in-place ──
    Handles questions that came through loader.html's REST parser
    where options may still be raw Firestore {mapValue:{fields:{A:{stringValue:...}}}}
@@ -2659,6 +2711,7 @@ window.submitTest=async()=>{
     if(firstPanel) firstPanel.__mathDone=true;
   })();
 
+  if(REVIEW_ID){ tsscReviewFinish(); isSubmitting=false; return; }   /* TSSC-REVIEW-V1: read-only replay */
   if(!currentUser||!currentUser.uid){setSaveUi('error','⚠️ Not logged in. Result cannot be saved.');isSubmitting=false;return;}
   const attemptId=`${currentUser.uid}_${exam||'exam'}_${year||'na'}_${Date.now()}`;
   // Build a readable exam name for dashboard display
