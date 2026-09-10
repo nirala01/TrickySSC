@@ -7,7 +7,7 @@
      BUMP the content below on EVERY deploy of this file. A browser holding a
      cached older copy re-fetches this page on open, sees a newer stamp, and
      reloads itself once — the candidate just sees the page load. -->
-<meta name="tssc-build" content="fresh-2026-09-04c">
+<meta name="tssc-build" content="fresh-2026-09-10">
 <script>
 (function () {
   var META = 'meta[name="tssc-build"]';
@@ -4164,7 +4164,7 @@ function recordIntent(stage, extra) {
     stage:    stage,
     courseId: (ORDER && ORDER.courseId) || CFG.module,
     page:     (location.pathname.split('/').pop() || 'mock-list.html'),
-    build:    (window.tsscBuild || 'nophone-2026-09-04'),   /* TSSC-INTENT-V2 / TSSC-FRESH-V1: the page's build stamp */
+    build:    (window.tsscBuild || 'fresh-2026-09-10'),   /* TSSC-INTENT-V2 / TSSC-FRESH-V1: the page's build stamp */
     clicks:   increment(1),
     lastAt:   serverTimestamp()
   }, extra || {});
@@ -4178,6 +4178,16 @@ function recordFailure(where, msg) {
   recordIntent('failed', { failedAt: where, lastError: String(msg || '').slice(0, 200) });
 }
 window.tsscRecordFailure = recordFailure;
+/* TSSC-HANG-V1 (2026-09-10) — every network wait in the checkout gets a
+   deadline. A stalled Firestore/Razorpay/Worker call used to leave the
+   buyer on a dead button or a frozen "Opening secure payment…" card with
+   nothing logged; now it fails visibly and is recorded as a failure. */
+function withTimeout(p, ms, what) {
+  let t;
+  const clock = new Promise((_, no) => { t = setTimeout(() => no(new Error(what + ' timed out. Please check your connection and try again.')), ms); });
+  return Promise.race([p, clock]).finally(() => clearTimeout(t));
+}
+window.tsscWithTimeout = withTimeout;
 
 /* prefill name from the signed-in profile so the form is one tap */
 /* Prefill from the signed-in profile so the form is a couple of taps.
@@ -4322,8 +4332,12 @@ document.getElementById('mbpNext')?.addEventListener('click', async () => {
   btn.disabled = true;
   // A registered buyer should never see empty boxes they could have avoided:
   // wait for the profile read before showing the form.
-  try { await PREFILL; } catch (e) {}
+  const oldTxt = btn.textContent;
+  btn.textContent = 'Loading your details\u2026';
+  try { await withTimeout(PREFILL, 5000, 'Profile read'); }        /* TSSC-HANG-V1 */
+  catch (e) { recordFailure('prefill', e.message + ' (continued with saved details)'); }
   btn.disabled = false;
+  btn.textContent = oldTxt;
   markFields();
   paintLoginNotice('mbpLogin', false);          /* TSSC-LOGINNOTE-V1 */
   showStep(2);
@@ -4359,9 +4373,10 @@ function collect() {
   const place  = document.getElementById('mbpPlace').value.trim();
   const course = document.getElementById('mbpCourse').value;
 
-  if (name.length < 2)             return fail('Please enter your full name.', 'mbpName');
-  if (place.length < 2)            return fail('Please enter your city or district.', 'mbpPlace');
-  if (!course)                     return fail('Please choose a course.', 'mbpCourse');
+  const bad = (m, id) => { recordFailure('form', m); return fail(m, id); };  /* TSSC-HANG-V1: log it */
+  if (name.length < 2)             return bad('Please enter your full name.', 'mbpName');
+  if (place.length < 2)            return bad('Please enter your city or district.', 'mbpPlace');
+  if (!course)                     return bad('Please choose a course.', 'mbpCourse');
 
   return { name, mobile, place, courseId: course };
 }
@@ -4396,7 +4411,8 @@ document.getElementById('mbpPay')?.addEventListener('click', async () => {
          Razorpay with stale code: check once more, reload if newer. */
       if (typeof window.tsscEnsureFresh === 'function') {
         showPreparing();
-        const reloading = await window.tsscEnsureFresh();
+        const reloading = await withTimeout(window.tsscEnsureFresh(), 8000, 'Version check')
+          .catch(() => false);                          /* TSSC-HANG-V1: never block a sale on this */
         if (reloading) return;
       }
       if (typeof window.tsscStartCheckout !== 'function') {
@@ -4427,7 +4443,7 @@ function tsscAskKeepOpen(proceed) {
     go.textContent = 'I understand \u2014 continue to payment \u2192';
     proceed();
   };
-  back.onclick = close;
+  back.onclick = () => { close(); recordFailure('warning', 'cancelled at the keep-window-open notice'); };  /* TSSC-HANG-V1 */
   ko.onclick = e => { if (e.target === ko) close(); };
   ko.classList.add('on');
 }
@@ -4544,11 +4560,12 @@ window.tsscStartCheckout = async function (order) {
   const user = _auth.currentUser;
   if (!user) throw new Error('Please sign in again.');
 
-  await loadRazorpay();
-  const idToken = await user.getIdToken();
+  const _wt = window.tsscWithTimeout || ((p) => p);                 /* TSSC-HANG-V1 */
+  await _wt(loadRazorpay(), 20000, 'Loading the payment page');
+  const idToken = await _wt(user.getIdToken(), 15000, 'Sign-in check');
 
   // 1. server creates the order and decides the amount
-  const res = await fetch(api + '/order', {
+  const res = await _wt(fetch(api + '/order', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -4558,7 +4575,7 @@ window.tsscStartCheckout = async function (order) {
       mobile: order.mobile,
       place: order.place
     })
-  });
+  }), 25000, 'Creating the order');
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || 'Could not start the payment.');
 
