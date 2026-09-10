@@ -630,7 +630,11 @@ function _fromTestPage(){
   try { return /test-subject\.html/i.test(document.referrer || ''); }
   catch(e){ return false; }
 }
-window.addEventListener('pageshow', e => { if(e && e.persisted && __uid) _syncAttempts(__uid, true); });
+window.addEventListener('pageshow', e => {
+  if(!e || !e.persisted) return;          /* Back button / bfcache: JS never re-runs, so the */
+  _loadLocalAttempts(); _applyPills();    /* rows still show the pre-attempt state. Repaint  */
+  if(__uid) _syncAttempts(__uid, true);   /* from the on-device marker first, then re-read.  */
+});
 
 async function _syncAttempts(uid, force) {
   if(!uid) return;
