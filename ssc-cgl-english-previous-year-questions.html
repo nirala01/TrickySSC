@@ -534,47 +534,119 @@ function _resetNavUser() {
   });
 }
 
-/* ---- Attempted tracking (subject attempts are keyed <paperId>__english) ---- */
-const __attempted = new Set();
+/* ---- Attempted tracking + Re-attempt (TSSC-SUBJ-REATTEMPT-V2) --------------
+   A finished subject test must flip its row to "✓ Attempted" + "↻ Re-attempt".
+   The attempt doc written by test-subject.html can carry the subject in more
+   than one shape, so a doc counts as an attempt of THIS subject test when:
+     • its paperId is already suffixed  ->  ssc-cgl_..._en__<subject>
+     • or its paperId is plain and the doc names this subject
+       (subject / section / part / subjectKey / testSubject / subjectName)
+     • or the attempt doc id (or attemptId) carries "__<subject>"
+   A plain paperId with NO subject evidence is a FULL 100-Q paper attempt and is
+   ignored on purpose, so attempting the whole paper never ticks a subject row.
+   Ids are compared normalised (lower-case, _ - and spaces stripped) so a
+   separator difference between the engine and this page cannot break a match. */
+const SUBJ_CFG  = window.__SUBJ_CFG || {};
+const SUBJ_KEY  = String(SUBJ_CFG.key || 'english').toLowerCase();
+const SUBJ_SFX  = '__' + SUBJ_KEY;
+const SUBJ_WORDS = ({
+  english  : ['english','eng','english language','english language and comprehension','english comprehension'],
+  reasoning: ['reasoning','gi','gir','general intelligence','general intelligence and reasoning','logical reasoning'],
+  quant    : ['quant','math','maths','mathematics','quantitative aptitude','quantitative abilities','mathematical abilities','qa'],
+  gk       : ['gk','ga','general awareness','general knowledge','gs','general studies']
+})[SUBJ_KEY] || [SUBJ_KEY];
+
+function _norm(v){ return String(v==null?'':v).toLowerCase().replace(/[_\-\s]+/g,''); }
+function _isThisSubject(v){
+  if(v==null || v==='') return false;
+  if(typeof v !== 'string' && typeof v !== 'number') return false;
+  const s = String(v).toLowerCase().replace(/[_\-]+/g,' ').replace(/&/g,'and').replace(/\s+/g,' ').trim();
+  return SUBJ_WORDS.indexOf(s) >= 0;
+}
+
+const __attempted = new Set();   /* normalised "<paperId>__<subject>" keys only */
 let __uid = null;
+
+function _noteAttempt(a, docId){
+  a = a || {};
+  const pid = String(a.paperId || a.paper || a.testId || '');
+  if(!pid) return;
+  if(pid.indexOf('__') >= 0){ __attempted.add(_norm(pid)); return; }
+  const tagged = _isThisSubject(a.subject)    || _isThisSubject(a.section)
+              || _isThisSubject(a.part)       || _isThisSubject(a.subjectKey)
+              || _isThisSubject(a.testSubject)|| _isThisSubject(a.subjectName)
+              || _norm(docId).indexOf(_norm(SUBJ_SFX)) >= 0
+              || _norm(a.attemptId).indexOf(_norm(SUBJ_SFX)) >= 0;
+  if(tagged) __attempted.add(_norm(pid + SUBJ_SFX));
+}
+
 function _loadLocalAttempts() {
   try {
     const seen = JSON.parse(localStorage.getItem('tssc_attempted') || '{}');
-    Object.keys(seen).forEach(k => { if(k.startsWith('p:')) __attempted.add(k.slice(2)); });
+    Object.keys(seen).forEach(k => {
+      if(k.indexOf('p:') !== 0) return;
+      const id = k.slice(2), v = seen[k];
+      if(!id) return;
+      if(id.indexOf('__') >= 0){ __attempted.add(_norm(id)); return; }
+      const tagged = _isThisSubject(v)
+                  || (v && typeof v === 'object' && (_isThisSubject(v.subject) || _isThisSubject(v.section) || _isThisSubject(v.part)));
+      if(tagged) __attempted.add(_norm(id + SUBJ_SFX));
+    });
   } catch(e) {}
 }
+
 function _applyPills() {
   document.querySelectorAll('.pyq-attempt-btn').forEach(btn => {
     const pe = btn.getAttribute('data-pid-en');
     const ph = btn.getAttribute('data-pid-hi');
-    const done = (pe && __attempted.has(pe)) || (ph && __attempted.has(ph));
+    const done = (pe && __attempted.has(_norm(pe))) || (ph && __attempted.has(_norm(ph)));
     const pick = btn.getAttribute('data-pick');
-    const pill = document.querySelector('.attempt-pill[data-pill="'+pick+'"]');
+    const row  = btn.closest ? btn.closest('.pyq-row') : null;
+    const pill = (row && row.querySelector('.attempt-pill'))
+              || document.querySelector('.attempt-pill[data-pill="'+pick+'"]');
     if(done) {
-      if(pill) { pill.className = 'attempt-pill done'; pill.textContent = '✓ Attempted'; }
-      btn.innerHTML = '↻ Re-attempt';
+      if(pill) { pill.className = 'attempt-pill done'; pill.textContent = '\u2713 Attempted'; }
+      btn.innerHTML = '\u21bb Re-attempt';
+      btn.setAttribute('data-state','done');
+      btn.setAttribute('title','You have already finished this test \u2014 attempt it again');
+      btn.style.background = 'linear-gradient(135deg,#00A86B,#10B981)';
+      btn.style.boxShadow  = '0 3px 10px rgba(0,168,107,0.28)';
     } else {
-      if(pill) { pill.className = 'attempt-pill todo'; pill.textContent = '○ Not Attempted'; }
-      btn.innerHTML = '▶ Attempt Test';
+      if(pill) { pill.className = 'attempt-pill todo'; pill.textContent = '\u25cb Not Attempted'; }
+      btn.innerHTML = '\u25b6 Attempt Test';
+      btn.removeAttribute('data-state');
+      btn.removeAttribute('title');
+      btn.style.background = 'linear-gradient(135deg,'+(SUBJ_CFG.c1||'#0EA5E9')+','+(SUBJ_CFG.c2||'#38BDF8')+')';
+      btn.style.boxShadow  = '0 3px 10px '+(SUBJ_CFG.shadow||'rgba(14,165,233,0.28)');
     }
   });
 }
 function _resetPills() { __attempted.clear(); _applyPills(); }
 document.addEventListener('pyq:rendered', () => { if(__uid) _applyPills(); });
 
-async function _syncAttempts(uid) {
+/* Coming straight back from the test (link or Back button) must not read a
+   stale 10-minute cache, or the row the student just finished stays "Attempt". */
+function _fromTestPage(){
+  try { return /test-subject\.html/i.test(document.referrer || ''); }
+  catch(e){ return false; }
+}
+window.addEventListener('pageshow', e => { if(e && e.persisted && __uid) _syncAttempts(__uid, true); });
+
+async function _syncAttempts(uid, force) {
   if(!uid) return;
-  const _ck = 'tssc_attempts_' + uid, _ttl = 10*60*1000;
-  try {
-    const _c = sessionStorage.getItem(_ck);
-    if(_c) {
-      const _o = JSON.parse(_c);
-      if(Date.now() - (_o.ts||0) < _ttl && Array.isArray(_o.p)) { _o.p.forEach(id => __attempted.add(id)); _applyPills(); return; }
-    }
-  } catch(e) {}
+  const _ck = 'tssc_attempts_' + uid + '_' + SUBJ_KEY, _ttl = 10*60*1000;
+  if(!force) {
+    try {
+      const _c = sessionStorage.getItem(_ck);
+      if(_c) {
+        const _o = JSON.parse(_c);
+        if(Date.now() - (_o.ts||0) < _ttl && Array.isArray(_o.p)) { _o.p.forEach(id => __attempted.add(id)); _applyPills(); return; }
+      }
+    } catch(e) {}
+  }
   try {
     const snap = await getDocs(query(collection(_db,'attempts'), where('uid','==',uid)));
-    snap.forEach(d => { const a = d.data()||{}; if(a.paperId) __attempted.add(a.paperId); });
+    snap.forEach(d => _noteAttempt(d.data()||{}, d.id));
     try { sessionStorage.setItem(_ck, JSON.stringify({ ts:Date.now(), p:[...__attempted] })); } catch(e) {}
     _applyPills();
   } catch(e) { console.warn('[TrickySSC] attempts sync failed:', e.message); }
@@ -596,7 +668,7 @@ onAuthStateChanged(_auth, async user => {
       } else _setNavUser(user.displayName||user.email||'Student');
     } else _setNavUser(user.displayName||user.email||'Student');
   } catch(e) { _setNavUser(user.displayName||user.email||'Student'); }
-  _syncAttempts(user.uid);
+  _syncAttempts(user.uid, _fromTestPage());
 });
 </script>
 
