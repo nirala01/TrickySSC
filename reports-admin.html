@@ -447,7 +447,8 @@ document.addEventListener('click', async (e)=>{
 // ── Config: adjust these if your worker/collections differ ──
 const AI_ENDPOINT   = "https://trickyssc-ai.nirala01.workers.dev";
 const AI_MODEL      = "claude-sonnet-5";        // must match what your worker allows
-const AI_MAX_TOKENS = 8000;
+const AI_MAX_TOKENS  = 8000;         // correctness pass — short reply
+const SOL_MAX_TOKENS = 16000;        // solution rewrite — one document per call
 const Q_COLLECTIONS = ["questions"];            // where question docs live
 const X_COLLECTIONS = ["solutions"];            // optional extra collections using the same doc-id convention
 const AUDIT_COLL    = "question_fixes";         // every applied correction is logged here
@@ -761,7 +762,7 @@ function buildPrompt(){
    Runs on ANY question — PYQ, mock or chapter test — whether or not the
    stored solution is wrong. Verifies the key first, then rewrites the
    teaching content in the same format, in simpler language.          */
-function buildSolutionPrompt(){
+function buildSolutionPrompt(only, ref){
   const L = [];
   L.push("You are a senior SSC exam content writer for TrickySSC, an SSC exam-prep platform. Its students are Hindi-medium and English-medium CGL/CHSL aspirants, many of them weak in the basics.");
   L.push("Your job here is NOT to hunt for errors. It is to REWRITE THE SOLUTION so it teaches: more detailed, more steps, simpler language, same format.");
@@ -773,22 +774,32 @@ function buildSolutionPrompt(){
   }
   L.push(`### Test: ${FIX.mockId} · Question number ${FIX.qNum}`);
   L.push("");
-  L.push("### Stored documents");
-  FIX.docs.forEach((d,i) => {
-    L.push(`D${i+1} (${d.coll}/${d.id}, language=${d.lang}):`);
-    L.push("```json");
-    L.push(JSON.stringify(d.data, null, 1));
-    L.push("```");
-  });
+  L.push("### The document you are rewriting — the ONLY one");
+  L.push(`D1 (${only.coll}/${only.id}, language=${only.lang}):`);
+  L.push("```json");
+  L.push(JSON.stringify(only.data, null, 1));
+  L.push("```");
   L.push("");
+  if(ref && ref.changes && ref.changes.length){
+    L.push(`### Already-written rewrite of the ${ref.lang==='hi'?'Hindi':'English'} twin — mirror it step for step`);
+    L.push("Your document must describe the SAME method, in the same number of steps, with the same formula and the same verdict option. Do not translate it word for word, and do not invent a different route.");
+    ref.changes.forEach(c => {
+      L.push(`TWIN FIELD ${c.field}:`);
+      L.push("```");
+      L.push(String(c.val==null?'':c.val));
+      L.push("```");
+    });
+    L.push("");
+  }
+  if(ref && ref.keyNote){ L.push(ref.keyNote); L.push(""); }
   L.push("### Step 1 — verify before you write");
   L.push("Solve the question yourself from first principles. Then:");
   L.push("- If the stored answer key is CORRECT: leave the key, the question text and the options untouched. Only the solution fields change.");
-  L.push("- If the stored answer key is WRONG: correct it, and make every solution field in EVERY document — English and Hindi — derive the corrected option. Never leave one field contradicting another.");
+  L.push("- If the stored answer key is WRONG: correct it in D1, and make every solution field in D1 derive the corrected option. Never leave one field contradicting another.");
   L.push("- If the question itself is broken (two options identical, no correct option, missing data), say so in the diagnosis and set key_status to \"broken\"; still write the best solution you can and explain the defect.");
   L.push("");
   L.push("### Step 2 — rewrite the solution");
-  L.push("Fields you may rewrite: explanation, solution, solutionText, trick, concept (whichever exist in that document). Rewrite them in EVERY document above — the Hindi twin as well as the English one.");
+  L.push("Fields you may rewrite: explanation, solution, solutionText, trick, concept — whichever of those exist in D1. Rewrite them for D1 ONLY. A separate call handles the twin document, so never return a field belonging to any other document.");
   L.push("1. 6-7 numbered steps. Longer than the original is expected; do not pad with filler.");
   L.push("2. Simple lucid language, short everyday sentences. Assume the student did not follow the old solution — that is why it is being rewritten.");
   L.push("3. State the formula, rule or identity in its own step in GENERAL LETTERS before you substitute any number, and carry it in the trick field too.");
@@ -799,7 +810,8 @@ function buildSolutionPrompt(){
   L.push("");
   L.push("### Step 3 — formatting is non-negotiable");
   L.push("Copy the conventions already present in the stored fields exactly: KaTeX wrapped in \\\\( \\\\) with ^{} for powers and roots, [BR] for line breaks, <u> tags, || option separators, inline HTML, green step headings (#155724), orange dash bullets (#FF6B00), the single green verdict badge (#00A86B). Match the surrounding style — never invent a new one, and never emit a bare caret, a Unicode superscript, or an unbalanced \\\\( \\\\).");
-  L.push("Never translate a document. A Hindi document stays Hindi: sentences in Hindi, but numbers, KaTeX, the 'Step N' headings and technical terms in English exactly as it already does. English and Hindi must describe the SAME method, step for step.");
+  L.push("Never translate a document. A Hindi document stays Hindi: sentences in Hindi, but numbers, KaTeX, the 'Step N' headings and technical terms in English exactly as it already does. An English document stays English.");
+  L.push("Write each field value as compactly as the format allows — no blank filler lines, no repeated wrappers — so the reply cannot run past the token limit in the middle of a field.");
   L.push("Use dot notation for nested fields exactly as it appears in the JSON, e.g. options.A");
   L.push("");
   L.push("### Output");
@@ -810,59 +822,172 @@ function buildSolutionPrompt(){
   L.push('  "correct_answer": "the option letter you independently derived",');
   L.push('  "diagnosis": "2-5 sentences: how you solved it, and what you improved in the solution",');
   L.push('  "changes": [ { "doc": "D1", "field": "explanation", "new": "the FULL rewritten field value", "why": "short reason" } ],');
+  L.push('  "note": "empty unless something needs saying",');
   L.push('  "clear_reports": true');
   L.push('}');
   L.push('Every rewritten field is one entry in "changes", carrying the COMPLETE new value of that field — never a fragment, never a diff.');
   return L.join("\n");
 }
 
-function parseAI(raw){
+// ── Parsing, with salvage for a reply cut off by the token limit ────
+function stripFences(raw){
   let t = String(raw||'').trim();
   t = t.replace(/^```(?:json)?/i,'').replace(/```$/,'').trim();
-  try{ return JSON.parse(t); }catch(_){}
-  const a = t.indexOf('{'), b = t.lastIndexOf('}');
-  if(a>=0 && b>a){ try{ return JSON.parse(t.slice(a,b+1)); }catch(_){} }
+  const a = t.indexOf('{');
+  return a > 0 ? t.slice(a) : t;
+}
+
+// A truncated reply ends mid-string. Walk it, remember the last point where a
+// container closed cleanly, cut there and close what is still open — so the
+// change objects that DID arrive complete are kept instead of the whole reply
+// being thrown away.
+function repairJSON(t){
+  const stack = []; let inStr = false, esc = false, best = null;
+  for(let i=0;i<t.length;i++){
+    const ch = t[i];
+    if(inStr){
+      if(esc) esc = false;
+      else if(ch === '\\') esc = true;
+      else if(ch === '"') inStr = false;
+      continue;
+    }
+    if(ch === '"'){ inStr = true; continue; }
+    if(ch === '{' || ch === '[') stack.push(ch === '{' ? '}' : ']');
+    else if(ch === '}' || ch === ']'){
+      stack.pop();
+      if(stack.length) best = {cut:i+1, close:[...stack].reverse().join('')};
+    }
+  }
+  if(!best) return null;
+  try{ return JSON.parse(t.slice(0,best.cut) + best.close); }catch(_){ return null; }
+}
+
+// → {ai, truncated} | null
+function parseAI(raw){
+  const t = stripFences(raw);
+  try{ return {ai: JSON.parse(t), truncated:false}; }catch(_){}
+  const b = t.lastIndexOf('}');
+  if(b > 0){ try{ return {ai: JSON.parse(t.slice(0,b+1)), truncated:false}; }catch(_){} }
+  const rep = repairJSON(t);
+  if(rep) return {ai: rep, truncated:true};
   return null;
 }
 
+// ── One API call ───────────────────────────────────────────────────
+async function callAI(prompt, maxTokens){
+  const res = await fetch(AI_ENDPOINT, {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ model: AI_MODEL, max_tokens: maxTokens,
+      messages:[{role:'user', content: prompt}] })
+  });
+  const j = await res.json().catch(()=>null);
+  if(!res.ok) throw new Error(`HTTP ${res.status} — ${JSON.stringify(j||'').slice(0,300)}`);
+  const raw = Array.isArray(j?.content)
+    ? j.content.filter(b=>b.type==='text').map(b=>b.text).join('\n')
+    : (j?.text || j?.completion || j?.output_text || (typeof j==='string'? j : ''));
+  return {raw, stop: String(j?.stop_reason || j?.stopReason || '')};
+}
+
+const aiFailMsg = e => `AI request failed: ${esc(e.message||e)}<br><span class="muted">Check that <code>${esc(AI_ENDPOINT)}</code> accepts a standard Anthropic messages body and allows <code>${esc(AI_MODEL)}</code>.</span>`;
+
+function busyPane(stepLabel, line, sub){
+  $('fixBody').innerHTML = `<div class="steps">1 · Located → <b>2 · ${stepLabel}</b> → 3 · Review → 4 · Publish</div>
+    <div style="text-align:center;padding:34px;"><div class="spin"></div>
+    <div class="muted" style="margin-top:10px;">${line}</div>
+    ${sub?`<div class="muted" style="margin-top:6px;font-size:11px;">${sub}</div>`:''}</div>`;
+  $('fixFoot').innerHTML = `<button class="btn btn-ghost" onclick="closeFix()">Cancel</button>`;
+}
+
+// Map an AI change entry onto a document and pick up its old value
+const mkChange = (c, d, i) => ({
+  i, d, field:String(c.field||''), old:getPath(d.data, String(c.field||'')),
+  val:c.new, why:c.why||'', on:true
+});
+
 async function runAI(mode){
   FIX.mode = (mode==='solution') ? 'solution' : 'fix';
-  const busy = FIX.mode==='solution'
-    ? 'Claude is solving the question and rewriting the solution in more detail…'
-    : 'Claude is solving the question and checking the stored content…';
-  $('fixBody').innerHTML = `<div class="steps">1 · Located → <b>2 · ${FIX.mode==='solution'?'Rewriting':'Analysing'}</b> → 3 · Review → 4 · Publish</div>
-    <div style="text-align:center;padding:34px;"><div class="spin"></div>
-    <div class="muted" style="margin-top:10px;">${busy}</div>
-    <div class="muted" style="margin-top:6px;font-size:11px;">A full rewrite of both languages can take 40-60 seconds.</div></div>`;
-  $('fixFoot').innerHTML = `<button class="btn btn-ghost" onclick="closeFix()">Cancel</button>`;
-  let raw = '';
-  try{
-    const res = await fetch(AI_ENDPOINT, {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({
-        model: AI_MODEL,
-        max_tokens: AI_MAX_TOKENS,
-        messages:[{role:'user', content: FIX.mode==='solution' ? buildSolutionPrompt() : buildPrompt()}]
-      })
-    });
-    const j = await res.json().catch(()=>null);
-    if(!res.ok) throw new Error(`HTTP ${res.status} — ${JSON.stringify(j||'').slice(0,300)}`);
-    raw = Array.isArray(j?.content)
-      ? j.content.filter(b=>b.type==='text').map(b=>b.text).join('\n')
-      : (j?.text || j?.completion || j?.output_text || (typeof j==='string'? j : ''));
-  }catch(e){
-    return fail(`AI request failed: ${esc(e.message||e)}<br><span class="muted">Check that <code>${esc(AI_ENDPOINT)}</code> accepts a standard Anthropic messages body and allows <code>${esc(AI_MODEL)}</code>.</span>`);
-  }
-  const ai = parseAI(raw);
-  if(!ai) return fail(`Couldn't parse the AI response as JSON.<br><pre style="font-size:11px;white-space:pre-wrap;">${esc(String(raw).slice(0,1500))}</pre>`);
-  FIX.ai = ai;
-  FIX.changes = (ai.changes||[]).map((c,i) => {
+  FIX.truncated = []; FIX.changes = [];
+  return FIX.mode === 'solution' ? runSolutionRewrite() : runCorrection();
+}
+
+// ── Correctness pass: one call, all documents ──────────────────────
+async function runCorrection(){
+  busyPane('Analysing', 'Claude is solving the question and checking the stored content…');
+  let r;
+  try{ r = await callAI(buildPrompt(), AI_MAX_TOKENS); }
+  catch(e){ return fail(aiFailMsg(e)); }
+  const p = parseAI(r.raw);
+  if(!p) return fail(truncFail(r, AI_MAX_TOKENS));
+  FIX.ai = p.ai;
+  if(p.truncated || r.stop === 'max_tokens') FIX.truncated.push('the reply');
+  FIX.changes = (p.ai.changes||[]).map((c,i) => {
     const di = Math.max(0, parseInt(String(c.doc||'D1').replace(/\D/g,''),10)-1);
-    const d  = FIX.docs[di] || FIX.docs[0];
-    return {i, d, field:String(c.field||''), old:getPath(d.data, String(c.field||'')), val:c.new, why:c.why||'', on:true};
+    return mkChange(c, FIX.docs[di] || FIX.docs[0], i);
   }).filter(c => c.field);
   renderStage3();
+}
+
+// ── Solution rewrite: ONE CALL PER DOCUMENT ────────────────────────
+// A full rewrite of explanation + trick + concept for two languages does not
+// fit in one reply, which is what truncates the JSON. English goes first and
+// is then handed to the Hindi call as the pattern to mirror.
+async function runSolutionRewrite(){
+  const order = [...FIX.docs].sort((a,b) => (a.lang==='en'?0:a.lang==='hi'?1:2) - (b.lang==='en'?0:b.lang==='hi'?1:2));
+  const results = [];
+  let ref = null, keyNote = '';
+
+  for(let n=0; n<order.length; n++){
+    const d = order[n];
+    busyPane('Rewriting',
+      `Rewriting ${String(d.lang).toUpperCase()} — document ${n+1} of ${order.length}…`,
+      `${esc(d.coll)}/${esc(d.id)} · one document per call, so nothing gets cut off`);
+    let r;
+    try{ r = await callAI(buildSolutionPrompt(d, ref ? {...ref, keyNote} : (keyNote?{keyNote}:null)), SOL_MAX_TOKENS); }
+    catch(e){ return results.length ? finishRewrite(results, `The ${String(d.lang).toUpperCase()} call failed: ${esc(e.message||e)}`) : fail(aiFailMsg(e)); }
+
+    const p = parseAI(r.raw);
+    if(!p){
+      if(results.length) return finishRewrite(results, `The ${String(d.lang).toUpperCase()} reply could not be parsed.`);
+      return fail(truncFail(r, SOL_MAX_TOKENS));
+    }
+    const changes = (p.ai.changes||[]).filter(c => c && c.field).map(c => ({field:String(c.field), val:c.new, why:c.why||''}));
+    if(p.truncated || r.stop === 'max_tokens') FIX.truncated.push(String(d.lang).toUpperCase());
+    results.push({d, ai:p.ai, changes});
+
+    // hand the English rewrite to the Hindi call, plus any key correction
+    const ks = String(p.ai.key_status||'').toLowerCase();
+    if(!keyNote && (ks==='corrected' || ks==='broken')){
+      keyNote = `### Already established on the twin document\nThe stored answer key was ${ks==='broken'?'unreliable':'WRONG'}. The correct option is ${p.ai.correct_answer||'?'}. Apply the same conclusion here: correct this document's key field too and derive that option.`;
+    }
+    if(!ref && changes.length) ref = {lang:d.lang, changes};
+  }
+  finishRewrite(results, '');
+}
+
+function finishRewrite(results, warn){
+  const first = results[0].ai;
+  const worst = results.map(r => String(r.ai.key_status||'correct').toLowerCase());
+  FIX.ai = {
+    key_status: worst.includes('broken') ? 'broken' : (worst.includes('corrected') ? 'corrected' : 'correct'),
+    confidence: first.confidence || '',
+    correct_answer: first.correct_answer || '',
+    diagnosis: results.map(r => results.length>1 ? `[${String(r.d.lang).toUpperCase()}] ${r.ai.diagnosis||''}` : (r.ai.diagnosis||'')).join('  '),
+    clear_reports: results.every(r => r.ai.clear_reports !== false)
+  };
+  let i = 0;
+  FIX.changes = [];
+  results.forEach(r => r.changes.forEach(c => FIX.changes.push(mkChange({field:c.field, new:c.val, why:c.why}, r.d, i++))));
+  FIX.warn = warn || '';
+  renderStage3();
+}
+
+function truncFail(r, cap){
+  const cut = r.stop === 'max_tokens';
+  return `Couldn't parse the AI response as JSON.
+    ${cut ? `<br><b>The reply hit the ${cap}-token limit and stopped mid-sentence.</b>
+      <span class="muted">Press ↻ to run it again — each document is requested separately, so a single field should fit. If it keeps happening, raise <code>SOL_MAX_TOKENS</code> in the config block at the top of the AI AUTO-CORRECT section.</span>` : ''}
+    <pre style="font-size:11px;white-space:pre-wrap;max-height:300px;overflow:auto;">${esc(String(r.raw).slice(0,1500))}</pre>`;
 }
 
 // ── KaTeX preview (loaded lazily, only when a preview is painted) ──
@@ -914,6 +1039,13 @@ function renderStage3(){
       ${ai.correct_answer?`<div style="margin-top:6px;"><span class="lbl">Independently derived answer</span> <b>${esc(ai.correct_answer)}</b></div>`:''}
       ${ai.reporter_assessment?`<div class="why">Reporter: ${esc(ai.reporter_assessment)}</div>`:''}
     </div>`;
+
+  if((FIX.truncated && FIX.truncated.length) || FIX.warn){
+    const who = (FIX.truncated||[]).join(', ');
+    html += `<div class="verdict v-fix"><b>⚠ Partial reply</b>
+      ${who?`<div style="margin-top:4px;">The ${esc(who)} reply was cut off by the token limit. Only the fields that arrived complete are shown below — check the last one carefully for a sentence that stops mid-air, and press ↻ to redo it.</div>`:''}
+      ${FIX.warn?`<div style="margin-top:4px;">${FIX.warn}</div>`:''}</div>`;
+  }
 
   if(FIX.changes.length){
     html += `<div class="sec"><h3>${sol?'Old solution vs new solution':'Proposed edits'} (${FIX.changes.length}) — editable</h3>`;
