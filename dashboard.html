@@ -1136,6 +1136,7 @@ async function renderRankPreview(attempts, uid) {
 }
 
 let _allAttempts = [], _pyqAttempts = [], _mockAttempts = [], _chapterAttempts = [], _attTab = 'all';
+window._attTab = _attTab;   /* TSSC-DASHEXPAND-V1: module scope is NOT global — see renderAttempts */
 function _attemptsFor(tab){
   if(tab==='pyq')     return _pyqAttempts;
   if(tab==='mock')    return _mockAttempts;
@@ -1143,7 +1144,7 @@ function _attemptsFor(tab){
   return _allAttempts;
 }
 window.switchAttTab = (tab) => {
-  _attTab = tab;
+  _attTab = tab; window._attTab = tab;   /* TSSC-DASHEXPAND-V1 */
   ['all','pyq','mock','chapter'].forEach(t=>{
     document.getElementById('atab-'+t).classList.toggle('active', t===tab);
   });
@@ -1241,9 +1242,20 @@ function renderAttempts(attempts) {
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>
-    ${attempts.length > ATT_SHOW ? `<button class="att-expand" onclick="window._attShowAll=!window._attShowAll;switchAttTab(_attTab)">${window._attShowAll
+    ${attempts.length > ATT_SHOW ? `<button class="att-expand" type="button" id="attExpandBtn">${window._attShowAll
         ? '▲ Show less'
         : '▼ Expand to see all ' + attempts.length + ' tests you attempted'}</button>` : ''}`;
+
+  /* TSSC-DASHEXPAND-V1 — bound here, not with an inline onclick: this code runs
+     inside <script type="module">, whose scope is not the global object, so an
+     onclick="…_attTab…" attribute could never resolve it and every tap failed
+     with "ReferenceError: _attTab is not defined". The bar is re-created on
+     every repaint, so the listener is re-attached on every repaint too. */
+  const _xb = document.getElementById('attExpandBtn');
+  if (_xb) _xb.addEventListener('click', () => {
+    window._attShowAll = !window._attShowAll;
+    window.switchAttTab(window._attTab || 'all');
+  });
 }
 
 window.doLogout = async () => {
