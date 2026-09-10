@@ -743,7 +743,8 @@ function buildPrompt(){
   L.push("6. Do not rewrite anything that is not wrong. Minimal edits only.");
   L.push("7. For nested fields use dot notation exactly as it appears in the JSON, e.g. options.A");
   L.push("");
-  L.push("### Output");
+  L.push("### Output — THIS REPLY MUST STAY SHORT");
+  L.push("Name the fields that need editing. Do NOT write long replacement text here: a second request will ask for each long field on its own, so that no reply is ever cut off in the middle.");
   L.push("Return ONLY a JSON object, no markdown fences, no commentary before or after:");
   L.push('{');
   L.push('  "verdict": "fix_needed" | "no_change" | "unclear",');
@@ -751,10 +752,54 @@ function buildPrompt(){
   L.push('  "correct_answer": "the option letter you independently derived, or null",');
   L.push('  "diagnosis": "2-5 sentences: what you worked out, and what exactly is wrong (or why the report is mistaken)",');
   L.push('  "reporter_assessment": "one line — was the candidate right?",');
-  L.push('  "changes": [ { "doc": "D1", "field": "answer", "new": "B", "why": "short reason" } ],');
+  L.push('  "targets": [ { "doc": "D1", "field": "correct", "new": "B", "why": "short reason" } ],');
   L.push('  "clear_reports": true');
   L.push('}');
-  L.push('If verdict is "no_change" or "unclear", "changes" must be an empty array.');
+  L.push('Rules for "targets":');
+  L.push('- One entry per field per document that must change. List the Hindi twin\'s fields too — as separate entries with that document\'s D-number.');
+  L.push('- Include "new" ONLY when the whole replacement value is under 40 characters, such as an answer-key letter or a single option. For explanation / solution / trick / concept, OMIT "new" entirely — those are requested one at a time in the next step.');
+  L.push('- If verdict is "no_change" or "unclear", "targets" must be an empty array.');
+  return L.join("\n");
+}
+
+/* ── PROMPT 1B: write ONE long field, on its own ────────────────────
+   Keeps every reply small enough that it cannot be truncated.       */
+function buildFieldPrompt(d, fields, ctx){
+  const L = [];
+  L.push("You are a senior SSC exam content reviewer for TrickySSC, an SSC exam-prep platform.");
+  L.push("A correction has already been decided for this question. Your job now is to write the corrected value of the named field(s) for ONE document.");
+  L.push("");
+  L.push("### The correction already decided");
+  L.push(`- Verdict: ${ctx.verdict||'fix_needed'}`);
+  if(ctx.correct_answer) L.push(`- The correct option is ${ctx.correct_answer}. Every field you write must state or derive exactly this option.`);
+  L.push(`- Diagnosis: ${ctx.diagnosis||''}`);
+  L.push("");
+  L.push(`### Test: ${FIX.mockId} · Question number ${FIX.qNum}`);
+  L.push("");
+  L.push(`### The document you are editing (${d.coll}/${d.id}, language=${d.lang})`);
+  L.push("```json");
+  L.push(JSON.stringify(d.data, null, 1));
+  L.push("```");
+  L.push("");
+  if(ctx.ref && ctx.ref.changes && ctx.ref.changes.length){
+    L.push(`### The corrected ${ctx.ref.lang==='hi'?'Hindi':'English'} twin — mirror its method step for step`);
+    ctx.ref.changes.forEach(c => { L.push(`TWIN FIELD ${c.field}:`); L.push("```"); L.push(String(c.val==null?'':c.val)); L.push("```"); });
+    L.push("");
+  }
+  L.push("### Fields to write");
+  fields.forEach(f => L.push(`- ${f.field}${f.why?` — ${f.why}`:''}`));
+  L.push("");
+  L.push("### Rules");
+  L.push("1. Fix what is wrong and keep everything that is right. This is a correction, not a rewrite for its own sake — but a corrected field must read cleanly end to end, not as a patched sentence.");
+  L.push("2. Nothing in the field may still state or derive the old option. Check the final verdict line, every intermediate step and any figure.");
+  L.push("3. Preserve the formatting conventions of the stored field exactly: KaTeX wrapped in \\( \\), [BR] for line breaks, <u> tags, || option separators, inline HTML, green step headings (#155724), orange bullets (#FF6B00), the green verdict badge (#00A86B). Never emit a bare caret, a Unicode superscript or an unbalanced \\( \\).");
+  L.push("4. Never translate. A Hindi document stays Hindi — sentences in Hindi, with numbers, KaTeX, 'Step N' headings and technical terms in English exactly as it already does. An English document stays English.");
+  L.push("5. Write compactly — no filler lines, no repeated wrappers.");
+  L.push("");
+  L.push("### Output");
+  L.push("Return ONLY a JSON object, no markdown fences, no commentary:");
+  L.push('{ "changes": [ { "field": "explanation", "new": "the COMPLETE new value of the field", "why": "short reason" } ] }');
+  L.push("Give the complete value of each field — never a fragment, never a diff.");
   return L.join("\n");
 }
 
@@ -873,6 +918,10 @@ function parseAI(raw){
   return null;
 }
 
+// A reply that doesn't end in } was cut off — some workers don't forward
+// stop_reason, so never rely on it alone.
+const looksCut = raw => !/}\s*$/.test(stripFences(raw));
+
 // ── One API call ───────────────────────────────────────────────────
 async function callAI(prompt, maxTokens){
   const res = await fetch(AI_ENDPOINT, {
@@ -911,20 +960,63 @@ async function runAI(mode){
   return FIX.mode === 'solution' ? runSolutionRewrite() : runCorrection();
 }
 
-// ── Correctness pass: one call, all documents ──────────────────────
+// ── Correctness pass: diagnose in one short call, then write each
+//    long field on its own so no reply can be truncated ────────────
+const SHORT_FIELD = f => /^(correct|answer|correct_option|correctOption|key|ans)$/i.test(String(f));
+
 async function runCorrection(){
   busyPane('Analysing', 'Claude is solving the question and checking the stored content…');
   let r;
   try{ r = await callAI(buildPrompt(), AI_MAX_TOKENS); }
   catch(e){ return fail(aiFailMsg(e)); }
   const p = parseAI(r.raw);
-  if(!p) return fail(truncFail(r, AI_MAX_TOKENS));
+  if(!p) return fail(truncFail(r, AI_MAX_TOKENS, 'AI_MAX_TOKENS'));
   FIX.ai = p.ai;
-  if(p.truncated || r.stop === 'max_tokens') FIX.truncated.push('the reply');
-  FIX.changes = (p.ai.changes||[]).map((c,i) => {
-    const di = Math.max(0, parseInt(String(c.doc||'D1').replace(/\D/g,''),10)-1);
-    return mkChange(c, FIX.docs[di] || FIX.docs[0], i);
-  }).filter(c => c.field);
+  if(p.truncated) FIX.truncated.push('the diagnosis');
+
+  // targets = fields to edit; legacy "changes" (values inline) still accepted
+  const raw = (p.ai.targets && p.ai.targets.length) ? p.ai.targets : (p.ai.changes || []);
+  const docOf = t => {
+    const di = Math.max(0, parseInt(String(t.doc||'D1').replace(/\D/g,''),10)-1);
+    return FIX.docs[di] || FIX.docs[0];
+  };
+  const wanted = raw.filter(t => t && t.field).map(t => ({t, d:docOf(t), field:String(t.field)}));
+  if(!wanted.length){ FIX.changes = []; return renderStage3(); }
+
+  // values already supplied (answer keys and other short fields)
+  let i = 0;
+  FIX.changes = [];
+  wanted.filter(w => w.t.new !== undefined && w.t.new !== null && String(w.t.new).length < 400)
+        .forEach(w => FIX.changes.push(mkChange({field:w.field, new:w.t.new, why:w.t.why}, w.d, i++)));
+
+  // the rest — one call per document, English first so Hindi can mirror it
+  const todo = wanted.filter(w => w.t.new === undefined || w.t.new === null || String(w.t.new).length >= 400);
+  const byDoc = [];
+  todo.forEach(w => {
+    let e = byDoc.find(x => x.d === w.d);
+    if(!e){ e = {d:w.d, fields:[]}; byDoc.push(e); }
+    e.fields.push({field:w.field, why:w.t.why||''});
+  });
+  byDoc.sort((a,b) => (a.d.lang==='en'?0:a.d.lang==='hi'?1:2) - (b.d.lang==='en'?0:b.d.lang==='hi'?1:2));
+
+  const ctx = {verdict:p.ai.verdict, correct_answer:p.ai.correct_answer, diagnosis:p.ai.diagnosis};
+  let ref = null, warn = '';
+  for(let n=0; n<byDoc.length; n++){
+    const {d, fields} = byDoc[n];
+    busyPane('Writing the fix',
+      `Writing ${String(d.lang).toUpperCase()} — document ${n+1} of ${byDoc.length}…`,
+      `${esc(fields.map(f=>f.field).join(', '))} · one document per call, so nothing gets cut off`);
+    let fr;
+    try{ fr = await callAI(buildFieldPrompt(d, fields, {...ctx, ref}), SOL_MAX_TOKENS); }
+    catch(e){ warn = `The ${String(d.lang).toUpperCase()} field request failed: ${esc(e.message||e)} — press ↻ to retry.`; break; }
+    const fp = parseAI(fr.raw);
+    if(!fp){ warn = `The ${String(d.lang).toUpperCase()} field reply could not be parsed — press ↻ to retry.`; break; }
+    if(fp.truncated) FIX.truncated.push(String(d.lang).toUpperCase());
+    const got = (fp.ai.changes||[]).filter(c => c && c.field);
+    got.forEach(c => FIX.changes.push(mkChange(c, d, i++)));
+    if(!ref && got.length) ref = {lang:d.lang, changes:got.map(c => ({field:String(c.field), val:c.new}))};
+  }
+  FIX.warn = warn;
   renderStage3();
 }
 
@@ -949,10 +1041,10 @@ async function runSolutionRewrite(){
     const p = parseAI(r.raw);
     if(!p){
       if(results.length) return finishRewrite(results, `The ${String(d.lang).toUpperCase()} reply could not be parsed.`);
-      return fail(truncFail(r, SOL_MAX_TOKENS));
+      return fail(truncFail(r, SOL_MAX_TOKENS, 'SOL_MAX_TOKENS'));
     }
     const changes = (p.ai.changes||[]).filter(c => c && c.field).map(c => ({field:String(c.field), val:c.new, why:c.why||''}));
-    if(p.truncated || r.stop === 'max_tokens') FIX.truncated.push(String(d.lang).toUpperCase());
+    if(p.truncated) FIX.truncated.push(String(d.lang).toUpperCase());
     results.push({d, ai:p.ai, changes});
 
     // hand the English rewrite to the Hindi call, plus any key correction
@@ -982,11 +1074,13 @@ function finishRewrite(results, warn){
   renderStage3();
 }
 
-function truncFail(r, cap){
-  const cut = r.stop === 'max_tokens';
+function truncFail(r, cap, capName){
+  const cut = r.stop === 'max_tokens' || looksCut(r.raw);
   return `Couldn't parse the AI response as JSON.
-    ${cut ? `<br><b>The reply hit the ${cap}-token limit and stopped mid-sentence.</b>
-      <span class="muted">Press ↻ to run it again — each document is requested separately, so a single field should fit. If it keeps happening, raise <code>SOL_MAX_TOKENS</code> in the config block at the top of the AI AUTO-CORRECT section.</span>` : ''}
+    ${cut ? `<br><b>The reply stopped mid-sentence — it ran out of output tokens${r.stop?'':' (the worker did not report stop_reason)'}.</b>
+      <span class="muted">Requests are already split one document at a time, so if this keeps happening the ceiling is the limit itself:
+      raise <code>${esc(capName||'AI_MAX_TOKENS')}</code> (now ${cap}) in the config block at the top of the AI AUTO-CORRECT section, and check that
+      <code>${esc(AI_ENDPOINT)}</code> is not capping <code>max_tokens</code> to a lower value of its own.</span>` : ''}
     <pre style="font-size:11px;white-space:pre-wrap;max-height:300px;overflow:auto;">${esc(String(r.raw).slice(0,1500))}</pre>`;
 }
 
@@ -1134,9 +1228,9 @@ function renderStage3(){
     (nRep ? `<label class="muted" style="display:flex;gap:6px;align-items:center;">
        <input type="checkbox" id="alsoClear" ${FIX.ai.clear_reports!==false?'checked':''}> also clear the ${nRep} report(s)</label>` : '') +
     `<button class="btn btn-ghost" onclick="closeFix()">Close without changing</button>` +
-    (FIX.mode==='solution' ? `<button class="btn btn-orange" id="reRun" style="margin-left:auto;">↻ Rewrite again</button>` : '');
+    `<button class="btn btn-orange" id="reRun" style="margin-left:auto;">↻ ${sol?'Rewrite':'Run'} again</button>`;
   const ap = $('apply'); if(ap) ap.onclick = applyFix;
-  const rr = $('reRun'); if(rr) rr.onclick = () => runAI('solution');
+  const rr = $('reRun'); if(rr) rr.onclick = () => runAI(FIX.mode);
 }
 
 // ── Stage 5: write ─────────────────────────────────────────────────
