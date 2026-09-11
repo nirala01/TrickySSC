@@ -125,6 +125,13 @@ li{margin-bottom:.35rem;color:#2D3748;}
 .tt-go{display:block;width:100%;text-align:center;padding:.4rem;border-radius:100px;background:linear-gradient(135deg,var(--lc,var(--accent)),var(--lc2,var(--accent-dark)));color:#fff;text-decoration:none;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.8rem;letter-spacing:.3px;margin-top:.25rem;}
 .tt-go:hover{opacity:.92;}
 .tt-go.tt-hi{background:#fff;color:var(--lc,var(--accent));border:1.5px solid var(--lc,var(--accent));}
+/* TSSC-CHATT-V1 — attempted / re-attempt state */
+.tt.is-done{background:#FFFBEB;border-color:#FCD34D;}
+.tt-done{font-size:.68rem;font-family:'Rajdhani',sans-serif;font-weight:800;letter-spacing:.3px;color:#92400E;background:#FDE68A;border-radius:100px;padding:.08rem .55rem;margin-bottom:.18rem;}
+.tt-go.is-re{background:linear-gradient(135deg,#F59E0B,#D97706);color:#fff;}
+.tt-go.tt-hi.is-re{background:#fff;color:#B45309;border-color:#F59E0B;}
+.tt-rev{display:block;width:100%;text-align:center;margin-top:.32rem;font-size:.72rem;font-family:'Rajdhani',sans-serif;font-weight:700;color:#0F766E;text-decoration:none;}
+.tt-rev:hover{text-decoration:underline;}
 @media(prefers-reduced-motion:reduce){.lv-acc,.lv-chev,.tt{transition:none;}.tt:hover{transform:none;}}
 
 /* TABLES */
@@ -647,20 +654,48 @@ footer a:hover{color:#FF6B00;}
            '&level=' + lv + '&test=' + tn;
   }
 
+  /* ---------- TSSC-CHATT-V1: attempted / re-attempt state ----------
+     CW_ATT is filled by the auth module at the bottom of the page, which
+     reads this student's own attempts once and caches them. Until it
+     arrives (or for a signed-out visitor) the tiles look exactly as
+     before, so nothing depends on it. ------------------------------- */
+  var CW_ATT = {};        /* 'l1t3' -> {en:{id:..}, hi:{..}, rev:{id:..,lang:..}} */
+  var CW_PAINTED = {};    /* lv -> {box:.., tests:..} so tiles can be repainted */
+  function attKey(lv, tn){ return 'l' + lv + 't' + tn; }
+
   function renderTests(box, lv, tests){
     var nums = Object.keys(tests).map(Number).sort(function(a,b){ return a-b; });
     if (!nums.length) { box.innerHTML = '<div class="tg-err">No tests in this level yet.</div>'; return; }
+    CW_PAINTED[lv] = {box:box, tests:tests};
     box.innerHTML = nums.map(function(tn){
       var t = tests[tn], btns = '';
-      if (t.en) btns += '<a class="tt-go" href="' + testHref(lv, tn) + '&lang=en">English &rarr;</a>';
-      if (t.hi) btns += '<a class="tt-go tt-hi" href="' + testHref(lv, tn) + '&lang=hi">हिंदी &rarr;</a>';
-      return '<div class="tt">' +
+      var a  = CW_ATT[attKey(lv, tn)] || null;
+      var dEn = !!(a && a.en), dHi = !!(a && a.hi);
+      if (t.en) btns += '<a class="tt-go' + (dEn ? ' is-re' : '') + '" href="' + testHref(lv, tn) + '&lang=en">' +
+                        (dEn ? 'Re-attempt &rarr;' : 'English &rarr;') + '</a>';
+      if (t.hi) btns += '<a class="tt-go tt-hi' + (dHi ? ' is-re' : '') + '" href="' + testHref(lv, tn) + '&lang=hi">' +
+                        (dHi ? 'दोबारा &rarr;' : 'हिंदी &rarr;') + '</a>';
+      var rev = (a && a.rev)
+        ? '<a class="tt-rev" href="' + testHref(lv, tn) + '&lang=' + a.rev.lang +
+          '&review=' + encodeURIComponent(a.rev.id) + '">\u{1F4C4} Review solutions &rarr;</a>'
+        : '';
+      return '<div class="tt' + (a ? ' is-done' : '') + '">' +
                '<span class="tt-n">Test ' + tn + '</span>' +
+               (a ? '<span class="tt-done">\u2713 ATTEMPTED</span>' : '') +
                '<span class="tt-q">' + TARGET_Q + ' questions</span>' +
-               btns +
+               btns + rev +
              '</div>';
     }).join('');
   }
+
+  /* called by the auth module once this student's attempts are known */
+  window.tsscChApplyAttempts = function(map){
+    CW_ATT = map || {};
+    Object.keys(CW_PAINTED).forEach(function(lv){
+      var r = CW_PAINTED[lv];
+      if (r) renderTests(r.box, parseInt(lv, 10), r.tests);
+    });
+  };
 
   function loadTests(lv, box){
     var ck = 'tsscChTests:' + CHAPTER + ':' + lv;
@@ -743,6 +778,94 @@ onAuthStateChanged(auth, user=>{
     tsscPaintAccount(null);
   }
 });
+
+/* ── TSSC-CHATT-V1 — ATTEMPTED TESTS ON THIS CHAPTER'S TILES ──────────
+   One narrow Firestore read per signed-in student (his own attempts,
+   uid-filtered so the owner-scoped rules allow it), cached 10 minutes in
+   localStorage and SHARED by every chapter page, so moving between
+   chapters costs nothing. The derived map is handed to the tile renderer,
+   which swaps "English/हिंदी" for "Re-attempt/दोबारा" and adds a review
+   link when the attempt carries a per-question answers log (analyticsV).
+   Any failure is silent — the tiles simply stay as they were. */
+const CH_GRID    = document.getElementById('lvGrid');
+const CH_CHAPTER = CH_GRID ? (CH_GRID.getAttribute('data-chapter') || '').toLowerCase() : '';
+const CH_TTL     = 10 * 60 * 1000;
+const CH_CKEY    = uid => 'tsscChAttempts:' + uid;
+
+function chParse(str){
+  /* 'quant.percentage_L1_T3_en' -> {lv:1, tn:3, lang:'en'} */
+  const s = String(str || '').toLowerCase();
+  const m = s.match(/_l(\d+)_t(\d+)(?:_(en|hi))?$/);
+  if (!m) return null;
+  return {base:s.slice(0, m.index), lv:parseInt(m[1],10), tn:parseInt(m[2],10), lang:(m[3]==='hi'?'hi':'en')};
+}
+
+async function chFetchAttempts(user){
+  const rows = [];
+  let token = '';
+  try { token = await user.getIdToken(); } catch(e){}
+  const headers = {'Content-Type':'application/json'};
+  if (token) headers['Authorization'] = 'Bearer ' + token;
+  const body = {structuredQuery:{
+    from:[{collectionId:'attempts'}],
+    where:{fieldFilter:{field:{fieldPath:'uid'}, op:'EQUAL', value:{stringValue:user.uid}}},
+    select:{fields:[{fieldPath:'paperId'},{fieldPath:'mockId'},{fieldPath:'analyticsV'},{fieldPath:'timestamp'}]},
+    limit:800
+  }};
+  const r = await fetch('https://firestore.googleapis.com/v1/projects/' + FIRE_CFG.projectId +
+                        '/databases/(default)/documents:runQuery?key=' + FIRE_CFG.apiKey,
+                        {method:'POST', headers, body:JSON.stringify(body)});
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  const j = await r.json();
+  (j || []).forEach(row => {
+    const d = row && row.document;
+    if (!d || !d.name) return;
+    const id = d.name.split('/').pop();
+    const f  = d.fields || {};
+    const cand = [ (f.paperId && f.paperId.stringValue) || '',
+                   (f.mockId  && f.mockId.stringValue)  || '',
+                   id ];
+    let p = null;
+    for (const c of cand) { p = chParse(c); if (p) break; }
+    if (!p || !p.base) return;
+    rows.push({b:p.base, lv:p.lv, tn:p.tn, lang:p.lang, id:id,
+               rev: !!(f.analyticsV),
+               ts: (f.timestamp && f.timestamp.timestampValue) || ''});
+  });
+  return rows;
+}
+
+function chBuildMap(rows){
+  const map = {};
+  (rows || []).forEach(a => {
+    if (!CH_CHAPTER || a.b.indexOf(CH_CHAPTER) === -1) return;
+    const k = 'l' + a.lv + 't' + a.tn;
+    const e = map[k] || (map[k] = {});
+    e[a.lang] = {id:a.id};
+    if (a.rev && (!e.rev || String(a.ts) > String(e.rev.ts || ''))) e.rev = {id:a.id, lang:a.lang, ts:a.ts};
+  });
+  return map;
+}
+
+async function chLoadAttempts(user){
+  if (!CH_GRID || !CH_CHAPTER || typeof window.tsscChApplyAttempts !== 'function') return;
+  const ck = CH_CKEY(user.uid);
+  /* coming straight back from a test — never trust the cache */
+  const justTested = (document.referrer || '').indexOf('/chapterwise-test') !== -1;
+  if (!justTested) {
+    try {
+      const c = JSON.parse(localStorage.getItem(ck) || 'null');
+      if (c && (Date.now() - c.t) < CH_TTL) { window.tsscChApplyAttempts(chBuildMap(c.v)); return; }
+    } catch(e){}
+  }
+  try {
+    const rows = await chFetchAttempts(user);
+    try { localStorage.setItem(ck, JSON.stringify({t:Date.now(), v:rows})); } catch(e){}
+    window.tsscChApplyAttempts(chBuildMap(rows));
+  } catch(e){ /* silent — tiles stay unattempted */ }
+}
+
+onAuthStateChanged(auth, user => { if (user && user.uid) chLoadAttempts(user); });
 </script>
 
 </body>
