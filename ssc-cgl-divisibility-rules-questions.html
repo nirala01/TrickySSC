@@ -125,7 +125,7 @@ li{margin-bottom:.35rem;color:#2D3748;}
 .tt-go{display:block;width:100%;text-align:center;padding:.4rem;border-radius:100px;background:linear-gradient(135deg,var(--lc,var(--accent)),var(--lc2,var(--accent-dark)));color:#fff;text-decoration:none;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.8rem;letter-spacing:.3px;margin-top:.25rem;}
 .tt-go:hover{opacity:.92;}
 .tt-go.tt-hi{background:#fff;color:var(--lc,var(--accent));border:1.5px solid var(--lc,var(--accent));}
-/* TSSC-CHATT-V1 — attempted / re-attempt state */
+/* TSSC-CHATT-V2 — attempted / re-attempt state */
 .tt.is-done{background:#FFFBEB;border-color:#FCD34D;}
 .tt-done{font-size:.68rem;font-family:'Rajdhani',sans-serif;font-weight:800;letter-spacing:.3px;color:#92400E;background:#FDE68A;border-radius:100px;padding:.08rem .55rem;margin-bottom:.18rem;}
 .tt-go.is-re{background:linear-gradient(135deg,#F59E0B,#D97706);color:#fff;}
@@ -653,7 +653,7 @@ footer a:hover{color:#FF6B00;}
            '&level=' + lv + '&test=' + tn;
   }
 
-  /* ---------- TSSC-CHATT-V1: attempted / re-attempt state ----------
+  /* ---------- TSSC-CHATT-V2: attempted / re-attempt state ----------
      CW_ATT is filled by the auth module at the bottom of the page, which
      reads this student's own attempts once and caches them. Until it
      arrives (or for a signed-out visitor) the tiles look exactly as
@@ -778,7 +778,7 @@ onAuthStateChanged(auth, user=>{
   }
 });
 
-/* ── TSSC-CHATT-V1 — ATTEMPTED TESTS ON THIS CHAPTER'S TILES ──────────
+/* ── TSSC-CHATT-V2 — ATTEMPTED TESTS ON THIS CHAPTER'S TILES ──────────
    One narrow Firestore read per signed-in student (his own attempts,
    uid-filtered so the owner-scoped rules allow it), cached 10 minutes in
    localStorage and SHARED by every chapter page, so moving between
@@ -789,14 +789,14 @@ onAuthStateChanged(auth, user=>{
 const CH_GRID    = document.getElementById('lvGrid');
 const CH_CHAPTER = CH_GRID ? (CH_GRID.getAttribute('data-chapter') || '').toLowerCase() : '';
 const CH_TTL     = 10 * 60 * 1000;
-const CH_CKEY    = uid => 'tsscChAttempts:' + uid;
+const CH_CKEY    = uid => 'tsscChAttempts2:' + uid;
 
-function chParse(str){
-  /* 'quant.percentage_L1_T3_en' -> {lv:1, tn:3, lang:'en'} */
-  const s = String(str || '').toLowerCase();
-  const m = s.match(/_l(\d+)_t(\d+)(?:_(en|hi))?$/);
-  if (!m) return null;
-  return {base:s.slice(0, m.index), lv:parseInt(m[1],10), tn:parseInt(m[2],10), lang:(m[3]==='hi'?'hi':'en')};
+function chNorm(s){ return String(s || '').toLowerCase().replace(/[^a-z0-9]/g, ''); }
+function chVal(f){
+  if (!f) return '';
+  return f.stringValue !== undefined ? f.stringValue
+       : f.integerValue !== undefined ? f.integerValue
+       : f.doubleValue  !== undefined ? String(f.doubleValue) : '';
 }
 
 async function chFetchAttempts(user){
@@ -808,7 +808,9 @@ async function chFetchAttempts(user){
   const body = {structuredQuery:{
     from:[{collectionId:'attempts'}],
     where:{fieldFilter:{field:{fieldPath:'uid'}, op:'EQUAL', value:{stringValue:user.uid}}},
-    select:{fields:[{fieldPath:'paperId'},{fieldPath:'mockId'},{fieldPath:'analyticsV'},{fieldPath:'timestamp'}]},
+    select:{fields:[{fieldPath:'chapterId'},{fieldPath:'chapter'},{fieldPath:'level'},
+                    {fieldPath:'testNum'},{fieldPath:'language'},{fieldPath:'type'},
+                    {fieldPath:'analyticsV'},{fieldPath:'timestamp'}]},
     limit:800
   }};
   const r = await fetch('https://firestore.googleapis.com/v1/projects/' + FIRE_CFG.projectId +
@@ -821,13 +823,23 @@ async function chFetchAttempts(user){
     if (!d || !d.name) return;
     const id = d.name.split('/').pop();
     const f  = d.fields || {};
-    const cand = [ (f.paperId && f.paperId.stringValue) || '',
-                   (f.mockId  && f.mockId.stringValue)  || '',
-                   id ];
-    let p = null;
-    for (const c of cand) { p = chParse(c); if (p) break; }
-    if (!p || !p.base) return;
-    rows.push({b:p.base, lv:p.lv, tn:p.tn, lang:p.lang, id:id,
+    let ch = chNorm(chVal(f.chapterId) || chVal(f.chapter));
+    let lv = parseInt(chVal(f.level), 10);
+    let tn = parseInt(chVal(f.testNum), 10);
+    let lg = (chVal(f.language) === 'hi') ? 'hi' : 'en';
+    /* fallback for any attempt written without those fields:
+       doc id looks like cw_<uid>_<chapterstripped>_L1_T1_en */
+    if (!ch || !lv || !tn) {
+      const m = id.toLowerCase().match(/_l(\d+)_t(\d+)(?:_(en|hi))?$/);
+      if (!m) return;
+      if (!lv) lv = parseInt(m[1], 10);
+      if (!tn) tn = parseInt(m[2], 10);
+      if (m[3]) lg = m[3];
+      if (!ch) ch = id.toLowerCase().slice(0, m.index).replace(/^cw_/, '').replace(/^[a-z0-9]{20,}_/, '');
+      ch = chNorm(ch);
+    }
+    if (!ch || !lv || !tn) return;
+    rows.push({c:ch, lv:lv, tn:tn, lang:lg, id:id,
                rev: !!(f.analyticsV),
                ts: (f.timestamp && f.timestamp.timestampValue) || ''});
   });
@@ -835,9 +847,11 @@ async function chFetchAttempts(user){
 }
 
 function chBuildMap(rows){
+  const want = chNorm(CH_CHAPTER);
   const map = {};
   (rows || []).forEach(a => {
-    if (!CH_CHAPTER || a.b.indexOf(CH_CHAPTER) === -1) return;
+    const c = String(a.c || '');
+    if (!want || c !== want) return;   /* exact — 'quantalgebra' must not match 'quantalgebraicformula' */
     const k = 'l' + a.lv + 't' + a.tn;
     const e = map[k] || (map[k] = {});
     e[a.lang] = {id:a.id};
