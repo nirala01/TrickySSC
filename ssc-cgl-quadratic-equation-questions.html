@@ -125,7 +125,7 @@ li{margin-bottom:.35rem;color:#2D3748;}
 .tt-go{display:block;width:100%;text-align:center;padding:.4rem;border-radius:100px;background:linear-gradient(135deg,var(--lc,var(--accent)),var(--lc2,var(--accent-dark)));color:#fff;text-decoration:none;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.8rem;letter-spacing:.3px;margin-top:.25rem;}
 .tt-go:hover{opacity:.92;}
 .tt-go.tt-hi{background:#fff;color:var(--lc,var(--accent));border:1.5px solid var(--lc,var(--accent));}
-/* TSSC-CHATT-V2 — attempted / re-attempt state */
+/* TSSC-CHATT-V3 — attempted / re-attempt state */
 .tt.is-done{background:#FFFBEB;border-color:#FCD34D;}
 .tt-done{font-size:.68rem;font-family:'Rajdhani',sans-serif;font-weight:800;letter-spacing:.3px;color:#92400E;background:#FDE68A;border-radius:100px;padding:.08rem .55rem;margin-bottom:.18rem;}
 .tt-go.is-re{background:linear-gradient(135deg,#F59E0B,#D97706);color:#fff;}
@@ -629,7 +629,7 @@ footer a:hover{color:#FF6B00;}
            '&level=' + lv + '&test=' + tn;
   }
 
-  /* ---------- TSSC-CHATT-V2: attempted / re-attempt state ----------
+  /* ---------- TSSC-CHATT-V3: attempted / re-attempt state ----------
      CW_ATT is filled by the auth module at the bottom of the page, which
      reads this student's own attempts once and caches them. Until it
      arrives (or for a signed-out visitor) the tiles look exactly as
@@ -754,7 +754,7 @@ onAuthStateChanged(auth, user=>{
   }
 });
 
-/* ── TSSC-CHATT-V2 — ATTEMPTED TESTS ON THIS CHAPTER'S TILES ──────────
+/* ── TSSC-CHATT-V3 — ATTEMPTED TESTS ON THIS CHAPTER'S TILES ──────────
    One narrow Firestore read per signed-in student (his own attempts,
    uid-filtered so the owner-scoped rules allow it), cached 10 minutes in
    localStorage and SHARED by every chapter page, so moving between
@@ -836,25 +836,37 @@ function chBuildMap(rows){
   return map;
 }
 
-async function chLoadAttempts(user){
+let chLastFetch = 0;
+async function chLoadAttempts(user, force){
   if (!CH_GRID || !CH_CHAPTER || typeof window.tsscChApplyAttempts !== 'function') return;
   const ck = CH_CKEY(user.uid);
-  /* coming straight back from a test — never trust the cache */
-  const justTested = (document.referrer || '').indexOf('/chapterwise-test') !== -1;
-  if (!justTested) {
+  /* never trust the cache when the student is coming BACK to this page —
+     forward from the test player (referrer), browser Back/Forward
+     (navigation type), a bfcache restore or a tab switch (force) */
+  let cameBack = (document.referrer || '').indexOf('/chapterwise-test') !== -1;
+  try { const nav = performance.getEntriesByType('navigation')[0];
+        if (nav && nav.type === 'back_forward') cameBack = true; } catch(e){}
+  if (!cameBack && !force) {
     try {
       const c = JSON.parse(localStorage.getItem(ck) || 'null');
       if (c && (Date.now() - c.t) < CH_TTL) { window.tsscChApplyAttempts(chBuildMap(c.v)); return; }
     } catch(e){}
   }
   try {
+    chLastFetch = Date.now();
     const rows = await chFetchAttempts(user);
     try { localStorage.setItem(ck, JSON.stringify({t:Date.now(), v:rows})); } catch(e){}
     window.tsscChApplyAttempts(chBuildMap(rows));
   } catch(e){ /* silent — tiles stay unattempted */ }
 }
-
+function chRefresh(){
+  const u = auth.currentUser;
+  if (!u || !u.uid || (Date.now() - chLastFetch) < 15000) return;   /* one re-read per 15 s at most */
+  chLoadAttempts(u, true);
+}
 onAuthStateChanged(auth, user => { if (user && user.uid) chLoadAttempts(user); });
+window.addEventListener('pageshow', e => { if (e.persisted) chRefresh(); });          /* Back via bfcache */
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') chRefresh(); });  /* test done in another tab */
 </script>
 
 </body>
