@@ -162,6 +162,7 @@
     border:1px solid var(--border);overflow:hidden;
     margin-bottom:1.5rem;
   }
+  .attempts-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;}   /* TSSC-DASHRESP-V1 */
   .attempts-table{width:100%;border-collapse:collapse;}
   .attempts-table th{
     background:#F8FAFC;padding:0.75rem 1.25rem;
@@ -280,7 +281,17 @@
     .stat-card{padding:1rem 1.1rem;}
     .stat-num{font-size:1.55rem;}
 
-    /* ── ATTEMPTS TABLE → stacked cards ── */
+  }
+
+  /* ── TSSC-DASHRESP-V1 — "My recent attempts" on tablets ──────────────────
+     The stacked-card layout used to start at 640px, so every tablet (641px and
+     up) got the full multi-column table inside .attempts-card, which is
+     overflow:hidden with no horizontal scroll — the Date column and the
+     Review/Retry links past it were simply clipped off and unreachable.
+     Cards now start at 900px, and the table is wrapped in a scroller above
+     that width so a narrow desktop window can never clip a column either. */
+  @media(max-width:900px){
+    .attempts-scroll{overflow-x:visible;}
     .attempts-card{border:none;background:transparent;overflow:visible;}
     .attempts-table thead{
       position:absolute;width:1px;height:1px;padding:0;margin:-1px;
@@ -350,7 +361,7 @@
   .dp-rank{font-family:'Rajdhani',sans-serif;font-weight:700;color:#0F172A;}
   .dp-rank small{display:block;font-size:.68rem;color:#15803D;font-weight:700;}
   .dp-rank.lock{color:#94A3B8;cursor:pointer;}
-  @media(max-width:760px){.hide-m{display:none!important;}}
+  @media(max-width:640px){.hide-m{display:none!important;}}   /* TSSC-DASHRESP-V1: was 760px — tablets now show subject marks as card rows */
   /* ═══ Pro analytics ═══ */
   .pro-head{border-top:2px solid #FBBF24;padding-top:1.2rem;margin-top:2rem;}
   .tag-paid{font-family:'Rajdhani',sans-serif;font-size:.72rem;font-weight:800;border-radius:100px;padding:.15rem .6rem;background:linear-gradient(135deg,#FBBF24,#F59E0B);color:#442200;margin-left:.5rem;vertical-align:middle;}
@@ -1235,6 +1246,7 @@ function renderAttempts(attempts) {
   }).join('');
 
   el.innerHTML = `
+    <div class="attempts-scroll">
     <table class="attempts-table">
       <thead><tr>
         <th>Exam</th><th>Questions</th><th>Score</th>
@@ -1242,6 +1254,7 @@ function renderAttempts(attempts) {
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>
+    </div>
     ${attempts.length > ATT_SHOW ? `<button class="att-expand" type="button" id="attExpandBtn">${window._attShowAll
         ? '▲ Show less'
         : '▼ Expand to see all ' + attempts.length + ' tests you attempted'}</button>` : ''}`;
