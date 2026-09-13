@@ -1274,17 +1274,22 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:10
 #viewRankBtn.rg-lockbtn{background:linear-gradient(135deg,#1E293B,#475569)!important;color:#fff!important;border-color:#1E293B!important;}
 </style>
 <style>
-/* TSSC-GLITZ-V1 — result-screen action buttons: "Analyse your performance" + "View Rank & Leaderboard" */
-#goDashboardBtn:not(:disabled),#viewRankBtn:not(.rg-lockbtn){position:relative;overflow:hidden;display:inline-block;vertical-align:middle;margin-top:24px;padding:13px 30px!important;border-radius:14px!important;font-family:'Rajdhani',sans-serif!important;font-weight:800!important;font-size:17px!important;letter-spacing:.02em;line-height:1.2;text-decoration:none;cursor:pointer;transition:transform .18s ease,box-shadow .18s ease;}
+/* TSSC-GLITZ-V1 — result-screen action buttons: "Analyse your performance" + "View Rank & Leaderboard".
+   Both sit in one flex row (.gz-row), equal width and height, side by side on desktop, tablet and mobile. */
+.gz-row{display:flex;flex-wrap:nowrap;align-items:stretch;justify-content:center;gap:12px;margin:24px auto 0;max-width:660px;}
+.gz-row>#goDashboardBtn,.gz-row>#viewRankBtn{flex:1 1 0;min-width:0;max-width:320px;display:flex!important;align-items:center;justify-content:center;text-align:center;box-sizing:border-box;margin:0!important;padding:13px 16px!important;border-radius:14px!important;font-family:'Rajdhani',sans-serif!important;font-weight:800!important;font-size:17px!important;letter-spacing:.02em;line-height:1.2;text-decoration:none;cursor:pointer;position:relative;overflow:hidden;transition:transform .18s ease,box-shadow .18s ease;}
+.gz-row>#viewRankBtn[style*="display: none"],.gz-row>#viewRankBtn[style*="display:none"]{display:none!important;}
 #goDashboardBtn:not(:disabled){background:linear-gradient(135deg,#FF6B00 0%,#FF8C38 45%,#FFB347 100%);color:#fff;border:1.5px solid rgba(255,255,255,.55)!important;box-shadow:0 8px 24px rgba(255,107,0,.42),0 0 0 4px rgba(255,140,56,.16);animation:gzPulse 2.6s ease-in-out infinite;}
-#viewRankBtn:not(.rg-lockbtn){margin-top:12px;background:linear-gradient(135deg,#FDE68A 0%,#F59E0B 55%,#D97706 100%)!important;color:#3B1D06!important;border:1.5px solid rgba(255,255,255,.7)!important;box-shadow:0 8px 24px rgba(245,158,11,.42),0 0 0 4px rgba(251,191,36,.18)!important;}
+#goDashboardBtn:disabled{opacity:.7;cursor:default;}
+#viewRankBtn:not(.rg-lockbtn){background:linear-gradient(135deg,#FDE68A 0%,#F59E0B 55%,#D97706 100%)!important;color:#3B1D06!important;border:1.5px solid rgba(255,255,255,.7)!important;box-shadow:0 8px 24px rgba(245,158,11,.42),0 0 0 4px rgba(251,191,36,.18)!important;}
 #goDashboardBtn:not(:disabled)::after,#viewRankBtn:not(.rg-lockbtn)::after{content:'';position:absolute;top:0;left:-140%;width:55%;height:100%;background:linear-gradient(120deg,transparent,rgba(255,255,255,.55),transparent);transform:skewX(-22deg);animation:gzShine 3.2s ease-in-out infinite;pointer-events:none;}
 #viewRankBtn:not(.rg-lockbtn)::after{animation-delay:1.6s;}
 #goDashboardBtn:not(:disabled):hover,#viewRankBtn:not(.rg-lockbtn):hover{transform:translateY(-2px) scale(1.02);}
 @keyframes gzShine{0%{left:-140%;}45%,100%{left:170%;}}
 @keyframes gzPulse{0%,100%{box-shadow:0 8px 24px rgba(255,107,0,.42),0 0 0 4px rgba(255,140,56,.16);}50%{box-shadow:0 10px 30px rgba(255,107,0,.55),0 0 0 8px rgba(255,140,56,.08);}}
 @media(prefers-reduced-motion:reduce){#goDashboardBtn:not(:disabled),#goDashboardBtn:not(:disabled)::after,#viewRankBtn:not(.rg-lockbtn)::after{animation:none;}}
-@media(max-width:520px){#goDashboardBtn:not(:disabled),#viewRankBtn:not(.rg-lockbtn){display:block!important;width:100%;margin-left:0!important;margin-top:12px;box-sizing:border-box;}}
+@media(max-width:640px){.gz-row{gap:8px;}.gz-row>#goDashboardBtn,.gz-row>#viewRankBtn{font-size:15px!important;padding:12px 10px!important;border-radius:12px!important;}}
+@media(max-width:400px){.gz-row>#goDashboardBtn,.gz-row>#viewRankBtn{font-size:13.5px!important;padding:11px 8px!important;}}
 </style>
 <div id="resultScreen">
   <div class="result-card">
@@ -1299,8 +1304,10 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:10
       <div class="stat"><div class="stat-val" style="color:#EAB308" id="statSkip">0</div><div class="stat-lbl">Skipped</div></div>
       <div class="stat" style="background:#FFF7ED;border-color:#FED7AA;"><div class="stat-val" style="color:#FF6B00;" id="statMarks">0</div><div class="stat-lbl">Marks</div></div>
     </div>
-    <button class="btn btn-next" id="goDashboardBtn" style="margin-top:24px;padding:12px 32px;" onclick="window.location='https://trickyssc.com/dashboard.html'" disabled>Saving result...</button>
-    <a id="viewRankBtn" href="#" style="display:none;margin-top:12px;margin-left:8px;padding:12px 28px;border-radius:10px;background:#FFF3E8;color:#FF6B00;font-weight:700;font-size:14px;text-decoration:none;border:1.5px solid #FFD9B8;">🏆 View Rank &amp; Leaderboard</a>
+    <div class="gz-row">   <!-- TSSC-GLITZ-V1 -->
+      <button class="btn btn-next" id="goDashboardBtn" style="margin-top:24px;padding:12px 32px;" onclick="window.location='https://trickyssc.com/dashboard.html'" disabled>Saving result...</button>
+      <a id="viewRankBtn" href="#" style="display:none;margin-top:12px;margin-left:8px;padding:12px 28px;border-radius:10px;background:#FFF3E8;color:#FF6B00;font-weight:700;font-size:14px;text-decoration:none;border:1.5px solid #FFD9B8;">🏆 View Rank &amp; Leaderboard</a>
+    </div>
     <div id="saveStatus" style="margin-top:10px;font-size:12px;color:#94A3B8;">⏳ Saving your result...</div>
     <button class="btn btn-submit" id="retrySaveBtn" style="margin-top:10px;display:none;" onclick="retrySaveResult()">Retry Save</button>
   </div>
