@@ -1286,14 +1286,6 @@ window.imgFail = function (el) {
 .rg-btn{display:inline-block;background:linear-gradient(135deg,#FF6B00,#FF8C38);color:#fff;font-weight:700;font-family:'Rajdhani',sans-serif;font-size:15px;padding:11px 22px;border-radius:10px;text-decoration:none;box-shadow:0 4px 16px rgba(255,107,0,.35);}
 #viewRankBtn.rg-lockbtn{background:linear-gradient(135deg,#1E293B,#475569)!important;color:#fff!important;border-color:#1E293B!important;}
 </style>
-<style>
-  /* TSSC-DASHPROMO-V1 — "dashboard upgraded" button beside View Rank */
-  .dp-btn{position:relative;display:inline-block;margin-top:12px;margin-left:8px;padding:12px 22px;border-radius:10px;background:linear-gradient(135deg,#1A202C,#3B1D06);color:#fff;font-weight:700;font-size:14px;text-decoration:none;border:1.5px solid rgba(251,191,36,.6);box-shadow:0 4px 16px rgba(15,23,42,.25);overflow:hidden;vertical-align:middle;}
-  .dp-btn::after{content:'';position:absolute;top:0;left:-140%;width:60%;height:100%;background:linear-gradient(120deg,transparent,rgba(255,255,255,.18),transparent);transform:skewX(-22deg);animation:dpShine 4s ease-in-out infinite;}
-  @keyframes dpShine{0%{left:-140%;}55%,100%{left:160%;}}
-  @media(prefers-reduced-motion:reduce){.dp-btn::after{animation:none;}}
-  .dp-btn-new{font-family:'Rajdhani',sans-serif;font-weight:800;font-size:10px;letter-spacing:.06em;background:linear-gradient(135deg,#FBBF24,#F59E0B);color:#442200;border-radius:100px;padding:2px 7px;margin-right:4px;vertical-align:middle;}
-  </style>
 <div id="resultScreen">
   <div class="result-card">
     <div style="font-family:'Rajdhani';font-size:22px;font-weight:700;color:#1E293B;margin-bottom:14px;" id="resultExamName"></div>
@@ -1309,7 +1301,6 @@ window.imgFail = function (el) {
     </div>
     <button class="btn btn-next" id="goDashboardBtn" style="margin-top:24px;padding:12px 32px;" onclick="window.location='https://trickyssc.com/dashboard.html'" disabled>Saving result...</button>
     <a id="viewRankBtn" href="#" style="display:none;margin-top:12px;margin-left:8px;padding:12px 28px;border-radius:10px;background:#FFF3E8;color:#FF6B00;font-weight:700;font-size:14px;text-decoration:none;border:1.5px solid #FFD9B8;">🏆 View Rank &amp; Leaderboard</a>
-    <a class="dp-btn" href="https://trickyssc.com/dashboard.html#pro" title="Rank &amp; percentile on every test, cut-off gap, chapter-wise weak areas, question-by-question report, compare with the topper"><span class="dp-btn-new">NEW</span> ✨ Dashboard upgraded — Explore now →</a>
     <div id="saveStatus" style="margin-top:10px;font-size:12px;color:#94A3B8;">⏳ Saving your result...</div>
     <button class="btn btn-submit" id="retrySaveBtn" style="margin-top:10px;display:none;" onclick="retrySaveResult()">Retry Save</button>
   </div>
@@ -2670,7 +2661,7 @@ function setSaveUi(state,msg){
   if(!goBtn||!saveStatus||!retryBtn)return;
   saveStatus.textContent=msg||'';
   if(state==='saving'){goBtn.disabled=true;goBtn.textContent='Saving result...';retryBtn.style.display='none';saveStatus.style.color='#94A3B8';}
-  else if(state==='saved'){goBtn.disabled=false;goBtn.textContent='Go to Dashboard';retryBtn.style.display='none';saveStatus.style.color='#22C55E';}
+  else if(state==='saved'){goBtn.disabled=false;goBtn.textContent='📊 Go to Dashboard';   /* TSSC-DASHONE-V1: the only dashboard link on the result screen */retryBtn.style.display='none';saveStatus.style.color='#22C55E';}
   else if(state==='error'){goBtn.disabled=true;goBtn.textContent='Save required before dashboard';retryBtn.style.display='inline-block';saveStatus.style.color='#EF4444';}
 }
 
@@ -2906,9 +2897,9 @@ window.imgFail = function (el) {
   }catch(e){}
   lastResultPayload={attemptId,payload};
   /* TSSC-QSTATS-V1 — per-question tallies for the dashboard's 'My performance' card:
-     qstats/{paper} = { n: candidates, q: { <qNum>: { a: attempted, c: correct } } }.
+     qstats/{paper} = { n: candidates, q: { <qNum>: { a: attempted, c: correct, ts: total seconds, tn: timed candidates } } }.
      One merged write per submit, never awaited, errors ignored (needs a qstats rule). */
-  try{ if(_lbBase){ const _qs={}; _ansLog.forEach(x=>{ _qs['q'+x.q]={a:increment(x.r==='k'?0:1),c:increment(x.r==='c'?1:0)}; });
+  try{ if(_lbBase){ const _qs={}; _ansLog.forEach(x=>{ const _t=Math.max(0,Math.round(Number(x.t)||0)); _qs['q'+x.q]={a:increment(x.r==='k'?0:1),c:increment(x.r==='c'?1:0),ts:increment(_t),tn:increment(_t>0?1:0)}; });   /* TSSC-QTIME-V1: ts = total seconds, tn = candidates who spent time on it (avg = ts/tn) */
     setDoc(doc(db,'qstats',_lbBase),{n:increment(1),total:questions.length,updatedAt:serverTimestamp(),q:_qs},{merge:true}).catch(()=>{}); } }catch(e){}
   try{await persistWithRetry(payload,attemptId,3);localStorage.removeItem('pending_attempt_'+attemptId);setSaveUi('saved','✅ Result saved successfully.');}
   catch(e){console.warn('Save failed:',e);localStorage.setItem('pending_attempt_'+attemptId,JSON.stringify(lastResultPayload));setSaveUi('error','⚠️ Could not save. Check internet and tap Retry Save.');}

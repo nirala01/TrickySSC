@@ -409,6 +409,12 @@
   .kv:last-child{border:none;}
   .kv b{font-family:'Rajdhani',sans-serif;text-align:right;}
   .good{color:var(--green);}.bad{color:#DC2626;}.warn{color:#D97706;}
+  /* TSSC-QTIME-V1 — per-question time columns: avg coloured against the student's own time */
+  .tq{white-space:nowrap;font-variant-numeric:tabular-nums;}
+  .tq-r{display:inline-block;padding:1px 7px;border-radius:100px;background:#FEE2E2;color:#B91C1C;font-weight:700;}
+  .tq-g{display:inline-block;padding:1px 7px;border-radius:100px;background:#DCFCE7;color:#15803D;font-weight:700;}
+  .tq-y{display:inline-block;padding:1px 7px;border-radius:100px;background:#FEF3C7;color:#B45309;font-weight:700;}
+  .tq-leg{display:inline-flex;flex-wrap:wrap;gap:.5rem .9rem;margin-top:.3rem;}
   .gauge{position:relative;height:14px;border-radius:100px;background:linear-gradient(90deg,#FCA5A5,#FDE68A,#86EFAC);margin:.8rem 0 .3rem;}
   .gauge .me{position:absolute;top:-6px;width:4px;height:26px;background:var(--dark);border-radius:2px;margin-left:-2px;}
   .gauge .cut{position:absolute;top:-6px;width:2px;height:26px;background:#DC2626;margin-left:-1px;}
@@ -453,8 +459,8 @@
     .eb-table td[data-l="Q"]{display:inline-block;width:auto;font-family:'Rajdhani',sans-serif;font-weight:800;color:var(--gray);font-size:.78rem;}
     .eb-table td[data-l="Q"]::before{content:"Q";}
     .eb-table td.pq{font-size:.86rem;line-height:1.45;color:var(--dark);padding-bottom:.35rem;}
-    .eb-table td[data-l="Correct"],.eb-table td[data-l="You"],.eb-table td[data-l="% got it right"],.eb-table td[data-l="Level"]{display:inline-block;width:auto;margin-right:.9rem;font-size:.82rem;}
-    .eb-table td[data-l="Correct"]::before,.eb-table td[data-l="You"]::before,.eb-table td[data-l="% got it right"]::before,.eb-table td[data-l="Level"]::before{content:attr(data-l) ": ";color:var(--gray);font-weight:500;}
+    .eb-table td[data-l="Correct"],.eb-table td[data-l="You"],.eb-table td[data-l="Your time"],.eb-table td[data-l="Avg time"],.eb-table td[data-l="% got it right"],.eb-table td[data-l="Level"]{display:inline-block;width:auto;margin-right:.9rem;font-size:.82rem;}
+    .eb-table td[data-l="Correct"]::before,.eb-table td[data-l="You"]::before,.eb-table td[data-l="Your time"]::before,.eb-table td[data-l="Avg time"]::before,.eb-table td[data-l="% got it right"]::before,.eb-table td[data-l="Level"]::before{content:attr(data-l) ": ";color:var(--gray);font-weight:500;}
     .eb-table td[data-l="% got it right"]::before{content:"Got right: ";}
     .teaser-box{padding:.9rem;}
     .gets{font-size:.8rem;}
@@ -1749,6 +1755,19 @@ async function loadQtext(a){
   }catch(e){ console.warn('[pro] questions',e.message); QT[id]={}; return QT[id]; }
 }
 const diffTag=p=>p==null?null:p>=70?['Easy','good']:p>=40?['Moderate','warn']:['Hard','bad'];
+/* TSSC-QTIME-V1 — time helpers. qstats/{paper}.q.qNN carries ts (total seconds) + tn (candidates who
+   spent time on it), written by the engines from this update on; avg = ts/tn. The avg cell is coloured
+   AGAINST THE STUDENT'S OWN TIME: avg lower than yours = red (others were faster), higher = green
+   (you were faster), within ±10% = yellow. No colour when the student never really opened the question. */
+const fmtSec=v=>{ v=Math.round(Number(v)||0); if(v<=0) return '0s'; if(v<60) return v+'s'; const m=Math.floor(v/60), r=v%60; return m+'m'+(r?' '+r+'s':''); };
+function avgTimeCell(mine,avg,tn,r,est){
+  if(avg==null||!(tn>0)) return '<span class="muted">—</span>';
+  const a=Math.round(avg); const pre=est?'~':'';
+  if(!(mine>0)||(r==='k'&&mine<=2)) return '<span class="tq muted">'+pre+fmtSec(a)+'</span>';
+  const cls=a<mine*0.9?'tq-r':a>mine*1.1?'tq-g':'tq-y';
+  const tip=cls==='tq-r'?'Others solved this faster than you':cls==='tq-g'?'You were faster than average':'About the same as others';
+  return '<span class="tq '+cls+'" title="'+tip+'">'+pre+fmtSec(a)+'</span>';
+}
 function renderPerf(full){
   const el=$('cErrors'); const tests=full.filter(a=>answersOf(a).length).slice(0,12);
   let h='<h4>My performance <em>question by question</em>';
@@ -1771,17 +1790,26 @@ function renderPerf(full){
     const MIN_N=20; const est=n<MIN_N;
     const seed=(q)=>{ let x=2166136261; const str=k+'|'+q; for(let i=0;i<str.length;i++){ x^=str.charCodeAt(i); x=Math.imul(x,16777619)>>>0; } x^=x>>>13; x=Math.imul(x,0x5bd1e995)>>>0; x^=x>>>15; return (x%10007)/10007; };
     const estimate=(x)=>{ const base=x.d==='easy'?76:x.d==='hard'?34:x.d==='moderate'?56:(42+Math.round(seed(x.q)*38)); const jit=Math.round((seed(x.q+'j')-0.5)*14); return Math.max(12,Math.min(94,base+jit)); };
-    let t='<div style="overflow-x:auto"><table class="eb-table"><thead><tr><th>Q</th><th>Question</th><th>Correct</th><th>You</th><th>% got it right</th><th>Level</th></tr></thead><tbody>';
+    let t='<div style="overflow-x:auto"><table class="eb-table"><thead><tr><th>Q</th><th>Question</th><th>Correct</th><th>You</th><th>Your time</th><th>Avg time</th><th>% got it right</th><th>Level</th></tr></thead><tbody>';
     let e=0,m=0,hd=0;
-    ans.forEach(x=>{ const st=(qs.q||{})['q'+x.q]; const pc=sample?(x.q%3?72:(x.q%5?48:22)):(est?estimate(x):(st?Math.round((Number(st.c)||0)/n*100):estimate(x)));
+    let tFast=0,tSlow=0,tHasAvg=0;
+    ans.forEach(x=>{ const st=(qs.q||{})['q'+x.q];
+      const tnT=sample?30:(st?(Number(st.tn)||0):0); const avgT=sample?Math.max(8,Math.round((Number(x.t)||40)*(x.q%3?1.25:0.7))):(tnT>0?(Number(st.ts)||0)/tnT:null); const estT=!sample&&tnT<MIN_N;
+      if(avgT!=null&&tnT>0&&x.t>0&&!(x.r==='k'&&x.t<=2)){ tHasAvg++; if(Math.round(avgT)<x.t*0.9) tSlow++; else if(Math.round(avgT)>x.t*1.1) tFast++; }
+      const pc=sample?(x.q%3?72:(x.q%5?48:22)):(est?estimate(x):(st?Math.round((Number(st.c)||0)/n*100):estimate(x)));
       const tag=diffTag(pc)||(x.d?[x.d.charAt(0).toUpperCase()+x.d.slice(1),x.d==='easy'?'good':x.d==='hard'?'bad':'warn']:null);
       if(tag){ if(tag[0]==='Easy')e++; else if(tag[0]==='Hard')hd++; else m++; }
       const txt=sample?'Sample question text — appears here for your real tests':((qt[x.q]&&qt[x.q].t)||('Question '+x.q+(x.s?' · '+(SUBJ_NAME[skey(x.s)]||x.s):'')));
       const corr=x.c||(qt[x.q]&&qt[x.q].c)||'—';
-      t+='<tr class="'+(x.r==='c'?'pr-c':x.r==='w'?'pr-w':'pr-k')+'"><td data-l="Q">'+x.q+'</td><td data-l="Question" class="pq" style="max-width:420px;">'+esc(txt)+'</td><td data-l="Correct" class="good"><b>'+esc(corr)+'</b></td><td data-l="You" class="'+(x.r==='c'?'good':x.r==='w'?'bad':'muted')+'"><b>'+(x.r==='k'?'Skipped':esc(x.a))+'</b>'+(x.t?' <span class="muted">'+x.t+'s</span>':'')+'</td><td data-l="% got it right">'+(pc==null?'<span class="muted">—</span>':(est&&!sample?'~':'')+pc+'%')+'</td><td data-l="Level">'+(tag?'<span class="'+tag[1]+'">'+tag[0]+'</span>':'<span class="muted">—</span>')+'</td></tr>'; });
+      t+='<tr class="'+(x.r==='c'?'pr-c':x.r==='w'?'pr-w':'pr-k')+'"><td data-l="Q">'+x.q+'</td><td data-l="Question" class="pq" style="max-width:420px;">'+esc(txt)+'</td><td data-l="Correct" class="good"><b>'+esc(corr)+'</b></td><td data-l="You" class="'+(x.r==='c'?'good':x.r==='w'?'bad':'muted')+'"><b>'+(x.r==='k'?'Skipped':esc(x.a))+'</b></td><td data-l="Your time" class="tq'+(x.t>0?'':' muted')+'">'+(x.t>0?fmtSec(x.t):'—')+'</td><td data-l="Avg time">'+avgTimeCell(Number(x.t)||0,avgT,tnT,x.r,estT)+'</td><td data-l="% got it right">'+(pc==null?'<span class="muted">—</span>':(est&&!sample?'~':'')+pc+'%')+'</td><td data-l="Level">'+(tag?'<span class="'+tag[1]+'">'+tag[0]+'</span>':'<span class="muted">—</span>')+'</td></tr>'; });
     t+='</tbody></table></div>';
     const wrongEasy=ans.filter(x=>x.r!=='c'&&(est?estimate(x)>=70:(()=>{const st=(qs.q||{})['q'+x.q];return st&&Number(st.c)/n>=0.7;})())).length;
     t+='<div class="pnote">'+(est?'"% got it right" is an estimate (~) until more candidates have taken this test. ':'Based on '+n+' candidates who took this test. ')+(e+m+hd?'Easy '+e+' · Moderate '+m+' · Hard '+hd+'. ':'')+(wrongEasy?'<b>'+wrongEasy+' easy question'+(wrongEasy>1?'s':'')+'</b> (70%+ got them right) you missed — the cheapest marks to recover.':'')+'</div>';
+    /* TSSC-QTIME-V1 — time legend / note */
+    const anyTs=ans.some(x=>{ const st=(qs.q||{})['q'+x.q]; return st&&Number(st.tn)>0; });
+    t+='<div class="pnote"><b>Avg time</b> = average time other candidates spent on that question, coloured against yours: '
+      +'<span class="tq-leg"><span class="tq tq-r">red</span> others were faster than you <span class="tq tq-g">green</span> you were faster <span class="tq tq-y">yellow</span> about the same (±10%)</span>'
+      +(sample?'':(!anyTs?'<br>Average time starts appearing for tests taken from today onwards, once other candidates have attempted them.':(tHasAvg?'<br>You were faster than average on <b>'+tFast+'</b> and slower on <b>'+tSlow+'</b> of '+tHasAvg+' timed questions.'+(anyTs&&ans.some(x=>{const st=(qs.q||{})['q'+x.q];return st&&Number(st.tn)>0&&Number(st.tn)<MIN_N;})?' Values marked ~ rest on fewer than '+MIN_N+' candidates.':''):'')))+'</div>';
     const body=$('perfBody'); if(body) body.innerHTML=t; if(body) body.className='';
   })();
 }
