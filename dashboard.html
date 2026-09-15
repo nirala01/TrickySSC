@@ -1245,12 +1245,14 @@ function renderAttempts(attempts) {
       if(bits.length) detail = '<span style="color:var(--gray);font-weight:500;font-size:0.78rem;margin-left:0.4rem;">· '+bits.join(' · ')+'</span>';
     } else if(_isMock){
       examName = a.examName || ((EXAM_NAMES[a.exam]||a.exam||'—') + (a.year?' '+a.year:''));
-      const mid = a.mockId || a.paperId || '';
+      /* TSSC-SUBJECT-MOCK-V1 — subject-wise mock attempts (mockId = <mockId>__<subject>) open the subject engines */
+      const _isSubjMock = a.testKind==='mock-subject' && a.subjectKey;
+      const mid = _isSubjMock ? (a.baseMockId || String(a.mockId||'').replace(/__[a-z]+$/i,'')) : (a.mockId || a.paperId || '');
       const t2 = (a.tier==='tier2') || (mid.includes('_tier2_'));
-      const player = t2 ? 'mock-test-tier2.html' : 'mock-test.html';
+      const player = _isSubjMock ? (t2 ? 'mock-test-tier2-subject.html' : 'mock-test-subject.html') : (t2 ? 'mock-test-tier2.html' : 'mock-test.html');
       const lang = mid.endsWith('_hi') ? 'hi' : 'en';
-      retryUrl = player+'?exam='+(a.exam||'')+'&mockId='+encodeURIComponent(mid)+'&lang='+lang;
-      typeTag = '<span style="background:#EDE9FE;color:#7C3AED;border-radius:5px;padding:0.05rem 0.4rem;font-size:0.66rem;font-weight:700;margin-left:0.4rem;">MOCK</span>';
+      retryUrl = player+'?exam='+(a.exam||'')+'&mockId='+encodeURIComponent(mid)+'&lang='+lang+(_isSubjMock?'&subject='+encodeURIComponent(a.subjectKey):'');
+      typeTag = '<span style="background:#EDE9FE;color:#7C3AED;border-radius:5px;padding:0.05rem 0.4rem;font-size:0.66rem;font-weight:700;margin-left:0.4rem;">'+(_isSubjMock?'MOCK · '+String(a.subjectKey).toUpperCase():'MOCK')+'</span>';
     } else {
       examName = a.examName || ((EXAM_NAMES[a.exam]||a.exam||'—') + (a.year?' '+a.year:''));
       /* TSSC-REVIEW-V1 — pick the engine that actually ran this paper */
@@ -1265,7 +1267,9 @@ function renderAttempts(attempts) {
     }
     /* TSSC-DASHPRO-V1 — subject marks (from subjectMarks, else subjectStats) + leaderboard key */
     const _sm = (!_isChapter && window.tsscSubjMarks) ? window.tsscSubjMarks(a) : {};
-    const _lb = (_isChapter || a.testKind==='pyq-subject') ? '' : String(a.paperId||a.mockId||'').replace(/([_\-])(hi|en|hindi|english)$/i,'');
+    const _lb = (_isChapter || a.testKind==='pyq-subject') ? '' : (a.testKind==='mock-subject' && a.subjectKey)
+      ? String(a.baseMockId||String(a.mockId||'').replace(/__[a-z]+$/i,'')).replace(/([_\-])(hi|en|hindi|english)$/i,'')+'__'+a.subjectKey   /* TSSC-SUBJECT-MOCK-V1 */
+      : String(a.paperId||a.mockId||'').replace(/([_\-])(hi|en|hindi|english)$/i,'');
     /* TSSC-REVIEW-V1 — only attempts that carry the answers log can be reopened */
     const _canReview = !!(a.id && Array.isArray(a.answers) && a.answers.length);
     return `<tr>
@@ -1398,19 +1402,23 @@ const $ = id => document.getElementById(id);
 const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const n1 = v => (Math.round(v*10)/10).toString();
 const isChapter = a => a.type==='chapterwise';
-const isFullPaper = a => !isChapter(a) && a.testKind!=='pyq-subject';   // subject-wise PYQ sets and chapter tests have no cut-off
+const isFullPaper = a => !isChapter(a) && a.testKind!=='pyq-subject' && a.testKind!=='mock-subject';   // subject-wise PYQ/mock sets and chapter tests have no cut-off
 const isMock = a => !isChapter(a) && !!(a.mockId || a.type==='mock' || (a.paperId||'').includes('_mock'));
 const isTier2 = a => a.tier==='tier2' || /tier2|tier-2|tier_2/i.test((a.paperId||'')+(a.mockId||''));
 const marksOf = a => { const h=a.marks!==undefined&&a.marks!==null&&a.marks!==''; return h?(parseFloat(a.marks)||0):Math.round(((parseFloat(a.percentage)||0)/100)*maxOf(a)); };
 const maxOf = a => a.maxMarks ? Number(a.maxMarks) : (parseInt(a.total)||100)*(isTier2(a)?3:2);
 const posneg = a => isTier2(a) ? {pos:3,neg:1} : {pos:2,neg:0.5};
 const tsOf = a => a.timestamp?.toDate ? a.timestamp.toDate().getTime() : (a.clientSubmittedAt ? new Date(a.clientSubmittedAt).getTime() : 0);
-const lbKey = a => { if(a.testKind==='pyq-subject') return ''; const id=a.paperId||a.mockId||''; return id ? String(id).replace(/([_\-])(hi|en|hindi|english)$/i,'') : ''; };
+const lbKey = a => { if(a.testKind==='pyq-subject') return '';
+  if(a.testKind==='mock-subject' && a.subjectKey){ const b=a.baseMockId||String(a.mockId||'').replace(/__[a-z]+$/i,''); return b ? String(b).replace(/([_\-])(hi|en|hindi|english)$/i,'')+'__'+a.subjectKey : ''; }   /* TSSC-SUBJECT-MOCK-V1 */
+  const id=a.paperId||a.mockId||''; return id ? String(id).replace(/([_\-])(hi|en|hindi|english)$/i,'') : ''; };
 const examTier = a => (a.exam||'ssc-cgl')+'|'+(isTier2(a)?'tier2':'tier1');
 function testName(a){ return (a.examName||a.exam||'Test').replace(/\s*—.*$/,''); }
 function testUrl(a){
   if(isChapter(a)) return 'chapterwise-test.html?exam='+(a.exam||'ssc-cgl')+'&subject='+encodeURIComponent(a.subject||'')+'&chapter='+encodeURIComponent(a.chapterId||a.chapter||'');
-  if(isMock(a)){ const mid=a.mockId||a.paperId||''; return (isTier2(a)?'mock-test-tier2.html':'mock-test.html')+'?exam='+(a.exam||'')+'&mockId='+encodeURIComponent(mid)+'&lang='+(mid.endsWith('_hi')?'hi':'en'); }
+  if(isMock(a)){
+    if(a.testKind==='mock-subject' && a.subjectKey){ const mid=a.baseMockId||String(a.mockId||'').replace(/__[a-z]+$/i,''); return (isTier2(a)?'mock-test-tier2-subject.html':'mock-test-subject.html')+'?exam='+(a.exam||'')+'&mockId='+encodeURIComponent(mid)+'&lang='+(mid.endsWith('_hi')?'hi':'en')+'&subject='+encodeURIComponent(a.subjectKey); }   /* TSSC-SUBJECT-MOCK-V1 */
+    const mid=a.mockId||a.paperId||''; return (isTier2(a)?'mock-test-tier2.html':'mock-test.html')+'?exam='+(a.exam||'')+'&mockId='+encodeURIComponent(mid)+'&lang='+(mid.endsWith('_hi')?'hi':'en'); }
   return (a.exam==='ssc-chsl'?(isTier2(a)?'test-chsl-tier2.html':'test-chsl.html'):(isTier2(a)?'test-tier2.html':'test.html'))+'?exam='+(a.exam||'')+(a.year?'&year='+a.year:'')+(a.paperId?'&paperId='+encodeURIComponent(a.paperId):'');
 }
 /** subject marks map {Q:..,R:..} from subjectMarks or subjectStats */
