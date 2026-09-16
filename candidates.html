@@ -302,6 +302,11 @@ body{font-family:'Noto Sans',sans-serif;background:var(--bg);color:var(--text);m
       <div class="stat-val" id="activeToday">—</div>
       <div class="stat-sub" id="activeTodaySub">—</div>
     </div>
+    <div class="stat-card clickable" tabindex="0" onclick="showDrill('dashboard')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();showDrill('dashboard');}">
+      <div class="stat-label">Dashboard Users Today</div>
+      <div class="stat-val orange" id="dashToday">—</div>
+      <div class="stat-sub" id="dashTodaySub">—</div>
+    </div>
     <div class="stat-card clickable" tabindex="0" onclick="showDrill('pyq')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();showDrill('pyq');}">
       <div class="stat-label">PYQ Tests Today</div>
       <div class="stat-val orange" id="pyqToday">—</div>
@@ -439,13 +444,13 @@ function cacheUser(u){
 // Snapshot of the current report day, filled in by loadStats(). The drill-down
 // panels read from this so clicking a stat card never re-queries Firestore —
 // the numbers on the card and the names behind it always come from one load.
-let todayCtx = { attempts: [], activeUsers: [], newUsers: [], reportStart: null, reportEnd: null };
+let todayCtx = { attempts: [], activeUsers: [], newUsers: [], dashUsers: [], reportStart: null, reportEnd: null };
 
 // uids (and doc ids) of candidates who SIGNED UP inside the current report window.
 // Every "N new" figure on the cards and in the drill-downs is a lookup in here.
 let newTodayIds = new Set();
 
-let drillKind = 'active';    // 'active' | 'pyq' | 'mock' | 'chapter' | 'new'
+let drillKind = 'active';    // 'active' | 'pyq' | 'mock' | 'chapter' | 'new' | 'dashboard'
 let drillView = 'candidate'; // 'candidate' | 'test'
 
 // Every date on this dashboard is rendered in Indian Standard Time, regardless of
@@ -705,13 +710,18 @@ window.loadStats = async () => {
     const inYday = d => d && d>=ydayStart   && d<reportStart;               // previous 7 AM window ("yesterday")
     const _dLabel = dt => dt.toLocaleDateString('en-IN',{day:'numeric',month:'short',timeZone:IST_TZ});
 
-    // Five small requests in place of two full-collection reads.
-    const [uCount, aCount, activeSnap, joinSnap, attSnap] = await Promise.all([
+    // Seven small requests in place of two full-collection reads.
+    // TSSC-DASHVISIT-V1 — dashboardLastOpened is stamped by dashboard.html on
+    // every open; users who never opened it have no such field and are skipped
+    // by the range filter, so the ">= epoch" count = everyone who ever opened it.
+    const [uCount, aCount, activeSnap, joinSnap, attSnap, dashSnap, dashEverCount] = await Promise.all([
       getCountFromServer(usersCol),
       getCountFromServer(attCol),
       getDocs(query(usersCol, where('lastActive','>=', reportStart))),
       getDocs(query(usersCol, where('createdAt','>=', ydayStart))),
-      getDocs(query(attCol,   where('timestamp','>=', reportStart)))
+      getDocs(query(attCol,   where('timestamp','>=', reportStart))),
+      getDocs(query(usersCol, where('dashboardLastOpened','>=', reportStart))),
+      getCountFromServer(query(usersCol, where('dashboardLastOpened','>=', new Date(0))))
     ]);
 
     totalUsersCount    = uCount.data().count;
@@ -724,6 +734,17 @@ window.loadStats = async () => {
       cacheUser(u);
       if(inDay(_td(u.lastActive))) activeUsersToday.push(u);
     });
+
+    // Candidates who opened dashboard.html inside the report window, plus the
+    // all-time count of distinct candidates who have ever opened it.
+    const dashUsersToday = [];
+    let dashOpensToday = 0;
+    dashSnap.forEach(d => {
+      const u = {id:d.id, ...d.data()};
+      cacheUser(u);
+      if(inDay(_td(u.dashboardLastOpened))){ dashUsersToday.push(u); dashOpensToday += (parseInt(u.dashboardOpens)||1); }
+    });
+    const dashEver = dashEverCount.data().count;
 
     // Users whose createdAt lies in the future = the signing-up device's clock was
     // wrong (createdAt is written client-side). They land in the wrong report window,
@@ -778,7 +799,7 @@ window.loadStats = async () => {
     await resolveUsers(todaysAttempts.map(a => a.uid));
 
     // Hand the same numbers to the drill-down panels.
-    todayCtx = { attempts: todaysAttempts, activeUsers: activeUsersToday, newUsers: newUsersTodayList, reportStart, reportEnd };
+    todayCtx = { attempts: todaysAttempts, activeUsers: activeUsersToday, newUsers: newUsersTodayList, dashUsers: dashUsersToday, reportStart, reportEnd };
     if(document.getElementById('drillModal').classList.contains('open')) renderDrill();
 
     // "N new" = of the candidates counted on this card, how many signed up today.
@@ -791,6 +812,11 @@ window.loadStats = async () => {
     document.getElementById('totalTests').textContent = detailsLoaded ? allAttempts.length : totalAttemptsCount;
     document.getElementById('activeToday').textContent = activeUsersToday.length;
     document.getElementById('activeTodaySub').innerHTML = '<span class="nu">'+newActive+' new</span> · '+testTakersToday.size+' sat a test';
+    const newDash = dashUsersToday.filter(u => isNew(u.uid || u.id)).length;
+    document.getElementById('dashToday').textContent = dashUsersToday.length;
+    document.getElementById('dashTodaySub').innerHTML = '<span class="nu">'+newDash+' new</span> · '
+      + dashEver + ' ever opened it'
+      + (totalUsersCount ? ' <span style="opacity:0.7;">(' + Math.round(dashEver*100/totalUsersCount) + '% of all)</span>' : '');
     document.getElementById('pyqToday').textContent = pyqUsersToday.size;
     document.getElementById('pyqTodaySub').innerHTML = subLine(pyqAttemptsToday, pyqUsersToday);
     document.getElementById('mockToday').textContent = mockUsersToday.size;
@@ -957,7 +983,7 @@ window.filterTable = () => {
 // ── DRILL-DOWN: who is doing what today ─────────────────────────────────────
 const DRILL_TITLES = {
   active:'Active today', pyq:'PYQ tests today', mock:'Mock tests today',
-  chapter:'Chapter tests today', new:'New candidates today'
+  chapter:'Chapter tests today', new:'New candidates today', dashboard:'Opened the dashboard today'
 };
 
 function dayLabel(dt){ return dt ? dt.toLocaleDateString('en-IN',{day:'numeric',month:'short',timeZone:IST_TZ}) : '—'; }
@@ -970,6 +996,13 @@ function drillAttempts(){
   if(drillKind === 'chapter') return todayCtx.attempts.filter(a => attemptType(a) === 'chapter');
   // Everything today's signups attempted, whichever kind of paper it was.
   if(drillKind === 'new')     return todayCtx.attempts.filter(a => newTodayIds.has(a.uid));
+  // Whatever today's dashboard visitors attempted, so the list shows if a
+  // dashboard visit went with a test or was just a look at old results.
+  if(drillKind === 'dashboard'){
+    const seen = new Set();
+    todayCtx.dashUsers.forEach(u => { seen.add(u.uid || u.id); });
+    return todayCtx.attempts.filter(a => seen.has(a.uid));
+  }
   // Scoped to the candidates the card counted, so the list totals never disagree
   // with the number on the card (orphaned attempts from deleted accounts would).
   const live = new Set();
@@ -1041,6 +1074,8 @@ window.renderDrill = () => {
     // Same for today's signups — a new candidate who attempted nothing is the
     // most useful row on that card, so they must not be dropped.
     if(drillKind === 'new') todayCtx.newUsers.forEach(u => { touch(u.uid || u.id).user = u; });
+    // Dashboard visitors with no attempt today are the whole point of that card.
+    if(drillKind === 'dashboard') todayCtx.dashUsers.forEach(u => { touch(u.uid || u.id).user = u; });
     atts.forEach(a => touch(a.uid).attempts.push(a));
 
     let rows = [...groups.values()];
@@ -1065,7 +1100,10 @@ window.renderDrill = () => {
     html += rows.map(g => {
       const u = g.user;
       const last = u && u.lastActive && u.lastActive.toDate ? timeLabel(u.lastActive) : '—';
-      const meta = [u && u.phone ? esc(u.phone) : null, u && u.email ? esc(u.email) : null, 'last active ' + last]
+      const dash = u && u.dashboardLastOpened && u.dashboardLastOpened.toDate
+        ? 'dashboard ' + timeLabel(u.dashboardLastOpened) + (u.dashboardOpens ? ' (' + u.dashboardOpens + '× total)' : '')
+        : null;
+      const meta = [u && u.phone ? esc(u.phone) : null, u && u.email ? esc(u.email) : null, 'last active ' + last, dash]
         .filter(Boolean).join(' · ');
       const nameHtml = u
         ? `<div class="drill-name" onclick="openCandidate('${u.id}')">${esc(candidateName(u))}${newTag(u)}</div>`
@@ -1076,7 +1114,7 @@ window.renderDrill = () => {
               <div class="drill-test">${typeTag(a)}${esc(testLabel(a))}</div>
               <div class="drill-score">${timeLabel(a.timestamp)}<br>${esc(scoreLabel(a))}</div>
             </div>`).join('')
-        : `<div class="drill-idle">Signed in — no test attempted in this window</div>`;
+        : `<div class="drill-idle">${drillKind === 'dashboard' ? 'Opened the dashboard — no test attempted in this window' : 'Signed in — no test attempted in this window'}</div>`;
       return `<div class="drill-group">
         <div class="drill-head">
           <div>${nameHtml}<div class="drill-sub">${meta}</div></div>

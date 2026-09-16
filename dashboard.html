@@ -663,7 +663,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, collection, query, where, orderBy, limit, getDocs, doc, getDoc, setDoc, serverTimestamp, getCountFromServer }
+import { getFirestore, collection, query, where, orderBy, limit, getDocs, doc, getDoc, setDoc, serverTimestamp, getCountFromServer, increment }
   from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { getAuth, signOut, onAuthStateChanged }
   from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
@@ -811,6 +811,16 @@ async function loadDashboard(user) {
 
     // Get user profile from Firestore
     const userRef = doc(db, 'users', effectiveUid);
+
+    /* TSSC-DASHVISIT-V1 — stamp every dashboard open on the user's profile so
+       the admin panel can count who actually USES the dashboard, not only who
+       sat a test (lastActive is only refreshed further down when attempts exist).
+       Fire-and-forget: a failed write must never delay or break the page. */
+    setDoc(userRef, {
+      dashboardLastOpened: serverTimestamp(),
+      dashboardOpens: increment(1),
+    }, {merge: true}).catch(e => console.warn('[Dashboard] visit stamp failed:', e.message));
+
     const userSnap = await getDoc(userRef);
     const userProfile = userSnap.exists() ? userSnap.data() : {};
 
