@@ -1932,8 +1932,56 @@ window.cwClose=()=>{
   cwEl().style.display='none';
   document.body.style.overflow=''; document.body.style.position=''; document.body.style.width='';
   // This page has nothing to show behind the player — return to the chapter page.
-  if(history.length > 1) history.back(); else location.href='/ssc-cgl-chapterwise.html';
+  cwGoToChapterPage();
 };
+/* ── TSSC-REVIEWBACK-V1 (2026-09-16) ─────────────────────────────────────
+   "Back to tests" used to be a blind history.back(). That is right when the
+   student came here from the chapter page, but a review opened from the
+   dashboard (&review=…) has the DASHBOARD behind it, so Back bounced the
+   student to the dashboard instead of the chapter's test page. The same
+   happened after Retry-from-review, which reloads this page and leaves the
+   review URL behind it.
+   Now: history.back() only when the page behind us really is a chapter
+   landing page (ssc-cgl-<chapter>-questions.html) and this is not a review.
+   Otherwise resolve the chapter page ourselves — the one remembered from an
+   earlier visit, else the standard slug checked with a HEAD request — and
+   fall back to the subject hub / chapter list.                            */
+const CW_PAGE_KEY='tsscChPage:'+CHID;
+const CW_PAGE_SLUG_OVERRIDE={ 'quant.divisibility':'divisibility-rules', 'quant.simplification':'power-indices-surds', 'quant.algebra':'algebraic-expression' };
+function cwReferrerPath(){ try{ const u=new URL(document.referrer); return (u.origin===location.origin)?u.pathname:''; }catch(e){ return ''; } }
+function cwIsChapterPage(path){ return /^\/ssc-cgl-[a-z0-9-]+-questions\.html$/i.test(path||''); }
+(function cwRememberChapterPage(){
+  const ref=cwReferrerPath();
+  if(CHID && cwIsChapterPage(ref)){ try{ localStorage.setItem(CW_PAGE_KEY, ref); }catch(e){} }
+})();
+function cwChapterPageGuess(){
+  if(!CHID) return '';
+  const slug=CW_PAGE_SLUG_OVERRIDE[CHID] || CHID.replace(/^[a-z_]+\./,'');
+  return /^[a-z0-9-]+$/.test(slug) ? '/ssc-cgl-'+slug+'-questions.html' : '';
+}
+function cwHubPage(){ return SUBJ==='quant' ? '/ssc-cgl-quant-chapter-wise-test.html' : '/ssc-cgl-chapterwise.html'; }
+function cwUrlExists(u){
+  return new Promise(res=>{
+    let done=false; const fin=v=>{ if(!done){ done=true; res(v); } };
+    const ctl=('AbortController' in window)?new AbortController():null;
+    const t=setTimeout(()=>{ if(ctl) ctl.abort(); fin(false); },2500);
+    fetch(u,{method:'HEAD',cache:'no-store',signal:ctl?ctl.signal:undefined})
+      .then(r=>{ clearTimeout(t); fin(r.ok); })
+      .catch(()=>{ clearTimeout(t); fin(false); });
+  });
+}
+async function cwGoToChapterPage(){
+  const ref=cwReferrerPath();
+  if(!REVIEW_ID && cwIsChapterPage(ref) && history.length>1){ history.back(); return; }
+  let target='';
+  try{ target=localStorage.getItem(CW_PAGE_KEY)||''; }catch(e){}
+  if(!cwIsChapterPage(target)){
+    target='';
+    const guess=cwChapterPageGuess();
+    if(guess && await cwUrlExists(guess)){ target=guess; try{ localStorage.setItem(CW_PAGE_KEY, guess); }catch(e){} }
+  }
+  location.href = target || cwHubPage();
+}
 /* ── TSSC-REVIEW-V1 ── */
 function cwAuthUser(){
   return new Promise(res=>{
@@ -1975,7 +2023,7 @@ async function cwEnterReview(){
   await window.submitTest();
 }
 window.cwRetry=()=>{
-  if(REVIEW_ID){ const u=new URL(location.href); u.searchParams.delete('review'); location.href=u.toString(); return; }   /* TSSC-REVIEW-V1: a fresh attempt must save */
+  if(REVIEW_ID){ const u=new URL(location.href); u.searchParams.delete('review'); location.replace(u.toString()); return; }   /* TSSC-REVIEW-V1: a fresh attempt must save (replace, so the review URL is not left behind Back — TSSC-REVIEWBACK-V1) */
   answers={}; markedForReview={}; currentQ=0; isSubmitting=false; paused=false; showEnglishQ={};
   if(window.cwResetRating) window.cwResetRating();
   if(timerInterval){clearInterval(timerInterval);timerInterval=null;}
