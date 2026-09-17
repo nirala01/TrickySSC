@@ -1281,7 +1281,8 @@ function renderAttempts(attempts) {
     }
     /* TSSC-DASHPRO-V1 — subject marks (from subjectMarks, else subjectStats) + leaderboard key */
     const _sm = (!_isChapter && window.tsscSubjMarks) ? window.tsscSubjMarks(a) : {};
-    const _lb = (_isChapter || a.testKind==='pyq-subject') ? '' : (a.testKind==='mock-subject' && a.subjectKey)
+    const _lb = _isChapter ? (a.lbKey||(function(){ const c=String(a.chapterId||a.chapter||'').replace(/[^a-zA-Z0-9]/g,''); return c?'cw_'+c+'_L'+(parseInt(a.level)||1)+'_T'+(parseInt(a.testNum)||1):''; })())   /* TSSC-CWRANK-V1 */
+      : (a.testKind==='pyq-subject') ? '' : (a.testKind==='mock-subject' && a.subjectKey)
       ? String(a.baseMockId||String(a.mockId||'').replace(/__[a-z]+$/i,'')).replace(/([_\-])(hi|en|hindi|english)$/i,'')+'__'+a.subjectKey   /* TSSC-SUBJECT-MOCK-V1 */
       : String(a.paperId||a.mockId||'').replace(/([_\-])(hi|en|hindi|english)$/i,'');
     /* TSSC-REVIEW-V1 — only attempts that carry the answers log can be reopened */
@@ -1423,7 +1424,10 @@ const marksOf = a => { const h=a.marks!==undefined&&a.marks!==null&&a.marks!==''
 const maxOf = a => a.maxMarks ? Number(a.maxMarks) : (parseInt(a.total)||100)*(isTier2(a)?3:2);
 const posneg = a => isTier2(a) ? {pos:3,neg:1} : {pos:2,neg:0.5};
 const tsOf = a => a.timestamp?.toDate ? a.timestamp.toDate().getTime() : (a.clientSubmittedAt ? new Date(a.clientSubmittedAt).getTime() : 0);
-const lbKey = a => { if(a.testKind==='pyq-subject') return '';
+/* TSSC-CWRANK-V1: chapter tests carry a board key cw_<chapterId stripped>_L<level>_T<test> (stored as lbKey from this update; derived for older attempts) */
+const cwLbKey = a => { const c=String(a.chapterId||a.chapter||'').replace(/[^a-zA-Z0-9]/g,''); return c ? 'cw_'+c+'_L'+(parseInt(a.level)||1)+'_T'+(parseInt(a.testNum)||1) : ''; };
+const lbKey = a => { if(isChapter(a)) return a.lbKey||cwLbKey(a);
+  if(a.testKind==='pyq-subject') return '';
   if(a.testKind==='mock-subject' && a.subjectKey){ const b=a.baseMockId||String(a.mockId||'').replace(/__[a-z]+$/i,''); return b ? String(b).replace(/([_\-])(hi|en|hindi|english)$/i,'')+'__'+a.subjectKey : ''; }   /* TSSC-SUBJECT-MOCK-V1 */
   const id=a.paperId||a.mockId||''; return id ? String(id).replace(/([_\-])(hi|en|hindi|english)$/i,'') : ''; };
 const examTier = a => (a.exam||'ssc-cgl')+'|'+(isTier2(a)?'tier2':'tier1');
@@ -1457,7 +1461,7 @@ function renderScopeSel(){
   if(!list.length){ wrap.style.display='none'; return; }
   sel.innerHTML=list.map(x=>'<option value="'+esc(x.k)+'"'+(x.k===SCOPE?' selected':'')+'>'+esc(scopeLabel(x.k,x.a))+' ('+x.n+')</option>').join('');
   wrap.style.display='';
-  sel.onchange=()=>{ SCOPE=sel.value; PERF_SEL=''; paintTop(); renderAll(); };
+  sel.onchange=()=>{ SCOPE=sel.value; PERF_SEL=''; paintTop(); renderAll(); const a=scopeAtt()[0]; const k=a?lbKey(a):''; if(OWNED&&k&&!LB[k]) fetchRanks([a]).then(()=>{ renderAll(); paintTableRanks(); }).catch(()=>{}); };
 }
 function testUrl(a){
   if(isChapter(a)) return 'chapterwise-test.html?exam='+(a.exam||'ssc-cgl')+'&subject='+encodeURIComponent(a.subject||'')+'&chapter='+encodeURIComponent(a.chapterId||a.chapter||'');
@@ -1486,7 +1490,7 @@ window.tsscProInit = async function(attempts, uid){
   if(!SCOPE || !ATT.some(a=>scopeOf(a)===SCOPE)) SCOPE = ATT.length ? scopeOf(ATT[0]) : '';
   renderScopeSel();
   paintTop();
-  const full = ATT.filter(a=>!isChapter(a));
+  const full = ATT.filter(a=>lbKey(a));   /* TSSC-CWRANK-V1: every ranked test, chapter tests included */
   if(!ATT.length){ $('proEmpty').style.display='block'; $('proWrap').style.display='none'; return; }
   $('proEmpty').style.display='none'; $('proWrap').style.display='block';
   OWNED = PRO_ENFORCE ? await loadOwned(uid) : true;
@@ -1512,7 +1516,7 @@ function applyOwned(){
   document.body.classList.toggle('dash-pro', OWNED);
 }
 /* the checkout module calls this after a successful payment */
-window.tsscDashApply = function(owned){ if(!PRO_ENFORCE) owned=true; OWNED=!!owned; applyOwned(); renderAll(); if(OWNED){ const full=ATT.filter(a=>!isChapter(a)); if(full.length) fetchRanks(full).then(()=>{renderAll();paintTableRanks();}); } };
+window.tsscDashApply = function(owned){ if(!PRO_ENFORCE) owned=true; OWNED=!!owned; applyOwned(); renderAll(); if(OWNED){ const full=ATT.filter(a=>lbKey(a)); if(full.length) fetchRanks(full).then(()=>{renderAll();paintTableRanks();}); } };
 
 /* ───────── top of page: banner + stat cards ───────── */
 function spark(id, vals){
@@ -1555,7 +1559,8 @@ function paintTop(){
 function lbCacheGet(k){ try{ const o=JSON.parse(sessionStorage.getItem('tssc_dp_lb_'+k)||'null'); if(o&&Date.now()-o.ts<LB_TTL) return o.v; }catch(e){} return null; }
 function lbCacheSet(k,v){ try{ sessionStorage.setItem('tssc_dp_lb_'+k, JSON.stringify({ts:Date.now(),v})); }catch(e){} }
 async function fetchRanks(full){
-  const keys=[]; full.forEach(a=>{ const k=lbKey(a); if(k&&!keys.includes(k)) keys.push(k); });
+  const keys=[]; const sc=scopeAtt(); if(sc.length&&lbKey(sc[0])) keys.push(lbKey(sc[0]));   /* TSSC-CWRANK-V1: the analysed test first */
+  full.forEach(a=>{ const k=lbKey(a); if(k&&!keys.includes(k)) keys.push(k); });
   const todo=keys.slice(0,MAX_RANKED);
   await Promise.all(todo.map(async k=>{
     const c=lbCacheGet(k); if(c){ LB[k]=c; return; }
@@ -1663,7 +1668,7 @@ function renderRank(a){
     h+='<div style="display:flex;align-items:baseline;gap:1rem;"><span class="pbig">'+lockedSample.rank+'</span><span class="muted">of '+lockedSample.total+' candidates</span></div><div class="kv"><span>Percentile</span><b>'+lockedSample.pct+'</b></div><div class="kv"><span>Your marks</span><b>'+n1(marksOf(a))+' / '+maxOf(a)+'</b></div><div class="kv"><span>Topper</span><b>178.5</b></div><div class="kv"><span>Average</span><b>112.3</b></div><h4 style="margin-top:.9rem">Section rank</h4>'+['Quant','Reasoning','English','Gen. Awareness'].map((s,i)=>'<div class="prow"><span class="lbl">'+s+'</span><div class="bar"><i class="'+(i%2?'':'a')+'" style="width:'+(50+i*12)+'%"></i></div><span class="val">#'+(300+i*250)+'</span></div>').join('');
     el.innerHTML=h; return;
   }
-  if(!k){ el.innerHTML=h+'<div class="kv"><span>Your marks</span><b>'+n1(marksOf(a))+' / '+maxOf(a)+'</b></div><div class="kv"><span>Accuracy</span><b>'+Math.round(lostBreakdown(a).acc*100)+'%</b></div><div class="pnote">'+(isChapter(a)?'Chapter tests are practice sets and are not ranked — rank and leaderboard apply to full PYQ and mock papers.':'This test type has no leaderboard.')+'</div>'; return; }
+  if(!k){ el.innerHTML=h+'<div class="kv"><span>Your marks</span><b>'+n1(marksOf(a))+' / '+maxOf(a)+'</b></div><div class="kv"><span>Accuracy</span><b>'+Math.round(lostBreakdown(a).acc*100)+'%</b></div><div class="pnote">'+(isChapter(a)?'This chapter attempt predates the chapter leaderboard — take the test again to be ranked.':'This test type has no leaderboard.')+'</div>'; return; }
   if(!v){ el.innerHTML=h+'<div class="muted">Loading rank…</div>'; return; }
   if(v.none||v.err){ el.innerHTML=h+'<div class="pnote">'+(v.none?'No leaderboard entry for this test yet — it appears after your next submit.':'Rank could not be loaded right now.'+(v.msg?' <span class="muted">('+esc(v.msg).slice(0,120)+')</span>':''))+'</div>'; return; }
   const r=rankOf(v);
@@ -1672,8 +1677,8 @@ function renderRank(a){
   if(v.top>v.my) h+='<div class="kv"><span>To reach the topper</span><b class="warn">+'+n1(v.top-v.my)+' marks</b></div>';
   const secs=Object.keys(v.subj);
   if(secs.length){ h+='<h4 style="margin-top:.9rem">Section rank</h4>'; secs.forEach(s=>{ const x=v.subj[s]; const rk=x.ahead+1; const base=x.n||v.total; const pc=base?1-rk/base:0; h+='<div class="prow"><span class="lbl">'+esc(s)+' '+n1(x.my)+' <span class="muted">avg '+n1(x.avg)+'</span></span><div class="bar"><i class="'+(pc>0.6?'':pc>0.3?'a':'r')+'" style="width:'+Math.max(4,Math.round(pc*100))+'%"></i></div><span class="val">#'+rk+'</span></div>'; }); }
-  else h+='<div class="pnote">Section ranks appear once you submit a test after this update.</div>';
-  h+='<div style="margin-top:.6rem"><a class="pbtn" href="rank.html?paper='+encodeURIComponent(k)+'">Full leaderboard →</a></div>';
+  else if(!isChapter(a)) h+='<div class="pnote">Section ranks appear once you submit a test after this update.</div>';
+  h+='<div style="margin-top:.6rem"><a class="pbtn" href="rank.html?paper='+encodeURIComponent(k)+(isChapter(a)?'&name='+encodeURIComponent(testName(a)):'')+'">Full leaderboard →</a></div>';
   el.innerHTML=h;
 }
 
@@ -1792,7 +1797,7 @@ function renderTopper(a){
   let h='<h4>Compare with topper <em>'+esc(testName(a))+'</em></h4>';
   const row=(l,me,tp,cls)=>'<div class="kv"><span>'+l+'</span><b>'+me+' <span class="muted">vs</span> <span class="'+(cls||'')+'">'+tp+'</span></b></div>';
   if(!OWNED){ el.innerHTML=h+'<div class="kv"><span></span><b><span class="muted">You · Topper</span></b></div>'+row('Score','141','178.5')+row('Accuracy','78%','92%')+row('Avg time / Q','36 s','29 s')+row('Quant','38','47')+row('Reasoning','42','48')+row('English','36','44')+row('Gen. Awareness','25','39.5')+'<div class="pnote">You need <b>+37.5 marks</b> to match the topper.</div>'; return; }
-  if(!k){ el.innerHTML=h+'<div class="pnote">'+(isChapter(a)?'Chapter tests have no leaderboard, so there is no topper to compare with. Take a full PYQ or mock paper to see this.':'This test type has no leaderboard.')+'</div>'; return; }
+  if(!k){ el.innerHTML=h+'<div class="pnote">'+(isChapter(a)?'This chapter attempt predates the chapter leaderboard — take the test again to see the topper comparison.':'This test type has no leaderboard.')+'</div>'; return; }
   if(!v){ el.innerHTML=h+'<div class="muted">Loading…</div>'; return; }
   if(v.none||v.err){ el.innerHTML=h+'<div class="pnote">'+(v.none?'Your score for this test is not on the leaderboard yet.':'Topper data could not be loaded right now.')+'</div>'; return; }
   const meAcc=(parseInt(a.correct)+parseInt(a.wrong))?Math.round(parseInt(a.correct)/(parseInt(a.correct)+parseInt(a.wrong))*100):null;

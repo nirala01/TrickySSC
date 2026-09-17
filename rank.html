@@ -141,8 +141,14 @@ const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&l
 
 // Turn a paperId like "ssc-cgl_2024_tier1_shift-1_2024-09-09_en"
 // into a readable name: "SSC CGL Tier 1 · Shift 1 · 09 Sep 2024".
+/* TSSC-CWRANK-V1: chapter-test boards are keyed cw_<chapter>_L<level>_T<test>; the readable
+   chapter name comes with the link (&name=) or from the attempt, else the key's tail is used. */
+const CW_NAMES = {};
 function prettyPaper(id, fallback){
   const raw = String(id||''); if(!raw) return fallback || 'Test';
+  const cw = raw.match(/^cw_([a-z0-9]+)_L(\d+)_T(\d+)$/i);
+  if(cw){ if(fallback) return fallback; if(CW_NAMES[raw]) return CW_NAMES[raw];
+    return cw[1].replace(/^(quant|reason|reasoning|eng|english|ga|gk|computer|statistics|fineco)/i,'').replace(/([a-z])([A-Z])/g,'$1 $2')+' · Chapter test · Level '+cw[2]+' · Test '+cw[3]; }
   const low = raw.toLowerCase();
   let exam='';
   if(/ssc[-_]?cgl/.test(low)) exam='SSC CGL';
@@ -276,7 +282,12 @@ async function buildPaperPicker(user){
     try {
       const qs = await getDocs(query(collection(db,'attempts'), where('uid','==',user.uid), limit(60)));
       qs.forEach(d=>{
-        const a=d.data(); const id=lbBaseId(a.paperId||a.mockId);  // one entry per paper, not per language
+        const a=d.data();
+        if(a.type==='chapterwise'){   /* TSSC-CWRANK-V1: chapter tests — key stored on the attempt, else derived */
+          const c=String(a.chapterId||a.chapter||'').replace(/[^a-zA-Z0-9]/g,''); const cid=a.lbKey||(c?'cw_'+c+'_L'+(parseInt(a.level)||1)+'_T'+(parseInt(a.testNum)||1):'');
+          if(cid){ CW_NAMES[cid]=(a.chapterName||a.examName||'Chapter test')+' · Level '+(parseInt(a.level)||1)+' · Test '+(parseInt(a.testNum)||1); seen.set(cid, CW_NAMES[cid]); }
+          return; }
+        const id=lbBaseId(a.paperId||a.mockId);  // one entry per paper, not per language
         if(id && !seen.has(id)) seen.set(id, prettyPaper(id, a.examName||a.exam));
       });
     } catch(_) { /* index may be missing; dropdown just stays minimal */ }
@@ -297,7 +308,7 @@ window.onPaperChange = function(){
 async function loadLeaderboard(rawPaper){
   const paperId = lbBaseId(rawPaper);          // language-agnostic board key
   CURRENT_PAPER = paperId;
-  const bn=$('boardName'); if(bn) bn.textContent=prettyPaper(paperId);
+  const bn=$('boardName'); if(bn) bn.textContent=prettyPaper(paperId, (params.get('paper')&&lbBaseId(params.get('paper'))===paperId)?params.get('name'):'');   /* TSSC-CWRANK-V1 */
   $('content').innerHTML = `<div class="empty"><div class="spin"></div><div style="margin-top:12px;">Loading leaderboard…</div></div>`;
   $('footNote').textContent = '';
 
