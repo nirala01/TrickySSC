@@ -396,7 +396,9 @@
   .dp-rank.lock{color:#94A3B8;cursor:pointer;}
   @media(max-width:640px){.hide-m{display:none!important;}}   /* TSSC-DASHRESP-V1: was 760px — tablets now show subject marks as card rows */
   /* ═══ Pro analytics ═══ */
-  .pro-head{border-top:2px solid #FBBF24;padding-top:1.2rem;margin-top:2rem;}
+  .pro-head{border-top:2px solid #FBBF24;padding-top:1.2rem;margin-top:2rem;flex-wrap:wrap;gap:.5rem;}
+  .scope-pick{display:inline-flex;align-items:center;gap:.4rem;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.85rem;color:var(--muted,#64748B);max-width:100%;}
+  .scope-pick select{max-width:min(78vw,420px);}
   .tag-paid{font-family:'Rajdhani',sans-serif;font-size:.72rem;font-weight:800;border-radius:100px;padding:.15rem .6rem;background:linear-gradient(135deg,#FBBF24,#F59E0B);color:#442200;margin-left:.5rem;vertical-align:middle;}
   .tag-free{font-family:'Rajdhani',sans-serif;font-size:.72rem;font-weight:800;border-radius:100px;padding:.15rem .6rem;background:#DCFCE7;color:#166534;margin-left:.5rem;vertical-align:middle;}
   .paid{position:relative;}
@@ -589,8 +591,10 @@
   <!-- ═══════════ Performance analysis — Dashboard Pro (TSSC-DASHPRO-V1) ═══════════ -->
   <div class="section-head pro-head">
     <div class="section-title">📈 Performance Analysis</div>
+    <!-- TSSC-DASHSCOPE-V1: the analysis follows the exam the student took last; this picker switches it -->
+    <label class="scope-pick" id="scopePick" style="display:none;"><span>Showing</span><select class="cat-sel" id="scopeSel"></select></label>
   </div>
-  <div id="proEmpty" class="pro-empty">Attempt at least one full PYQ or mock test to see your analysis.</div>
+  <div id="proEmpty" class="pro-empty">Attempt any test — PYQ, mock, subject-wise or chapter — to see your analysis.</div>
   <div class="paid" id="proWrap" style="display:none;">
     <div class="paid-inner pstack" id="proInner">
       <div class="pgrid2">
@@ -1423,7 +1427,38 @@ const lbKey = a => { if(a.testKind==='pyq-subject') return '';
   if(a.testKind==='mock-subject' && a.subjectKey){ const b=a.baseMockId||String(a.mockId||'').replace(/__[a-z]+$/i,''); return b ? String(b).replace(/([_\-])(hi|en|hindi|english)$/i,'')+'__'+a.subjectKey : ''; }   /* TSSC-SUBJECT-MOCK-V1 */
   const id=a.paperId||a.mockId||''; return id ? String(id).replace(/([_\-])(hi|en|hindi|english)$/i,'') : ''; };
 const examTier = a => (a.exam||'ssc-cgl')+'|'+(isTier2(a)?'tier2':'tier1');
-function testName(a){ return (a.examName||a.exam||'Test').replace(/\s*—.*$/,''); }
+function testName(a){ const n=(a.examName||a.exam||'Test').replace(/\s*—.*$/,''); return isChapter(a)?n+' · Level '+(parseInt(a.level)||1)+' · Test '+(parseInt(a.testNum)||1):n; }
+/* ── TSSC-DASHSCOPE-V1 (2026-09-16) ─────────────────────────────────────────
+   The analysis used to be computed over FULL papers only, so a student who had
+   just finished a chapter or subject-wise test was shown cards about an older
+   full paper. Every attempt now belongs to a SCOPE — one per exam+tier for full
+   papers, one per subject for subject-wise sets, one per chapter for chapter
+   tests — the analysis renders for the scope of the LATEST attempt, and the
+   picker in the section head switches between the scopes the student has.   */
+let SCOPE='';
+function scopeOf(a){
+  if(isChapter(a)) return 'ch|'+(a.chapterId||a.chapter||'');
+  if((a.testKind==='pyq-subject'||a.testKind==='mock-subject')&&a.subjectKey) return 'subj|'+examTier(a)+'|'+String(a.subjectKey).toLowerCase();
+  return 'full|'+examTier(a);
+}
+function scopeLabel(key, a){
+  const p=key.split('|');
+  if(p[0]==='ch') return ((a&&(a.chapterName||a.examName))||p[1]||'Chapter')+' · Chapter tests';
+  const ex=(p[1]==='ssc-chsl'?'SSC CHSL':'SSC CGL')+' '+(p[2]==='tier2'?'Tier II':'Tier I');
+  if(p[0]==='subj') return ex+' · '+(SUBJ_NAME[skey(p[3])]||p[3])+' subject tests';
+  return ex+' · Full tests (PYQ + mocks)';
+}
+const isChapterScope = () => SCOPE.startsWith('ch|');
+function scopeAtt(){ return ATT.filter(a=>scopeOf(a)===SCOPE); }
+function renderScopeSel(){
+  const wrap=$('scopePick'), sel=$('scopeSel'); if(!wrap||!sel) return;
+  const seen={}; const list=[];            // scopes in order of most recent attempt (ATT is newest-first)
+  ATT.forEach(a=>{ const k=scopeOf(a); if(seen[k]){ seen[k].n++; return; } seen[k]={k,a,n:1}; list.push(seen[k]); });
+  if(!list.length){ wrap.style.display='none'; return; }
+  sel.innerHTML=list.map(x=>'<option value="'+esc(x.k)+'"'+(x.k===SCOPE?' selected':'')+'>'+esc(scopeLabel(x.k,x.a))+' ('+x.n+')</option>').join('');
+  wrap.style.display='';
+  sel.onchange=()=>{ SCOPE=sel.value; PERF_SEL=''; paintTop(); renderAll(); };
+}
 function testUrl(a){
   if(isChapter(a)) return 'chapterwise-test.html?exam='+(a.exam||'ssc-cgl')+'&subject='+encodeURIComponent(a.subject||'')+'&chapter='+encodeURIComponent(a.chapterId||a.chapter||'');
   if(isMock(a)){
@@ -1447,14 +1482,17 @@ let ATT=[], UID='', OWNED=false, CAT=(localStorage.getItem('tssc_cat')||'GEN'), 
 window.tsscProInit = async function(attempts, uid){
   ATT = (attempts||[]).slice().sort((a,b)=>tsOf(b)-tsOf(a));
   UID = uid||'';
+  /* TSSC-DASHSCOPE-V1: analyse the exam the student took LAST (chapter, subject-wise or full) */
+  if(!SCOPE || !ATT.some(a=>scopeOf(a)===SCOPE)) SCOPE = ATT.length ? scopeOf(ATT[0]) : '';
+  renderScopeSel();
   paintTop();
   const full = ATT.filter(a=>!isChapter(a));
-  if(!full.length){ $('proEmpty').style.display='block'; $('proWrap').style.display='none'; return; }
+  if(!ATT.length){ $('proEmpty').style.display='block'; $('proWrap').style.display='none'; return; }
   $('proEmpty').style.display='none'; $('proWrap').style.display='block';
   OWNED = PRO_ENFORCE ? await loadOwned(uid) : true;
   applyOwned();
   renderAll();
-  if(OWNED) fetchRanks(full).then(()=>{ renderAll(); paintTableRanks(); }).catch(e=>console.warn('[pro] rank load',e));
+  if(OWNED && full.length) fetchRanks(full).then(()=>{ renderAll(); paintTableRanks(); }).catch(e=>console.warn('[pro] rank load',e));
   else paintTableRanks();
 };
 if(window.__proPending){ const p=window.__proPending; window.__proPending=null; window.tsscProInit(p[0],p[1]); }
@@ -1474,7 +1512,7 @@ function applyOwned(){
   document.body.classList.toggle('dash-pro', OWNED);
 }
 /* the checkout module calls this after a successful payment */
-window.tsscDashApply = function(owned){ if(!PRO_ENFORCE) owned=true; OWNED=!!owned; applyOwned(); renderAll(); if(OWNED){ const full=ATT.filter(a=>!isChapter(a)); fetchRanks(full).then(()=>{renderAll();paintTableRanks();}); } };
+window.tsscDashApply = function(owned){ if(!PRO_ENFORCE) owned=true; OWNED=!!owned; applyOwned(); renderAll(); if(OWNED){ const full=ATT.filter(a=>!isChapter(a)); if(full.length) fetchRanks(full).then(()=>{renderAll();paintTableRanks();}); } };
 
 /* ───────── top of page: banner + stat cards ───────── */
 function spark(id, vals){
@@ -1504,9 +1542,11 @@ function paintTop(){
   let streak=0; { const t=new Date(); t.setHours(0,0,0,0); if(!days.has(t.toDateString())) t.setDate(t.getDate()-1); while(days.has(t.toDateString())){ streak++; t.setDate(t.getDate()-1); } }
   const ds=$('dStreak'); if(ds) ds.textContent = streak ? streak+' day'+(streak>1?'s':'')+' running' : 'take a test today';
   const st=$('statStreak'); if(st) st.textContent=streak;
-  // banner score
-  if(full.length){ const a=full[0]; const m=marksOf(a), mx=maxOf(a); $('bsMarks').textContent=n1(m); $('bsMax').textContent='/'+mx; $('bsLabel').textContent='Last test · '+testName(a).slice(0,26);
-    const avg=marks.length?marks.reduce((x,y)=>x+y,0)/marks.length:m; const df=m-avg; const e=$('bsDelta'); e.textContent=(df>=0?'▲ ':'▼ ')+n1(Math.abs(df))+' vs your average'; e.className=df>=0?'':'down'; $('bannerScore').style.display=''; }
+  // banner score — the latest test of the selected scope, compared with the average of that scope (TSSC-DASHSCOPE-V1)
+  const sc=scopeAtt();
+  if(sc.length){ const a=sc[0]; const m=marksOf(a), mx=maxOf(a); $('bsMarks').textContent=n1(m); $('bsMax').textContent='/'+mx; $('bsLabel').textContent='Last test · '+testName(a).slice(0,40);
+    const sm=sc.map(marksOf); const avg=sm.length?sm.reduce((x,y)=>x+y,0)/sm.length:m; const df=m-avg; const e=$('bsDelta'); e.textContent=sc.length>1?((df>=0?'▲ ':'▼ ')+n1(Math.abs(df))+' vs your average in these tests'):'your first test of this kind'; e.className=df>=0?'':'down'; $('bannerScore').style.display=''; }
+  else $('bannerScore').style.display='none';
   // goal line: % of the way to GEN cut-off on the latest 5 tier-1 tests
   const g=$('wGoal'); if(g){ const ff=full.filter(isFullPaper); const t1=ff.filter(a=>CUTOFFS[examTier(a)]&&examTier(a)===examTier(ff.find(x=>CUTOFFS[examTier(x)])||a)).slice(0,5); if(t1.length){ const c=CUTOFFS[examTier(t1[0])]; const av=t1.reduce((s,a)=>s+meritMarks(a),0)/t1.length; const p=Math.min(100,Math.round(av/c.cut[CAT]*100)); g.textContent='🎯 '+p+'% of the way to last year\'s '+CAT+' cut-off ('+(c.merit?'Tier II':'Tier I')+')'; } }
 }
@@ -1570,7 +1610,7 @@ function lostBreakdown(a){
 
 /* ───────── render everything ───────── */
 function renderAll(){
-  const full=ATT.filter(a=>!isChapter(a));
+  const full=scopeAtt();   /* TSSC-DASHSCOPE-V1: every card is computed over the selected scope only */
   if(!full.length) return;
   if(!OWNED){
     // Locked: the teaser uses the student's real counts, but the blurred cards
@@ -1623,7 +1663,7 @@ function renderRank(a){
     h+='<div style="display:flex;align-items:baseline;gap:1rem;"><span class="pbig">'+lockedSample.rank+'</span><span class="muted">of '+lockedSample.total+' candidates</span></div><div class="kv"><span>Percentile</span><b>'+lockedSample.pct+'</b></div><div class="kv"><span>Your marks</span><b>'+n1(marksOf(a))+' / '+maxOf(a)+'</b></div><div class="kv"><span>Topper</span><b>178.5</b></div><div class="kv"><span>Average</span><b>112.3</b></div><h4 style="margin-top:.9rem">Section rank</h4>'+['Quant','Reasoning','English','Gen. Awareness'].map((s,i)=>'<div class="prow"><span class="lbl">'+s+'</span><div class="bar"><i class="'+(i%2?'':'a')+'" style="width:'+(50+i*12)+'%"></i></div><span class="val">#'+(300+i*250)+'</span></div>').join('');
     el.innerHTML=h; return;
   }
-  if(!k){ el.innerHTML=h+'<div class="pnote">This test type has no leaderboard.</div>'; return; }
+  if(!k){ el.innerHTML=h+'<div class="kv"><span>Your marks</span><b>'+n1(marksOf(a))+' / '+maxOf(a)+'</b></div><div class="kv"><span>Accuracy</span><b>'+Math.round(lostBreakdown(a).acc*100)+'%</b></div><div class="pnote">'+(isChapter(a)?'Chapter tests are practice sets and are not ranked — rank and leaderboard apply to full PYQ and mock papers.':'This test type has no leaderboard.')+'</div>'; return; }
   if(!v){ el.innerHTML=h+'<div class="muted">Loading rank…</div>'; return; }
   if(v.none||v.err){ el.innerHTML=h+'<div class="pnote">'+(v.none?'No leaderboard entry for this test yet — it appears after your next submit.':'Rank could not be loaded right now.'+(v.msg?' <span class="muted">('+esc(v.msg).slice(0,120)+')</span>':''))+'</div>'; return; }
   const r=rankOf(v);
@@ -1694,7 +1734,22 @@ function renderSelect(a){
   el.innerHTML=h;
 }
 
+/* TSSC-DASHSCOPE-V1: in a chapter scope every question belongs to the same chapter, so the card
+   breaks the chapter down by TEST (level · test number) instead of by chapter. */
+function renderChapterSets(full){
+  const el=$('cChapters'); const a0=full[0]; const nm=a0.chapterName||testName(a0).replace(/\s*·.*$/,'');
+  const rows=full.slice(0,12).map(a=>{ const c=parseInt(a.correct)||0, w=parseInt(a.wrong)||0, k=parseInt(a.skip)||0, n=c+w+k||parseInt(a.total)||25; return {a,c,w,k,n,acc:n?c/n:0}; });
+  let h='<h4>Test-wise accuracy <em>'+esc(nm)+' · '+full.length+' attempt'+(full.length>1?'s':'')+'</em></h4>';
+  const row=r=>{ const p=Math.round(r.acc*100); return '<div class="prow"><span class="lbl">Level '+(parseInt(r.a.level)||1)+' · Test '+(parseInt(r.a.testNum)||1)+(r.a.language==='hi'?' <span class="muted">हिं</span>':'')+' <span class="muted">· '+(tsOf(r.a)?new Date(tsOf(r.a)).toLocaleDateString('en-IN',{day:'numeric',month:'short'}):'')+'</span></span><div class="bar"><i class="'+(p>=70?'':p>=50?'a':'r')+'" style="width:'+p+'%"></i></div><span class="val">'+r.c+'/'+r.n+' · '+n1(marksOf(r.a))+'</span></div>'; };
+  h+=rows.map(row).join('');
+  const lv={}; full.forEach(a=>{ const l=parseInt(a.level)||1; const c=parseInt(a.correct)||0, w=parseInt(a.wrong)||0, k=parseInt(a.skip)||0; if(!lv[l]) lv[l]={c:0,n:0,t:0}; lv[l].c+=c; lv[l].n+=c+w+k; lv[l].t++; });
+  const parts=Object.keys(lv).sort().map(l=>'Level '+l+': <b>'+Math.round(lv[l].c/Math.max(1,lv[l].n)*100)+'%</b> right over '+lv[l].t+' test'+(lv[l].t>1?'s':''));
+  const best=rows.slice().sort((x,y)=>y.acc-x.acc)[0], worst=rows.slice().sort((x,y)=>x.acc-y.acc)[0];
+  h+='<div class="pnote">'+parts.join(' · ')+'.'+(rows.length>1&&best!==worst?' Best: Level '+(parseInt(best.a.level)||1)+' Test '+(parseInt(best.a.testNum)||1)+' ('+Math.round(best.acc*100)+'%), weakest: Level '+(parseInt(worst.a.level)||1)+' Test '+(parseInt(worst.a.testNum)||1)+' ('+Math.round(worst.acc*100)+'%) — retry it from the table above.':'')+'</div>';
+  el.innerHTML=h;
+}
 function renderChapters(full){
+  if(full.length && isChapter(full[0])) return renderChapterSets(full);
   const el=$('cChapters'); const ch=chapterStats(full);
   const withData=full.filter(a=>answersOf(a).length).length;
   let h='<h4>Chapter-wise accuracy <em>'+(withData?withData+' test'+(withData>1?'s':'')+' · weighted by how often it appears in the papers you attempted':'')+'</em></h4>';
@@ -1720,11 +1775,16 @@ function renderReady(full){
   const score=Math.round(pct*100);
   const subj=subjectAcc(last).sort((x,y)=>y.acc-x.acc);
   const lab=v=>v>=0.75?['Strong','good']:v>=0.6?['Good','good']:v>=0.45?['Improving','warn']:['Weak','bad'];
-  let h='<h4>Exam readiness <em>last '+last.length+' test'+(last.length>1?'s':'')+'</em></h4><div class="ready"><div class="ring" style="--p:'+score+'%"><div><b>'+score+'</b><small>/ 100</small></div></div><div>';
-  subj.forEach(x=>{ const [t,c]=lab(x.acc); h+='<div class="kv"><span>'+x.name+'</span><b class="'+c+'">'+t+'</b></div>'; });
+  const chScope=isChapter(last[0]);   /* TSSC-DASHSCOPE-V1 */
+  let h='<h4>'+(chScope?'Chapter readiness':'Exam readiness')+' <em>last '+last.length+' test'+(last.length>1?'s':'')+'</em></h4><div class="ready"><div class="ring" style="--p:'+score+'%"><div><b>'+score+'</b><small>/ 100</small></div></div><div>';
+  if(chScope){ const lv={}; full.forEach(a=>{ const l=parseInt(a.level)||1; const c=parseInt(a.correct)||0, n=c+(parseInt(a.wrong)||0)+(parseInt(a.skip)||0); if(!lv[l]) lv[l]={c:0,n:0}; lv[l].c+=c; lv[l].n+=n; });
+    Object.keys(lv).sort().forEach(l=>{ const [t,c]=lab(lv[l].n?lv[l].c/lv[l].n:0); h+='<div class="kv"><span>Level '+l+(l==='1'?' · SSC CGL level':l==='2'?' · above SSC CGL':'')+'</span><b class="'+c+'">'+t+'</b></div>'; });
+    if(!lv[2]) h+='<div class="kv"><span>Level 2 · above SSC CGL</span><b class="muted">not attempted</b></div>'; }
+  else subj.forEach(x=>{ const [t,c]=lab(x.acc); h+='<div class="kv"><span>'+x.name+'</span><b class="'+c+'">'+t+'</b></div>'; });
   h+='</div></div>';
   if(full.length>=6){ const l5=full.slice(0,5).reduce((s,a)=>s+marksOf(a),0)/5, p5=full.slice(5,10).reduce((s,a)=>s+marksOf(a),0)/Math.min(5,full.length-5); h+='<div class="pnote">Trend: last 5 avg '+n1(l5)+' vs earlier avg '+n1(p5)+' — '+(l5>p5+2?'improving.':l5<p5-2?'dipping — revise before the next test.':'steady.')+'</div>'; }
-  if(subj.length){ const w=subj[subj.length-1]; h+='<div class="pnote">Biggest score opportunity: <b>'+w.name+'</b>.</div>'; }
+  if(chScope){ const p=Math.round(pct*100); h+='<div class="pnote">'+(p>=75?'You are ready to move on — try Level 2 sets or the next chapter.':p>=55?'Getting there — revise the chapter notes, then retry the weakest set.':'Revise this chapter before the next attempt; the solutions of each set are one click away in the table above.')+'</div>'; }
+  else if(subj.length){ const w=subj[subj.length-1]; h+='<div class="pnote">Biggest score opportunity: <b>'+w.name+'</b>.</div>'; }
   el.innerHTML=h;
 }
 function renderTopper(a){
@@ -1732,7 +1792,7 @@ function renderTopper(a){
   let h='<h4>Compare with topper <em>'+esc(testName(a))+'</em></h4>';
   const row=(l,me,tp,cls)=>'<div class="kv"><span>'+l+'</span><b>'+me+' <span class="muted">vs</span> <span class="'+(cls||'')+'">'+tp+'</span></b></div>';
   if(!OWNED){ el.innerHTML=h+'<div class="kv"><span></span><b><span class="muted">You · Topper</span></b></div>'+row('Score','141','178.5')+row('Accuracy','78%','92%')+row('Avg time / Q','36 s','29 s')+row('Quant','38','47')+row('Reasoning','42','48')+row('English','36','44')+row('Gen. Awareness','25','39.5')+'<div class="pnote">You need <b>+37.5 marks</b> to match the topper.</div>'; return; }
-  if(!k){ el.innerHTML=h+'<div class="pnote">This test type has no leaderboard.</div>'; return; }
+  if(!k){ el.innerHTML=h+'<div class="pnote">'+(isChapter(a)?'Chapter tests have no leaderboard, so there is no topper to compare with. Take a full PYQ or mock paper to see this.':'This test type has no leaderboard.')+'</div>'; return; }
   if(!v){ el.innerHTML=h+'<div class="muted">Loading…</div>'; return; }
   if(v.none||v.err){ el.innerHTML=h+'<div class="pnote">'+(v.none?'Your score for this test is not on the leaderboard yet.':'Topper data could not be loaded right now.')+'</div>'; return; }
   const meAcc=(parseInt(a.correct)+parseInt(a.wrong))?Math.round(parseInt(a.correct)/(parseInt(a.correct)+parseInt(a.wrong))*100):null;
@@ -1756,7 +1816,8 @@ function renderTime(a){
   const v=OWNED?LB[lbKey(a)]:null; const lbAvg=v&&v.tAvg&&v.total? v.tAvg/(parseInt(a.total)||100):0;
   h+='<div class="kv"><span>Your avg / question</span><b>'+Math.round(avg)+' s</b></div>';
   if(lbAvg) h+='<div class="kv"><span>Other candidates avg</span><b>'+Math.round(lbAvg)+' s</b></div>';
-  Object.entries(bySub).sort((x,y)=>y[1].t/y[1].n-x[1].t/x[1].n).slice(0,3).forEach(([k,s])=>{ const av=s.t/s.n; h+='<div class="kv"><span>'+esc(k)+' avg</span><b class="'+(av>avg*1.3?'warn':'')+'">'+Math.round(av)+' s</b></div>'; });
+  Object.entries(bySub).filter(([k])=>k!=='Other').sort((x,y)=>y[1].t/y[1].n-x[1].t/x[1].n).slice(0,3).forEach(([k,s])=>{ const av=s.t/s.n; h+='<div class="kv"><span>'+esc(k)+' avg</span><b class="'+(av>avg*1.3?'warn':'')+'">'+Math.round(av)+' s</b></div>'; });
+  if(isChapter(a)&&a.timeUsed>0) h+='<div class="kv"><span>Total time</span><b>'+fmtSec(a.timeUsed)+'</b></div>';
   const slow=ans.slice().sort((x,y)=>Number(y.t)-Number(x.t)).slice(0,3);
   slow.forEach((x,i)=>{ h+='<div class="kv"><span>'+(i?'':'Slowest')+'</span><b>Q'+x.q+' · '+x.t+' s '+(x.r==='c'?'<span class="good">✓</span>':x.r==='w'?'<span class="bad">✗</span>':'<span class="muted">skip</span>')+'</b></div>'; });
   const st=slow.reduce((s,x)=>s+Number(x.t),0); const {pos}=posneg(a);
@@ -1795,6 +1856,7 @@ function texToText(t){
   return s;
 }
 async function loadQtext(a){
+  if(isChapter(a)) return loadChapterQtext(a);   /* TSSC-DASHSCOPE-V1 */
   const id=a.paperId||a.mockId||''; if(!id) return {};
   if(QT[id]) return QT[id]; const c=cacheGet('tssc_dp_qt_'+id); if(c){ QT[id]=c; return c; }
   try{ const field=(a.mockId&&!a.paperId)?'mockId':'paperId';
@@ -1804,6 +1866,26 @@ async function loadQtext(a){
       m[n]={t, c:String(q.correct||'')}; });
     QT[id]=m; cacheSet('tssc_dp_qt_'+id,m); return m;
   }catch(e){ console.warn('[pro] questions',e.message); QT[id]={}; return QT[id]; }
+}
+/* TSSC-DASHSCOPE-V1: chapter-test questions live in `questions` under chapterId + level + testNum
+   (the same three-equality read the chapter engine makes; level/testNum are strings on older imports). */
+async function loadChapterQtext(a){
+  const cid=a.chapterId||a.chapter||''; if(!cid) return {};
+  const lv=parseInt(a.level)||1, tn=parseInt(a.testNum)||1, lang=(a.language==='hi')?'hi':'en';
+  const id='cw|'+cid+'|'+lv+'|'+tn+'|'+lang;
+  if(QT[id]) return QT[id]; const c=cacheGet('tssc_dp_qt_'+id); if(c){ QT[id]=c; return c; }
+  try{
+    const col=collection(db,'questions');
+    let sn=await getDocs(query(col,where('chapterId','==',cid),where('level','==',lv),where('testNum','==',tn)));
+    if(sn.empty) sn=await getDocs(query(col,where('chapterId','==',cid),where('level','==',String(lv)),where('testNum','==',String(tn))));
+    const all=[]; sn.forEach(d=>all.push(d.data()||{}));
+    let docs=all.filter(q=>((q.language||q.lang)==='hi'?'hi':'en')===lang); if(!docs.length) docs=all;
+    const m={};
+    docs.forEach(q=>{ const n=parseInt(String(q.qNum||q.number||'').replace(/\D/g,''),10); if(!n) return;
+      const t=texToText(String(q.text||q.question||q.questionText||q.q||'')).replace(/^\[FIGURE-BASED\]\s*/i,'').replace(/\[BR\]|\|\|/g,' ').replace(/<[^>]*>?/g,' ').replace(/\s+/g,' ').trim().slice(0,90);
+      m[n]={t, c:String(q.correct||'')}; });
+    QT[id]=m; cacheSet('tssc_dp_qt_'+id,m); return m;
+  }catch(e){ console.warn('[pro] chapter questions',e.message); QT[id]={}; return QT[id]; }
 }
 const diffTag=p=>p==null?null:p>=70?['Easy','good']:p>=40?['Moderate','warn']:['Hard','bad'];
 /* TSSC-QTIME-V1 — time helpers. qstats/{paper}.q.qNN carries ts (total seconds) + tn (candidates who
@@ -1832,14 +1914,15 @@ function renderPerf(full){
   $('perfSel').onchange=e=>{ PERF_SEL=e.target.value; renderPerf(full); };
   const rb=$('reportBtn'); if(rb) rb.onclick=()=>reportCard(full);
   const k=lbKey(a); const sample=String(a.id||'').startsWith('sample');
+  const noStats=!sample&&!k;   /* TSSC-DASHSCOPE-V1: chapter / subject-PYQ tests write no qstats — show the difficulty tag, no candidate estimates */
   (async()=>{
-    const [qs,qt]=sample?[{},{}]:await Promise.all([loadQstats(k), loadQtext(a)]);
+    const [qs,qt]=sample?[{},{}]:await Promise.all([k?loadQstats(k):Promise.resolve({}), loadQtext(a)]);
     const n=Number(qs.n)||0; const ans=answersOf(a).slice().sort((x,y)=>x.q-y.q);
     /* Until MIN_N candidates have taken the test, show an ESTIMATE instead of 0%/100% from one or two
        students: anchored on the question's difficulty tag when it has one, else a stable value per
        question in the 42-80% band. Marked with ~ and explained in the footnote. */
     const MIN_N=20; const est=n<MIN_N;
-    const seed=(q)=>{ let x=2166136261; const str=k+'|'+q; for(let i=0;i<str.length;i++){ x^=str.charCodeAt(i); x=Math.imul(x,16777619)>>>0; } x^=x>>>13; x=Math.imul(x,0x5bd1e995)>>>0; x^=x>>>15; return (x%10007)/10007; };
+    const seed=(q)=>{ let x=2166136261; const str=(k||scopeOf(a))+'|'+q; for(let i=0;i<str.length;i++){ x^=str.charCodeAt(i); x=Math.imul(x,16777619)>>>0; } x^=x>>>13; x=Math.imul(x,0x5bd1e995)>>>0; x^=x>>>15; return (x%10007)/10007; };
     const estimate=(x)=>{ const base=x.d==='easy'?76:x.d==='hard'?34:x.d==='moderate'?56:(42+Math.round(seed(x.q)*38)); const jit=Math.round((seed(x.q+'j')-0.5)*14); return Math.max(12,Math.min(94,base+jit)); };
     let t='<div style="overflow-x:auto"><table class="eb-table"><thead><tr><th>Q</th><th>Question</th><th>Correct</th><th>You</th><th>Your time</th><th>Avg time</th><th>% got it right</th><th>Level</th></tr></thead><tbody>';
     let e=0,m=0,hd=0;
@@ -1847,20 +1930,20 @@ function renderPerf(full){
     ans.forEach(x=>{ const st=(qs.q||{})['q'+x.q];
       const tnT=sample?30:(st?(Number(st.tn)||0):0); const avgT=sample?Math.max(8,Math.round((Number(x.t)||40)*(x.q%3?1.25:0.7))):(tnT>0?(Number(st.ts)||0)/tnT:null); const estT=!sample&&tnT<MIN_N;
       if(avgT!=null&&tnT>0&&x.t>0&&!(x.r==='k'&&x.t<=2)){ tHasAvg++; if(Math.round(avgT)<x.t*0.9) tSlow++; else if(Math.round(avgT)>x.t*1.1) tFast++; }
-      const pc=sample?(x.q%3?72:(x.q%5?48:22)):(est?estimate(x):(st?Math.round((Number(st.c)||0)/n*100):estimate(x)));
+      const pc=noStats?null:(sample?(x.q%3?72:(x.q%5?48:22)):(est?estimate(x):(st?Math.round((Number(st.c)||0)/n*100):estimate(x))));
       const tag=diffTag(pc)||(x.d?[x.d.charAt(0).toUpperCase()+x.d.slice(1),x.d==='easy'?'good':x.d==='hard'?'bad':'warn']:null);
       if(tag){ if(tag[0]==='Easy')e++; else if(tag[0]==='Hard')hd++; else m++; }
       const txt=sample?'Sample question text — appears here for your real tests':((qt[x.q]&&qt[x.q].t)||('Question '+x.q+(x.s?' · '+(SUBJ_NAME[skey(x.s)]||x.s):'')));
       const corr=x.c||(qt[x.q]&&qt[x.q].c)||'—';
       t+='<tr class="'+(x.r==='c'?'pr-c':x.r==='w'?'pr-w':'pr-k')+'"><td data-l="Q">'+x.q+'</td><td data-l="Question" class="pq" style="max-width:420px;">'+esc(txt)+'</td><td data-l="Correct" class="good"><b>'+esc(corr)+'</b></td><td data-l="You" class="'+(x.r==='c'?'good':x.r==='w'?'bad':'muted')+'"><b>'+(x.r==='k'?'Skipped':esc(x.a))+'</b></td><td data-l="Your time" class="tq'+(x.t>0?'':' muted')+'">'+(x.t>0?fmtSec(x.t):'—')+'</td><td data-l="Avg time">'+avgTimeCell(Number(x.t)||0,avgT,tnT,x.r,estT)+'</td><td data-l="% got it right">'+(pc==null?'<span class="muted">—</span>':(est&&!sample?'~':'')+pc+'%')+'</td><td data-l="Level">'+(tag?'<span class="'+tag[1]+'">'+tag[0]+'</span>':'<span class="muted">—</span>')+'</td></tr>'; });
     t+='</tbody></table></div>';
-    const wrongEasy=ans.filter(x=>x.r!=='c'&&(est?estimate(x)>=70:(()=>{const st=(qs.q||{})['q'+x.q];return st&&Number(st.c)/n>=0.7;})())).length;
-    t+='<div class="pnote">'+(est?'"% got it right" is an estimate (~) until more candidates have taken this test. ':'Based on '+n+' candidates who took this test. ')+(e+m+hd?'Easy '+e+' · Moderate '+m+' · Hard '+hd+'. ':'')+(wrongEasy?'<b>'+wrongEasy+' easy question'+(wrongEasy>1?'s':'')+'</b> (70%+ got them right) you missed — the cheapest marks to recover.':'')+'</div>';
+    const wrongEasy=noStats?ans.filter(x=>x.r!=='c'&&x.d==='easy').length:ans.filter(x=>x.r!=='c'&&(est?estimate(x)>=70:(()=>{const st=(qs.q||{})['q'+x.q];return st&&Number(st.c)/n>=0.7;})())).length;
+    t+='<div class="pnote">'+(noStats?'Candidate-wide statistics are not collected for this test type; Level is the question\'s own difficulty tag. ':est?'"% got it right" is an estimate (~) until more candidates have taken this test. ':'Based on '+n+' candidates who took this test. ')+(e+m+hd?'Easy '+e+' · Moderate '+m+' · Hard '+hd+'. ':'')+(wrongEasy?'<b>'+wrongEasy+' easy question'+(wrongEasy>1?'s':'')+'</b> '+(noStats?'you missed':'(70%+ got them right) you missed')+' — the cheapest marks to recover.':'')+'</div>';
     /* TSSC-QTIME-V1 — time legend / note */
     const anyTs=ans.some(x=>{ const st=(qs.q||{})['q'+x.q]; return st&&Number(st.tn)>0; });
     t+='<div class="pnote"><b>Avg time</b> = average time other candidates spent on that question, coloured against yours: '
       +'<span class="tq-leg"><span class="tq tq-r">red</span> others were faster than you <span class="tq tq-g">green</span> you were faster <span class="tq tq-y">yellow</span> about the same (±10%)</span>'
-      +(sample?'':(!anyTs?'<br>Average time starts appearing for tests taken from today onwards, once other candidates have attempted them.':(tHasAvg?'<br>You were faster than average on <b>'+tFast+'</b> and slower on <b>'+tSlow+'</b> of '+tHasAvg+' timed questions.'+(anyTs&&ans.some(x=>{const st=(qs.q||{})['q'+x.q];return st&&Number(st.tn)>0&&Number(st.tn)<MIN_N;})?' Values marked ~ rest on fewer than '+MIN_N+' candidates.':''):'')))+'</div>';
+      +(sample?'':(noStats?'<br>Average time is not collected for this test type yet.':!anyTs?'<br>Average time starts appearing for tests taken from today onwards, once other candidates have attempted them.':(tHasAvg?'<br>You were faster than average on <b>'+tFast+'</b> and slower on <b>'+tSlow+'</b> of '+tHasAvg+' timed questions.'+(anyTs&&ans.some(x=>{const st=(qs.q||{})['q'+x.q];return st&&Number(st.tn)>0&&Number(st.tn)<MIN_N;})?' Values marked ~ rest on fewer than '+MIN_N+' candidates.':''):'')))+'</div>';
     const body=$('perfBody'); if(body) body.innerHTML=t; if(body) body.className='';
   })();
 }
@@ -1874,7 +1957,7 @@ function reportCard(full){
   g.fillStyle='#FDBA74'; g.font='bold 34px Rajdhani, sans-serif'; g.fillText(name+' · '+new Date().toLocaleDateString('en-IN',{day:'numeric',month:'long',year:'numeric'}),60,165);
   const marks=full.map(marksOf); const avg=marks.reduce((x,y)=>x+y,0)/marks.length; const best=Math.max(...marks);
   const box=(x,y,label,val)=>{ g.fillStyle='#1E293B'; g.beginPath(); g.roundRect(x,y,300,150,20); g.fill(); g.fillStyle='#fff'; g.font='bold 64px "Baloo 2", sans-serif'; g.fillText(val,x+24,y+88); g.fillStyle='#94A3B8'; g.font='600 26px Rajdhani, sans-serif'; g.fillText(label,x+24,y+128); };
-  box(60,220,'Full tests',String(full.length)); box(390,220,'Average marks',n1(avg)); box(720,220,'Best score',n1(best));
+  box(60,220,isChapter(full[0])?'Chapter tests':'Tests analysed',String(full.length)); box(390,220,'Average marks',n1(avg)); box(720,220,'Best score',n1(best));
   let y=440; const latest=full[0]; const v=LB[lbKey(latest)];
   g.fillStyle='#fff'; g.font='bold 36px Rajdhani, sans-serif'; g.fillText('Latest: '+testName(latest).slice(0,40),60,y); y+=50;
   g.fillStyle='#CBD5E1'; g.font='30px Hind, sans-serif'; g.fillText(n1(marksOf(latest))+' / '+maxOf(latest)+' marks'+(rankOf(v)?'  ·  Rank #'+rankOf(v)+' of '+v.total+'  ·  '+pctile(v)+' percentile':''),60,y); y+=70;
