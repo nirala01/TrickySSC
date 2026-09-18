@@ -1417,7 +1417,7 @@ let questions=[],answers={},markedForReview={},currentQ=0,timeLeft=3600,timerInt
 const _qtime={};let _qtLast=null,_qtAt=0;
 function _qtTick(){try{const now=Date.now();if(_qtLast!==null&&!paused&&_qtAt)_qtime[_qtLast]=(_qtime[_qtLast]||0)+(now-_qtAt);_qtAt=now;_qtLast=currentQ;}catch(_){}}
 
-const SECTION_DUR=15*60; // 15 minutes — subject-wise test is one 15-min section
+let SECTION_DUR=15*60; // 15 minutes for Tier I; Tier II is set below (TSSC-T2-SUBJ-TIME-V1)
 /* ── TSSC-SUBJECT-PYQ-V1: subject-wise PYQ engine ──
    ?subject=quant|reasoning|gk|english picks one subject band out of the paper.
    Subject tag on the question doc is used first; the SSC CGL question-number
@@ -1435,9 +1435,16 @@ const _tierParam=String(new URLSearchParams(window.location.search).get('tier')|
 const _pidParam=String(new URLSearchParams(window.location.search).get('paperId')||'').toLowerCase();
 const IS_TIER2=/tier-?2/.test(_tierParam)||/_tier2_/.test(_pidParam);
 const MARK_POS=IS_TIER2?3:2, MARK_NEG=IS_TIER2?1:0.5;
+/* TSSC-T2-SUBJ-TIME-V1: a Tier II subject test runs on the 2026 Tier II sectional
+   clock (Maths 30, Reasoning 30, English 40, GA 20 min), the same timing as the
+   Tier II mocks, instead of the Tier I 15 minutes. Tier I is unchanged. */
+const T2_SECTION_MIN={quant:30,reasoning:30,english:40,gk:20};
+if(IS_TIER2&&SUBJ&&T2_SECTION_MIN[subjectKey]) SECTION_DUR=T2_SECTION_MIN[subjectKey]*60;
+(function(){ try{ const li=document.getElementById('instrTimeLi'); const b=li&&li.querySelectorAll('strong')[1]; if(b) b.textContent=Math.round(SECTION_DUR/60)+'-minute'; }catch(_){} })();
 const SUBJ_PID_SUFFIX=SUBJ?('__'+subjectKey):'';
 const SUBJ_PAGE={quant:'ssc-cgl-quant-previous-year-questions.html',reasoning:'ssc-cgl-reasoning-previous-year-questions.html',gk:'ssc-cgl-gk-previous-year-questions.html',english:'ssc-cgl-english-previous-year-questions.html'};
-(function(){ const b=document.getElementById('subjBackBtn'); if(b&&SUBJ){ b.href='https://trickyssc.com/'+SUBJ_PAGE[subjectKey]; b.textContent='← More '+SUBJ.short+' PYQ tests'; b.style.display='inline-block'; } })();
+const SUBJ_PAGE_T2={quant:'ssc-cgl-tier-2-quant-previous-year-questions.html',reasoning:'ssc-cgl-tier-2-reasoning-previous-year-questions.html',gk:'ssc-cgl-tier-2-gk-previous-year-questions.html',english:'ssc-cgl-tier-2-english-previous-year-questions.html'};
+(function(){ const b=document.getElementById('subjBackBtn'); if(b&&SUBJ){ b.href='https://trickyssc.com/'+(IS_TIER2?SUBJ_PAGE_T2:SUBJ_PAGE)[subjectKey]; b.textContent='← More '+SUBJ.short+' PYQ tests'; b.style.display='inline-block'; } })();
 (function(){
   try{
     const p=document.getElementById('instrMarkPos'), n=document.getElementById('instrMarkNeg');
