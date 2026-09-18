@@ -1,0 +1,61 @@
+name: Fetch Current Affairs
+
+# PIB-only daily current affairs → ca-archive/DD-MM-YYYY.html via Gemini Flash.
+# Needs one repo secret: GEMINI_API_KEY (Settings → Secrets and variables → Actions).
+# Optional repo variable GEMINI_MODEL pins a model (otherwise the newest Flash on the key is used).
+# A day that already has a page (e.g. one you wrote by hand) is never overwritten.
+
+on:
+  schedule:
+    - cron: '30 14 * * *'   # 8:00 PM IST — main run, covers the day's PIB releases
+    - cron: '0 17 * * *'    # 10:30 PM IST — backup; skips if the page already exists
+  workflow_dispatch:
+    inputs:
+      date:
+        description: 'Date DD-MM-YYYY (blank = today IST). PIB feeds only carry the last day or two.'
+        required: false
+        default: ''
+      force:
+        description: 'Rebuild even if the page already exists'
+        type: boolean
+        required: false
+        default: false
+
+concurrency:
+  group: fetch-current-affairs
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build today's page from PIB with Gemini
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
+          CA_DATE: ${{ github.event.inputs.date }}
+          FORCE: ${{ github.event.inputs.force }}
+        run: node fetch-ca.js
+
+      - name: Commit and push
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "CA Bot"
+          git add ca-archive/ current-affairs.html sitemap.xml
+          if git diff --staged --quiet; then echo "Nothing to commit"; exit 0; fi
+          git commit -m "🗞️ Daily CA $(TZ=Asia/Kolkata date +'%d %b %Y')"
+          for i in 1 2 3; do
+            git pull --rebase origin main && git push && exit 0
+            sleep 5
+          done
+          exit 1
