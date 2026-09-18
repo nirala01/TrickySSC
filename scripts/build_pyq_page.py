@@ -6,6 +6,7 @@ Reads the `papers` collection from Firestore (public REST API, web key)
 and writes a fully static, Google-crawlable SSC CGL PYQ page:
 
     ssc-cgl-pyq.html
+    ssc-cgl-tier-2-pyq.html   (Tier II papers only, same data; added 2026-09-18)
 
 - Every paper becomes a plain <a href="test.html?..."> link (no JS needed to see it).
 - English + Hindi versions of the same paper are merged into one card
@@ -34,6 +35,9 @@ API_KEY = "AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA"  # public web key (safe)
 COLLECTION = "papers"
 SITE = "https://trickyssc.com"
 OUTPUT_FILE = "ssc-cgl-pyq.html"
+# Dedicated Tier II PYQ page, built from the same Firestore read (added 2026-09-18).
+T2_OUTPUT_FILE = "ssc-cgl-tier-2-pyq.html"
+T2_MOCK_URL = "https://trickyssc.com/ssc-cgl-tier-2-mock-test.html"
 
 # Only include papers for this exam on this page.
 EXAM_FILTER = "ssc-cgl"
@@ -870,7 +874,7 @@ def render(ordered):
       </div>
     </div>
 
-    <p style="color:#475569;font-size:0.9rem;line-height:1.55;margin:0 0 1.1rem;">Attempt <strong>free SSC CGL PYQ tests</strong> online — shift-wise Tier I &amp; Tier II previous year papers in Hindi &amp; English, with answer keys, detailed solutions and a real exam timer.</p>
+    <p style="color:#475569;font-size:0.9rem;line-height:1.55;margin:0 0 1.1rem;">Attempt <strong>free SSC CGL PYQ tests</strong> online — shift-wise Tier I &amp; <a href="{SITE}/{T2_OUTPUT_FILE}" style="color:#6366F1;font-weight:700;">Tier II previous year papers</a> in Hindi &amp; English, with answer keys, detailed solutions and a real exam timer.</p>
 {SUBJECT_LINKS}
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:1.5rem;">
@@ -888,10 +892,17 @@ def render(ordered):
 
     <div id="pane-t2" style="display:none;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;padding:0 0.1rem;">
-        <h2 style="font-family:'Rajdhani',sans-serif;font-size:1rem;font-weight:800;color:#1E293B;margin:0;display:flex;align-items:center;gap:0.5rem;"><span style="display:inline-block;width:3px;height:16px;background:linear-gradient(180deg,#6366F1,#8B5CF6);border-radius:2px;flex-shrink:0;"></span>SSC CGL Tier II — Previous Year Papers</h2>
+        <div style="font-family:'Rajdhani',sans-serif;font-size:1rem;font-weight:800;color:#1E293B;margin:0;display:flex;align-items:center;gap:0.5rem;"><span style="display:inline-block;width:3px;height:16px;background:linear-gradient(180deg,#6366F1,#8B5CF6);border-radius:2px;flex-shrink:0;"></span>Tier II papers</div>
         <span style="font-size:0.75rem;color:#94A3B8;font-weight:600;background:#F1F5F9;padding:0.2rem 0.6rem;border-radius:20px;">{t2_count} Papers</span>
       </div>
-      {t2_html}
+      <!-- Tier II search intent belongs to ssc-cgl-tier-2-pyq.html: this pane keeps the
+           papers for users but carries no Tier II heading, and links there by name. -->
+      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:0.6rem;background:#F5F3FF;border:1.5px solid #DDD6FE;border-radius:13px;padding:0.8rem 1rem;margin-bottom:1rem;">
+        <span style="flex:1 1 240px;font-size:0.86rem;color:#4C1D95;line-height:1.45;">Preparing for Tier II? The Tier II page has every paper plus the Paper I pattern, +3/&minus;1 marking and how to use these papers.</span>
+        <a href="{SITE}/{T2_OUTPUT_FILE}" style="background:#6366F1;color:#fff;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.86rem;padding:0.5rem 0.9rem;border-radius:9px;white-space:nowrap;">SSC CGL Tier 2 Previous Year Papers</a>
+        <a href="{T2_MOCK_URL}" style="background:#fff;color:#6366F1;border:1.5px solid #6366F1;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.86rem;padding:0.45rem 0.9rem;border-radius:9px;white-space:nowrap;">Tier 2 Mock Tests</a>
+      </div>
+      <!-- TSSC:T2-LIST:START -->{t2_html}<!-- TSSC:T2-LIST:END -->
     </div>
 
     <div style="margin-top:2.5rem;">
@@ -1114,23 +1125,316 @@ onAuthStateChanged(_auth, async user => {{
 
 
 # ---------------------------------------------------------------------------
+# 5. DEDICATED TIER II PAGE  (ssc-cgl-tier-2-pyq.html, added 2026-09-18)
+#
+# Built from the SAME Firestore read as ssc-cgl-pyq.html, so a Tier II paper
+# uploaded to `papers` appears on both pages on the next run. The page shell
+# (CSS, nav, language chooser, login/attempted-pill scripts) is cut out of the
+# main page just rendered, so the two pages can never drift apart; only the
+# head, hero, prose and FAQ below are specific to this page. If anything here
+# fails, main() catches it and ssc-cgl-pyq.html is still written.
+# ---------------------------------------------------------------------------
+def _is_tier2(t):
+    v = str(t).lower()
+    return not (
+        'tier1' in v or 'tier-1' in v or v == 'tier i'
+        or 'paper1' in v or 'paper-1' in v or v == 'paper i'
+    )
+
+
+def _slice(page, start, end, name, include_end=True):
+    i = page.find(start)
+    if i == -1:
+        raise ValueError(f"tier-2 page: shell marker not found ({name})")
+    j = page.find(end, i + len(start))
+    if j == -1:
+        raise ValueError(f"tier-2 page: shell end marker not found ({name})")
+    return page[i:j + (len(end) if include_end else 0)]
+
+
+def render_tier2_page(main_page, ordered):
+    t2_groups = [g for groups in ordered.values() for g in groups
+                 if _is_tier2(g["tier"])]
+    n = len(t2_groups)
+    if n == 0:
+        raise ValueError("tier-2 page: no Tier II papers found, not writing")
+    years = sorted({g["year"] for g in t2_groups}, reverse=True)
+    years_txt = (", ".join(years[:-1]) + " and " + years[-1]) if len(years) > 1 else years[0]
+    bilingual = all(("en" in g["langs"] and "hi" in g["langs"]) for g in t2_groups)
+    lang_txt = "in both English and Hindi" if bilingual else "in English and Hindi"
+    S = SITE
+
+    # ---- shell pieces cut from the main page ----
+    css = _slice(main_page, "<style>\n  * {", "</style>", "css")
+    nav = _slice(main_page, '<nav class="topbar">', "</nav>", "nav")
+    tail = _slice(main_page, "<!-- Language chooser overlay -->",
+                  "<!-- TSSC:MOCK-PROMO:START -->", "tail", include_end=False)
+    lst = _slice(main_page, "<!-- TSSC:T2-LIST:START -->",
+                 "<!-- TSSC:T2-LIST:END -->", "t2 list")
+    # Only a handful of years: open every year so all papers show at once.
+    lst = lst.replace('<details class="yr-acc">', '<details class="yr-acc" open>')
+
+    title = "SSC CGL Tier 2 Previous Year Papers – Free Test | TrickySSC"
+    desc = (f"Attempt {n} SSC CGL Tier 2 previous year papers free online in "
+            f"English & Hindi, with answer keys, step-by-step solutions, the "
+            f"Tier II pattern and +3/−1 marking.")
+    url = f"{S}/{T2_OUTPUT_FILE}"
+
+    faqs = [
+        ("Are SSC CGL Tier 2 previous year papers free on TrickySSC?",
+         "Yes. Every SSC CGL Tier 2 previous year paper on this page is free to attempt online, with the answer key and step-by-step solutions. No payment is needed."),
+        ("How many SSC CGL Tier 2 previous year papers are available?",
+         f"{n} Tier II Paper I papers from the {years_txt} exam cycles are available right now, {lang_txt}. New Tier II papers are added to this page automatically as they are uploaded."),
+        ("What is the marking scheme in SSC CGL Tier 2?",
+         "Each question carries 3 marks. One mark is deducted for every wrong answer in Section I, Section II and the Computer Knowledge module of Section III. Unattempted questions score zero."),
+        ("Is the Computer section included in these Tier 2 papers?",
+         "Yes. Each 150-question paper includes the 20 Computer Knowledge questions of Section III, Module I. The Data Entry Speed Test (typing) is a separate skill test and is not part of these online papers."),
+        ("Why are there so few SSC CGL Tier 2 previous year papers?",
+         "SSC holds Tier II on only a few days in each exam cycle, while Tier I runs for weeks across dozens of shifts. A full cycle therefore produces only a handful of Tier II papers, which is why each one is worth attempting carefully."),
+        ("Can I attempt SSC CGL Tier 2 papers in Hindi?",
+         f"Yes. The Tier II papers here are available {lang_txt}. Choose the language when you start the test."),
+        ("Should I solve Tier 2 previous year papers or mock tests?",
+         "Both. Previous year papers show exactly how SSC sets Tier II questions and how hard they are. Because only a few real papers exist, full-length Tier II mock tests are the way to keep practising the same pattern once you have finished them."),
+        ("Is SSC CGL Tier 2 harder than Tier 1?",
+         "Generally yes. Tier II has more questions per subject, deeper Maths and English, a 3-mark scheme with a 1-mark penalty, and it decides your final merit, while Tier I is only a screening stage."),
+    ]
+    faq_schema = {"@context": "https://schema.org", "@type": "FAQPage",
+                  "mainEntity": [{"@type": "Question", "name": q,
+                                  "acceptedAnswer": {"@type": "Answer", "text": a}}
+                                 for q, a in faqs]}
+    items = []
+    for pos, g in enumerate(t2_groups, 1):
+        lang = "en" if "en" in g["langs"] else next(iter(g["langs"]))
+        items.append({"@type": "ListItem", "position": pos,
+                      "name": f"SSC CGL Tier II {g['year']} {g['shift']} — Free Online Test",
+                      "url": test_url(g, lang)})
+    itemlist_schema = {"@context": "https://schema.org", "@type": "ItemList",
+                       "name": "SSC CGL Tier 2 Previous Year Papers — Free Online Tests",
+                       "numberOfItems": n, "itemListElement": items}
+    crumb_schema = {"@context": "https://schema.org", "@type": "BreadcrumbList",
+                    "itemListElement": [
+                        {"@type": "ListItem", "position": 1, "name": "Home", "item": f"{S}/"},
+                        {"@type": "ListItem", "position": 2, "name": "SSC CGL PYQ", "item": f"{S}/{OUTPUT_FILE}"},
+                        {"@type": "ListItem", "position": 3, "name": "SSC CGL Tier 2 Previous Year Papers", "item": url}]}
+
+    H2 = ("font-family:'Rajdhani',sans-serif;font-weight:800;font-size:1.25rem;color:#1A202C;"
+          "margin:0 0 0.8rem;display:flex;align-items:center;gap:0.5rem;")
+    BAR = ('<span style="display:inline-block;width:3px;height:18px;'
+           'background:linear-gradient(180deg,#6366F1,#8B5CF6);border-radius:2px;"></span>')
+    P = "color:#4A5568;margin:0 0 0.7rem;font-size:0.9rem;line-height:1.65;"
+    TH = ("background:linear-gradient(135deg,#6366F1,#8B5CF6);color:#fff;font-family:'Rajdhani',sans-serif;"
+          "font-weight:700;border:1px solid #8B5CF6;padding:0.55rem 0.7rem;text-align:left;")
+    TD = "border:1px solid #E2E8F0;padding:0.5rem 0.7rem;"
+
+    def h2(t):
+        return f'<h2 style="{H2}">{BAR}{t}</h2>'
+
+    def row(cells, shade=False):
+        bg = ' style="background:#F8FAFC;"' if shade else ''
+        return f"<tr{bg}>" + "".join(f'<td style="{TD}">{c}</td>' for c in cells) + "</tr>"
+
+    pattern_rows = "".join([
+        row(["Section I, Module I", "Mathematical Abilities", "30", "90", "Merit"]),
+        row(["Section I, Module II", "Reasoning &amp; General Intelligence", "30", "90", "Merit"], True),
+        row(["Section II, Module I", "English Language &amp; Comprehension", "45", "135", "Merit"]),
+        row(["Section II, Module II", "General Awareness", "25", "75", "Merit"], True),
+        row(["Section III, Module I", "Computer Knowledge", "20", "60", "Qualifying"]),
+        row(["Section III, Module II", "Data Entry Speed Test", "One task", "&mdash;", "Qualifying"], True),
+    ])
+
+    faq_html = "".join(
+        f'<details style="background:#fff;border:1px solid #E2E8F0;border-radius:11px;padding:0.85rem 1.1rem;margin-bottom:0.6rem;">'
+        f'<summary style="cursor:pointer;font-weight:700;font-size:0.92rem;color:#1A202C;">{html.escape(q)}</summary>'
+        f'<p style="color:#4A5568;margin:0.6rem 0 0;font-size:0.88rem;line-height:1.6;">{html.escape(a)}</p></details>'
+        for q, a in faqs)
+
+    subj = "".join(
+        f'<a href="{S}/{f}" style="display:flex;align-items:center;gap:0.5rem;background:#fff;border:1.5px solid #E2E8F0;'
+        f'border-radius:12px;padding:0.7rem 0.9rem;color:#1A202C;font-family:\'Rajdhani\',sans-serif;font-weight:700;font-size:0.92rem;">'
+        f'<span style="font-size:1.15rem;">{ico}</span>{name}</a>'
+        for ico, name, f in [
+            ("🧮", "Quant Previous Year Questions", "ssc-cgl-quant-previous-year-questions.html"),
+            ("🧠", "Reasoning Previous Year Questions", "ssc-cgl-reasoning-previous-year-questions.html"),
+            ("📖", "English Previous Year Questions", "ssc-cgl-english-previous-year-questions.html"),
+            ("🌍", "GK Previous Year Questions", "ssc-cgl-gk-previous-year-questions.html"),
+        ])
+
+    body = f"""
+<div style="background:#F0F2F7;min-height:100vh;padding-top:1.5rem;">
+
+  <div style="max-width:960px;margin:0 auto;padding:0.2rem 1.25rem 0.2rem;">
+    <h1 style="font-family:'Rajdhani',sans-serif;font-weight:800;font-size:clamp(1.1rem,4.2vw,1.55rem);line-height:1.25;color:#1A202C;margin:0;">SSC CGL Tier 2 Previous Year Papers – Free Online Test with Solutions (Hindi &amp; English)</h1>
+  </div>
+
+  <div style="background:#fff;border-bottom:1px solid #E8ECF2;padding:0.55rem 1.5rem;margin-top:0.6rem;">
+    <div style="max-width:960px;margin:0 auto;display:flex;align-items:center;gap:0.4rem;font-size:0.79rem;color:#94A3B8;flex-wrap:wrap;">
+      <a href="{S}/index.html" style="color:#FF6B00;font-weight:600;">Home</a>
+      <span style="color:#CBD5E1;">›</span>
+      <a href="{S}/{OUTPUT_FILE}" style="color:#FF6B00;font-weight:600;">SSC CGL PYQ</a>
+      <span style="color:#CBD5E1;">›</span>
+      <span style="color:#475569;font-weight:600;">Tier II Papers</span>
+    </div>
+  </div>
+
+  <div style="max-width:960px;margin:0 auto;padding:1.5rem 1rem 3rem;">
+
+    <div style="background:linear-gradient(135deg,#1E1B4B 0%,#312E81 55%,#4338CA 100%);border-radius:18px;padding:1.6rem 1.75rem;margin-bottom:1.25rem;position:relative;overflow:hidden;box-shadow:0 8px 32px rgba(30,27,75,0.25);">
+      <div style="position:absolute;top:-30px;right:-30px;width:160px;height:160px;background:rgba(139,92,246,0.18);border-radius:50%;pointer-events:none;"></div>
+      <div style="display:flex;align-items:center;gap:1rem;position:relative;">
+        <div style="width:50px;height:50px;background:linear-gradient(135deg,#8B5CF6,#C4B5FD);border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:1.5rem;flex-shrink:0;box-shadow:0 4px 16px rgba(139,92,246,0.45);">📊</div>
+        <div>
+          <div style="font-family:'Rajdhani',sans-serif;font-size:1.6rem;font-weight:800;color:#fff;margin:0;line-height:1.15;">SSC CGL Tier II Previous Year Papers</div>
+          <p style="color:rgba(255,255,255,0.6);font-size:0.82rem;margin:0.25rem 0 0;">Paper I · {years_txt} cycles · {n} papers · 150 Qs each</p>
+        </div>
+      </div>
+    </div>
+
+    <p style="color:#475569;font-size:0.92rem;line-height:1.6;margin:0 0 1rem;">Attempt every <strong>SSC CGL Tier 2 previous year paper</strong> online, free, {lang_txt}. Each paper is the full 150-question Tier II Paper I with the real +3/&minus;1 marking, a timer, the answer key and step-by-step solutions. Tier II decides your final merit, and only a handful of real Tier II papers exist, so these are the most valuable papers you can practise before the December exam.</p>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:0.75rem;margin:0 0 1.6rem;">
+      <a href="{S}/{OUTPUT_FILE}" style="display:flex;align-items:center;justify-content:center;gap:0.5rem;background:linear-gradient(135deg,#FF6B00,#FF8C38);color:#fff;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1rem;padding:0.9rem 1rem;border-radius:12px;box-shadow:0 4px 16px rgba(255,107,0,0.28);text-align:center;">📄 SSC CGL Previous Year Papers Free Online Test</a>
+      <a href="{T2_MOCK_URL}" style="display:flex;align-items:center;justify-content:center;gap:0.5rem;background:linear-gradient(120deg,#6D28D9,#DB2777);color:#fff;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1rem;padding:0.9rem 1rem;border-radius:12px;box-shadow:0 4px 18px rgba(219,39,119,0.3);text-align:center;">🚀 Attempt SSC CGL Tier 2 Mock Test 2026</a>
+    </div>
+
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;padding:0 0.1rem;">
+      <h2 style="font-family:'Rajdhani',sans-serif;font-size:1rem;font-weight:800;color:#1E293B;margin:0;display:flex;align-items:center;gap:0.5rem;">{BAR}SSC CGL Tier II — Previous Year Papers</h2>
+      <span style="font-size:0.75rem;color:#94A3B8;font-weight:600;background:#F1F5F9;padding:0.2rem 0.6rem;border-radius:20px;">{n} Papers</span>
+    </div>
+    {lst}
+
+    <div style="margin-top:1.6rem;background:linear-gradient(135deg,#FDF2F8,#F5F3FF);border:1.5px solid #E9D5FF;border-radius:16px;padding:1.2rem 1.3rem;">
+      <div style="font-family:'Rajdhani',sans-serif;font-weight:800;font-size:1.15rem;color:#4C1D95;margin:0 0 0.35rem;">Finished these {n} papers? Keep practising the same pattern.</div>
+      <p style="color:#5B21B6;font-size:0.88rem;line-height:1.55;margin:0 0 0.8rem;">Real Tier II papers run out fast. Our 50 full-length Tier II mock tests follow the same 150-question Paper I pattern, with the 2026 sectional timing, Data Interpretation and complete GS and Computer coverage. Mock 1&ndash;4 are free.</p>
+      <a href="{T2_MOCK_URL}" style="display:inline-flex;align-items:center;gap:0.4rem;background:linear-gradient(120deg,#6D28D9,#DB2777);color:#fff;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.95rem;padding:0.65rem 1.1rem;border-radius:10px;">SSC CGL Tier 2 Mock Tests</a>
+    </div>
+
+    <div style="margin-top:2rem;">
+      {h2("Practise Tier II One Subject at a Time")}
+      <p style="{P}">The subject-wise previous year question pages split every paper by section, including the Tier II papers, so you can sit only the Maths, Reasoning, English or General Awareness part of a Tier II paper when you want to work on one weak area.</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0.6rem;">{subj}</div>
+    </div>
+
+    <div style="margin-top:2rem;">
+      {h2("What the SSC CGL Tier 2 Question Paper Contains")}
+      <p style="{P}">Tier II Paper I is common to every SSC CGL post and is the paper these previous year tests reproduce. It is split into three sections. Section I combines Mathematical Abilities and Reasoning, Section II combines English Language and General Awareness, and Section III covers Computer Knowledge together with the Data Entry Speed Test. The 150 questions in each paper here are the 30 Maths, 30 Reasoning, 45 English, 25 General Awareness and 20 Computer questions of the real paper.</p>
+      <p style="{P}">Compared with Tier I, every section is longer and deeper. Maths moves further into algebra, geometry, trigonometry and data interpretation. English carries 45 questions, including comprehension passages and cloze tests, and it is the single largest block of marks in the merit calculation. General Awareness is shorter than in Tier I but still asks static GK and current affairs together.</p>
+    </div>
+
+    <div style="margin-top:2rem;">
+      {h2("How the Tier 2 Papers Are Structured")}
+      <div style="overflow-x:auto;margin:0 0 0.8rem;-webkit-overflow-scrolling:touch;">
+        <table style="width:100%;border-collapse:collapse;min-width:560px;font-size:0.85rem;color:#334155;">
+          <thead><tr><th style="{TH}">Section &amp; Module</th><th style="{TH}">Subject</th><th style="{TH}">Questions</th><th style="{TH}">Marks</th><th style="{TH}">Nature</th></tr></thead>
+          <tbody>{pattern_rows}</tbody>
+        </table>
+      </div>
+      <p style="{P}">Section I (Maths and Reasoning) carries 180 marks and Section II (English and General Awareness) carries 210 marks, so the 390 merit marks divide roughly as 46% Maths and Reasoning, 35% English and 19% General Awareness. Section III is qualifying only: you must clear the Computer Knowledge module and the typing test, but those marks are not added to your merit score.</p>
+    </div>
+
+    <div style="margin-top:2rem;">
+      {h2("Marking Scheme and Negative Marking in Tier 2")}
+      <p style="{P}">Every question in Tier II carries 3 marks, and 1 mark is deducted for each wrong answer in Section I, Section II and the Computer Knowledge module. That is a heavier penalty in proportion than Tier I, where a wrong answer costs half a mark against two marks for a right one. In practice it means a guess on Tier II needs better odds to be worth taking, so use the previous year papers to learn which question types you can answer with confidence and which ones to leave.</p>
+    </div>
+
+    <div style="margin-top:2rem;">
+      {h2("How to Use SSC CGL Tier 2 Previous Year Papers")}
+      <p style="{P}">Because real Tier II papers are so few, treat each one as a full rehearsal rather than a quick practice set.</p>
+      <ol style="color:#4A5568;font-size:0.9rem;line-height:1.75;margin:0 0 0.7rem 1.3rem;padding:0;">
+        <li>Attempt the paper in one sitting with the timer on, exactly as you would in the exam hall.</li>
+        <li>After submitting, read the solution to every question you got wrong, skipped or guessed.</li>
+        <li>Note which question types cost you the most marks, section by section.</li>
+        <li>Go back to those chapters before attempting the next paper.</li>
+        <li>Keep one or two papers for the final weeks so you can check your level close to the exam.</li>
+        <li>Once the real papers are done, move on to full-length Tier II mock tests to keep the same rhythm.</li>
+      </ol>
+    </div>
+
+    <div style="margin-top:2rem;">
+      {h2("Tier 2 Previous Year Papers vs Tier 1 Previous Year Papers")}
+      <p style="{P}">Tier I previous year papers are plentiful, because Tier I runs across dozens of shifts in every cycle. Tier II is different: it is held on only a few days, so each cycle adds just a handful of papers. Tier I practice builds speed on 100 short questions; Tier II practice has to build stamina across 150 questions, accuracy under a harsher penalty, and depth in English and Maths. If you have already worked through the Tier I papers, the Tier II papers are the right next step once your Tier I exam is done.</p>
+    </div>
+
+    <div style="margin-top:2rem;">
+      {h2("SSC CGL Tier 2 Previous Year Papers in Hindi")}
+      <p style="{P}">Every Tier II paper on this page can be attempted {lang_txt}. Pick हिंदी when you start a test to see the questions and solutions in Hindi; the English Language section naturally stays in English. एसएससी सीजीएल टियर 2 के पिछले वर्ष के प्रश्न पत्र यहाँ हिंदी में भी मुफ्त ऑनलाइन हल करें, उत्तर कुंजी और हल सहित।</p>
+    </div>
+
+    <div style="margin-top:2rem;">
+      {h2("Frequently Asked Questions")}
+      {faq_html}
+    </div>
+
+    <div style="margin-top:1.8rem;font-size:0.9rem;line-height:1.7;">
+      More SSC CGL practice: <a href="{S}/{OUTPUT_FILE}" style="color:#FF6B00;font-weight:700;">all SSC CGL previous year papers</a>, <a href="{T2_MOCK_URL}" style="color:#6366F1;font-weight:700;">Tier 2 mock tests</a>, <a href="{S}/ssc-cgl-computer-mock-test.html" style="color:#6366F1;font-weight:700;">Computer mock tests</a> and <a href="{S}/ssc-cgl-chapterwise.html" style="color:#FF6B00;font-weight:700;">chapter-wise tests</a>.
+    </div>
+
+    <div style="margin-top:2.5rem;padding-top:1.5rem;border-top:1px solid #E2E8F0;color:#94A3B8;font-size:0.82rem;text-align:center;">
+      © TrickySSC — Free SSC CGL Tier 2 previous year papers, mock tests &amp; solutions in Hindi &amp; English.
+    </div>
+
+  </div>
+</div>
+"""
+
+    page = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{html.escape(title)}</title>
+<meta name="description" content="{html.escape(desc)}">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<link rel="canonical" href="{url}">
+<meta property="og:type" content="website">
+<meta property="og:title" content="SSC CGL Tier 2 Previous Year Papers – Free Online Test with Solutions">
+<meta property="og:description" content="{html.escape(desc)}">
+<meta property="og:url" content="{url}">
+<meta property="og:site_name" content="TrickySSC">
+<meta property="og:image" content="{S}/og-pyq.png">
+<meta name="twitter:card" content="summary_large_image">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Baloo+2:wght@400;500;600;700;800&family=Hind:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script type="application/ld+json">
+{json.dumps(crumb_schema, ensure_ascii=False)}
+</script>
+<script type="application/ld+json">
+{json.dumps(faq_schema, ensure_ascii=False, indent=2)}
+</script>
+<script type="application/ld+json">
+{json.dumps(itemlist_schema, ensure_ascii=False)}
+</script>
+{css}
+</head>
+<body>
+
+{nav}
+{body}
+{tail}
+</body>
+</html>
+"""
+    return page, n
+
+
+# ---------------------------------------------------------------------------
 # MAIN
 # ---------------------------------------------------------------------------
 SITEMAP_FILE = "sitemap.xml"
 
 
-def update_sitemap_lastmod():
-    """Update only the <lastmod> of the ssc-cgl-pyq.html entry in sitemap.xml
+def update_sitemap_lastmod(page_file=OUTPUT_FILE, insert_after=None,
+                           changefreq="weekly", priority="0.8"):
+    """Update only the <lastmod> of the page_file entry in sitemap.xml
     to today's date. Leaves every other entry and the file's formatting
-    (including CRLF/LF line endings) untouched. Safe no-op if the sitemap or
-    the entry isn't found."""
+    (including CRLF/LF line endings) untouched. Safe no-op if the sitemap is
+    missing. If the entry is missing and insert_after is given, a new <url>
+    block is added straight after insert_after's block; otherwise it skips."""
     import os
     if not os.path.exists(SITEMAP_FILE):
         print(f"  (sitemap: {SITEMAP_FILE} not found, skipping)", file=sys.stderr)
         return
 
     today = datetime.datetime.utcnow().strftime("%Y-%m-%d")
-    page_url = f"{SITE}/{OUTPUT_FILE}"
+    page_url = f"{SITE}/{page_file}"
 
     # Read in binary to preserve the file's exact line endings (CRLF vs LF).
     with open(SITEMAP_FILE, "rb") as f:
@@ -1141,10 +1445,26 @@ def update_sitemap_lastmod():
         content = content.replace("\r\n", "\n")  # normalize for editing
 
     # Locate the <url>…</url> block that contains our page's <loc>.
-    loc_pos = content.find(page_url)
+    loc_pos = content.find(f"<loc>{page_url}</loc>")
     if loc_pos == -1:
-        print(f"  (sitemap: {OUTPUT_FILE} entry not found, skipping)",
-              file=sys.stderr)
+        anchor_pos = (content.find(f"<loc>{SITE}/{insert_after}</loc>")
+                      if insert_after else -1)
+        anchor_end = content.find("</url>", anchor_pos) if anchor_pos != -1 else -1
+        if anchor_end == -1:
+            print(f"  (sitemap: {page_file} entry not found, skipping)",
+                  file=sys.stderr)
+            return
+        anchor_end += len("</url>")
+        block = (f"\n  <url>\n    <loc>{page_url}</loc>\n"
+                 f"    <lastmod>{today}</lastmod>\n"
+                 f"    <changefreq>{changefreq}</changefreq>\n"
+                 f"    <priority>{priority}</priority>\n  </url>")
+        content = content[:anchor_end] + block + content[anchor_end:]
+        if uses_crlf:
+            content = content.replace("\n", "\r\n")
+        with open(SITEMAP_FILE, "wb") as f:
+            f.write(content.encode("utf-8"))
+        print(f"  added {page_file} to {SITEMAP_FILE}", file=sys.stderr)
         return
 
     block_start = content.rfind("<url>", 0, loc_pos)
@@ -1169,7 +1489,7 @@ def update_sitemap_lastmod():
         )
 
     if new_block == block:
-        print(f"  (sitemap: lastmod already {today}, no change)",
+        print(f"  (sitemap: {page_file} lastmod already {today}, no change)",
               file=sys.stderr)
         return
 
@@ -1179,7 +1499,7 @@ def update_sitemap_lastmod():
         content = content.replace("\n", "\r\n")
     with open(SITEMAP_FILE, "wb") as f:
         f.write(content.encode("utf-8"))
-    print(f"  updated {SITEMAP_FILE}: {OUTPUT_FILE} lastmod → {today}",
+    print(f"  updated {SITEMAP_FILE}: {page_file} lastmod → {today}",
           file=sys.stderr)
 
 
@@ -1202,6 +1522,27 @@ def main():
     # Keep the sitemap's "last updated" date for this page in sync, so Google
     # re-crawls it promptly after new papers are added.
     update_sitemap_lastmod()
+
+    # Dedicated Tier II page. Isolated: a failure here must never stop the
+    # main PYQ page above from being published.
+    try:
+        t2_page, t2_total = render_tier2_page(page, ordered)
+        try:
+            with open(T2_OUTPUT_FILE, encoding="utf-8") as f:
+                t2_changed = f.read() != t2_page
+        except FileNotFoundError:
+            t2_changed = True
+        with open(T2_OUTPUT_FILE, "w", encoding="utf-8") as f:
+            f.write(t2_page)
+        print(f"  wrote {T2_OUTPUT_FILE} — {t2_total} Tier II papers",
+              file=sys.stderr)
+        # Only bump lastmod when the page actually changed (the main page's
+        # own run-date text changes daily, this one does not).
+        if t2_changed:
+            update_sitemap_lastmod(T2_OUTPUT_FILE, insert_after=OUTPUT_FILE,
+                                   changefreq="weekly", priority="0.8")
+    except Exception as e:  # noqa: BLE001
+        print(f"  WARNING: {T2_OUTPUT_FILE} not built: {e}", file=sys.stderr)
 
 
 # urllib.parse needed at module level for helpers
