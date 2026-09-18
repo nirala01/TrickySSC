@@ -1253,10 +1253,10 @@ def render_tier2_page(main_page, ordered):
         f'border-radius:12px;padding:0.7rem 0.9rem;color:#1A202C;font-family:\'Rajdhani\',sans-serif;font-weight:700;font-size:0.92rem;">'
         f'<span style="font-size:1.15rem;">{ico}</span>{name}</a>'
         for ico, name, f in [
-            ("🧮", "Quant Previous Year Questions", "ssc-cgl-quant-previous-year-questions.html"),
-            ("🧠", "Reasoning Previous Year Questions", "ssc-cgl-reasoning-previous-year-questions.html"),
-            ("📖", "English Previous Year Questions", "ssc-cgl-english-previous-year-questions.html"),
-            ("🌍", "GK Previous Year Questions", "ssc-cgl-gk-previous-year-questions.html"),
+            ("🧮", "Tier 2 Maths Previous Year Questions", "ssc-cgl-tier-2-quant-previous-year-questions.html"),
+            ("🧠", "Tier 2 Reasoning Previous Year Questions", "ssc-cgl-tier-2-reasoning-previous-year-questions.html"),
+            ("📖", "Tier 2 English Previous Year Questions", "ssc-cgl-tier-2-english-previous-year-questions.html"),
+            ("🌍", "Tier 2 GK Previous Year Questions", "ssc-cgl-tier-2-gk-previous-year-questions.html"),
         ])
 
     body = f"""
@@ -1310,7 +1310,7 @@ def render_tier2_page(main_page, ordered):
 
     <div style="margin-top:2rem;">
       {h2("Practise Tier II One Subject at a Time")}
-      <p style="{P}">The subject-wise previous year question pages split every paper by section, including the Tier II papers, so you can sit only the Maths, Reasoning, English or General Awareness part of a Tier II paper when you want to work on one weak area.</p>
+      <p style="{P}">Each Tier II paper is also split by section, so you can sit only its Maths, Reasoning, English or General Awareness part, with that subject's Tier II sectional clock, when you want to work on one weak area.</p>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0.6rem;">{subj}</div>
     </div>
 
