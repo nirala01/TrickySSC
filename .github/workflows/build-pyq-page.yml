@@ -29,7 +29,7 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Generate ssc-cgl-pyq.html
+      - name: Generate ssc-cgl-pyq.html + ssc-cgl-tier-2-pyq.html
         run: python3 scripts/build_pyq_page.py
 
       - name: Commit changes if the page changed
@@ -38,7 +38,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           # Stage both files. `git diff` alone ignores brand-new untracked
           # files, which caused the page to never get committed on first run.
-          git add ssc-cgl-pyq.html sitemap.xml
+          git add ssc-cgl-pyq.html ssc-cgl-tier-2-pyq.html sitemap.xml
           if git diff --cached --quiet; then
             echo "No change in PYQ page or sitemap — nothing to commit."
             exit 0
@@ -51,7 +51,7 @@ jobs:
           # this workflow carried the same flag until 2026-08-25.
           # This workflow only runs on `schedule` and `workflow_dispatch`, never
           # on `push`, so there is no loop to guard against anyway.
-          git commit -m "Auto-update SSC CGL PYQ page + sitemap"
+          git commit -m "Auto-update SSC CGL PYQ pages (all + Tier II) + sitemap"
 
           # The CHSL build (or update-mock-live) may have pushed while this one
           # was running. Rebase and retry rather than failing the run and
