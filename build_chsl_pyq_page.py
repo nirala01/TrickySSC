@@ -21,6 +21,7 @@ Usage
     py build_chsl_pyq_page.py --page path/to.html
     py build_chsl_pyq_page.py --sitemap sitemap-chsl-pyq.xml
     py build_chsl_pyq_page.py --dry-run            # print what would change
+    py build_chsl_pyq_page.py --no-subject-pages   # hub only (the nine subject pages are baked by default)
 
 On Windows use the full interpreter path if the `py` Store alias is broken:
     C:\\Users\\DELL\\AppData\\Local\\Python\\bin\\python.exe build_chsl_pyq_page.py
@@ -292,6 +293,119 @@ def item_list_json(papers):
             + json.dumps(payload, ensure_ascii=False) + "\n</script>")
 
 
+# ── Subject-wise PYQ pages (TSSC-CHSL-SUBJ-V1) ───────────────────────────────
+# Nine static pages carry one SECTION of every CHSL paper as its own test. Their
+# lists sit between <!-- LIST:SUBJ:START --> / <!-- LIST:SUBJ:END --> and are
+# rebaked on every run, so a newly uploaded paper appears on all of them too.
+SUBJ_ENGINE = f"{SITE}/test-chsl-subject.html"
+SUBJECT_PAGES = {
+    # (tier, key): (file, label, questions, minutes, marks per question)
+    ("t1", "english"):   ("ssc-chsl-english-previous-year-questions.html",   "English",   25, 15, 2),
+    ("t1", "reasoning"): ("ssc-chsl-reasoning-previous-year-questions.html", "Reasoning", 25, 15, 2),
+    ("t1", "quant"):     ("ssc-chsl-quant-previous-year-questions.html",     "Quant",     25, 15, 2),
+    ("t1", "gk"):        ("ssc-chsl-gk-previous-year-questions.html",        "GK",        25, 15, 2),
+    ("t2", "quant"):     ("ssc-chsl-tier-2-quant-previous-year-questions.html",     "Maths",     30, 30, 3),
+    ("t2", "reasoning"): ("ssc-chsl-tier-2-reasoning-previous-year-questions.html", "Reasoning", 30, 30, 3),
+    ("t2", "english"):   ("ssc-chsl-tier-2-english-previous-year-questions.html",   "English",   40, 40, 3),
+    ("t2", "gk"):        ("ssc-chsl-tier-2-gk-previous-year-questions.html",        "GK",        20, 20, 3),
+    ("t2", "computer"):  ("ssc-chsl-tier-2-computer-previous-year-questions.html",  "Computer",  15, 15, 3),
+}
+SUBJ_BTN = {"english": ("#0EA5E9", "#38BDF8"), "reasoning": ("#6366F1", "#818CF8"),
+            "quant": ("#FF6B00", "#FF8C38"), "gk": ("#00A86B", "#10B981"), "computer": ("#7C3AED", "#A855F7")}
+
+
+def subj_url(p, lang, key):
+    return test_url(p, lang).replace(ENGINE[p["tier"]], SUBJ_ENGINE, 1) + "&subject=" + key
+
+
+def subj_row_html(p, key, label, q, mins, per_q):
+    meta = TIER_META[p["tier"]]
+    date = fmt_date(p["heldOn"])
+    shift = p["shift"] or "Full Paper"
+    s_num = re.search(r"Shift[- ]?(\d+)", p["shift"] or "", re.I)
+    pick = re.sub(r"\s+", "-", "-".join([EXAM, p["tier"], p["year"], p["shift"] or "full", p["heldOn"] or "", key]))
+    title = f"{EXAM_NAME} {meta['label']} {p['year']} · {shift}" + (f" · {date}" if date else "") + f" · {label}"
+    en_url = subj_url(p, "en", key) if p["en"] else ""
+    hi_url = subj_url(p, "hi", key) if p["hi"] else ""
+    c1, c2 = SUBJ_BTN.get(key, ("#FF6B00", "#FF8C38"))
+    attrs = ['class="pyq-attempt-btn"', f'href="{e(en_url or hi_url)}"', f'data-pick="{e(pick)}"']
+    if en_url:
+        attrs.append(f'data-en="{e(en_url)}" data-pid-en="{e(paper_id(p, "en") + "__" + key)}"')
+    if hi_url:
+        attrs.append(f'data-hi="{e(hi_url)}" data-pid-hi="{e(paper_id(p, "hi") + "__" + key)}"')
+    attrs += [f'data-title="{e(title)}"', 'onclick="openLangChooser(this);return false;"',
+              f'style="display:inline-flex;align-items:center;gap:0.35rem;background:linear-gradient(135deg,{c1},{c2});'
+              'color:#fff;border:none;border-radius:10px;padding:0.5rem 0.95rem;font-family:\'Rajdhani\',sans-serif;'
+              'font-weight:700;font-size:0.88rem;text-decoration:none;white-space:nowrap;"']
+    grey = 'style="font-size:0.72rem;color:#94A3B8;"'
+    return (
+        '<div class="pyq-row" style="display:flex;align-items:center;justify-content:space-between;gap:0.6rem;'
+        'padding:0.85rem 1.1rem;border-bottom:1px solid #F1F5F9;background:white;">'
+        '<div style="min-width:0;"><div style="display:flex;align-items:center;gap:0.45rem;flex-wrap:wrap;">'
+        f'<span style="font-family:\'Rajdhani\',sans-serif;font-weight:700;font-size:0.95rem;color:#1A202C;">{e(shift)}</span>'
+        + (f'<span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;'
+           f'border-radius:5px;background:#F1F5F9;font-family:\'Rajdhani\',sans-serif;font-weight:700;font-size:0.7rem;'
+           f'color:#475569;">S{s_num.group(1)}</span>' if s_num else "")
+        + (f'<span style="font-size:0.82rem;color:#475569;">{e(date)}</span>' if date else "")
+        + '</div><div style="display:flex;align-items:center;gap:0.5rem;margin-top:0.2rem;flex-wrap:wrap;">'
+        f'<span {grey}>📝 {q} {e(label)} Qs</span><span {grey}>·</span><span {grey}>⏱ {mins} min</span>'
+        f'<span {grey}>·</span><span {grey}>{q * per_q} marks</span>'
+        f'<span class="attempt-pill todo" data-pill="{e(pick)}">○ Not Attempted</span></div></div>'
+        f'<a {" ".join(attrs)}>▶ Attempt Test</a></div>'
+    )
+
+
+def subj_list_html(tk, key, papers):
+    fname, label, q, mins, per_q = SUBJECT_PAGES[(tk, key)]
+    meta = TIER_META[tk]
+    if not papers:
+        return (f'\n<div class="pyq-empty" style="text-align:center;padding:2rem 1rem;background:#fff;border:1.5px dashed #CBD5E1;'
+                f'border-radius:14px;color:#64748B;"><div style="font-size:2rem;margin-bottom:0.5rem;">📭</div>'
+                f'<div style="font-family:\'Rajdhani\',sans-serif;font-weight:800;font-size:1.05rem;color:#1E293B;'
+                f'margin-bottom:0.25rem;">No {meta["label"]} papers yet</div><div style="font-size:0.85rem;">'
+                f'{EXAM_NAME} {meta["label"]} {e(label)} tests will appear here automatically as soon as the '
+                f'papers are uploaded.</div></div>\n')
+    grouped = defaultdict(list)
+    for p in papers:
+        grouped[p["year"] or "Other"].append(p)
+    years = sorted(grouped, key=lambda y: int(y) if y.isdigit() else -1, reverse=True)
+    out = ["\n"]
+    for yi, year in enumerate(years):
+        accent = YEAR_COLORS[yi % len(YEAR_COLORS)]
+        rows = sort_rows(grouped[year])
+        out.append(f'<details class="yr-acc"{" open" if yi == 0 else ""}><summary class="yr-head">'
+                   f'<span class="yr-badge" style="background:{accent};">{e(year)}</span>'
+                   f'<span class="yr-title">{EXAM_NAME} {meta["label"]} {e(year)} — {e(label)}</span>'
+                   f'<span class="yr-count">{len(rows)} test{"s" if len(rows) != 1 else ""}</span>'
+                   f'<span class="yr-chev" aria-hidden="true">▾</span></summary>'
+                   f'<div class="yr-body" style="border-left:3px solid {accent};">\n')
+        for p in rows:
+            out.append(subj_row_html(p, key, label, q, mins, per_q) + "\n")
+        out.append("</div></details>\n")
+    return "".join(out)
+
+
+def bake_subject_pages(papers, root=".", dry_run=False):
+    import os
+    written = []
+    for (tk, key), (fname, label, q, mins, per_q) in SUBJECT_PAGES.items():
+        path = os.path.join(root, fname)
+        if not os.path.exists(path):
+            print(f"  ! {fname} not found — skipped", file=sys.stderr)
+            continue
+        mine = [p for p in papers if p["tier"] == tk]
+        html = open(path, encoding="utf-8").read()
+        html = between(html, "<!-- LIST:SUBJ:START -->", "<!-- LIST:SUBJ:END -->", subj_list_html(tk, key, mine))
+        n = f"{len(mine)} Test{'s' if len(mine) != 1 else ''}"
+        html = set_text(html, "subjCount", n)
+        html = set_text(html, "heroCount", str(len(mine)))
+        if not dry_run:
+            open(path, "w", encoding="utf-8", newline="\n").write(html)
+        written.append(fname)
+    print(f"[build] subject pages: {len(written)} baked")
+    return written
+
+
 # ── Injection ─────────────────────────────────────────────────────────────────
 def between(html, start, end, new):
     pat = re.compile(re.escape(start) + r".*?" + re.escape(end), re.S)
@@ -309,7 +423,7 @@ def set_text(html, el_id, text):
     return pat.sub(lambda m: m.group(1) + text + m.group(3), html, count=1)
 
 
-def build(page_path, sitemap_path=None, dry_run=False):
+def build(page_path, sitemap_path=None, dry_run=False, subject_pages=True):
     print(f"[build] querying Firestore for {EXAM} …")
     docs = fetch_meta()
     print(f"[build] {len(docs)} question docs")
@@ -348,6 +462,10 @@ def build(page_path, sitemap_path=None, dry_run=False):
         open(page_path, "w", encoding="utf-8", newline="\n").write(html)
         print(f"[build] wrote {page_path}")
 
+    if subject_pages:
+        import os
+        bake_subject_pages(papers, os.path.dirname(os.path.abspath(page_path)), dry_run)
+
     if sitemap_path:
         urls = [f"{SITE}/{PAGE}"]
         for p in papers:
@@ -376,5 +494,6 @@ if __name__ == "__main__":
     ap.add_argument("--page", default=PAGE, help="path to ssc-chsl-pyq.html")
     ap.add_argument("--sitemap", default=None, help="also write a sitemap XML here")
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--no-subject-pages", action="store_true", help="skip the nine subject-wise PYQ pages")
     a = ap.parse_args()
-    sys.exit(build(a.page, a.sitemap, a.dry_run))
+    sys.exit(build(a.page, a.sitemap, a.dry_run, not a.no_subject_pages))
