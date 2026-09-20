@@ -143,6 +143,16 @@ body{font-family:'Noto Sans',sans-serif;background:var(--bg);color:var(--text);m
 }
 .stat-sub .nu{color:var(--blue);font-weight:600;}
 .drill-idle{font-size:0.78rem;color:var(--muted);font-style:italic;margin-top:0.45rem;}
+/* Section headers that split today's signups into attempted / not attempted */
+.drill-section{
+  display:flex;justify-content:space-between;align-items:baseline;
+  font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.95rem;
+  padding:0.35rem 0.2rem;margin:1rem 0 0.55rem;border-bottom:2px solid var(--border);
+}
+.drill-section:first-of-type{margin-top:0.25rem;}
+.drill-section.did{color:var(--green);border-color:rgba(0,196,122,0.45);}
+.drill-section.not{color:var(--muted);}
+.drill-section small{font-family:'JetBrains Mono',monospace;font-size:0.7rem;font-weight:400;color:var(--muted);}
 
 /* CONTROLS */
 .controls{display:flex;gap:1rem;margin-bottom:1.25rem;flex-wrap:wrap;align-items:center;}
@@ -828,7 +838,9 @@ window.loadStats = async () => {
     document.getElementById('chapterToday').textContent = chapterUsersToday.size;
     document.getElementById('chapterTodaySub').innerHTML = subLine(chapterAttemptsToday, chapterUsersToday);
     document.getElementById('newUsersToday').textContent = newUsersToday;
-    document.getElementById('newUsersTodaySub').innerHTML = '<span class="nu">'+newTesting+'</span> of them gave a test';
+    document.getElementById('newUsersTodaySub').innerHTML =
+      '<span style="color:var(--green);font-weight:600;">'+newTesting+' gave a test</span> · '
+      + '<span style="color:var(--muted);font-weight:600;">'+(newUsersToday-newTesting)+' did not</span>';
     document.getElementById('newUsersYesterday').textContent = newUsersYesterday;
     document.getElementById('newUsersYesterdaySub').textContent = '7 AM '+_dLabel(ydayStart)+' → 7 AM '+_dLabel(reportStart);
     stamp.textContent = 'Updated: '+new Date().toLocaleTimeString('en-IN',{timeZone:IST_TZ})+' IST · report day 7 AM–7 AM IST'
@@ -1095,26 +1107,39 @@ window.renderDrill = () => {
 
     const totalAtt = rows.reduce((n,g) => n + g.attempts.length, 0);
     const newRows  = rows.filter(g => newTodayIds.has(g.uid)).length;
-    html += `<div class="drill-note">${rows.length} candidate${rows.length===1?'':'s'} · ${totalAtt} attempt${totalAtt===1?'':'s'} · ${newRows} joined today${planNote(atts)}</div>`;
+    const didRows  = rows.filter(g => g.attempts.length > 0);
+    const notRows  = rows.filter(g => g.attempts.length === 0);
+    // Non-attempters carry no attempt time to sort on — show latest signup first.
+    const joinedAt = g => (g.user && g.user.createdAt && g.user.createdAt.toDate) ? g.user.createdAt.toDate().getTime() : 0;
+    if(drillKind === 'new') notRows.sort((a,b) => joinedAt(b) - joinedAt(a) || candidateName(a.user).localeCompare(candidateName(b.user)));
+    if(drillKind === 'new'){
+      html += `<div class="drill-note">${rows.length} joined today · <span style="color:var(--green);">${didRows.length} attempted a test</span> · ${notRows.length} did not · ${totalAtt} attempt${totalAtt===1?'':'s'}${planNote(atts)}</div>`;
+    } else {
+      html += `<div class="drill-note">${rows.length} candidate${rows.length===1?'':'s'} · ${totalAtt} attempt${totalAtt===1?'':'s'} · ${newRows} joined today${planNote(atts)}</div>`;
+    }
 
-    html += rows.map(g => {
+    const groupHtml = g => {
       const u = g.user;
       const last = u && u.lastActive && u.lastActive.toDate ? timeLabel(u.lastActive) : '—';
       const dash = u && u.dashboardLastOpened && u.dashboardLastOpened.toDate
         ? 'dashboard ' + timeLabel(u.dashboardLastOpened) + (u.dashboardOpens ? ' (' + u.dashboardOpens + '× total)' : '')
         : null;
-      const meta = [u && u.phone ? esc(u.phone) : null, u && u.email ? esc(u.email) : null, 'last active ' + last, dash]
+      const joined = (drillKind === 'new' && u && u.createdAt && u.createdAt.toDate) ? 'joined ' + timeLabel(u.createdAt) : null;
+      const meta = [u && u.phone ? esc(u.phone) : null, u && u.email ? esc(u.email) : null, joined, 'last active ' + last, dash]
         .filter(Boolean).join(' · ');
       const nameHtml = u
         ? `<div class="drill-name" onclick="openCandidate('${u.id}')">${esc(candidateName(u))}${newTag(u)}</div>`
         : `<div class="drill-name" style="cursor:default;color:var(--muted);">${esc(candidateName(null))}</div>`;
+      const idleText = drillKind === 'dashboard' ? 'Opened the dashboard — no test attempted in this window'
+                     : drillKind === 'new'       ? 'Joined today — has not attempted any test yet'
+                     :                             'Signed in — no test attempted in this window';
       const items = g.attempts.length
         ? g.attempts.map(a => `
             <div class="drill-item">
               <div class="drill-test">${typeTag(a)}${esc(testLabel(a))}</div>
               <div class="drill-score">${timeLabel(a.timestamp)}<br>${esc(scoreLabel(a))}</div>
             </div>`).join('')
-        : `<div class="drill-idle">${drillKind === 'dashboard' ? 'Opened the dashboard — no test attempted in this window' : 'Signed in — no test attempted in this window'}</div>`;
+        : `<div class="drill-idle">${idleText}</div>`;
       return `<div class="drill-group">
         <div class="drill-head">
           <div>${nameHtml}<div class="drill-sub">${meta}</div></div>
@@ -1122,7 +1147,17 @@ window.renderDrill = () => {
         </div>
         ${items}
       </div>`;
-    }).join('');
+    };
+
+    if(drillKind === 'new'){
+      // Two clear lists: who got going, and who signed up and then did nothing.
+      html += `<div class="drill-section did"><span>✅ Attempted a test</span><small>${didRows.length} candidate${didRows.length===1?'':'s'}</small></div>`;
+      html += didRows.length ? didRows.map(groupHtml).join('') : `<div class="drill-idle">None of today's signups has attempted a test yet</div>`;
+      html += `<div class="drill-section not"><span>⏸ Did not take any test</span><small>${notRows.length} candidate${notRows.length===1?'':'s'}</small></div>`;
+      html += notRows.length ? notRows.map(groupHtml).join('') : `<div class="drill-idle">Every signup today has attempted at least one test</div>`;
+    } else {
+      html += rows.map(groupHtml).join('');
+    }
 
     if(!rows.length) html = `<div class="empty-state"><div>🔍</div>No candidates match this filter</div>`;
 
@@ -1204,6 +1239,22 @@ window.exportDrill = () => {
       timeLabel(a.timestamp)
     ]);
   });
+
+  // For the new-users drill, the signups who took nothing are half the story —
+  // put them in the sheet too, one row each with the test columns blank.
+  if(drillKind === 'new'){
+    const tested = new Set(drillAttempts().map(a => a.uid));
+    todayCtx.newUsers.forEach(u => {
+      const uid = u.uid || u.id;
+      if(tested.has(uid)) return;
+      if(q){
+        const hay = [u.name, u.displayName, u.phone, u.email].filter(Boolean).join(' ').toLowerCase();
+        if(!hay.includes(q)) return;
+      }
+      rows.push([candidateName(u), u.phone || '', u.email || '', 'Yes', '', '', 'NO TEST ATTEMPTED', '', '', '',
+        (u.createdAt && u.createdAt.toDate) ? 'joined ' + timeLabel(u.createdAt) : '']);
+    });
+  }
 
   if(rows.length === 1){ alert('Nothing to export for this filter.'); return; }
 
