@@ -1526,7 +1526,10 @@ const storedUser=getStoredUser();
    ?exam=, so editing the URL cannot move a CGL mock under a CHSL pass or back. */
 const TG_IS_CHSL     = /^ssc-chsl_/i.test(new URLSearchParams(location.search).get('mockId')||'');
 const TG_MODULE      = TG_IS_CHSL ? 'ssc-chsl-mocks' : 'ssc-cgl-mocks';
-const TG_FREE_UP_TO  = TG_IS_CHSL ? 2 : 4;
+/* CHSL FREE PERIOD (Sep 2026): every CHSL mock is free while Tier 1 is being released.
+   To switch the CHSL pass on, set TG_CHSL_FREE_ALL to false (Mock 1-2 stay free). */
+const TG_CHSL_FREE_ALL = true;
+const TG_FREE_UP_TO  = TG_IS_CHSL ? (TG_CHSL_FREE_ALL ? 999 : 2) : 4;
 const TG_ENFORCE_FROM= TG_IS_CHSL ? null : '2026-08-25T00:00:00+05:30';   // null = enforce now
 const TG_BUY_URL     = TG_IS_CHSL ? 'ssc-chsl-mock-test.html' : 'ssc-cgl-mock-test.html';
 
