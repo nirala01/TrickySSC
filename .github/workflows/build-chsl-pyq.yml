@@ -28,7 +28,7 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Bake the paper list into ssc-chsl-pyq.html
+      - name: Bake the paper list into ssc-chsl-pyq.html and the nine subject-wise PYQ pages
         run: |
           python build_chsl_pyq_page.py \
             --page ssc-chsl-pyq.html \
@@ -38,7 +38,15 @@ jobs:
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add ssc-chsl-pyq.html sitemap-chsl-pyq.xml
+          # add only files that exist, so this also works before the subject pages are uploaded
+          for f in ssc-chsl-pyq.html sitemap-chsl-pyq.xml \
+            ssc-chsl-english-previous-year-questions.html ssc-chsl-reasoning-previous-year-questions.html \
+            ssc-chsl-quant-previous-year-questions.html ssc-chsl-gk-previous-year-questions.html \
+            ssc-chsl-tier-2-quant-previous-year-questions.html ssc-chsl-tier-2-reasoning-previous-year-questions.html \
+            ssc-chsl-tier-2-english-previous-year-questions.html ssc-chsl-tier-2-gk-previous-year-questions.html \
+            ssc-chsl-tier-2-computer-previous-year-questions.html; do
+            [ -f "$f" ] && git add "$f"
+          done
           if git diff --cached --quiet; then
             echo "No CHSL paper changes — nothing to commit."
             exit 0
