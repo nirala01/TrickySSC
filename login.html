@@ -402,6 +402,32 @@ async function saveUserProfile(user, extraPhone='', extraName='') {
 // If the profile write fails, we still let them in: they are authenticated, and
 // a missing profile row is recoverable, whereas a dead signup is not.
 async function checkGoogleUserInfo(user) {
+  /* TSSC-NONAME-V1 (2026-09-24) — a Google account with no display name used
+     to be saved as "Student". Ask for the name first, on the same Step 3 the
+     OTP flow uses; the profile is written only after they give it. */
+  const dn = String(user.displayName || '').trim();
+  if (!dn || dn === 'Student') {
+    let stored = '';
+    try { const sn = await getDoc(doc(db, 'users', user.uid)); stored = sn.exists() ? String((sn.data() || {}).name || '').trim() : ''; } catch (e) {}
+    if (!stored || stored === 'Student') {
+      window._pendingPhoneUser = user;
+      window._googleNameFlow = true;             // keeps _googleFlowActive on
+      const st = document.getElementById('step-name');
+      const heads = st.querySelectorAll('div[style*="text-align:center"] > div');
+      if (heads[1]) heads[1].textContent = 'Signed in with Google!';
+      if (heads[2]) heads[2].textContent = 'Your Google account has no name \u2014 just tell us your name';
+      switchTab('mobile');
+      document.getElementById('step-phone').style.display = 'none';
+      document.getElementById('step-otp').style.display = 'none';
+      st.style.display = 'block';
+      showMsg('google', '', '');
+      setTimeout(() => document.getElementById('otpName')?.focus(), 100);
+      return;
+    }
+    try { await updateProfile(user, { displayName: stored }); } catch (e) {}
+    goToDashboard(user);
+    return;
+  }
   try {
     await saveUserProfile(user);
   } catch (e) {
@@ -426,6 +452,7 @@ async function checkGoogleUserInfo(user) {
 function goToDashboard(user) {
   _otpFlowActive = false;
   window._googleFlowActive = false;
+  window._pendingPhoneUser = null;   // TSSC-NONAME-V1: name is saved, pagehide must not sign out
   if(user) {
     localStorage.setItem('tssc_user', JSON.stringify({
       uid: user.uid,
@@ -469,6 +496,14 @@ function safeReturn(n) {
 
 // ── TAB SWITCH ──
 window.switchTab = (tab) => {
+  /* TSSC-NAMELOCK-V1 — while the name step is open the tabs are frozen: the
+     account is already signed in, and the only way forward is a name. */
+  if (window._pendingPhoneUser && document.getElementById('step-name')?.style.display === 'block') {
+    const m = document.getElementById('msg-mobile');
+    m.className = 'msg-box msg-error'; m.textContent = '\u26A0\uFE0F Please enter your name to finish logging in.'; m.style.display = 'block';
+    document.getElementById('otpName')?.focus();
+    return;
+  }
   document.getElementById('section-google').style.display = tab==='google' ? 'block' : 'none';
   document.getElementById('section-mobile').style.display = tab==='mobile' ? 'block' : 'none';
   const tg = document.getElementById('tab-google');
@@ -600,6 +635,26 @@ window.completeMobileLogin = async () => {
   btn.disabled = true; btn.textContent = '⏳ Saving...';
   const user = window._pendingPhoneUser;
 
+  /* TSSC-NONAME-V1 — Google user finishing the name step: no phone check. */
+  if (window._googleNameFlow) {
+    try {
+      await setDoc(doc(db, 'users', user.uid), {
+        uid: user.uid, name, email: user.email || '', photoURL: user.photoURL || '',
+        loginMethod: 'google', createdAt: serverTimestamp(),
+        totalTests: 0, avgScore: 0, bestScore: 0,
+      }, { merge: true });
+      try { await updateProfile(user, { displayName: name }); } catch (e) {}
+      localStorage.setItem('tssc_user', JSON.stringify({ uid: user.uid, name,
+        phone: '', email: user.email || '', photoURL: user.photoURL || '', loginMethod: 'google' }));
+      window._googleNameFlow = false;
+      goToDashboard(user);
+    } catch (e) {
+      btn.disabled = false; btn.textContent = 'Start Learning →';
+      msgEl.className = 'msg-box msg-error'; msgEl.textContent = 'Error: ' + e.message; msgEl.style.display = 'block';
+    }
+    return;
+  }
+
   /* TSSC-PHONEUNIQ-V1 — this number may already belong to a Google account.
      Firebase gives phone logins a different uid, so letting this through would
      quietly create a second account: same person, same number, and any course
@@ -669,6 +724,14 @@ window.resetToPhone = () => {
   if(el) el.innerHTML = '';
   setTimeout(() => initRecaptcha(), 300);
 };
+
+/* TSSC-NONAME-V1 — leaving login.html while the name step is open would leave
+   a signed-in, nameless account behind. Best-effort sign-out on the way out. */
+window.addEventListener('pagehide', () => {
+  if (window._pendingPhoneUser && document.getElementById('step-name')?.style.display === 'block') {
+    try { signOut(auth); } catch (e) {}
+  }
+});
 
 window.doGoogleLogin = async () => {
   window._googleFlowActive = true; // prevent onAuthStateChanged from redirecting during modal

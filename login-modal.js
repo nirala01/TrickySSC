@@ -70,6 +70,7 @@ const CSS = `
 .tlm-brand-name{font-family:'Baloo 2','Rajdhani',sans-serif;font-weight:800;font-size:1.05rem;}
 .tlm-title{font-family:'Baloo 2','Rajdhani',sans-serif;font-size:1.35rem;font-weight:800;line-height:1.2;}
 .tlm-sub{font-size:.85rem;color:#64748B;margin-top:.15rem;}
+#tsscLoginModal.tlm-locked .tlm-close{display:none;} /* TSSC-NAMELOCK-V1 */
 .tlm-close{position:absolute;top:.8rem;right:.8rem;width:34px;height:34px;border:none;border-radius:50%;background:#F1F5F9;color:#64748B;
   font-size:1.15rem;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;}
 .tlm-close:hover{background:#E2E8F0;color:#1A202C;}
@@ -175,6 +176,7 @@ let pending = null;            // { resolve, next, reload }
 let confirmation = null;       // Firebase ConfirmationResult
 let otpPhone = '';             // '+91XXXXXXXXXX'
 let pendingUser = null;        // phone user waiting for a name
+let pendingGoogle = false;     // TSSC-NONAME-V1: Google user waiting for a name
 let verifier = null;           // RecaptchaVerifier
 let tab = 'google';
 let pendingPromise = null;
@@ -202,6 +204,16 @@ function msg(which, type, text){           // which: 'g' | 'm'
 }
 function step(name){
   ['Phone','Otp','Name'].forEach(s => $('tlmStep' + s).classList.toggle('on', s === name));
+  /* TSSC-NAMELOCK-V1 — on the Name step the popup cannot be dismissed:
+     no ×, no backdrop click, no Escape, no tab switch. The account is
+     already signed in at this point, so the only way out is a name. */
+  root.classList.toggle('tlm-locked', name === 'Name');
+}
+function nameLocked(){
+  if(!root || !root.classList.contains('tlm-locked')) return false;
+  msg('m', 'error', '\u26A0\uFE0F Please enter your name to finish logging in.');
+  const n = $('tlmName'); if(n){ n.focus(); }
+  return true;
 }
 function setTab(t){
   tab = t;
@@ -257,7 +269,9 @@ function resetForms(){
   $('tlmVerifyBtn').disabled = false; $('tlmVerifyBtn').textContent = 'Verify OTP →';
   $('tlmDoneBtn').disabled = false;  $('tlmDoneBtn').textContent = 'Start Learning →';
   $('tlmGBtn').disabled = false;     $('tlmGBtn').innerHTML = GOOGLE_SVG + ' Continue with Google';
-  confirmation = null; otpPhone = ''; pendingUser = null;
+  confirmation = null; otpPhone = ''; pendingUser = null; pendingGoogle = false;
+  root.classList.remove('tlm-locked');
+  try{ $('tlmStepName').querySelector('.t').textContent = 'Phone verified!'; $('tlmStepName').querySelector('.s').textContent = 'Just tell us your name'; }catch(_){}
   clearRecaptcha();
 }
 
@@ -291,6 +305,10 @@ function close(done){
   if(!root) return;
   root.classList.remove('tlm-show');
   document.documentElement.style.overflow = '';
+  /* TSSC-NONAME-V1 — closing the modal on the name step means the account
+     is signed in but nameless; sign it out so it can never roam as "Student".
+     The OTP / Google sign-in can simply be repeated. */
+  if(!done && pendingUser){ try{ signOut(auth); }catch(_){} }
   resetForms();
   if(!done && pending){ const p = pending; pending = null; p.resolve(null); }
 }
@@ -303,9 +321,28 @@ async function googleLogin(){
   msg('g');
   try{
     const result = await signInWithPopup(auth, gProvider);
-    try{ await saveGoogleProfile(result.user); }
+    /* TSSC-NONAME-V1 (2026-09-24) — a Google account with no display name used
+       to be saved as "Student". Ask for the name first, like the OTP flow. */
+    const u = result.user;
+    const dn = String(u.displayName || '').trim();
+    if(!dn || dn === 'Student'){
+      let stored = '';
+      try{ const sn = await getDoc(doc(db, 'users', u.uid)); stored = sn.exists() ? String((sn.data() || {}).name || '').trim() : ''; }catch(_){}
+      if(!stored || stored === 'Student'){
+        pendingUser = u; pendingGoogle = true;
+        $('tlmStepName').querySelector('.t').textContent = 'Signed in with Google!';
+        $('tlmStepName').querySelector('.s').textContent = 'Your Google account has no name \u2014 just tell us your name';
+        setTab('mobile'); step('Name'); msg('m');
+        setTimeout(() => $('tlmName')?.focus(), 100);
+        return;
+      }
+      try{ await updateProfile(u, { displayName: stored }); }catch(_){}
+      finish(u, 'google', { name: stored });
+      return;
+    }
+    try{ await saveGoogleProfile(u); }
     catch(e){ console.error('[login-modal] profile write failed, continuing:', e); }
-    finish(result.user, 'google');
+    finish(u, 'google');
   }catch(e){
     btn.disabled = false; btn.innerHTML = GOOGLE_SVG + ' Continue with Google';
     if(e.code === 'auth/popup-blocked') msg('g', 'error', '⚠️ Popup blocked. Please allow popups for trickyssc.com');
@@ -377,6 +414,24 @@ async function completeMobile(){
   if(!user){ msg('m', 'error', '⚠️ Session lost. Please request the OTP again.'); step('Phone'); return; }
   btn.disabled = true; btn.textContent = '⏳ Saving…';
 
+  /* TSSC-NONAME-V1 — Google user finishing the name step: no phone check. */
+  if(pendingGoogle){
+    try{
+      await setDoc(doc(db, 'users', user.uid), {
+        uid: user.uid, name, email: user.email || '', photoURL: user.photoURL || '',
+        loginMethod: 'google', createdAt: serverTimestamp(),
+        totalTests: 0, avgScore: 0, bestScore: 0,
+      }, { merge: true });
+      try{ await updateProfile(user, { displayName: name }); }catch(_){}
+      pendingGoogle = false; pendingUser = null;
+      finish(user, 'google', { name, email: user.email || '' });
+    }catch(e){
+      btn.disabled = false; btn.textContent = 'Start Learning →';
+      msg('m', 'error', 'Error: ' + e.message);
+    }
+    return;
+  }
+
   // One number, one account (TSSC-PHONEUNIQ-V1). Fail closed if the check can't run.
   try{
     const ten = normPhone(otpPhone || user.phoneNumber || '');
@@ -430,11 +485,11 @@ function mount(){
   root.id = 'tsscLoginModal'; root.innerHTML = HTML;
   document.body.appendChild(root);
 
-  $('tlmClose').onclick = () => close(false);
-  root.addEventListener('click', e => { if(e.target === root) close(false); });
-  document.addEventListener('keydown', e => { if(e.key === 'Escape' && root.classList.contains('tlm-show')) close(false); });
-  $('tlmTabG').onclick = () => setTab('google');
-  $('tlmTabM').onclick = () => setTab('mobile');
+  $('tlmClose').onclick = () => { if(!nameLocked()) close(false); };
+  root.addEventListener('click', e => { if(e.target === root && !nameLocked()) close(false); });
+  document.addEventListener('keydown', e => { if(e.key === 'Escape' && root.classList.contains('tlm-show') && !nameLocked()) close(false); });
+  $('tlmTabG').onclick = () => { if(!nameLocked()) setTab('google'); };
+  $('tlmTabM').onclick = () => { if(!nameLocked()) setTab('mobile'); };
   $('tlmGBtn').onclick = googleLogin;
   $('tlmSendBtn').onclick = sendOTP;
   $('tlmVerifyBtn').onclick = verifyOTP;
@@ -457,6 +512,7 @@ function mount(){
 function open(opts = {}){
   mount();
   if(pending) return pendingPromise;           // already open — reuse
+  if(root && root.classList.contains('tlm-locked')) return Promise.resolve(null); // TSSC-NAMELOCK-V1
   if(opts.title) $('tlmTitle').textContent = opts.title; else $('tlmTitle').textContent = 'Login to continue 👋';
   if(opts.sub)   $('tlmSub').textContent = opts.sub;     else $('tlmSub').textContent = "Sign in or create your free account — you'll stay right here.";
   resetForms(); setTab('google');
@@ -515,10 +571,10 @@ document.addEventListener('click', e => {
     const u = new URL(href, location.href);
     next = u.searchParams.get('next') || u.searchParams.get('return') || u.searchParams.get('redirect') || '';
   }catch(_){}
-  if(!next){
-    const rt = localStorage.getItem('loginReturnTo');   // old flow's stashed target
-    if(rt && !isCurrentPage(rt)) next = rt;
-  }
+  /* TSSC-STAYHERE-V1 (2026-09-24) — after login the student stays on the page
+     they are on. The old loginReturnTo stash is ignored (it could point at a
+     page visited earlier) and cleared. */
+  try{ localStorage.removeItem('loginReturnTo'); }catch(_){}
   handleLoginClick(next);
 }, true);
 
