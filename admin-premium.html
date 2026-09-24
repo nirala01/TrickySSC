@@ -44,6 +44,7 @@ font-family:'Rajdhani',sans-serif;letter-spacing:.02em;white-space:nowrap;}
 .p-test{background:#E0E7FF;color:#3730A3;} .p-live{background:#FCE7F3;color:#9D174D;}
 .p-soon{background:#FFEDD5;color:#C2410C;}
 .p-google{background:#DBEAFE;color:#1D4ED8;} .p-phone{background:#F3E8FF;color:#6B21A8;}
+.p-student{background:#FEE2E2;color:#B91C1C;} /* TSSC-STUDENTFLAG-V1 */
 .login-id{font-size:.72rem;color:#64748B;margin-top:.15rem;word-break:break-all;}
 .msg{padding:.6rem .85rem;border-radius:9px;font-size:.83rem;margin-bottom:.9rem;display:none;line-height:1.6;}
 .msg.err{background:#FEF2F2;border:1px solid #FECACA;color:#B91C1C;display:block;}
@@ -323,6 +324,26 @@ async function load(force) {
         expiresAt: until
       };
     });
+    /* TSSC-STUDENTFLAG-V1 (2026-09-24) — the name on a payment row is what the
+       buyer typed at checkout; the name they SEE on the site comes from
+       users/{uid}.name. Read that once per buyer and flag anyone whose profile
+       is missing a name or still holds the "Student" placeholder. */
+    try {
+      const uids = [...new Set(ROWS.map(r => r.uid).filter(Boolean))];
+      const prof = {};
+      await Promise.all(uids.map(async uid => {
+        try {
+          const u = (await getDoc(doc(db, 'users', uid))).data() || {};
+          prof[uid] = String(u.name || '').trim();
+        } catch (e) { prof[uid] = null; }             // unreadable: don't flag
+      }));
+      ROWS.forEach(r => {
+        const n = prof[r.uid];
+        r.profileName    = n || '';
+        r.profileStudent = n !== null && n !== undefined && (!n || n === 'Student');
+      });
+    } catch (e) { console.warn('users profile check skipped:', e.message); }
+
     /* TSSC-ADMINGRANT-V1 — checkout intents are a separate, small collection */
     try {
       const inSnap = await getDocs(collection(db, 'checkoutIntents'));
@@ -384,8 +405,12 @@ function afterLoad(cached) {
     say('No purchases yet. Once someone completes a payment they appear here ' +
         'within seconds.', 'warn');
   } else {
+    const stu = new Set(ROWS.filter(r => r.profileStudent).map(r => r.uid)).size;  /* TSSC-STUDENTFLAG-V1 */
     say(ROWS.length + ' purchase record' + (ROWS.length > 1 ? 's' : '') +
-        (cached ? ' (cached — hit ↻ Refresh for the latest)' : '') + '.', 'ok');
+        (cached ? ' (cached — hit ↻ Refresh for the latest)' : '') + '.' +
+        (stu ? ' <b>' + stu + ' buyer' + (stu > 1 ? 's' : '') +
+               ' still see' + (stu > 1 ? '' : 's') + ' “Student” as their name</b> — look for the red pill.' : ''),
+        stu ? 'warn' : 'ok');
   }
   render();
 }
@@ -444,6 +469,7 @@ function render() {
     return `<tr>
       <td data-l="Candidate">
         <div class="nm">${esc(r.name) || '—'}</div>
+        ${r.profileStudent ? '<span class="pill p-student" title="users/' + esc(r.uid) + '.name is empty or the placeholder — this buyer sees “Student” on the site">shows as “Student”</span>' : ''}
         ${r.email ? `<div class="em">${esc(r.email)}</div>` : ''}
         <div class="em mono">${esc(r.orderId)}</div>
       </td>
