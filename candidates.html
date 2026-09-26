@@ -317,6 +317,12 @@ body{font-family:'Noto Sans',sans-serif;background:var(--bg);color:var(--text);m
       <div class="stat-val orange" id="dashToday">—</div>
       <div class="stat-sub" id="dashTodaySub">—</div>
     </div>
+    <!-- TSSC-MOBILELOGIN-V1: candidates on a Mobile-OTP account who signed in today / this month (new + existing) -->
+    <div class="stat-card clickable" tabindex="0" onclick="showDrill('mobile')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();showDrill('mobile');}">
+      <div class="stat-label">📱 Mobile Logins Today</div>
+      <div class="stat-val green" id="mobileToday">—</div>
+      <div class="stat-sub" id="mobileTodaySub">—</div>
+    </div>
     <div class="stat-card clickable" tabindex="0" onclick="showDrill('pyq')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();showDrill('pyq');}">
       <div class="stat-label">PYQ Tests Today</div>
       <div class="stat-val orange" id="pyqToday">—</div>
@@ -454,13 +460,13 @@ function cacheUser(u){
 // Snapshot of the current report day, filled in by loadStats(). The drill-down
 // panels read from this so clicking a stat card never re-queries Firestore —
 // the numbers on the card and the names behind it always come from one load.
-let todayCtx = { attempts: [], activeUsers: [], newUsers: [], dashUsers: [], reportStart: null, reportEnd: null };
+let todayCtx = { attempts: [], activeUsers: [], newUsers: [], dashUsers: [], mobileUsers: [], reportStart: null, reportEnd: null };
 
 // uids (and doc ids) of candidates who SIGNED UP inside the current report window.
 // Every "N new" figure on the cards and in the drill-downs is a lookup in here.
 let newTodayIds = new Set();
 
-let drillKind = 'active';    // 'active' | 'pyq' | 'mock' | 'chapter' | 'new' | 'dashboard'
+let drillKind = 'active';    // 'active' | 'pyq' | 'mock' | 'chapter' | 'new' | 'dashboard' | 'mobile'
 let drillView = 'candidate'; // 'candidate' | 'test'
 
 // Every date on this dashboard is rendered in Indian Standard Time, regardless of
@@ -720,17 +726,31 @@ window.loadStats = async () => {
     const inYday = d => d && d>=ydayStart   && d<reportStart;               // previous 7 AM window ("yesterday")
     const _dLabel = dt => dt.toLocaleDateString('en-IN',{day:'numeric',month:'short',timeZone:IST_TZ});
 
-    // Seven small requests in place of two full-collection reads.
+    // TSSC-MOBILELOGIN-V1 — "this month" = 7 AM IST on the 1st of the report
+    // day's calendar month up to now, so "today" always sits inside "this month"
+    // (before 7 AM on the 1st the report day, and hence the month, is still the
+    // previous one).
+    const _istStart = new Date(_startMs + IST_MS);
+    const monthStart = new Date(Date.UTC(_istStart.getUTCFullYear(), _istStart.getUTCMonth(), 1, 7, 0, 0) - IST_MS);
+    const inMonth = d => d && d>=monthStart && d<reportEnd;
+    // Earliest date the user queries must reach: the month start, or yesterday's
+    // 7 AM on the 1st of a month (when yesterday belongs to the previous month).
+    const rangeStart = new Date(Math.min(monthStart.getTime(), ydayStart.getTime()));
+
+    // Seven small requests in place of two full-collection reads. The three user
+    // date queries reach back to the month start (they used to stop at today /
+    // yesterday) so the mobile-login card can count the whole month; every
+    // "today" figure below still filters client-side with inDay/inYday.
     // TSSC-DASHVISIT-V1 — dashboardLastOpened is stamped by dashboard.html on
     // every open; users who never opened it have no such field and are skipped
     // by the range filter, so the ">= epoch" count = everyone who ever opened it.
     const [uCount, aCount, activeSnap, joinSnap, attSnap, dashSnap, dashEverCount] = await Promise.all([
       getCountFromServer(usersCol),
       getCountFromServer(attCol),
-      getDocs(query(usersCol, where('lastActive','>=', reportStart))),
-      getDocs(query(usersCol, where('createdAt','>=', ydayStart))),
+      getDocs(query(usersCol, where('lastActive','>=', rangeStart))),
+      getDocs(query(usersCol, where('createdAt','>=', rangeStart))),
       getDocs(query(attCol,   where('timestamp','>=', reportStart))),
-      getDocs(query(usersCol, where('dashboardLastOpened','>=', reportStart))),
+      getDocs(query(usersCol, where('dashboardLastOpened','>=', rangeStart))),
       getCountFromServer(query(usersCol, where('dashboardLastOpened','>=', new Date(0))))
     ]);
 
@@ -781,6 +801,29 @@ window.loadStats = async () => {
     const isNew = id => !!id && newTodayIds.has(id);
     const newIn = set => [...set].filter(isNew).length;   // how many of a uid set joined today
 
+    // ── TSSC-MOBILELOGIN-V1: Mobile-OTP accounts that signed in today / this month ──
+    // The site keeps no login timestamp, so a "login" is inferred from the marks
+    // a signed-in candidate leaves: lastActive (dashboard visit with attempts),
+    // dashboardLastOpened (any dashboard open) or createdAt (signing up IS a
+    // login). Brand-new and existing candidates are both counted, each once.
+    // Someone who logs in and touches neither the dashboard nor a test leaves
+    // no mark and cannot be counted. Same Mobile/Google rule as the table below.
+    const isMobileAcct = u => !(u.loginMethod === 'google' || u.email);
+    const mobileSeen = new Map();   // id → user, every doc the three range queries returned
+    [activeSnap, joinSnap, dashSnap].forEach(snap => snap.forEach(d => {
+      const u = {id:d.id, ...d.data()};
+      cacheUser(u);
+      mobileSeen.set(u.uid || u.id, u);
+    }));
+    const mobileTodayList = [], mobileMonthList = [];
+    mobileSeen.forEach(u => {
+      if(!isMobileAcct(u)) return;
+      const whens = [u.lastActive, u.dashboardLastOpened, u.createdAt].map(_td);
+      if(whens.some(inDay))   mobileTodayList.push(u);
+      if(whens.some(inMonth)) mobileMonthList.push(u);
+    });
+    const mobileNewMonth = mobileMonthList.filter(u => inMonth(_td(u.createdAt))).length;
+
     // Tests given today (7 AM window), PYQ and Mock counted separately.
     // Primary number = unique candidates; sub-line = total attempts.
     const todaysAttempts = [];
@@ -809,7 +852,7 @@ window.loadStats = async () => {
     await resolveUsers(todaysAttempts.map(a => a.uid));
 
     // Hand the same numbers to the drill-down panels.
-    todayCtx = { attempts: todaysAttempts, activeUsers: activeUsersToday, newUsers: newUsersTodayList, dashUsers: dashUsersToday, reportStart, reportEnd };
+    todayCtx = { attempts: todaysAttempts, activeUsers: activeUsersToday, newUsers: newUsersTodayList, dashUsers: dashUsersToday, mobileUsers: mobileTodayList, reportStart, reportEnd };
     if(document.getElementById('drillModal').classList.contains('open')) renderDrill();
 
     // "N new" = of the candidates counted on this card, how many signed up today.
@@ -827,6 +870,12 @@ window.loadStats = async () => {
     document.getElementById('dashTodaySub').innerHTML = '<span class="nu">'+newDash+' new</span> · '
       + dashEver + ' ever opened it'
       + (totalUsersCount ? ' <span style="opacity:0.7;">(' + Math.round(dashEver*100/totalUsersCount) + '% of all)</span>' : '');
+    const newMobile = mobileTodayList.filter(u => isNew(u.uid || u.id)).length;
+    document.getElementById('mobileToday').textContent = mobileTodayList.length;
+    document.getElementById('mobileTodaySub').innerHTML = '<span class="nu">'+newMobile+' new</span> · '
+      + (mobileTodayList.length - newMobile) + ' existing'
+      + '<br><span style="color:var(--green);font-weight:600;">' + mobileMonthList.length + ' this month</span>'
+      + ' <span style="opacity:0.7;">(' + mobileNewMonth + ' new · ' + (mobileMonthList.length - mobileNewMonth) + ' existing · since 7 AM ' + _dLabel(monthStart) + ')</span>';
     document.getElementById('pyqToday').textContent = pyqUsersToday.size;
     document.getElementById('pyqTodaySub').innerHTML = subLine(pyqAttemptsToday, pyqUsersToday);
     document.getElementById('mockToday').textContent = mockUsersToday.size;
@@ -995,7 +1044,8 @@ window.filterTable = () => {
 // ── DRILL-DOWN: who is doing what today ─────────────────────────────────────
 const DRILL_TITLES = {
   active:'Active today', pyq:'PYQ tests today', mock:'Mock tests today',
-  chapter:'Chapter tests today', new:'New candidates today', dashboard:'Opened the dashboard today'
+  chapter:'Chapter tests today', new:'New candidates today', dashboard:'Opened the dashboard today',
+  mobile:'Mobile (OTP) logins today'
 };
 
 function dayLabel(dt){ return dt ? dt.toLocaleDateString('en-IN',{day:'numeric',month:'short',timeZone:IST_TZ}) : '—'; }
@@ -1013,6 +1063,12 @@ function drillAttempts(){
   if(drillKind === 'dashboard'){
     const seen = new Set();
     todayCtx.dashUsers.forEach(u => { seen.add(u.uid || u.id); });
+    return todayCtx.attempts.filter(a => seen.has(a.uid));
+  }
+  // Whatever today's mobile-OTP sign-ins went on to attempt.
+  if(drillKind === 'mobile'){
+    const seen = new Set();
+    todayCtx.mobileUsers.forEach(u => { seen.add(u.uid || u.id); });
     return todayCtx.attempts.filter(a => seen.has(a.uid));
   }
   // Scoped to the candidates the card counted, so the list totals never disagree
@@ -1088,6 +1144,8 @@ window.renderDrill = () => {
     if(drillKind === 'new') todayCtx.newUsers.forEach(u => { touch(u.uid || u.id).user = u; });
     // Dashboard visitors with no attempt today are the whole point of that card.
     if(drillKind === 'dashboard') todayCtx.dashUsers.forEach(u => { touch(u.uid || u.id).user = u; });
+    // Mobile sign-ins who did nothing after logging in are the point of that card too.
+    if(drillKind === 'mobile') todayCtx.mobileUsers.forEach(u => { touch(u.uid || u.id).user = u; });
     atts.forEach(a => touch(a.uid).attempts.push(a));
 
     let rows = [...groups.values()];
@@ -1124,13 +1182,14 @@ window.renderDrill = () => {
       const dash = u && u.dashboardLastOpened && u.dashboardLastOpened.toDate
         ? 'dashboard ' + timeLabel(u.dashboardLastOpened) + (u.dashboardOpens ? ' (' + u.dashboardOpens + '× total)' : '')
         : null;
-      const joined = (drillKind === 'new' && u && u.createdAt && u.createdAt.toDate) ? 'joined ' + timeLabel(u.createdAt) : null;
+      const joined = ((drillKind === 'new' || drillKind === 'mobile') && u && u.createdAt && u.createdAt.toDate) ? 'joined ' + timeLabel(u.createdAt) : null;
       const meta = [u && u.phone ? esc(u.phone) : null, u && u.email ? esc(u.email) : null, joined, 'last active ' + last, dash]
         .filter(Boolean).join(' · ');
       const nameHtml = u
         ? `<div class="drill-name" onclick="openCandidate('${u.id}')">${esc(candidateName(u))}${newTag(u)}</div>`
         : `<div class="drill-name" style="cursor:default;color:var(--muted);">${esc(candidateName(null))}</div>`;
       const idleText = drillKind === 'dashboard' ? 'Opened the dashboard — no test attempted in this window'
+                     : drillKind === 'mobile'    ? 'Mobile-OTP account seen today — no test attempted in this window'
                      : drillKind === 'new'       ? 'Joined today — has not attempted any test yet'
                      :                             'Signed in — no test attempted in this window';
       const items = g.attempts.length
@@ -1242,16 +1301,16 @@ window.exportDrill = () => {
 
   // For the new-users drill, the signups who took nothing are half the story —
   // put them in the sheet too, one row each with the test columns blank.
-  if(drillKind === 'new'){
+  if(drillKind === 'new' || drillKind === 'mobile'){
     const tested = new Set(drillAttempts().map(a => a.uid));
-    todayCtx.newUsers.forEach(u => {
+    (drillKind === 'new' ? todayCtx.newUsers : todayCtx.mobileUsers).forEach(u => {
       const uid = u.uid || u.id;
       if(tested.has(uid)) return;
       if(q){
         const hay = [u.name, u.displayName, u.phone, u.email].filter(Boolean).join(' ').toLowerCase();
         if(!hay.includes(q)) return;
       }
-      rows.push([candidateName(u), u.phone || '', u.email || '', 'Yes', '', '', 'NO TEST ATTEMPTED', '', '', '',
+      rows.push([candidateName(u), u.phone || '', u.email || '', newTodayIds.has(uid) ? 'Yes' : 'No', '', '', 'NO TEST ATTEMPTED', '', '', '',
         (u.createdAt && u.createdAt.toDate) ? 'joined ' + timeLabel(u.createdAt) : '']);
     });
   }
