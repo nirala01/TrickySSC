@@ -16,6 +16,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700;800&family=Baloo+2:wght@600;700;800&family=Hind:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script>document.documentElement.className+=" js";</script>
 <style>
   :root{
     --orange:#FF6B00; --orange2:#FF8C38;
@@ -140,6 +141,31 @@
   .sc.soon:hover{transform:none;box-shadow:var(--shadow);}
   .sc.soon:hover .sc-btn{transform:none;box-shadow:none;}
   .sc.soon:hover .sc-btn em{transform:none;}
+  /* ── LIVE STRIP — big, bold count of what is actually playable in the subject.
+     Painted by the script at the foot of the page from one Firestore count per
+     subject; the small status chip in .sc-facts is the no-JS fallback. ── */
+  html.js .sc-facts span.st{display:none;}
+  .sc-live{display:grid;grid-template-columns:repeat(3,1fr);gap:0.5rem;margin-bottom:0.85rem;padding:0.7rem 0.6rem;border-radius:14px;background:var(--csoft);border:1px solid rgba(0,0,0,0.04);}
+  .sc-stat{text-align:center;min-width:0;}
+  .sc-stat b{display:block;font-family:'Baloo 2',cursive;font-weight:800;font-size:1.9rem;line-height:1.05;letter-spacing:-0.5px;color:var(--c);font-variant-numeric:tabular-nums;}
+  .sc-stat span{display:block;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.74rem;text-transform:uppercase;letter-spacing:0.6px;color:var(--dim);margin-top:0.15rem;}
+  .sc-live.is-loading .sc-stat b{color:var(--muted);animation:liveBlink 1.1s ease-in-out infinite;}
+  @keyframes liveBlink{0%,100%{opacity:.35;}50%{opacity:.9;}}
+  .sc-live.live{border-color:rgba(0,168,107,.35);background:linear-gradient(135deg,rgba(0,168,107,.10),rgba(0,168,107,.04));}
+  .sc-live.live .sc-stat b{color:#00734A;}
+  .sc-live.live .sc-stat:first-child b::before{content:'';display:inline-block;width:9px;height:9px;border-radius:50%;background:#00A86B;margin:0 0.4rem 0.25rem 0;vertical-align:middle;box-shadow:0 0 0 3px rgba(0,168,107,.18);animation:stPulse 1.8s ease-in-out infinite;}
+  .sc-live.soon{grid-template-columns:1fr;border-color:rgba(245,158,11,.4);background:linear-gradient(135deg,rgba(245,158,11,.12),rgba(245,158,11,.04));}
+  .sc-live.soon .sc-stat b{color:#B45309;font-size:1.55rem;}
+  .sc-live.soon .sc-stat span{text-transform:none;letter-spacing:0;font-family:'Hind',sans-serif;font-weight:500;font-size:0.82rem;}
+  .sc-live.hide{display:none;}
+  .sc.soon a.sc-btn{cursor:pointer;}
+  .sc.soon a.sc-btn:hover{background:#E2E8F0;color:var(--dim);}
+  .pill-live{background:rgba(0,168,107,.18);border-color:rgba(0,168,107,.45);}
+  .pill-live b{font-size:0.95rem;}
+  @media(max-width:600px){
+    .sc-stat b{font-size:1.65rem;}
+    .sc-stat span{font-size:0.68rem;}
+  }
 
   /* ── TABLES ── */
   .tbl-wrap{overflow-x:auto;background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);}
@@ -259,10 +285,11 @@
       <h1>SSC CGL Chapter Wise Test 2026 — Subject Wise Free Practice</h1>
       <p>Pick a subject, open its chapter list, and practise 25 questions from a single chapter at a time — two difficulty levels, full solutions with shortcuts, in English or हिंदी.</p>
       <div class="pill-row">
+        <span class="pill pill-live" id="heroLive" hidden><b>–</b> chapters live · <b>–</b> tests live</span>
         <span class="pill"><b>4</b> Tier I subjects</span>
         <span class="pill"><b>100</b> chapters</span>
         <span class="pill"><b>15&ndash;20</b> tests / level</span>
-        <span class="pill"><b>50</b> questions / test</span>
+        <span class="pill"><b>25</b> questions / test</span>
         <span class="pill">🌐 English + हिंदी</span>
       </div>
     </div>
@@ -278,7 +305,7 @@
     <div class="tier-label"><span class="t">Tier I — 100 questions, 200 marks</span><span class="line"></span></div>
     <div class="subj-grid">
 
-      <article class="sc" style="--c:#00A86B;--c2:#00885A;--csoft:rgba(0,168,107,.10);--cshadow:rgba(0,168,107,.32);">
+      <article class="sc" data-subject="quant" style="--c:#00A86B;--c2:#00885A;--csoft:rgba(0,168,107,.10);--cshadow:rgba(0,168,107,.32);">
         <div class="sc-top">
           <div class="sc-ic" aria-hidden="true">🔢</div>
           <div>
@@ -286,12 +313,17 @@
             <div class="sc-sub">Maths · Tier I &amp; Tier II</div>
           </div>
         </div>
+        <div class="sc-live is-loading" aria-live="polite">
+          <div class="sc-stat"><b data-k="ch">–</b><span>chapters live</span></div>
+          <div class="sc-stat"><b data-k="tests">–</b><span>tests live</span></div>
+          <div class="sc-stat"><b data-k="q">–</b><span>questions</span></div>
+        </div>
         <div class="sc-facts"><span class="st st-live"><b>6</b> chapters live</span><span><b>34</b> chapters</span><span><b>25</b> Q in Tier I</span><span><b>30</b> Q in Tier II</span></div>
         <p class="sc-desc">Percentage, profit and loss, interest, ratio, average, time and work, speed and distance, algebra, trigonometry, geometry, mensuration and data interpretation — the section that decides most selections.</p>
-        <a class="sc-btn" href="https://trickyssc.com/ssc-cgl-quant-chapter-wise-test.html">Start Practicing Maths <em>&rarr;</em></a>
+        <a class="sc-btn" href="https://trickyssc.com/ssc-cgl-quant-chapter-wise-test.html" data-label="Start Practicing Maths">Start Practicing Maths <em>&rarr;</em></a>
       </article>
 
-      <article class="sc" style="--c:#8B5CF6;--c2:#7C3AED;--csoft:rgba(139,92,246,.10);--cshadow:rgba(139,92,246,.32);">
+      <article class="sc" data-subject="reasoning" style="--c:#8B5CF6;--c2:#7C3AED;--csoft:rgba(139,92,246,.10);--cshadow:rgba(139,92,246,.32);">
         <div class="sc-top">
           <div class="sc-ic" aria-hidden="true">🧠</div>
           <div>
@@ -299,12 +331,17 @@
             <div class="sc-sub">Verbal + Non-Verbal · Tier I &amp; Tier II</div>
           </div>
         </div>
+        <div class="sc-live is-loading" aria-live="polite">
+          <div class="sc-stat"><b data-k="ch">–</b><span>chapters live</span></div>
+          <div class="sc-stat"><b data-k="tests">–</b><span>tests live</span></div>
+          <div class="sc-stat"><b data-k="q">–</b><span>questions</span></div>
+        </div>
         <div class="sc-facts"><span class="st st-soon">Tests coming soon</span><span><b>32</b> chapters</span><span><b>25</b> Q in Tier I</span><span><b>30</b> Q in Tier II</span></div>
         <p class="sc-desc">Analogy, classification, series, coding-decoding, syllogism, blood relations and the full non-verbal set — paper folding, mirror image, embedded figures, dice and cube. The highest-accuracy section in the paper.</p>
-        <a class="sc-btn" href="https://trickyssc.com/ssc-cgl-reasoning-chapter-wise-test.html">Start Practicing Reasoning <em>&rarr;</em></a>
+        <a class="sc-btn" href="https://trickyssc.com/ssc-cgl-reasoning-chapter-wise-test.html" data-label="Start Practicing Reasoning">Start Practicing Reasoning <em>&rarr;</em></a>
       </article>
 
-      <article class="sc" style="--c:#0EA5E9;--c2:#0284C7;--csoft:rgba(14,165,233,.10);--cshadow:rgba(14,165,233,.32);">
+      <article class="sc" data-subject="english" style="--c:#0EA5E9;--c2:#0284C7;--csoft:rgba(14,165,233,.10);--cshadow:rgba(14,165,233,.32);">
         <div class="sc-top">
           <div class="sc-ic" aria-hidden="true">📖</div>
           <div>
@@ -312,12 +349,17 @@
             <div class="sc-sub">Grammar + Vocabulary · Tier I &amp; Tier II</div>
           </div>
         </div>
+        <div class="sc-live is-loading" aria-live="polite">
+          <div class="sc-stat"><b data-k="ch">–</b><span>chapters live</span></div>
+          <div class="sc-stat"><b data-k="tests">–</b><span>tests live</span></div>
+          <div class="sc-stat"><b data-k="q">–</b><span>questions</span></div>
+        </div>
         <div class="sc-facts"><span class="st st-soon">Tests coming soon</span><span><b>14</b> chapters</span><span><b>25</b> Q in Tier I</span><span><b>45</b> Q in Tier II</span></div>
         <p class="sc-desc">Spot the error, sentence improvement, voice and narration, para jumbles, synonyms, antonyms, idioms, one word substitution and cloze test — the fastest section to finish and the easiest to improve.</p>
-        <a class="sc-btn" href="https://trickyssc.com/ssc-cgl-english-chapter-wise-test.html">Start Practicing English <em>&rarr;</em></a>
+        <a class="sc-btn" href="https://trickyssc.com/ssc-cgl-english-chapter-wise-test.html" data-label="Start Practicing English">Start Practicing English <em>&rarr;</em></a>
       </article>
 
-      <article class="sc" style="--c:#F59E0B;--c2:#D97706;--csoft:rgba(245,158,11,.12);--cshadow:rgba(245,158,11,.34);">
+      <article class="sc" data-subject="gk" style="--c:#F59E0B;--c2:#D97706;--csoft:rgba(245,158,11,.12);--cshadow:rgba(245,158,11,.34);">
         <div class="sc-top">
           <div class="sc-ic" aria-hidden="true">🌍</div>
           <div>
@@ -325,9 +367,14 @@
             <div class="sc-sub">Static GK + Current Affairs · Tier I &amp; Tier II</div>
           </div>
         </div>
+        <div class="sc-live is-loading" aria-live="polite">
+          <div class="sc-stat"><b data-k="ch">–</b><span>chapters live</span></div>
+          <div class="sc-stat"><b data-k="tests">–</b><span>tests live</span></div>
+          <div class="sc-stat"><b data-k="q">–</b><span>questions</span></div>
+        </div>
         <div class="sc-facts"><span class="st st-soon">Tests coming soon</span><span><b>20</b> chapters</span><span><b>25</b> Q in Tier I</span><span><b>25</b> Q in Tier II</span></div>
         <p class="sc-desc">History, polity, geography, economics, physics, chemistry, biology, art and culture, seven separate static GK chapters and current affairs — the section that buys you time for maths.</p>
-        <a class="sc-btn" href="https://trickyssc.com/ssc-cgl-gk-chapter-wise-test.html">Start Practicing GK <em>&rarr;</em></a>
+        <a class="sc-btn" href="https://trickyssc.com/ssc-cgl-gk-chapter-wise-test.html" data-label="Start Practicing GK">Start Practicing GK <em>&rarr;</em></a>
       </article>
 
     </div>
@@ -538,6 +585,141 @@ onAuthStateChanged(auth, user=>{
     tsscPaintAccount(null);
   }
 });
+</script>
+
+<script>
+/* ══════════════════════════════════════════════════════════════════════
+   LIVE COUNTS PER SUBJECT  (chapters live · tests live · questions)
+   Same Firestore project and the same "one document per test has qNum == 1
+   in English" rule as the subject pages. Per subject:
+     • one COUNT aggregation  → tests live   (billed by index scan, ~1 read)
+     • one tiny query for testNum == 1 (chapterId only) → distinct chapter
+       ids = chapters live (one or two small documents per live chapter)
+   Cached in localStorage for six hours so repeat visits cost nothing.
+   Nothing here needs editing when a new chapter is uploaded — the numbers
+   go up on their own, and a subject flips from "Coming soon" to
+   "Start Practicing" the moment its first test lands.
+   ══════════════════════════════════════════════════════════════════════ */
+(function(){
+  var PROJECT='trickyssc-17bb3';
+  var KEY='AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA';
+  var EXAM='ssc-cgl', TTL_MS=6*60*60*1000, Q_PER_TEST=25;
+  var CACHE='tsscHubCounts:'+EXAM;
+  var BASE='https://firestore.googleapis.com/v1/projects/'+PROJECT+'/databases/(default)/documents';
+  var cards=[].slice.call(document.querySelectorAll('article.sc[data-subject]'));
+  if(!cards.length) return;
+
+  function eq(path,val){
+    var v=(typeof val==='number')?{integerValue:String(val)}:{stringValue:val};
+    return {fieldFilter:{field:{fieldPath:path},op:'EQUAL',value:v}};
+  }
+  function base(subj){ return [eq('exam',EXAM),eq('type','chapterwise'),eq('subject',subj),eq('language','en'),eq('qNum',1)]; }
+  function post(url,body){
+    return fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
+      .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); });
+  }
+  function countTests(subj){
+    return post(BASE+':runAggregationQuery?key='+KEY,{structuredAggregationQuery:{
+        structuredQuery:{from:[{collectionId:'questions'}],where:{compositeFilter:{op:'AND',filters:base(subj)}}},
+        aggregations:[{alias:'n',count:{}}]}})
+      .then(function(j){
+        var row=(j||[]).find(function(x){return x&&x.result;});
+        var f=row&&row.result&&row.result.aggregateFields;
+        return f?parseInt(f.n.integerValue,10):0;
+      });
+  }
+  function chapterIds(subj,tn){
+    return post(BASE+':runQuery?key='+KEY,{structuredQuery:{
+        from:[{collectionId:'questions'}],
+        select:{fields:[{fieldPath:'chapterId'}]},
+        where:{compositeFilter:{op:'AND',filters:base(subj).concat([eq('testNum',tn)])}}}})
+      .then(function(j){
+        var ids={};
+        (j||[]).forEach(function(x){
+          var f=x&&x.document&&x.document.fields;
+          var id=f&&f.chapterId&&f.chapterId.stringValue;
+          if(id) ids[id]=1;
+        });
+        return ids;
+      });
+  }
+  function countChapters(subj){
+    /* testNum is an integer on every current upload; older imports stored it
+       as a string, so fall back to that only when the integer form finds nothing */
+    return chapterIds(subj,1).then(function(ids){
+      if(Object.keys(ids).length) return Object.keys(ids).length;
+      return chapterIds(subj,'1').then(function(ids2){ return Object.keys(ids2).length; });
+    });
+  }
+  /* the uploader stores the form key (gk), the taxonomy calls it "ga" — if the
+     form key finds nothing, try the alias before declaring a subject empty */
+  var ALIAS={gk:['ga'],quant:['maths'],reasoning:['gi']};
+  function countSubject(subj){
+    return Promise.all([countTests(subj),countChapters(subj)]).then(function(r){
+      if(r[0]>0||!ALIAS[subj]) return {tests:r[0],ch:r[1]};
+      var alt=ALIAS[subj][0];
+      return Promise.all([countTests(alt),countChapters(alt)]).then(function(a){ return {tests:a[0],ch:a[1]}; });
+    });
+  }
+  function fmt(n){ try{ return n.toLocaleString('en-IN'); }catch(e){ return String(n); } }
+
+  function paintCard(card,d){
+    var strip=card.querySelector('.sc-live');
+    var chip=card.querySelector('.sc-facts .st');
+    var btn=card.querySelector('.sc-btn');
+    if(!strip) return;
+    if(!d){                                   // no data and no cache: keep the static chip
+      strip.className='sc-live hide';
+      if(chip) chip.style.display='inline-flex';
+      return;
+    }
+    if(chip) chip.style.display='';
+    var tests=d.tests||0, ch=d.ch||0;
+    if(tests>0){
+      strip.className='sc-live live';
+      strip.innerHTML=
+        '<div class="sc-stat"><b data-k="ch">'+ch+'</b><span>chapter'+(ch===1?'':'s')+' live</span></div>'+
+        '<div class="sc-stat"><b data-k="tests">'+fmt(tests)+'</b><span>test'+(tests===1?'':'s')+' live</span></div>'+
+        '<div class="sc-stat"><b data-k="q">'+fmt(tests*Q_PER_TEST)+'</b><span>questions</span></div>';
+      card.classList.remove('soon');
+      if(btn){ btn.innerHTML=(btn.getAttribute('data-label')||'Start Practicing')+' <em>&rarr;</em>'; }
+    }else{
+      strip.className='sc-live soon';
+      strip.innerHTML='<div class="sc-stat"><b>🕒 Tests coming soon</b>'+
+        '<span>Chapter tests for this subject are being written — they appear here the moment they go live.</span></div>';
+      card.classList.add('soon');
+      if(btn){ btn.innerHTML='Coming soon <em>&rarr;</em>'; }
+    }
+  }
+  function paintHero(map){
+    var pill=document.getElementById('heroLive'); if(!pill) return;
+    var ch=0,tests=0,any=false;
+    Object.keys(map).forEach(function(k){ var d=map[k]; if(!d) return; any=true; ch+=d.ch||0; tests+=d.tests||0; });
+    if(!any||!tests){ pill.hidden=true; return; }
+    pill.innerHTML='🟢 <b>'+ch+'</b> chapters live &middot; <b>'+fmt(tests)+'</b> tests live';
+    pill.hidden=false;
+  }
+  function paintAll(map){
+    cards.forEach(function(c){ paintCard(c, map[c.getAttribute('data-subject')]); });
+    paintHero(map);
+  }
+
+  var hit=null;
+  try{ var c=JSON.parse(localStorage.getItem(CACHE)||'null');
+       if(c&&(Date.now()-c.t)<TTL_MS&&c.n) hit=c.n; }catch(e){}
+  if(hit){ paintAll(hit); return; }
+
+  var out={}, failed=false;
+  Promise.all(cards.map(function(card){
+    var subj=card.getAttribute('data-subject');
+    return countSubject(subj)
+      .then(function(d){ out[subj]=d; },
+            function(){ failed=true; out[subj]=null; });
+  })).then(function(){
+    paintAll(out);
+    if(!failed){ try{ localStorage.setItem(CACHE,JSON.stringify({t:Date.now(),n:out})); }catch(e){} }
+  });
+})();
 </script>
 
 <div class="foot">
