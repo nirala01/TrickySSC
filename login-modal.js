@@ -33,9 +33,33 @@ import { initializeApp, getApps, getApp }
   from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getFirestore, doc, setDoc, getDoc, getDocs, collection, query, where, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-import { getAuth, signInWithPopup, GoogleAuthProvider, signInWithPhoneNumber,
-         RecaptchaVerifier, updateProfile, signOut, onAuthStateChanged }
+import { getAuth, signInWithPopup, GoogleAuthProvider, signInWithCustomToken,
+         updateProfile, signOut, onAuthStateChanged }
   from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+/* TSSC-OTP-V2 (2026-09-26) ───────────────────────────────────────────
+   Phone OTPs are now SENT by the trickyssc-otp Cloudflare Worker (Fast2SMS
+   DLT route, sender TRKSSC — live 2026-10-03) instead of Firebase's own SMS. Firebase Auth is still the
+   identity: the Worker signs a custom token for the SAME uid a number always
+   had, so profiles, attempts, premium status and Google login are untouched.
+   Only sendOTP() / verifyOTP() and the recaptcha helpers changed. Keep these
+   two constants identical to the ones in login.html. */
+const TSSC_OTP_API = 'https://trickyssc-otp.nirala01.workers.dev';   // live: TSSC-OTP-V2.2, Fast2SMS DLT (TRKSSC)
+const TSSC_TURNSTILE_SITEKEY = '';   // optional Cloudflare Turnstile site key (leave '' to disable)
+
+async function tsscOtpCall(path, payload){
+  let res, data;
+  try{
+    res = await fetch(TSSC_OTP_API + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    data = await res.json();
+  }catch(e){
+    throw Object.assign(new Error('⚠️ Could not reach the OTP service. Check your connection and try again.'), { code: 'network' });
+  }
+  if(!res.ok || !data || !data.ok){
+    throw Object.assign(new Error((data && data.message) || '⚠️ OTP service error. Please try again.'), { code: (data && data.error) || 'server_error' });
+  }
+  return data;
+}
 
 const FIREBASE_CONFIG = {
   apiKey:"AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",
@@ -177,7 +201,7 @@ let confirmation = null;       // Firebase ConfirmationResult
 let otpPhone = '';             // '+91XXXXXXXXXX'
 let pendingUser = null;        // phone user waiting for a name
 let pendingGoogle = false;     // TSSC-NONAME-V1: Google user waiting for a name
-let verifier = null;           // RecaptchaVerifier
+let verifier = null;           // Turnstile widget id (TSSC-OTP-V2), unused when no site key
 let tab = 'google';
 let pendingPromise = null;
 const $ = id => root.querySelector('#' + id);
@@ -250,16 +274,40 @@ async function saveGoogleProfile(user){
     });
   }
 }
+// TSSC-OTP-V2: Firebase's reCAPTCHA is gone with Firebase SMS. If a Cloudflare
+// Turnstile site key is set, an invisible widget renders into #tlm-recaptcha and
+// its token is sent with /send; with no key the Worker's rate limits are the
+// only bot defence (fine to start with).
 function initRecaptcha(){
-  if(verifier) return;
-  try{
-    verifier = new RecaptchaVerifier(auth, 'tlm-recaptcha', { size: 'invisible', callback: () => {} });
-  }catch(e){ console.warn('[login-modal] recaptcha init failed:', e.message); verifier = null; }
+  if(!TSSC_TURNSTILE_SITEKEY || verifier !== null) return;
+  const render = () => {
+    try{
+      const el = root && $('tlm-recaptcha'); if(!el || verifier !== null) return;
+      verifier = turnstile.render(el, { sitekey: TSSC_TURNSTILE_SITEKEY, size: 'invisible' });
+    }catch(e){ console.warn('[login-modal] turnstile init failed:', e.message); }
+  };
+  if(window.turnstile){ render(); return; }
+  let s = document.getElementById('cf-turnstile-js');
+  if(!s){
+    s = document.createElement('script'); s.id = 'cf-turnstile-js'; s.async = true; s.defer = true;
+    s.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+    document.head.appendChild(s);
+  }
+  s.addEventListener('load', render);
 }
 function clearRecaptcha(){
-  try{ verifier && verifier.clear(); }catch(_){}
-  verifier = null;
-  const el = root && $('tlm-recaptcha'); if(el) el.innerHTML = '';
+  try{ if(verifier !== null && window.turnstile) turnstile.reset(verifier); }catch(_){}
+}
+async function tsscTurnstileToken(){
+  if(!TSSC_TURNSTILE_SITEKEY || !window.turnstile || verifier === null) return '';
+  try{
+    turnstile.reset(verifier);
+    return await new Promise(resolve => {
+      let done = false; const finish = t => { if(!done){ done = true; resolve(t || ''); } };
+      turnstile.execute(verifier, { callback: finish, 'error-callback': () => finish('') });
+      setTimeout(() => finish(turnstile.getResponse(verifier) || ''), 8000);
+    });
+  }catch(_){ return ''; }
 }
 function resetForms(){
   msg('g'); msg('m');
@@ -357,9 +405,10 @@ async function sendOTP(){
   if(!phone){ msg('m', 'error', '⚠️ Enter valid 10-digit mobile number'); return; }
   btn.disabled = true; btn.textContent = '⏳ Sending OTP…'; msg('m');
   try{
+    /* TSSC-OTP-V2 — the Worker sends the SMS (Fast2SMS DLT route, sender TRKSSC). */
     initRecaptcha();
-    if(!verifier) throw new Error('reCAPTCHA could not start. Please reload and try again.');
-    confirmation = await signInWithPhoneNumber(auth, '+91' + phone, verifier);
+    const cf_token = await tsscTurnstileToken();
+    await tsscOtpCall('/send', { phone, cf_token });
     otpPhone = '+91' + phone;
     $('tlmSentTo').textContent = '+91 ' + phone;
     step('Otp');
@@ -367,10 +416,8 @@ async function sendOTP(){
     setTimeout(() => $('tlmCode')?.focus(), 100);
   }catch(e){
     btn.disabled = false; btn.textContent = 'Send OTP →';
-    if(e.code === 'auth/too-many-requests') msg('m', 'error', '⚠️ Too many attempts. Try after some time.');
-    else if(e.code === 'auth/invalid-phone-number') msg('m', 'error', '⚠️ Invalid phone number.');
-    else msg('m', 'error', 'Error: ' + e.message);
-    clearRecaptcha();
+    // The Worker already returns user-facing messages (cooldown, limits, SMS failure).
+    msg('m', 'error', e.message || '⚠️ Could not send OTP. Please try again.');
   }
 }
 
@@ -378,10 +425,14 @@ async function verifyOTP(){
   const code = $('tlmCode').value.trim();
   const btn = $('tlmVerifyBtn');
   if(code.length !== 6){ msg('m', 'error', '⚠️ Enter the 6-digit OTP'); return; }
-  if(!confirmation){ msg('m', 'error', '⚠️ Please request an OTP first.'); step('Phone'); return; }
+  if(!otpPhone){ msg('m', 'error', '⚠️ Please request an OTP first.'); step('Phone'); return; }
   btn.disabled = true; btn.textContent = '⏳ Verifying…';
   try{
-    const result = await confirmation.confirm(code);
+    /* TSSC-OTP-V2 — the Worker checks the code, looks up the Firebase account
+       for this number (same uid as always, or a new one for a new number) and
+       returns a custom token. From `user` onward nothing below has changed. */
+    const v = await tsscOtpCall('/verify', { phone: normPhone(otpPhone), otp: code });
+    const result = await signInWithCustomToken(auth, v.token);
     const user = result.user;
     let returning = false;
     try{
@@ -400,9 +451,9 @@ async function verifyOTP(){
     }
   }catch(e){
     btn.disabled = false; btn.textContent = 'Verify OTP →';
-    if(e.code === 'auth/invalid-verification-code') msg('m', 'error', '⚠️ Wrong OTP. Please check and try again.');
-    else if(e.code === 'auth/code-expired') msg('m', 'error', '⚠️ OTP expired. Please request a new one.');
-    else msg('m', 'error', 'Error: ' + e.message);
+    if(e.code === 'auth/invalid-custom-token' || e.code === 'auth/custom-token-mismatch')
+      msg('m', 'error', '⚠️ Sign-in could not be completed. Please request a new OTP.');
+    else msg('m', 'error', e.message || '⚠️ Verification failed. Please try again.');
   }
 }
 
@@ -470,8 +521,7 @@ function resendOTP(){
   step('Phone'); msg('m');
   $('tlmCode').value = '';
   $('tlmSendBtn').disabled = false; $('tlmSendBtn').textContent = 'Send OTP →';
-  clearRecaptcha();
-  setTimeout(initRecaptcha, 300);
+  clearRecaptcha();   // TSSC-OTP-V2: resets Turnstile if enabled; nothing to re-create
 }
 
 /* ───────────────────────── mount / open ───────────────────────── */

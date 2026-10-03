@@ -322,7 +322,7 @@ import { getFirestore, doc, setDoc, getDoc, getDocs, collection, query, where, s
 import {
   getAuth, signInWithPopup, GoogleAuthProvider,
   onAuthStateChanged,
-  signInWithPhoneNumber, RecaptchaVerifier, updateProfile, signOut
+  signInWithCustomToken, updateProfile, signOut
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 const app = initializeApp({
@@ -337,7 +337,33 @@ const db = getFirestore(app);
 const auth = getAuth(app);
 const gProvider = new GoogleAuthProvider();
 
-let confirmationResult = null;
+/* TSSC-OTP-V2 (2026-09-26) ───────────────────────────────────────────
+   Phone OTPs are now SENT by the trickyssc-otp Cloudflare Worker (Fast2SMS
+   DLT route, sender TRKSSC — live 2026-10-03) instead of Firebase's own SMS. Firebase Auth is still the
+   identity: the Worker signs a custom token for the SAME uid a number always
+   had, so profiles, attempts, premium status and Google login are untouched.
+   Only sendOTP() / verifyOTP() below changed; everything after "user" is the
+   same code as before. */
+const TSSC_OTP_API = 'https://trickyssc-otp.nirala01.workers.dev';   // live: TSSC-OTP-V2.2, Fast2SMS DLT (TRKSSC)
+const TSSC_TURNSTILE_SITEKEY = '';   // optional Cloudflare Turnstile site key (leave '' to disable)
+
+async function tsscOtpCall(path, payload) {
+  let res, data;
+  try {
+    res = await fetch(TSSC_OTP_API + path, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    data = await res.json();
+  } catch (e) {
+    throw Object.assign(new Error('⚠️ Could not reach the OTP service. Check your connection and try again.'), { code: 'network' });
+  }
+  if (!res.ok || !data || !data.ok) {
+    throw Object.assign(new Error((data && data.message) || '⚠️ OTP service error. Please try again.'), { code: (data && data.error) || 'server_error' });
+  }
+  return data;
+}
+
 let _otpFlowActive = false; // prevents auto-redirect during OTP flow
 
 // ── If already logged in → go to dashboard ──
@@ -519,16 +545,42 @@ window.switchTab = (tab) => {
   }
 };
 
-// ── RECAPTCHA INIT ──
+// ── BOT CHECK INIT (TSSC-OTP-V2) ──
+// Firebase's invisible reCAPTCHA is gone with Firebase SMS. If a Cloudflare
+// Turnstile site key is set, an invisible Turnstile widget renders into the
+// old #recaptcha-container and its token is sent with /send. With no key the
+// Worker's own rate limits are the only bot defence (fine to start with).
 function initRecaptcha() {
+  window._recaptchaReady = true;
+  if (!TSSC_TURNSTILE_SITEKEY) return;
+  const render = () => {
+    try {
+      const el = document.getElementById('recaptcha-container');
+      if (!el || el.dataset.tsRendered) return;
+      window._turnstileWidget = turnstile.render(el, { sitekey: TSSC_TURNSTILE_SITEKEY, size: 'invisible' });
+      el.dataset.tsRendered = '1';
+    } catch (e) { console.warn('Turnstile init failed:', e.message); }
+  };
+  if (window.turnstile) { render(); return; }
+  if (document.getElementById('cf-turnstile-js')) { document.getElementById('cf-turnstile-js').addEventListener('load', render); return; }
+  const s = document.createElement('script');
+  s.id = 'cf-turnstile-js'; s.async = true; s.defer = true;
+  s.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+  s.addEventListener('load', render);
+  document.head.appendChild(s);
+}
+async function tsscTurnstileToken() {
+  if (!TSSC_TURNSTILE_SITEKEY || !window.turnstile) return '';
   try {
-    if(window.recaptchaVerifier) return;
-    window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-      size: 'invisible',
-      callback: () => {}
+    if (window._turnstileWidget === undefined) initRecaptcha();
+    turnstile.reset(window._turnstileWidget);
+    return await new Promise((resolve) => {
+      let done = false;
+      const finish = (t) => { if (!done) { done = true; resolve(t || ''); } };
+      turnstile.execute(window._turnstileWidget, { callback: finish, 'error-callback': () => finish('') });
+      setTimeout(() => finish(turnstile.getResponse(window._turnstileWidget) || ''), 8000);
     });
-    window._recaptchaReady = true;
-  } catch(e) { console.warn('Recaptcha init failed:', e.message); }
+  } catch (e) { return ''; }
 }
 
 // ── SEND OTP ──
@@ -550,9 +602,10 @@ window.sendOTP = async () => {
   msgEl.style.display = 'none';
 
   try {
-    if(!window.recaptchaVerifier) initRecaptcha();
-    const result = await signInWithPhoneNumber(auth, '+91' + phone, window.recaptchaVerifier);
-    window._confirmationResult = result;
+    /* TSSC-OTP-V2 — the Worker sends the SMS (Fast2SMS DLT route, sender TRKSSC). */
+    if(!window._recaptchaReady) initRecaptcha();
+    const cf_token = await tsscTurnstileToken();
+    await tsscOtpCall('/send', { phone, cf_token });
     window._otpPhone = '+91' + phone;
     document.getElementById('otpSentTo').textContent = '+91 ' + phone;
     document.getElementById('step-phone').style.display = 'none';
@@ -561,11 +614,8 @@ window.sendOTP = async () => {
     setTimeout(() => document.getElementById('otpCode')?.focus(), 100);
   } catch(e) {
     btn.disabled = false; btn.textContent = 'Send OTP →';
-    if(e.code === 'auth/too-many-requests') showM('error', '⚠️ Too many attempts. Try after some time.');
-    else if(e.code === 'auth/invalid-phone-number') showM('error', '⚠️ Invalid phone number.');
-    else showM('error', 'Error: ' + e.message);
-    // Reset recaptcha on error
-    window.recaptchaVerifier = null; window._recaptchaReady = false;
+    // The Worker already returns user-facing messages (cooldown, limits, SMS failure).
+    showM('error', e.message || '⚠️ Could not send OTP. Please try again.');
   }
 };
 
@@ -585,7 +635,12 @@ window.verifyOTP = async () => {
   btn.disabled = true; btn.textContent = '⏳ Verifying...';
 
   try {
-    const result = await window._confirmationResult.confirm(code);
+    /* TSSC-OTP-V2 — the Worker checks the code, looks up the
+       Firebase account for this number (same uid as always, or a new one for
+       a new number) and returns a custom token. From `user` onward nothing
+       below has changed. */
+    const v = await tsscOtpCall('/verify', { phone: tsscNormPhone(window._otpPhone), otp: code });
+    const result = await signInWithCustomToken(auth, v.token);
     const user = result.user;
 
     // Check if returning user — separate try/catch so Firestore errors don't block name step
@@ -618,9 +673,9 @@ window.verifyOTP = async () => {
     }
   } catch(e) {
     btn.disabled = false; btn.textContent = 'Verify OTP →';
-    if(e.code === 'auth/invalid-verification-code') showM('error', '⚠️ Wrong OTP. Please check and try again.');
-    else if(e.code === 'auth/code-expired') showM('error', '⚠️ OTP expired. Please request a new one.');
-    else showM('error', 'Error: ' + e.message);
+    if(e.code === 'auth/invalid-custom-token' || e.code === 'auth/custom-token-mismatch')
+      showM('error', '⚠️ Sign-in could not be completed. Please request a new OTP.');
+    else showM('error', e.message || '⚠️ Verification failed. Please try again.');
   }
 };
 
@@ -711,18 +766,8 @@ window.resetToPhone = () => {
   document.getElementById('sendOtpBtn').disabled = false;
   document.getElementById('sendOtpBtn').textContent = 'Send OTP →';
   document.getElementById('msg-mobile').style.display = 'none';
-  // Properly clear recaptcha widget before reinit
-  try {
-    if(window.recaptchaVerifier) {
-      window.recaptchaVerifier.clear();
-      window.recaptchaVerifier = null;
-    }
-  } catch(e) {}
-  window._recaptchaReady = false;
-  // Clear and recreate the container so Firebase doesn't complain
-  const el = document.getElementById('recaptcha-container');
-  if(el) el.innerHTML = '';
-  setTimeout(() => initRecaptcha(), 300);
+  // TSSC-OTP-V2 — no Firebase recaptcha to tear down any more; the
+  // Turnstile widget (if enabled) is reset inside tsscTurnstileToken().
 };
 
 /* TSSC-NONAME-V1 — leaving login.html while the name step is open would leave
