@@ -388,17 +388,8 @@ function tsscNormPhone(v) {
   return d.length === 10 ? d : '';
 }
 
-async function tsscPhoneOwner(tenDigits, exceptUid) {
-  // Numbers were written as '+91XXXXXXXXXX' historically; a few older rows may
-  // hold the bare ten digits, so both shapes are checked.
-  for (const form of ['+91' + tenDigits, tenDigits]) {
-    const snap = await getDocs(query(collection(db, 'users'), where('phone', '==', form)));
-    for (const d of snap.docs) {
-      if (d.id !== exceptUid) return { uid: d.id, data: d.data() || {} };
-    }
-  }
-  return null;
-}
+/* tsscPhoneOwner() removed 2026-10-03 (TSSC-PHONEUNIQ-V2): the uniqueness
+   check lives in the trickyssc-otp Worker now — see /verify there. */
 
 async function saveUserProfile(user, extraPhone='', extraName='') {
   const ref = doc(db, 'users', user.uid);
@@ -710,31 +701,11 @@ window.completeMobileLogin = async () => {
     return;
   }
 
-  /* TSSC-PHONEUNIQ-V1 — this number may already belong to a Google account.
-     Firebase gives phone logins a different uid, so letting this through would
-     quietly create a second account: same person, same number, and any course
-     they paid for sitting in the other one. Send them to the right door. */
-  try {
-    const ten = tsscNormPhone(window._otpPhone || user.phoneNumber || '');
-    const owner = ten ? await tsscPhoneOwner(ten, user.uid) : null;
-    if(owner){
-      msgEl.className='msg-box msg-error'; msgEl.style.display='block';
-      msgEl.innerHTML='This mobile number is already registered with a '
-        + '<b>Google login</b>. Please go back and sign in with Google to reach '
-        + 'that account — everything you have, including any course you bought, '
-        + 'is there.';
-      btn.disabled = false; btn.textContent = 'Start Learning →';
-      try { await signOut(auth); } catch(_) {}
-      return;
-    }
-  } catch(e) {
-    console.error('[otp] phone uniqueness check failed:', e);
-    msgEl.className='msg-box msg-error'; msgEl.style.display='block';
-    msgEl.textContent='Could not verify your number just now. Please check your '
-      + 'connection and try again.';
-    btn.disabled = false; btn.textContent = 'Start Learning →';
-    return;
-  }
+  /* TSSC-PHONEUNIQ-V2 — the "does a Google account already own this number?"
+     check now runs INSIDE the Worker's /verify, before any account is created
+     or signed in (it answers 409 phone_taken, which verifyOTP shows). The old
+     client-side query on `users` could never pass the owner-only Firestore
+     rules, so it failed for every phone login. Nothing to do here any more. */
 
   try {
     await setDoc(doc(db, 'users', user.uid), {

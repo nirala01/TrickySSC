@@ -255,13 +255,8 @@ function normPhone(v){
 }
 /* TSSC-PHONEUNIQ-V1 — same rule as login.html: one number, one account.
    Throws on failure so callers fail CLOSED. */
-async function phoneOwner(ten, exceptUid){
-  for(const form of ['+91' + ten, ten]){
-    const snap = await getDocs(query(collection(db, 'users'), where('phone', '==', form)));
-    for(const d of snap.docs) if(d.id !== exceptUid) return { uid: d.id, data: d.data() || {} };
-  }
-  return null;
-}
+/* phoneOwner() removed 2026-10-03 (TSSC-PHONEUNIQ-V2): the check lives in the
+   trickyssc-otp Worker's /verify now. */
 async function saveGoogleProfile(user){
   const ref = doc(db, 'users', user.uid);
   const snap = await getDoc(ref);
@@ -483,25 +478,9 @@ async function completeMobile(){
     return;
   }
 
-  // One number, one account (TSSC-PHONEUNIQ-V1). Fail closed if the check can't run.
-  try{
-    const ten = normPhone(otpPhone || user.phoneNumber || '');
-    const owner = ten ? await phoneOwner(ten, user.uid) : null;
-    if(owner){
-      msg('m', 'error', 'This mobile number is already registered with a <b>Google login</b>. '
-        + 'Please switch to the Google tab and sign in there — everything you have, '
-        + 'including any course you bought, is in that account.');
-      btn.disabled = false; btn.textContent = 'Start Learning →';
-      try{ await signOut(auth); }catch(_){}
-      pendingUser = null;
-      return;
-    }
-  }catch(e){
-    console.error('[login-modal] phone uniqueness check failed:', e);
-    msg('m', 'error', 'Could not verify your number just now. Please check your connection and try again.');
-    btn.disabled = false; btn.textContent = 'Start Learning →';
-    return;
-  }
+  // TSSC-PHONEUNIQ-V2: one-number-one-account is enforced by the Worker's
+  // /verify now (409 phone_taken, surfaced by verifyOTP). The old client query
+  // on `users` could never pass the owner-only rules. Nothing to do here.
 
   try{
     await setDoc(doc(db, 'users', user.uid), {
