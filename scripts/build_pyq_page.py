@@ -158,8 +158,9 @@ MOCK_PROMO = r"""
       </div>
       <div class="tsscMP-band">Real Sectional Timing &mdash; Just Like The Exam</div>
       <div class="tsscMP-price">
-        <span class="tsscMP-was">&#8377;199</span><span class="tsscMP-now">&#8377;49</span>for a full year
+        <span class="tsscMP-was">&#8377;199</span><span class="tsscMP-now" data-lp>&#8377;99</span>for a full year
       </div>
+      <div data-lp-note="popup" hidden></div>
       <a class="tsscMP-go" href="https://trickyssc.com/ssc-cgl-mock-test">&#128640; START NOW</a>
       <p class="tsscMP-free">Mocks 1&ndash;4 free &mdash; no payment needed</p>
     </div>
@@ -194,6 +195,7 @@ MOCK_PROMO = r"""
   });
 })();
 </script>
+<script src="/tssc-launch-price.js" async></script>
 <!-- TSSC:MOCK-PROMO:END -->
 """
 
@@ -592,7 +594,7 @@ def render(ordered):
       <h2 style="font-family:'Rajdhani',sans-serif;font-weight:800;font-size:1.25rem;color:#1A202C;margin:0 0 0.8rem;display:flex;align-items:center;gap:0.5rem;"><span style="display:inline-block;width:3px;height:18px;background:linear-gradient(180deg,#FF6B00,#FF8C38);border-radius:2px;"></span>What is SSC CGL?</h2>
       <p style="color:#4A5568;margin:0 0 0.7rem;font-size:0.9rem;line-height:1.6;">SSC CGL (Staff Selection Commission Combined Graduate Level Examination) is one of India's most prestigious government recruitment examinations. Conducted annually by the Staff Selection Commission (SSC), the exam recruits candidates for various Group B and Group C posts in central government ministries, departments, constitutional bodies, and organizations.</p>
       <p style="color:#4A5568;margin:0 0 0.7rem;font-size:0.9rem;line-height:1.6;">Through SSC CGL, candidates can secure highly sought-after posts such as Income Tax Inspector, Assistant Section Officer (ASO), Examiner, Preventive Officer, Central Excise Inspector, Auditor, Accountant, Tax Assistant, Divisional Accountant, and several other government positions. Due to excellent career growth, job security, government benefits, and attractive salary packages, SSC CGL attracts lakhs of aspirants every year.</p>
-      <p style="color:#4A5568;margin:0;font-size:0.9rem;line-height:1.6;">Success in SSC CGL requires strong conceptual understanding, speed, accuracy, and continuous practice through previous year papers and mock tests. TrickySSC helps aspirants prepare effectively through SSC CGL Previous Year Papers, <a href="{SITE}/mock-list.html?exam=ssc-cgl" style="color:#FF6B00;font-weight:600;">online mock tests</a>, chapter-wise practice tests, detailed solutions, and exam-oriented resources.</p>
+      <p style="color:#4A5568;margin:0;font-size:0.9rem;line-height:1.6;">Success in SSC CGL requires strong conceptual understanding, speed, accuracy, and continuous practice through previous year papers and mock tests. TrickySSC helps aspirants prepare effectively through SSC CGL Previous Year Papers, <a href="{SITE}/ssc-cgl-mock-test" style="color:#FF6B00;font-weight:600;">online mock tests</a>, chapter-wise practice tests, detailed solutions, and exam-oriented resources.</p>
     </div>
 
     <div style="margin-top:2rem;">
