@@ -55,7 +55,9 @@
     },
     products: [
       { id: 'p-ssc-cgl-mocks', label: 'SSC CGL Mock Test Series', exam: 'ssc-cgl',
-        grants: ['ssc-cgl-mocks'], price: 49, mrp: 199, durationDays: 365,
+        grants: ['ssc-cgl-mocks'],
+        price: (Date.now() < Date.parse('2026-10-11T00:00:00+05:30') ? 49 : 99),   /* TSSC-LAUNCHPRICE-V1 */
+        mrp: 199, durationDays: 365,
         live: true, order: 1,
         blurb: 'All 50 Tier I + all 50 Tier II mocks, including every mock released during the year.' }
     ]
