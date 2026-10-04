@@ -1,21 +1,35 @@
 /* ============================================================================
-   tssc-telegram.js  —  TSSC-TGJOIN-V3 (phone and tablet layouts; whole card is the link)
+   tssc-telegram.js  —  TSSC-TGJOIN-V4 (floating corner button)
 
-   Draws the "Join us on Telegram" card wherever a page has
+   Shows a small "Join us on Telegram" button fixed to the bottom-left corner of
+   the screen, on phones, tablets and computers. A soft ring pulses round the
+   icon to catch the eye. It appears on every page that loads this file.
 
-       <div data-tg-join="home | ca | pyq"> … </div>
+     x            shrinks it to just the round icon for the rest of the visit
+     a tap on it  opens the channel, and the button then stays away for 14 days
 
-   The plain link inside that div is what shows if this script does not load.
-   To change the channel or the wording, edit the SETTINGS below — one place
-   for every page.
+   The in-page cards (<div data-tg-join="…">) are hidden while INLINE_CARDS is
+   false. Set it to true to show them again as well.
 
-   No network call, no storage, no Firestore read.
+   To change the channel, the wording or the corner, edit SETTINGS below — one
+   place for every page.
+
+   No network call, no Firestore read. Storage: one sessionStorage flag (shrunk)
+   and one localStorage timestamp (tapped).
 ============================================================================ */
 (function () {
   'use strict';
 
   /* ---- SETTINGS ---------------------------------------------------------- */
-  var CHANNEL = 'trickyssc';                        // t.me/<CHANNEL>
+  var CHANNEL      = 'trickyssc';                   // t.me/<CHANNEL>
+  var FLOATING     = true;                          // the corner button
+  var INLINE_CARDS = false;                         // the cards inside the page
+  var CORNER       = 'left';                        // 'left' or 'right' (back-to-top sits on the right)
+  var FLOAT_TITLE  = 'Join us on Telegram';
+  var FLOAT_TITLE_PHONE = 'Join Telegram';
+  var FLOAT_SUB    = 'Daily quiz, PYQ and tricks. Free.';
+  var SHOW_AFTER_MS = 1200;                         // wait this long after the page opens
+  var QUIET_DAYS    = 14;                           // after a tap, stay away this many days
   /* each: [ title, line shown on tablets and computers, shorter line shown on phones ] */
   var TEXT = {
     home: ['Daily SSC practice on Telegram',
@@ -116,14 +130,123 @@
     slot.appendChild(card);
   }
 
+  /* ------------------------------------------------------------ corner button */
+  var FCSS =
+    '.tgf{position:fixed;' + (CORNER === 'right' ? 'right' : 'left') + ':16px;' +
+      'bottom:calc(16px + env(safe-area-inset-bottom, 0px));z-index:990;' +
+      "font-family:'Rajdhani',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;" +
+      'opacity:0;transform:translateY(18px);transition:opacity .35s ease,transform .35s ease;pointer-events:none;}' +
+    '.tgf.on{opacity:1;transform:none;pointer-events:auto;}' +
+    '.tgf-a{position:relative;display:flex;align-items:center;gap:.6rem;background:#fff;border:1px solid #BAE6FD;' +
+      'border-radius:999px;padding:6px 18px 6px 6px;box-shadow:0 8px 24px rgba(13,27,42,.20);' +
+      'text-decoration:none !important;color:#0D1B2A;-webkit-tap-highlight-color:transparent;' +
+      'animation:tgfNudge 7s ease-in-out 4s infinite;}' +
+    '.tgf-a *{text-decoration:none !important;}' +
+    '.tgf-a:hover{border-color:#229ED9;}' +
+    '.tgf-a:focus-visible,.tgf-x:focus-visible{outline:3px solid #0D1B2A;outline-offset:2px;}' +
+    '.tgf-ic{position:relative;flex:0 0 44px;width:44px;height:44px;border-radius:50%;background:#229ED9;' +
+      'display:flex;align-items:center;justify-content:center;}' +
+    '.tgf-ic svg{position:relative;z-index:1;width:22px;height:22px;fill:#fff;display:block;}' +
+    /* the pulse: two rings that grow and fade, one second apart */
+    ".tgf-ic:before,.tgf-ic:after{content:'';position:absolute;top:0;right:0;bottom:0;left:0;border-radius:50%;" +
+      'border:2px solid #229ED9;opacity:0;animation:tgfPing 2.2s cubic-bezier(0,0,.2,1) infinite;pointer-events:none;}' +
+    '.tgf-ic:after{animation-delay:1.1s;}' +
+    '.tgf-tx{position:relative;z-index:1;display:flex;flex-direction:column;line-height:1.15;}' +
+    '.tgf-t{font-weight:700;font-size:1.02rem;color:#0D1B2A;white-space:nowrap;}' +
+    '.tgf-tp{display:none;}' +
+    '.tgf-s{font-weight:600;font-size:.82rem;color:#4A5568;white-space:nowrap;margin-top:1px;}' +
+    '.tgf-x{position:absolute;top:-9px;' + (CORNER === 'right' ? 'left' : 'right') + ':-6px;width:24px;height:24px;' +
+      'border-radius:50%;border:2px solid #fff;padding:0;background:#0D1B2A;color:#fff;font:700 14px/1 Arial,sans-serif;' +
+      'cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.25);}' +
+    /* a bigger invisible target round the small x, for thumbs */
+    ".tgf-x:after{content:'';position:absolute;top:-10px;right:-10px;bottom:-10px;left:-10px;}" +
+    /* shrunk: just the round icon */
+    '.tgf.min .tgf-tx,.tgf.min .tgf-x{display:none;}' +
+    '.tgf.min .tgf-a{padding:6px;animation:none;}' +
+    '@keyframes tgfPing{0%{transform:scale(1);opacity:.7;}75%,100%{transform:scale(1.85);opacity:0;}}' +
+    '@keyframes tgfNudge{0%,88%,100%{transform:translateY(0);}92%{transform:translateY(-6px);}' +
+      '95%{transform:translateY(0);}97.5%{transform:translateY(-3px);}}' +
+    '@media(max-width:520px){' +
+      '.tgf{' + (CORNER === 'right' ? 'right' : 'left') + ':12px;bottom:calc(12px + env(safe-area-inset-bottom, 0px));}' +
+      '.tgf-a{padding:5px 15px 5px 5px;gap:.5rem;}' +
+      '.tgf-ic{flex-basis:42px;width:42px;height:42px;}' +
+      '.tgf-td,.tgf-s{display:none;}' +
+      '.tgf-tp{display:inline;}' +
+      '.tgf.min .tgf-a{padding:5px;}' +
+    '}' +
+    '@media(prefers-reduced-motion:reduce){.tgf,.tgf-a,.tgf-ic:before,.tgf-ic:after{animation:none !important;transition:none !important;}}' +
+    '@media print{.tgf{display:none !important;}}';
+
+  function quiet() {
+    try {
+      var t = parseInt(localStorage.getItem('tsscTgTapped') || '0', 10);
+      return t > 0 && (Date.now() - t) < QUIET_DAYS * 86400000;
+    } catch (e) { return false; }
+  }
+  function shrunk() { try { return sessionStorage.getItem('tsscTgMin') === '1'; } catch (e) { return false; } }
+
+  function floatButton() {
+    if (!FLOATING || document.getElementById('tsscTgFloat') || quiet() || !document.body) return;
+    var st = document.createElement('style');
+    st.id = 'tsscTgFloatCSS'; st.textContent = FCSS;
+    (document.head || document.documentElement).appendChild(st);
+
+    var wrap = el('div', 'tgf' + (shrunk() ? ' min' : ''));
+    wrap.id = 'tsscTgFloat';
+
+    var a = el('a', 'tgf-a');
+    a.href = URL; a.target = '_blank'; a.rel = 'noopener';
+    a.setAttribute('aria-label', FLOAT_TITLE + '. ' + FLOAT_SUB);
+
+    var ic = el('span', 'tgf-ic');
+    var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('aria-hidden', 'true');
+    var p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    p.setAttribute('d', PLANE);
+    svg.appendChild(p); ic.appendChild(svg);
+
+    var tx = el('span', 'tgf-tx');
+    var t = el('span', 'tgf-t');
+    t.appendChild(el('span', 'tgf-td', FLOAT_TITLE));          // tablets and computers
+    t.appendChild(el('span', 'tgf-tp', FLOAT_TITLE_PHONE));    // phones
+    tx.appendChild(t);
+    tx.appendChild(el('span', 'tgf-s', FLOAT_SUB));
+    a.appendChild(ic); a.appendChild(tx);
+
+    var x = el('button', 'tgf-x', '\u00D7');
+    x.type = 'button';
+    x.setAttribute('aria-label', 'Make this smaller');
+
+    a.addEventListener('click', function () {
+      try { localStorage.setItem('tsscTgTapped', String(Date.now())); } catch (e) {}
+      try { if (typeof window.gtag === 'function') window.gtag('event', 'telegram_join_click', { place: 'float' }); } catch (e) {}
+      setTimeout(function () { if (wrap.parentNode) wrap.parentNode.removeChild(wrap); }, 400);
+    });
+    x.addEventListener('click', function (e) {
+      e.preventDefault(); e.stopPropagation();
+      wrap.className = 'tgf on min';
+      try { sessionStorage.setItem('tsscTgMin', '1'); } catch (err) {}
+    });
+
+    wrap.appendChild(a); wrap.appendChild(x);
+    document.body.appendChild(wrap);
+    setTimeout(function () { wrap.className += ' on'; }, SHOW_AFTER_MS);
+  }
+
   function run() {
-    if (!document.getElementById('tsscTgJoinCSS')) {
-      var st = document.createElement('style');
-      st.id = 'tsscTgJoinCSS'; st.textContent = CSS;
-      (document.head || document.documentElement).appendChild(st);
-    }
     var slots = document.querySelectorAll('[data-tg-join]');
-    for (var i = 0; i < slots.length; i++) draw(slots[i]);
+    if (INLINE_CARDS) {
+      if (!document.getElementById('tsscTgJoinCSS')) {
+        var st = document.createElement('style');
+        st.id = 'tsscTgJoinCSS'; st.textContent = CSS;
+        (document.head || document.documentElement).appendChild(st);
+      }
+      for (var i = 0; i < slots.length; i++) draw(slots[i]);
+    } else {
+      for (var j = 0; j < slots.length; j++) slots[j].style.display = 'none';
+    }
+    floatButton();
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run);
