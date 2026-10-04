@@ -4,6 +4,10 @@ name: Fetch Current Affairs
 # Needs one repo secret: GEMINI_API_KEY (Settings → Secrets and variables → Actions).
 # Optional repo variable GEMINI_MODEL pins a model (otherwise the newest Flash on the key is used).
 # A day that already has a page (e.g. one you wrote by hand) is never overwritten.
+#
+# TSSC-TELEGRAM-V1: when a NEW day's page is built, its "Today at a glance" lines are also
+# posted to the Telegram channel. Needs two more repo secrets, TELEGRAM_BOT_TOKEN and
+# TELEGRAM_CHAT_ID. Without them that step does nothing. A Telegram failure never blocks the page.
 
 on:
   schedule:
@@ -47,6 +51,15 @@ jobs:
           FORCE: ${{ github.event.inputs.force }}
         run: node fetch-ca.js
 
+      # A page that did not exist before this run shows up as an untracked file.
+      # The backup run and forced rebuilds find nothing new, so nothing is posted twice.
+      - name: Note whether a new page was built
+        id: newpage
+        run: |
+          f=$(git status --porcelain -- ca-archive/ | grep -E '^\?\? ca-archive/[0-9]{2}-[0-9]{2}-[0-9]{4}\.html$' | head -n 1 | sed 's|^?? ca-archive/||' || true)
+          echo "file=$f" >> "$GITHUB_OUTPUT"
+          echo "New page: ${f:-none}"
+
       - name: Commit and push
         run: |
           git config --local user.email "action@github.com"
@@ -59,3 +72,14 @@ jobs:
             sleep 5
           done
           exit 1
+
+      - name: Post the day's digest to Telegram
+        if: steps.newpage.outputs.file != ''
+        continue-on-error: true
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TG_FILE: ${{ steps.newpage.outputs.file }}
+        run: |
+          sleep 90          # give GitHub Pages time to publish, so the link in the post opens
+          node ca-bot/telegram-post.js digest

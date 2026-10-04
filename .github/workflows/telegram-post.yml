@@ -1,0 +1,83 @@
+name: Telegram post
+
+# TSSC-TELEGRAM-V3
+# 7:00 AM   5 MCQs from the latest daily current-affairs page, as quiz polls.
+# 12:30 PM  Trick of the Day (Monday to Saturday) or the Sunday Mock Challenge.
+# 3:00 PM   PYQ of the Day: one real previous-year question as a quiz poll,
+#           linking to that paper's free test. Reads 1 to 3 Firestore documents.
+# (The 8 PM digest is posted by "Fetch Current Affairs" right after it builds the
+# day's page.)
+#
+# Needs two repo secrets (Settings -> Secrets and variables -> Actions):
+#   TELEGRAM_BOT_TOKEN   the token @BotFather gave you
+#   TELEGRAM_CHAT_ID     the channel, written as @yourchannel
+# Without them the run does nothing.
+#
+# "Run workflow" lets you post the quiz or the digest by hand, for any day's page,
+# or do a dry run that only prints what would be sent.
+
+on:
+  schedule:
+    - cron: '30 1 * * *'    # 7:00 AM IST   — morning quiz
+    - cron: '0 7 * * *'     # 12:30 PM IST  — trick of the day / Sunday mock challenge
+    - cron: '30 9 * * *'    # 3:00 PM IST   — PYQ of the day
+  workflow_dispatch:
+    inputs:
+      what:
+        description: 'What to post'
+        type: choice
+        options:
+          - quiz
+          - digest
+          - trick
+          - mock
+          - pyq
+        default: quiz
+      file:
+        description: 'Page to use, e.g. 03-10-2026.html (blank = newest page)'
+        required: false
+        default: ''
+      dry_run:
+        description: 'Dry run: show it in the log, post nothing'
+        type: boolean
+        required: false
+        default: false
+
+concurrency:
+  group: telegram-post
+  cancel-in-progress: false
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Post to Telegram
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TG_MODE: ${{ github.event.inputs.what }}
+          TG_CRON: ${{ github.event.schedule }}
+          TG_FILE: ${{ github.event.inputs.file }}
+          DRY_RUN: ${{ github.event.inputs.dry_run }}
+          TG_MANUAL: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          mode="$TG_MODE"
+          if [ -z "$mode" ]; then
+            case "$TG_CRON" in
+              '0 7 * * *')  mode=noon ;;
+              '30 9 * * *') mode=pyq ;;
+              *)            mode=quiz ;;
+            esac
+          fi
+          echo "Posting: $mode"
+          node ca-bot/telegram-post.js "$mode"
