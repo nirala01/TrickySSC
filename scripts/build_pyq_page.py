@@ -196,6 +196,7 @@ MOCK_PROMO = r"""
 })();
 </script>
 <script src="/tssc-launch-price.js" async></script>
+<script src="/tssc-telegram.js" defer></script>
 <!-- TSSC:MOCK-PROMO:END -->
 """
 
@@ -858,6 +859,9 @@ def render(ordered):
   </div>
 
   <div style="max-width:960px;margin:0 auto;padding:1.5rem 1rem 3rem;">
+
+    <!-- TSSC:TGJOIN — Join Telegram card (text and link live in /tssc-telegram.js) -->
+    <div data-tg-join="pyq"><a href="https://t.me/trickyssc" target="_blank" rel="noopener">Join TrickySSC on Telegram</a></div>
 
     <div style="background:linear-gradient(135deg,#1E1B4B 0%,#1E3A5F 55%,#0F4C81 100%);border-radius:18px;padding:1.6rem 1.75rem;margin-bottom:1.25rem;position:relative;overflow:hidden;box-shadow:0 8px 32px rgba(15,30,60,0.2);">
       <div style="position:absolute;top:-30px;right:-30px;width:160px;height:160px;background:rgba(255,107,0,0.1);border-radius:50%;pointer-events:none;"></div>
