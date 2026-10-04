@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /* ============================================================================
-   ca-bot/telegram-post.js  —  TSSC-TELEGRAM-V3
+   ca-bot/telegram-post.js  —  TSSC-TELEGRAM-V4
 
    Posts TrickySSC's daily current affairs to the Telegram channel. It reads a
    page the CA bot has ALREADY written (ca-archive/DD-MM-YYYY.html), so it
@@ -16,12 +16,18 @@
    The trick and mock posts need no page and no network read: the tricks are a
    fixed list that is walked through one a day and then starts again.
 
-   PYQ of the Day picks a paper from the links already printed in ssc-cgl-pyq.html
-   and ssc-chsl-pyq.html (no read), then fetches single question documents from
-   Firestore by their ID until it finds one that is safe to show as plain text:
-   no figure, no formula markup, no passage. Usually 1 to 3 reads a day, never
-   more than 30. SSC CGL and SSC CHSL alternate by day; the subject follows the
-   weekday (PYQ_DAYS below).
+   PYQ of the Day reads its questions from the CSV files named
+   ca-bot/pyq-*.csv — ordinary "questions-EN" CSVs, the same ones the batch
+   uploader takes. It makes NO database read (the site's security rules keep
+   the question bank for logged-in users, and this bot does not log in).
+   To give it more questions, upload another questions-EN CSV into ca-bot/
+   with a name that starts with "pyq-". Best is the paper's own ID, e.g.
+       pyq-ssc-chsl_2024_tier1_shift-1_2024-07-02_en.csv
+   so the post can link to that exact paper; any other name still works and
+   links to the paper named in the CSV's "concept" column, or to the PYQ page.
+   Questions with a figure, formula markup or a passage are skipped. Subjects
+   follow the weekday (PYQ_DAYS); SSC CGL and SSC CHSL alternate by day when
+   the CSVs cover both. Each question is used once before any repeats.
 
    Needs two repo secrets (Settings → Secrets and variables → Actions):
      TELEGRAM_BOT_TOKEN   the token @BotFather gave you
@@ -51,15 +57,14 @@ const TRICKS_FILE = path.join(__dirname, 'tricks.json');
 const TRICK_START = '2026-10-05';            // the day trick no. 1 is posted (IST)
 const FREE_MOCKS  = 4;                       // Mock 1..4 are free; Sunday rotates through them
 /* PYQ of the Day */
-const FS_PROJECT = 'trickyssc-17bb3';
-const FS_KEY     = 'AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA';   // public web key, as in scripts/build_pyq_page.py
+const PYQ_PREFIX = 'pyq-';                   // ca-bot/pyq-*.csv are the question files
+const PYQ_START  = '2026-10-05';             // counting starts here, so no question repeats early
 const PYQ_PAGES  = [                         // exams alternate day by day, in this order
-  { exam: 'SSC CGL',  file: 'ssc-cgl-pyq.html',  blocks: { reasoning: 1, gk: 26, quant: 51, english: 76 } },
-  { exam: 'SSC CHSL', file: 'ssc-chsl-pyq.html', blocks: { english: 1, reasoning: 26, quant: 51, gk: 76 } },
+  { exam: 'SSC CGL',  key: 'ssc-cgl',  file: 'ssc-cgl-pyq.html',  hub: SITE + '/ssc-cgl-pyq.html' },
+  { exam: 'SSC CHSL', key: 'ssc-chsl', file: 'ssc-chsl-pyq.html', hub: SITE + '/ssc-chsl-pyq.html' },
 ];
 const PYQ_DAYS   = ['gk', 'quant', 'reasoning', 'english', 'gk', 'quant', 'english'];   // Sunday … Saturday
 const PYQ_LABEL  = { quant: 'Maths', reasoning: 'Reasoning', english: 'English', gk: 'GK' };
-const PYQ_MAX_PAPERS = 3, PYQ_MAX_PER_PAPER = 8;
 const PRACTICE = {                           // where each trick sends people to practise
   Maths:     SITE + '/ssc-cgl-quant-chapter-wise-test.html',
   Reasoning: SITE + '/ssc-cgl-reasoning-chapter-wise-test.html',
@@ -76,8 +81,6 @@ const CHAT   = (process.env.TELEGRAM_CHAT_ID || '').trim();
 const DRY    = /^(1|true|yes)$/i.test(process.env.DRY_RUN || '');
 const MANUAL = /^(1|true|yes)$/i.test(process.env.TG_MANUAL || '');
 const API    = (process.env.TELEGRAM_API_BASE || 'https://api.telegram.org').replace(/\/+$/, '');
-const FS_BASE = (process.env.FIRESTORE_API_BASE || 'https://firestore.googleapis.com').replace(/\/+$/, '') +
-                `/v1/projects/${FS_PROJECT}/databases/(default)/documents`;
 const MODE   = String(process.argv[2] || process.env.TG_MODE || 'digest').trim().toLowerCase();
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -316,46 +319,6 @@ function paperLabel(exam, p) {
   return [`${exam} ${p.year}`.trim(), [when, shift].filter(Boolean).join(', ')].filter(Boolean).join(' \u00B7 ');
 }
 
-/* Firestore REST value → plain JS */
-function fsValue(v) {
-  if (!v) return '';
-  if (v.stringValue  !== undefined) return v.stringValue;
-  if (v.integerValue !== undefined) return Number(v.integerValue);
-  if (v.doubleValue  !== undefined) return v.doubleValue;
-  if (v.booleanValue !== undefined) return v.booleanValue;
-  if (v.mapValue     !== undefined) { const o = {}; const f = v.mapValue.fields || {}; for (const k of Object.keys(f)) o[k] = fsValue(f[k]); return o; }
-  if (v.arrayValue   !== undefined) return (v.arrayValue.values || []).map(fsValue);
-  return '';
-}
-function fsDoc(d) { const o = {}; const f = (d && d.fields) || {}; for (const k of Object.keys(f)) o[k] = fsValue(f[k]); return o; }
-
-let fsReads = 0;
-async function fsFetch(url, init) {
-  fsReads++;
-  const res = await fetch(url, Object.assign({ headers: { 'content-type': 'application/json', 'user-agent': 'Mozilla/5.0' } }, init || {}));
-  if (res.status === 404) return null;
-  if (res.status === 403) throw new Error('Firestore refused the read (403). The security rules do not allow public reads of "questions".');
-  if (!res.ok) throw new Error(`Firestore answered ${res.status}`);
-  return res.json();
-}
-
-/* One question of one paper. New uploads have the ID <paperId>_q007; older ones are found by a query. */
-async function fetchQuestion(pid, n) {
-  const id = `${pid}_q${String(n).padStart(3, '0')}`;
-  const direct = await fsFetch(`${FS_BASE}/questions/${encodeURIComponent(id)}?key=${FS_KEY}`);
-  if (direct && direct.fields) return fsDoc(direct);
-  for (const val of [{ integerValue: String(n) }, { stringValue: String(n) }]) {
-    const rows = await fsFetch(`${FS_BASE}:runQuery?key=${FS_KEY}`, { method: 'POST', body: JSON.stringify({ structuredQuery: {
-      from: [{ collectionId: 'questions' }], limit: 1,
-      where: { compositeFilter: { op: 'AND', filters: [
-        { fieldFilter: { field: { fieldPath: 'paperId' }, op: 'EQUAL', value: { stringValue: pid } } },
-        { fieldFilter: { field: { fieldPath: 'qNum' },    op: 'EQUAL', value: val } } ] } } } }) });
-    const hit = (rows || []).find(r => r && r.document && r.document.fields);
-    if (hit) return fsDoc(hit.document);
-  }
-  return null;
-}
-
 function canonSubject(s) {
   const t = String(s || '').toLowerCase();
   if (/reason|intelligence/.test(t)) return 'reasoning';
@@ -373,7 +336,7 @@ function tidy(s) {
 }
 
 const MARKUP  = /<[a-z\/!][^>]*>|\\[a-zA-Z]+|\\\(|\\\[|\$\$|\^\{|_\{/i;             // HTML tags or formula markup
-const NEEDS_MORE = /^\s*(passage|directions?)\b|\(\s*Q\.?\s*\d+\s*[\u2013\u2014-]\s*Q?\.?\s*\d+\s*\)|\b(passage|cloze)\b|read the following|study the following|\b(figure|diagram|venn|mirror image|water image|paper is folded|embedded|pie[- ]?chart|bar[- ]?graph|histogram|line[- ]?graph)\b|\b(given|following|above|below) (table|graph|chart|image|picture)\b|\b(table|graph|chart|image|picture) (given|below|above)\b|underlined|highlighted|in bold|bracketed/i;
+const NEEDS_MORE = /^\s*(passage|directions?)\b|\(\s*Q\.?\s*\d+\s*[\u2013\u2014-]\s*Q?\.?\s*\d+\s*\)|\b(passage|cloze)\b|read the following|study the following|\b(figure|diagram|venn|mirror image|water image|paper is folded|embedded|pie[- ]?chart|bar[- ]?graph|histogram|line[- ]?graph)\b|\b(given|following|above|below) (table|graph|chart|image|picture)\b|\b(table|graph|chart|image|picture) (given|below|above)\b|underlined|highlighted|in bold|bracketed|\b(as|is|are) shown\b|\bshown (below|above|in)\b|\bgiven (matrix|grid|dice|cube|shape|map)\b/i;
 
 /* Returns a poll-ready question, or a short reason why this one cannot be shown as plain text. */
 function pollFromDoc(d) {
@@ -410,54 +373,108 @@ function pollFromDoc(d) {
   return { q, opts, idx, e, qNum: d.qNum };
 }
 
-/* Finds today's question. Returns { exam, subject, paper, poll } or throws. */
-async function pickPyq() {
-  const day = todayIst();
-  const dateKey = `${day.y}-${String(day.mo).padStart(2, '0')}-${String(day.d).padStart(2, '0')}`;
-  const src = PYQ_PAGES[Math.floor(day.utc / 86400000) % PYQ_PAGES.length];
-  const subject = PYQ_DAYS[day.dow];
-  const papers = readPapers(src.file);
-  if (!papers.length) throw new Error(`no English Tier I paper links found in ${src.file}`);
-  const rnd = seeded(`${dateKey}|${src.exam}|${subject}`);
-  const order = shuffled(papers, rnd).slice(0, PYQ_MAX_PAPERS);
-  const tried = [];
-  for (const paper of order) {
-    let start = src.blocks[subject];
-    let nums = shuffled(Array.from({ length: 25 }, (_, i) => start + i), rnd);
-    let checkedBlock = false, used = 0;
-    for (let k = 0; k < nums.length && used < PYQ_MAX_PER_PAPER; k++) {
-      const d = await fetchQuestion(paper.pid, nums[k]); used++;
-      if (!d) { tried.push(`${paper.pid} Q${nums[k]}: missing`); break; }      // paper not stored this way: next paper
-      const got = canonSubject(d.subject || d.section);
-      if (got && got !== subject && !checkedBlock) {
-        /* this paper orders its sections differently: find where today's subject starts */
-        checkedBlock = true;
-        let found = 0;
-        for (const s of [1, 26, 51, 76]) {
-          if (s === start) continue;
-          const probe = await fetchQuestion(paper.pid, s); used++;
-          if (probe && canonSubject(probe.subject || probe.section) === subject) { found = s; break; }
-        }
-        if (!found) { tried.push(`${paper.pid}: no ${subject} section found`); break; }
-        start = found; nums = shuffled(Array.from({ length: 25 }, (_, i) => start + i), rnd); k = -1;
-        continue;
-      }
-      const poll = pollFromDoc(d);
-      if (!poll.skip) return { exam: src.exam, subject, paper, poll, tried };
-      tried.push(`${paper.pid} Q${nums[k]}: ${poll.skip}`);
-    }
+/* A small CSV reader (quoted fields, doubled quotes, line breaks inside quotes). */
+function parseCsv(text) {
+  const t = String(text).replace(/^\uFEFF/, '');
+  const rows = []; let row = [], f = '', q = false;
+  for (let i = 0; i < t.length; i++) {
+    const c = t[i];
+    if (q) { if (c === '"') { if (t[i + 1] === '"') { f += '"'; i++; } else q = false; } else f += c; }
+    else if (c === '"') q = true;
+    else if (c === ',') { row.push(f); f = ''; }
+    else if (c === '\n') { row.push(f); rows.push(row); row = []; f = ''; }
+    else if (c !== '\r') f += c;
   }
-  const err = new Error('no question that is safe to show as plain text was found today');
-  err.tried = tried;
-  throw err;
+  if (f.length || row.length) { row.push(f); rows.push(row); }
+  if (!rows.length) return [];
+  const head = rows[0].map(h => h.trim());
+  return rows.slice(1).filter(r => r.some(v => v && v.trim()))
+             .map(r => { const o = {}; head.forEach((k, i) => { o[k] = r[i] || ''; }); return o; });
+}
+
+const MON3 = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+
+/* Works out which paper a CSV belongs to: from its file name if that is a paper ID, otherwise
+   from the tail of the "concept" column ("… — SSC CGL 2025 Sep 26 Shift 1"). */
+function findPaper(name, rows, papers) {
+  const id = name.slice(PYQ_PREFIX.length).replace(/\.csv$/i, '').toLowerCase();
+  let hit = papers.find(p => p.pid === id);
+  if (hit) return hit;
+  for (const r of rows.slice(0, 5)) {
+    const m = /SSC\s+(CGL|CHSL)\s+(\d{4})\s+([A-Za-z]{3})[a-z]*\s+(\d{1,2})\s+Shift\s*(\d)/i.exec(r.concept || '');
+    if (!m) continue;
+    const mo = MON3.indexOf(m[3].toLowerCase()) + 1;
+    if (!mo) continue;
+    const re = new RegExp(`^ssc-${m[1].toLowerCase()}_${m[2]}_tier1_shift-${m[5]}_\\d{4}-${String(mo).padStart(2, '0')}-${String(m[4]).padStart(2, '0')}_en$`);
+    hit = papers.find(p => re.test(p.pid));
+    if (hit) return hit;
+  }
+  return null;
+}
+
+/* Every question in ca-bot/pyq-*.csv that is safe to show as plain text. */
+function loadPool() {
+  const files = fs.readdirSync(__dirname).filter(n => n.toLowerCase().startsWith(PYQ_PREFIX) && /\.csv$/i.test(n)).sort();
+  const pool = [];
+  for (const name of files) {
+    const rows = parseCsv(fs.readFileSync(path.join(__dirname, name), 'utf8'));
+    if (!rows.length) { log(`${name}: no rows, skipped`); continue; }
+    const examKey = /chsl/i.test(name + ' ' + (rows[0].exam || '') + ' ' + (rows[0].concept || '')) ? 'ssc-chsl' : 'ssc-cgl';
+    const src = PYQ_PAGES.find(x => x.key === examKey);
+    const paper = findPaper(name, rows, readPapers(src.file));
+    let n = 0;
+    for (const r of rows) {
+      const poll = pollFromDoc({
+        qNum: parseInt(r.qNum, 10) || 0, subject: r.subject, text: r.text, explanation: r.explanation,
+        options: { A: r.option_A, B: r.option_B, C: r.option_C, D: r.option_D }, correct: r.correct,
+        imageUrl: r.imageUrl || r.image || '',
+      });
+      const subject = canonSubject(r.subject);
+      if (poll.skip || !subject) continue;
+      pool.push({ id: `${name}#${poll.qNum}`, src, subject, paper, year: String(r.year || '').trim(), poll });
+      n++;
+    }
+    log(`${name}: ${n} of ${rows.length} questions usable${paper ? '' : ' (paper not matched: posts will link to the PYQ page)'}`);
+  }
+  return pool;
+}
+
+/* Finds today's question. Returns { exam, subject, paper, hub, year, poll } or throws. */
+function pickPyq() {
+  const pool = loadPool();
+  if (!pool.length) throw new Error(`no usable questions: upload a questions-EN CSV into ca-bot/ named ${PYQ_PREFIX}….csv`);
+  const day = todayIst();
+  const subject = PYQ_DAYS[day.dow];
+  let cands = pool.filter(x => x.subject === subject);
+  if (!cands.length) throw new Error(`no usable ${PYQ_LABEL[subject]} question in the CSVs`);
+  /* Which exam a given day uses: the one whose turn it is, or the other one if the CSVs
+     hold no question of this subject for it. */
+  const has = {};
+  for (const pg of PYQ_PAGES) has[pg.key] = cands.some(x => x.src.key === pg.key);
+  const examOn = utc => {
+    const alt = PYQ_PAGES[Math.floor(utc / 86400000) % PYQ_PAGES.length];
+    return has[alt.key] ? alt.key : (PYQ_PAGES.find(pg => has[pg.key]) || alt).key;
+  };
+  const key = examOn(day.utc);
+  cands = cands.filter(x => x.src.key === key);
+  /* a fixed shuffle of the candidates, then one step forward each day this subject and exam come up */
+  cands = shuffled(cands.slice().sort((a, b) => (a.id < b.id ? -1 : 1)), seeded(`pyq|${subject}|${key}`));
+  const start = Date.parse(PYQ_START + 'T00:00:00Z');
+  let turn = 0;
+  for (let t = start; t < day.utc; t += 86400000) {
+    if (PYQ_DAYS[new Date(t).getUTCDay()] === subject && examOn(t) === key) turn++;
+  }
+  const x = cands[turn % cands.length];
+  return { exam: x.src.exam, subject, paper: x.paper, hub: x.src.hub, year: x.year, poll: x.poll };
 }
 
 function pyqHeader(x) {
   const qn = x.poll.qNum ? ` \u00B7 Q${x.poll.qNum}` : '';
-  return `\uD83D\uDCDA <b>PYQ of the Day</b> \u00B7 ${PYQ_LABEL[x.subject]}\n` +
-         `${esc(paperLabel(x.exam, x.paper))}${qn}\n\n` +
-         `Answer the poll below \uD83D\uDC47 then take this full paper, free, with solutions:\n` +
-         `<a href="${esc(x.paper.url)}">Attempt ${esc(paperLabel(x.exam, x.paper))}</a>`;
+  const label = x.paper ? paperLabel(x.exam, x.paper) : `${x.exam} ${x.year}`.trim();
+  const link = x.paper
+    ? `Answer the poll below \uD83D\uDC47 then take this full paper, free, with solutions:\n<a href="${esc(x.paper.url)}">Attempt ${esc(label)}</a>`
+    : `Answer the poll below \uD83D\uDC47 then practise full papers, free, with solutions:\n${x.hub}`;
+  return `\uD83D\uDCDA <b>PYQ of the Day</b> \u00B7 ${PYQ_LABEL[x.subject]}\n${esc(label)}${qn}\n\n${link}`;
 }
 
 /* -------------------------------------------------------------- Telegram */
@@ -534,10 +551,7 @@ async function postMock() {
 }
 
 async function postPyq() {
-  let x;
-  try { x = await pickPyq(); }
-  catch (e) { (e.tried || []).forEach(t => log('  skipped', t)); log(`Firestore reads used: ${fsReads}`); throw e; }
-  x.tried.forEach(t => log('  skipped', t));
+  const x = pickPyq();
   await call('sendMessage', {
     chat_id: CHAT, text: pyqHeader(x), parse_mode: 'HTML',
     link_preview_options: { is_disabled: true },
@@ -549,7 +563,7 @@ async function postPyq() {
   };
   if (x.poll.e) payload.explanation = x.poll.e;
   await call('sendPoll', payload);
-  log(`PYQ of the Day posted: ${x.exam} ${PYQ_LABEL[x.subject]}, ${x.paper.pid} Q${x.poll.qNum} (Firestore reads: ${fsReads})`);
+  log(`PYQ of the Day posted: ${x.exam} ${PYQ_LABEL[x.subject]}, Q${x.poll.qNum}${x.paper ? ' of ' + x.paper.pid : ''}`);
 }
 
 /* ------------------------------------------------------------------ main */
