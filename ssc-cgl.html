@@ -1453,8 +1453,11 @@
           var K    = 'AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA';
           var EXAM = 'ssc-cgl';
           var QPT  = 50;                       // questions per chapter-wise test (admin-chapterwise.html target)
-          var CK   = 'cglCardCounts_' + EXAM;  // session cache key
-          var TTL  = 30 * 60 * 1000;           // 30 min
+          // COST GUARD (TSSC-CGLHUB-COST-V1, 2026-10-05): counts are cached per device for
+          // 6 h in localStorage (was 30 min per tab session) - they only change on an upload.
+          var CK   = 'cglCardCounts_' + EXAM;  // cache key (localStorage)
+          var TTL  = 6 * 60 * 60 * 1000;       // 6 h when all three counts loaded
+          var TTL_PARTIAL = 30 * 60 * 1000;    // 30 min if any count failed, so it retries sooner
           var B    = 'https://firestore.googleapis.com/v1/projects/' + P + '/databases/(default)/documents';
 
           function paint(id, n){
@@ -1502,14 +1505,26 @@
                 mockId: t.mockId || t.id || '', tier: t.tier || '', num: t.mockNum || t.seriesNum || t.mockSeriesNum || ''
               };})));
             }
-            return fetch(B + '/mock_tests?key=' + K + '&pageSize=300')
+            // COST GUARD (TSSC-CGLHUB-COST-V1): read only this exam's cards and only the
+            // fields used below. The old call listed the whole mock_tests collection
+            // (every exam, first 300 docs) on each visit.
+            return fetch(B + ':runQuery?key=' + K, {
+                method:'POST',
+                headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({structuredQuery:{
+                  from:[{collectionId:'mock_tests'}],
+                  where: eqS('exam', EXAM),
+                  select:{fields:[{fieldPath:'mockId'},{fieldPath:'tier'},{fieldPath:'mockNum'},
+                                  {fieldPath:'seriesNum'},{fieldPath:'mockSeriesNum'},{fieldPath:'isPublished'}]}
+                }})
+              })
               .then(function(r){ return r.json(); })
               .then(function(j){
-                var rows = (j.documents || []).map(function(d){ return d.fields || {}; })
+                if(!Array.isArray(j) || j.some(function(x){ return x && x.error; })) return null;
+                var rows = j.filter(function(x){ return x && x.document; })
+                  .map(function(x){ return x.document.fields || {}; })
                   .filter(function(f){
-                    var okExam = !f.exam || (f.exam.stringValue === EXAM);
-                    var okPub  = !f.isPublished || f.isPublished.booleanValue !== false;
-                    return okExam && okPub;
+                    return !f.isPublished || f.isPublished.booleanValue !== false;
                   })
                   .map(function(f){
                     var g = function(k){ return f[k] ? (f[k].stringValue || f[k].integerValue || '') : ''; };
@@ -1545,8 +1560,8 @@
           function run(){
             // serve instantly from cache, then refresh in the background
             try {
-              var c = JSON.parse(sessionStorage.getItem(CK) || 'null');
-              if(c && (Date.now() - c.ts) < TTL){
+              var c = JSON.parse(localStorage.getItem(CK) || 'null');
+              if(c && (Date.now() - c.ts) < (c.ttl || TTL_PARTIAL)){
                 paint('cglPyqCount', c.pyq); paint('cglMockCount', c.mock); paint('cglChapCount', c.chap);
                 return;
               }
@@ -1556,7 +1571,8 @@
               paint('cglPyqCount',  r[0]);
               paint('cglMockCount', r[1]);
               paint('cglChapCount', r[2]);
-              try { sessionStorage.setItem(CK, JSON.stringify({ts:Date.now(), pyq:r[0], mock:r[1], chap:r[2]})); } catch(e){}
+              var allOk = r.every(function(v){ return typeof v === 'number' && !isNaN(v); });
+              try { localStorage.setItem(CK, JSON.stringify({ts:Date.now(), ttl:(allOk ? TTL : TTL_PARTIAL), pyq:r[0], mock:r[1], chap:r[2]})); } catch(e){}
             });
           }
 
@@ -2304,6 +2320,45 @@
               questionCount:n('questionCount'),count:n('questionCount')||100};
     }
 
+    /* COST GUARD (TSSC-CGLHUB-COST-V1, 2026-10-05)
+       Before: the unfiltered `papers` list (every exam, first 300 docs) AND the exam query
+       were fired together on every load - both billed - and if both timed out the page
+       scanned the whole `questions` collection for this exam (tens of thousands of reads).
+       Now: ONE exam-filtered query. A retry re-uses the request that is still in flight
+       instead of starting another; the plain list is tried only if the query itself
+       errors; the `questions` scan is removed (the papers collection is always populated). */
+    const _PAPERS_BASE = `https://firestore.googleapis.com/v1/projects/${PROJECT}/databases/(default)/documents`;
+    let _papersInflight = null;
+    function _papersQuery(){
+      if(_papersInflight) return _papersInflight;
+      const qBody={structuredQuery:{from:[{collectionId:'papers'}],where:{fieldFilter:{field:{fieldPath:'exam'},op:'EQUAL',value:{stringValue:EXAM}}}}};
+      const p = fetch(`${_PAPERS_BASE}:runQuery?key=${API_KEY}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(qBody)})
+        .then(r=>r.json())
+        .then(j=>{
+          const docs=(Array.isArray(j)?j:[]).filter(x=>x&&x.document&&x.document.fields).map(x=>_parsePDoc(x.document.fields));
+          console.log('[TrickySSC] query method: docs:',docs.length);
+          if(!docs.length) throw new Error('query 0 docs');
+          return docs;
+        });
+      _papersInflight = p;
+      const _done = ()=>{ if(_papersInflight===p) _papersInflight=null; };
+      p.then(_done,_done);
+      return p;
+    }
+    // Fallback only: plain list of `papers` (all exams), paged so nothing is cut off at 300
+    async function _papersList(){
+      let docs=[], token='', pages=0;
+      do{
+        const r=await fetch(`${_PAPERS_BASE}/papers?key=${API_KEY}&pageSize=300`+(token?'&pageToken='+encodeURIComponent(token):''));
+        const j=await r.json();
+        docs=docs.concat((j.documents||[]).filter(d=>d.fields).map(d=>_parsePDoc(d.fields)).filter(d=>d.exam===EXAM));
+        token=j.nextPageToken||'';
+      }while(token && ++pages<5);
+      console.log('[TrickySSC] list method: exam='+EXAM+' matched:',docs.length);
+      if(!docs.length) throw new Error('0 docs for '+EXAM);
+      return docs;
+    }
+
     async function fetchPYQMetadata() {
       // Session cache — 30 min TTL, avoids repeat reads in same session
       const _ck = 'papers_'+EXAM, _ttl = 30*60*1000;
@@ -2312,68 +2367,26 @@
         if(_c){ const _o=JSON.parse(_c); if(Date.now()-_o.ts<_ttl&&_o.d&&_o.d.length>0){ console.log('[TrickySSC] papers from cache:',_o.d.length); return _o.d; } }
       } catch(e){}
 
-      const P='trickyssc-17bb3', K='AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA';
       const T=10000;
-      const ft=(u,o)=>Promise.race([o?fetch(u,o):fetch(u),new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),T))]);
+      const ft=p=>Promise.race([p,new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),T))]);
+      const _save=d=>{ try{sessionStorage.setItem(_ck,JSON.stringify({ts:Date.now(),d:d}));}catch(e){} return d; };
 
-      // Run both methods in PARALLEL — whoever responds first wins
-      const listUrl=`https://firestore.googleapis.com/v1/projects/${P}/databases/(default)/documents/papers?key=${K}&pageSize=300`;
-      const qUrl=`https://firestore.googleapis.com/v1/projects/${P}/databases/(default)/documents:runQuery?key=${K}`;
-      const qBody={structuredQuery:{from:[{collectionId:'papers'}],where:{fieldFilter:{field:{fieldPath:'exam'},op:'EQUAL',value:{stringValue:EXAM}}}}};
-
-      const [r1,r2] = await Promise.allSettled([
-        ft(listUrl).then(async r=>{
-          const j=await r.json();
-          const docs=(j.documents||[]).filter(d=>d.fields).map(d=>_parsePDoc(d.fields)).filter(d=>d.exam===EXAM);
-          console.log('[TrickySSC] list method: exam='+EXAM+' matched:',docs.length,'of',(j.documents||[]).length);
-          if(!docs.length) throw new Error('0 docs for '+EXAM);
-          return docs;
-        }),
-        ft(qUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(qBody)}).then(async r=>{
-          const j=await r.json();
-          const docs=(j||[]).filter(x=>x.document&&x.document.fields).map(x=>_parsePDoc(x.document.fields));
-          console.log('[TrickySSC] query method: docs:',docs.length);
-          if(!docs.length) throw new Error('query 0 docs');
-          return docs;
-        })
-      ]);
-
-      for(const r of [r1,r2]){
-        if(r.status==='fulfilled'){
-          try{sessionStorage.setItem(_ck,JSON.stringify({ts:Date.now(),d:r.value}));}catch(e){}
-          return r.value;
+      const q=_papersQuery();
+      q.then(_save,()=>{});   // cached even if it lands after the timeout, so Retry is instant
+      try{
+        return await ft(q);
+      }catch(e1){
+        console.warn('[TrickySSC] papers query:',e1.message);
+        // Slow network: the request is still running - do not start a second billed read.
+        // loadPYQs() retries once and the Retry button re-uses the same request / cache.
+        if(e1.message==='timeout') return [];
+        try{
+          return _save(await ft(_papersList()));
+        }catch(e2){
+          console.warn('[TrickySSC] papers list:',e2.message);
+          return [];
         }
       }
-      console.warn('[TrickySSC] Both papers methods failed — fallback to questions scan');
-      [r1,r2].forEach(r=>console.warn(r.reason?.message));
-      return await fetchMetadataFallback();
-    }
-
-    // Fallback: scan questions (slow — only if papers collection not populated)
-    async function fetchMetadataFallback() {
-      const P='trickyssc-17bb3', K='AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA';
-      const url=`https://firestore.googleapis.com/v1/projects/${P}/databases/(default)/documents:runQuery?key=${K}`;
-      const body={structuredQuery:{from:[{collectionId:'questions'}],
-        where:{fieldFilter:{field:{fieldPath:'exam'},op:'EQUAL',value:{stringValue:EXAM}}},
-        select:{fields:[{fieldPath:'year'},{fieldPath:'shift'},{fieldPath:'tier'},{fieldPath:'heldOn'},{fieldPath:'language'},{fieldPath:'paperId'}]}
-      }};
-      try {
-        const res=await Promise.race([fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}),
-          new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),12000))]);
-        const json=await res.json();
-        const raw=(json||[]).filter(r=>r.document&&r.document.fields).map(r=>{
-          const f=r.document.fields;
-          return {year:String(f.year?(f.year.stringValue||f.year.integerValue||''):''),
-                  shift:String(f.shift?(f.shift.stringValue||''):''),
-                  tier:String(f.tier?(f.tier.stringValue||''):''),
-                  heldOn:String(f.heldOn?(f.heldOn.stringValue||''):''),
-                  language:String(f.language?(f.language.stringValue||''):''),
-                  paperId:String(f.paperId?(f.paperId.stringValue||''):''),count:1};
-        });
-        // Deduplicate by paperId
-        const seen={};
-        return raw.filter(d=>{const k=d.paperId||d.year+'|'+d.shift+'|'+d.heldOn+'|'+d.tier+'|'+d.language;if(seen[k])return false;seen[k]=true;return true;});
-      } catch(e){ console.error('[TrickySSC] fallback failed:',e.message); return []; }
     }
 
 
@@ -2420,19 +2433,29 @@
       }
     }
 
+    // The Retry buttons use inline onclick="loadPYQs()" - a module function is not global
+    // unless exposed, so until now those buttons did nothing.
+    window.loadPYQs = loadPYQs;
+
+    // COST GUARD (TSSC-CGLHUB-COST-V1): sections are hidden by the stylesheet
+    // (section{display:none}), not by an inline style, so the old test
+    // `section.style.display !== 'none'` was TRUE before showSection() ran and the paper
+    // list could be fetched on page load even when the PYQ tab was never opened.
+    const _secVisible = s => !!s && getComputedStyle(s).display !== 'none';
+
     // Load when section becomes visible (visibility observer)
     // Wait for auth before fetching — Firestore rules require authenticated reads
     function _triggerWhenVisible() {
       const section = document.getElementById('cgl-pyq-page');
       if(section) {
         const obs = new MutationObserver(() => {
-          if(section.style.display !== 'none' && !section.dataset.pyqLoaded) {
+          if(_secVisible(section) && !section.dataset.pyqLoaded) {
             section.dataset.pyqLoaded = '1';
             loadPYQs();
           }
         });
         obs.observe(section, {attributes:true, attributeFilter:['style']});
-        if(section.style.display !== 'none') { section.dataset.pyqLoaded='1'; loadPYQs(); }
+        if(_secVisible(section) && !section.dataset.pyqLoaded) { section.dataset.pyqLoaded='1'; loadPYQs(); }
       }
     }
     // Fire PYQ load — REST fetch is public (no auth needed)
@@ -2444,7 +2467,7 @@
       if(!section.dataset.pyqObserving) {
         section.dataset.pyqObserving = '1';
         const obs = new MutationObserver(() => {
-          if(section.style.display !== 'none' && !section.dataset.pyqLoaded) {
+          if(_secVisible(section) && !section.dataset.pyqLoaded) {
             section.dataset.pyqLoaded = '1';
             loadPYQs();
           }
@@ -2452,7 +2475,7 @@
         obs.observe(section, {attributes:true, attributeFilter:['style']});
       }
       // Fire immediately if already visible (handles direct URL / hash navigation)
-      if(section.style.display !== 'none' && !section.dataset.pyqLoaded) {
+      if(_secVisible(section) && !section.dataset.pyqLoaded) {
         section.dataset.pyqLoaded = '1';
         loadPYQs();
       }
@@ -2601,15 +2624,20 @@
 
     // Load when section becomes visible
     const mockSection=document.getElementById('cgl-mock-page');
+    // COST GUARD (TSSC-CGLHUB-COST-V1, 2026-10-05): sections are hidden by the stylesheet,
+    // not an inline style, so `mockSection.style.display!=='none'` was TRUE at this point on
+    // EVERY page load and all published mock cards were read even though this tab was closed.
+    // Now the computed style decides, so the read happens only when the tab is really open.
+    const _mockVisible=()=>getComputedStyle(mockSection).display!=='none';
     const obs=new MutationObserver(()=>{
-      if(mockSection.style.display!=='none'&&!mockSection.dataset.loaded){
+      if(_mockVisible()&&!mockSection.dataset.loaded){
         mockSection.dataset.loaded='1';
         loadMocks();
       }
     });
     obs.observe(mockSection,{attributes:true,attributeFilter:['style']});
     // Also load if already visible on page load
-    if(mockSection.style.display!=='none') loadMocks();
+    if(_mockVisible()&&!mockSection.dataset.loaded){ mockSection.dataset.loaded='1'; loadMocks(); }
   </script>
 </section>
 
