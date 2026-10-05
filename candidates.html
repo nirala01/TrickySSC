@@ -515,7 +515,8 @@ function attemptType(a){
 
 // Mocks 1-4 are free forever; Mock 5 onward is the paid series. Change this one
 // number if the free band ever moves.
-const FREE_MOCK_MAX = 4;
+const FREE_MOCK_MAX = 4;        // SSC CGL: Mocks 1-4 free
+const FREE_MOCK_MAX_CHSL = 2;   // TSSC-CHSLPAY-V1 (2026-10-05): SSC CHSL: Mocks 1-2 free
 
 // The mock's series number, from the int fields first, then from the id/name
 // (mockId is ssc-cgl_tier1_mock5_en; names read "SSC CGL Mock-47").
@@ -535,7 +536,9 @@ function mockPlan(a){
   if(attemptType(a) !== 'mock') return null;
   const n = mockNumber(a);
   if(!n) return null;
-  return n <= FREE_MOCK_MAX ? 'free' : 'paid';
+  // TSSC-CHSLPAY-V1 — the CHSL series has its own free band (Mock 1-2).
+  const isChsl = /ssc[-_]?chsl/i.test([a.exam, a.mockId, a.mockName, a.examName, a.testName].filter(Boolean).join(' '));
+  return n <= (isChsl ? FREE_MOCK_MAX_CHSL : FREE_MOCK_MAX) ? 'free' : 'paid';
 }
 
 // Readable name for a single attempt — the paper the candidate actually sat.
