@@ -113,6 +113,25 @@
   .fieldrow.risky{border-color:#FCA5A5;background:#FFF7F7;}
   .riskbadge{display:inline-block;font-size:10px;font-weight:800;padding:1px 7px;border-radius:99px;background:#FEE2E2;color:#B91C1C;margin-left:6px;}
   .grow{display:inline-block;font-size:10px;font-weight:800;padding:1px 7px;border-radius:99px;background:#EFF6FF;color:#1D4ED8;margin-left:6px;}
+  /* ── TSSC-QREWRITE-V1 — instruction box, question-rewrite button, student-view preview ── */
+  .note-ta{width:100%;border:1.5px solid #E2E8F0;border-radius:9px;padding:8px 10px;font-size:13px;font-family:inherit;line-height:1.5;resize:vertical;min-height:56px;color:#1E293B;}
+  .note-ta:focus{outline:none;border-color:#FF6B00;}
+  .btn-indigo{background:#4338CA;color:#fff;}
+  .qprev{border:1.5px solid #C7D2FE;border-radius:12px;padding:12px 14px;margin-bottom:10px;background:#FAFAFF;}
+  .qprev details{margin:8px 0 4px;}
+  .qprev summary{cursor:pointer;font-size:12px;font-weight:700;color:#4338CA;}
+  .qp-pass{font-size:12.5px;line-height:1.65;color:#475569;border-left:3px solid #C7D2FE;padding:4px 0 4px 10px;margin-top:6px;max-height:260px;overflow:auto;word-break:break-word;}
+  .qp-stem{font-size:14px;font-weight:600;line-height:1.6;color:#0F172A;margin:8px 0;word-break:break-word;}
+  .qp-opt{display:flex;gap:8px;align-items:flex-start;border:1px solid #E2E8F0;border-radius:9px;padding:7px 10px;margin-bottom:6px;background:#fff;font-size:13.5px;line-height:1.5;word-break:break-word;}
+  .qp-opt b{flex:0 0 auto;color:#64748B;}
+  .qp-opt.key{border-color:#16A34A;background:#F0FDF4;}
+  .qp-opt.key b{color:#15803D;}
+  .qp-opt.chg{box-shadow:inset 3px 0 0 #FF6B00;}
+  .qprev img{max-width:100%;height:auto;}
+  .vchk{border-radius:8px;padding:7px 10px;font-size:12.5px;margin-top:8px;line-height:1.55;}
+  .vchk.ok{background:#DCFCE7;color:#14532D;}
+  .vchk.bad{background:#FEE2E2;color:#7F1D1D;font-weight:600;}
+  .vchk.na{background:#F1F5F9;color:#475569;}
 </style>
 </head>
 <body>
@@ -527,6 +546,12 @@ const AI_ENDPOINT   = "https://trickyssc-ai.nirala01.workers.dev";
 const AI_MODEL      = "claude-sonnet-5";        // must match what your worker allows
 const AI_MAX_TOKENS  = 8000;         // correctness pass — short reply
 const SOL_MAX_TOKENS = 16000;        // solution rewrite — one document per call
+const RW_MAX_TOKENS  = 16000;        // TSSC-QREWRITE-V1 — question repair / replacement, one document per call
+const RW_VERIFY      = true;         // blind re-solve of a rewritten question (key hidden) before you review it
+const VERIFY_MAX_TOKENS = 3000;
+const NEIGH_SPAN       = 9;          // question numbers read either side to find the questions sharing a passage
+const PASSAGE_MIN      = 160;        // a shared opening shorter than this is not treated as a passage
+const PASSAGE_TEXT_MIN = 350;        // question text shorter than this cannot hold a passage — no neighbour reads
 const Q_COLLECTIONS = ["questions"];            // where question docs live
 const X_COLLECTIONS = ["solutions"];            // optional extra collections using the same doc-id convention
 const AUDIT_COLL    = "question_fixes";         // every applied correction is logged here
@@ -721,10 +746,180 @@ async function locateDocs(baseId, qn){
   return found;
 }
 
+/* ══════════════════════════════════════════════════════════════════
+   TSSC-QREWRITE-V1 (2026-10-05) — the AI may now change the QUESTION
+   itself (text + options), not only the key and the solution.
+   • ✨ Analyse can list question-text / option fields as edits, and when
+     the question is beyond a small edit (e.g. it does not belong to its
+     passage) it hands over to the question rewrite automatically.
+   • 🛠 Repair / replace the question runs that rewrite directly.
+   A passage is never sent back by the AI: it is detected from the
+   neighbouring questions that share it, lifted out, and re-attached
+   untouched when you publish.
+   ══════════════════════════════════════════════════════════════════ */
+const PASSAGE_MARK = '[[PASSAGE]]';
+const TEXT_FIELDS  = ['text','question','questionText'];
+const KEY_FIELDS   = ['correct','answer','correct_option','correctOption','key','ans'];
+const TEXT_FIELD   = f => TEXT_FIELDS.includes(String(f));
+const textFieldOf  = data => TEXT_FIELDS.find(f => typeof data[f]==='string' && data[f]) || null;
+const keyFieldOf   = data => KEY_FIELDS.find(f => data[f]!==undefined && data[f]!==null && data[f]!=='') || null;
+const optLetter    = f => { const m = /^options?[._]?([A-Da-d])$/.exec(String(f)); return m ? m[1].toUpperCase() : null; };
+const optOf = (data, L) => {
+  const o = data.options, l = L.toLowerCase();
+  const v = (o && typeof o==='object') ? (o[L] ?? o[l]) : undefined;
+  return (v!==undefined && v!==null && v!=='') ? v : (data['option_'+L] ?? data['option'+L] ?? '');
+};
+const hasFigure = data => !!(data.imageUrl || (data.optionImages && typeof data.optionImages==='object' && Object.values(data.optionImages).some(Boolean)));
+
+function commonPrefix(a, b){
+  const n = Math.min(a.length, b.length); let i = 0;
+  while(i < n && a.charCodeAt(i) === b.charCodeAt(i)) i++;
+  return i;
+}
+
+// Where the shared opening really ends: back up from the point where two
+// questions diverge to the last line break (else sentence end, else space),
+// so the cut never lands in the middle of a stem that starts with the same words.
+function passageEnd(text, cut){
+  if(cut >= text.length) return text.length;
+  const head = text.slice(0, cut);
+  let end = -1, m;
+  const br = /\[BR\]|<br\s*\/?>|\n/gi;
+  while((m = br.exec(head))) end = m.index + m[0].length;
+  if(end >= PASSAGE_MIN) return end;
+  end = -1;
+  const se = /[.?!।]["'”’)\]]*\s+/g;
+  while((m = se.exec(head))) end = m.index + m[0].length;
+  if(end >= PASSAGE_MIN) return end;
+  const sp = head.lastIndexOf(' ');
+  return sp >= PASSAGE_MIN ? sp + 1 : 0;
+}
+
+// The questions numbered just before and after this one, same paper, same language.
+async function neighbourDocs(d){
+  const qf = NUM_FIELDS.find(f => d.data[f] !== undefined);
+  const n  = parseInt(qf ? d.data[qf] : FIX.qNum, 10);
+  if(isNaN(n)) return [];
+  const nums = [];
+  for(let k = n - NEIGH_SPAN; k <= n + NEIGH_SPAN; k++) if(k >= 1 && k !== n) nums.push(k);
+  const out = [];
+  const m = /^(.*_[qQ])(\d+)$/.exec(d.id);
+  if(m && parseInt(m[2],10) === n){
+    // deterministic ids — one cheap getDoc per neighbour
+    const pad = m[2].length;
+    await Promise.all(nums.map(async k => {
+      try{
+        const s = await getDoc(doc(db, d.coll, m[1] + String(k).padStart(pad,'0')));
+        if(s.exists()) out.push({n:k, data:s.data()});
+      }catch(_){}
+    }));
+  } else {
+    // legacy random-id docs — query on the same id + number fields this doc carries
+    const idf = ID_FIELDS.find(f => d.data[f] !== undefined && d.data[f] !== '');
+    if(idf && qf){
+      const asNum = typeof d.data[qf] === 'number';
+      await Promise.all(nums.map(async k => {
+        try{
+          const s = await getDocs(query(collection(db, d.coll),
+            where(idf,'==',d.data[idf]), where(qf,'==', asNum ? k : String(k)), limit(1)));
+          if(!s.empty) out.push({n:k, data:s.docs[0].data()});
+        }catch(_){}
+      }));
+    }
+  }
+  return out.sort((a,b) => a.n - b.n);
+}
+
+// → {field, passage, stem, siblings[]} — cached on the doc for the life of the modal.
+// passage is '' when this question shares no long opening with its neighbours.
+async function passageInfo(d, hint){
+  if(d._pi) return d._pi;
+  const tf = textFieldOf(d.data);
+  const pi = d._pi = {field:tf, passage:'', stem: tf ? d.data[tf] : '', siblings:[]};
+  if(!tf) return pi;
+  const text = d.data[tf];
+  if(text.length < PASSAGE_TEXT_MIN) return pi;            // too short to hold a passage — no reads
+  if(hint && hint.passage && text.startsWith(hint.passage)){
+    // the twin carries the very same passage (English section of the Hindi paper)
+    pi.passage = hint.passage; pi.stem = text.slice(hint.passage.length); pi.siblings = hint.siblings;
+    return pi;
+  }
+  let nb = [];
+  try{ nb = await neighbourDocs(d); }catch(e){ console.warn('[AI Fix] neighbour lookup failed', e); }
+  let cut = Infinity; const sib = [];
+  nb.forEach(x => {
+    const t = typeof x.data[tf] === 'string' ? x.data[tf] : '';
+    const cp = commonPrefix(text, t);
+    if(cp >= PASSAGE_MIN){ sib.push(x); cut = Math.min(cut, cp); }
+  });
+  if(!sib.length) return pi;
+  const end = passageEnd(text, cut);
+  if(end < PASSAGE_MIN) return pi;
+  pi.passage  = text.slice(0, end);
+  pi.stem     = text.slice(end);
+  pi.siblings = sib.map(x => ({
+    n:x.n, stem:String(x.data[tf]).slice(end),
+    A:optOf(x.data,'A'), B:optOf(x.data,'B'), C:optOf(x.data,'C'), D:optOf(x.data,'D'),
+    key:String(x.data[keyFieldOf(x.data)||'correct'] ?? '')
+  }));
+  return pi;
+}
+
+// The document as the AI sees it. With a passage, the passage is printed once
+// on its own and the text field shows only the marker + the question (stem).
+function docJSON(d){
+  const pi = d._pi;
+  if(pi && pi.passage && pi.field) return JSON.stringify({...d.data, [pi.field]: PASSAGE_MARK + ' ' + pi.stem}, null, 1);
+  return JSON.stringify(d.data, null, 1);
+}
+
+function passageBlock(L, d, withSiblings){
+  const pi = d._pi;
+  if(!pi || !pi.passage) return;
+  L.push("### The passage this question belongs to — FIXED: never rewrite it and never return it");
+  L.push(`In the JSON above the passage has been lifted out of "${pi.field}" and replaced by the marker ${PASSAGE_MARK}. What follows the marker is the question itself (the stem). [BR] is a line break.`);
+  L.push("```");
+  L.push(pi.passage);
+  L.push("```");
+  if(withSiblings && pi.siblings.length){
+    L.push("");
+    L.push("### The other questions already set on this passage — yours must not test the same point as any of them");
+    pi.siblings.forEach(s => L.push(`Q${s.n}: ${s.stem} | A) ${s.A} | B) ${s.B} | C) ${s.C} | D) ${s.D} | key: ${s.key}`));
+  }
+  L.push("");
+}
+
+function pushAdminNote(L){
+  const t = String((FIX && FIX.note) || '').trim();
+  if(!t) return;
+  L.push("### Instruction from the admin — binding; it overrides the candidate reports and your own preference");
+  L.push(t);
+  L.push("");
+}
+
+// The question as it will stand after the ticked edits — used by the student-view preview and the blind check
+function finalQuestion(d){
+  const pi = d._pi || {};
+  const tf = pi.field || textFieldOf(d.data);
+  const on = (test) => FIX.changes.find(c => c.d === d && c.on && test(c));
+  const tc = tf ? on(c => c.field === tf) : null;
+  let passage = pi.passage || '', stem;
+  if(tc){ stem = tc.val; if(!tc.prefix) passage = ''; }
+  else stem = pi.passage ? pi.stem : (tf ? d.data[tf] : '');
+  const opts = {}, chg = {};
+  ['A','B','C','D'].forEach(Lt => {
+    const c = on(x => optLetter(x.field) === Lt);
+    opts[Lt] = c ? c.val : optOf(d.data, Lt); chg[Lt] = !!c;
+  });
+  const kc = on(c => SHORT_FIELD(c.field));
+  const key = String(kc ? kc.val : (d.data[keyFieldOf(d.data)||'correct'] ?? '')).trim().toUpperCase();
+  return {passage, stem:String(stem==null?'':stem), opts, chg, key, stemChanged:!!tc, keyChanged:!!kc};
+}
+
 // ── Open ───────────────────────────────────────────────────────────
 window.openFix = async function(mockId, qNum){
   const reports = REPORTS.filter(r => String(r.mockId)===String(mockId) && String(r.qNum)===String(qNum));
-  FIX = {mockId, qNum, reports, docs:[], ai:null, changes:[]};
+  FIX = {mockId, qNum, reports, docs:[], ai:null, changes:[], note:'', from:null, verify:null};
   $('fixModal').classList.remove('hidden');
   $('fixTitle').textContent = `AI correction · ${mockId} · Q${qNum}`;
   $('fixFoot').innerHTML = '';
@@ -781,26 +976,34 @@ function renderStage2(){
   $('fixBody').innerHTML =
     `<div class="steps">1 · Located → <b>2 · Analyse</b> → 3 · Preview → 4 · Apply</div>
      <div class="sec"><h3>Candidate reports (${FIX.reports.length})</h3>${rep||'<span class="muted">none</span>'}</div>
+     <div class="sec"><h3>Your instruction to the AI (optional)</h3>
+       <textarea class="note-ta" id="fixNote" placeholder="e.g.  This question does not belong to the passage — write a new one from the passage.   |   Options C and D are the same — change D.   |   Ask a vocabulary question from para 2 instead.">${esc(FIX.note||'')}</textarea>
+       <div class="muted" style="margin-top:4px;">Used by all three buttons below, and it overrides the candidate reports. Leave it empty to let the AI judge on its own.</div>
+     </div>
      ${FIX.docs.map(docCard).join('')}`;
   $('fixFoot').innerHTML =
     `<button class="btn btn-orange" id="goAI">✨ Analyse &amp; propose correction</button>
+     <button class="btn btn-indigo" id="goRW" title="Repair the question text / options, or replace the question with a new SSC-level one that fits its passage — with key and solution">🛠 Repair / replace the question</button>
      <button class="btn btn-green" id="goSol">📘 Rewrite solution in more detail</button>
      <button class="btn btn-ghost" onclick="closeFix()">Cancel</button>
      <span class="muted" style="margin-left:auto;">Nothing is written until you approve.</span>`;
-  $('goAI').onclick  = () => runAI('fix');
-  $('goSol').onclick = () => runAI('solution');
+  $('fixNote').oninput = e => { FIX.note = e.target.value; };
+  $('goAI').onclick  = () => { FIX.from = null; runAI('fix'); };
+  $('goRW').onclick  = () => { FIX.from = null; runAI('rewrite'); };
+  $('goSol').onclick = () => { FIX.from = null; runAI('solution'); };
 }
 
 // ── Stage 3: call Claude ───────────────────────────────────────────
 function buildPrompt(){
   const L = [];
   L.push("You are a senior SSC exam content reviewer for TrickySSC, an SSC exam-prep platform.");
-  L.push("A candidate has flagged a question, or its solution, during a test. Your job is to decide whether the stored content is actually wrong, and if so to produce the minimum set of field edits that fix it.");
+  L.push("A candidate has flagged a question, or its solution, during a test. Your job is to decide whether the stored content is actually wrong, and if so to produce the minimum set of field edits that fix it. The fault may lie in the QUESTION ITSELF — its text or its options — and not only in the answer key or the solution.");
   L.push("Each report says which part it is about: PART=question (raised on the question/options while attempting) or PART=solution (raised on the explanation / trick / concept shown in the review screen).");
   L.push("");
   L.push("### Candidate reports");
   FIX.reports.forEach(r => L.push(`- PART: ${tgtOf(r)} | Reason: ${r.reason||'—'} | Note: ${r.note||'(none)'}`));
   L.push("");
+  pushAdminNote(L);
   L.push(`### Test: ${FIX.mockId} · Question number ${FIX.qNum}`);
   L.push("");
   L.push("### Stored documents");
@@ -813,13 +1016,18 @@ function buildPrompt(){
   L.push("");
   L.push("### How to judge");
   L.push("1. SOLVE THE QUESTION YOURSELF from first principles before reading the stored answer. Do not assume the reporter is right — candidates are often wrong. If the stored content is correct, say so and return no changes.");
+  L.push("1b. If the question text carries a passage (comprehension or cloze), check that the question really BELONGS to it: it must be answerable from the passage alone, and the keyed option must be supported by a line of the passage. A question that asks about something the passage never says is defective even when its key looks plausible.");
   L.push("2. If it IS wrong, work out exactly which fields carry the error.");
+  L.push("2a. THE QUESTION ITSELF MAY BE THE FAULT. There are two routes, and you must choose one:");
+  L.push("    (i) EDIT — a small, local defect: a typo that changes the meaning, a wrong number, a missing word, two identical options, a wrong or missing option, a wrong blank number. List the question-text and option fields in \"targets\" like any other field, together with the key and every solution field that must change with them, and set \"action\" to \"edit\". The corrected question must still be of SSC standard with exactly one correct option.");
+  L.push("    (ii) REPLACE — the question does not pertain to its passage, cannot be answered from what is given, has no single defensible answer and no small edit cures that, or is garbled beyond repair. Do NOT attempt the rewrite here: set \"action\" to \"replace_question\", leave \"targets\" empty, and say in \"replacement_brief\" what the new question should test. A separate step then writes a new SSC-standard question, options, key and solution for every language copy.");
+  L.push("    If the question depends on a figure (imageUrl / optionImages are set) you cannot see it — never choose REPLACE for it; return \"unclear\" and say what a human should check.");
   L.push("2b. For PART=solution reports the answer key is usually fine and the fault is in explanation / trick / concept — a wrong step, a wrong figure, a missing step, or a solution that derives a different option from the stored answer. Verify the key anyway, but do not rewrite a correct key just because the working is sloppy; fix the working instead.");
   L.push("3. If the answer key changes, you MUST also edit every solution / explanation / trick field that states or derives the old option — in EVERY document above, English and Hindi — so nothing contradicts. A half-fixed question is worse than an unfixed one.");
   L.push("4. Preserve the existing formatting conventions exactly: KaTeX wrapped in \\( \\), [BR] for line breaks, <u> tags, || option separators, inline HTML in solution fields, green/orange styled blocks. Match the surrounding style of the field you are editing.");
-  L.push("5. Never translate. Edit Hindi documents in Hindi, English documents in English.");
-  L.push("6. Do not rewrite anything that is not wrong. Minimal edits only.");
-  L.push("7. For nested fields use dot notation exactly as it appears in the JSON, e.g. options.A");
+  L.push("5. Never translate. Edit Hindi documents in Hindi, English documents in English — field by field: where a Hindi-paper document stores a field in English (English-section questions), that field stays English.");
+  L.push("6. Do not rewrite anything that is not wrong. Minimal edits only. (Route (ii) above is the one exception, and it is carried out in a separate step.)");
+  L.push("7. For nested fields use dot notation exactly as it appears in the JSON, e.g. options.A. Options one letter at a time, never the whole options object. Where a document has both an options object and flat option_A … option_D copies, list only the options.X form — the flat copies are synced automatically.");
   L.push("");
   L.push("### Output — THIS REPLY MUST STAY SHORT");
   L.push("Name the fields that need editing. Do NOT write long replacement text here: a second request will ask for each long field on its own, so that no reply is ever cut off in the middle.");
@@ -830,6 +1038,8 @@ function buildPrompt(){
   L.push('  "correct_answer": "the option letter you independently derived, or null",');
   L.push('  "diagnosis": "2-5 sentences: what you worked out, and what exactly is wrong (or why the report is mistaken)",');
   L.push('  "reporter_assessment": "one line — was the candidate right?",');
+  L.push('  "action": "edit" | "replace_question" | null,');
+  L.push('  "replacement_brief": "only with replace_question — one or two lines on what the new question should test; otherwise empty",');
   L.push('  "targets": [ { "doc": "D1", "field": "correct", "new": "B", "why": "short reason" } ],');
   L.push('  "clear_reports": true');
   L.push('}');
@@ -837,6 +1047,7 @@ function buildPrompt(){
   L.push('- One entry per field per document that must change. List the Hindi twin\'s fields too — as separate entries with that document\'s D-number.');
   L.push('- Include "new" ONLY when the whole replacement value is under 40 characters, such as an answer-key letter or a single option. For explanation / solution / trick / concept, OMIT "new" entirely — those are requested one at a time in the next step.');
   L.push('- If verdict is "no_change" or "unclear", "targets" must be an empty array.');
+  L.push('- With "action": "replace_question" the verdict is "fix_needed" and "targets" is an empty array.');
   return L.join("\n");
 }
 
@@ -852,13 +1063,15 @@ function buildFieldPrompt(d, fields, ctx){
   if(ctx.correct_answer) L.push(`- The correct option is ${ctx.correct_answer}. Every field you write must state or derive exactly this option.`);
   L.push(`- Diagnosis: ${ctx.diagnosis||''}`);
   L.push("");
+  pushAdminNote(L);
   L.push(`### Test: ${FIX.mockId} · Question number ${FIX.qNum}`);
   L.push("");
   L.push(`### The document you are editing (${d.coll}/${d.id}, language=${d.lang})`);
   L.push("```json");
-  L.push(JSON.stringify(d.data, null, 1));
+  L.push(docJSON(d));
   L.push("```");
   L.push("");
+  passageBlock(L, d, false);
   if(ctx.ref && ctx.ref.changes && ctx.ref.changes.length){
     L.push(`### The corrected ${ctx.ref.lang==='hi'?'Hindi':'English'} twin — mirror its method step for step`);
     ctx.ref.changes.forEach(c => { L.push(`TWIN FIELD ${c.field}:`); L.push("```"); L.push(String(c.val==null?'':c.val)); L.push("```"); });
@@ -871,13 +1084,15 @@ function buildFieldPrompt(d, fields, ctx){
   L.push("1. Fix what is wrong and keep everything that is right. This is a correction, not a rewrite for its own sake — but a corrected field must read cleanly end to end, not as a patched sentence.");
   L.push("2. Nothing in the field may still state or derive the old option. Check the final verdict line, every intermediate step and any figure.");
   L.push("3. Preserve the formatting conventions of the stored field exactly: KaTeX wrapped in \\( \\), [BR] for line breaks, <u> tags, || option separators, inline HTML, green step headings (#155724), orange bullets (#FF6B00), the green verdict badge (#00A86B). Never emit a bare caret, a Unicode superscript or an unbalanced \\( \\).");
-  L.push("4. Never translate. A Hindi document stays Hindi — sentences in Hindi, with numbers, KaTeX, 'Step N' headings and technical terms in English exactly as it already does. An English document stays English.");
+  L.push("4. Never translate. A Hindi document stays Hindi — sentences in Hindi, with numbers, KaTeX, 'Step N' headings and technical terms in English exactly as it already does. An English document stays English. Where a Hindi-paper document stores a field in English (English-section questions), that field stays English.");
   L.push("5. Write compactly — no filler lines, no repeated wrappers.");
+  L.push("6. If a field you are writing is the question text or an option: keep it at SSC standard — one clear task, wording as in actual SSC papers, exactly ONE correct option among the four, and agreeing with the key above. Keep the lead-in label and formatting the stored field uses.");
   L.push("");
   L.push("### Output");
   L.push("Return ONLY a JSON object, no markdown fences, no commentary:");
   L.push('{ "changes": [ { "field": "explanation", "new": "the COMPLETE new value of the field", "why": "short reason" } ] }');
   L.push("Give the complete value of each field — never a fragment, never a diff.");
+  if(d._pi && d._pi.passage) L.push(`Exception: for "${d._pi.field}" return ONLY the question that follows the passage — never the passage itself and never the ${PASSAGE_MARK} marker. The passage is re-attached automatically.`);
   return L.join("\n");
 }
 
@@ -895,6 +1110,7 @@ function buildSolutionPrompt(only, ref){
     FIX.reports.forEach(r => L.push(`- PART: ${tgtOf(r)} | Reason: ${r.reason||'—'} | Note: ${r.note||'(none)'}`));
     L.push("");
   }
+  pushAdminNote(L);
   L.push(`### Test: ${FIX.mockId} · Question number ${FIX.qNum}`);
   L.push("");
   L.push("### The document you are rewriting — the ONLY one");
@@ -949,6 +1165,119 @@ function buildSolutionPrompt(only, ref){
   L.push('  "clear_reports": true');
   L.push('}');
   L.push('Every rewritten field is one entry in "changes", carrying the COMPLETE new value of that field — never a fragment, never a diff.');
+  return L.join("\n");
+}
+
+/* ── PROMPT 3: repair or replace the QUESTION itself (TSSC-QREWRITE-V1) ──
+   One document per call. The first document decides and writes; every
+   other language copy is then told to reproduce exactly that question. */
+function buildRewritePrompt(d, ref){
+  const pi = d._pi || {}, L = [];
+  const langName = l => l==='hi' ? 'Hindi' : (l==='en' ? 'English' : 'other');
+  L.push("You are a senior SSC paper-setter and content reviewer for TrickySSC, an SSC exam-prep platform for CGL / CHSL aspirants (Hindi- and English-medium).");
+  L.push("A question in a live test is defective. Your job is to REPAIR it — or, where it cannot be repaired, to REPLACE it with a new question of genuine SSC standard — and to write the matching options, answer key and solution. You write for ONE document per call.");
+  L.push("");
+  L.push("### Why this question is on your desk");
+  if(FIX.reports.length) FIX.reports.forEach(r => L.push(`- Candidate report — PART: ${tgtOf(r)} | Reason: ${r.reason||'—'} | Note: ${r.note||'(none)'}`));
+  else L.push("- (no candidate report — opened by the admin)");
+  if(FIX.from && FIX.from.diagnosis) L.push(`- Finding of the first review pass: ${FIX.from.diagnosis}`);
+  if(FIX.from && FIX.from.brief)     L.push(`- What that pass asked for: ${FIX.from.brief}`);
+  L.push("");
+  pushAdminNote(L);
+  L.push(`### Test: ${FIX.mockId} · Question number ${FIX.qNum}`);
+  L.push("");
+  L.push(`### The document you are writing for — the ONLY one (${d.coll}/${d.id}, language=${d.lang})`);
+  L.push("```json");
+  L.push(docJSON(d));
+  L.push("```");
+  L.push("");
+  passageBlock(L, d, !ref);
+  if(hasFigure(d.data)){
+    L.push("### This question shows a figure that you CANNOT see");
+    L.push("Never write a question, option or solution that relies on what the figure contains. If the defect cannot be put right without seeing the figure, use the action \"cannot\".");
+    L.push("");
+  }
+
+  if(ref){
+    L.push(`### This question has ALREADY been rewritten in ${ref.where} (${langName(ref.lang)}) — reproduce exactly that question here`);
+    L.push(`Both documents are the same question in the same paper. Yours must be the SAME question: the same meaning, the same four options in the same A–D order, the same answer key${ref.key?` (${ref.key})`:''}, the same method in the solution. Do not write a different question and do not re-judge the decision — set "action" to "${ref.action}".`);
+    L.push("Only the fields listed below changed in that document. Change the corresponding fields here, and nothing else.");
+    L.push("Language: write each field in the language THAT FIELD is already written in, in THIS document. Where this document stores the question and options in English (the Hindi paper keeps the English section in English), copy the stem and options below word for word. Where they are in Hindi, write natural exam Hindi — not a word-for-word translation — keeping numbers, KaTeX and technical terms the way this document already writes them. The solution fields follow this document's own language in the same way.");
+    ref.changes.forEach(c => {
+      L.push(`REWRITTEN FIELD ${c.field}${c.stemOnly?' (the question only — its passage is not repeated)':''}:`);
+      L.push("```");
+      L.push(String(c.val==null?'':c.val));
+      L.push("```");
+    });
+    L.push("");
+  } else {
+    L.push("### Step 1 — diagnose, then choose ONE action");
+    L.push("Solve the stored question yourself first, from the passage alone if it has one.");
+    L.push("- \"repair\"  — it is basically the right question, but something in it is wrong: a word or number in the stem, an option, two options the same, no option matching the true answer, the key. Change only what is wrong.");
+    L.push("- \"replace\" — the question does not belong to its passage, cannot be answered from what is given, has no single defensible answer and no small edit cures that, or is garbled. Write a NEW question.");
+    L.push("- \"none\"    — question, options and key are all sound. Return no changes and say why. An admin instruction above, if there is one, overrides this: do what it asks.");
+    L.push("- \"cannot\"  — it cannot be put right from here (it depends on a figure you cannot see, or the passage itself is missing or corrupt). Return no changes and say exactly what a human must do.");
+    L.push("");
+    L.push("### Step 2 — the standard the repaired or new question must meet");
+    L.push("1. It must read like a question from an actual SSC paper of this exam and tier (see the exam / tier / subject / chapter fields): one clear task, formal exam wording, the stems SSC really uses, difficulty equal to the stored difficulty and to the questions around it. Nothing a paper-setter would not ask.");
+    L.push("2. Exactly four options, exactly ONE of them correct and defensible beyond argument. The other three must be plausible to a half-prepared candidate and wrong for a reason you can state. No two options equivalent; options parallel in grammar and similar in length; no 'All of the above' / 'None of the above' unless the stored question already used it. Do not always park the answer on the same letter.");
+    L.push("3. PASSAGE QUESTIONS — answerable from the passage ALONE, with the correct option resting on a specific line you can point to. Build the distractors from the passage's own content (a detail from another paragraph, a reversed cause and effect, an over-generalisation), not from outside knowledge. Use the question types SSC sets on passages: a stated detail, an inference, the central idea or a suitable title, the author's tone, the meaning / synonym / antonym of a word AS USED in the passage (quote the word exactly as it appears), or which statement is true / NOT true according to the passage. Never ask about something the passage does not say, and never repeat the point tested by another question on the same passage.");
+    L.push("4. CLOZE PASSAGES — keep the blank numbering; the options must contain exactly one word that fits the blank in grammar, sense and collocation.");
+    L.push("5. QUESTIONS WITHOUT A PASSAGE — stay in the same subject, chapter and concept as the stored question, so the chapter balance of the test does not move. Quant: numbers that work out clean, solved by you twice by two different routes before you commit. Reasoning: one rule, one unique answer. General Awareness: only facts you are certain of, static rather than date-sensitive, of the kind SSC actually asks. English: one indisputable answer by standard grammar and usage.");
+    L.push("6. Keep whatever in the stored question is not wrong: its lead-in label (e.g. 'Question:'), its formatting (**bold**, <u>, [BR], KaTeX in \\( \\), pipe tables), its option style.");
+    L.push("7. Do not touch qNum, subject, chapter, difficulty, ids, language or image fields.");
+    L.push("");
+  }
+
+  L.push(`### ${ref ? 'The solution' : 'Step 3 — the solution'}`);
+  L.push("Write every solution field this document has — explanation / solution / solutionText / trick / concept, only those present in the JSON above — for the FINAL question, in the house format the stored fields already use: green step headings (#155724), orange dash bullets (#FF6B00), the single green verdict badge (#00A86B), [BR] line breaks, KaTeX wrapped in \\( \\) with ^{} for powers. Solve it step by step in simple language. For a passage question, quote or point to the line that proves the answer and say in a few words why each wrong option fails. End with the verdict line naming the correct option letter and that option's text. trick = the fast route in one or two lines; concept = the one-line topic label. Nothing in any field may still refer to the old question, and nothing may state or derive a different option from the key.");
+  L.push("If a repair leaves a stored solution field completely correct, leave that field out.");
+  L.push("");
+  if(!ref){
+    L.push("### Language");
+    L.push("Never translate. Write each field in the language THAT FIELD is already written in, in this document — a Hindi document stays Hindi, with numbers, KaTeX, 'Step N' headings and technical terms in English exactly as it already does; where a Hindi-paper document stores a field in English (English-section questions), that field stays English.");
+    L.push("");
+  }
+  L.push("### Output");
+  L.push("Return ONLY a JSON object, no markdown fences, no commentary before or after. Inside JSON strings every backslash must be escaped.");
+  L.push('{');
+  L.push('  "action": "repair" | "replace" | "none" | "cannot",');
+  L.push('  "confidence": "high" | "medium" | "low",');
+  L.push('  "correct_answer": "the option letter that is correct in the FINAL question",');
+  L.push('  "diagnosis": "2-5 sentences: what was wrong with the stored question, and what you changed or wrote instead",');
+  L.push('  "changes": [ { "field": "text", "new": "…", "why": "short reason" }, { "field": "options.A", "new": "…" }, { "field": "correct", "new": "B" }, { "field": "explanation", "new": "…" } ],');
+  L.push('  "clear_reports": true');
+  L.push('}');
+  L.push('Rules for "changes":');
+  L.push('- One entry per field, carrying the COMPLETE new value of that field — never a fragment, never a diff. List only fields whose value actually changes.');
+  L.push('- Field names exactly as they appear in the JSON above, dot notation for nested ones. Options one letter at a time (options.A … options.D) — never the whole options object. If the document has both an options object and flat option_A … option_D copies, list only the options.X form: the flat copies are synced automatically.');
+  if(pi.passage) L.push(`- For "${pi.field}" return ONLY the question that follows the passage — never the passage itself and never the ${PASSAGE_MARK} marker. The passage is re-attached automatically.`);
+  L.push('- With "none" or "cannot", "changes" is an empty array.');
+  return L.join("\n");
+}
+
+/* ── PROMPT 4: blind re-solve of the rewritten question ─────────────
+   A second pass that sees the question and options but NOT the key or
+   the solution — so a wrong key or a second defensible option shows up
+   before the question is published.                                  */
+function buildVerifyPrompt(q){
+  const L = [];
+  L.push("You are an experienced SSC examiner checking ONE multiple-choice question before it goes into a paper. You are NOT told the answer key. In the text, [BR] is a line break, \\( \\) wraps maths, and **…** is bold.");
+  L.push("");
+  if(q.passage){ L.push("### Passage"); L.push("```"); L.push(q.passage); L.push("```"); L.push(""); }
+  L.push("### Question");
+  L.push("```");
+  L.push(q.stem);
+  L.push("```");
+  ['A','B','C','D'].forEach(Lt => L.push(`${Lt}) ${q.opts[Lt]}`));
+  L.push("");
+  L.push("### Do this");
+  L.push("1. Solve it yourself — from the passage alone, if there is one.");
+  L.push("2. Test every option: is exactly one of them correct?");
+  L.push("3. Judge it as an SSC question: is the task clear, is it answerable from what is given, is it of SSC standard?");
+  L.push("");
+  L.push("Return ONLY a JSON object, no markdown fences, no commentary:");
+  L.push('{ "working": "3-6 short lines", "answer": "A" | "B" | "C" | "D" | "NONE", "also_defensible": ["letter of any OTHER option that could also be argued correct"], "issue": "empty string if the question is sound; otherwise one or two lines naming the defect" }');
   return L.join("\n");
 }
 
@@ -1027,15 +1356,33 @@ function busyPane(stepLabel, line, sub){
 }
 
 // Map an AI change entry onto a document and pick up its old value
-const mkChange = (c, d, i) => ({
-  i, d, field:String(c.field||''), old:getPath(d.data, String(c.field||'')),
-  val:c.new, why:c.why||'', on:true
-});
+function mkChange(c, d, i){
+  const field = String(c.field||'');
+  const ch = { i, d, field, old:getPath(d.data, field), val:c.new, why:c.why||'', on:true, prefix:'', full:false };
+  // TSSC-QREWRITE-V1 — question text that sits on a passage: the AI returns only the
+  // question (stem). Keep the passage aside as `prefix`; applyFix puts it back.
+  const pi = d._pi;
+  if(pi && pi.passage && field === pi.field && typeof ch.val === 'string'){
+    let v = ch.val;
+    if(v.startsWith(PASSAGE_MARK)) v = v.slice(PASSAGE_MARK.length).replace(/^\s+/, '');
+    if(v.startsWith(pi.passage)) v = v.slice(pi.passage.length);          // sent the passage back unchanged — drop it
+    if(commonPrefix(v, pi.passage) >= Math.min(80, pi.passage.length) ||
+       (v.length > 500 && v.length >= pi.passage.length * 0.7)){
+      ch.full = true; ch.val = v;                                         // sent an ALTERED passage back — show the whole field, flagged
+    } else {
+      ch.prefix = pi.passage; ch.old = pi.stem; ch.val = v;
+    }
+  }
+  return ch;
+}
 
 async function runAI(mode){
-  FIX.mode = (mode==='solution') ? 'solution' : 'fix';
-  FIX.truncated = []; FIX.changes = [];
-  return FIX.mode === 'solution' ? runSolutionRewrite() : runCorrection();
+  FIX.mode = (mode==='solution') ? 'solution' : (mode==='rewrite' ? 'rewrite' : 'fix');
+  FIX.truncated = []; FIX.changes = []; FIX.warn = ''; FIX.verify = null;
+  if(FIX.mode !== 'rewrite') FIX.from = null;
+  if(FIX.mode === 'solution') return runSolutionRewrite();
+  if(FIX.mode === 'rewrite')  return runQuestionRewrite();
+  return runCorrection();
 }
 
 // ── Correctness pass: diagnose in one short call, then write each
@@ -1051,6 +1398,13 @@ async function runCorrection(){
   if(!p) return fail(truncFail(r, AI_MAX_TOKENS, 'AI_MAX_TOKENS'));
   FIX.ai = p.ai;
   if(p.truncated) FIX.truncated.push('the diagnosis');
+
+  // TSSC-QREWRITE-V1 — the question is beyond a small edit: hand over to the question rewrite
+  if(p.ai.verdict === 'fix_needed' && /^replace/i.test(String(p.ai.action||''))){
+    FIX.from = { diagnosis:p.ai.diagnosis||'', brief:p.ai.replacement_brief||'' };
+    FIX.mode = 'rewrite'; FIX.truncated = [];
+    return runQuestionRewrite();
+  }
 
   // targets = fields to edit; legacy "changes" (values inline) still accepted
   const raw = (p.ai.targets && p.ai.targets.length) ? p.ai.targets : (p.ai.changes || []);
@@ -1081,6 +1435,11 @@ async function runCorrection(){
   let ref = null, warn = '';
   for(let n=0; n<byDoc.length; n++){
     const {d, fields} = byDoc[n];
+    if(fields.some(f => TEXT_FIELD(f.field)) && !d._pi){
+      // editing question text — find its passage first, so the passage is never rewritten
+      busyPane('Writing the fix', `Checking whether ${String(d.lang).toUpperCase()} Q${esc(FIX.qNum)} sits on a passage…`);
+      await passageInfo(d, FIX.docs.map(x => x._pi).find(q => q && q.passage));
+    }
     busyPane('Writing the fix',
       `Writing ${String(d.lang).toUpperCase()} — document ${n+1} of ${byDoc.length}…`,
       `${esc(fields.map(f=>f.field).join(', '))} · one document per call, so nothing gets cut off`);
@@ -1152,6 +1511,158 @@ function finishRewrite(results, warn){
   renderStage3();
 }
 
+// ── Question rewrite: ONE CALL PER DOCUMENT (TSSC-QREWRITE-V1) ──────
+// The question doc that carries the text goes first (English before Hindi);
+// what it writes is then handed to every other copy to reproduce, so the
+// two language versions can never end up as two different questions.
+const rwDocRank   = d => (Q_COLLECTIONS.includes(d.coll) ? 0 : 10) + (d.lang==='en' ? 0 : d.lang==='hi' ? 1 : 2);
+const rwFieldRank = f => TEXT_FIELD(f) ? 0
+                       : optLetter(f) ? 1 + 'ABCD'.indexOf(optLetter(f))
+                       : SHORT_FIELD(f) ? 6
+                       : /^(explanation|solution)/i.test(f) ? 7 : /^trick/i.test(f) ? 8 : 9;
+const rwAction = a => { a = String(a||'').toLowerCase(); return ['repair','replace','none','cannot'].includes(a) ? a : (a.startsWith('repl') ? 'replace' : 'repair'); };
+const sameVal  = (a,b) => (typeof a==='object' ? JSON.stringify(a) : String(a==null?'':a)) === (typeof b==='object' ? JSON.stringify(b) : String(b==null?'':b));
+
+async function runQuestionRewrite(){
+  const me = FIX;
+  const order = [...FIX.docs].sort((a,b) => rwDocRank(a) - rwDocRank(b));
+  const results = [];
+  let ref = null, warn = '';
+
+  for(let n=0; n<order.length; n++){
+    const d = order[n], LG = String(d.lang).toUpperCase();
+    if(textFieldOf(d.data) && !d._pi){
+      busyPane('Rewriting the question', `Checking whether ${LG} Q${esc(FIX.qNum)} sits on a passage…`,
+        'reading the neighbouring questions, so the passage is kept word for word and no sibling question is repeated');
+      await passageInfo(d, order.map(x => x._pi).find(p => p && p.passage));
+      if(FIX !== me) return;
+    }
+    busyPane('Rewriting the question',
+      ref ? `Carrying the same question into ${LG} — document ${n+1} of ${order.length}…`
+          : `Claude is repairing / rewriting the question — ${LG}, document ${n+1} of ${order.length}…`,
+      `${esc(d.coll)}/${esc(d.id)}${d._pi && d._pi.passage ? ` · passage found (${d._pi.passage.length} characters, ${d._pi.siblings.length} sibling question(s)) — it will not be touched` : ''}`);
+
+    let r;
+    try{ r = await callAI(buildRewritePrompt(d, ref), RW_MAX_TOKENS); }
+    catch(e){
+      if(FIX !== me) return;
+      if(!results.length) return fail(aiFailMsg(e));
+      warn = `The ${LG} call failed: ${esc(e.message||e)} — press ↻ to retry.`; break;
+    }
+    if(FIX !== me) return;
+    const p = parseAI(r.raw);
+    if(!p){
+      if(!results.length) return fail(truncFail(r, RW_MAX_TOKENS, 'RW_MAX_TOKENS'));
+      warn = `The ${LG} reply could not be parsed — press ↻ to retry.`; break;
+    }
+    if(p.truncated) FIX.truncated.push(LG);
+    const act = rwAction(p.ai.action);
+    const changes = (p.ai.changes||[]).filter(c => c && c.field)
+      .map(c => mkChange(c, d, 0))
+      .filter(c => !sameVal(c.old, c.val))                       // drop "changes" that change nothing
+      .sort((a,b) => rwFieldRank(a.field) - rwFieldRank(b.field));
+    results.push({d, ai:p.ai, act, changes});
+
+    if(!ref){
+      if(act==='none' || act==='cannot' || !changes.length) break;   // nothing to carry into the other copies
+      ref = { lang:d.lang, where:`${d.coll}/${d.id}`, action:act,
+              key:String(p.ai.correct_answer||'').trim().toUpperCase(),
+              changes: changes.map(c => ({field:c.field, val:c.val, stemOnly:!!c.prefix})) };
+    }
+  }
+
+  const first = results[0];
+  FIX.ai = {
+    action: first.act,
+    confidence: first.ai.confidence || '',
+    correct_answer: String(first.ai.correct_answer||'').trim().toUpperCase(),
+    diagnosis: first.ai.diagnosis || '',
+    clear_reports: results.every(x => x.ai.clear_reports !== false) && (first.act==='repair' || first.act==='replace')
+  };
+  let i = 0;
+  FIX.changes = [];
+  results.forEach(x => x.changes.forEach(c => { c.i = i++; FIX.changes.push(c); }));
+
+  // every language copy must end on the same key
+  const keys = [...new Set(FIX.docs.filter(d => textFieldOf(d.data)).map(d => finalQuestion(d).key).filter(Boolean))];
+  if(keys.length > 1) warn += (warn?' ':'') + `The language copies end on different answer keys (${esc(keys.join(' / '))}) — put that right before publishing.`;
+  if(results.length < order.length && ref && !warn) warn = 'Not every language copy was rewritten — press ↻ to retry.';
+  FIX.warn = warn;
+
+  FIX.verify = null;
+  if(RW_VERIFY && (first.act==='repair' || first.act==='replace')
+     && first.changes.some(c => TEXT_FIELD(c.field) || optLetter(c.field) || SHORT_FIELD(c.field))){
+    await verifyRewrite(first.d);
+    if(FIX !== me) return;
+  }
+  renderStage3();
+}
+
+// Blind re-solve of the first document's final question — key and solution withheld
+async function verifyRewrite(d){
+  const me = FIX;
+  if(!textFieldOf(d.data)) return;
+  if(hasFigure(d.data)){ FIX.verify = {na:'the question shows a figure, which the checker cannot see'}; return; }
+  const q = finalQuestion(d);
+  busyPane('Checking the new question', 'A second pass is solving the rewritten question blind — no key, no solution shown…',
+    'if it lands on a different option, you are told before anything is published');
+  try{
+    const r = await callAI(buildVerifyPrompt(q), VERIFY_MAX_TOKENS);
+    if(FIX !== me) return;
+    const p = parseAI(r.raw);
+    if(!p || !p.ai){ FIX.verify = {na:'its reply could not be read'}; return; }
+    const ans  = String(p.ai.answer||'').trim().toUpperCase();
+    const also = (Array.isArray(p.ai.also_defensible) ? p.ai.also_defensible : [])
+                   .map(x => String(x).trim().toUpperCase()).filter(x => /^[A-D]$/.test(x) && x !== ans);
+    FIX.verify = { answer:ans, also, issue:String(p.ai.issue||'').trim(), key:q.key, ok:(ans === q.key && !also.length) };
+  }catch(e){ if(FIX === me) FIX.verify = {na:'the request failed ('+(e.message||e)+')'}; }
+}
+
+function verifyHtml(){
+  const v = FIX.verify;
+  if(!v) return '';
+  if(v.na) return `<div class="vchk na">🔍 Blind re-solve not run — ${esc(v.na)}. Check the key yourself.</div>`;
+  if(v.ok) return `<div class="vchk ok">🔍 Blind re-solve (a second pass given only the question and options — no key, no solution) also arrived at <b>${esc(v.answer)}</b> ✓${v.issue?`<div style="margin-top:3px;font-weight:400;">It noted: ${esc(v.issue)}</div>`:''}</div>`;
+  if(v.answer !== v.key) return `<div class="vchk bad">⚠ Blind re-solve picked <b>${esc(v.answer||'?')}</b>, but the key of the rewritten question is <b>${esc(v.key||'?')}</b> — read it carefully before publishing, or press ↻ Rewrite again.${v.issue?`<div style="margin-top:3px;font-weight:400;">${esc(v.issue)}</div>`:''}</div>`;
+  return `<div class="vchk bad">⚠ Blind re-solve agrees on <b>${esc(v.key)}</b>, but says option ${esc(v.also.join(', '))} could also be argued correct.${v.issue?`<div style="margin-top:3px;font-weight:400;">${esc(v.issue)}</div>`:''}</div>`;
+}
+
+// ── Student-view preview of the rewritten question ──────────────────
+function previewDocs(){
+  return FIX.docs.filter(d => textFieldOf(d.data) &&
+    FIX.changes.some(c => c.d === d && (TEXT_FIELD(c.field) || optLetter(c.field) || SHORT_FIELD(c.field))));
+}
+function qprevSkeleton(d){
+  const k = FIX.docs.indexOf(d);
+  return `<div class="qprev">
+    <span class="docpill">${esc(d.coll)}/${esc(d.id)}</span>${d.lang!=='?'?`<span class="pill b">${esc(String(d.lang).toUpperCase())}</span>`:''}<span id="qpT${k}"></span>
+    <details id="qpD${k}" class="hidden"><summary>Passage — unchanged (<span id="qpN${k}"></span> characters)</summary><div class="qp-pass" id="qpP${k}"></div></details>
+    <div class="qp-stem" id="qpS${k}"></div>
+    ${['A','B','C','D'].map(Lt => `<div class="qp-opt" id="qpO${k}${Lt}"><b>${Lt}.</b><span id="qpX${k}${Lt}"></span></div>`).join('')}
+    ${hasFigure(d.data)?`<div class="why">⚠ This question also shows a figure, which is not previewed here.</div>`:''}
+  </div>`;
+}
+function paintQPreview(){
+  if(!FIX) return;
+  previewDocs().forEach(d => {
+    const k = FIX.docs.indexOf(d);
+    if(!$('qpS'+k)) return;
+    const q = finalQuestion(d);
+    $('qpT'+k).innerHTML = (q.stemChanged ? '<span class="pill sol">question text changed</span>' : '')
+                         + (q.keyChanged  ? '<span class="pill mock">key changed</span>' : '');
+    const det = $('qpD'+k);
+    det.classList.toggle('hidden', !q.passage);
+    if(q.passage && !det.dataset.done){ $('qpN'+k).textContent = q.passage.length; paintRich($('qpP'+k), q.passage, true); det.dataset.done = '1'; }
+    paintRich($('qpS'+k), q.stem, true);
+    ['A','B','C','D'].forEach(Lt => {
+      const row = $('qpO'+k+Lt);
+      row.classList.toggle('key', q.key === Lt);
+      row.classList.toggle('chg', !!q.chg[Lt]);
+      paintRich($('qpX'+k+Lt), q.opts[Lt], true);
+    });
+  });
+}
+
 function truncFail(r, cap, capName){
   const cut = r.stop === 'max_tokens' || looksCut(r.raw);
   return `Couldn't parse the AI response as JSON.
@@ -1178,8 +1689,10 @@ function katexReady(){
 }
 
 // Paint a stored field the way the test player shows it: [BR] → <br>, HTML live, KaTeX rendered.
-function paintRich(el, val){
-  el.innerHTML = String(val==null?'':val).replace(/\[BR\]/g,'<br>');
+function paintRich(el, val, md){
+  let h = String(val==null?'':val).replace(/\[BR\]/g,'<br>');
+  if(md) h = h.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');   // question text uses **bold**
+  el.innerHTML = h;
   katexReady().then(render => { if(render) try{ render(el, {
     delimiters:[{left:'\\(',right:'\\)',display:false},{left:'$$',right:'$$',display:true}],
     throwOnError:false
@@ -1191,7 +1704,7 @@ const SOL_FIELD   = f => /^(explanation|solution|solutionText|trick|concept)$/i.
 
 // ── Stage 4: editable preview ──────────────────────────────────────
 function renderStage3(){
-  const ai = FIX.ai, sol = FIX.mode==='solution';
+  const ai = FIX.ai, sol = FIX.mode==='solution', rw = FIX.mode==='rewrite', rich = sol || rw;
   let cls, head;
   if(sol){
     const ks = String(ai.key_status||'correct').toLowerCase();
@@ -1199,28 +1712,44 @@ function renderStage3(){
     head = ks==='correct' ? '✓ Answer key verified correct — solution rewritten in more detail'
          : ks==='broken'  ? '? The question itself looks defective — read the diagnosis before publishing'
          : '⚠ The answer key was wrong — corrected, and the solution rewritten to match';
+  } else if(rw){
+    const a = String(ai.action||'');
+    cls  = (a==='repair' || a==='replace') ? 'v-fix' : (a==='none' ? 'v-no' : 'v-un');
+    head = a==='replace' ? '🛠 Question replaced — a new question, options, key and solution have been written'
+         : a==='repair'  ? '🛠 Question repaired — only the faulty parts were changed'
+         : a==='none'    ? '✓ Nothing to rewrite — the question, options and key look sound'
+         : '? This question cannot be put right automatically — read the diagnosis';
   } else {
     cls  = ai.verdict==='fix_needed' ? 'v-fix' : (ai.verdict==='no_change' ? 'v-no' : 'v-un');
     head = ai.verdict==='fix_needed' ? '⚠ Correction proposed'
          : ai.verdict==='no_change'  ? '✓ No change needed — the stored content looks correct'
          : '? Unclear — needs your eyes';
   }
-  let html = `<div class="steps">1 · Located → 2 · ${sol?'Rewritten':'Analysed'} → <b>3 · Review</b> → 4 · Publish</div>
+  let html = `<div class="steps">1 · Located → 2 · ${sol?'Rewritten':(rw?'Question rewritten':'Analysed')} → <b>3 · Review</b> → 4 · Publish</div>
     <div class="verdict ${cls}"><b>${head}</b> <span class="muted">(confidence: ${esc(ai.confidence||'?')})</span>
       <div style="margin-top:6px;">${esc(ai.diagnosis||'')}</div>
-      ${ai.correct_answer?`<div style="margin-top:6px;"><span class="lbl">Independently derived answer</span> <b>${esc(ai.correct_answer)}</b></div>`:''}
+      ${ai.correct_answer?`<div style="margin-top:6px;"><span class="lbl">${rw?'Answer key of the final question':'Independently derived answer'}</span> <b>${esc(ai.correct_answer)}</b></div>`:''}
       ${ai.reporter_assessment?`<div class="why">Reporter: ${esc(ai.reporter_assessment)}</div>`:''}
+      ${(rw && FIX.from && FIX.from.diagnosis)?`<div class="why">Handed over by ✨ Analyse, which found: ${esc(FIX.from.diagnosis)}</div>`:''}
+      ${rw ? verifyHtml() : ''}
     </div>`;
 
   if((FIX.truncated && FIX.truncated.length) || FIX.warn){
     const who = (FIX.truncated||[]).join(', ');
-    html += `<div class="verdict v-fix"><b>⚠ Partial reply</b>
+    html += `<div class="verdict v-fix"><b>⚠ ${who?'Partial reply':'Check before publishing'}</b>
       ${who?`<div style="margin-top:4px;">The ${esc(who)} reply was cut off by the token limit. Only the fields that arrived complete are shown below — check the last one carefully for a sentence that stops mid-air, and press ↻ to redo it.</div>`:''}
       ${FIX.warn?`<div style="margin-top:4px;">${FIX.warn}</div>`:''}</div>`;
   }
 
+  // TSSC-QREWRITE-V1 — the question as the student will see it, repainted live as fields are edited
+  const pDocs = rich || FIX.changes.some(c => TEXT_FIELD(c.field) || optLetter(c.field)) ? previewDocs() : [];
+  if(pDocs.length){
+    html += `<div class="sec"><h3>The question as the student will see it</h3>${pDocs.map(qprevSkeleton).join('')}
+      <div class="muted">Updates live as you edit or untick the fields below. Green = answer key · orange edge = option text changed.</div></div>`;
+  }
+
   if(FIX.changes.length){
-    html += `<div class="sec"><h3>${sol?'Old solution vs new solution':'Proposed edits'} (${FIX.changes.length}) — editable</h3>`;
+    html += `<div class="sec"><h3>${sol?'Old solution vs new solution':(rw?'Field-by-field changes':'Proposed edits')} (${FIX.changes.length}) — editable</h3>`;
     FIX.changes.forEach(c => {
       const oldTxt = c.old===undefined ? '(field does not exist yet)' : (typeof c.old==='object'? JSON.stringify(c.old) : String(c.old));
       const newTxt = typeof c.val==='object'? JSON.stringify(c.val) : String(c.val==null?'':c.val);
@@ -1228,10 +1757,12 @@ function renderStage3(){
       const grow   = oldTxt.length ? Math.round((newTxt.length/Math.max(1,oldTxt.length))*100) : 0;
       const badge  = risky ? `<span class="riskbadge">touches the question itself</span>` : '';
       const growB  = (sol && oldTxt.length>40) ? `<span class="grow">${grow}% of old length</span>` : '';
+      const passB  = c.prefix ? `<span class="grow">passage untouched · only the question after it is shown</span>`
+                   : (c.full ? `<span class="riskbadge">the AI re-sent the passage — compare it with the original</span>` : '');
       const title  = `<span class="fn">${esc(c.d.coll)}/${esc(c.d.id)} → ${esc(c.field)}</span>
-                      ${c.d.lang!=='?'?`<span class="pill b">${esc(String(c.d.lang).toUpperCase())}</span>`:''}${badge}${growB}`;
+                      ${c.d.lang!=='?'?`<span class="pill b">${esc(String(c.d.lang).toUpperCase())}</span>`:''}${badge}${growB}${passB}`;
 
-      if(sol && SOL_FIELD(c.field)){
+      if(rich && SOL_FIELD(c.field)){
         // side-by-side, rendered the way the student sees it
         const rows = Math.min(26, Math.max(6, Math.ceil(newTxt.length/90)));
         html += `<div class="fieldrow${risky?' risky':''}">
@@ -1259,7 +1790,7 @@ function renderStage3(){
             <input type="checkbox" data-ci="${c.i}" class="ck" checked>${title}
           </label>
           <div class="lbl" style="margin-top:6px;">Current</div><div class="old">${esc(oldTxt)}</div>
-          <div class="lbl">Corrected</div><textarea class="new" rows="${rows}" data-ci="${c.i}">${esc(newTxt)}</textarea>
+          <div class="lbl">${rw?'New':'Corrected'}</div><textarea class="new" rows="${rows}" data-ci="${c.i}">${esc(newTxt)}</textarea>
           ${c.why?`<div class="why">↳ ${esc(c.why)}</div>`:''}
         </div>`;
       }
@@ -1267,6 +1798,8 @@ function renderStage3(){
     html += `</div>`;
   } else if(sol){
     html += `<div class="sec"><span class="muted">The AI returned no rewritten fields. Try again, or use ✨ Analyse if you only wanted a correctness check.</span></div>`;
+  } else if(rw){
+    html += `<div class="sec"><span class="muted">No fields were changed. If you want the question changed anyway, press ← Back, say what you want in the instruction box, and run 🛠 again.</span></div>`;
   }
   $('fixBody').innerHTML = html;
 
@@ -1276,6 +1809,7 @@ function renderStage3(){
     if(or) paintRich(or, c.old===undefined ? '(field does not exist yet)' : c.old);
     if(nr) paintRich(nr, c.val);
   });
+  paintQPreview();
   $('fixBody').querySelectorAll('button.tog').forEach(b => {
     b.onclick = () => {
       const i = b.dataset.ci, isNew = b.dataset.side==='new';
@@ -1292,10 +1826,11 @@ function renderStage3(){
       const c = FIX.changes.find(x=>x.i==t.dataset.ci); if(!c) return;
       c.val = t.value;
       const nr = $('newr'+c.i); if(nr) paintRich(nr, c.val);
+      paintQPreview();
     };
   });
   $('fixBody').querySelectorAll('input.ck').forEach(k => {
-    k.onchange = () => { const c = FIX.changes.find(x=>x.i==k.dataset.ci); if(c) c.on = k.checked; };
+    k.onchange = () => { const c = FIX.changes.find(x=>x.i==k.dataset.ci); if(c) c.on = k.checked; paintQPreview(); };
   });
 
   const nRep = FIX.reports.length;
@@ -1306,45 +1841,72 @@ function renderStage3(){
     (nRep ? `<label class="muted" style="display:flex;gap:6px;align-items:center;">
        <input type="checkbox" id="alsoClear" ${FIX.ai.clear_reports!==false?'checked':''}> also clear the ${nRep} report(s)</label>` : '') +
     `<button class="btn btn-ghost" onclick="closeFix()">Close without changing</button>` +
-    `<button class="btn btn-orange" id="reRun" style="margin-left:auto;">↻ ${sol?'Rewrite':'Run'} again</button>`;
+    `<button class="btn btn-ghost" id="backS2" style="margin-left:auto;" title="Change the instruction or pick another action">← Back</button>` +
+    `<button class="btn btn-orange" id="reRun">↻ ${rich?'Rewrite':'Run'} again</button>`;
   const ap = $('apply'); if(ap) ap.onclick = applyFix;
   const rr = $('reRun'); if(rr) rr.onclick = () => runAI(FIX.mode);
+  const bk = $('backS2'); if(bk) bk.onclick = renderStage2;
 }
 
 // ── Stage 5: write ─────────────────────────────────────────────────
 async function applyFix(){
   const picked = FIX.changes.filter(c => c.on);
   if(!picked.length) return alert('Nothing selected.');
+  // a replaced question published without its new options / key / solution contradicts itself
+  if(FIX.mode==='rewrite' && FIX.ai.action==='replace' && picked.length < FIX.changes.length &&
+     !confirm('Some parts of the new question are unticked.\n\nPublishing a new question with the OLD options, key or solution (or in one language only) will leave it contradicting itself.\n\nPublish the ticked fields anyway?')) return;
   const btn = $('apply'); btn.disabled = true; btn.textContent = 'Writing…';
+  // the passage was never sent to the AI — put it back in front of the question, untouched
+  const outVal = c => c.prefix ? c.prefix + String(c.val==null?'':c.val) : c.val;
   try{
     const byDoc = new Map();
     picked.forEach(c => {
       const key = c.d.coll+'/'+c.d.id;
       if(!byDoc.has(key)) byDoc.set(key, {d:c.d, patch:{}});
-      byDoc.get(key).patch[c.field] = c.val;
+      byDoc.get(key).patch[c.field] = outVal(c);
     });
+    // TSSC-QREWRITE-V1 — mock docs carry each option twice (options.A and flat option_A);
+    // the players read one and fall back to the other, so the two must never disagree.
+    let synced = 0;
+    for(const {d,patch} of byDoc.values()){
+      Object.keys(patch).forEach(f => {
+        const Lt = optLetter(f); if(!Lt) return;
+        if(/^options\./.test(f)){
+          ['option_'+Lt, 'option'+Lt].forEach(ff => {
+            if(d.data[ff] !== undefined && patch[ff] === undefined){ patch[ff] = patch[f]; synced++; }
+          });
+        } else if(d.data.options && typeof d.data.options === 'object'){
+          const k = d.data.options[Lt] !== undefined ? Lt : (d.data.options[Lt.toLowerCase()] !== undefined ? Lt.toLowerCase() : null);
+          if(k && patch['options.'+k] === undefined){ patch['options.'+k] = patch[f]; synced++; }
+        }
+      });
+    }
     for(const {d,patch} of byDoc.values()){
       await updateDoc(doc(db, d.coll, d.id), patch);
     }
     // audit trail
     try{
+      const str = v => typeof v==='object' && v!==null ? JSON.stringify(v) : String(v==null?'':v);
       await addDoc(collection(db, AUDIT_COLL), {
         mockId: FIX.mockId, qNum: FIX.qNum,
         by: auth.currentUser?.email || auth.currentUser?.uid || '',
         at: serverTimestamp(),
         mode: FIX.mode || 'fix',
-        verdict: FIX.ai.verdict || FIX.ai.key_status || '',
+        verdict: FIX.ai.verdict || FIX.ai.action || FIX.ai.key_status || '',
         keyStatus: FIX.ai.key_status || '',
+        action: FIX.ai.action || '',
+        adminNote: String(FIX.note||'').trim(),
+        blindCheck: FIX.verify ? (FIX.verify.na ? 'not run' : `${FIX.verify.answer||'?'} vs key ${FIX.verify.key||'?'}${FIX.verify.ok?' (agrees)':' (DISAGREES)'}`) : '',
         correctAnswer: FIX.ai.correct_answer || '',
         confidence: FIX.ai.confidence||'',
         diagnosis: FIX.ai.diagnosis||'',
         reportReasons: FIX.reports.map(r=>r.reason||''),
         reportNotes: FIX.reports.map(r=>r.note||''),
-        changes: picked.map(c => ({
-          docPath: c.d.coll+'/'+c.d.id, field: c.field,
-          old: c.old===undefined ? null : (typeof c.old==='object'? JSON.stringify(c.old) : String(c.old)),
-          new: typeof c.val==='object'? JSON.stringify(c.val) : String(c.val==null?'':c.val)
-        }))
+        changes: picked.map(c => {
+          const full = c.prefix ? getPath(c.d.data, c.field) : c.old;      // log whole field values, passage included
+          return { docPath: c.d.coll+'/'+c.d.id, field: c.field,
+                   old: full===undefined ? null : str(full), new: str(outVal(c)) };
+        })
       });
     }catch(e){ console.warn('audit log failed', e); }
 
@@ -1356,9 +1918,11 @@ async function applyFix(){
       cleared = ids.length;
       renderReports();
     }
+    const qTouched = picked.some(c => TEXT_FIELD(c.field) || optLetter(c.field) || SHORT_FIELD(c.field));
     $('fixBody').innerHTML = `<div class="verdict v-no"><b>✓ Published</b><br>
-      ${picked.length} field(s) written across ${byDoc.size} document(s)${cleared?`, ${cleared} report(s) cleared`:''}.
-      <div class="why">Logged to <code>${esc(AUDIT_COLL)}</code>. Purge the Cloudflare cache if the test page still shows the old text.</div></div>`;
+      ${picked.length} field(s) written across ${byDoc.size} document(s)${synced?` (+${synced} flat option cop${synced===1?'y':'ies'} kept in sync)`:''}${cleared?`, ${cleared} report(s) cleared`:''}.
+      <div class="why">Logged to <code>${esc(AUDIT_COLL)}</code>. Purge the Cloudflare cache if the test page still shows the old text.</div>
+      ${qTouched?`<div class="why">Candidates who already took this test keep the marks they scored on the old version; their review screen will show the question as it stands now.</div>`:''}</div>`;
     $('fixFoot').innerHTML = `<button class="btn btn-orange" onclick="closeFix()">Done</button>`;
   }catch(e){
     btn.disabled=false; btn.textContent='✓ Approve & publish';
