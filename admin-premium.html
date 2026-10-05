@@ -303,7 +303,15 @@ async function load(force) {
          one of them is active and unexpired. Other active keys are listed
          separately so the admin can see what the person actually holds. */
       const keyLive = m => { if (!m || m.active !== true) return false; const t = ts(m.expiresAt); return !t || t > Date.now(); };
-      const courseKeys = (Array.isArray(p.grantedKeys) && p.grantedKeys.length) ? p.grantedKeys : modulesFor(p.courseId || '');
+      /* TSSC-ADMINKEYS-V1.1 — judge by the course's PRIMARY key (product id minus
+         the "p-" prefix, e.g. p-ssc-cgl-mocks -> ssc-cgl-mocks). A combo product
+         such as the CGL series also grants Dashboard Pro, and grants made before
+         that key existed lack it, so "every key" wrongly read a paid buyer's
+         abandoned second order as not unlocked. If the product has no such key
+         (a pure combo), fall back to requiring all of its grants. */
+      const grantsFor = (Array.isArray(p.grantedKeys) && p.grantedKeys.length) ? p.grantedKeys : modulesFor(p.courseId || '');
+      const primaryKey = String(p.courseId || '').replace(/^p-/, '');
+      const courseKeys = grantsFor.includes(primaryKey) ? [primaryKey] : grantsFor;
       const courseActive = courseKeys.length > 0 && courseKeys.every(k => keyLive(mods[k]));
       let until = null;
       if (courseActive) courseKeys.forEach(k => { const t = ts(mods[k].expiresAt); if (t && (!until || t > until)) until = t; });
