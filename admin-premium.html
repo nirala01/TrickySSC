@@ -237,6 +237,7 @@ const PAY_API_FALLBACK = 'https://trickyssc-pay.nirala01.workers.dev';
 let PAY_API = '';
 let PRODUCTS = [];        // [{id, label, grants:[moduleKey]}]
 let ENTS = {};            // uid -> entitlement doc
+let KEYLABELS = {};       // moduleKey -> label (TSSC-ADMINKEYS-V1)
 let INTENTS = [];         // people who opened checkout
 let GRANT_TARGET = null;  // {uid, email} when granting from a row
 
@@ -294,12 +295,21 @@ async function load(force) {
 
     ROWS = pays.map(p => {
       const mods = (ents[p.uid] || {}).modules || {};
-      // the longest-dated key this purchase granted
+      /* TSSC-ADMINKEYS-V1 (2026-10-05) — judge access by THIS course's keys only.
+         The old code fell back to "any key on the doc", so a buyer holding just
+         Dashboard Pro showed a live date (and a Revoke button) on an unpaid
+         mock-series row. Now: the keys this purchase should grant come from the
+         order (grantedKeys) or the catalog; the row is "unlocked" only if every
+         one of them is active and unexpired. Other active keys are listed
+         separately so the admin can see what the person actually holds. */
+      const keyLive = m => { if (!m || m.active !== true) return false; const t = ts(m.expiresAt); return !t || t > Date.now(); };
+      const courseKeys = (Array.isArray(p.grantedKeys) && p.grantedKeys.length) ? p.grantedKeys : modulesFor(p.courseId || '');
+      const courseActive = courseKeys.length > 0 && courseKeys.every(k => keyLive(mods[k]));
       let until = null;
-      (p.grantedKeys || Object.keys(mods)).forEach(k => {
-        const m = mods[k];
-        if (m && m.active) { const t = ts(m.expiresAt); if (t && (!until || t > until)) until = t; }
-      });
+      if (courseActive) courseKeys.forEach(k => { const t = ts(mods[k].expiresAt); if (t && (!until || t > until)) until = t; });
+      const otherLive = Object.keys(mods)
+        .filter(k => !courseKeys.includes(k) && keyLive(mods[k]))
+        .map(k => ({ key: k, label: KEYLABELS[k] || k, until: ts(mods[k].expiresAt) }));
       return {
         orderId: p.orderId || p.id,
         uid: p.uid || '',
@@ -321,7 +331,8 @@ async function load(force) {
                    : (p.mobile || ''),
         createdAt: ts(p.createdAt),
         paidAt: ts(p.paidAt),
-        expiresAt: until
+        expiresAt: until,
+        courseKeys, courseActive, otherLive                 /* TSSC-ADMINKEYS-V1 */
       };
     });
     /* TSSC-STUDENTFLAG-V1 (2026-09-24) — the name on a payment row is what the
@@ -462,10 +473,19 @@ function render() {
 
   const DAY = 86400000;
   $('rows').innerHTML = rows.map(r => {
-    const expPill = !r.expiresAt ? '<span class="pill p-exp">none</span>'
+    /* TSSC-ADMINKEYS-V1 — the date is for THIS course's keys; anything else the
+       buyer holds (e.g. Dashboard Pro on an unpaid mock row) is shown as a note,
+       never as this row's access. */
+    const keyNames = (r.courseKeys || []).map(k => KEYLABELS[k] || k).join(' + ');
+    let expPill = !r.expiresAt ? '<span class="pill p-exp">not unlocked</span>'
       : r.expiresAt < now ? `<span class="pill p-exp">expired ${fmt(r.expiresAt)}</span>`
       : r.expiresAt - now < 30 * DAY ? `<span class="pill p-soon">${fmt(r.expiresAt)}</span>`
       : `<span class="pill p-active">${fmt(r.expiresAt)}</span>`;
+    if (r.expiresAt && keyNames) expPill += `<div class="em">${esc(keyNames)}</div>`;
+    if (!r.courseActive && r.otherLive && r.otherLive.length) {
+      expPill += '<div class="em">holds only: ' + r.otherLive.map(o =>
+        esc(o.label) + (o.until ? ' till ' + fmt(o.until) : '')).join(', ') + '</div>';
+    }
     return `<tr>
       <td data-l="Candidate">
         <div class="nm">${esc(r.name) || '—'}</div>
@@ -483,11 +503,11 @@ function render() {
       <td data-l="Amount" class="mono">₹${r.amount}</td>
       <td data-l="Status">
         <span class="pill p-${r.status === 'paid' ? 'paid' : 'created'}">${esc(r.status)}</span>
-        <span class="pill p-${r.mode === 'test' ? 'test' : 'live'}">${esc(r.mode)}</span>
+        ${r.mode === 'test' ? '<span class="pill p-test">test mode</span>' : ''}   <!-- TSSC-ADMINKEYS-V1: "live" was Razorpay mode, not access -->
       </td>
       <td data-l="Access until">${expPill}</td>
       <td data-l="Purchased">${fmt(r.paidAt || r.createdAt)}</td>
-      <td data-l="Actions">${actionCell(r.uid, r.courseId)}</td>
+      <td data-l="Actions">${actionCell(r.uid, r.courseId, r.courseActive)}</td>
     </tr>`;
   }).join('');
 
@@ -508,10 +528,13 @@ function ownsAnything(uid) {
   return Object.values(d.modules || {}).some(live);
 }
 
-function actionCell(uid, courseId) {
+function actionCell(uid, courseId, courseActive) {
   if (!uid) return '<span class="em">no account</span>';
   const dis = PAY_API ? '' : ' disabled';
-  return ownsAnything(uid)
+  /* TSSC-ADMINKEYS-V1 — Revoke only if THIS course is unlocked; a buyer holding
+     a different key gets a Grant button for the course on the row. */
+  const owns = (typeof courseActive === 'boolean') ? courseActive : ownsAnything(uid);
+  return owns
     ? `<button class="act rev" data-revoke="${esc(uid)}"${dis}>Revoke</button>`
     : `<button class="act" data-grant="${esc(uid)}" data-course="${esc(courseId || '')}"${dis}>Grant</button>`;
 }
@@ -591,6 +614,9 @@ async function loadCatalog() {
     if (!P) throw new Error('pricing script did not load');
     const cat = await P.load();
     PAY_API = String(cat.payApi || PAY_API_FALLBACK).replace(/\/+$/, '');
+    /* TSSC-ADMINKEYS-V1 — human labels for entitlement keys, for the Access column */
+    KEYLABELS = {};
+    Object.keys(cat.entitlements || {}).forEach(k => { KEYLABELS[k] = (cat.entitlements[k] || {}).label || k; });
     PRODUCTS = (typeof P.productsFor === 'function')
       ? (P.productsFor(cat) || [])
       : [];
