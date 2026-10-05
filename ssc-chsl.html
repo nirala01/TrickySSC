@@ -3049,29 +3049,34 @@ onAuthStateChanged(_auth, user=>{
   }
 });
 </script>
-<!-- Live SSC CHSL PYQ paper count (updates as papers are uploaded) -->
+<!-- SSC CHSL PYQ paper count - COST GUARD (TSSC-CHSLCOUNT-V2, 2026-10-05)
+     The old block ran a Firestore runQuery over EVERY ssc-chsl question doc on
+     every page view (about 17,000 billed reads per view) just to print this number.
+     It now reads the count from the static, pre-built /ssc-chsl-pyq.html
+     (rebuilt every 6 hours by build_chsl_pyq_page.py) - zero Firestore reads. -->
 <script>
 (function(){
   var el = document.getElementById('chsl-pyq-count');
   if(!el) return;
-  var P='trickyssc-17bb3', K='AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA', EXAM='ssc-chsl';
-  var url='https://firestore.googleapis.com/v1/projects/'+P+'/databases/(default)/documents:runQuery?key='+K;
-  var body={structuredQuery:{from:[{collectionId:'questions'}],
-    where:{fieldFilter:{field:{fieldPath:'exam'},op:'EQUAL',value:{stringValue:EXAM}}},
-    select:{fields:[{fieldPath:'year'},{fieldPath:'shift'},{fieldPath:'tier'},{fieldPath:'heldOn'},{fieldPath:'language'}]}}};
-  fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
-    .then(function(r){return r.json();})
-    .then(function(json){
-      var seen={}, n=0;
-      (json||[]).forEach(function(row){
-        if(!row.document||!row.document.fields) return;
-        var f=row.document.fields, g=function(k){return f[k]?(f[k].stringValue||f[k].integerValue||''):'';};
-        var key=g('year')+'|'+g('shift')+'|'+g('heldOn')+'|'+g('tier')+'|'+g('language');
-        if(!seen[key]){seen[key]=1;n++;}
-      });
-      el.textContent = n ? (n + ' Paper' + (n===1?'':'s') + ' Available') : 'Papers Added Regularly';
+  var CK='tssc_chsl_pyq_count', TTL=6*60*60*1000;
+  function show(n){ el.textContent = n ? (n + ' Paper' + (n===1?'':'s') + ' Available') : 'Papers Added Regularly'; }
+  try{
+    var c=JSON.parse(localStorage.getItem(CK)||'null');
+    if(c && c.n>0 && (Date.now()-c.ts)<TTL){ show(c.n); return; }
+  }catch(e){}
+  fetch('/ssc-chsl-pyq.html')
+    .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.text(); })
+    .then(function(html){
+      /* one count per language version of each paper - same number the old live count showed */
+      var n=0, m, re=/<a\b[^>]*\bdata-pick="[^"]*"[^>]*>/g;
+      while((m=re.exec(html))){
+        if(/\bdata-en="[^"]+"/.test(m[0])) n++;
+        if(/\bdata-hi="[^"]+"/.test(m[0])) n++;
+      }
+      show(n);
+      if(n){ try{ localStorage.setItem(CK, JSON.stringify({n:n, ts:Date.now()})); }catch(e){} }
     })
-    .catch(function(){ el.textContent='Papers Added Regularly'; });
+    .catch(function(){ show(0); });
 })();
 </script>
 </body>
