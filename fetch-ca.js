@@ -161,6 +161,7 @@ const NOISE = /\b(condolence|condoles|tender|recruitment|walk-in|english renderi
 const MON3 = { JAN:1,FEB:2,MAR:3,APR:4,MAY:5,JUN:6,JUL:7,AUG:8,SEP:9,OCT:10,NOV:11,DEC:12 };
 
 async function readRelease(prid) {
+  if (AIR_ITEMS.has(String(prid))) return airRead(String(prid));
   const urls = [
     'https://pib.gov.in/PressReleaseIframePage.aspx?PRID=' + prid,
     'https://pib.gov.in/PressReleasePage.aspx?PRID=' + prid,
@@ -190,6 +191,111 @@ async function pool(items, n, fn) {
     while (i < items.length) { const k = i++; out[k] = await fn(items[k], k); }
   }));
   return out;
+}
+
+// ─────────────────── News On AIR (All India Radio) — second source ───────────────────
+// TSSC-CA-AIR-V1 (2026-10-06). Adds International / Business / Sports items that PIB does not carry.
+// Fail-safe: any problem here is logged and the run simply continues with PIB only.
+// Switch off with repo variable CA_NEWSONAIR=off. NOTE: News On AIR's copyright page restricts
+// reproduction without written permission, so the writer prompt below tells the model to use these
+// items only as a source of FACTS, never to copy sentences, and every topic links back to the source.
+const AIR_ENABLED = String(process.env.CA_NEWSONAIR || '').trim().toLowerCase() !== 'off';
+const AIR_BASE = 'https://newsonair.gov.in';
+const AIR_CATEGORIES = ['international', 'business', 'sports'];
+const AIR_ITEMS = new Map();          // numeric id -> { title, link, when, text }
+let AIR_USED = false;                 // set once an AIR item is part of the final corpus
+
+function airId(link) {                // numeric-only id (the pipeline strips non-digits), starts with 99 so it never clashes with a PRID
+  let h = 5381;
+  for (const ch of String(link)) h = ((h * 33) ^ ch.charCodeAt(0)) >>> 0;
+  return '99' + String(h).padStart(10, '0');
+}
+function airDayOk(when, T) {          // same IST day, or yesterday evening (after 6 pm IST)
+  if (!when || isNaN(when)) return false;
+  const ist = new Date(when.getTime() + 5.5 * 3600 * 1000);
+  const d = ist.getUTCDate(), m = ist.getUTCMonth() + 1, y = ist.getUTCFullYear();
+  if (d === T.d && m === T.m && y === T.y) return true;
+  const prev = new Date(Date.UTC(T.y, T.m - 1, T.d - 1));
+  return d === prev.getUTCDate() && m === prev.getUTCMonth() + 1 && y === prev.getUTCFullYear() && ist.getUTCHours() >= 18;
+}
+function airArticleText(html) {       // the story body sits between the date line and "Most Read"
+  let t = stripTags(html);
+  const end = t.search(/Most Read/i);
+  if (end > 0) t = t.slice(0, end);
+  const dm = t.match(/(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},\s+\d{4}\s+\d{1,2}:\d{2}\s*[AP]M/);
+  if (dm) t = t.slice(t.indexOf(dm[0]) + dm[0].length);
+  t = t.replace(/Share\s+\S*/g, ' ').replace(/\n\s*\n+/g, '\n').trim();
+  return t.slice(0, 3500);
+}
+function airParseWhen(html) {
+  const dm = stripTags(html).match(/(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),\s+(\d{4})\s+(\d{1,2}):(\d{2})\s*([AP])M/);
+  if (!dm) return null;
+  const mon = ['January','February','March','April','May','June','July','August','September','October','November','December'].indexOf(dm[1]);
+  let hh = +dm[4] % 12; if (dm[6] === 'P') hh += 12;
+  return new Date(Date.UTC(+dm[3], mon, +dm[2], hh, +dm[5]) - 5.5 * 3600 * 1000);   // site shows IST
+}
+async function airFromFeed(cat, T) {
+  const xml = await get(`${AIR_BASE}/category/${cat}/feed/`, 1);
+  const items = [...xml.matchAll(/<item>([\s\S]*?)<\/item>/gi)].map(m => {
+    const it = m[1];
+    const pick = (tag) => { const x = it.match(new RegExp('<' + tag + '[^>]*>([\\s\\S]*?)</' + tag + '>', 'i')); return x ? x[1] : ''; };
+    const link = decode(pick('link'));
+    const when = pick('pubDate') ? new Date(decode(pick('pubDate'))) : null;
+    const body = pick('content:encoded') || pick('description');
+    return { title: decode(pick('title')), link, when, text: stripTags(body).slice(0, 3500) };
+  }).filter(x => x.title && /^https?:\/\/(www\.)?newsonair\.gov\.in\//.test(x.link));
+  return items.filter(x => airDayOk(x.when, T));
+}
+async function airFromCategoryPage(cat, T) {          // fallback if the feed is unavailable
+  const html = await get(`${AIR_BASE}/category/${cat}/`, 1);
+  const seen = new Set(), links = [];
+  for (const m of html.matchAll(/href=["'](https:\/\/(?:www\.)?newsonair\.gov\.in\/([a-z0-9][a-z0-9-]{25,})\/)["']/gi)) {
+    if (/^(category|wp-|hi|author|tag|page)/i.test(m[2]) || seen.has(m[1])) continue;
+    seen.add(m[1]); links.push(m[1]);
+  }
+  const out = [];
+  await pool(links.slice(0, 12), 4, async (link) => {
+    try {
+      const h = await get(link, 2);
+      const when = airParseWhen(h);
+      if (!airDayOk(when, T)) return;
+      const tm = h.match(/<title>([\s\S]*?)<\/title>/i);
+      const title = decode(tm ? tm[1] : '').replace(/\s*\|\s*Akashvani News.*$/i, '');
+      const text = airArticleText(h);
+      if (title && text.length > 150) out.push({ title, link, when, text });
+    } catch (e) { /* skip this article */ }
+  });
+  return out;
+}
+async function airCandidates(T) {
+  if (!AIR_ENABLED) { log('News On AIR: switched off (CA_NEWSONAIR=off)'); return []; }
+  const all = [];
+  for (const cat of AIR_CATEGORIES) {
+    let items = [];
+    try { items = await airFromFeed(cat, T); log(`News On AIR ${cat} feed → ${items.length} items for the day`); }
+    catch (e) {
+      log(`News On AIR ${cat} feed unavailable (${e.message.slice(0, 80)}) — trying the category page`);
+      try { items = await airFromCategoryPage(cat, T); log(`News On AIR ${cat} page → ${items.length} items for the day`); }
+      catch (e2) { log(`News On AIR ${cat} unavailable: ${e2.message.slice(0, 100)}`); }
+    }
+    for (const x of items.slice(0, 10)) {
+      const id = airId(x.link);
+      if (AIR_ITEMS.has(id)) continue;
+      AIR_ITEMS.set(id, x);
+      all.push({ prid: id, title: '[AIR] ' + x.title, link: x.link, when: x.when });
+    }
+  }
+  return all;
+}
+async function airRead(id) {
+  const x = AIR_ITEMS.get(id);
+  if (!x) return null;
+  let text = x.text;
+  if (!text || text.length < 200) {
+    try { text = airArticleText(await get(x.link, 2)); } catch (e) { return null; }
+  }
+  if (!text || text.length < 150) return null;
+  return { text, posted: null, ministry: 'News On AIR (All India Radio)', url: x.link };
 }
 
 // ─────────────────────────── Gemini ───────────────────────────
@@ -354,7 +460,7 @@ async function gemini(system, user, maxTokens) {
 const BUCKET_LIST = Object.keys(BUCKETS).join(', ');
 
 const SELECT_SYS = `You are the current-affairs editor for TrickySSC, an SSC CGL/CHSL/MTS exam prep site. Readers are exam candidates with little time: a page full of minor news wastes their day.
-From a list of Press Information Bureau (PIB) release titles, pick ONLY the releases an SSC General Awareness paper could realistically ask about.
+From a list of Press Information Bureau (PIB) release titles and All India Radio (News On AIR) item titles (tagged [AIR]; AIR also covers international, business and sports news that PIB does not), pick ONLY the releases an SSC General Awareness paper could realistically ask about.
 
 TIER 1 — always pick: Union Cabinet decisions; new schemes, missions, portals, laws and policies (with ministry); appointments to top posts (President, CJI, Governors, Chiefs, Secretaries, heads of commissions/banks/PSUs); awards, honours and rankings with named winners; major reports and indices with a rank or headline number; space, science and defence milestones (launches, inductions, exercises with partner country and venue); international agreements, summits and hosting decisions (who hosts, where, which edition); major sports results (tournament winners, first-ever or record achievements, hosts); important days with their themes; national parks, sanctuaries, Ramsar and heritage-site declarations; big economy and banking news (RBI, GDP, trade figures, budget-linked decisions).
 TIER 2 — pick only if the day is thin: bilateral visits that produced a concrete outcome; MoUs between well-known bodies with a named, askable outcome; named exhibitions, fairs and festivals.
@@ -365,7 +471,7 @@ Reply ONLY with JSON: {"picks":[{"prid":"<id>","why":"<5 words>"}]} ordered most
 
 function writeSys(dateLong) {
   return `You write the daily current-affairs page for TrickySSC (SSC CGL, CHSL, MTS, CPO, GD aspirants) for ${dateLong}.
-SOURCE RULE: every news fact must come from the PIB release text supplied. You MAY add standard static background that is certain and exam-relevant (ministry of a scheme, headquarters, founding year, full forms, capital of a country, who a day commemorates) — never invent numbers, dates, names or outcomes. If unsure, leave it out.
+SOURCE RULE: every news fact must come from the PIB release or News On AIR report text supplied. Items from News On AIR (ministry line "News On AIR (All India Radio)") are copyrighted news text: use them ONLY as a source of facts (who, what, where, when, numbers), state each fact in your own short exam-style words, and never copy or closely paraphrase their sentences. You MAY add standard static background that is certain and exam-relevant (ministry of a scheme, headquarters, founding year, full forms, capital of a country, who a day commemorates) — never invent numbers, dates, names or outcomes. If unsure, leave it out.
 STYLE: short one-line factual bullets, the way SSC asks — dates, full forms, ministries, venues, outlays, first/largest, edition numbers, themes. No opinion, no filler, no "the government said it is committed to". Indian English. Use **double asterisks** to bold the key term in each bullet (1–2 per bullet). Plain text otherwise — no HTML, no markdown links.
 TARGETING: write only what a candidate could be asked. Write 4 to 7 topics — fewer is better than filler; if a release has no askable fact, leave it out entirely. Merge releases about the same event into one topic, and merge all sports results of the day into ONE topic that keeps only gold medals, first-ever or record achievements, and tournament-level results (never list individual bronze or silver medallists). Skip workshops, curtain raisers, meetings, routine visits and minister itineraries even if they appear in the source text.
 Each topic:
@@ -437,7 +543,7 @@ ${(t.facts || []).map(f => `        <li>${rich(f)}</li>`).join('\n')}
     </div>
 `;
   if (sourceUrls.length) {
-    s += `    <p class="src">Source: ${sourceUrls.map((u, k) => `<a href="${esc(u)}" target="_blank" rel="noopener nofollow">PIB release${sourceUrls.length > 1 ? ' ' + (k + 1) : ''}</a>`).join(' · ')}</p>\n`;
+    s += `    <p class="src">Source: ${sourceUrls.map((u, k) => `<a href="${esc(u)}" target="_blank" rel="noopener nofollow">${/newsonair\.gov\.in/.test(u) ? 'News On AIR report' : 'PIB release'}${sourceUrls.length > 1 ? ' ' + (k + 1) : ''}</a>`).join(' · ')}</p>\n`;
   }
   s += `  </div>\n</article>\n`;
   return s;
@@ -578,12 +684,16 @@ function updateSitemap(file, iso, bumpHub) {
     rel = rel.concat(extra.filter(r => !seen.has(r.prid)));
   }
   rel = rel.filter(r => !NOISE.test(r.title));
-  if (!rel.length) die('No PIB releases found for today (PIB unreachable from the runner, or nothing published yet).');
-  log(`${rel.length} candidate releases`);
+  let airRel = [];
+  try { airRel = (await airCandidates(T)).filter(r => !NOISE.test(r.title)); } catch (e) { log('News On AIR skipped:', e.message); }
+  if (!rel.length && !airRel.length) die('No PIB releases found for today (PIB unreachable from the runner, or nothing published yet).');
+  if (!rel.length) log('PIB returned nothing — continuing with News On AIR items only');
+  rel = rel.concat(airRel);
+  log(`${rel.length} candidate releases (${airRel.length} from News On AIR)`);
 
   // 2. pick
   const titles = rel.slice(0, 260).map(r => `${r.prid} | ${r.title}`).join('\n');
-  const sel = await gemini(SELECT_SYS, `Date: ${dateLong}\nPIB releases (PRID | title):\n${titles}`, 4096);
+  const sel = await gemini(SELECT_SYS, `Date: ${dateLong}\nPIB releases and All India Radio items (id | title; [AIR] = All India Radio):\n${titles}`, 4096);
   const byId = new Map(rel.map(r => [r.prid, r]));
   let picks = (sel.picks || []).map(p => String(p.prid).replace(/\D/g, '')).filter(id => byId.has(id));
   picks = [...new Set(picks)].slice(0, 12);
@@ -605,6 +715,8 @@ function updateSitemap(file, iso, bumpHub) {
   });
   if (good.length < 3) die(`Only ${good.length} release texts could be read from pib.gov.in`);
   const urlOf = new Map(good.map(x => [x.id, x.r.url]));
+  AIR_USED = good.some(x => AIR_ITEMS.has(String(x.id)));
+  if (AIR_USED) log(`News On AIR items in the final corpus: ${good.filter(x => AIR_ITEMS.has(String(x.id))).length}`);
   const corpus = good.map(x => `=== PRID ${x.id} | ${byId.get(x.id).title}${x.r.ministry ? ' | ' + x.r.ministry : ''}\n${x.r.text}`).join('\n\n');
   log(`Read ${good.length} releases (${corpus.length} chars)`);
 
@@ -654,7 +766,7 @@ function updateSitemap(file, iso, bumpHub) {
     (t.prids || []).map(p => urlOf.get(String(p).replace(/\D/g, ''))).filter(Boolean).filter((u, k, a) => a.indexOf(u) === k))).join('\n');
 
   const seoIntro = `<h2>Daily Current Affairs ${dateLong} for SSC CGL, CHSL, MTS and CPO</h2>
-    <p>This page carries the complete <strong>current affairs of ${dateLong}</strong>, prepared specifically for candidates preparing for SSC CGL, SSC CHSL, SSC MTS, SSC CPO, SSC GD Constable and other competitive examinations. Every topic on this page is compiled from official Press Information Bureau releases and written in the short, factual, one-line style that the General Awareness section of SSC papers actually tests — dates, full forms, ministries, venues, appointments and numbers — rather than long news reporting.</p>
+    <p>This page carries the complete <strong>current affairs of ${dateLong}</strong>, prepared specifically for candidates preparing for SSC CGL, SSC CHSL, SSC MTS, SSC CPO, SSC GD Constable and other competitive examinations. Every topic on this page is compiled from official Press Information Bureau releases${AIR_USED ? ' and All India Radio (News On AIR) reports' : ''} and written in the short, factual, one-line style that the General Awareness section of SSC papers actually tests — dates, full forms, ministries, venues, appointments and numbers — rather than long news reporting.</p>
     <p>${esc(plain(data.seoTopicsSentence || ''))} Each topic ends with an <strong>Important Facts for Exams</strong> box, and the page closes with ${mcqs.length} practice MCQs with answers.</p>`;
 
   const topicTable = `<h2>Topics covered on ${dateLong} and the sections they belong to</h2>
@@ -671,7 +783,7 @@ ${topics.map(t => `        <tr><td>${esc(plain(t.rail || t.title))}</td><td>${es
   ];
   const allFaqs = faqs.map(f => ({ q: plain(f.q), a: plain(f.a) })).concat(generic);
   const faqHtml = allFaqs.map(f => `    <details class="faq"><summary>${esc(f.q)}</summary><div class="fa">${esc(f.a)}</div></details>`).join('\n\n')
-    + `\n\n    <p style="margin-top:26px;font-size:.92rem;color:var(--muted)">Last updated: ${dateLong} · Published by TrickySSC · Compiled from official Press Information Bureau (PIB) releases and presented for examination preparation purposes only.</p>`;
+    + `\n\n    <p style="margin-top:26px;font-size:.92rem;color:var(--muted)">Last updated: ${dateLong} · Published by TrickySSC · Compiled from official Press Information Bureau (PIB) releases${AIR_USED ? ' and All India Radio (News On AIR) reports' : ''} and presented for examination preparation purposes only.</p>`;
 
   const ld = [
     jsonLd({ '@context': 'https://schema.org', '@type': 'NewsArticle',
