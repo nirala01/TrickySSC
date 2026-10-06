@@ -235,38 +235,50 @@ function parseJson(text) {
 async function gemini(system, user, maxTokens) {
   const models = await modelChain();
   let lastErr = '';
-  for (const model of models) {
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        const r = await fetch(`${API}/models/${model}:generateContent`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-goog-api-key': KEY },
-          body: JSON.stringify({
-            systemInstruction: { parts: [{ text: system }] },
-            contents: [{ role: 'user', parts: [{ text: user }] }],
-            generationConfig: { temperature: 0.3, maxOutputTokens: maxTokens, responseMimeType: 'application/json' },
-          }),
-        });
-        const body = await r.text();
-        if (r.status === 429) {
-          const w = body.match(/"retryDelay":\s*"(\d+)/);
-          const secs = w ? Math.min(+w[1] + 2, 70) : 40;
-          lastErr = `${model}: 429 rate limit`;
-          log(`${lastErr} — waiting ${secs}s`);
-          if (attempt === 0) { await sleep(secs * 1000); continue; }
-          break;
-        }
-        if (r.status === 404 || r.status === 400 || r.status === 403) { lastErr = `${model}: HTTP ${r.status} ${body.slice(0, 200)}`; log(lastErr); break; }
-        if (!r.ok) { lastErr = `${model}: HTTP ${r.status}`; log(lastErr); await sleep(5000); continue; }
-        const j = JSON.parse(body);
-        const cand = (j.candidates || [])[0];
-        const text = cand && cand.content && (cand.content.parts || []).filter(p => !p.thought && p.text).map(p => p.text).join('');
-        if (!text) { lastErr = `${model}: empty reply (${cand && cand.finishReason})`; log(lastErr); continue; }
-        const data = parseJson(text);
-        log(`Gemini OK — ${model}`);
-        return data;
-      } catch (e) { lastErr = `${model}: ${e.message}`; log(lastErr); }
+  // TSSC-CA-RETRY-V1 (2026-10-06): HTTP 503 ("model overloaded") is temporary and common on the
+  // free tier. The old loop tried every model twice within ~40 s and gave up. Now, if a whole pass
+  // failed ONLY for temporary reasons (503/500/429/empty reply), wait and run another pass.
+  const ROUNDS = 4;
+  for (let round = 0; round < ROUNDS; round++) {
+    let transient = false;
+    for (const model of models) {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const r = await fetch(`${API}/models/${model}:generateContent`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-goog-api-key': KEY },
+            body: JSON.stringify({
+              systemInstruction: { parts: [{ text: system }] },
+              contents: [{ role: 'user', parts: [{ text: user }] }],
+              generationConfig: { temperature: 0.3, maxOutputTokens: maxTokens, responseMimeType: 'application/json' },
+            }),
+          });
+          const body = await r.text();
+          if (r.status === 429) {
+            const w = body.match(/"retryDelay":\s*"(\d+)/);
+            const secs = w ? Math.min(+w[1] + 2, 70) : 40;
+            lastErr = `${model}: 429 rate limit`;
+            transient = true;
+            log(`${lastErr} — waiting ${secs}s`);
+            if (attempt === 0) { await sleep(secs * 1000); continue; }
+            break;
+          }
+          if (r.status === 404 || r.status === 400 || r.status === 403) { lastErr = `${model}: HTTP ${r.status} ${body.slice(0, 200)}`; log(lastErr); break; }
+          if (!r.ok) { lastErr = `${model}: HTTP ${r.status}`; transient = true; log(lastErr); await sleep(5000); continue; }
+          const j = JSON.parse(body);
+          const cand = (j.candidates || [])[0];
+          const text = cand && cand.content && (cand.content.parts || []).filter(p => !p.thought && p.text).map(p => p.text).join('');
+          if (!text) { lastErr = `${model}: empty reply (${cand && cand.finishReason})`; transient = true; log(lastErr); continue; }
+          const data = parseJson(text);
+          log(`Gemini OK — ${model}`);
+          return data;
+        } catch (e) { lastErr = `${model}: ${e.message}`; transient = true; log(lastErr); }
+      }
     }
+    if (!transient || round === ROUNDS - 1) break;
+    const wait = 30 * (round + 1);
+    log(`All models busy (temporary errors) — waiting ${wait}s, then trying again (pass ${round + 2}/${ROUNDS})`);
+    await sleep(wait * 1000);
   }
   die('All Gemini models failed. Last error: ' + lastErr);
 }
