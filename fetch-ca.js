@@ -353,35 +353,40 @@ async function gemini(system, user, maxTokens) {
 // ─────────────────────────── prompts ───────────────────────────
 const BUCKET_LIST = Object.keys(BUCKETS).join(', ');
 
-const SELECT_SYS = `You are the current-affairs editor for TrickySSC, an SSC CGL/CHSL/MTS exam prep site.
-From a list of Press Information Bureau (PIB) release titles, pick the ones most likely to be asked as one-line General Awareness questions.
-Keep: new schemes/missions/portals, Union Cabinet decisions, appointments to top posts, awards and honours, science/tech/space launches, defence exercises/inductions/indigenous platforms, economy/banking/indices/reports/rankings, international agreements/MoUs/summits/bilateral visits with concrete outcomes, environment/protected areas/disasters, sports results, culture/heritage, important days and their themes.
-Skip: routine minister speeches, visits, review meetings, greetings with no fact, state-level minor events, statistics bulletins without a headline number, duplicates.
-Reply ONLY with JSON: {"picks":[{"prid":"<id>","why":"<5 words>"}]} ordered most important first, 8 to 12 picks (fewer only if the day truly has fewer).`;
+const SELECT_SYS = `You are the current-affairs editor for TrickySSC, an SSC CGL/CHSL/MTS exam prep site. Readers are exam candidates with little time: a page full of minor news wastes their day.
+From a list of Press Information Bureau (PIB) release titles, pick ONLY the releases an SSC General Awareness paper could realistically ask about.
+
+TIER 1 — always pick: Union Cabinet decisions; new schemes, missions, portals, laws and policies (with ministry); appointments to top posts (President, CJI, Governors, Chiefs, Secretaries, heads of commissions/banks/PSUs); awards, honours and rankings with named winners; major reports and indices with a rank or headline number; space, science and defence milestones (launches, inductions, exercises with partner country and venue); international agreements, summits and hosting decisions (who hosts, where, which edition); major sports results (tournament winners, first-ever or record achievements, hosts); important days with their themes; national parks, sanctuaries, Ramsar and heritage-site declarations; big economy and banking news (RBI, GDP, trade figures, budget-linked decisions).
+TIER 2 — pick only if the day is thin: bilateral visits that produced a concrete outcome; MoUs between well-known bodies with a named, askable outcome; named exhibitions, fairs and festivals.
+SKIP always: curtain raisers, workshops, conferences, seminars and review meetings; minister travel, speeches, inaugurations of ordinary projects; joint-working-group and routine bilateral talks; state-level and district-level events; training, capacity-building and awareness drives; individual bronze or silver medallists and routine participation lists; statistics bulletins without a headline number; press-release follow-ups and duplicates.
+
+Quality over quantity: pick 5 to 9 releases, fewer if the day truly has fewer important ones. Never pad the list with Tier-2 items just to reach a number.
+Reply ONLY with JSON: {"picks":[{"prid":"<id>","why":"<5 words>"}]} ordered most important first.`;
 
 function writeSys(dateLong) {
   return `You write the daily current-affairs page for TrickySSC (SSC CGL, CHSL, MTS, CPO, GD aspirants) for ${dateLong}.
 SOURCE RULE: every news fact must come from the PIB release text supplied. You MAY add standard static background that is certain and exam-relevant (ministry of a scheme, headquarters, founding year, full forms, capital of a country, who a day commemorates) — never invent numbers, dates, names or outcomes. If unsure, leave it out.
 STYLE: short one-line factual bullets, the way SSC asks — dates, full forms, ministries, venues, outlays, first/largest, edition numbers, themes. No opinion, no filler, no "the government said it is committed to". Indian English. Use **double asterisks** to bold the key term in each bullet (1–2 per bullet). Plain text otherwise — no HTML, no markdown links.
-Write 6 to 8 topics (merge releases about the same event into one topic). Each topic:
+TARGETING: write only what a candidate could be asked. Write 4 to 7 topics — fewer is better than filler; if a release has no askable fact, leave it out entirely. Merge releases about the same event into one topic, and merge all sports results of the day into ONE topic that keeps only gold medals, first-ever or record achievements, and tournament-level results (never list individual bronze or silver medallists). Skip workshops, curtain raisers, meetings, routine visits and minister itineraries even if they appear in the source text.
+Each topic:
 - "bucket": exactly one of: ${BUCKET_LIST}
 - "tag2": a short secondary label (e.g. "Important Days", "Summits", "MoU", "Space")
 - "id": short kebab-case slug, unique
 - "emoji": one emoji
 - "rail": 2–4 word label for the jump menu
 - "title": exam-style headline (max ~12 words)
-- "bullets": 4–8 one-line facts about the news itself
+- "bullets": 3–6 one-line facts about the news itself (no padding)
 - "sections": 0–3 sub-sections, each {"heading": "...", "bullets": [...]} OR {"heading": "...", "table": [["Field","Value"], ...]} (tables of 4–8 key/value rows are great for schemes, summits, appointments)
-- "facts": 5–8 "Important Facts for Exams" — the most askable lines, question-answer shaped
+- "facts": 4–6 "Important Facts for Exams" — only lines an SSC paper could ask, question-answer shaped
 - "likely": the most likely exam question angle, 3–8 words
 - "prids": the PRID numbers used
 Also:
 - "glance": one line per topic (same order), the single most askable fact
-- "mcqs": exactly 10 MCQs across all topics, {"q":"...","o":["A","B","C","D"],"a":<0-3 index of correct>,"e":"one-line explanation"} — plausible distractors, answers spread across A–D, no "all of the above"
+- "mcqs": 6 to 10 MCQs across all topics — ONLY questions a real SSC GA paper could ask (who / which / where / when / first / host / winner / ministry / theme / full form / rank). Fewer, better MCQs beat filler: if only 7 askable questions exist, write 7. NEVER ask: project costs or amounts down to the last digit, counts of minor measures or participants, names of committee members, speakers or minor officials, individual bronze or silver medallists, numbers of languages or districts, or any trivia that only matters inside one press release. Each MCQ: {"q":"...","o":["A","B","C","D"],"a":<0-3 index of correct>,"e":"one-line explanation"} — plausible distractors, answers spread across A–D, no "all of the above"
 - "faqs": 6 FAQs {"q","a"} a searcher would type about today's topics; answers 2–3 sentences, plain text
-- "metaDescription": ≤155 characters, starts "Daily Current Affairs ${dateLong} for SSC CGL, CHSL & MTS —" then 3–4 topic names, ends "with 10 MCQs."
+- "metaDescription": ≤155 characters, starts "Daily Current Affairs ${dateLong} for SSC CGL, CHSL & MTS —" then 3–4 topic names, ends "with practice MCQs."
 - "keywords": 8–10 lowercase search keywords
-- "cardLine": one line for the archive card, like "Topic A, Topic B, Topic C and more, with 10 MCQs."
+- "cardLine": one line for the archive card, like "Topic A, Topic B, Topic C and more, with practice MCQs."
 - "seoTopicsSentence": one flowing sentence naming every topic, starting "The topics covered today are"
 Reply ONLY with JSON: {"topics":[...],"glance":[...],"mcqs":[...],"faqs":[...],"metaDescription":"","keywords":[],"cardLine":"","seoTopicsSentence":""}`;
 }
@@ -619,7 +624,7 @@ function updateSitemap(file, iso, bumpHub) {
   const words = topics.reduce((n, t) => n + JSON.stringify(t).split(/\s+/).length, 0);
   const readMin = Math.max(4, Math.round(words / 180));
   const kw = (data.keywords || []).map(plain).join(', ');
-  const meta = plain(data.metaDescription || `Daily Current Affairs ${dateLong} for SSC CGL, CHSL & MTS with 10 MCQs.`);
+  const meta = plain(data.metaDescription || `Daily Current Affairs ${dateLong} for SSC CGL, CHSL & MTS with practice MCQs.`);
   const cardLine = plain(data.cardLine || topics.slice(0, 3).map(t => plain(t.title)).join(', ') + ' and more.');
   const canon = `${SITE}/ca-archive/${file}`;
 
