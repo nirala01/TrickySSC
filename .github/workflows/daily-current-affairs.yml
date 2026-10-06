@@ -3,6 +3,8 @@ name: Fetch Current Affairs
 # PIB-only daily current affairs → ca-archive/DD-MM-YYYY.html via Gemini Flash.
 # Needs one repo secret: GEMINI_API_KEY (Settings → Secrets and variables → Actions).
 # Optional repo variable GEMINI_MODEL pins a model (otherwise the newest Flash on the key is used).
+# Optional second provider: secret OPENAI_API_KEY (+ variable OPENAI_MODEL). It runs when Gemini fails;
+# set variable CA_PROVIDER=openai to make OpenAI the first choice instead.
 # A day that already has a page (e.g. one you wrote by hand) is never overwritten.
 #
 # TSSC-TELEGRAM-V1: when a NEW day's page is built, its "Today at a glance" lines are also
@@ -32,7 +34,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     permissions:
       contents: write
 
@@ -47,6 +49,9 @@ jobs:
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_MODEL: ${{ vars.OPENAI_MODEL }}
+          CA_PROVIDER: ${{ vars.CA_PROVIDER }}
           CA_DATE: ${{ github.event.inputs.date }}
           FORCE: ${{ github.event.inputs.force }}
         run: node fetch-ca.js
