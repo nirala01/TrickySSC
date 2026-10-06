@@ -5,6 +5,8 @@ name: Fetch Current Affairs
 # Optional repo variable GEMINI_MODEL pins a model (otherwise the newest Flash on the key is used).
 # Optional second provider: secret OPENAI_API_KEY (+ variable OPENAI_MODEL). It runs when Gemini fails;
 # set variable CA_PROVIDER=openai to make OpenAI the first choice instead.
+# News On AIR (All India Radio) is used as a second news source for international/business/sports;
+# set variable CA_NEWSONAIR=off to turn it off. If the site is unreachable the run continues with PIB only.
 # A day that already has a page (e.g. one you wrote by hand) is never overwritten.
 #
 # TSSC-TELEGRAM-V1: when a NEW day's page is built, its "Today at a glance" lines are also
@@ -52,6 +54,7 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_MODEL: ${{ vars.OPENAI_MODEL }}
           CA_PROVIDER: ${{ vars.CA_PROVIDER }}
+          CA_NEWSONAIR: ${{ vars.CA_NEWSONAIR }}
           CA_DATE: ${{ github.event.inputs.date }}
           FORCE: ${{ github.event.inputs.force }}
         run: node fetch-ca.js
