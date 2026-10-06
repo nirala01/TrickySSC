@@ -232,7 +232,8 @@ function parseJson(text) {
   }
 }
 
-async function gemini(system, user, maxTokens) {
+async function geminiTry(system, user, maxTokens) {
+  if (!KEY) return null;
   const models = await modelChain();
   let lastErr = '';
   // TSSC-CA-RETRY-V1 (2026-10-06): HTTP 503 ("model overloaded") is temporary and common on the
@@ -280,7 +281,73 @@ async function gemini(system, user, maxTokens) {
     log(`All models busy (temporary errors) — waiting ${wait}s, then trying again (pass ${round + 2}/${ROUNDS})`);
     await sleep(wait * 1000);
   }
-  die('All Gemini models failed. Last error: ' + lastErr);
+  log('All Gemini models failed. Last error: ' + lastErr);
+  return null;
+}
+
+// ───────────────── OpenAI (optional second provider) ─────────────────
+// TSSC-CA-OPENAI-V1 (2026-10-06). Used when OPENAI_API_KEY is set. Gemini stays first unless
+// CA_PROVIDER=openai. Repo variable OPENAI_MODEL picks the model (default below).
+const OPENAI_KEY = process.env.OPENAI_API_KEY;
+const OPENAI_MODEL = (process.env.OPENAI_MODEL || 'gpt-5-mini').trim();
+
+async function openaiTry(system, user, maxTokens) {
+  if (!OPENAI_KEY) return null;
+  let tokenParam = 'max_completion_tokens';
+  let lastErr = '';
+  for (let attempt = 0; attempt < 4; attempt++) {
+    try {
+      const body = {
+        model: OPENAI_MODEL,
+        messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
+        response_format: { type: 'json_object' },
+      };
+      // reasoning models spend part of this budget on thinking, so give it room
+      body[tokenParam] = Math.min(Math.max(maxTokens * 2, 8192), 32768);
+      const r = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + OPENAI_KEY },
+        body: JSON.stringify(body),
+      });
+      const text = await r.text();
+      if (r.status === 400 && tokenParam === 'max_completion_tokens' && /max_completion_tokens/.test(text)) {
+        tokenParam = 'max_tokens'; log('OpenAI: switching to max_tokens'); continue;
+      }
+      if (r.status === 401 || r.status === 403 || r.status === 404 || r.status === 400) {
+        lastErr = `${OPENAI_MODEL}: HTTP ${r.status} ${text.slice(0, 220)}`; log('OpenAI ' + lastErr); return null;
+      }
+      if (r.status === 402 || (r.status === 429 && /insufficient_quota|billing/i.test(text))) {
+        lastErr = `${OPENAI_MODEL}: HTTP ${r.status} (no credit / quota — top up the OpenAI balance)`; log('OpenAI ' + lastErr); return null;
+      }
+      if (!r.ok) { lastErr = `${OPENAI_MODEL}: HTTP ${r.status}`; log('OpenAI ' + lastErr); await sleep(15000 * (attempt + 1)); continue; }
+      const j = JSON.parse(text);
+      const choice = (j.choices || [])[0];
+      const content = choice && choice.message && choice.message.content;
+      if (!content) { lastErr = `${OPENAI_MODEL}: empty reply (${choice && choice.finish_reason})`; log('OpenAI ' + lastErr); continue; }
+      const data = parseJson(content);
+      log(`OpenAI OK — ${OPENAI_MODEL}`);
+      return data;
+    } catch (e) { lastErr = `${OPENAI_MODEL}: ${e.message}`; log('OpenAI ' + lastErr); await sleep(5000); }
+  }
+  log('OpenAI failed. Last error: ' + lastErr);
+  return null;
+}
+
+// Every caller still uses gemini(); it now walks the providers in order.
+let OPENAI_TAKEOVER = false;   // set once Gemini has failed a whole call and OpenAI answered: skip Gemini's long waits for the rest of the run
+async function gemini(system, user, maxTokens) {
+  const preferOpenAI = OPENAI_TAKEOVER || String(process.env.CA_PROVIDER || '').toLowerCase() === 'openai';
+  const order = preferOpenAI ? [['OpenAI', openaiTry], ['Gemini', geminiTry]] : [['Gemini', geminiTry], ['OpenAI', openaiTry]];
+  const tried = [];
+  for (const [name, fn] of order) {
+    if (name === 'Gemini' && !KEY) continue;
+    if (name === 'OpenAI' && !OPENAI_KEY) continue;
+    tried.push(name);
+    const data = await fn(system, user, maxTokens);
+    if (data) { if (name === 'OpenAI' && tried.length > 1) OPENAI_TAKEOVER = true; return data; }
+    if (tried.length < order.length && (name === 'Gemini' ? OPENAI_KEY : KEY)) log(`${name} failed — trying the other provider`);
+  }
+  die(`All providers failed (${tried.join(', ') || 'none configured'}) — see the lines above.`);
 }
 
 // ─────────────────────────── prompts ───────────────────────────
@@ -481,7 +548,7 @@ function updateSitemap(file, iso, bumpHub) {
 
 // ─────────────────────────── main ───────────────────────────
 (async () => {
-  if (!KEY) die('GEMINI_API_KEY secret is not set');
+  if (!KEY && !OPENAI_KEY) die('Neither GEMINI_API_KEY nor OPENAI_API_KEY secret is set');
   const T = targetDate();
   const file = `${pad(T.d)}-${pad(T.m)}-${T.y}.html`;
   const iso = `${T.y}-${pad(T.m)}-${pad(T.d)}`;
