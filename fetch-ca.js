@@ -201,9 +201,16 @@ async function pool(items, n, fn) {
 // items only as a source of FACTS, never to copy sentences, and every topic links back to the source.
 const AIR_ENABLED = String(process.env.CA_NEWSONAIR || '').trim().toLowerCase() !== 'off';
 const AIR_BASE = 'https://newsonair.gov.in';
-const AIR_CATEGORIES = ['international', 'business', 'sports'];
+const AIR_CATEGORIES = ['national', 'international', 'business', 'sports', ''];   // '' = the site's main feed (latest stories)
 const AIR_ITEMS = new Map();          // numeric id -> { title, link, when, text }
 let AIR_USED = false;                 // set once an AIR item is part of the final corpus
+let PIB_USED = false;
+function sourcesPhrase() {
+  const p = [];
+  if (AIR_USED) p.push('All India Radio (News On AIR) reports');
+  if (PIB_USED) p.push('official Press Information Bureau (PIB) releases');
+  return p.join(' and ') || 'official sources';
+}
 
 function airId(link) {                // numeric-only id (the pipeline strips non-digits), starts with 99 so it never clashes with a PRID
   let h = 5381;
@@ -235,7 +242,7 @@ function airParseWhen(html) {
   return new Date(Date.UTC(+dm[3], mon, +dm[2], hh, +dm[5]) - 5.5 * 3600 * 1000);   // site shows IST
 }
 async function airFromFeed(cat, T) {
-  const xml = await get(`${AIR_BASE}/category/${cat}/feed/`, 1);
+  const xml = await get(cat ? `${AIR_BASE}/category/${cat}/feed/` : `${AIR_BASE}/feed/`, 1);
   const items = [...xml.matchAll(/<item>([\s\S]*?)<\/item>/gi)].map(m => {
     const it = m[1];
     const pick = (tag) => { const x = it.match(new RegExp('<' + tag + '[^>]*>([\\s\\S]*?)</' + tag + '>', 'i')); return x ? x[1] : ''; };
@@ -247,7 +254,7 @@ async function airFromFeed(cat, T) {
   return items.filter(x => airDayOk(x.when, T));
 }
 async function airFromCategoryPage(cat, T) {          // fallback if the feed is unavailable
-  const html = await get(`${AIR_BASE}/category/${cat}/`, 1);
+  const html = await get(cat ? `${AIR_BASE}/category/${cat}/` : `${AIR_BASE}/`, 1);
   const seen = new Set(), links = [];
   for (const m of html.matchAll(/href=["'](https:\/\/(?:www\.)?newsonair\.gov\.in\/([a-z0-9][a-z0-9-]{25,})\/)["']/gi)) {
     if (/^(category|wp-|hi|author|tag|page)/i.test(m[2]) || seen.has(m[1])) continue;
@@ -272,13 +279,14 @@ async function airCandidates(T) {
   const all = [];
   for (const cat of AIR_CATEGORIES) {
     let items = [];
-    try { items = await airFromFeed(cat, T); log(`News On AIR ${cat} feed → ${items.length} items for the day`); }
+    const nm = cat || 'main';
+    try { items = await airFromFeed(cat, T); log(`News On AIR ${nm} feed → ${items.length} items for the day`); }
     catch (e) {
-      log(`News On AIR ${cat} feed unavailable (${e.message.slice(0, 80)}) — trying the category page`);
-      try { items = await airFromCategoryPage(cat, T); log(`News On AIR ${cat} page → ${items.length} items for the day`); }
-      catch (e2) { log(`News On AIR ${cat} unavailable: ${e2.message.slice(0, 100)}`); }
+      log(`News On AIR ${nm} feed unavailable (${e.message.slice(0, 80)}) — trying the page`);
+      try { items = await airFromCategoryPage(cat, T); log(`News On AIR ${nm} page → ${items.length} items for the day`); }
+      catch (e2) { log(`News On AIR ${nm} unavailable: ${e2.message.slice(0, 100)}`); }
     }
-    for (const x of items.slice(0, 10)) {
+    for (const x of items.slice(0, 12)) {
       const id = airId(x.link);
       if (AIR_ITEMS.has(id)) continue;
       AIR_ITEMS.set(id, x);
@@ -296,6 +304,60 @@ async function airRead(id) {
   }
   if (!text || text.length < 150) return null;
   return { text, posted: null, ministry: 'News On AIR (All India Radio)', url: x.link };
+}
+
+// ─────────────────── Web research (Gemini + Google Search) ───────────────────
+// TSSC-CA-RESEARCH-V1 (2026-10-06). After the headlines are picked and their official text is read, each
+// one is researched on the web for extra detail (background, numbers, previous editions...). The research
+// call is plain text (tools on, JSON off) so it cannot clash with the JSON writer call. If the key does not
+// allow search, the run logs it once and carries on with the official text only.
+// Switch off with repo variable CA_WEB_SEARCH=off. Needs GEMINI_API_KEY (also when OpenAI writes the page).
+const WEB_RESEARCH = String(process.env.CA_WEB_SEARCH || '').trim().toLowerCase() !== 'off';
+let WEB_RESEARCH_DEAD = false;
+let WEB_RESEARCH_FAILS = 0;
+const WEB_TITLES = new Map();         // url -> short site name for the "Source:" line
+
+async function webResearch(headline, official, dateLong) {
+  if (!WEB_RESEARCH || WEB_RESEARCH_DEAD || !KEY) return null;
+  const models = (await modelChain()).slice(0, 2);
+  const prompt = `You are a research assistant for an editor of SSC (Staff Selection Commission) exam-preparation current affairs. Date: ${dateLong}.
+Headline: ${headline}
+What the official source already says (may be partial):
+${String(official).slice(0, 1500)}
+
+Use Google Search to find reliable, up-to-date information about this news. Prefer government and official sources (PIB, ministries, RBI, ISRO, the UN, sports federations) and reputable news agencies. Ignore exam-preparation and coaching websites.
+Write a FACT SHEET of 12 to 20 short bullet facts for a General Awareness candidate: what happened, who / where / when, key numbers, the organisation or ministry involved, the purpose, background, previous editions / winners / records, and related static facts (headquarters, founding year, full forms).
+RULES: facts only, no opinions. State each fact in your own words — do not copy sentences. Leave out anything you could not confirm. If sources disagree, say so. Never invent. Start directly with the bullets.`;
+  for (const model of models) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const r = await fetch(`${API}/models/${model}:generateContent`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-goog-api-key': KEY },
+          body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: prompt }] }], tools: [{ google_search: {} }], generationConfig: { temperature: 0.2, maxOutputTokens: 4096 } }),
+        });
+        const body = await r.text();
+        if (r.status === 400 || r.status === 401 || r.status === 403) {
+          log(`Web search is not available on this key (${model}: HTTP ${r.status} ${body.slice(0, 120).replace(/\s+/g, ' ')}) — continuing without it`);
+          WEB_RESEARCH_DEAD = true; return null;
+        }
+        if (r.status === 404) break;                    // try the next model
+        if (!r.ok) { log(`Web research ${model}: HTTP ${r.status}`); await sleep(4000 * (attempt + 1)); continue; }
+        const j = JSON.parse(body);
+        const cand = (j.candidates || [])[0] || {};
+        const text = ((cand.content && cand.content.parts) || []).filter(p => !p.thought && p.text).map(p => p.text).join('').trim();
+        const chunks = ((cand.groundingMetadata && cand.groundingMetadata.groundingChunks) || []).map(c => c.web).filter(w => w && w.uri);
+        if (text.length < 200) { log(`Web research ${model}: empty reply (${cand.finishReason || 'no text'})`); break; }
+        const seen = new Set(), sources = [];
+        for (const w of chunks) { if (seen.has(w.uri)) continue; seen.add(w.uri); sources.push({ uri: w.uri, title: String(w.title || '').replace(/^www\./, '') }); }
+        sources.slice(0, 2).forEach(w => WEB_TITLES.set(w.uri, w.title || 'web source'));
+        WEB_RESEARCH_FAILS = 0;
+        return { notes: text.slice(0, 6000), sources: sources.slice(0, 2).map(w => w.uri) };
+      } catch (e) { log(`Web research ${model}: ${e.message.slice(0, 100)}`); await sleep(2000); }
+    }
+  }
+  if (++WEB_RESEARCH_FAILS >= 3) { WEB_RESEARCH_DEAD = true; log('Web research failed for 3 headlines in a row — skipping it for the rest of this run'); }
+  return null;
 }
 
 // ─────────────────────────── Gemini ───────────────────────────
@@ -460,20 +522,20 @@ async function gemini(system, user, maxTokens) {
 const BUCKET_LIST = Object.keys(BUCKETS).join(', ');
 
 const SELECT_SYS = `You are the current-affairs editor for TrickySSC, an SSC CGL/CHSL/MTS exam prep site. Readers are exam candidates with little time: a page full of minor news wastes their day.
-From a list of Press Information Bureau (PIB) release titles and All India Radio (News On AIR) item titles (tagged [AIR]; AIR also covers international, business and sports news that PIB does not), pick ONLY the releases an SSC General Awareness paper could realistically ask about.
+From a list of All India Radio (News On AIR) item titles (tagged [AIR]) and Press Information Bureau (PIB) release titles, pick ONLY the releases an SSC General Awareness paper could realistically ask about. News On AIR is the primary source of headlines: when an [AIR] item and a PIB release are equally important, prefer the [AIR] item. Use PIB to add what AIR does not carry — Cabinet decisions, new schemes and portals, appointments, defence and space milestones, official reports and indices.
 
 TIER 1 — always pick: Union Cabinet decisions; new schemes, missions, portals, laws and policies (with ministry); appointments to top posts (President, CJI, Governors, Chiefs, Secretaries, heads of commissions/banks/PSUs); awards, honours and rankings with named winners; major reports and indices with a rank or headline number; space, science and defence milestones (launches, inductions, exercises with partner country and venue); international agreements, summits and hosting decisions (who hosts, where, which edition); major sports results (tournament winners, first-ever or record achievements, hosts); important days with their themes; national parks, sanctuaries, Ramsar and heritage-site declarations; big economy and banking news (RBI, GDP, trade figures, budget-linked decisions).
 TIER 2 — pick only if the day is thin: bilateral visits that produced a concrete outcome; MoUs between well-known bodies with a named, askable outcome; named exhibitions, fairs and festivals.
 SKIP always: curtain raisers, workshops, conferences, seminars and review meetings; minister travel, speeches, inaugurations of ordinary projects; joint-working-group and routine bilateral talks; state-level and district-level events; training, capacity-building and awareness drives; individual bronze or silver medallists and routine participation lists; statistics bulletins without a headline number; press-release follow-ups and duplicates.
 
-Quality over quantity: pick 5 to 9 releases, fewer if the day truly has fewer important ones. Never pad the list with Tier-2 items just to reach a number.
+HEADLINES ONLY: the page carries at most 6 topics, and every pick will then be researched in depth and written up as a full explainer. So rank strictly and pick the 4 to 6 most important headlines of the day (fewer only if the day truly has fewer). Never pad the list with Tier-2 items just to reach a number.
 Reply ONLY with JSON: {"picks":[{"prid":"<id>","why":"<5 words>"}]} ordered most important first.`;
 
 function writeSys(dateLong) {
   return `You write the daily current-affairs page for TrickySSC (SSC CGL, CHSL, MTS, CPO, GD aspirants) for ${dateLong}.
-SOURCE RULE: every news fact must come from the PIB release or News On AIR report text supplied. Items from News On AIR (ministry line "News On AIR (All India Radio)") are copyrighted news text: use them ONLY as a source of facts (who, what, where, when, numbers), state each fact in your own short exam-style words, and never copy or closely paraphrase their sentences. You MAY add standard static background that is certain and exam-relevant (ministry of a scheme, headquarters, founding year, full forms, capital of a country, who a day commemorates) — never invent numbers, dates, names or outcomes. If unsure, leave it out.
+SOURCE RULE: every news fact must come from the official text supplied (a PIB release or News On AIR report) or from the RESEARCH NOTES attached to that item; if they disagree, the official text wins. Facts in the research notes are web-sourced: state them in your own words and never copy sentences.  Items from News On AIR (ministry line "News On AIR (All India Radio)") are copyrighted news text: use them ONLY as a source of facts (who, what, where, when, numbers), state each fact in your own short exam-style words, and never copy or closely paraphrase their sentences. You MAY add standard static background that is certain and exam-relevant (ministry of a scheme, headquarters, founding year, full forms, capital of a country, who a day commemorates) — never invent numbers, dates, names or outcomes. If unsure, leave it out.
 STYLE: short one-line factual bullets, the way SSC asks — dates, full forms, ministries, venues, outlays, first/largest, edition numbers, themes. No opinion, no filler, no "the government said it is committed to". Indian English. Use **double asterisks** to bold the key term in each bullet (1–2 per bullet). Plain text otherwise — no HTML, no markdown links.
-TARGETING: write only what a candidate could be asked. Write 4 to 7 topics — fewer is better than filler; if a release has no askable fact, leave it out entirely. Merge releases about the same event into one topic, and merge all sports results of the day into ONE topic that keeps only gold medals, first-ever or record achievements, and tournament-level results (never list individual bronze or silver medallists). Skip workshops, curtain raisers, meetings, routine visits and minister itineraries even if they appear in the source text.
+TARGETING: write exactly ONE topic for each supplied headline (at most 6 topics in all) — each a full, detailed explainer a candidate can revise from, not a news snippet. Do not add, merge or drop topics. Cover everything askable about the story: what happened, who / where / when, numbers, the ministry or organisation involved, the purpose, and relevant background and static facts. For sports, keep the result, winners, venue, records and edition details.
 Each topic:
 - "bucket": exactly one of: ${BUCKET_LIST}
 - "tag2": a short secondary label (e.g. "Important Days", "Summits", "MoU", "Space")
@@ -481,14 +543,14 @@ Each topic:
 - "emoji": one emoji
 - "rail": 2–4 word label for the jump menu
 - "title": exam-style headline (max ~12 words)
-- "bullets": 3–6 one-line facts about the news itself (no padding)
-- "sections": 0–3 sub-sections, each {"heading": "...", "bullets": [...]} OR {"heading": "...", "table": [["Field","Value"], ...]} (tables of 4–8 key/value rows are great for schemes, summits, appointments)
-- "facts": 4–6 "Important Facts for Exams" — only lines an SSC paper could ask, question-answer shaped
+- "bullets": 8–12 one-line facts about the news itself — detailed and specific, no filler and no repetition
+- "sections": 1–3 sub-sections (for example Background, Key Details as a table, Related facts), each {"heading": "...", "bullets": [...]} OR {"heading": "...", "table": [["Field","Value"], ...]} (tables of 4–8 key/value rows are great for schemes, summits, appointments)
+- "facts": 6–8 "Important Facts for Exams" — only lines an SSC paper could ask, question-answer shaped
 - "likely": the most likely exam question angle, 3–8 words
 - "prids": the PRID numbers used
 Also:
 - "glance": one line per topic (same order), the single most askable fact
-- "mcqs": 6 to 10 MCQs across all topics — ONLY questions a real SSC GA paper could ask (who / which / where / when / first / host / winner / ministry / theme / full form / rank). Fewer, better MCQs beat filler: if only 7 askable questions exist, write 7. NEVER ask: project costs or amounts down to the last digit, counts of minor measures or participants, names of committee members, speakers or minor officials, individual bronze or silver medallists, numbers of languages or districts, or any trivia that only matters inside one press release. Each MCQ: {"q":"...","o":["A","B","C","D"],"a":<0-3 index of correct>,"e":"one-line explanation"} — plausible distractors, answers spread across A–D, no "all of the above"
+- "mcqs": 8 to 10 MCQs across all topics — ONLY questions a real SSC GA paper could ask (who / which / where / when / first / host / winner / ministry / theme / full form / rank). Fewer, better MCQs beat filler: if only 7 askable questions exist, write 7. NEVER ask: project costs or amounts down to the last digit, counts of minor measures or participants, names of committee members, speakers or minor officials, individual bronze or silver medallists, numbers of languages or districts, or any trivia that only matters inside one press release. Each MCQ: {"q":"...","o":["A","B","C","D"],"a":<0-3 index of correct>,"e":"one-line explanation"} — plausible distractors, answers spread across A–D, no "all of the above"
 - "faqs": 6 FAQs {"q","a"} a searcher would type about today's topics; answers 2–3 sentences, plain text
 - "metaDescription": ≤155 characters, starts "Daily Current Affairs ${dateLong} for SSC CGL, CHSL & MTS —" then 3–4 topic names, ends "with practice MCQs."
 - "keywords": 8–10 lowercase search keywords
@@ -502,6 +564,14 @@ const esc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</
 const rich = (s) => esc(String(s || '').replace(/\*\*\s*\*\*/g, '')).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\*\*/g, '');
 const plain = (s) => String(s || '').replace(/\*\*/g, '');
 const slug = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'topic';
+
+function srcLabel(u, urls) {          // "PIB release", "News On AIR report" or the web site's name
+  const off = urls.filter(x => /pib\.gov\.in|newsonair\.gov\.in/.test(x));
+  const n = off.length > 1 ? ' ' + (off.indexOf(u) + 1) : '';
+  if (/newsonair\.gov\.in/.test(u)) return 'News On AIR report' + n;
+  if (/pib\.gov\.in/.test(u)) return 'PIB release' + n;
+  return esc(WEB_TITLES.get(u) || 'web source');
+}
 
 function renderStory(t, i, T, dateLong, sourceUrls) {
   const [tone, label] = BUCKETS[t.bucket] || ['--orange', t.bucket || 'Current Affairs'];
@@ -543,7 +613,7 @@ ${(t.facts || []).map(f => `        <li>${rich(f)}</li>`).join('\n')}
     </div>
 `;
   if (sourceUrls.length) {
-    s += `    <p class="src">Source: ${sourceUrls.map((u, k) => `<a href="${esc(u)}" target="_blank" rel="noopener nofollow">${/newsonair\.gov\.in/.test(u) ? 'News On AIR report' : 'PIB release'}${sourceUrls.length > 1 ? ' ' + (k + 1) : ''}</a>`).join(' · ')}</p>\n`;
+    s += `    <p class="src">Source: ${sourceUrls.map((u, k) => `<a href="${esc(u)}" target="_blank" rel="noopener nofollow">${srcLabel(u, sourceUrls)}</a>`).join(' · ')}</p>\n`;
   }
   s += `  </div>\n</article>\n`;
   return s;
@@ -657,6 +727,21 @@ function updateSitemap(file, iso, bumpHub) {
   fs.writeFileSync(SITEMAP, s);
 }
 
+// TSSC-CA-NODUP-V1: headlines already published on the previous two days' pages (read from their "rail" links)
+function recentCovered(T) {
+  const out = [];
+  for (let k = 1; k <= 2; k++) {
+    const dt = new Date(Date.UTC(T.y, T.m - 1, T.d - k));
+    const f = path.join(ARCHIVE, `${pad(dt.getUTCDate())}-${pad(dt.getUTCMonth() + 1)}-${dt.getUTCFullYear()}.html`);
+    if (!fs.existsSync(f)) continue;
+    const h = fs.readFileSync(f, 'utf8');
+    const rail = (h.match(/<a href="#[^"]+">[^<]{6,140}<\/a>/g) || []).slice(0, 8)
+      .map(x => x.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').trim());
+    rail.forEach(t => out.push(t));
+  }
+  return [...new Set(out)];
+}
+
 // ─────────────────────────── main ───────────────────────────
 (async () => {
   if (!KEY && !OPENAI_KEY) die('Neither GEMINI_API_KEY nor OPENAI_API_KEY secret is set');
@@ -688,15 +773,26 @@ function updateSitemap(file, iso, bumpHub) {
   try { airRel = (await airCandidates(T)).filter(r => !NOISE.test(r.title)); } catch (e) { log('News On AIR skipped:', e.message); }
   if (!rel.length && !airRel.length) die('No PIB releases found for today (PIB unreachable from the runner, or nothing published yet).');
   if (!rel.length) log('PIB returned nothing — continuing with News On AIR items only');
-  rel = rel.concat(airRel);
+  rel = airRel.concat(rel);                      // News On AIR first: it is the primary source for headlines
   log(`${rel.length} candidate releases (${airRel.length} from News On AIR)`);
 
   // 2. pick
   const titles = rel.slice(0, 260).map(r => `${r.prid} | ${r.title}`).join('\n');
-  const sel = await gemini(SELECT_SYS, `Date: ${dateLong}\nPIB releases and All India Radio items (id | title; [AIR] = All India Radio):\n${titles}`, 4096);
+  const covered = recentCovered(T);
+  if (covered.length) log('Already covered on the previous two days:', covered.join(' | '));
+  const coveredTxt = covered.length ? `\n\nALREADY PUBLISHED on the previous two days' pages (do NOT pick these again, or any item that is only a follow-up of them; pick a repeat only if there is a genuinely NEW major development today):\n- ${covered.join('\n- ')}` : '';
+  const sel = await gemini(SELECT_SYS, `Date: ${dateLong}${coveredTxt}\nAll India Radio items first ([AIR] = News On AIR), then PIB releases (id | title):\n${titles}`, 4096);
   const byId = new Map(rel.map(r => [r.prid, r]));
   let picks = (sel.picks || []).map(p => String(p.prid).replace(/\D/g, '')).filter(id => byId.has(id));
-  picks = [...new Set(picks)].slice(0, 12);
+  picks = [...new Set(picks)];
+  // TSSC-CA-AIRCAP-V1: keep PIB (the official source) as the backbone — at most CA_AIR_MAX News On AIR items (default: no cap, best-ranked first)
+  { const v = parseInt(process.env.CA_AIR_MAX, 10); const AIR_MAX = Number.isFinite(v) ? Math.max(0, v) : 99;
+    let n = 0; const before = picks.length;
+    picks = picks.filter(id => !AIR_ITEMS.has(id) || ++n <= AIR_MAX);
+    if (picks.length < before) log(`News On AIR items capped at ${AIR_MAX}: ${before - picks.length} dropped`); }
+  { const v = parseInt(process.env.CA_MAX_TOPICS, 10); const MAXT = Number.isFinite(v) ? Math.min(8, Math.max(3, v)) : 6;
+    if (picks.length > MAXT) log(`Keeping the ${MAXT} most important headlines (of ${picks.length} picked)`);
+    picks = picks.slice(0, MAXT); }
   if (picks.length < 3) die('Gemini picked fewer than 3 usable releases: ' + JSON.stringify(sel).slice(0, 300));
   log('Picked PRIDs:', picks.join(', '));
 
@@ -716,8 +812,19 @@ function updateSitemap(file, iso, bumpHub) {
   if (good.length < 3) die(`Only ${good.length} release texts could be read from pib.gov.in`);
   const urlOf = new Map(good.map(x => [x.id, x.r.url]));
   AIR_USED = good.some(x => AIR_ITEMS.has(String(x.id)));
+  PIB_USED = good.some(x => !AIR_ITEMS.has(String(x.id)));
   if (AIR_USED) log(`News On AIR items in the final corpus: ${good.filter(x => AIR_ITEMS.has(String(x.id))).length}`);
-  const corpus = good.map(x => `=== PRID ${x.id} | ${byId.get(x.id).title}${x.r.ministry ? ' | ' + x.r.ministry : ''}\n${x.r.text}`).join('\n\n');
+  // 3b. research each headline on the web (extra detail); optional and fail-safe
+  const research = new Map();
+  if (WEB_RESEARCH && KEY) {
+    log(`Researching ${good.length} headlines on the web...`);
+    const res = await pool(good, 2, async (x) => ({ id: x.id, r: await webResearch(String(byId.get(x.id).title).replace(/^\[AIR\]\s*/, ''), x.r.text, dateLong) }));
+    res.forEach(o => { if (o && o.r) research.set(o.id, o.r); });
+    log(`Web research found notes for ${research.size} of ${good.length} headlines`);
+  }
+  const webOf = new Map([...research].map(([id, o]) => [id, o.sources]));
+  const corpus = good.map(x => `=== PRID ${x.id} | ${byId.get(x.id).title}${x.r.ministry ? ' | ' + x.r.ministry : ''}\n${x.r.text}`
+    + (research.has(x.id) ? `\n--- RESEARCH NOTES for this item (extra detail from web search; the official text above wins if they disagree) ---\n${research.get(x.id).notes}` : '')).join('\n\n');
   log(`Read ${good.length} releases (${corpus.length} chars)`);
 
   // 4. write
@@ -763,10 +870,10 @@ function updateSitemap(file, iso, bumpHub) {
     + (mcqs.length ? `\n      <a href="#quiz">📝 Practice MCQs</a>` : '');
   const glanceHtml = glance.map(g => `      <li><b></b><span>${rich(g)}</span></li>`).join('\n');
   const stories = topics.map((t, i) => renderStory(t, i, T, dateLong,
-    (t.prids || []).map(p => urlOf.get(String(p).replace(/\D/g, ''))).filter(Boolean).filter((u, k, a) => a.indexOf(u) === k))).join('\n');
+    (t.prids || []).flatMap(p => { const id = String(p).replace(/\D/g, ''); return [urlOf.get(id), ...(webOf.get(id) || [])]; }).filter(Boolean).filter((u, k, a) => a.indexOf(u) === k))).join('\n');
 
   const seoIntro = `<h2>Daily Current Affairs ${dateLong} for SSC CGL, CHSL, MTS and CPO</h2>
-    <p>This page carries the complete <strong>current affairs of ${dateLong}</strong>, prepared specifically for candidates preparing for SSC CGL, SSC CHSL, SSC MTS, SSC CPO, SSC GD Constable and other competitive examinations. Every topic on this page is compiled from official Press Information Bureau releases${AIR_USED ? ' and All India Radio (News On AIR) reports' : ''} and written in the short, factual, one-line style that the General Awareness section of SSC papers actually tests — dates, full forms, ministries, venues, appointments and numbers — rather than long news reporting.</p>
+    <p>This page carries the complete <strong>current affairs of ${dateLong}</strong>, prepared specifically for candidates preparing for SSC CGL, SSC CHSL, SSC MTS, SSC CPO, SSC GD Constable and other competitive examinations. Every topic on this page is compiled from ${sourcesPhrase()} and written in the short, factual, one-line style that the General Awareness section of SSC papers actually tests — dates, full forms, ministries, venues, appointments and numbers — rather than long news reporting.</p>
     <p>${esc(plain(data.seoTopicsSentence || ''))} Each topic ends with an <strong>Important Facts for Exams</strong> box, and the page closes with ${mcqs.length} practice MCQs with answers.</p>`;
 
   const topicTable = `<h2>Topics covered on ${dateLong} and the sections they belong to</h2>
@@ -783,7 +890,7 @@ ${topics.map(t => `        <tr><td>${esc(plain(t.rail || t.title))}</td><td>${es
   ];
   const allFaqs = faqs.map(f => ({ q: plain(f.q), a: plain(f.a) })).concat(generic);
   const faqHtml = allFaqs.map(f => `    <details class="faq"><summary>${esc(f.q)}</summary><div class="fa">${esc(f.a)}</div></details>`).join('\n\n')
-    + `\n\n    <p style="margin-top:26px;font-size:.92rem;color:var(--muted)">Last updated: ${dateLong} · Published by TrickySSC · Compiled from official Press Information Bureau (PIB) releases${AIR_USED ? ' and All India Radio (News On AIR) reports' : ''} and presented for examination preparation purposes only.</p>`;
+    + `\n\n    <p style="margin-top:26px;font-size:.92rem;color:var(--muted)">Last updated: ${dateLong} · Published by TrickySSC · Compiled from ${sourcesPhrase()} and presented for examination preparation purposes only.</p>`;
 
   const ld = [
     jsonLd({ '@context': 'https://schema.org', '@type': 'NewsArticle',
