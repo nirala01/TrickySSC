@@ -35,7 +35,8 @@
   .pill.sol{background:#FEF3C7;color:#B45309;}
   .stars{color:#F59E0B;letter-spacing:1px;}
   .muted{color:#94A3B8;font-size:12px;}
-  /* TSSC-REPORTCONTACT-V1 — contact lines under a reporter who shows as "Student" */
+  /* TSSC-REPORTCONTACT-V2 — mobile / email lines under every reporter's and candidate's name */
+  .who2 .rc,.who2 .rc-note{font-weight:400;}
   .rc{margin-top:3px;font-size:12px;white-space:nowrap;color:#64748B;}
   .rc a{color:#1D4ED8;font-weight:700;text-decoration:none;}
   .rc a:hover{text-decoration:underline;}
@@ -157,7 +158,7 @@
         <div class="kpis" id="reportKpis"></div>
         <div class="card">
           <div class="row">
-            <input class="filter" id="reportFilter" placeholder="Filter by test id, subject or reason…" oninput="renderReports()">
+            <input class="filter" id="reportFilter" placeholder="Filter by test id, subject, reason, name, mobile or email…" oninput="renderReports()">
             <select class="filter" id="reportTargetFilter" style="flex:0 0 auto;min-width:170px;" onchange="renderReports()">
               <option value="">All reports</option>
               <option value="question">Question reports only</option>
@@ -178,7 +179,7 @@
         <div class="kpis" id="ratingKpis"></div>
         <div class="card">
           <div class="row">
-            <input class="filter" id="ratingFilter" placeholder="Filter by test id, test name or candidate…" oninput="renderRatings()">
+            <input class="filter" id="ratingFilter" placeholder="Filter by test id, test name, candidate, mobile or email…" oninput="renderRatings()">
             <select class="filter" id="ratingStarFilter" style="flex:0 0 auto;min-width:150px;" onchange="renderRatings()">
               <option value="">All star values</option>
               <option value="5">★★★★★ 5 only</option>
@@ -243,25 +244,35 @@ const tgtPill = r => tgtOf(r)==='solution' ? '<span class="pill sol">Solution</s
 
 let REPORTS = [], RATINGS = [];
 
-/* TSSC-REPORTCONTACT-V1 (2026-10-04) ---------------------------------------
-   A report raised by someone whose profile name is empty or the "Student"
-   placeholder gives no way to reach them. For those reporters only, look up
-   a mobile / email so the By column can show it:
+/* TSSC-REPORTCONTACT-V2 (2026-10-06) ---------------------------------------
+   Every reporter (Question Reports) and every candidate (Test Ratings) shows
+   a mobile / email under the name. V1 did this only for a reporter whose
+   name was empty or the "Student" placeholder.
+   Lookup per uid, stopping at the first step that yields a contact:
      1. users/{uid}            (phone, email)            — 1 read
      2. checkoutIntents/{uid}  (mobile, email at checkout) — only if 1 had none
      3. payments where uid ==  (mobile, email at checkout) — only if 2 had none
-   Reporters with a real name are never looked up. Each uid is read once and
-   kept in sessionStorage, so reloading this tab costs no further reads. */
+   Read cost: each uid is looked up ONCE and then remembered in this browser
+   (localStorage) — 60 days when a contact was found, 7 days when none was —
+   so re-opening the page costs no further reads for people already seen.
+   Cells are filled in place as lookups land; the tables are not re-rendered. */
 const CONTACT = {};
-const CONTACT_CACHE = 'tssc_report_contacts_v1';
-try { Object.assign(CONTACT, JSON.parse(sessionStorage.getItem(CONTACT_CACHE) || '{}')); } catch(_){}
+const CONTACT_CACHE = 'tssc_report_contacts_v2';
+const CONTACT_TTL_HIT = 60*864e5, CONTACT_TTL_MISS = 7*864e5;
+try {
+  const saved = JSON.parse(localStorage.getItem(CONTACT_CACHE) || '{}'), now = Date.now();
+  Object.keys(saved).forEach(uid => { const c = saved[uid]; if(!c || !c.t) return;
+    if(now - c.t < ((c.phone || c.email) ? CONTACT_TTL_HIT : CONTACT_TTL_MISS)) CONTACT[uid] = c; });
+} catch(_){}
+try { sessionStorage.removeItem('tssc_report_contacts_v1'); } catch(_){}
 const realName   = n => { n = String(n==null?'':n).trim(); return /^student$/i.test(n) ? '' : n; };
-const isNameless = r => !!r.uid && !realName(r.name);
-const contactOf  = r => (isNameless(r) && CONTACT[r.uid] && !CONTACT[r.uid].loading) ? CONTACT[r.uid] : null;
+const rawName    = r => r.name || r.userName || r.displayName || '';
+const isNameless = r => !!r.uid && !realName(rawName(r));
+const contactOf  = r => (r.uid && CONTACT[r.uid] && !CONTACT[r.uid].loading) ? CONTACT[r.uid] : null;
 const waNumber   = p => { let d = String(p||'').replace(/\D/g,''); if(d.length===11 && d[0]==='0') d = d.slice(1); if(d.length===10) d = '91'+d; return d; };
 
 async function lookupContact(uid){
-  const out = { name:'', phone:'', email:'' };
+  const out = { name:'', phone:'', email:'', t:Date.now() };
   const fill = (n, p, e) => {
     if(!out.name)  out.name  = realName(n);
     if(!out.phone) out.phone = String(p||'').trim();
@@ -284,33 +295,70 @@ async function lookupContact(uid){
   return out;
 }
 
-async function resolveContacts(){
-  const need = [...new Set(REPORTS.filter(isNameless).map(r => r.uid))].filter(uid => !CONTACT[uid]);
-  if(!need.length) return;
-  need.forEach(uid => { CONTACT[uid] = { loading:true }; });
-  renderReports();
-  await Promise.all(need.map(async uid => {
-    try { CONTACT[uid] = await lookupContact(uid); } catch(_){ CONTACT[uid] = { name:'', phone:'', email:'', err:true }; }
-  }));
+function saveContacts(){
   try {
     const keep = {};
     Object.keys(CONTACT).forEach(uid => { const c = CONTACT[uid]; if(c && !c.loading && !c.err) keep[uid] = c; });
-    sessionStorage.setItem(CONTACT_CACHE, JSON.stringify(keep));
+    localStorage.setItem(CONTACT_CACHE, JSON.stringify(keep));
   } catch(_){}
-  renderReports();
 }
 
-/* The By cell of the raw list. Named reporters render exactly as before. */
-function byCell(r){
-  if(!isNameless(r)) return esc(r.name || r.uid || '');
-  const c = CONTACT[r.uid];
-  if(!c || c.loading) return 'Student<div class="rc-note">looking up contact…</div>';
+/* The mobile / email lines for one uid. showUid: also print the uid when
+   nothing was found (used for a nameless reporter, as V1 did). */
+function contactInner(uid, showUid){
+  const c = CONTACT[uid];
+  if(!c || c.loading) return '<div class="rc-note">looking up contact…</div>';
   const lines = [];
   if(c.phone) lines.push(`<div class="rc"><a href="tel:${esc(c.phone)}">${esc(c.phone)}</a> · <a href="https://wa.me/${esc(waNumber(c.phone))}" target="_blank" rel="noopener">WhatsApp</a></div>`);
   if(c.email) lines.push(`<div class="rc"><a href="mailto:${esc(c.email)}">${esc(c.email)}</a></div>`);
-  if(!lines.length) lines.push(`<div class="rc-note">${c.err ? 'Could not look up contact' : 'No mobile or email saved'}</div>
-    <div class="rc-uid" title="Search this uid in Firebase console → Authentication">${esc(r.uid)}</div>`);
-  return esc(c.name || 'Student') + lines.join('');
+  if(!lines.length){
+    lines.push(`<div class="rc-note">${c.err ? 'Could not look up contact' : 'No mobile or email saved'}</div>`);
+    if(showUid) lines.push(`<div class="rc-uid" title="Search this uid in Firebase console → Authentication">${esc(uid)}</div>`);
+  }
+  return lines.join('');
+}
+const contactBox = (r, showUid) => r.uid
+  ? `<div data-cuid="${esc(r.uid)}" data-su="${showUid?1:0}">${contactInner(String(r.uid), showUid)}</div>` : '';
+
+/* Name as shown in a cell. A real name prints as is; a nameless one prints
+   the fallback and is swapped for the profile name once the lookup lands. */
+function nameHtml(r, fallback){
+  const n = realName(rawName(r));
+  if(n) return esc(n);
+  if(!r.uid) return esc(fallback);
+  const c = contactOf(r);
+  return `<span data-nuid="${esc(r.uid)}">${esc((c && c.name) || fallback)}</span>`;
+}
+/* Plain-text contact, for one-line places (AI Fix panel). */
+const contactText = r => { const c = contactOf(r) || {}; const t = [c.phone, c.email].filter(Boolean).join(' · '); return t ? ' · ' + t : ''; };
+
+function paintContacts(){
+  document.querySelectorAll('[data-cuid]').forEach(el => { el.innerHTML = contactInner(el.dataset.cuid, el.dataset.su === '1'); });
+  document.querySelectorAll('[data-nuid]').forEach(el => { const c = CONTACT[el.dataset.nuid]; if(c && !c.loading && c.name) el.textContent = c.name; });
+}
+
+let CONTACT_BUSY = false;
+async function resolveContacts(){
+  if(CONTACT_BUSY) return;
+  const need = [...new Set(REPORTS.concat(RATINGS).map(r => r.uid ? String(r.uid) : '').filter(Boolean))].filter(uid => !CONTACT[uid]);
+  if(!need.length) return;
+  CONTACT_BUSY = true;
+  try {
+    need.forEach(uid => { CONTACT[uid] = { loading:true }; });
+    for(let i = 0; i < need.length; i += 20){
+      await Promise.all(need.slice(i, i + 20).map(async uid => {
+        try { CONTACT[uid] = await lookupContact(uid); } catch(_){ CONTACT[uid] = { name:'', phone:'', email:'', err:true }; }
+      }));
+      saveContacts();
+      paintContacts();
+    }
+  } finally { CONTACT_BUSY = false; }
+}
+
+/* The By cell of the raw report list: name, then mobile / email under it. */
+function byCell(r){
+  if(!r.uid) return esc(r.name || '');
+  return nameHtml(r, 'Student') + contactBox(r, isNameless(r));
 }
 
 onAuthStateChanged(auth, async (user) => {
@@ -343,7 +391,7 @@ async function loadAll(){
     REPORTS = []; rs.forEach(d=>REPORTS.push({id:d.id, ...d.data()}));
     RATINGS = []; qs.forEach(d=>RATINGS.push({id:d.id, ...d.data()}));
     renderReports(); renderRatings();
-    resolveContacts();   /* TSSC-REPORTCONTACT-V1: fills the By column afterwards */
+    resolveContacts();   /* TSSC-REPORTCONTACT-V2: fills mobile / email under each name afterwards */
   }catch(e){
     $('app').innerHTML = `<div class="card" style="color:#DC2626;">Couldn't read the collections: ${esc(e.message||e)}<br>
       <span class="muted">If this is a permissions error, update your Firestore rules so admins can read <code>question_reports</code> and <code>mock_ratings</code> (see the notes I shared).</span></div>`;
@@ -357,7 +405,7 @@ window.renderReports = function(){
   const tf = (($('reportTargetFilter')||{}).value)||'';
   const rows = REPORTS
     .filter(r => !tf || tgtOf(r)===tf)
-    .filter(r => { if(!f) return true; const c = contactOf(r) || {};   /* TSSC-REPORTCONTACT-V1: mobile / email searchable */
+    .filter(r => { if(!f) return true; const c = contactOf(r) || {};   /* TSSC-REPORTCONTACT-V2: mobile / email searchable */
       return (`${r.mockId} ${r.subject} ${r.reason} ${r.note} ${r.testName} ${r.source||'mock'} ${tgtOf(r)} ${r.name||''} ${c.name||''} ${c.phone||''} ${c.email||''}`).toLowerCase().includes(f); });
 
   $('reportKpis').innerHTML =
@@ -409,7 +457,8 @@ window.renderRatings = function(){
   const sf = (($('ratingStarFilter')||{}).value)||'';
   const rows = RATINGS
     .filter(r => !sf || String(Math.round(Number(r.stars)||0))===sf)
-    .filter(r => !f || (`${r.mockId} ${r.testName} ${whoOf(r)} ${r.uid} ${r.difficulty}`).toLowerCase().includes(f));
+    .filter(r => { if(!f) return true; const c = contactOf(r) || {};   /* TSSC-REPORTCONTACT-V2: mobile / email searchable */
+      return (`${r.mockId} ${r.testName} ${whoOf(r)} ${r.uid} ${r.difficulty} ${c.name||''} ${c.phone||''} ${c.email||''}`).toLowerCase().includes(f); });
 
   const allStars = RATINGS.map(r=>Number(r.stars)||0).filter(Boolean);
   const overall = allStars.length ? (allStars.reduce((a,b)=>a+b,0)/allStars.length) : 0;
@@ -450,7 +499,7 @@ window.renderRatings = function(){
 
       const people = v.list.slice().sort((a,b)=>(Number(b.stars)||0)-(Number(a.stars)||0) || tsMs(b)-tsMs(a))
         .map(r=>`<tr>
-          <td class="who2">${esc(whoOf(r))}</td>
+          <td class="who2">${nameHtml(r, whoOf(r))}${contactBox(r, false)}</td>
           <td style="white-space:nowrap"><span class="stars">${starStr(r.stars)}</span> ${esc(Number(r.stars)||0)}</td>
           <td>${esc(r.difficulty||'—')}</td>
           <td class="muted">${esc(fmtTime(r.createdAt))}</td>
@@ -474,7 +523,7 @@ window.renderRatings = function(){
   $('ratingList').innerHTML = list.length ? `<table><tr><th>When</th><th>Candidate</th><th>Test</th><th>Stars</th><th>Difficulty</th><th></th></tr>` +
     list.map(r=>`<tr>
       <td class="muted" style="white-space:nowrap">${esc(fmtTime(r.createdAt))}</td>
-      <td class="who2">${esc(whoOf(r))}${r.uid?`<div class="muted" style="font-size:11px">${esc(r.uid)}</div>`:''}</td>
+      <td class="who2">${nameHtml(r, whoOf(r))}${contactBox(r, false)}${r.uid?`<div class="muted" style="font-size:11px">${esc(r.uid)}</div>`:''}</td>
       <td><code>${esc(r.mockId||'(none)')}</code>${r.testName?`<div class="muted">${esc(r.testName)}</div>`:''}</td>
       <td style="white-space:nowrap"><span class="stars">${starStr(r.stars)}</span> ${esc(Number(r.stars)||0)}</td>
       <td>${esc(r.difficulty||'—')}</td>
@@ -972,7 +1021,7 @@ function renderStage2(){
   const rep = FIX.reports.map(r =>
     `<div style="margin-bottom:6px;">${tgtPill(r)}<span class="pill">${esc(r.reason||'—')}</span>
      <span class="muted">${esc(r.note||'(no note)')}</span>
-     <span class="muted"> — ${esc(r.name||r.uid||'')}, ${esc(fmtTime(r.createdAt))}</span></div>`).join('');
+     <span class="muted"> — ${esc(r.name||r.uid||'')}${esc(contactText(r))}, ${esc(fmtTime(r.createdAt))}</span></div>`).join('');
   $('fixBody').innerHTML =
     `<div class="steps">1 · Located → <b>2 · Analyse</b> → 3 · Preview → 4 · Apply</div>
      <div class="sec"><h3>Candidate reports (${FIX.reports.length})</h3>${rep||'<span class="muted">none</span>'}</div>
@@ -1951,12 +2000,13 @@ window.downloadCsv = function(which){
   if(which==='reports'){
     name='question_reports.csv';
     rows=[['when','source','part','mockId','qNum','position','subject','reason','note','name','uid','testName','mobile','email']];
-    REPORTS.slice().sort((a,b)=>tsMs(b)-tsMs(a)).forEach(r=>{ const c = contactOf(r) || {};   /* TSSC-REPORTCONTACT-V1 */
+    REPORTS.slice().sort((a,b)=>tsMs(b)-tsMs(a)).forEach(r=>{ const c = contactOf(r) || {};   /* TSSC-REPORTCONTACT-V2 */
       rows.push([fmtTime(r.createdAt),r.source||'mock',tgtOf(r),r.mockId,r.qNum,r.position,r.subject,r.reason,r.note,r.name,r.uid,r.testName,c.phone||'',c.email||'']); });
   } else {
     name='mock_ratings.csv';
-    rows=[['when','mockId','testName','candidate','stars','difficulty','uid']];
-    RATINGS.slice().sort((a,b)=>tsMs(b)-tsMs(a)).forEach(r=>rows.push([fmtTime(r.createdAt),r.mockId,r.testName,whoOf(r),r.stars,r.difficulty,r.uid]));
+    rows=[['when','mockId','testName','candidate','stars','difficulty','uid','mobile','email']];
+    RATINGS.slice().sort((a,b)=>tsMs(b)-tsMs(a)).forEach(r=>{ const c = contactOf(r) || {};   /* TSSC-REPORTCONTACT-V2 */
+      rows.push([fmtTime(r.createdAt),r.mockId,r.testName,whoOf(r),r.stars,r.difficulty,r.uid,c.phone||'',c.email||'']); });
   }
   const csv = rows.map(r=>r.map(q).join(',')).join('\n');
   const blob = new Blob([csv],{type:'text/csv'});
