@@ -69,8 +69,11 @@ def fetch_meta():
                 "op": "EQUAL",
                 "value": {"stringValue": EXAM},
             }},
+            # `type` / `mockId` are fetched only so mock-test questions can be
+            # dropped below (TSSC-PYQNOMOCK-V1).
             "select": {"fields": [{"fieldPath": f} for f in
-                                  ("year", "shift", "tier", "heldOn", "language", "paperId")]},
+                                  ("year", "shift", "tier", "heldOn", "language", "paperId",
+                                   "type", "mockId")]},
         }
     }
     req = urllib.request.Request(
@@ -97,8 +100,19 @@ def fetch_meta():
             continue
         f = d["fields"]
         docs.append({k: val(f, k) for k in
-                     ("year", "shift", "tier", "heldOn", "language", "paperId")})
+                     ("year", "shift", "tier", "heldOn", "language", "paperId",
+                      "type", "mockId")})
     return docs
+
+
+# TSSC-PYQNOMOCK-V1 (2026-10-06) ────────────────────────────────────────────────
+# The CHSL MOCK tests live in the same `questions` collection with the same
+# exam ("ssc-chsl"), carrying type "mock", a mockId, year 2026 and no shift /
+# heldOn / paperId. Counted as PYQ they collapsed into one bogus row —
+# "SSC CHSL Tier I 2026 · Full Paper · 2900 Qs". A previous-year paper is
+# type "pyq" and has no mockId, so anything that is a mock is dropped here.
+def is_mock(d):
+    return (d.get("type") or "").strip().lower() == "mock" or bool((d.get("mockId") or "").strip())
 
 
 # ── Shape the data (mirrors the in-page script) ───────────────────────────────
@@ -426,7 +440,10 @@ def set_text(html, el_id, text):
 def build(page_path, sitemap_path=None, dry_run=False, subject_pages=True):
     print(f"[build] querying Firestore for {EXAM} …")
     docs = fetch_meta()
-    print(f"[build] {len(docs)} question docs")
+    total = len(docs)
+    docs = [d for d in docs if not is_mock(d)]          # TSSC-PYQNOMOCK-V1
+    print(f"[build] {total} question docs — {total - len(docs)} mock-test questions ignored, "
+          f"{len(docs)} PYQ questions kept")
     papers = build_papers(docs)
     t1 = [p for p in papers if p["tier"] == "t1"]
     t2 = [p for p in papers if p["tier"] == "t2"]
