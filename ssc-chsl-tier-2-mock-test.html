@@ -623,6 +623,17 @@ border-radius:9px;padding:.5rem .7rem;font-size:.78rem;margin-bottom:.75rem;line
 border-radius:9px;padding:.55rem .7rem;font-size:.76rem;line-height:1.55;
 margin:.1rem 0 .9rem;text-align:left;}
 #mockBuyPop .mbp-release b{color:#15803D;}
+/* TSSC-CGLUPSELL-V1 — the SSC CGL plan that also unlocks every CHSL mock */
+#mockBuyPop .mbp-up{background:#EFF6FF;border:1.5px solid #93C5FD;color:#1E3A8A;border-radius:11px;
+padding:.7rem .8rem .75rem;font-size:.82rem;line-height:1.55;margin:0 0 .9rem;text-align:left;}
+#mockBuyPop .mbp-up-h{display:block;font-family:'Rajdhani',sans-serif;font-weight:800;font-size:1.02rem;
+color:#1D4ED8;margin-bottom:.15rem;letter-spacing:.01em;}
+#mockBuyPop .mbp-up b{color:#1E40AF;}
+#mockBuyPop .mbp-up-go{display:block;width:100%;margin:.55rem 0 .35rem;padding:.55rem .8rem;border:none;
+border-radius:9px;background:linear-gradient(135deg,#2563EB,#1D4ED8);color:#fff;cursor:pointer;
+font-family:'Rajdhani',sans-serif;font-weight:800;font-size:.98rem;letter-spacing:.02em;}
+#mockBuyPop .mbp-up-go:hover{filter:brightness(1.08);}
+#mockBuyPop .mbp-up-f{display:block;font-size:.72rem;color:#475569;}
 /* TSSC-LOGINNOTE-V1 — which login the buyer must keep using */
 #mockBuyPop .mbp-login{background:#FFF7ED;border:1px solid #FDBA74;color:#7C2D12;
 border-radius:9px;padding:.6rem .75rem;font-size:.78rem;margin-bottom:.75rem;line-height:1.55;}
@@ -2445,6 +2456,7 @@ onAuthStateChanged(_aAuth, user => {
       <div class="mbp-price" id="mbpPrice"></div>
       <ul id="mbpPerks"></ul>
       <div class="mbp-release" id="mbpRelease" hidden></div>   <!-- TSSC-RELNOTE-V1 -->
+      <div class="mbp-up" id="mbpUp" hidden></div>   <!-- TSSC-CGLUPSELL-V1 -->
       <button class="mbp-go" id="mbpNext">Proceed to checkout &rarr;</button>
       <div class="mbp-no" data-close>Maybe later</div>
     </div>
@@ -2755,11 +2767,23 @@ async function openBuy(card) {
 
   // combos that also include this module, shown as an upsell line
   const combos = P.combosFor(cat, CFG.module).filter(c => c.id !== lead.id);
+  /* TSSC-CGLUPSELL-V1 — a plan that unlocks the SSC CGL mocks as well as these
+     CHSL mocks gets its own box (below), not a line in the list. It appears
+     only once such a plan exists in admin-pricing, so nothing shows before. */
+  /* TSSC-CGLUPSELL-V2 — someone who already has the SSC CGL mocks is never
+     offered a plan that sells them again: no box, no line, not in the list.
+     If their access cannot be read, the plan is left out too. */
+  const hasCgl = c => c.grants.indexOf('ssc-cgl-mocks') !== -1;
+  const cglOwned = combos.some(hasCgl) ? await cglOwnedForBuy() : false;
+  if (cglOwned !== false) {
+    for (let i = combos.length - 1; i >= 0; i--) if (hasCgl(combos[i])) combos.splice(i, 1);
+  }
+  const upsell = combos.filter(hasCgl).sort((a, b) => a.price - b.price)[0] || null;
   document.getElementById('mbpPerks').innerHTML =
     (lead.blurb ? '<li>' + lead.blurb + '</li>' : '') +
     '<li>One payment \u2014 not per test</li>' +
     '<li>Access for ' + (lead.durationDays || 365) + ' days</li>' +
-    combos.map(c =>
+    combos.filter(c => c !== upsell).map(c =>
       '<li><b>' + c.label + '</b> \u2014 \u20b9' + c.price +
       ' for ' + c.grants.length + ' modules. Pick it in the next step.</li>').join('');
 
@@ -2767,13 +2791,60 @@ async function openBuy(card) {
 
   // step 2 dropdown: every live product for this exam, combos included
   const all = P.productsFor(cat, CFG.exam);
+  /* TSSC-CGLUPSELL-V1 — a combo filed under SSC CGL still belongs in this list */
+  combos.forEach(c => { if (!all.some(x => x.id === c.id)) all.push(c); });
+  if (cglOwned !== false) {                       /* TSSC-CGLUPSELL-V2 */
+    for (let i = all.length - 1; i >= 0; i--) if (hasCgl(all[i]) && all[i].id !== lead.id) all.splice(i, 1);
+  }
   const sel = document.getElementById('mbpCourse');
   sel.innerHTML = all.map(c =>
     '<option value="' + c.id + '">' + c.label + ' \u2014 \u20b9' + c.price +
     (c.grants.length > 1 ? ' (' + c.grants.length + ' modules)' : '') + '</option>').join('');
   sel.value = lead.id;
+  paintUpsell(upsell, lead);                     /* TSSC-CGLUPSELL-V1 */
 
   PREFILL = prefill();
+}
+
+/* TSSC-CGLUPSELL-V2 — does the signed-in buyer already hold the SSC CGL mocks?
+   true / false, or null when it cannot be read. Uses the entitlement document
+   the page already read when it can, so this normally costs no extra read. */
+let ENT_SEEN = null;          // { uid, d }
+async function cglOwnedForBuy() {
+  const u = _auth.currentUser;
+  if (!u) return null;
+  if (!ENT_SEEN || ENT_SEEN.uid !== u.uid) {
+    try {
+      const snap = await withTimeout(getDoc(doc(_db, 'entitlements', u.uid)), 5000, 'Access read');
+      ENT_SEEN = { uid: u.uid, d: snap.exists() ? (snap.data() || {}) : {} };
+    } catch (e) { return null; }
+  }
+  const d = ENT_SEEN.d;
+  return grantActive(d.allAccess) || grantActive((d.modules || {})['ssc-cgl-mocks']);
+}
+
+/* TSSC-CGLUPSELL-V1 — "Preparing for SSC CGL too?" box in step 1. The button
+   picks that plan in the step-2 list and moves on; the buyer can still switch
+   back to the CHSL plan there. */
+function paintUpsell(up, lead) {
+  const box = document.getElementById('mbpUp');
+  if (!box) return;
+  if (!up) { box.hidden = true; box.innerHTML = ''; return; }
+  box.innerHTML =
+    '<span class="mbp-up-h">\uD83D\uDCDA Preparing for SSC CGL too?</span>' +
+    '<b>\u20b9' + up.price + '</b> gets you all <b>100 SSC CGL mocks</b> <b>and</b> all ' +
+    '<b>80 SSC CHSL mocks</b> for a year, in one payment.' +
+    '<button type="button" class="mbp-up-go" id="mbpUpGo">Choose the \u20b9' + up.price +
+    ' CGL + CHSL plan &rarr;</button>' +
+    '<span class="mbp-up-f">Only need CHSL? The \u20b9' + lead.price +
+    ' CHSL plan above is all you need.</span>';
+  box.hidden = false;
+  document.getElementById('mbpUpGo').onclick = () => {
+    const sel = document.getElementById('mbpCourse');
+    if (sel) sel.value = up.id;
+    ORDER = { courseId: up.id };
+    document.getElementById('mbpNext')?.click();
+  };
 }
 
 /* ---- TSSC-LOGINNOTE-V1 ----------------------------------------------------
@@ -3438,6 +3509,7 @@ async function loadEntitlement(uid) {
     const snap = await getDoc(doc(_db, 'entitlements', uid));
     const d = snap.exists() ? (snap.data() || {}) : {};
     const owned = grantActive(d.allAccess) || grantActive((d.modules || {})[CFG.module]);
+    ENT_SEEN = { uid, d };                         /* TSSC-CGLUPSELL-V2 — reused by the buy popup */
     writeCache(uid, owned);
     return owned;
   } catch (e) {

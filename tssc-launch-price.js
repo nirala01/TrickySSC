@@ -1,20 +1,22 @@
 /* ============================================================================
-   tssc-launch-price.js  —  TSSC-LAUNCHPRICE-V4 (price-rise popup on the CGL mock pages, free users only)
+   tssc-launch-price.js  —  TSSC-LAUNCHPRICE-V5 (price-rise popup on the CGL mock pages, free users only)
 
-   SSC CGL mock plan: the Rs 49 launch price ends 10 Oct 2026. Rs 99 from 11 Oct.
+   SSC CGL mock plan: the Rs 49 launch price ends 17 Oct 2026. Rs 99 from 18 Oct.
 
    Every page's own HTML already says Rs 99. Until SWITCH_AT, this script shows
-   the launch price in its place and fills in the "ends 10 Oct" notes. From
+   the launch price in its place and fills in the "ends 17 Oct" notes. From
    SWITCH_AT onward it does nothing at all, so no page needs a second edit.
 
    DISPLAY ONLY. What a buyer is CHARGED comes from config/pricing, which you
-   edit in admin-pricing.html. On 11 Oct, set the product price to 99 there.
+   edit in admin-pricing.html. On 18 Oct, set the product price to 99 there.
 
    To move the deadline, change SWITCH_AT and FIRST_DAY under SETTINGS — nothing
    else. To end the launch price early, set SWITCH_AT to a date in the past.
 
    Hooks a page can carry:
      <span data-lp>Rs 99</span>               shows Rs 49 until the switch
+     <span data-lp-after hidden>              stays hidden until the switch, shown from
+                                              it (V5: "Rs 99 plan also unlocks CHSL")
      <span data-lp-note="inline" hidden>      deadline note, filled in and shown
      data-lp-note also takes "tag" and "popup": same words, different spacing
 
@@ -35,15 +37,25 @@
   /* ---- SETTINGS ---------------------------------------------------------- */
   var INTRO     = 49;                                           // launch price
   var REGULAR   = 99;                                           // price from the switch
-  var SWITCH_AT = Date.parse('2026-10-11T00:00:00+05:30');      // first moment of Rs 99 (IST)
-  var FIRST_DAY = '11 Oct';                                     // how that date is written in the note
+  var SWITCH_AT = Date.parse('2026-10-18T00:00:00+05:30');      // first moment of Rs 99 (IST)
+  var FIRST_DAY = '18 Oct';                                     // how that date is written in the note
   /* ------------------------------------------------------------------------ */
 
   var left = SWITCH_AT - Date.now();
-  if (!(left > 0)) return;                    // switch has passed: pages already say Rs 99
+  if (!(left > 0)) { revealAfter(); return; } // switch has passed: pages already say Rs 99
+
+  /* V5 — from the switch, show every <... data-lp-after hidden> line. */
+  function revealAfter() {
+    function run() {
+      var els = document.querySelectorAll('[data-lp-after]');
+      for (var i = 0; i < els.length; i++) els[i].hidden = false;
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run);
+    else run();
+  }
 
   var RUPEE = '\u20B9';
-  var days  = Math.ceil(left / 86400000);     // counts today, so 10 Oct itself reads "last day"
+  var days  = Math.ceil(left / 86400000);     // counts today, so 17 Oct itself reads "last day"
   var BIG   = days <= 1 ? 'Last day at ' + RUPEE + INTRO : days + ' days left';
   /* second line, as [before-arrow, after-arrow]; no arrow on the last day */
   var SMALL = days <= 1 ? [RUPEE + REGULAR + ' from tomorrow']

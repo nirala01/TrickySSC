@@ -859,10 +859,16 @@ async function loadDashboard(user) {
           'ssc-cgl-mocks':   'SSC CGL Mock Test Series 2026',
           'p-ssc-cgl-mocks': 'SSC CGL Mock Test Series 2026',
           'ssc-cgl-dashboard':   'Dashboard Pro',
-          'p-ssc-cgl-dashboard': 'Dashboard Pro'
+          'p-ssc-cgl-dashboard': 'Dashboard Pro',
+          'ssc-chsl-mocks':      'SSC CHSL Mock Test Series 2026',     /* TSSC-CGLUPSELL-V1 */
+          'p-ssc-chsl-mocks':    'SSC CHSL Mock Test Series 2026'
         };
-        const planName = LABELS[bestKey] || LABELS[String(bestKey).replace(/^p-/, '')]
-                       || 'Premium plan';
+        /* TSSC-CGLUPSELL-V1 — the Rs 99 CGL plan also unlocks CHSL: name both */
+        const liveKey = k => { const m = mods[k]; return !!m && m.active === true && (Date.parse(m.expiresAt || '') || 0) > Date.now(); };
+        const planName = (liveKey('ssc-cgl-mocks') && liveKey('ssc-chsl-mocks'))
+                       ? 'SSC CGL + SSC CHSL Mock Test Series 2026'
+                       : (LABELS[bestKey] || LABELS[String(bestKey).replace(/^p-/, '')]
+                          || 'Premium plan');
 
         if (best > Date.now()) {
           const d = new Date(best).toLocaleDateString('en-IN',
