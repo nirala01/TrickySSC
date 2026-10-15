@@ -677,14 +677,20 @@ async function resolveUsers(uids){
 async function paintOverallAvg(){
   const el = document.getElementById('overallAvg');
   if(detailsLoaded){
-    const s = allAttempts.map(a => parseFloat(a.percentage)||0);
+    const s = allAttempts.map(a => parseFloat(a.percentage)).filter(x => isFinite(x));
     el.textContent = s.length ? (s.reduce((a,b)=>a+b,0)/s.length).toFixed(1)+'%' : '—';
     return;
   }
   try{
-    const agg = await getAggregateFromServer(collection(db,'attempts'), { avg: average('percentage') });
+    // TSSC-AVGNAN-V1 (2026-10-15) — a single attempt saved with percentage NaN
+    // (a submit with 0 questions loaded: 0/0) turns the server average into NaN
+    // and the card read "NaN%". Firestore range filters skip NaN, so averaging
+    // over percentage >= -1000 leaves out exactly those broken docs.
+    const agg = await getAggregateFromServer(
+      query(collection(db,'attempts'), where('percentage','>=',-1000)),
+      { avg: average('percentage') });
     const v = agg.data().avg;
-    el.textContent = (v===null || v===undefined) ? '—' : Number(v).toFixed(1)+'%';
+    el.textContent = (v===null || v===undefined || !isFinite(v)) ? '—' : Number(v).toFixed(1)+'%';
   }catch(e){ el.textContent = '—'; }
 }
 
