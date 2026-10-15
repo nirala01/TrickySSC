@@ -1,7 +1,7 @@
 name: Update Mock Live Count
 
-# Keeps ssc-cgl-mock-test.html and mock-list.html in step with Firestore, the
-# same way the PYQ page build does. Runs on a schedule, and can be triggered by
+# Keeps every mock page (SSC CGL Tier I + II, SSC CHSL Tier I + II) in step with
+# Firestore, the same way the PYQ page build does — TSSC-MOCKLIVE-V2. Runs on a schedule, and can be triggered by
 # hand from the Actions tab the moment a new mock is uploaded.
 
 on:
@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       live:
-        description: 'Force a live count (leave blank to read Firestore)'
+        description: 'Force CGL Tier I live count (leave blank to read Firestore)'
         required: false
         default: ''
 
@@ -41,12 +41,12 @@ jobs:
 
       - name: Commit if anything changed
         run: |
-          if [ -z "$(git status --porcelain ssc-cgl-mock-test.html mock-list.html)" ]; then
+          if [ -z "$(git status --porcelain ssc-cgl-mock-test.html mock-list.html ssc-cgl-tier-2-mock-test.html ssc-chsl-mock-test.html ssc-chsl-tier-2-mock-test.html)" ]; then
             echo "No change — nothing to commit."
             exit 0
           fi
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add ssc-cgl-mock-test.html mock-list.html
+          git add ssc-cgl-mock-test.html mock-list.html ssc-cgl-tier-2-mock-test.html ssc-chsl-mock-test.html ssc-chsl-tier-2-mock-test.html
           git commit -m "chore: sync mock live count [skip ci]"
           git push
