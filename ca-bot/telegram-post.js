@@ -71,9 +71,9 @@ const PRACTICE = {                           // where each trick sends people to
 };
 /* Launch-price line, shown under the digest until the switch. Keep these the
    same as the SETTINGS in /tssc-launch-price.js. */
-const INTRO = 49, REGULAR = 99;
-const SWITCH_AT = Date.parse('2026-10-18T00:00:00+05:30');
-const FIRST_DAY = '18 Oct';
+/* TSSC-DUSSEHRA-V1 — prices NOT increased; CGL + CHSL combo as the Dussehra offer */
+const PRICE = 49, COMBO = 79;
+const FEST_END = Date.parse('2026-10-23T00:00:00+05:30');   // offer wording ends after 22 Oct
 /* -------------------------------------------------------------------------- */
 
 const TOKEN  = (process.env.TELEGRAM_BOT_TOKEN || '').trim();
@@ -202,13 +202,10 @@ function pollable(x) {
 
 /* -------------------------------------------------------------- the texts */
 function promoLine() {
-  const left = SWITCH_AT - Date.now();
-  if (left > 0) {
-    const days = Math.ceil(left / 86400000);
-    const head = days <= 1 ? `\u23F3 <b>Last day at \u20B9${INTRO}</b>` : `\u23F3 <b>${days} days left at \u20B9${INTRO}</b>`;
-    return `${head} \u2014 100 SSC CGL mock tests, \u20B9${REGULAR} from ${days <= 1 ? 'tomorrow' : FIRST_DAY}\n${MOCKS}`;
+  if (Date.now() < FEST_END) {
+    return `\uD83E\uDE94 <b>Dussehra offer</b> \u2014 prices NOT increased: SSC CGL mocks \u20B9${PRICE}, SSC CHSL mocks \u20B9${PRICE}, both together just \u20B9${COMBO} (till 22 Oct)\n${MOCKS}`;
   }
-  return `\uD83C\uDFAF SSC CGL mock plan, \u20B9${REGULAR}: 100 CGL mocks + all 80 SSC CHSL mocks included. Mock 1\u20134 free\n${MOCKS}`;
+  return `\uD83C\uDFAF SSC CGL mocks \u20B9${PRICE} \u00B7 SSC CHSL mocks \u20B9${PRICE} \u00B7 both together \u20B9${COMBO}. Mock 1\u20134 free\n${MOCKS}`;
 }
 
 function digestText(p, lines, quizCount) {
