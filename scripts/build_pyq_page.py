@@ -158,7 +158,7 @@ MOCK_PROMO = r"""
       </div>
       <div class="tsscMP-band">Real Sectional Timing &mdash; Just Like The Exam</div>
       <div class="tsscMP-price">
-        <span class="tsscMP-was">&#8377;199</span><span class="tsscMP-now" data-lp>&#8377;99</span>for a full year
+        <span class="tsscMP-was">&#8377;199</span><span class="tsscMP-now" data-lp>&#8377;49</span>for a full year
       </div>
       <div data-lp-note="popup" hidden></div>
       <a class="tsscMP-go" href="https://trickyssc.com/ssc-cgl-mock-test">&#128640; START NOW</a>
