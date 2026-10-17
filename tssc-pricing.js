@@ -56,7 +56,7 @@
     products: [
       { id: 'p-ssc-cgl-mocks', label: 'SSC CGL Mock Test Series', exam: 'ssc-cgl',
         grants: ['ssc-cgl-mocks'],
-        price: (Date.now() < Date.parse('2026-10-18T00:00:00+05:30') ? 49 : 99),   /* TSSC-LAUNCHPRICE-V1 */
+        price: 49,   /* TSSC-DUSSEHRA-V1: price not increased */
         mrp: 199, durationDays: 365,
         live: true, order: 1,
         blurb: 'All 50 Tier I + all 50 Tier II mocks, including every mock released during the year.' }
@@ -151,14 +151,24 @@
   /** Live products for an exam, in display order. */
   function productsFor(cat, exam) {
     return cat.products
-      .filter(function (p) { return p.live !== false && (!exam || p.exam === exam); })
+      .filter(function (p) { return p.live !== false && (!exam || (p.exam === exam && !isUpgrade(p))); })
       .sort(function (a, b) { return a.order - b.order; });
   }
 
   /** Live products that unlock a given entitlement key (singles AND combos). */
+  /* TSSC-UPGRADE-V1 — products whose id starts "p-upgrade-" are the Dussehra Rs 29
+     upgrades for buyers who already own the other series. They never appear in the
+     normal plan lists; the mock pages offer them only to those buyers (upgradeFor). */
+  function isUpgrade(p) { return /^p-upgrade-/.test(String(p && p.id || '')); }
+  function upgradeFor(cat, key) {
+    var all = cat.products.filter(function (p) {
+      return p.live !== false && isUpgrade(p) && p.grants.indexOf(key) !== -1; });
+    return all.sort(function (a, b) { return a.price - b.price; })[0] || null;
+  }
+
   function productsGranting(cat, key) {
     return cat.products
-      .filter(function (p) { return p.live !== false && p.grants.indexOf(key) !== -1; })
+      .filter(function (p) { return p.live !== false && !isUpgrade(p) && p.grants.indexOf(key) !== -1; })
       .sort(function (a, b) { return a.order - b.order; });
   }
 
@@ -188,6 +198,8 @@
     productsGranting: productsGranting,
     bestFor: bestFor,
     combosFor: combosFor,
+    upgradeFor: upgradeFor,
+    isUpgrade: isUpgrade,
     product: product
   };
 })(window);

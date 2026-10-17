@@ -556,6 +556,7 @@ padding:.7rem .8rem .75rem;font-size:.82rem;line-height:1.55;margin:0 0 .9rem;te
 #mockBuyPop .mbp-up-h{display:block;font-family:'Rajdhani',sans-serif;font-weight:800;font-size:1.02rem;
 color:#1D4ED8;margin-bottom:.15rem;letter-spacing:.01em;}
 #mockBuyPop .mbp-up b{color:#1E40AF;}
+#mockBuyPop .mbp-up s{color:#94A3B8;}
 #mockBuyPop .mbp-up-go{display:block;width:100%;margin:.55rem 0 .35rem;padding:.55rem .8rem;border:none;
 border-radius:9px;background:linear-gradient(135deg,#2563EB,#1D4ED8);color:#fff;cursor:pointer;
 font-family:'Rajdhani',sans-serif;font-weight:800;font-size:.98rem;letter-spacing:.02em;}
@@ -736,6 +737,7 @@ margin:0 0 1rem;}
 <!-- TSSC-LOGINMODAL-V1: in-place login popup + no-flicker auth chip -->
 <style>[data-auth]{visibility:hidden}html.tssc-auth-in [data-auth="in"],html.tssc-auth-out [data-auth="out"]{visibility:visible}</style>
 <script>setTimeout(function(){var h=document.documentElement;if(!/tssc-auth-/.test(h.className))h.classList.add('tssc-auth-out');},3000);</script>
+<script src="/tssc-launch-price.js" async></script>   <!-- TSSC-DUSSEHRA-V1: offer popup till 22 Oct -->
 <script type="module" src="/login-modal.js"></script>
 </head>
 <body>
@@ -2329,7 +2331,7 @@ async function openBuy(card) {
   if (!_auth.currentUser && window.tsscLogin) {
     const u = await window.tsscLogin.open();
     if (!u) return;                              // dismissed — nothing to sell
-    try { sessionStorage.removeItem('tssc_ent_' + u.uid); } catch (e) {}
+    try { sessionStorage.removeItem(ENT_KEY(u.uid)); } catch (e) {}
     OWNED = await loadEntitlement(u.uid);
     applyEntitlement();
     try { tsscPaintLockOverlays(); } catch (e) {}
@@ -2378,7 +2380,16 @@ async function openBuy(card) {
   // Lead with the cheapest product that unlocks what this page gates. That is
   // usually the single course, but if you ever price a combo below it, the
   // combo leads automatically.
-  const lead = P.bestFor(cat, CFG.module);
+  let lead = P.bestFor(cat, CFG.module);
+  /* TSSC-UPGRADE-V2 — a buyer who already owns the OTHER mock series is offered this
+     one through the upgrade product (id p-upgrade-…, Rs 29) instead of the normal
+     plan. Everyone else sees the normal plan. It runs for as long as the upgrade
+     product is Live in admin-pricing; untick Live there to stop it. */
+  let upgraded = false;
+  if (lead && typeof P.upgradeFor === 'function') {
+    const upg = P.upgradeFor(cat, CFG.module);
+    if (upg && (await cglOwnedForBuy()) === true) { lead = upg; upgraded = true; }
+  }
   if (!lead) {
     document.getElementById('mbpPrice').innerHTML =
       '<span style="font-size:.85rem;color:#B91C1C;">Nothing is on sale for this yet.</span>';
@@ -2417,6 +2428,7 @@ async function openBuy(card) {
   const all = P.productsFor(cat, CFG.exam);
   /* TSSC-CGLUPSELL-V1 — a combo filed under SSC CGL still belongs in this list */
   combos.forEach(c => { if (!all.some(x => x.id === c.id)) all.push(c); });
+  if (upgraded) { all.length = 0; all.push(lead); }        /* TSSC-UPGRADE-V1: only the upgrade */
   if (cglOwned !== false) {                       /* TSSC-CGLUPSELL-V2 */
     for (let i = all.length - 1; i >= 0; i--) if (hasCgl(all[i]) && all[i].id !== lead.id) all.splice(i, 1);
   }
@@ -2425,7 +2437,7 @@ async function openBuy(card) {
     '<option value="' + c.id + '">' + c.label + ' \u2014 \u20b9' + c.price +
     (c.grants.length > 1 ? ' (' + c.grants.length + ' modules)' : '') + '</option>').join('');
   sel.value = lead.id;
-  paintUpsell(upsell, lead);                     /* TSSC-CGLUPSELL-V1 */
+  paintUpsell(upsell, lead, cat);                /* TSSC-CGLUPSELL-V3 */
 
   PREFILL = prefill();
 }
@@ -2447,19 +2459,30 @@ async function cglOwnedForBuy() {
   return grantActive(d.allAccess) || grantActive((d.modules || {})['ssc-cgl-mocks']);
 }
 
-/* TSSC-CGLUPSELL-V1 — "Preparing for SSC CGL too?" box in step 1. The button
-   picks that plan in the step-2 list and moves on; the buyer can still switch
-   back to the CHSL plan there. */
-function paintUpsell(up, lead) {
+/* TSSC-CGLUPSELL-V3 — the SSC CGL + SSC CHSL combo in its own box in step 1. Until the end of
+   22 Oct 2026 it is labelled as the Dussehra offer; after that it reads as a plain
+   offer. The button picks the combo in the step-2 list and moves on; the buyer can
+   still switch back there. */
+const FEST_END = Date.parse('2026-10-23T00:00:00+05:30');      /* TSSC-DUSSEHRA-V1 */
+function paintUpsell(up, lead, cat) {
   const box = document.getElementById('mbpUp');
   if (!box) return;
   if (!up) { box.hidden = true; box.innerHTML = ''; return; }
+  const fest = Date.now() < FEST_END;
+  /* what the two plans cost bought separately, to show the saving */
+  const other = ((cat && cat.products) || [])
+    .filter(p => p.live !== false && p.grants.indexOf('ssc-cgl-mocks') !== -1 && p.grants.indexOf('ssc-chsl-mocks') === -1)
+    .sort((a, b) => a.price - b.price)[0];
+  const apart = other ? lead.price + other.price : 0;
   box.innerHTML =
-    '<span class="mbp-up-h">\uD83D\uDCDA Preparing for SSC CGL too?</span>' +
+    '<span class="mbp-up-h">' + (fest
+      ? '\uD83E\uDE94 Dussehra offer: SSC CGL + SSC CHSL combo'
+      : '\uD83D\uDCDA Preparing for SSC CGL too?') + '</span>' +
     '<b>\u20b9' + up.price + '</b> gets you all <b>100 SSC CGL mocks</b> <b>and</b> all ' +
-    '<b>80 SSC CHSL mocks</b> for a year, in one payment.' +
+    '<b>80 SSC CHSL mocks</b> for a year, in one payment' +
+    (apart > up.price ? ', instead of <s>\u20b9' + apart + '</s> for the two separately.' : '.') +
     '<button type="button" class="mbp-up-go" id="mbpUpGo">Choose the \u20b9' + up.price +
-    ' CGL + CHSL plan &rarr;</button>' +
+    ' CGL + CHSL combo &rarr;</button>' +
     '<span class="mbp-up-f">Only need CHSL? The \u20b9' + lead.price +
     ' CHSL plan above is all you need.</span>';
   box.hidden = false;
@@ -2877,7 +2900,7 @@ window.tsscOnPaymentSuccess = async function (msg) {
   recordIntent('paid');                         /* TSSC-INTENT-V1 */
   const user = _auth.currentUser;
   if (user) {
-    try { sessionStorage.removeItem('tssc_ent_' + user.uid); } catch (e) {}
+    try { sessionStorage.removeItem(ENT_KEY(user.uid)); } catch (e) {}
     OWNED = await loadEntitlement(user.uid);
   }
   applyEntitlement();
@@ -3108,13 +3131,22 @@ async function resumePending() {
 /* ---- read the entitlement ---- */
 function readCache(uid) {
   try {
-    const o = JSON.parse(sessionStorage.getItem('tssc_ent_' + uid) || 'null');
-    if (o && Date.now() - (o.ts || 0) < CFG.cacheTtlMs) return !!o.owned;
+    /* TSSC-ENTCACHE-V2 (2026-10-17) — the old 'tssc_ent_<uid>' entry held ONE yes/no
+       for whichever exam's page wrote it last, so a CHSL page's answer could be read
+       back on a CGL page (and the other way round). The v2 entry keeps the answer for
+       every series, and each page reads its own. */
+    const o = JSON.parse(sessionStorage.getItem(ENT_KEY(uid)) || 'null');
+    if (o && o.m && Date.now() - (o.ts || 0) < CFG.cacheTtlMs && typeof o.m[CFG.module] === 'boolean') {
+      window.tsscOwnsOther = !!o.m[OTHER_KEY];
+      return o.m[CFG.module];
+    }
   } catch (e) {}
   return null;
 }
-function writeCache(uid, owned) {
-  try { sessionStorage.setItem('tssc_ent_' + uid, JSON.stringify({ ts: Date.now(), owned })); }
+const ENT_KEY = uid => 'tssc_ent_v2_' + uid;                    /* TSSC-ENTCACHE-V2 */
+const OTHER_KEY = CFG.module === 'ssc-chsl-mocks' ? 'ssc-cgl-mocks' : 'ssc-chsl-mocks';
+function writeCache(uid, m) {
+  try { sessionStorage.setItem(ENT_KEY(uid), JSON.stringify({ ts: Date.now(), m })); }
   catch (e) {}
 }
 
@@ -3134,8 +3166,18 @@ async function loadEntitlement(uid) {
     const snap = await getDoc(doc(_db, 'entitlements', uid));
     const d = snap.exists() ? (snap.data() || {}) : {};
     const owned = grantActive(d.allAccess) || grantActive((d.modules || {})[CFG.module]);
+    try {                                          /* extras below can never change `owned` */
     ENT_SEEN = { uid, d };                         /* TSSC-CGLUPSELL-V2 — reused by the buy popup */
-    writeCache(uid, owned);
+    window.tsscOwnsOther = grantActive(d.allAccess) || grantActive((d.modules || {})['ssc-cgl-mocks']);   /* TSSC-DUSSEHRA-V1 */
+    {                                              /* TSSC-ENTCACHE-V2: both series */
+      const all = grantActive(d.allAccess), mods = d.modules || {};
+      const m = { 'ssc-cgl-mocks':  all || grantActive(mods['ssc-cgl-mocks']),
+                  'ssc-chsl-mocks': all || grantActive(mods['ssc-chsl-mocks']) };
+      m[CFG.module] = owned;
+      window.tsscOwnsOther = !!m[OTHER_KEY];
+      writeCache(uid, m);
+    }
+    } catch (e2) {}
     return owned;
   } catch (e) {
     console.warn('entitlement read failed:', e.message);
@@ -3151,6 +3193,12 @@ onAuthStateChanged(_auth, async user => {
   OWNED = await loadEntitlement(user.uid);
   applyEntitlement();
   resumePending();
+  /* TSSC-UPGRADE-V2 — arriving from the upgrade popup (?upgrade=1): open the
+     buy popup once; it leads with the Rs 29 upgrade if this buyer qualifies. */
+  if (!OWNED && /[?&]upgrade=1(&|$)/.test(location.search) && !window.__tsscUpgOpened) {
+    window.__tsscUpgOpened = true;
+    setTimeout(() => { try { openBuy(null); } catch (e) {} }, 700);
+  }
 });
 </script>
 </body>

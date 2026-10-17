@@ -271,6 +271,13 @@
   }
   .op-active{background:#DCFCE7;color:#15803D;}
   .op-none{background:#F1F5F9;color:#64748B;}
+  /* TSSC-PLANLIST-V1 — one line per purchased series, each with its own date */
+  .ord-list{list-style:none;margin:0.55rem 0 0;padding:0;display:flex;flex-direction:column;gap:0.3rem;}
+  .ord-list li{font-size:0.86rem;color:var(--dark);line-height:1.45;}
+  .ord-list li b{font-weight:700;}
+  .ord-list li span{color:var(--gray);}
+  .ord-list li.ord-exp{color:var(--gray);}
+  .ord-list li.ord-exp b{font-weight:600;}
   .orders-btn{
     background:linear-gradient(135deg,var(--orange),var(--orange2));color:#fff;
     text-decoration:none;font-family:'Rajdhani',sans-serif;font-weight:700;
@@ -863,21 +870,46 @@ async function loadDashboard(user) {
           'ssc-chsl-mocks':      'SSC CHSL Mock Test Series 2026',     /* TSSC-CGLUPSELL-V1 */
           'p-ssc-chsl-mocks':    'SSC CHSL Mock Test Series 2026'
         };
-        /* TSSC-CGLUPSELL-V1 — the Rs 99 CGL plan also unlocks CHSL: name both */
-        const liveKey = k => { const m = mods[k]; return !!m && m.active === true && (Date.parse(m.expiresAt || '') || 0) > Date.now(); };
-        const planName = (liveKey('ssc-cgl-mocks') && liveKey('ssc-chsl-mocks'))
-                       ? 'SSC CGL + SSC CHSL Mock Test Series 2026'
-                       : (LABELS[bestKey] || LABELS[String(bestKey).replace(/^p-/, '')]
-                          || 'Premium plan');
+        /* TSSC-PLANLIST-V1 — every series the student holds, each with its OWN end
+           date. Someone who bought CGL and CHSL on different days sees two dates,
+           not just the later one. Who counts as premium is unchanged (any active
+           grant that has not expired). */
+        const fmtD = t => new Date(t).toLocaleDateString('en-IN',
+          { day:'numeric', month:'short', year:'numeric' });
+        const RANK = { 'ssc-cgl-mocks': 1, 'ssc-chsl-mocks': 2, 'ssc-cgl-dashboard': 3 };
+        const SHORT = { 'ssc-cgl-mocks': 'SSC CGL mocks', 'ssc-chsl-mocks': 'SSC CHSL mocks',
+                        'ssc-cgl-dashboard': 'Dashboard Pro' };
+        const nameOf = k => LABELS[k] || LABELS[String(k).replace(/^p-/, '')]
+                         || String(k).replace(/^p-/, '').replace(/-/g, ' ');
+        /* TSSC-NODASHPRO-V1 (2026-10-17) — rank and analysis are free for everyone, so the
+           old Dashboard Pro key is not listed as something the student holds. */
+        const items = Object.keys(mods)
+          .filter(k => k !== 'ssc-cgl-dashboard' && k !== 'p-ssc-cgl-dashboard')
+          .filter(k => mods[k] && mods[k].active === true && Date.parse(mods[k].expiresAt || ''))
+          .map(k => ({ k, t: Date.parse(mods[k].expiresAt) }))
+          .map(i => Object.assign(i, { live: i.t > Date.now() }))
+          .sort((a, b) => (b.live - a.live) || ((RANK[a.k] || 9) - (RANK[b.k] || 9)) || (a.t - b.t));
+        const liveItems = items.filter(i => i.live);
+        const bannerItems = liveItems;
+        /* premium = an active purchase other than the old Dashboard Pro key */
+        const bestPaid = liveItems.reduce((m, i) => Math.max(m, i.t), 0);
 
-        if (best > Date.now()) {
-          const d = new Date(best).toLocaleDateString('en-IN',
-            { day:'numeric', month:'short', year:'numeric' });
+        if (bestPaid > Date.now()) {
+          const d = fmtD(bestPaid);
+          const meta = bannerItems.length > 1
+            ? bannerItems.map(i => (SHORT[i.k] || nameOf(i.k)) + ' till ' + fmtD(i.t)).join(' &middot; ')
+            : (bannerItems.length ? nameOf(bannerItems[0].k) + ' &middot; valid till ' + fmtD(bannerItems[0].t)
+                                  : 'Premium plan &middot; valid till ' + d);
           if (pl) pl.innerHTML =
             '<span class="plan-badge plan-premium">⭐ PREMIUM</span>'
-          + '<span class="plan-meta">' + planName + ' &middot; valid till ' + d + '</span>';
+          + '<span class="plan-meta">' + meta + '</span>';
           if (el) el.innerHTML =
-            '<span class="orders-pill op-active">premium active</span>Access till ' + d;
+            '<span class="orders-pill op-active">premium active</span>'
+          + (items.length
+              ? '<ul class="ord-list">' + items.map(i => i.live
+                  ? '<li>✅ <b>' + nameOf(i.k) + '</b> <span>&mdash; till ' + fmtD(i.t) + '</span></li>'
+                  : '<li class="ord-exp">⏹ <b>' + nameOf(i.k) + '</b> &mdash; expired ' + fmtD(i.t) + '</li>').join('') + '</ul>'
+              : 'Access till ' + d);
         } else {
           if (pl) pl.innerHTML =
             '<span class="plan-badge plan-free">FREE PLAN</span>'

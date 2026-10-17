@@ -1,110 +1,82 @@
 /* ============================================================================
-   tssc-launch-price.js  —  TSSC-LAUNCHPRICE-V5 (price-rise popup on the CGL mock pages, free users only)
+   tssc-launch-price.js  -  TSSC-LAUNCHPRICE-V7  (Dussehra offer, 17-22 Oct 2026)
 
-   SSC CGL mock plan: the Rs 49 launch price ends 17 Oct 2026. Rs 99 from 18 Oct.
+   PRICES ARE NOT GOING UP. SSC CGL mocks stay Rs 49, SSC CHSL mocks stay Rs 49,
+   and a CGL + CHSL combo is offered at Rs 79 as the Dussehra offer.
 
-   Every page's own HTML already says Rs 99. Until SWITCH_AT, this script shows
-   the launch price in its place and fills in the "ends 17 Oct" notes. From
-   SWITCH_AT onward it does nothing at all, so no page needs a second edit.
+   Until FEST_END (the end of 22 Oct 2026, IST) this script:
+     - fills every <span data-lp-note> with a short "Dussehra offer - price not
+       increased, combo Rs 79" note (hidden from people who already own the plan);
+     - shows ONE Dussehra-offer popup per browser session on the SSC CGL and
+       SSC CHSL mock pages, to visitors who have not bought that page's plan.
+   From FEST_END on it shows no note and no popup; the pages simply show their
+   normal prices and the normal buy popup.
 
-   DISPLAY ONLY. What a buyer is CHARGED comes from config/pricing, which you
-   edit in admin-pricing.html. On 18 Oct, set the product price to 99 there.
+   It always keeps every <span data-lp> at Rs 49, so a page whose own text is out
+   of date (an older copy still saying Rs 99) shows the right price.
 
-   To move the deadline, change SWITCH_AT and FIRST_DAY under SETTINGS — nothing
-   else. To end the launch price early, set SWITCH_AT to a date in the past.
+   DISPLAY ONLY. What a buyer is CHARGED comes from config/pricing (admin-pricing).
+   No Firestore read, no network call. Storage: one sessionStorage flag
+   (tsscFestPopSeen) so the popup shows once per session.
 
    Hooks a page can carry:
-     <span data-lp>Rs 99</span>               shows Rs 49 until the switch
-     <span data-lp-after hidden>              stays hidden until the switch, shown from
-                                              it (V5: "Rs 99 plan also unlocks CHSL")
-     <span data-lp-note="inline" hidden>      deadline note, filled in and shown
+     <span data-lp>Rs 49</span>               always shows Rs 49
+     <span data-lp-note="inline" hidden>      offer note, shown until FEST_END
      data-lp-note also takes "tag" and "popup": same words, different spacing
-
-   POPUP (V4). On the SSC CGL mock pages only, a visitor who has NOT bought the
-   plan sees one price-rise popup per browser session. Someone who owns the
-   plan never sees it, and the red deadline notes are hidden for them too.
-   Who has paid is read from what the page's own paywall has already worked
-   out (the tssc_ent_<uid> cache and the tssc-owned-user class on <body>), so
-   this file makes no Firestore read of its own. If that answer never arrives,
-   the popup stays closed. Like everything else here, it stops on SWITCH_AT.
-
-   No Firestore read, no network call. Storage: one sessionStorage flag
-   (tsscLpPopSeen) so the popup shows once per session.
 ============================================================================ */
 (function () {
   'use strict';
 
   /* ---- SETTINGS ---------------------------------------------------------- */
-  var INTRO     = 49;                                           // launch price
-  var REGULAR   = 99;                                           // price from the switch
-  var SWITCH_AT = Date.parse('2026-10-18T00:00:00+05:30');      // first moment of Rs 99 (IST)
-  var FIRST_DAY = '18 Oct';                                     // how that date is written in the note
+  var PRICE     = 49;                                           // CGL plan, and CHSL plan
+  var COMBO     = 79;                                           // CGL + CHSL combo
+  var FEST_END  = Date.parse('2026-10-23T00:00:00+05:30');      // offer wording ends (IST)
+  var LAST_DAY  = '22 Oct';                                     // how the last day is written
+  var OFFER     = 'Dussehra offer';
   /* ------------------------------------------------------------------------ */
 
-  var left = SWITCH_AT - Date.now();
-  if (!(left > 0)) { revealAfter(); return; } // switch has passed: pages already say Rs 99
-
-  /* V5 — from the switch, show every <... data-lp-after hidden> line. */
-  function revealAfter() {
-    function run() {
-      var els = document.querySelectorAll('[data-lp-after]');
-      for (var i = 0; i < els.length; i++) els[i].hidden = false;
-    }
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run);
-    else run();
-  }
-
   var RUPEE = '\u20B9';
-  var days  = Math.ceil(left / 86400000);     // counts today, so 17 Oct itself reads "last day"
-  var BIG   = days <= 1 ? 'Last day at ' + RUPEE + INTRO : days + ' days left';
-  /* second line, as [before-arrow, after-arrow]; no arrow on the last day */
-  var SMALL = days <= 1 ? [RUPEE + REGULAR + ' from tomorrow']
-                        : [RUPEE + INTRO + ' now', RUPEE + REGULAR + ' from ' + FIRST_DAY];
+  var FEST  = Date.now() < FEST_END;
 
   var CSS =
-    /* shared: solid red, white text */
-    '.lp-n{box-sizing:border-box;max-width:100%;background:linear-gradient(135deg,#DC2626,#B91C1C);' +
+    '.lp-n{box-sizing:border-box;max-width:100%;background:linear-gradient(135deg,#EA580C,#B91C1C);' +
       'color:#fff;border-radius:10px;font-weight:700;line-height:1.3;text-decoration:none;' +
       'box-shadow:0 3px 10px rgba(185,28,28,.28);}' +
     '.lp-n .lp-b{font-weight:800;white-space:nowrap;}' +
     '.lp-n .lp-s{font-weight:700;}' +
-    ".lp-n .lp-a{display:inline-block;margin:0 .32em;font-family:Arial,'Segoe UI Symbol',sans-serif;" +
-      'font-weight:900;font-size:1.3em;line-height:1;vertical-align:-.06em;}' +
-    /* inside a sentence (price banner on the mock pages) and under the homepage card price */
     ".lp-n-inline,.lp-n-tag{display:inline-block;padding:.3rem .85rem;font-family:'Rajdhani',sans-serif;" +
       'font-size:1.08rem;letter-spacing:.2px;}' +
     '.lp-n-inline{margin:.3rem 0;}' +
     '.lp-n-tag{margin:.5rem 0 0;}' +
-    '.lp-n-inline .lp-b,.lp-n-tag .lp-b{font-size:1.16em;margin-right:.45em;}' +
-    /* the two parts never break in the middle: on a narrow screen the second part drops to its own line */
-    '.lp-n-inline .lp-s,.lp-n-tag .lp-s{display:inline-block;white-space:nowrap;}' +
-    /* promo popup: a full-width block with a large first line, gently pulsing */
+    '.lp-n-inline .lp-b,.lp-n-tag .lp-b{font-size:1.1em;margin-right:.45em;}' +
+    '.lp-n-inline .lp-s,.lp-n-tag .lp-s{display:inline-block;}' +
     '.lp-n-popup{display:block;margin:-.15rem 0 .95rem;padding:.6rem .8rem .65rem;border-radius:12px;' +
-      'text-align:center;box-shadow:0 6px 18px rgba(220,38,38,.38);animation:lpPulse 1.7s ease-in-out infinite;}' +
-    ".lp-n-popup .lp-b{display:block;font-family:'Baloo 2','Rajdhani',sans-serif;font-size:1.75rem;line-height:1.1;}" +
-    '.lp-n-popup .lp-s{display:block;font-size:1.3rem;line-height:1.25;margin-top:.15rem;letter-spacing:.2px;}' +
-    '@keyframes lpPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.035)}}' +
-    '@media(prefers-reduced-motion:reduce){.lp-n-popup{animation:none}}' +
-    /* someone who already owns the plan sees no deadline note */
+      'text-align:center;box-shadow:0 6px 18px rgba(220,38,38,.3);}' +
+    ".lp-n-popup .lp-b{display:block;font-family:'Baloo 2','Rajdhani',sans-serif;font-size:1.5rem;line-height:1.15;}" +
+    '.lp-n-popup .lp-s{display:block;font-size:1.12rem;line-height:1.3;margin-top:.15rem;}' +
     'body.tssc-owned-user .lp-n{display:none!important;}' +
-    /* price-rise popup (CGL mock pages, free users) */
-    '.lpP{position:fixed;top:0;right:0;bottom:0;left:0;z-index:99990;display:flex;align-items:center;' +
-      'justify-content:center;padding:14px;background:rgba(13,27,42,.64);opacity:0;transition:opacity .2s ease;}' +
+    /* popup */
+    '.lpP{position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;' +
+      'padding:16px;background:rgba(13,27,42,.62);opacity:0;transition:opacity .22s ease;}' +
     '.lpP.on{opacity:1;}' +
-    ".lpP-box{position:relative;box-sizing:border-box;width:100%;max-width:400px;max-height:calc(100vh - 28px);" +
+    '.lpP-box{position:relative;width:100%;max-width:400px;max-height:calc(100vh - 32px);' +
       "overflow-y:auto;background:#fff;border-radius:18px;box-shadow:0 24px 60px rgba(0,0,0,.38);text-align:center;" +
       "font-family:'Rajdhani',system-ui,sans-serif;color:#0D1B2A;transform:translateY(12px) scale(.97);" +
       'transition:transform .22s ease;outline:0;}' +
     '.lpP.on .lpP-box{transform:none;}' +
-    '.lpP-top{background:linear-gradient(135deg,#FF6B00,#FF8C38);color:#fff;font-weight:700;font-size:1rem;' +
+    '.lpP-top{background:linear-gradient(135deg,#B91C1C,#EA580C 60%,#F59E0B);color:#fff;font-weight:700;font-size:1.05rem;' +
       'letter-spacing:1px;text-transform:uppercase;padding:.7rem 2.9rem;line-height:1.25;border-radius:18px 18px 0 0;}' +
     '.lpP-x{position:absolute;top:.45rem;right:.5rem;width:34px;height:34px;border:0;border-radius:50%;padding:0;' +
       'background:rgba(255,255,255,.28);color:#fff;font-size:1.35rem;line-height:1;cursor:pointer;}' +
-    '.lpP-body{padding:1.25rem 1.15rem 1.1rem;}' +
-    ".lpP-h{font-family:'Baloo 2','Rajdhani',sans-serif;font-weight:800;font-size:1.95rem;line-height:1.1;" +
-      'margin:0 0 .4rem;color:#0D1B2A;}' +
-    '.lpP-p{font-size:1.12rem;font-weight:600;line-height:1.35;color:#4A5568;margin:0 0 1.1rem;}' +
-    '.lpP-p b{color:#0D1B2A;font-weight:700;}' +
+    '.lpP-body{padding:1.2rem 1.15rem 1.1rem;}' +
+    ".lpP-h{font-family:'Baloo 2','Rajdhani',sans-serif;font-weight:800;font-size:1.85rem;line-height:1.1;" +
+      'margin:0 0 .5rem;color:#0D1B2A;}' +
+    '.lpP-rows{margin:0 0 .9rem;padding:0;list-style:none;font-size:1.12rem;font-weight:600;color:#334155;line-height:1.5;}' +
+    '.lpP-rows b{color:#0D1B2A;}' +
+    '.lpP-rows s{color:#94A3B8;font-weight:600;margin-left:.2rem;}' +
+    '.lpP-combo{margin:0 0 1rem;padding:.65rem .8rem;border-radius:12px;background:#FFF7ED;border:2px dashed #F59E0B;' +
+      'font-size:1.12rem;font-weight:700;color:#9A3412;line-height:1.35;}' +
+    ".lpP-combo b{display:block;font-family:'Baloo 2','Rajdhani',sans-serif;font-size:1.45rem;color:#B91C1C;}" +
     ".lpP-go{display:block;box-sizing:border-box;width:100%;border:0;border-radius:12px;padding:.85rem 1rem;" +
       "background:linear-gradient(135deg,#FF6B00,#FF8C38);color:#fff;font-family:'Rajdhani',system-ui,sans-serif;" +
       'font-weight:700;font-size:1.3rem;letter-spacing:.4px;line-height:1.2;cursor:pointer;' +
@@ -125,28 +97,23 @@
   }
 
   function paint(el) {
-    if (el.__lp) return;
-    el.__lp = 1;
-    if (el.hasAttribute('data-lp')) {
-      el.textContent = RUPEE + INTRO;
+    if (el.hasAttribute('data-lp')) {                     // the price: always Rs 49
+      if (el.textContent !== RUPEE + PRICE) el.textContent = RUPEE + PRICE;
       return;
     }
+    if (el.__lp) return;
+    el.__lp = 1;
+    if (!FEST) return;                                    // after the offer: note stays hidden
     var kind = el.getAttribute('data-lp-note') || 'inline';
     if (kind !== 'tag' && kind !== 'popup') kind = 'inline';
     el.textContent = '';
     var big = document.createElement('span');
     big.className = 'lp-b';
-    big.textContent = '\u23F3 ' + BIG;
+    big.textContent = '\uD83E\uDE94 ' + OFFER;
     var small = document.createElement('span');
     small.className = 'lp-s';
-    small.appendChild(document.createTextNode(SMALL[0]));
-    if (SMALL.length > 1) {
-      var arrow = document.createElement('span');
-      arrow.className = 'lp-a';
-      arrow.textContent = '\u2192';
-      small.appendChild(arrow);
-      small.appendChild(document.createTextNode(SMALL[1]));
-    }
+    small.textContent = 'Price not increased, still ' + RUPEE + PRICE +
+                        ' \u00B7 CGL + CHSL combo ' + RUPEE + COMBO;
     el.appendChild(big);
     el.appendChild(document.createTextNode(' '));
     el.appendChild(small);
@@ -176,18 +143,33 @@
         for (var j = 0; j < added.length; j++) sweep(added[j]);
       }
     }).observe(document.documentElement, { childList: true, subtree: true });
-  } else {
-    document.addEventListener('DOMContentLoaded', function () { sweep(document.documentElement); });
   }
+  document.addEventListener('DOMContentLoaded', function () { sweep(document.documentElement); });
+
+  /* After the Dussehra offer only the Rs 29 upgrade popup remains (for buyers of
+     one series, while an upgrade product is Live in admin-pricing). */
 
   /* ==========================================================================
-     Price-rise popup — SSC CGL mock pages only, and only for someone who has
-     not bought the plan. Once per browser session. Gone on SWITCH_AT.
+     Dussehra popups - SSC CGL and SSC CHSL mock pages. Once per browser session.
+       signed out, or owns neither series   -> "Prices not increased" + combo Rs 79
+       owns ONLY the other series            -> upgrade: add this series for Rs 29
+       owns ONLY this page's series          -> upgrade: add the other series for Rs 29
+       owns BOTH series                      -> nothing at all
+     The Rs 29 upgrade popup shows only while an upgrade product (id p-upgrade-...)
+     is Live in admin-pricing, and keeps running after 22 Oct until it is unticked.
+     The "prices not increased" popup ends with the Dussehra offer (FEST_END).
+     Anything unclear -> no popup.
   ========================================================================== */
-  var ON_MOCK_PAGE = /\/(mock-list|ssc-cgl-(?:[a-z0-9]+-)*mock-test)(?:\.html)?\/?$/i.test(location.pathname);
+  var ON_MOCK_PAGE = /\/(mock-list|ssc-(?:cgl|chsl)-(?:[a-z0-9]+-)*mock-test)(?:\.html)?\/?$/i.test(location.pathname);
   if (!ON_MOCK_PAGE) return;
+  var IS_CHSL   = /ssc-chsl-/i.test(location.pathname);
+  var THIS_KEY  = IS_CHSL ? 'ssc-chsl-mocks' : 'ssc-cgl-mocks';
+  var OTHER_KEY = IS_CHSL ? 'ssc-cgl-mocks'  : 'ssc-chsl-mocks';
+  var NAME  = { 'ssc-cgl-mocks': 'SSC CGL', 'ssc-chsl-mocks': 'SSC CHSL' };
+  var COUNT = { 'ssc-cgl-mocks': 100,       'ssc-chsl-mocks': 80 };
+  var HUB   = { 'ssc-cgl-mocks': '/ssc-cgl-mock-test.html', 'ssc-chsl-mocks': '/ssc-chsl-mock-test.html' };
 
-  var POP_KEY      = 'tsscLpPopSeen';
+  var POP_KEY      = 'tsscFestPopSeen';
   var ENT_FRESH_MS = 10 * 60 * 1000;      // same life as the page's own entitlement cache
   var POP_DELAY_MS = 1500;
 
@@ -195,26 +177,25 @@
   function markSeen() { try { sessionStorage.setItem(POP_KEY, '1'); } catch (e) {} }
   function ownsPlan() { return !!(document.body && document.body.classList.contains('tssc-owned-user')); }
 
-  /* What the page's paywall has concluded for this uid: true, false, or null = not known yet. */
-  function entitlement(uid) {
+  /* What the page's paywall found for this uid, for BOTH series (TSSC-ENTCACHE-V2
+     record written by the mock pages), or null while not known yet. */
+  function ownedMap(uid) {
     try {
-      var o = JSON.parse(sessionStorage.getItem('tssc_ent_' + uid) || 'null');
-      if (o && Date.now() - (o.ts || 0) < ENT_FRESH_MS) return !!o.owned;
+      var o = JSON.parse(sessionStorage.getItem('tssc_ent_v2_' + uid) || 'null');
+      if (o && o.m && Date.now() - (o.ts || 0) < ENT_FRESH_MS &&
+          typeof o.m['ssc-cgl-mocks'] === 'boolean' && typeof o.m['ssc-chsl-mocks'] === 'boolean') return o.m;
     } catch (e) {}
     return null;
   }
 
-  /* Calls back only once we KNOW this visitor has not bought the plan:
-       signed out                                  -> free
-       signed in, paywall says "not owned"         -> free
-       signed in, paywall says "owned"             -> never
-       anything unclear (login script or the paywall's answer never arrives) -> never */
-  function whenFree(cb) {
+  /* Calls back once we KNOW who this is: {signedIn:false} or {signedIn:true, m:{...}}.
+     If the answer never arrives (30 s), it never calls back. */
+  function whenKnown(cb) {
     var tries = 0;
     (function waitLogin() {
       var L = window.tsscLogin;
       if (!L || !L.auth || typeof L.auth.onAuthStateChanged !== 'function') {
-        if (++tries < 100) setTimeout(waitLogin, 300);          // up to 30 s
+        if (++tries < 100) setTimeout(waitLogin, 300);
         return;
       }
       var settled = false, unsub = null;
@@ -222,17 +203,26 @@
         if (settled) return;
         settled = true;
         setTimeout(function () { try { if (unsub) unsub(); } catch (e) {} }, 0);
-        if (!user) { cb(); return; }
+        if (!user) { cb({ signedIn: false }); return; }
         var n = 0;
         (function waitPaywall() {
-          if (ownsPlan()) return;
-          var e = entitlement(user.uid);
-          if (e === true) return;
-          if (e === false) { cb(); return; }
-          if (++n < 75) setTimeout(waitPaywall, 400);           // up to 30 s
+          var m = ownedMap(user.uid);
+          if (m) { cb({ signedIn: true, m: m }); return; }
+          if (++n < 75) setTimeout(waitPaywall, 400);
         })();
       });
     })();
+  }
+
+  /* Price of the Live upgrade product (id p-upgrade-...) that grants `key`, plus the
+     normal price of that series; done(null) if no upgrade product is Live. */
+  function upgradePrice(key, done) {
+    var P = window.TSSC_PRICING;
+    if (!P || typeof P.load !== 'function' || typeof P.upgradeFor !== 'function') { done(null); return; }
+    P.load().then(function (cat) {
+      var u = P.upgradeFor(cat, key), b = (typeof P.bestFor === 'function') ? P.bestFor(cat, key) : null;
+      done(u ? u.price : null, b ? b.price : null);
+    }, function () { done(null); });
   }
 
   var popEl = null, popPrevOverflow = '', popWatch = null, busyTries = 0;
@@ -256,11 +246,14 @@
     return n;
   }
 
-  function openPopup() {
-    if (popEl || popSeen() || ownsPlan() || !(SWITCH_AT - Date.now() > 0) || !document.body) return;
+  /* kind 'offer':   opt.combo = show the Rs 79 combo line
+     kind 'upgrade': opt.key = the series to add, opt.price, opt.here = it is this page's series */
+  function openPopup(kind, opt) {
+    if (popEl || popSeen() || !document.body) return;
+    if (kind === 'offer' && (ownsPlan() || !(Date.now() < FEST_END))) return;
     /* a checkout or login popup is already open: wait for it, then give up quietly */
     if (document.body.style.overflow === 'hidden' || document.documentElement.style.overflow === 'hidden') {
-      if (++busyTries < 20) setTimeout(openPopup, 1500);
+      if (++busyTries < 20) setTimeout(function () { openPopup(kind, opt); }, 1500);
       return;
     }
     markSeen();
@@ -271,31 +264,62 @@
     wrap.setAttribute('aria-labelledby', 'lpPTitle');
 
     var box  = make('div', 'lpP-box');
-    box.tabIndex = -1;                       // takes keyboard focus on open, without a ring
-    var top  = make('div', 'lpP-top', '\uD83D\uDCE3 SSC CGL Mock Tests');
+    box.tabIndex = -1;
     var x    = make('button', 'lpP-x', '\u00D7');
     x.type = 'button';
     x.setAttribute('aria-label', 'Close');
-
     var body = make('div', 'lpP-body');
-    var h    = make('h2', 'lpP-h', days <= 1 ? 'Price goes up tomorrow' : 'Price goes up on ' + FIRST_DAY);
-    h.id = 'lpPTitle';
-
-    var p = make('p', 'lpP-p');
-    p.appendChild(make('b', '', 'All 100 mocks'));
-    p.appendChild(document.createTextNode(' (50 Tier I + 50 Tier II) for a full year.'));
-
-    var note = make('div');
-    note.setAttribute('data-lp-note', 'popup');
-    paint(note);
-
-    var go = make('button', 'lpP-go', '\uD83D\uDD13 Unlock 100 mocks at ' + RUPEE + INTRO);
-    go.type = 'button';
+    var top, h, go, foot, onGo;
     var no = make('button', 'lpP-no', 'Not now');
     no.type = 'button';
-    var foot = make('p', 'lpP-f', 'Mocks 1\u20134 stay free');
 
-    body.appendChild(h); body.appendChild(p); body.appendChild(note);
+    if (kind === 'upgrade') {
+      var have = opt.key === 'ssc-cgl-mocks' ? 'ssc-chsl-mocks' : 'ssc-cgl-mocks';
+      top = make('div', 'lpP-top', (Date.now() < FEST_END ? '\uD83E\uDE94 ' + OFFER : '\uD83C\uDF81 Special offer') + ' \u00B7 just for you');
+      h   = make('h2', 'lpP-h', 'Add ' + NAME[opt.key] + ' mocks for ' + RUPEE + opt.price);
+      var rows = make('ul', 'lpP-rows');
+      rows.appendChild(make('li', '', 'You already have the ' + NAME[have] + ' mocks.'));
+      body.appendChild(h); body.appendChild(rows);
+      var deal = make('div', 'lpP-combo');
+      deal.appendChild(make('b', '', 'All ' + COUNT[opt.key] + ' ' + NAME[opt.key] + ' mocks: ' + RUPEE + opt.price));
+      deal.appendChild(document.createTextNode('For a full year' + (opt.regular > opt.price ? ', instead of ' + RUPEE + opt.regular : '')));
+      body.appendChild(deal);
+      go   = make('button', 'lpP-go', '\uD83D\uDD13 Add ' + NAME[opt.key] + ' for ' + RUPEE + opt.price);
+      foot = make('p', 'lpP-f', 'Only for buyers of the ' + NAME[have] + ' mocks');
+      onGo = function () {
+        if (opt.here && typeof window.tsscOpenBuy === 'function') { window.tsscOpenBuy(null); return; }
+        location.href = HUB[opt.key] + '?upgrade=1';
+      };
+    } else {
+      top = make('div', 'lpP-top', '\uD83E\uDE94 ' + OFFER + ' \uD83E\uDE94');
+      h   = make('h2', 'lpP-h', 'Prices not increased!');
+      var list = make('ul', 'lpP-rows');
+      var r1 = make('li');
+      r1.appendChild(document.createTextNode('SSC CGL mocks: still '));
+      r1.appendChild(make('b', '', RUPEE + PRICE));
+      var r2 = make('li');
+      r2.appendChild(document.createTextNode('SSC CHSL mocks: still '));
+      r2.appendChild(make('b', '', RUPEE + PRICE));
+      if (IS_CHSL) { list.appendChild(r2); list.appendChild(r1); } else { list.appendChild(r1); list.appendChild(r2); }
+      body.appendChild(h); body.appendChild(list);
+      if (opt && opt.combo) {
+        var combo = make('div', 'lpP-combo');
+        combo.appendChild(make('b', '', 'CGL + CHSL combo ' + RUPEE + COMBO));
+        combo.appendChild(document.createTextNode('Both mock series for a full year, instead of ' + RUPEE + (PRICE * 2)));
+        body.appendChild(combo);
+      }
+      go   = make('button', 'lpP-go', '\uD83D\uDD13 See the plans');
+      foot = make('p', 'lpP-f', (opt && opt.combo) ? 'Combo offer till ' + LAST_DAY + ' \u00B7 first mocks stay free'
+                                                   : 'First mocks stay free');
+      onGo = function () {
+        /* same thing the page's own "Go Premium" button does */
+        if (typeof window.tsscOpenBuy === 'function') { window.tsscOpenBuy(null); return; }
+        var pn = document.querySelector('.price-note');
+        if (pn && pn.scrollIntoView) pn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      };
+    }
+    h.id = 'lpPTitle';
+    go.type = 'button';
     body.appendChild(go); body.appendChild(no); body.appendChild(foot);
     box.appendChild(top); box.appendChild(x); box.appendChild(body);
     wrap.appendChild(box);
@@ -303,23 +327,36 @@
     x.addEventListener('click', closePopup);
     no.addEventListener('click', closePopup);
     wrap.addEventListener('click', function (e) { if (e.target === wrap) closePopup(); });
-    go.addEventListener('click', function () {
-      closePopup();
-      /* same thing the page's own "Go Premium" button does */
-      if (typeof window.tsscOpenBuy === 'function') { window.tsscOpenBuy(null); return; }
-      var pn = document.querySelector('.price-note');
-      if (pn && pn.scrollIntoView) pn.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    });
+    go.addEventListener('click', function () { closePopup(); onGo(); });
 
     popPrevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     document.body.appendChild(wrap);
     popEl = wrap;
     document.addEventListener('keydown', onPopKey);
-    /* if the plan becomes owned while this is open (login + purchase elsewhere), step aside */
-    popWatch = setInterval(function () { if (ownsPlan()) closePopup(); }, 1000);
+    /* if this page's plan becomes owned while an offer for it is open, step aside */
+    if (kind === 'offer' || opt.here) popWatch = setInterval(function () { if (ownsPlan()) closePopup(); }, 1000);
     setTimeout(function () { if (popEl === wrap) { wrap.className = 'lpP on'; try { box.focus(); } catch (e) {} } }, 30);
   }
 
-  if (!popSeen()) whenFree(function () { setTimeout(openPopup, POP_DELAY_MS); });
+  function decide(st) {
+    var fest  = Date.now() < FEST_END;
+    var later = function (kind, opt) { setTimeout(function () { openPopup(kind, opt); }, POP_DELAY_MS); };
+    if (!st.signedIn) { if (fest) later('offer', { combo: true }); return; }
+    var mine = !!st.m[THIS_KEY], other = !!st.m[OTHER_KEY];
+    if (mine && other) return;                                   // owns both: no offer at all
+    if (!mine && !other) { if (fest) later('offer', { combo: true }); return; }
+    if (mine) {                                                  // owns only this page's series
+      upgradePrice(OTHER_KEY, function (price, regular) {
+        if (price) later('upgrade', { key: OTHER_KEY, price: price, regular: regular, here: false });
+      });
+      return;
+    }
+    upgradePrice(THIS_KEY, function (price, regular) {           // owns only the other series
+      if (price) later('upgrade', { key: THIS_KEY, price: price, regular: regular, here: true });
+      else if (fest) later('offer', { combo: false });
+    });
+  }
+
+  if (!popSeen()) whenKnown(decide);
 })();
