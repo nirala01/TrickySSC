@@ -51,6 +51,13 @@
     '.lp-n-inline .lp-b,.lp-n-tag .lp-b{font-size:1.1em;margin-right:.45em;}' +
     '.lp-n-inline .lp-s,.lp-n-tag .lp-s{display:block;font-size:.95em;margin-top:.1rem;}' +
     '.lp-n-inline .lp-t,.lp-n-tag .lp-t{margin:.35rem 0 .1rem;max-width:300px;}' +
+    /* TSSC-LPNOTE-V3: on the homepage price line ("tag") the note is one plain line
+       in the colours of the box it sits in, not a red card. */
+    '.lp-n.lp-n-tag{display:block;background:none;box-shadow:none;border-radius:0;padding:0;' +
+      'margin:.35rem 0 0;color:#9A3412;font-size:.95em;font-weight:600;letter-spacing:0;}' +
+    '.lp-n.lp-n-tag b{font-weight:800;color:#C2410C;}' +
+    '.lp-n.lp-n-tag .lp-i{width:auto;height:auto;background:none;box-shadow:none;border-radius:0;' +
+      'font-size:1em;margin-right:.3em;}' +
     '.lp-n-inline .lp-r,.lp-n-tag .lp-r{font-size:.95rem;padding:.25rem 0;}' +
     '.lp-n-inline .lp-r b,.lp-n-tag .lp-r b{font-size:1.05rem;}' +
     '.lp-n-popup{display:block;margin:-.15rem 0 .95rem;padding:.6rem .8rem .65rem;border-radius:12px;' +
@@ -130,6 +137,17 @@
       if (txt != null) x.textContent = txt;
       return x;
     };
+    if (kind === 'tag') {                                 // one simple line
+      el.appendChild(mk('lp-i', '\uD83E\uDE94'));
+      var tb = document.createElement('b');
+      tb.textContent = OFFER + ':';
+      el.appendChild(tb);
+      el.appendChild(document.createTextNode(' price not increased \u00B7 CGL + CHSL combo ' +
+                                             RUPEE + COMBO));
+      el.className = (el.className ? el.className + ' ' : '') + 'lp-n lp-n-tag';
+      el.removeAttribute('hidden');
+      return;
+    }
     var big = mk('lp-b');
     big.appendChild(mk('lp-i', '\uD83E\uDE94'));
     big.appendChild(document.createTextNode(OFFER));
