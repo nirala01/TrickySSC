@@ -49,11 +49,28 @@
     '.lp-n-inline{margin:.3rem 0;}' +
     '.lp-n-tag{margin:.5rem 0 0;}' +
     '.lp-n-inline .lp-b,.lp-n-tag .lp-b{font-size:1.1em;margin-right:.45em;}' +
-    '.lp-n-inline .lp-s,.lp-n-tag .lp-s{display:inline-block;}' +
+    '.lp-n-inline .lp-s,.lp-n-tag .lp-s{display:block;font-size:.95em;margin-top:.1rem;}' +
+    '.lp-n-inline .lp-t,.lp-n-tag .lp-t{margin:.35rem 0 .1rem;max-width:300px;}' +
+    '.lp-n-inline .lp-r,.lp-n-tag .lp-r{font-size:.95rem;padding:.25rem 0;}' +
+    '.lp-n-inline .lp-r b,.lp-n-tag .lp-r b{font-size:1.05rem;}' +
     '.lp-n-popup{display:block;margin:-.15rem 0 .95rem;padding:.6rem .8rem .65rem;border-radius:12px;' +
       'text-align:center;box-shadow:0 6px 18px rgba(220,38,38,.3);}' +
-    ".lp-n-popup .lp-b{display:block;font-family:'Baloo 2','Rajdhani',sans-serif;font-size:1.5rem;line-height:1.15;}" +
-    '.lp-n-popup .lp-s{display:block;font-size:1.12rem;line-height:1.3;margin-top:.15rem;}' +
+    ".lp-n-popup .lp-b{display:flex;align-items:center;justify-content:center;gap:.5rem;font-family:'Baloo 2','Rajdhani',sans-serif;font-size:1.5rem;line-height:1.15;}" +
+    '.lp-n-popup .lp-s{display:block;font-size:1.05rem;line-height:1.3;margin-top:.2rem;}' +
+    /* TSSC-LPNOTE-V2: the diya sits on a white disc so it stands out on the orange
+       card, and the popup lists each price on its own line. */
+    '.lp-n .lp-i{display:inline-flex;align-items:center;justify-content:center;width:1.55em;height:1.55em;' +
+      'border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.25);font-size:.95em;line-height:1;' +
+      'vertical-align:middle;margin-right:.35em;}' +
+    '.lp-n-popup .lp-b .lp-i{margin-right:0;font-size:1.05em;}' +
+    '.lp-n .lp-t{display:block;margin:.55rem auto 0;max-width:290px;background:#fff;color:#1F2937;' +
+      'border-radius:10px;padding:.2rem .7rem;text-align:left;}' +
+    '.lp-n .lp-r{display:flex;justify-content:space-between;align-items:baseline;gap:.75rem;' +
+      'padding:.38rem 0;font-size:1rem;font-weight:700;border-top:1px dashed #FED7AA;}' +
+    '.lp-n .lp-r:first-child{border-top:0;}' +
+    '.lp-n .lp-r b{font-size:1.2rem;font-weight:800;color:#15803D;white-space:nowrap;}' +
+    '.lp-n .lp-r.lp-c{color:#B91C1C;}' +
+    '.lp-n .lp-r.lp-c b{color:#B91C1C;}' +
     'body.tssc-owned-user .lp-n{display:none!important;}' +
     /* popup */
     '.lpP{position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;' +
@@ -107,16 +124,30 @@
     var kind = el.getAttribute('data-lp-note') || 'inline';
     if (kind !== 'tag' && kind !== 'popup') kind = 'inline';
     el.textContent = '';
-    var big = document.createElement('span');
-    big.className = 'lp-b';
-    big.textContent = '\uD83E\uDE94 ' + OFFER;
-    var small = document.createElement('span');
-    small.className = 'lp-s';
-    small.textContent = 'Price not increased, still ' + RUPEE + PRICE +
-                        ' \u00B7 CGL + CHSL combo ' + RUPEE + COMBO;
+    var mk = function (cls, txt) {
+      var x = document.createElement('span');
+      if (cls) x.className = cls;
+      if (txt != null) x.textContent = txt;
+      return x;
+    };
+    var big = mk('lp-b');
+    big.appendChild(mk('lp-i', '\uD83E\uDE94'));
+    big.appendChild(document.createTextNode(OFFER));
     el.appendChild(big);
-    el.appendChild(document.createTextNode(' '));
-    el.appendChild(small);
+    {                                                     // one price per line
+      el.appendChild(mk('lp-s', 'Prices not increased!'));
+      var t = mk('lp-t');
+      [['SSC CGL mocks', RUPEE + PRICE, ''],
+       ['SSC CHSL mocks', RUPEE + PRICE, ''],
+       ['CGL + CHSL combo', RUPEE + COMBO, ' lp-c']].forEach(function (r) {
+        var row = mk('lp-r' + r[2]);
+        row.appendChild(mk('', r[0]));
+        var b = document.createElement('b'); b.textContent = r[1];
+        row.appendChild(b);
+        t.appendChild(row);
+      });
+      el.appendChild(t);
+    }
     el.className = (el.className ? el.className + ' ' : '') + 'lp-n lp-n-' + kind;
     el.removeAttribute('hidden');
   }
