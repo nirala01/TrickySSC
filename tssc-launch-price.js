@@ -1,5 +1,5 @@
 /* ============================================================================
-   tssc-launch-price.js  -  TSSC-LAUNCHPRICE-V7  (Dussehra offer, 17-22 Oct 2026)
+   tssc-launch-price.js  -  TSSC-LAUNCHPRICE-V8  (Dussehra offer, 17-22 Oct 2026)
 
    PRICES ARE NOT GOING UP. SSC CGL mocks stay Rs 49, SSC CHSL mocks stay Rs 49,
    and a CGL + CHSL combo is offered at Rs 79 as the Dussehra offer.
@@ -56,6 +56,7 @@
     '.lp-n.lp-n-tag{display:block;background:none;box-shadow:none;border-radius:0;padding:0;' +
       'margin:.35rem 0 0;color:#9A3412;font-size:.95em;font-weight:600;letter-spacing:0;}' +
     '.lp-n.lp-n-tag b{font-weight:800;color:#C2410C;}' +
+    '.lp-n.lp-n-tag+br{display:none;}' +
     '.lp-n.lp-n-tag .lp-i{width:auto;height:auto;background:none;box-shadow:none;border-radius:0;' +
       'font-size:1em;margin-right:.3em;}' +
     '.lp-n-inline .lp-r,.lp-n-tag .lp-r{font-size:.95rem;padding:.25rem 0;}' +
@@ -137,7 +138,10 @@
       if (txt != null) x.textContent = txt;
       return x;
     };
-    if (kind === 'tag') {                                 // one simple line
+    /* TSSC-LPNOTE-V4: the "inline" note on the mock pages' Go Premium box used to be
+       a big red card that pushed the box out of shape; it is now the same one plain
+       line as the homepage "tag" note, sitting on its own line under the price. */
+    if (kind === 'tag' || kind === 'inline') {            // one simple line
       el.appendChild(mk('lp-i', '\uD83E\uDE94'));
       var tb = document.createElement('b');
       tb.textContent = OFFER + ':';
