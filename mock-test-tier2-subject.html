@@ -3636,7 +3636,8 @@ window.doLogout=()=>{
 .rvp-tip{margin-top:7px;padding-top:7px;border-top:1px dashed #E2E8F0;font-size:12.5px;font-weight:600;color:#475569;line-height:1.45;}
 @media(max-width:560px){.rvp-cmp{padding:9px 10px 8px;}.rvp-r{grid-template-columns:78px minmax(0,1fr) 48px 18px;gap:6px;}}
 /* TSSC-RVMODE-V1 — two ways to read the solutions: "Scroll all" (the original list, default) and "One by one" */
-.rv-wrap:not([data-rvpm="page"]) .rvp-nav,.rv-wrap:not([data-rvpm="page"]) .rvp-empty,.rv-wrap:not([data-rvpm="page"]) .rvp-qhead,.rv-wrap:not([data-rvpm="page"]) .rvp-cmp{display:none!important;}
+.rv-wrap:not([data-rvpm="page"]) .rvp-nav,.rv-wrap:not([data-rvpm="page"]) .rvp-empty,.rv-wrap:not([data-rvpm="page"]) .rvp-qhead{display:none!important;}
+.rv-wrap:not([data-rvpm="page"]) .rvp-cmp{margin:2px 0 12px;}
 .rvp-mode{display:flex;gap:4px;padding:4px;margin:0 0 12px;background:#E9EEF5;border-radius:12px;}
 .rvp-mode button{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 8px;border:0;border-radius:9px;background:transparent;font-family:inherit;font-size:13.5px;font-weight:800;color:#64748B;cursor:pointer;}
 .rvp-mode button.rvp-sel{background:#fff;color:#FF6B00;box-shadow:0 1px 4px rgba(15,23,42,.12);}
@@ -3828,7 +3829,7 @@ window.doLogout=()=>{
   function setMode(m){
     var w=wrap(); if(!w)return; var vp=visiblePanel()||panels().filter(vis)[0], cur0=vp&&cur(vp);
     w.setAttribute('data-rvpm',m); try{localStorage.setItem('tsscRvMode',m);}catch(e){}
-    ensureMode(); closeDrawer();
+    ensureMode(); closeDrawer(); if(m==='scroll')allItems().forEach(dress);
     if(m==='page'){ if(vp){enhance(vp);show(vp,cur(vp)||list(vp)[0]||null,false);}
       var y=w.getBoundingClientRect().top+window.scrollY-6; window.scrollTo({top:y<0?0:y,behavior:'auto'}); }
     else if(cur0){ var y2=cur0.getBoundingClientRect().top+window.scrollY-barH()-12; window.scrollTo({top:y2<0?0:y2,behavior:'auto'}); }
@@ -3984,7 +3985,7 @@ window.doLogout=()=>{
   },{passive:true});
 
   var pend=false;
-  function run(){var w=wrap();if(w)w.classList.remove('rvp-open');var ps=panels();ps.forEach(enhance);if(ps.length)loadQs();}
+  function run(){var w=wrap();if(w)w.classList.remove('rvp-open');var ps=panels();ps.forEach(enhance);if(mode()==='scroll')allItems().forEach(dress);if(ps.length)loadQs();}   /* scroll view: every question gets its Topper / You / Average strip */
   function schedule(){if(pend)return;pend=true;setTimeout(function(){pend=false;run();},0);}
   function start(){
     run();
