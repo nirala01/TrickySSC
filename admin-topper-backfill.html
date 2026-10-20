@@ -55,6 +55,16 @@ p.sub{margin:0 0 18px;color:var(--m);font-size:.92rem;line-height:1.55;}
     <div class="row"><button class="btn" id="write" disabled>2. Write toppers</button></div>
     <div id="log"></div>
   </div>
+
+  <div class="card">
+    <p class="sub" style="margin-bottom:12px"><b>Optional · Rebuild averages.</b> Recounts "% got it right" and "Avg time" for every paper
+      from the same attempts, and replaces the running totals. This adds chapter-test attempts from 5–17 Sep (before chapter tests
+      kept these totals), drops blank submissions that were counted before the daily limit, and repairs any totals that failed to save.
+      Press <b>1. Scan attempts</b> again right before this, preferably late at night: a test submitted between the scan and the rebuild
+      is left out of the totals.</p>
+    <div class="row"><button class="btn sec" id="rebuild" disabled>3. Rebuild averages</button></div>
+    <div id="log2"></div>
+  </div>
 </div>
 
 <script type="module">
@@ -89,7 +99,7 @@ function keyOf(a){
   return id?id.replace(LANG,''):'';
 }
 
-let BEST=null;
+let BEST=null, AGG=null;
 
 $('signin').onclick=async()=>{ try{ await signInWithPopup(auth,new GoogleAuthProvider()); }catch(e){ $('who').textContent='Sign-in failed: '+e.message; } };
 onAuthStateChanged(auth,u=>{
@@ -104,7 +114,7 @@ $('scan').onclick=async()=>{
   let snap;
   try{ snap=await getDocs(collection(db,'attempts')); }
   catch(e){ $('scanMsg').innerHTML='<span class="bad">Could not read attempts: '+esc(e.message)+'</span>'; $('scan').disabled=false; return; }
-  const best={}; let total=0, usable=0, noKey=0;
+  const best={}, agg={}; let total=0, usable=0, noKey=0;
   snap.forEach(d=>{
     total++;
     const a=d.data()||{};
@@ -112,6 +122,10 @@ $('scan').onclick=async()=>{
     if(!ans.length||!ans.some(x=>x&&x.r&&x.r!=='k')) return;      // no per-question log, or nothing answered
     const k=keyOf(a); if(!k){ noKey++; return; }
     usable++;
+    /* running totals, same shape the engines write: n candidates; per question a attempted, c correct, ts seconds, tn timed */
+    const g=agg[k]||(agg[k]={n:0,total:0,q:{}}); g.n++; g.total=Math.max(g.total,Number(a.total)||0,ans.length);
+    ans.forEach(x=>{ if(!x||x.q==null) return; const e=g.q['q'+x.q]||(g.q['q'+x.q]={a:0,c:0,ts:0,tn:0}); const t=Math.max(0,Math.round(Number(x.t)||0));
+      if(x.r&&x.r!=='k') e.a++; if(x.r==='c') e.c++; e.ts+=t; if(t>0) e.tn++; });
     const m=parseFloat(a.marks); const mk=isNaN(m)?0:m; const tu=Number(a.timeUsed)||0;
     const cur=best[k];
     if(!cur||mk>cur.m||(mk===cur.m&&tu>0&&(cur.tu===0||tu<cur.tu))){
@@ -119,7 +133,7 @@ $('scan').onclick=async()=>{
       best[k]={m:mk,tu,q,name:a.examName||k,count:(cur?cur.count:0)+1};
     }else cur.count++;
   });
-  BEST=best;
+  BEST=best; AGG=agg;
   const keys=Object.keys(best).sort();
   $('scanMsg').textContent='';
   let h='<div class="stat"><span>Attempts read: <b>'+total+'</b></span><span>With answer logs: <b>'+usable+'</b></span><span>Papers: <b>'+keys.length+'</b></span>'+(noKey?'<span>Skipped (no paper id): <b>'+noKey+'</b></span>':'')+'</div>';
@@ -127,7 +141,7 @@ $('scan').onclick=async()=>{
   keys.forEach(k=>{ const b=best[k]; h+='<tr><td>'+esc(String(b.name).slice(0,48))+'</td><td style="font-family:monospace;font-size:.78rem">'+esc(k)+'</td><td>'+b.count+'</td><td><b>'+b.m+'</b></td></tr>'; });
   h+='</tbody></table></div>';
   $('summary').innerHTML=h;
-  $('scan').disabled=false; $('write').disabled=!keys.length;
+  $('scan').disabled=false; $('write').disabled=!keys.length; $('rebuild').disabled=!keys.length;
 };
 
 $('write').onclick=async()=>{
@@ -144,6 +158,23 @@ $('write').onclick=async()=>{
   }
   log.innerHTML+=failed?'<span class="bad">'+failed+' could not be written (check the Firestore rule for qstats).</span>':'<span class="ok">Done. The Topper row now shows on these papers.</span>';
   $('scan').disabled=false;
+};
+
+$('rebuild').onclick=async()=>{
+  if(!AGG) return;
+  const keys=Object.keys(AGG); if(!keys.length) return;
+  if(!confirm('Replace the running averages of '+keys.length+' papers with a fresh count from the scanned attempts?')) return;
+  $('rebuild').disabled=true; $('scan').disabled=true; $('write').disabled=true;
+  const log=$('log2'); log.textContent='Rebuilding '+keys.length+' papers…\n';
+  let done=0, failed=0;
+  for(let i=0;i<keys.length;i+=400){
+    const part=keys.slice(i,i+400), batch=writeBatch(db);
+    part.forEach(k=>{ const g=AGG[k]; batch.set(doc(db,'qstats',k),{n:g.n,total:g.total,q:g.q,updatedAt:serverTimestamp(),rebuiltAt:serverTimestamp()},{mergeFields:['n','total','q','updatedAt','rebuiltAt']}); });
+    try{ await batch.commit(); done+=part.length; log.textContent+='✓ '+done+' / '+keys.length+'\n'; }
+    catch(e){ failed+=part.length; log.textContent+='✕ batch failed: '+e.message+'\n'; }
+  }
+  log.innerHTML+=failed?'<span class="bad">'+failed+' could not be written (check the Firestore rule for qstats).</span>':'<span class="ok">Done. Averages now match every saved attempt; new tests keep adding to them as before.</span>';
+  $('scan').disabled=false; $('write').disabled=false;
 };
 </script>
 </body>
