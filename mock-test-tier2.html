@@ -1345,7 +1345,7 @@ window.imgFail = function (el) {
 
 <script type="module">
 import{initializeApp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import{getFirestore,initializeFirestore,collection,query,where,getDocs,doc,getDoc,setDoc,serverTimestamp,increment}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";   /* increment: TSSC-QSTATS-V1 */
+import{getFirestore,initializeFirestore,collection,query,where,getDocs,doc,getDoc,setDoc,serverTimestamp,increment,orderBy,limit}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";   /* increment: TSSC-QSTATS-V1 */
 import{getAuth,onAuthStateChanged,signOut}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import{recordScore}from"./leaderboard.js";
 const _tdlMod=import("./tssc-daily-limit.js").catch(()=>null);   /* TSSC-DAILYLIMIT-V1: fail-open — a missing file never blocks a test */
@@ -1389,7 +1389,8 @@ const REVIEW_ID=(new URLSearchParams(location.search).get('review')||'').trim();
 /* TSSC-RVPAGER-V3b — the solutions screen's stats reader, available from page load so a result screen
    restored with the Back button also shows Topper / All students (the submit path sets the same thing). */
 window.__tsscQs={get key(){ try{ const _sp=new URLSearchParams(location.search); return String(_sp.get('paperId')||_sp.get('mockId')||'').replace(/([_\-])(hi|en|hindi|english)$/i,''); }catch(e){ return ''; } },
-  get(){ const k=this.key; return k?getDoc(doc(db,'qstats',k)).then(sn=>sn.exists()?sn.data():null):Promise.reject(new Error('no key')); }};
+  get(){ const k=this.key; return k?getDoc(doc(db,'qstats',k)).then(sn=>sn.exists()?sn.data():null):Promise.reject(new Error('no key')); },
+  lbTop(){ const k=this.key; return k?getDocs(query(collection(db,'leaderboards',k,'scores'),orderBy('marks','desc'),limit(1))).then(sn=>sn.empty?null:sn.docs[0].data()):Promise.resolve(null); }};
 let REVIEW_DOC=null;
 let questions=[],answers={},markedForReview={},currentQ=0,timeLeft=3600,timerInterval,currentUser=null,sections=[],paused=false;
 /* ── TSSC-ANSWERS-V1: per-question time tracker (feeds dashboard analytics).
@@ -2909,7 +2910,7 @@ window.imgFail = function (el) {
   }
 
   // Group review section-wise into tabs, each with a color-coded circle palette
-  try{ const _sp=new URLSearchParams(location.search); const _qk=String(_sp.get('paperId')||_sp.get('mockId')||'').replace(/([_\-])(hi|en|hindi|english)$/i,''); if(_qk) window.__tsscQs={key:_qk,fresh:!REVIEW_ID,get:()=>getDoc(doc(db,'qstats',_qk)).then(sn=>sn.exists()?sn.data():null)}; }catch(e){}   /* TSSC-RVPAGER-V2 */
+  try{ const _sp=new URLSearchParams(location.search); const _qk=String(_sp.get('paperId')||_sp.get('mockId')||'').replace(/([_\-])(hi|en|hindi|english)$/i,''); if(_qk) window.__tsscQs={key:_qk,fresh:!REVIEW_ID,lbTop:()=>getDocs(query(collection(db,'leaderboards',_qk,'scores'),orderBy('marks','desc'),limit(1))).then(sn=>sn.empty?null:sn.docs[0].data()),get:()=>getDoc(doc(db,'qstats',_qk)).then(sn=>sn.exists()?sn.data():null)}; }catch(e){}   /* TSSC-RVPAGER-V2 */
   (function buildSectionedReview(){
     const reviewEl=document.getElementById('review');
     const secs=(sections&&sections.length)?sections:[{label:'All Questions',from:0,to:questions.length-1}];
@@ -3473,7 +3474,7 @@ window.doLogout=()=>{
   signOut(auth).finally(()=>window.location.href='login.html');
 };
 </script>
-<!-- TSSC-RVPAGER-V3 (+V4 estimates, V5 compare strip) — solutions screen, one question at a time (app-style):
+<!-- TSSC-RVPAGER-V3 (+V4 estimates, V5 compare strip, V6 real-data blend, TOPPER-V2 consistent topper) — solutions screen, one question at a time (app-style):
      question header "8 / 150 · Time · Status", You vs All students table (status, time,
      % correct, avg time from qstats), single-column options, green Solution bar,
      Prev/Next bar whose middle button opens a Test Summary drawer, swipe left/right, arrow keys —
@@ -3541,6 +3542,7 @@ window.doLogout=()=>{
 .rvp-ring i{width:58px;height:58px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-style:normal;}
 .rvp-ring i span{width:46px;height:46px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;color:#0F172A;}
 .rvp-flt{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 12px;}
+.rvp-topline{margin:-4px 0 12px;padding:8px 10px;background:#FFF7ED;border:1px solid #FED7AA;border-radius:10px;font-size:13px;font-weight:600;color:#9A3412;text-align:center;}
 .rvp-chip{font-family:inherit;font-size:12px;font-weight:800;padding:6px 11px;border-radius:999px;cursor:pointer;border:1.5px solid #E2E8F0;background:#fff;color:#334155;}
 .rvp-chip.wrong{color:#DC2626;} .rvp-chip.skip{color:#A16207;} .rvp-chip.correct{color:#15803D;}
 .rvp-chip.rvp-sel{border-color:currentColor;background:#FFF7F0;}
@@ -3607,11 +3609,13 @@ window.doLogout=()=>{
   function vis(p){return p.style.display!=='none';}
 
   /* ---- other students: one qstats read per paper (exposed by the engine as window.__tsscQs) ---- */
-  var QS=null,QSkey='',MIN_N=20;
+  var QS=null,QSkey='',MIN_N=20,LBT=null,TOPMAP=null;
   function loadQs(){
     var src=window.__tsscQs; if(!src||!src.key||typeof src.get!=='function')return;
     if(QSkey===src.key)return; QSkey=src.key;
-    try{src.get().then(function(d){QS=d||{};allItems().forEach(fillOthers);
+    /* TSSC-TOPPER-V2: also the paper's best score on the leaderboard (1 read), so the Topper row adds up to that score */
+    var pLb=Promise.resolve(null); try{ if(typeof src.lbTop==='function') pLb=src.lbTop().then(null,function(){return null;}); }catch(e){}
+    try{Promise.all([src.get(),pLb]).then(function(rr){var d=rr[0];QS=d||{};LBT=rr[1]||null;TOPMAP=null;allItems().forEach(fillOthers);
       /* right after a submit, read once more a few seconds later: the first read happens before this attempt's own
          totals and Topper update are saved, so a paper's first attempt would otherwise show no Topper row */
       if(src.fresh&&!src.again){src.again=1;setTimeout(function(){QSkey='';loadQs();},5000);}
@@ -3631,6 +3635,10 @@ window.doLogout=()=>{
   function secKind(it){
     var s=(it.getAttribute('data-s')||'').toLowerCase();
     if(!s){ try{ s=String(new URLSearchParams(location.search).get('chapter')||new URLSearchParams(location.search).get('subject')||'').toLowerCase(); }catch(e){} }
+    return kindOf(s);
+  }
+  function kindOf(s){
+    s=String(s||'').toLowerCase();
     if(/quant|math|arith|mensur|geomet|algebra|trigon|percent|profit|interest|ratio|average|time|speed|data/.test(s))return 'quant';
     if(/reason|intellig|logic|analog|classif|series|coding|verbal/.test(s))return 'reasoning';
     if(/english|compreh|grammar|vocab/.test(s))return 'english';
@@ -3645,6 +3653,41 @@ window.doLogout=()=>{
     return Math.max(8,Math.round(BASE_T[secKind(it)]*m*(0.8+seed(qn+'t')*0.4)));}
   function realTopper(){var q=QS&&QS.top&&QS.top.q;if(!q)return null;var ks=Object.keys(q);if(!ks.length)return null;
     var c=ks.filter(function(k){return String(q[k]).charAt(0)==='c';}).length;return c/ks.length>=0.4?q:null;}
+  /* figures shared by the strip and the topper plan */
+  function pcOf(it){var qn=it.getAttribute('data-qn'),d=it.getAttribute('data-d')||'',s=QS.q&&QS.q['q'+qn],n=Number(QS.n)||0,K=8,
+    eP=estimate(qn,d),rP=n>0?(Number(s&&s.c)||0)*100/n:0;return n>=MIN_N?Math.round(rP):Math.round((eP*K+rP*n)/(K+n));}
+  function topTime(it,qn){var k=secKind(it),d=it.getAttribute('data-d')||'',lo=TOP_LO[d]!=null?TOP_LO[d]:TOP_LO[''];
+    return Math.max(4,Math.min(TOP_CAP[k],Math.round(TOP_CAP[k]*(lo+seed(qn+'q')*0.3))));}
+  /* TSSC-TOPPER-V2 — the Topper row for the whole paper is planned at once, so its correct / wrong / skipped
+     counts add up to the leaderboard topper's score (section by section when the leaderboard has section marks):
+     · the real best attempt is used as it is when it is that same top score (or there is no leaderboard row);
+     · otherwise the topper's counts are worked out from the top marks (most attempts, few mistakes), and the
+       misses fall on the hardest questions; times stay within the section limits. */
+  function topCounts(M,N,mk){var p=mk[0],q=mk[1],best=null;
+    for(var c=N;c>=0;c--){var w=(p*c-M)/q;if(w<-1e-6||Math.abs(w-Math.round(w))>1e-6)continue;w=Math.round(w);if(c+w>N)continue;
+      if(!best)best={c:c,w:w,k:N-c-w};if(w<=Math.max(2,0.15*(c+w)))return {c:c,w:w,k:N-c-w};}
+    if(best)return best;var c2=Math.max(0,Math.min(N,Math.round(M/p)));return {c:c2,w:0,k:N-c2};}
+  function planGroup(its,M,mk,m){
+    var cnt=topCounts(M,its.length,mk);
+    var ord=its.map(function(it){var q=it.getAttribute('data-qn');return {it:it,q:q,h:pcOf(it)+(seed(q+'h')-0.5)*20};})
+      .sort(function(a,b){return a.h-b.h;});
+    ord.forEach(function(o,i){var r=i<cnt.k?'k':(i<cnt.k+cnt.w?'w':'c');m[o.q]=r+(r==='k'?0:topTime(o.it,o.q));});
+  }
+  function buildTopMap(){
+    var its=allItems(),m={},rt=realTopper(),lbM=(LBT&&isFinite(Number(LBT.marks)))?Number(LBT.marks):null;
+    if(rt&&(lbM==null||Number(QS.top.m)>=lbM-0.01)){its.forEach(function(it){var q=it.getAttribute('data-qn');if(rt['q'+q])m[q]=String(rt['q'+q]);});
+      if(Object.keys(m).length>=its.length*0.9)return m;m={};}
+    if(lbM==null||!(lbM>0)){ /* no leaderboard score yet: each question on its own */
+      its.forEach(function(it){var q=it.getAttribute('data-qn'),pc=pcOf(it),pOk=Math.min(0.97,0.5+pc/100*0.55),u=seed(q+'p');
+        var r=u<pOk?'c':(u<pOk+(1-pOk)*0.6?'w':'k');m[q]=r+(r==='k'?0:topTime(it,q));});return m;}
+    var mk=/tier2/i.test(location.pathname)?[3,1]:[2,0.5];
+    var sm=LBT.subjectMarks||{},keys=Object.keys(sm),byKind={},plan=[],sum=0,ok=keys.length>1;
+    its.forEach(function(it){var k=secKind(it)||'_';(byKind[k]=byKind[k]||[]).push(it);});
+    keys.forEach(function(k){var kk=kindOf(k),v=Number(sm[k])||0;sum+=v;if(!kk||!byKind[kk])ok=false;else plan.push([byKind[kk],v]);});
+    if(ok&&Math.abs(sum-lbM)<0.6&&plan.reduce(function(a,p){return a+p[0].length;},0)===its.length)plan.forEach(function(p){planGroup(p[0],p[1],mk,m);});
+    else planGroup(its,lbM,mk,m);
+    return m;
+  }
   /* TSSC-RVPAGER-V5 — "How you compare" strip under each question's header (replaces the table):
      three speed bars — Topper, You, Average student — coloured by result, the share of students who got it
      right, and a one-line takeaway. Real figures take over by themselves (20+ students for % right and
@@ -3654,14 +3697,14 @@ window.doLogout=()=>{
     var box=it.querySelector('.rvp-cmp'); if(!box)return;
     if(!QS){box.hidden=true;return;}
     var qn=it.getAttribute('data-qn'), d=it.getAttribute('data-d')||'', s=QS.q&&QS.q['q'+qn], n=Number(QS.n)||0, est=n<MIN_N;
-    var pc=est?estimate(qn,d):(s?Math.round((Number(s.c)||0)*100/n):estimate(qn,d));
-    var tn=s?(Number(s.tn)||0):0, avg=tn>=MIN_N?(Number(s.ts)||0)/tn:estTime(it,qn);
-    var rt=realTopper(), tp=rt&&rt['q'+qn], tr, tt;
-    if(tp){tr=RNAME[String(tp).charAt(0)]||'skip';tt=parseInt(String(tp).slice(1),10)||0;}
-    else{ /* topper: the harder the question, the likelier a miss; time varies with difficulty under the section cap */
-      var pOk=Math.min(0.97,0.5+pc/100*0.55), u=seed(qn+'p'), k=secKind(it), lo=TOP_LO[d]!=null?TOP_LO[d]:TOP_LO[''];
-      tr=u<pOk?'correct':(u<pOk+(1-pOk)*0.6?'wrong':'skip');
-      tt=tr==='skip'?0:Math.max(4,Math.min(TOP_CAP[k],Math.round(TOP_CAP[k]*(lo+seed(qn+'q')*0.3))));}
+    /* real data counts from the first stored attempt: blended with the estimate (the estimate weighs like 8 students),
+       so one or two attempts nudge the figure instead of showing 0% or 100%; fully real from 20 students on */
+    var K=8, eP=estimate(qn,d), rP=n>0?(Number(s&&s.c)||0)*100/n:0;
+    var pc=n>=MIN_N?Math.round(rP):Math.round((eP*K+rP*n)/(K+n));
+    var tn=s?(Number(s.tn)||0):0, tsum=s?(Number(s.ts)||0):0, eT=estTime(it,qn);
+    var avg=tn>=MIN_N?tsum/tn:(eT*K+tsum)/(K+tn);
+    if(!TOPMAP)TOPMAP=buildTopMap();
+    var tp=TOPMAP[qn]||'k0', tr=RNAME[String(tp).charAt(0)]||'skip', tt=parseInt(String(tp).slice(1),10)||0;
     var st=stOf(it), ty=Math.round(Number(it.getAttribute('data-t'))||0), ta=Math.round(avg);
     var mx=Math.max(ty,tt,ta,1);
     var IC={correct:'✓',wrong:'✕',skip:'–'};
@@ -3781,7 +3824,11 @@ window.doLogout=()=>{
     all.forEach(function(it){cnt[stOf(it)]++;});
     var vp=visiblePanel(), ci=vp&&cur(vp);
     var h=ring(cnt.correct,all.length,'#22C55E','Correct')+ring(cnt.wrong,all.length,'#EF4444','Incorrect')+ring(cnt.skip,all.length,'#94A3B8','Unattempted');
-    h='<div class="rvp-rings">'+h+'</div><div class="rvp-flt">'
+    var tl='';
+    if(QS){ if(!TOPMAP)TOPMAP=buildTopMap(); var tc={c:0,w:0,k:0}, mk=/tier2/i.test(location.pathname)?[3,1]:[2,0.5];
+      all.forEach(function(it){var t=String(TOPMAP[it.getAttribute('data-qn')]||'k0').charAt(0);if(tc[t]!=null)tc[t]++;});
+      tl='<div class="rvp-topline">👑 Topper: <b>'+(Math.round((tc.c*mk[0]-tc.w*mk[1])*10)/10)+' marks</b> · ✓ '+tc.c+' · ✕ '+tc.w+' · – '+tc.k+'</div>'; }
+    h='<div class="rvp-rings">'+h+'</div>'+tl+'<div class="rvp-flt">'
       +[['all','All '+all.length],['wrong','✕ Wrong '+cnt.wrong],['skip','⏭ Skipped '+cnt.skip],['correct','✓ Correct '+cnt.correct]].map(function(x){
         return '<button type="button" class="rvp-chip '+x[0]+(f===x[0]?' rvp-sel':'')+'" data-rvpf="'+x[0]+'">'+x[1]+'</button>';}).join('')+'</div>'
       +'<div class="rvp-vt"><button type="button" data-rvpv="grid" class="'+(view==='grid'?'rvp-sel':'')+'">Grid</button><button type="button" data-rvpv="list" class="'+(view==='list'?'rvp-sel':'')+'">List</button></div>';
