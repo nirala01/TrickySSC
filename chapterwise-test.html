@@ -3247,7 +3247,7 @@ init();
      called initializeFirestore(); the modal then reuses that same app and db.
      It also intercepts the nav Login link, so that no longer leaves the page. -->
 <script type="module" src="/login-modal.js"></script>
-<!-- TSSC-RVPAGER-V3 (+V4 estimates, V5 compare strip, V6 real-data blend, TOPPER-V2 consistent topper) — solutions screen, one question at a time (app-style):
+<!-- TSSC-RVPAGER-V3 (+V4 estimates, V5 compare strip, V6 real-data blend, TOPPER-V2 consistent topper, RVMODE-V1 scroll / one-by-one switch) — solutions screen, one question at a time (app-style):
      question header "8 / 150 · Time · Status", You vs All students table (status, time,
      % correct, avg time from qstats), single-column options, green Solution bar,
      Prev/Next bar whose middle button opens a Test Summary drawer, swipe left/right, arrow keys —
@@ -3261,15 +3261,15 @@ init();
      Replaces TSSC-RVPAGER-V1/V2. -->
 <style id="tssc-rvpager-css">
 .rv-items{position:relative;}
-.rv-items>.review-item.rvp-off{position:absolute!important;left:-300vw;top:0;width:100%;visibility:hidden;pointer-events:none;margin:0;}
-.rv-items>.review-item.rvp-on{margin-bottom:0;animation:rvpin .18s ease;padding-top:0;}
+.rv-wrap[data-rvpm="page"] .rv-items>.review-item.rvp-off{position:absolute!important;left:-300vw;top:0;width:100%;visibility:hidden;pointer-events:none;margin:0;}
+.rv-wrap[data-rvpm="page"] .rv-items>.review-item.rvp-on{margin-bottom:0;animation:rvpin .18s ease;padding-top:0;}
 @keyframes rvpin{from{opacity:.35;}to{opacity:1;}}
-.rv-panel[data-rvp="1"]>.rv-secsum,.rv-panel[data-rvp="1"]>.rv-palette{display:none!important;}
-.rv-panel[data-rvp="1"] .review-item .rv-head,.rv-panel[data-rvp="1"] .review-item .verdict{display:none;}
-.rv-panel[data-rvp="1"] .review-item .rv-opts{grid-template-columns:1fr;}
-.rv-panel[data-rvp="1"] .sol-panel.sol-sol{border-color:#16A34A;}
-.rv-panel[data-rvp="1"] .sol-sol .sol-head{background:#16A34A;color:#fff;justify-content:center;font-size:14px;letter-spacing:.03em;}
-.rv-panel[data-rvp="1"] .sol-sol .sol-head .sol-lang-btn{color:#15803D;background:#fff;opacity:1;}
+.rv-wrap[data-rvpm="page"] .rv-panel[data-rvp="1"]>.rv-secsum,.rv-wrap[data-rvpm="page"] .rv-panel[data-rvp="1"]>.rv-palette{display:none!important;}
+.rv-wrap[data-rvpm="page"] .rv-panel[data-rvp="1"] .review-item .rv-head,.rv-wrap[data-rvpm="page"] .rv-panel[data-rvp="1"] .review-item .verdict{display:none;}
+.rv-wrap[data-rvpm="page"] .rv-panel[data-rvp="1"] .review-item .rv-opts{grid-template-columns:1fr;}
+.rv-wrap[data-rvpm="page"] .rv-panel[data-rvp="1"] .sol-panel.sol-sol{border-color:#16A34A;}
+.rv-wrap[data-rvpm="page"] .rv-panel[data-rvp="1"] .sol-sol .sol-head{background:#16A34A;color:#fff;justify-content:center;font-size:14px;letter-spacing:.03em;}
+.rv-wrap[data-rvpm="page"] .rv-panel[data-rvp="1"] .sol-sol .sol-head .sol-lang-btn{color:#15803D;background:#fff;opacity:1;}
 .rvp-qhead{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 -18px 12px;padding:10px 16px;
   background:#F8FAFC;border-bottom:1px solid #EDF1F6;border-radius:0 15px 0 0;}
 .rvp-qn{font-size:13px;font-weight:700;color:#64748B;white-space:nowrap;}
@@ -3358,6 +3358,12 @@ init();
 .rvp-st.correct{color:#16A34A;} .rvp-st.wrong{color:#DC2626;} .rvp-st.skip{color:#94A3B8;}
 .rvp-tip{margin-top:7px;padding-top:7px;border-top:1px dashed #E2E8F0;font-size:12.5px;font-weight:600;color:#475569;line-height:1.45;}
 @media(max-width:560px){.rvp-cmp{padding:9px 10px 8px;}.rvp-r{grid-template-columns:78px minmax(0,1fr) 48px 18px;gap:6px;}}
+/* TSSC-RVMODE-V1 — two ways to read the solutions: "Scroll all" (the original list, default) and "One by one" */
+.rv-wrap:not([data-rvpm="page"]) .rvp-nav,.rv-wrap:not([data-rvpm="page"]) .rvp-empty,.rv-wrap:not([data-rvpm="page"]) .rvp-qhead,.rv-wrap:not([data-rvpm="page"]) .rvp-cmp{display:none!important;}
+.rvp-mode{display:flex;gap:4px;padding:4px;margin:0 0 12px;background:#E9EEF5;border-radius:12px;}
+.rvp-mode button{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 8px;border:0;border-radius:9px;background:transparent;font-family:inherit;font-size:13.5px;font-weight:800;color:#64748B;cursor:pointer;}
+.rvp-mode button.rvp-sel{background:#fff;color:#FF6B00;box-shadow:0 1px 4px rgba(15,23,42,.12);}
+.rvp-mode svg{width:16px;height:16px;}
 </style>
 <script>
 (function(){
@@ -3528,7 +3534,31 @@ init();
     fillOthers(it);
   }
 
+  /* TSSC-RVMODE-V1 */
+  var ICON_SCROLL='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>';
+  var ICON_ONE='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="16" rx="2"/><path d="M9 9h6M9 13h4"/></svg>';
+  function mode(){var w=wrap();return (w&&w.getAttribute('data-rvpm'))||'scroll';}
+  function savedMode(){try{var m=localStorage.getItem('tsscRvMode');return m==='page'?'page':'scroll';}catch(e){return 'scroll';}}
+  function ensureMode(){
+    var w=wrap(); if(!w)return;
+    if(!w.getAttribute('data-rvpm'))w.setAttribute('data-rvpm',savedMode());
+    var bar=w.querySelector('.rvp-mode');
+    if(!bar){bar=document.createElement('div');bar.className='rvp-mode';bar.setAttribute('role','group');bar.setAttribute('aria-label','How to view the solutions');
+      bar.innerHTML='<button type="button" data-rvp-mode="scroll">'+ICON_SCROLL+'Scroll all</button><button type="button" data-rvp-mode="page">'+ICON_ONE+'One by one</button>';
+      w.insertBefore(bar,w.firstChild);}
+    A(bar.querySelectorAll('button')).forEach(function(b){b.classList.toggle('rvp-sel',b.getAttribute('data-rvp-mode')===mode());});
+  }
+  function setMode(m){
+    var w=wrap(); if(!w)return; var vp=visiblePanel()||panels().filter(vis)[0], cur0=vp&&cur(vp);
+    w.setAttribute('data-rvpm',m); try{localStorage.setItem('tsscRvMode',m);}catch(e){}
+    ensureMode(); closeDrawer();
+    if(m==='page'){ if(vp){enhance(vp);show(vp,cur(vp)||list(vp)[0]||null,false);}
+      var y=w.getBoundingClientRect().top+window.scrollY-6; window.scrollTo({top:y<0?0:y,behavior:'auto'}); }
+    else if(cur0){ var y2=cur0.getBoundingClientRect().top+window.scrollY-barH()-12; window.scrollTo({top:y2<0?0:y2,behavior:'auto'}); }
+  }
+
   function ensureWrapUi(){
+    ensureMode();
     var w=wrap(); if(!w||w.querySelector('.rvp-dr'))return;
     var ov=document.createElement('div'); ov.className='rvp-ov'; ov.setAttribute('data-rvp-close','1');
     var dr=document.createElement('div'); dr.className='rvp-dr'; dr.setAttribute('role','dialog'); dr.setAttribute('aria-label','Test summary');
@@ -3635,6 +3665,7 @@ init();
     var t=e.target; if(!t||!t.closest)return;
     var w=t.closest('#review .rv-wrap'); if(!w)return;
     var el;
+    if((el=t.closest('[data-rvp-mode]'))){e.preventDefault();setMode(el.getAttribute('data-rvp-mode'));return;}
     if((el=t.closest('[data-rvp-open]'))){e.preventDefault();openDrawer();return;}
     if((el=t.closest('[data-rvp-close]'))){e.preventDefault();closeDrawer();return;}
     if((el=t.closest('[data-rvp-q]'))){e.preventDefault();var it=document.getElementById('rvq'+el.getAttribute('data-rvp-q'));
@@ -3643,7 +3674,7 @@ init();
     if((el=t.closest('.rvp-dr [data-rvpv]'))){e.preventDefault();w.setAttribute('data-rvpv',el.getAttribute('data-rvpv'));drawDrawer();return;}
     var p=t.closest('.rv-panel'); if(!p||p.getAttribute('data-rvp')!=='1')return;
     var circ=t.closest('.rv-circle');
-    if(circ){e.preventDefault();e.stopImmediatePropagation();var it2=items(p)[A(p.querySelectorAll('.rv-palette .rv-circle')).indexOf(circ)];if(it2)goItem(it2);return;}
+    if(circ&&mode()==='page'){e.preventDefault();e.stopImmediatePropagation();var it2=items(p)[A(p.querySelectorAll('.rv-palette .rv-circle')).indexOf(circ)];if(it2)goItem(it2);return;}
     if((el=t.closest('[data-rvp-go]'))){e.preventDefault();e.stopImmediatePropagation();go(p,parseInt(el.getAttribute('data-rvp-go'),10));}
   },true);
 
@@ -3651,7 +3682,7 @@ init();
     var w=wrap(); if(!w)return;
     if(e.key==='Escape'&&w.classList.contains('rvp-open')){closeDrawer();return;}
     if(e.key!=='ArrowLeft'&&e.key!=='ArrowRight')return;
-    if(w.classList.contains('rvp-open'))return;
+    if(w.classList.contains('rvp-open')||mode()!=='page')return;
     var a=document.activeElement; if(a&&(/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)||a.isContentEditable))return;
     var rs=document.getElementById('resultScreen'); if(!rs||rs.style.display==='none')return;
     var p=visiblePanel(); if(!p)return;
@@ -3671,7 +3702,7 @@ init();
     var dx=tc.clientX-sx,dy=tc.clientY-sy;
     if(Math.abs(dx)<60||Math.abs(dx)<Math.abs(dy)*1.6||Date.now()-st>800)return;
     if(window.getSelection&&String(window.getSelection()))return;
-    var p=e.target.closest&&e.target.closest('#review .rv-panel'); if(!p||p.getAttribute('data-rvp')!=='1')return;
+    var p=e.target.closest&&e.target.closest('#review .rv-panel'); if(!p||p.getAttribute('data-rvp')!=='1'||mode()!=='page')return;
     go(p,dx<0?1:-1);
   },{passive:true});
 
