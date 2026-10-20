@@ -2707,12 +2707,12 @@ window.submitTest=async()=>{
     const verdictHtml=`<div class="verdict ${status}"><span class="v-ic">${vIcon}</span><span>${vText}</span></div>`;
     const rawRT=(q.text||q.question||'').replace(/^\[FIGURE-BASED\]\s*/i,'');
     const reviewQHtml=formatQTextReview(rawRT,localNum(i));
-    const html=`<div class="review-item ${status}" id="rvq${i}" data-t="${Math.round(((typeof _qtime!=='undefined'&&_qtime[i])||0)/1000)}" data-qn="${parseInt(q.qNum,10)||(i+1)}" data-d="${String(q.difficulty||'').trim().toLowerCase().replace(/[^a-z]/g,'')}">${headHtml}${reviewQHtml}${q.imageUrl?`<div style="text-align:center;margin:8px 0;"><img src="${q.imageUrl}" style="max-width:100%;max-height:220px;border-radius:8px;border:1px solid #E2E8F0;object-fit:contain;background:#F9FAFB;" onerror="this.style.display='none'"></div>`:''}${optsHtml}${verdictHtml}${solHtml}${trickHtml}${conceptHtml}<div style="text-align:right;margin-top:6px;"><button class="rv-report-link" data-i="${i}" type="button">⚠ Report a problem with this question</button></div></div>`;
+    const html=`<div class="review-item ${status}" id="rvq${i}" data-t="${Math.round(((typeof _qtime!=='undefined'&&_qtime[i])||0)/1000)}" data-qn="${parseInt(q.qNum,10)||(i+1)}" data-d="${String(q.difficulty||'').trim().toLowerCase().replace(/[^a-z]/g,'')}" data-s="${String(q.subject||q.section||q.chapter||'').replace(/[^A-Za-z .]/g,'').slice(0,40)}">${headHtml}${reviewQHtml}${q.imageUrl?`<div style="text-align:center;margin:8px 0;"><img src="${q.imageUrl}" style="max-width:100%;max-height:220px;border-radius:8px;border:1px solid #E2E8F0;object-fit:contain;background:#F9FAFB;" onerror="this.style.display='none'"></div>`:''}${optsHtml}${verdictHtml}${solHtml}${trickHtml}${conceptHtml}<div style="text-align:right;margin-top:6px;"><button class="rv-report-link" data-i="${i}" type="button">⚠ Report a problem with this question</button></div></div>`;
     return {status,html};
   }
 
   // Group review section-wise into tabs, each with a color-coded circle palette
-  try{ const _sp=new URLSearchParams(location.search); const _qk=String(_sp.get('paperId')||_sp.get('mockId')||'').replace(/([_\-])(hi|en|hindi|english)$/i,''); if(_qk) window.__tsscQs={key:_qk,get:()=>getDoc(doc(db,'qstats',_qk)).then(sn=>sn.exists()?sn.data():null)}; }catch(e){}   /* TSSC-RVPAGER-V2 */
+  try{ const _sp=new URLSearchParams(location.search); const _qk=String(_sp.get('paperId')||_sp.get('mockId')||'').replace(/([_\-])(hi|en|hindi|english)$/i,''); if(_qk) window.__tsscQs={key:_qk,fresh:!REVIEW_ID,get:()=>getDoc(doc(db,'qstats',_qk)).then(sn=>sn.exists()?sn.data():null)}; }catch(e){}   /* TSSC-RVPAGER-V2 */
   (function buildSectionedReview(){
     const reviewEl=document.getElementById('review');
     const secs=(sections&&sections.length)?sections:[{label:'All Questions',from:0,to:questions.length-1}];
@@ -3317,7 +3317,7 @@ window.doLogout=()=>{
   signOut(auth).finally(()=>window.location.href='login.html');
 };
 </script>
-<!-- TSSC-RVPAGER-V3 — solutions screen, one question at a time (app-style):
+<!-- TSSC-RVPAGER-V3 (+V4 estimates, V5 compare strip) — solutions screen, one question at a time (app-style):
      question header "8 / 150 · Time · Status", You vs All students table (status, time,
      % correct, avg time from qstats), single-column options, green Solution bar,
      Prev/Next bar whose middle button opens a Test Summary drawer, swipe left/right, arrow keys —
@@ -3352,6 +3352,7 @@ window.doLogout=()=>{
 .rvp-tbl th,.rvp-tbl td{border:1px solid #E2E8F0;padding:5px 10px;text-align:left;}
 .rvp-tbl th{background:#F8FAFC;color:#475569;font-weight:700;}
 .rvp-tbl td:first-child{font-weight:700;color:#334155;}
+.rvp-tbl small.rvp-exp{display:block;font-size:10.5px;font-weight:600;color:#94A3B8;text-transform:lowercase;line-height:1.1;}
 .rvp-tbl td.correct{color:#16A34A;font-weight:700;} .rvp-tbl td.wrong{color:#DC2626;font-weight:700;} .rvp-tbl td.skip{color:#A16207;font-weight:700;}
 .rvp-tbl tr[hidden]{display:none;}
 .rvp-note{margin:-6px 0 12px;font-size:11.5px;font-weight:600;color:#94A3B8;}
@@ -3410,6 +3411,22 @@ window.doLogout=()=>{
 .rvp-lg{display:flex;gap:12px;font-size:11.5px;font-weight:700;color:#475569;margin:0 0 12px;}
 .rvp-lg i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:4px;vertical-align:-1px;border:1.5px solid #CBD5E1;}
 @media(max-width:560px){.rvp-btn{min-width:0;padding:10px 11px;font-size:13.5px;}.rvp-qhead{margin:0 -12px 10px;padding:9px 12px;}.rvp-meta{gap:10px;}}
+.rvp-cmp{margin:-4px 0 14px;padding:10px 12px 9px;border:1px solid #EDF1F6;border-radius:12px;background:#FBFCFE;}
+.rvp-cmp[hidden]{display:none;}
+.rvp-ch{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:6px;font-size:11.5px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:.04em;}
+.rvp-ch span{text-transform:none;letter-spacing:0;font-size:12.5px;color:#475569;}
+.rvp-ch span b{color:#0F172A;font-size:14px;}
+.rvp-r{display:grid;grid-template-columns:84px minmax(0,1fr) 52px 22px;align-items:center;gap:8px;padding:4px 0;}
+.rvp-who{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:#334155;white-space:nowrap;}
+.rvp-who i{font-style:normal;font-size:14px;width:18px;text-align:center;}
+.rvp-bar{height:9px;border-radius:99px;background:#EEF2F7;overflow:hidden;}
+.rvp-bar i{display:block;height:100%;border-radius:99px;transition:width .35s ease;}
+.rvp-bar i.correct{background:#22C55E;} .rvp-bar i.wrong{background:#EF4444;} .rvp-bar i.skip{background:#CBD5E1;} .rvp-bar i.avg{background:#FDBA74;}
+.rvp-tv{font-size:12.5px;font-weight:700;color:#0F172A;text-align:right;white-space:nowrap;}
+.rvp-st{font-size:13px;font-weight:800;text-align:center;}
+.rvp-st.correct{color:#16A34A;} .rvp-st.wrong{color:#DC2626;} .rvp-st.skip{color:#94A3B8;}
+.rvp-tip{margin-top:7px;padding-top:7px;border-top:1px dashed #E2E8F0;font-size:12.5px;font-weight:600;color:#475569;line-height:1.45;}
+@media(max-width:560px){.rvp-cmp{padding:9px 10px 8px;}.rvp-r{grid-template-columns:78px minmax(0,1fr) 48px 18px;gap:6px;}}
 </style>
 <script>
 (function(){
@@ -3438,28 +3455,86 @@ window.doLogout=()=>{
   function loadQs(){
     var src=window.__tsscQs; if(!src||!src.key||typeof src.get!=='function')return;
     if(QSkey===src.key)return; QSkey=src.key;
-    try{src.get().then(function(d){QS=d||{};allItems().forEach(fillOthers);},function(){QSkey='';});}catch(e){QSkey='';}
+    try{src.get().then(function(d){QS=d||{};allItems().forEach(fillOthers);
+      /* right after a submit, read once more a few seconds later: the first read happens before this attempt's own
+         totals and Topper update are saved, so a paper's first attempt would otherwise show no Topper row */
+      if(src.fresh&&!src.again){src.again=1;setTimeout(function(){QSkey='';loadQs();},5000);}
+    },function(){QSkey='';});}catch(e){QSkey='';}
   }
   /* identical to dashboard.html's estimate (same FNV seed on "<qstats key>|<qNum>"), so both screens agree */
-  function seed(q){var x=2166136261,str=QSkey+'|'+q;for(var i=0;i<str.length;i++){x^=str.charCodeAt(i);x=Math.imul(x,16777619)>>>0;}x^=x>>>13;x=Math.imul(x,0x5bd1e995)>>>0;x^=x>>>15;return (x%10007)/10007;}
+  function seed(q){var x=2166136261,str=QSkey+'|'+q;for(var i=0;i<str.length;i++){x^=str.charCodeAt(i);x=Math.imul(x,16777619)>>>0;}x^=x>>>13;x=Math.imul(x,0x5bd1e995)>>>0;x^=x>>>15;return ((x>>>0)%10007)/10007;}
   function estimate(q,d){var base=d==='easy'?76:d==='hard'?34:d==='moderate'?56:(42+Math.round(seed(q)*38));var jit=Math.round((seed(q+'j')-0.5)*14);return Math.max(12,Math.min(94,base+jit));}
   var RNAME={c:'correct',w:'wrong',k:'skip'};
+  /* TSSC-RVPAGER-V4 — realistic estimates until real data takes over:
+     · "% correct": the dashboard's estimate until 20 students have taken the paper, then real.
+     · "Avg time": real once 20 students have timed that question; before that an estimate from the
+       question's section and difficulty (SSC pace: GK ~18 s, English ~30 s, Reasoning ~40 s, Quant ~65 s).
+     · Topper: the real best attempt once it got at least 40% of its questions right; before that an
+       estimated topper (usually right, a little faster than average, more misses on hard questions).
+     Everything estimated carries "~" and the note under the table says so. */
+  function secKind(it){
+    var s=(it.getAttribute('data-s')||'').toLowerCase();
+    if(!s){ try{ s=String(new URLSearchParams(location.search).get('chapter')||new URLSearchParams(location.search).get('subject')||'').toLowerCase(); }catch(e){} }
+    if(/quant|math|arith|mensur|geomet|algebra|trigon|percent|profit|interest|ratio|average|time|speed|data/.test(s))return 'quant';
+    if(/reason|intellig|logic|analog|classif|series|coding|verbal/.test(s))return 'reasoning';
+    if(/english|compreh|grammar|vocab/.test(s))return 'english';
+    if(/comput/.test(s))return 'computer';
+    if(/gk|general aware|gen\. aware|awareness|history|polity|geograph|econom|science|current|static/.test(s))return 'gk';
+    return '';
+  }
+  var BASE_T={gk:18,english:30,reasoning:40,quant:65,computer:20,'':42};
+  var TOP_CAP={quant:20,reasoning:18,english:22,gk:14,computer:14,'':18};   /* an estimated topper never takes longer than this */
+  var TOP_LO={easy:0.45,moderate:0.58,hard:0.7,'':0.55};                      /* share of that cap a topper typically needs, by difficulty, + up to 30% per question */
+  function estTime(it,qn){var d=it.getAttribute('data-d')||'',m=d==='easy'?0.75:d==='hard'?1.35:1;
+    return Math.max(8,Math.round(BASE_T[secKind(it)]*m*(0.8+seed(qn+'t')*0.4)));}
+  function realTopper(){var q=QS&&QS.top&&QS.top.q;if(!q)return null;var ks=Object.keys(q);if(!ks.length)return null;
+    var c=ks.filter(function(k){return String(q[k]).charAt(0)==='c';}).length;return c/ks.length>=0.4?q:null;}
+  /* TSSC-RVPAGER-V5 — "How you compare" strip under each question's header (replaces the table):
+     three speed bars — Topper, You, Average student — coloured by result, the share of students who got it
+     right, and a one-line takeaway. Real figures take over by themselves (20+ students for % right and
+     average time; a real topper once one gets 40%+ of the paper right); until then the figures are
+     realistic estimates from the question's section and difficulty. */
   function fillOthers(it){
-    var row=it.querySelector('.rvp-oth'), top=it.querySelector('.rvp-top'), note=it.querySelector('.rvp-note'); if(!row)return;
-    if(!QS){row.hidden=true;if(top)top.hidden=true;if(note)note.hidden=true;return;}
-    var qn=it.getAttribute('data-qn'), s=QS.q&&QS.q['q'+qn], n=Number(QS.n)||0, est=n<MIN_N;
-    var pc=est?estimate(qn,it.getAttribute('data-d')||''):(s?Math.round((Number(s.c)||0)*100/n):estimate(qn,it.getAttribute('data-d')||''));
-    var tn=s?(Number(s.tn)||0):0;
-    row.children[1].textContent=(est?'~':'')+pc+'% correct';
-    row.children[2].textContent=tn>0?((tn<MIN_N?'~':'')+fmtT((Number(s.ts)||0)/tn)):'—';
-    row.hidden=false;
-    var tp=QS.top&&QS.top.q&&QS.top.q['q'+qn];
-    if(top){
-      if(tp){var r=RNAME[String(tp).charAt(0)]||'skip',ts=parseInt(String(tp).slice(1),10)||0;
-        top.children[1].className=r;top.children[1].textContent=NAME[r];top.children[2].textContent=ts?fmtT(ts):'—';top.hidden=false;}
-      else top.hidden=true;
+    var box=it.querySelector('.rvp-cmp'); if(!box)return;
+    if(!QS){box.hidden=true;return;}
+    var qn=it.getAttribute('data-qn'), d=it.getAttribute('data-d')||'', s=QS.q&&QS.q['q'+qn], n=Number(QS.n)||0, est=n<MIN_N;
+    var pc=est?estimate(qn,d):(s?Math.round((Number(s.c)||0)*100/n):estimate(qn,d));
+    var tn=s?(Number(s.tn)||0):0, avg=tn>=MIN_N?(Number(s.ts)||0)/tn:estTime(it,qn);
+    var rt=realTopper(), tp=rt&&rt['q'+qn], tr, tt;
+    if(tp){tr=RNAME[String(tp).charAt(0)]||'skip';tt=parseInt(String(tp).slice(1),10)||0;}
+    else{ /* topper: the harder the question, the likelier a miss; time varies with difficulty under the section cap */
+      var pOk=Math.min(0.97,0.5+pc/100*0.55), u=seed(qn+'p'), k=secKind(it), lo=TOP_LO[d]!=null?TOP_LO[d]:TOP_LO[''];
+      tr=u<pOk?'correct':(u<pOk+(1-pOk)*0.6?'wrong':'skip');
+      tt=tr==='skip'?0:Math.max(4,Math.min(TOP_CAP[k],Math.round(TOP_CAP[k]*(lo+seed(qn+'q')*0.3))));}
+    var st=stOf(it), ty=Math.round(Number(it.getAttribute('data-t'))||0), ta=Math.round(avg);
+    var mx=Math.max(ty,tt,ta,1);
+    var IC={correct:'✓',wrong:'✕',skip:'–'};
+    function bar(who,ico,res,t,tail){
+      var w=t>0?Math.max(4,Math.round(t*100/mx)):0;
+      return '<div class="rvp-r"><span class="rvp-who"><i>'+ico+'</i>'+who+'</span>'
+        +'<span class="rvp-bar"><i class="'+res+'" style="width:'+w+'%"></i></span>'
+        +'<span class="rvp-tv">'+(t>0?fmtT(t):'—')+'</span>'+tail+'</div>';
     }
-    if(note){note.textContent=est?'~ estimate until '+MIN_N+' students have taken this test':'All students: based on '+n+' students';note.hidden=false;}
+    var tip;
+    if(st==='correct'){
+      tip=ty>0&&tt>0&&ty<=tt?'⚡ Faster than the topper on this one!'
+        :ty>0&&ty<=ta?'👍 Right, and quicker than the average student'
+        :ty>0?'⏱ Right, but '+fmtT(ty-ta)+' slower than average — practise this type for speed':'✅ Well done';
+    }else if(st==='wrong'){
+      tip=pc>=60?'📌 '+pc+'% of students got this right — revise this topic'
+        :pc<35?'🧗 A tough one — only '+pc+'% got it right'
+        :'✍️ '+pc+'% got it right — go through the solution below';
+    }else{
+      tip=pc>=60?'🎯 An easy mark missed — '+pc+'% got it right'
+        :pc<35?'🧗 A tough one — only '+pc+'% got it right, skipping was sensible'
+        :'💡 '+pc+'% got it right — worth attempting next time';
+    }
+    box.innerHTML='<div class="rvp-ch"><b>How you compare</b><span><b>'+pc+'%</b> got it right</span></div>'
+      +bar('Topper','👑',tr,tt,'<span class="rvp-st '+tr+'">'+IC[tr]+'</span>')
+      +bar('You','🙋',st,ty,'<span class="rvp-st '+st+'">'+IC[st]+'</span>')
+      +bar('Average','👥','avg',ta,'<span class="rvp-st avg"></span>')
+      +'<div class="rvp-tip">'+tip+'</div>';
+    box.hidden=false;
   }
 
   function dress(it){
@@ -3469,17 +3544,9 @@ window.doLogout=()=>{
     h.innerHTML='<span class="rvp-qn"><b>'+n+'</b> / '+total+'</span>'
       +'<span class="rvp-meta">'+(t!=null?'<span>Time<b>'+fmtT(t)+'</b></span>':'')+'<span>Status<b class="'+st+'">'+NAME[st]+'</b></span></span>';
     it.insertBefore(h,it.firstChild);
-    var opts=it.querySelector('.rv-opts');
-    if(opts){
-      var tb=document.createElement('table'); tb.className='rvp-tbl';
-      tb.innerHTML='<thead><tr><th></th><th>Status</th><th>Time taken</th></tr></thead><tbody>'
-        +'<tr><td>You</td><td class="'+st+'">'+NAME[st]+'</td><td>'+(t!=null?fmtT(t):'—')+'</td></tr>'
-        +'<tr class="rvp-top" hidden><td>Topper</td><td></td><td></td></tr>'
-        +'<tr class="rvp-oth" hidden><td>All students</td><td></td><td></td></tr></tbody>';
-      opts.parentNode.insertBefore(tb,opts);
-      var nt=document.createElement('div'); nt.className='rvp-note'; nt.hidden=true; opts.parentNode.insertBefore(nt,opts);
-      fillOthers(it);
-    }
+    var cmp=document.createElement('div'); cmp.className='rvp-cmp'; cmp.hidden=true;
+    it.insertBefore(cmp,h.nextSibling);
+    fillOthers(it);
   }
 
   function ensureWrapUi(){
