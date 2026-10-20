@@ -3368,7 +3368,7 @@ init();
   function loadQs(){
     var src=window.__tsscQs; if(!src||!src.key||typeof src.get!=='function')return;
     if(QSkey===src.key)return; QSkey=src.key;
-    try{src.get().then(function(d){QS=d||{};allItems().forEach(fillOthers);},function(){});}catch(e){}
+    try{src.get().then(function(d){QS=d||{};allItems().forEach(fillOthers);},function(){QSkey='';});}catch(e){QSkey='';}
   }
   /* identical to dashboard.html's estimate (same FNV seed on "<qstats key>|<qNum>"), so both screens agree */
   function seed(q){var x=2166136261,str=QSkey+'|'+q;for(var i=0;i<str.length;i++){x^=str.charCodeAt(i);x=Math.imul(x,16777619)>>>0;}x^=x>>>13;x=Math.imul(x,0x5bd1e995)>>>0;x^=x>>>15;return (x%10007)/10007;}
@@ -3556,7 +3556,7 @@ init();
   },{passive:true});
 
   var pend=false;
-  function run(){var w=wrap();if(w)w.classList.remove('rvp-open');panels().forEach(enhance);loadQs();}
+  function run(){var w=wrap();if(w)w.classList.remove('rvp-open');var ps=panels();ps.forEach(enhance);if(ps.length)loadQs();}
   function schedule(){if(pend)return;pend=true;setTimeout(function(){pend=false;run();},0);}
   function start(){
     run();
