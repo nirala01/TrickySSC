@@ -793,7 +793,23 @@ function recentCovered(T) {
   { const v = parseInt(process.env.CA_MAX_TOPICS, 10); const MAXT = Number.isFinite(v) ? Math.min(8, Math.max(3, v)) : 6;
     if (picks.length > MAXT) log(`Keeping the ${MAXT} most important headlines (of ${picks.length} picked)`);
     picks = picks.slice(0, MAXT); }
-  if (picks.length < 3) die('Gemini picked fewer than 3 usable releases: ' + JSON.stringify(sel).slice(0, 300));
+  // TSSC-CA-TOPUP-V1: a thin day used to kill the run when the strict pick returned < 3 headlines.
+  // Now: ask once more for Tier-2 items to top up, and if the day is still thin, publish what there is.
+  if (picks.length < 3) {
+    log(`Only ${picks.length} headline(s) picked — asking for Tier-2 items to top up`);
+    const have = new Set(picks);
+    const restTitles = rel.slice(0, 260).filter(r => !have.has(r.prid)).map(r => `${r.prid} | ${r.title}`).join('\n');
+    const TOPUP_SYS = SELECT_SYS + `\n\nTHIN DAY: the strict pass found only ${picks.length} headline(s). Now pick ${3 - picks.length} to 3 MORE items from the list — Tier-2 items are allowed (named fairs/exhibitions/festivals, MoUs with a named outcome, bilateral visits with an outcome, notable records or figures). Still never pick SKIP items or anything already published. Do not repeat these already-picked ids: ${picks.join(', ') || 'none'}.`;
+    try {
+      const sel2 = await gemini(TOPUP_SYS, `Date: ${dateLong}${coveredTxt}\nRemaining items (id | title):\n${restTitles}`, 2048);
+      const more = (sel2.picks || []).map(p => String(p.prid).replace(/\D/g, '')).filter(id => byId.has(id) && !have.has(id));
+      picks = [...new Set(picks.concat(more))].slice(0, 6);
+      log(`After top-up: ${picks.length} headline(s)`);
+    } catch (e) { log('Top-up pick failed:', e.message); }
+  }
+  if (!picks.length) die('No usable releases picked: ' + JSON.stringify(sel).slice(0, 300));
+  if (picks.length < 3) log(`Thin day — publishing ${picks.length} topic(s) only`);
+  const NEED = Math.min(3, picks.length);
   log('Picked PRIDs:', picks.join(', '));
 
   // 3. read full text
@@ -809,7 +825,7 @@ function recentCovered(T) {
     }
     return true;
   });
-  if (good.length < 3) die(`Only ${good.length} release texts could be read from pib.gov.in`);
+  if (good.length < NEED || !good.length) die(`Only ${good.length} release texts could be read from pib.gov.in`);
   const urlOf = new Map(good.map(x => [x.id, x.r.url]));
   AIR_USED = good.some(x => AIR_ITEMS.has(String(x.id)));
   PIB_USED = good.some(x => !AIR_ITEMS.has(String(x.id)));
@@ -830,7 +846,7 @@ function recentCovered(T) {
   // 4. write
   const data = await gemini(writeSys(dateLong), `PIB releases for ${dateLong}:\n\n${corpus}`, 32768);
   let topics = (data.topics || []).filter(t => t && t.title && Array.isArray(t.bullets) && t.bullets.length);
-  if (topics.length < 3) die('Gemini returned fewer than 3 topics');
+  if (topics.length < Math.min(NEED, good.length) || !topics.length) die(`Gemini returned only ${topics.length} topic(s) for ${good.length} release(s)`);
   topics = topics.slice(0, 8);
   const used = new Set();
   topics.forEach(t => { let id = slug(t.id || t.title); while (used.has(id)) id += '-2'; used.add(id); t.id = id; if (!BUCKETS[t.bucket]) t.bucket = 'Schemes'; });
