@@ -3649,15 +3649,23 @@ window.doLogout=()=>{
   var BASE_T={gk:18,english:30,reasoning:40,quant:65,computer:20,'':42};
   var TOP_CAP={quant:20,reasoning:18,english:22,gk:14,computer:14,'':18};   /* an estimated topper never takes longer than this */
   var TOP_LO={easy:0.45,moderate:0.58,hard:0.7,'':0.55};                      /* share of that cap a topper typically needs, by difficulty, + up to 30% per question */
-  function estTime(it,qn){var d=it.getAttribute('data-d')||'',m=d==='easy'?0.75:d==='hard'?1.35:1;
-    return Math.max(8,Math.round(BASE_T[secKind(it)]*m*(0.8+seed(qn+'t')*0.4)));}
+  function estTime(it,qn){var d=it.getAttribute('data-d')||'',m=d==='easy'?0.75:d==='hard'?1.35:1,lf=1+Math.max(0,Math.min(1,(qLen(it)-80)/600))*0.35;
+    return Math.max(8,Math.round(BASE_T[secKind(it)]*m*lf*(0.68+seed(qn+'t')*0.5+(seed(qn+'u')-0.5)*0.15)));}
   function realTopper(){var q=QS&&QS.top&&QS.top.q;if(!q)return null;var ks=Object.keys(q);if(!ks.length)return null;
     var c=ks.filter(function(k){return String(q[k]).charAt(0)==='c';}).length;return c/ks.length>=0.4?q:null;}
   /* figures shared by the strip and the topper plan */
-  function pcOf(it){var qn=it.getAttribute('data-qn'),d=it.getAttribute('data-d')||'',s=QS.q&&QS.q['q'+qn],n=Number(QS.n)||0,K=8,
-    eP=estimate(qn,d),rP=n>0?(Number(s&&s.c)||0)*100/n:0;return n>=MIN_N?Math.round(rP):Math.round((eP*K+rP*n)/(K+n));}
-  function topTime(it,qn){var k=secKind(it),d=it.getAttribute('data-d')||'',lo=TOP_LO[d]!=null?TOP_LO[d]:TOP_LO[''];
-    return Math.max(4,Math.min(TOP_CAP[k],Math.round(TOP_CAP[k]*(lo+seed(qn+'q')*0.3))));}
+  /* TSSC-PCATT-V1: "% got it right" = correct ÷ students who ANSWERED that question (not ÷ every submission —
+     blank "see the solutions" submissions had pushed it to 1–2% everywhere); blended with the estimate until
+     20 students have answered it */
+  function pcOf(it){var qn=it.getAttribute('data-qn'),d=it.getAttribute('data-d')||'',s=QS.q&&QS.q['q'+qn],K=8,
+    a=s?(Number(s.a)||0):0,eP=estimate(qn,d),rP=a>0?(Number(s.c)||0)*100/a:0;return a>=MIN_N?Math.round(rP):Math.round((eP*K+rP*a)/(K+a));}
+  function qLen(it){var h=it.querySelector('.rv-head'),q=h&&h.nextElementSibling;return q?String(q.textContent||'').length:120;}
+  /* TSSC-TOPTIME-V2: spread across the whole range under the section cap — difficulty, question length and two
+     independent per-question factors — so the times don't bunch on a few values */
+  function topTime(it,qn){var k=secKind(it),d=it.getAttribute('data-d')||'',cap=TOP_CAP[k];
+    var base=d==='easy'?0.3:d==='hard'?0.68:0.48, lf=Math.max(0,Math.min(1,(qLen(it)-80)/600))*0.18;
+    var g=base+lf+(seed(qn+'q')-0.5)*0.55+(seed(qn+'r')-0.5)*0.2;g=Math.max(0,Math.min(1,g));var f=0.3+0.7*g;   /* never under ~30% of the cap */
+    return Math.max(3,Math.min(cap,Math.round(cap*f)));}
   /* TSSC-TOPPER-V2 — the Topper row for the whole paper is planned at once, so its correct / wrong / skipped
      counts add up to the leaderboard topper's score (section by section when the leaderboard has section marks):
      · the real best attempt is used as it is when it is that same top score (or there is no leaderboard row);
@@ -3699,8 +3707,7 @@ window.doLogout=()=>{
     var qn=it.getAttribute('data-qn'), d=it.getAttribute('data-d')||'', s=QS.q&&QS.q['q'+qn], n=Number(QS.n)||0, est=n<MIN_N;
     /* real data counts from the first stored attempt: blended with the estimate (the estimate weighs like 8 students),
        so one or two attempts nudge the figure instead of showing 0% or 100%; fully real from 20 students on */
-    var K=8, eP=estimate(qn,d), rP=n>0?(Number(s&&s.c)||0)*100/n:0;
-    var pc=n>=MIN_N?Math.round(rP):Math.round((eP*K+rP*n)/(K+n));
+    var K=8, pc=pcOf(it);
     var tn=s?(Number(s.tn)||0):0, tsum=s?(Number(s.ts)||0):0, eT=estTime(it,qn);
     var avg=tn>=MIN_N?tsum/tn:(eT*K+tsum)/(K+tn);
     if(!TOPMAP)TOPMAP=buildTopMap();

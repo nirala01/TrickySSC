@@ -1973,7 +1973,7 @@ function renderPerf(full){
     ans.forEach(x=>{ const st=(qs.q||{})['q'+x.q];
       const tnT=sample?30:(st?(Number(st.tn)||0):0); const avgT=sample?Math.max(8,Math.round((Number(x.t)||40)*(x.q%3?1.25:0.7))):(tnT>0?(Number(st.ts)||0)/tnT:null); const estT=!sample&&tnT<MIN_N;
       if(avgT!=null&&tnT>0&&x.t>0&&!(x.r==='k'&&x.t<=2)){ tHasAvg++; if(Math.round(avgT)<x.t*0.9) tSlow++; else if(Math.round(avgT)>x.t*1.1) tFast++; }
-      const pc=noStats?null:(sample?(x.q%3?72:(x.q%5?48:22)):(est?Math.round((estimate(x)*8+(st?(Number(st.c)||0)/n*100:0)*n)/(8+n)):(st?Math.round((Number(st.c)||0)/n*100):estimate(x)))   /* TSSC-ESTBLEND-V1: real answers count from the first attempt, blended with the estimate (weight 8) until 20 candidates — same as the solutions screen */);
+      const pc=noStats?null:(sample?(x.q%3?72:(x.q%5?48:22)):(()=>{const _a=st?(Number(st.a)||0):0,_r=_a>0?(Number(st.c)||0)*100/_a:0;return _a>=20?Math.round(_r):Math.round((estimate(x)*8+_r*_a)/(8+_a));})()   /* TSSC-ESTBLEND-V1 + TSSC-PCATT-V1: correct ÷ students who answered that question, blended with the estimate (weight 8) until 20 have answered — same as the solutions screen */);
       const tag=diffTag(pc)||(x.d?[x.d.charAt(0).toUpperCase()+x.d.slice(1),x.d==='easy'?'good':x.d==='hard'?'bad':'warn']:null);
       if(tag){ if(tag[0]==='Easy')e++; else if(tag[0]==='Hard')hd++; else m++; }
       const txt=sample?'Sample question text — appears here for your real tests':((qt[x.q]&&qt[x.q].t)||('Question '+x.q+(x.s?' · '+(SUBJ_NAME[skey(x.s)]||x.s):'')));
