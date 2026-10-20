@@ -2900,7 +2900,7 @@ window.imgFail = function (el) {
     const verdictHtml=`<div class="verdict ${status}"><span class="v-ic">${vIcon}</span><span>${vText}</span></div>`;
     const rawRT=(q.text||q.question||'').replace(/^\s*\[FIGURE-BASED\]\s*/i,'');
     const reviewQHtml=formatQTextReview(rawRT,localNum(i));
-    const html=`<div class="review-item ${status}" id="rvq${i}" data-t="${Math.round(((typeof _qtime!=='undefined'&&_qtime[i])||0)/1000)}" data-qn="${parseInt(q.qNum,10)||(i+1)}">${headHtml}${reviewQHtml}${q.imageUrl?`<div style="text-align:center;margin:8px 0;"><img src="${q.imageUrl}" style="max-width:100%;max-height:220px;border-radius:8px;border:1px solid #E2E8F0;object-fit:contain;background:#F9FAFB;" onerror="this.style.display='none'"></div>`:''}${optsHtml}${verdictHtml}${solHtml}${trickHtml}${conceptHtml}${solReportHtml}</div>`;
+    const html=`<div class="review-item ${status}" id="rvq${i}" data-t="${Math.round(((typeof _qtime!=='undefined'&&_qtime[i])||0)/1000)}" data-qn="${parseInt(q.qNum,10)||(i+1)}" data-d="${String(q.difficulty||'').trim().toLowerCase().replace(/[^a-z]/g,'')}">${headHtml}${reviewQHtml}${q.imageUrl?`<div style="text-align:center;margin:8px 0;"><img src="${q.imageUrl}" style="max-width:100%;max-height:220px;border-radius:8px;border:1px solid #E2E8F0;object-fit:contain;background:#F9FAFB;" onerror="this.style.display='none'"></div>`:''}${optsHtml}${verdictHtml}${solHtml}${trickHtml}${conceptHtml}${solReportHtml}</div>`;
     return {status,html};
   }
 
@@ -2975,6 +2975,14 @@ window.imgFail = function (el) {
      One merged write per submit, never awaited, errors ignored (needs a qstats rule). */
   try{ if(_lbBase){ const _qs={}; _ansLog.forEach(x=>{ const _t=Math.max(0,Math.round(Number(x.t)||0)); _qs['q'+x.q]={a:increment(x.r==='k'?0:1),c:increment(x.r==='c'?1:0),ts:increment(_t),tn:increment(_t>0?1:0)}; });   /* TSSC-QTIME-V1: ts = total seconds, tn = candidates who spent time on it (avg = ts/tn) */
     setDoc(doc(db,'qstats',_lbBase),{n:increment(1),total:questions.length,updatedAt:serverTimestamp(),q:_qs},{merge:true}).catch(()=>{}); } }catch(e){}
+  /* TSSC-TOPPER-V1 — qstats/{paper}.top = the best attempt so far (higher marks, then less time): per question
+     r + seconds ("c43", "w12", "k0") for the solutions screen's Topper row. Separate write, never awaited. */
+  try{ if(_lbBase){ const _tm=parseFloat(marks)||0, _tu=Number(_timeUsed)||0, _tl=_ansLog.slice();
+    getDoc(doc(db,'qstats',_lbBase)).then(sn=>{ const tp=sn.exists()?((sn.data()||{}).top||null):null;
+      if(tp&&(Number(tp.m)>_tm||(Number(tp.m)===_tm&&Number(tp.tu)>0&&Number(tp.tu)<=_tu))) return;
+      const tq={}; _tl.forEach(x=>{ tq['q'+x.q]=String(x.r||'k')+Math.max(0,Math.round(Number(x.t)||0)); });
+      return setDoc(doc(db,'qstats',_lbBase),{top:{m:_tm,tu:_tu,q:tq,at:serverTimestamp()}},{mergeFields:['top']});
+    }).catch(()=>{}); } }catch(e){}
   try{await persistWithRetry(payload,attemptId,3);localStorage.removeItem('pending_attempt_'+attemptId);setSaveUi('saved','✅ Result saved successfully.');}
   catch(e){console.warn('Save failed:',e);localStorage.setItem('pending_attempt_'+attemptId,JSON.stringify(lastResultPayload));setSaveUi('error','⚠️ Could not save. Check internet and tap Retry Save.');}
   // Snapshot the finished result screen so returning via Back restores it (no restart)
@@ -3461,14 +3469,18 @@ window.doLogout=()=>{
   signOut(auth).finally(()=>window.location.href='login.html');
 };
 </script>
-<!-- TSSC-RVPAGER-V2 — solutions screen, one question at a time (app-style):
+<!-- TSSC-RVPAGER-V3 — solutions screen, one question at a time (app-style):
      question header "8 / 150 · Time · Status", You vs All students table (status, time,
      % correct, avg time from qstats), single-column options, green Solution bar,
      Prev/Next bar whose middle button opens a Test Summary drawer, swipe left/right, arrow keys —
      the drawer has (Correct/Incorrect/Unattempted rings, All/Wrong/Skipped/Correct
      filter, Grid and List views per section). All state lives in the DOM and every
      handler is delegated, so the Back-button snapshot restore keeps working.
-     Replaces TSSC-RVPAGER-V1. -->
+     V3: "All students" follows the dashboard's rule — an estimate marked ~ (same
+     formula and seed as dashboard.html) until 20 students have taken the paper, then the
+     real figures with the student count; plus a Topper row from qstats.top
+     (best attempt so far, written by the engines — TSSC-TOPPER-V1).
+     Replaces TSSC-RVPAGER-V1/V2. -->
 <style id="tssc-rvpager-css">
 .rv-items{position:relative;}
 .rv-items>.review-item.rvp-off{position:absolute!important;left:-300vw;top:0;width:100%;visibility:hidden;pointer-events:none;margin:0;}
@@ -3493,7 +3505,9 @@ window.doLogout=()=>{
 .rvp-tbl th{background:#F8FAFC;color:#475569;font-weight:700;}
 .rvp-tbl td:first-child{font-weight:700;color:#334155;}
 .rvp-tbl td.correct{color:#16A34A;font-weight:700;} .rvp-tbl td.wrong{color:#DC2626;font-weight:700;} .rvp-tbl td.skip{color:#A16207;font-weight:700;}
-.rvp-tbl tr.rvp-oth[hidden]{display:none;}
+.rvp-tbl tr[hidden]{display:none;}
+.rvp-note{margin:-6px 0 12px;font-size:11.5px;font-weight:600;color:#94A3B8;}
+.rvp-note[hidden]{display:none;}
 .rvp-empty{background:#fff;border:1px dashed #CBD5E1;border-radius:14px;padding:22px 14px;text-align:center;color:#64748B;font-size:14px;font-weight:600;}
 .rvp-nav{position:sticky;bottom:0;z-index:25;display:flex;align-items:center;justify-content:space-between;gap:10px;
   margin-top:12px;padding:10px 2px calc(10px + env(safe-area-inset-bottom,0px));background:#F0F4F8;border-top:1px solid #E2E8F0;}
@@ -3551,7 +3565,7 @@ window.doLogout=()=>{
 </style>
 <script>
 (function(){
-  if(window.__tsscRvPager)return; window.__tsscRvPager=2;
+  if(window.__tsscRvPager3)return; window.__tsscRvPager3=3;
   var NAME={correct:'Correct',wrong:'Incorrect',skip:'Skipped'};
   var FNAME={all:'questions',correct:'correct',wrong:'wrong',skip:'skipped'};
   var ICON_LIST='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1.2" fill="currentColor"/><circle cx="4.5" cy="12" r="1.2" fill="currentColor"/><circle cx="4.5" cy="18" r="1.2" fill="currentColor"/></svg>';
@@ -3572,20 +3586,32 @@ window.doLogout=()=>{
   function vis(p){return p.style.display!=='none';}
 
   /* ---- other students: one qstats read per paper (exposed by the engine as window.__tsscQs) ---- */
-  var QS=null,QSkey='';
+  var QS=null,QSkey='',MIN_N=20;
   function loadQs(){
     var src=window.__tsscQs; if(!src||!src.key||typeof src.get!=='function')return;
     if(QSkey===src.key)return; QSkey=src.key;
-    try{src.get().then(function(d){QS=(d&&d.q)?d:null;allItems().forEach(fillOthers);},function(){});}catch(e){}
+    try{src.get().then(function(d){QS=d||{};allItems().forEach(fillOthers);},function(){});}catch(e){}
   }
+  /* identical to dashboard.html's estimate (same FNV seed on "<qstats key>|<qNum>"), so both screens agree */
+  function seed(q){var x=2166136261,str=QSkey+'|'+q;for(var i=0;i<str.length;i++){x^=str.charCodeAt(i);x=Math.imul(x,16777619)>>>0;}x^=x>>>13;x=Math.imul(x,0x5bd1e995)>>>0;x^=x>>>15;return (x%10007)/10007;}
+  function estimate(q,d){var base=d==='easy'?76:d==='hard'?34:d==='moderate'?56:(42+Math.round(seed(q)*38));var jit=Math.round((seed(q+'j')-0.5)*14);return Math.max(12,Math.min(94,base+jit));}
+  var RNAME={c:'correct',w:'wrong',k:'skip'};
   function fillOthers(it){
-    var row=it.querySelector('.rvp-oth'); if(!row)return;
-    var qn=it.getAttribute('data-qn'), s=QS&&QS.q&&QS.q['q'+qn];
-    if(!s||!(s.a>0)){row.hidden=true;return;}
-    var pc=Math.round((s.c||0)*100/s.a), av=s.tn>0?s.ts/s.tn:0;
-    row.children[1].textContent=pc+'% correct';
-    row.children[2].textContent=fmtT(av);
+    var row=it.querySelector('.rvp-oth'), top=it.querySelector('.rvp-top'), note=it.querySelector('.rvp-note'); if(!row)return;
+    if(!QS){row.hidden=true;if(top)top.hidden=true;if(note)note.hidden=true;return;}
+    var qn=it.getAttribute('data-qn'), s=QS.q&&QS.q['q'+qn], n=Number(QS.n)||0, est=n<MIN_N;
+    var pc=est?estimate(qn,it.getAttribute('data-d')||''):(s?Math.round((Number(s.c)||0)*100/n):estimate(qn,it.getAttribute('data-d')||''));
+    var tn=s?(Number(s.tn)||0):0;
+    row.children[1].textContent=(est?'~':'')+pc+'% correct';
+    row.children[2].textContent=tn>0?((tn<MIN_N?'~':'')+fmtT((Number(s.ts)||0)/tn)):'—';
     row.hidden=false;
+    var tp=QS.top&&QS.top.q&&QS.top.q['q'+qn];
+    if(top){
+      if(tp){var r=RNAME[String(tp).charAt(0)]||'skip',ts=parseInt(String(tp).slice(1),10)||0;
+        top.children[1].className=r;top.children[1].textContent=NAME[r];top.children[2].textContent=ts?fmtT(ts):'—';top.hidden=false;}
+      else top.hidden=true;
+    }
+    if(note){note.textContent=est?'~ estimate until '+MIN_N+' students have taken this test':'All students: based on '+n+' students';note.hidden=false;}
   }
 
   function dress(it){
@@ -3600,8 +3626,10 @@ window.doLogout=()=>{
       var tb=document.createElement('table'); tb.className='rvp-tbl';
       tb.innerHTML='<thead><tr><th></th><th>Status</th><th>Time taken</th></tr></thead><tbody>'
         +'<tr><td>You</td><td class="'+st+'">'+NAME[st]+'</td><td>'+(t!=null?fmtT(t):'—')+'</td></tr>'
+        +'<tr class="rvp-top" hidden><td>Topper</td><td></td><td></td></tr>'
         +'<tr class="rvp-oth" hidden><td>All students</td><td></td><td></td></tr></tbody>';
       opts.parentNode.insertBefore(tb,opts);
+      var nt=document.createElement('div'); nt.className='rvp-note'; nt.hidden=true; opts.parentNode.insertBefore(nt,opts);
       fillOthers(it);
     }
   }

@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Topper Backfill · TrickySSC Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Noto+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<!-- TSSC-TOPPER-V1 — one-time backfill of qstats/{paper}.top from the attempts already saved.
+     Reads every attempt once (admin only), picks the best attempt per paper (higher marks, then
+     less time) among attempts that saved per-question answers (from 5 Sep 2026), and writes
+     qstats/{paper}.top = {m, tu, q:{q1:"c43",...}} so the solutions screen's Topper row has data
+     straight away. Keys match exactly what each test engine writes. Safe to run again. -->
+<style>
+:root{--o:#FF6B00;--bg:#F0F4F8;--t:#0F172A;--m:#64748B;--b:#E2E8F0;}
+*{box-sizing:border-box}
+body{margin:0;font-family:'Noto Sans',sans-serif;background:var(--bg);color:var(--t);}
+.wrap{max-width:760px;margin:0 auto;padding:20px 16px 60px;}
+h1{font-family:'Rajdhani',sans-serif;font-size:1.9rem;margin:0 0 4px;color:var(--o);}
+p.sub{margin:0 0 18px;color:var(--m);font-size:.92rem;line-height:1.55;}
+.card{background:#fff;border:1px solid var(--b);border-radius:14px;padding:16px;margin-bottom:14px;}
+.btn{font-family:'Rajdhani',sans-serif;font-size:1.1rem;font-weight:700;border:0;border-radius:10px;padding:.7rem 1.3rem;cursor:pointer;background:var(--o);color:#fff;}
+.btn.sec{background:#fff;color:var(--o);border:1.5px solid var(--o);}
+.btn:disabled{opacity:.45;cursor:not-allowed;}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+#who{font-size:.9rem;color:var(--m);}
+.stat{display:flex;gap:18px;flex-wrap:wrap;margin:6px 0 10px;font-size:.92rem;}
+.stat b{font-size:1.15rem;}
+.tbl{width:100%;border-collapse:collapse;font-size:.85rem;}
+.tbl th,.tbl td{border-bottom:1px solid var(--b);padding:6px 8px;text-align:left;}
+.tbl th{background:#F8FAFC;color:var(--m);font-weight:700;position:sticky;top:0;}
+.scroll{max-height:420px;overflow:auto;border:1px solid var(--b);border-radius:10px;}
+#log{font-size:.9rem;line-height:1.6;white-space:pre-wrap;color:#334155;}
+.ok{color:#15803D;font-weight:700;} .bad{color:#DC2626;font-weight:700;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Topper backfill</h1>
+  <p class="sub">Fills the <b>Topper</b> row on the solutions screen for papers that were attempted before it existed.
+    Step 1 reads every saved attempt once and finds the best attempt per paper (higher marks, then less time).
+    Step 2 writes it. Only attempts from 5 Sep 2026 on can be used, because older ones did not save per-question answers.
+    Running it again is safe; it simply rewrites the same toppers.</p>
+
+  <div class="card">
+    <div class="row"><button class="btn sec" id="signin">Sign in with Google</button><span id="who">Not signed in</span></div>
+  </div>
+
+  <div class="card">
+    <div class="row"><button class="btn" id="scan" disabled>1. Scan attempts</button><span id="scanMsg" style="color:#64748B;font-size:.9rem"></span></div>
+    <div id="summary"></div>
+  </div>
+
+  <div class="card">
+    <div class="row"><button class="btn" id="write" disabled>2. Write toppers</button></div>
+    <div id="log"></div>
+  </div>
+</div>
+
+<script type="module">
+import{initializeApp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import{getFirestore,collection,getDocs,doc,writeBatch,serverTimestamp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import{getAuth,GoogleAuthProvider,signInWithPopup,onAuthStateChanged}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+const app=initializeApp({apiKey:"AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",authDomain:"trickyssc-17bb3.firebaseapp.com",projectId:"trickyssc-17bb3",storageBucket:"trickyssc-17bb3.firebasestorage.app",messagingSenderId:"450627057220",appId:"1:450627057220:web:366267bf437d94f20c6e11"});
+const db=getFirestore(app), auth=getAuth(app);
+const ADMIN_EMAILS=['nirala01@gmail.com'];
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const LANG=/([_\-])(hi|en|hindi|english)$/i;
+
+/* The qstats key each engine writes for an attempt (mirrors the engines' _lbBase / lbKey). */
+function keyOf(a){
+  if(a.type==='chapterwise'){
+    if(a.lbKey) return String(a.lbKey);
+    const c=String(a.chapterId||a.chapter||'').replace(/[^a-zA-Z0-9]/g,'');
+    return c?'cw_'+c+'_L'+(parseInt(a.level)||1)+'_T'+(parseInt(a.testNum)||1):'';
+  }
+  const sk=String(a.subjectKey||'');
+  if(a.testKind==='mock-subject'||a.testKind==='mock'&&'baseMockId' in a){      // mock-test-subject / mock-test-tier2-subject
+    const b=String(a.baseMockId||a.paperId||'').replace(LANG,'');
+    return b?b+(a.testKind==='mock-subject'&&sk?'__'+sk:''):'';
+  }
+  if(a.testKind==='pyq-subject'||a.testKind==='pyq'&&'basePaperId' in a){      // test-subject / test-chsl-subject
+    const b=String(a.basePaperId||a.mockId||'').replace(LANG,'');
+    return b?b+(a.testKind==='pyq-subject'&&sk?'__'+sk:''):'';
+  }
+  const id=String(a.paperId||a.mockId||'');                                      // full papers and mocks
+  return id?id.replace(LANG,''):'';
+}
+
+let BEST=null;
+
+$('signin').onclick=async()=>{ try{ await signInWithPopup(auth,new GoogleAuthProvider()); }catch(e){ $('who').textContent='Sign-in failed: '+e.message; } };
+onAuthStateChanged(auth,u=>{
+  const ok=!!u&&!!u.email&&ADMIN_EMAILS.includes(u.email.toLowerCase());
+  $('who').innerHTML=u?(ok?'<span class="ok">Signed in as '+esc(u.email)+'</span>':'<span class="bad">'+esc(u.email)+' is not an admin account</span>'):'Not signed in';
+  $('scan').disabled=!ok;
+});
+
+$('scan').onclick=async()=>{
+  $('scan').disabled=true; $('write').disabled=true; $('summary').innerHTML=''; $('log').textContent='';
+  $('scanMsg').textContent='Reading attempts… (one read per attempt)';
+  let snap;
+  try{ snap=await getDocs(collection(db,'attempts')); }
+  catch(e){ $('scanMsg').innerHTML='<span class="bad">Could not read attempts: '+esc(e.message)+'</span>'; $('scan').disabled=false; return; }
+  const best={}; let total=0, usable=0, noKey=0;
+  snap.forEach(d=>{
+    total++;
+    const a=d.data()||{};
+    const ans=Array.isArray(a.answers)?a.answers:[];
+    if(!ans.length||!ans.some(x=>x&&x.r&&x.r!=='k')) return;      // no per-question log, or nothing answered
+    const k=keyOf(a); if(!k){ noKey++; return; }
+    usable++;
+    const m=parseFloat(a.marks); const mk=isNaN(m)?0:m; const tu=Number(a.timeUsed)||0;
+    const cur=best[k];
+    if(!cur||mk>cur.m||(mk===cur.m&&tu>0&&(cur.tu===0||tu<cur.tu))){
+      const q={}; ans.forEach(x=>{ if(x&&x.q!=null) q['q'+x.q]=String(x.r||'k')+Math.max(0,Math.round(Number(x.t)||0)); });
+      best[k]={m:mk,tu,q,name:a.examName||k,count:(cur?cur.count:0)+1};
+    }else cur.count++;
+  });
+  BEST=best;
+  const keys=Object.keys(best).sort();
+  $('scanMsg').textContent='';
+  let h='<div class="stat"><span>Attempts read: <b>'+total+'</b></span><span>With answer logs: <b>'+usable+'</b></span><span>Papers: <b>'+keys.length+'</b></span>'+(noKey?'<span>Skipped (no paper id): <b>'+noKey+'</b></span>':'')+'</div>';
+  h+='<div class="scroll"><table class="tbl"><thead><tr><th>Paper</th><th>Stats key</th><th>Attempts</th><th>Topper marks</th></tr></thead><tbody>';
+  keys.forEach(k=>{ const b=best[k]; h+='<tr><td>'+esc(String(b.name).slice(0,48))+'</td><td style="font-family:monospace;font-size:.78rem">'+esc(k)+'</td><td>'+b.count+'</td><td><b>'+b.m+'</b></td></tr>'; });
+  h+='</tbody></table></div>';
+  $('summary').innerHTML=h;
+  $('scan').disabled=false; $('write').disabled=!keys.length;
+};
+
+$('write').onclick=async()=>{
+  if(!BEST) return;
+  const keys=Object.keys(BEST); if(!keys.length) return;
+  $('write').disabled=true; $('scan').disabled=true;
+  const log=$('log'); log.textContent='Writing '+keys.length+' toppers…\n';
+  let done=0, failed=0;
+  for(let i=0;i<keys.length;i+=400){
+    const part=keys.slice(i,i+400), batch=writeBatch(db);
+    part.forEach(k=>{ const b=BEST[k]; batch.set(doc(db,'qstats',k),{top:{m:b.m,tu:b.tu,q:b.q,at:serverTimestamp(),src:'backfill'}},{mergeFields:['top']}); });
+    try{ await batch.commit(); done+=part.length; log.textContent+='✓ '+done+' / '+keys.length+'\n'; }
+    catch(e){ failed+=part.length; log.textContent+='✕ batch failed: '+e.message+'\n'; }
+  }
+  log.innerHTML+=failed?'<span class="bad">'+failed+' could not be written (check the Firestore rule for qstats).</span>':'<span class="ok">Done. The Topper row now shows on these papers.</span>';
+  $('scan').disabled=false;
+};
+</script>
+</body>
+</html>
