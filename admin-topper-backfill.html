@@ -47,6 +47,14 @@ p.sub{margin:0 0 18px;color:var(--m);font-size:.92rem;line-height:1.55;}
   </div>
 
   <div class="card">
+    <p class="sub" style="margin-bottom:10px"><b>Check one paper.</b> Paste the address of a test or solutions page (or its stats key)
+      to see what is saved for it — one read, no scan needed.</p>
+    <div class="row"><input id="ckIn" placeholder="https://trickyssc.com/test.html?paperId=…" style="flex:1;min-width:0;padding:.65rem .8rem;border:1.5px solid #E2E8F0;border-radius:10px;font:inherit;font-size:.9rem">
+      <button class="btn sec" id="ckBtn" disabled>Check</button></div>
+    <div id="ckOut" style="margin-top:10px;font-size:.9rem;line-height:1.6"></div>
+  </div>
+
+  <div class="card">
     <div class="row"><button class="btn" id="scan" disabled>1. Scan attempts</button><span id="scanMsg" style="color:#64748B;font-size:.9rem"></span></div>
     <div id="summary"></div>
   </div>
@@ -69,7 +77,7 @@ p.sub{margin:0 0 18px;color:var(--m);font-size:.92rem;line-height:1.55;}
 
 <script type="module">
 import{initializeApp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import{getFirestore,collection,getDocs,doc,writeBatch,serverTimestamp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import{getFirestore,collection,getDocsFromServer,getDocFromServer,doc,writeBatch,serverTimestamp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import{getAuth,GoogleAuthProvider,signInWithPopup,onAuthStateChanged}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 const app=initializeApp({apiKey:"AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",authDomain:"trickyssc-17bb3.firebaseapp.com",projectId:"trickyssc-17bb3",storageBucket:"trickyssc-17bb3.firebasestorage.app",messagingSenderId:"450627057220",appId:"1:450627057220:web:366267bf437d94f20c6e11"});
@@ -101,19 +109,48 @@ function keyOf(a){
 
 let BEST=null, AGG=null;
 
+/* key for a pasted page address — same rules as the engines (file name decides the subject suffix) */
+function keyFromInput(v){
+  v=String(v||'').trim(); if(!v) return '';
+  if(!/[?&](paperId|mockId|chapter)=/.test(v)) return v;              // a bare stats key
+  let u; try{ u=new URL(v,'https://trickyssc.com/'); }catch(e){ return v; }
+  const sp=u.searchParams, page=u.pathname.split('/').pop();
+  if(page==='chapterwise-test.html'){ const c=String(sp.get('chapter')||'').replace(/[^a-zA-Z0-9]/g,''); return c?'cw_'+c+'_L'+(parseInt(sp.get('level'))||1)+'_T'+(parseInt(sp.get('test'))||1):''; }
+  const subj=String(sp.get('subject')||'').toLowerCase().replace(/^(maths?|quantitative|quants)$/,'quant');
+  if(page==='mock-test-subject.html'||page==='mock-test-tier2-subject.html') return String(sp.get('mockId')||sp.get('paperId')||'').replace(LANG,'')+(subj?'__'+subj:'');
+  if(page==='test-subject.html'||page==='test-chsl-subject.html') return String(sp.get('paperId')||sp.get('mockId')||'').replace(LANG,'')+(subj?'__'+subj:'');
+  return String(sp.get('paperId')||sp.get('mockId')||'').replace(LANG,'');
+}
+$('ckBtn').onclick=async()=>{
+  const k=keyFromInput($('ckIn').value), out=$('ckOut');
+  if(!k){ out.innerHTML='<span class="bad">Could not find a paper id in that address.</span>'; return; }
+  out.textContent='Reading qstats/'+k+' …';
+  try{
+    const sn=await getDocFromServer(doc(db,'qstats',k));
+    if(!sn.exists()){ out.innerHTML='Stats key: <code>'+esc(k)+'</code><br><span class="bad">Nothing is saved under this key.</span>'; return; }
+    const d=sn.data()||{}, q=d.q||{}, top=d.top||null;
+    const qs=Object.keys(q).length, timed=Object.values(q).filter(x=>Number(x&&x.tn)>0).length;
+    out.innerHTML='Stats key: <code>'+esc(k)+'</code><br>Students counted (n): <b>'+(Number(d.n)||0)+'</b>'+((Number(d.n)||0)<20?' — fewer than 20, so "All students" shows estimates':'')
+      +'<br>Questions with stats: <b>'+qs+'</b> (with time: '+timed+')'
+      +'<br>Topper: '+(top?'<span class="ok">saved — '+esc(top.m)+' marks, '+Object.keys(top.q||{}).length+' questions'+(top.src?' ('+esc(top.src)+')':'')+'</span>':'<span class="bad">not saved</span>');
+  }catch(e){ out.innerHTML='<span class="bad">Read failed: '+esc(e.message)+'</span>'; }
+};
+
 $('signin').onclick=async()=>{ try{ await signInWithPopup(auth,new GoogleAuthProvider()); }catch(e){ $('who').textContent='Sign-in failed: '+e.message; } };
 onAuthStateChanged(auth,u=>{
   const ok=!!u&&!!u.email&&ADMIN_EMAILS.includes(u.email.toLowerCase());
   $('who').innerHTML=u?(ok?'<span class="ok">Signed in as '+esc(u.email)+'</span>':'<span class="bad">'+esc(u.email)+' is not an admin account</span>'):'Not signed in';
-  $('scan').disabled=!ok;
+  $('scan').disabled=!ok; $('ckBtn').disabled=!ok;
 });
 
 $('scan').onclick=async()=>{
   $('scan').disabled=true; $('write').disabled=true; $('summary').innerHTML=''; $('log').textContent='';
-  $('scanMsg').textContent='Reading attempts… (one read per attempt)';
+  $('scanMsg').textContent='Reading attempts… (about 33,000 reads — scan only when you need it)';
   let snap;
-  try{ snap=await getDocs(collection(db,'attempts')); }
+  /* FromServer: a dropped connection used to come back as an empty list ("Attempts read: 0") instead of an error */
+  try{ snap=await getDocsFromServer(collection(db,'attempts')); }
   catch(e){ $('scanMsg').innerHTML='<span class="bad">Could not read attempts: '+esc(e.message)+'</span>'; $('scan').disabled=false; return; }
+  if(!snap||snap.empty){ $('scanMsg').innerHTML='<span class="bad">No attempts came back from the server. Check the internet connection and press Scan again.</span>'; $('scan').disabled=false; return; }
   const best={}, agg={}; let total=0, usable=0, noKey=0;
   snap.forEach(d=>{
     total++;
