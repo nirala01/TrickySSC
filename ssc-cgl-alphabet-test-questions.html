@@ -585,7 +585,8 @@ footer a:hover{color:#FF6B00;}
   }
 
   var cached = cacheGet('tsscChCounts:' + CHAPTER);
-  if (cached) { paintCounts(cached); }
+  /* TSSC-ZEROCHECK-V1 — saved counts of 0 (saved before the tests were uploaded) are not trusted; ask again */
+  if (cached && (cached[1] || cached[2])) { paintCounts(cached); }
   else {
     Promise.all([countLevel(1), countLevel(2)])
       .then(function(r){

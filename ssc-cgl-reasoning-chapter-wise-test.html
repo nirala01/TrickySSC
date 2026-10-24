@@ -1085,10 +1085,32 @@ onAuthStateChanged(auth, user=>{
       'preparation plan on this page are ready to use.';
   }
 
-  var hit=null;
+  var hit=null, hitT=0;
   try{ var c=JSON.parse(localStorage.getItem(CACHE)||'null');
-       if(c&&(Date.now()-c.t)<TTL_MS) hit=c.n; }catch(e){}
-  if(hit){ paintAll(hit); return; }
+       if(c&&(Date.now()-c.t)<TTL_MS){ hit=c.n; hitT=c.t; } }catch(e){}
+  if(hit){
+    paintAll(hit);
+    /* TSSC-ZEROCHECK-V1 — a chapter that has its own page (data-page="1") is
+       expected to be live. If the saved counts still say 0 for one — saved
+       before its tests were uploaded — ask again for just those chapters, so
+       a freshly uploaded chapter never sits at "Coming soon" for six hours.
+       Usually this list is empty and costs nothing. */
+    var stale=rows.filter(function(r){
+      return r.getAttribute('data-page')==='1' && hit[r.getAttribute('data-chapter')]===0;
+    }).map(function(r){ return r.getAttribute('data-chapter'); });
+    if(!stale.length) return;
+    Promise.all(stale.map(function(id){
+      return countChapter(id).then(function(n){ hit[id]=n; }, function(){});
+    })).then(function(){
+      rows.forEach(function(r){
+        if(stale.indexOf(r.getAttribute('data-chapter'))>-1 && hit[r.getAttribute('data-chapter')]>0)
+          r.classList.remove('is-soon');
+      });
+      paintAll(hit);
+      try{ localStorage.setItem(CACHE,JSON.stringify({t:hitT,n:hit})); }catch(e){}
+    });
+    return;
+  }
 
   var ids=rows.map(function(r){ return r.getAttribute('data-chapter'); });
   var out={}, i=0, failed=false;
