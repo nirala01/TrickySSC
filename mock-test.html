@@ -1531,13 +1531,28 @@ const storedUser=getStoredUser();
    pass unlocks a mock is decided from the mockId prefix (ssc-chsl_…), never from
    ?exam=, so editing the URL cannot move a CGL mock under a CHSL pass or back. */
 const TG_IS_CHSL     = /^ssc-chsl_/i.test(new URLSearchParams(location.search).get('mockId')||'');
-const TG_MODULE      = TG_IS_CHSL ? 'ssc-chsl-mocks' : 'ssc-cgl-mocks';
+/* TSSC-GD-MOCK-V1 (2026-10-24) — the SSC GD Constable series runs on this engine too:
+   mockId ssc-gd_tier1_mockN_<lang>, pass key ssc-gd-mocks, Mock 1-2 free, +2/−0.25. */
+const TG_IS_GD       = /^ssc-gd_/i.test(new URLSearchParams(location.search).get('mockId')||'');
+const TG_NEG         = TG_IS_GD ? 0.25 : 0.5;          /* marks lost per wrong answer */
+window.TSSC_MK       = [2, TG_NEG];                      /* read by the review panel below */
+const TG_MODULE      = TG_IS_GD ? 'ssc-gd-mocks' : (TG_IS_CHSL ? 'ssc-chsl-mocks' : 'ssc-cgl-mocks');
 /* CHSL FREE PERIOD (Sep 2026): every CHSL mock is free while Tier 1 is being released.
    To switch the CHSL pass on, set TG_CHSL_FREE_ALL to false (Mock 1-2 stay free). */
 const TG_CHSL_FREE_ALL = false;   /* TSSC-CHSLPAY-V1 2026-10-05: CHSL pass ON, Mock 1-2 free */
-const TG_FREE_UP_TO  = TG_IS_CHSL ? (TG_CHSL_FREE_ALL ? 999 : 2) : 4;
-const TG_ENFORCE_FROM= TG_IS_CHSL ? null : '2026-08-25T00:00:00+05:30';   // null = enforce now
-const TG_BUY_URL     = TG_IS_CHSL ? 'ssc-chsl-mock-test.html' : 'ssc-cgl-mock-test.html';
+const TG_GD_FREE_ALL   = false;   /* TSSC-GD-MOCK-V1: true = every GD mock free (pre-launch), false = Mock 1-2 free */
+const TG_FREE_UP_TO  = TG_IS_GD ? (TG_GD_FREE_ALL ? 999 : 2) : (TG_IS_CHSL ? (TG_CHSL_FREE_ALL ? 999 : 2) : 4);
+const TG_ENFORCE_FROM= (TG_IS_CHSL || TG_IS_GD) ? null : '2026-08-25T00:00:00+05:30';   // null = enforce now
+const TG_BUY_URL     = TG_IS_GD ? 'ssc-gd-mock-test.html' : (TG_IS_CHSL ? 'ssc-chsl-mock-test.html' : 'ssc-cgl-mock-test.html');
+
+/* TSSC-GD-MOCK-V1 — the instruction sheet and result card are written for −0.5;
+   repaint the three static strings when a GD mock is open. */
+if (TG_IS_GD) { try {
+  document.querySelectorAll('.instr-mark-row.wrong .instr-mark-val').forEach(el => { el.innerHTML = '&minus;0.25'; });
+  document.querySelectorAll('.instr-marking-note').forEach(el => { el.innerHTML = el.innerHTML.replace('Wrong &times; 0.5', 'Wrong &times; 0.25').replace('Wrong × 0.5', 'Wrong × 0.25'); });
+  const w = document.querySelector('#statWrong + .stat-lbl span'); if (w) w.textContent = '−0.25 each';
+  document.querySelectorAll('.instr-list li').forEach(li => { if (/4 sections/.test(li.textContent)) li.innerHTML = 'This test has <strong>4 parts</strong>, as in the real SSC GD paper: General Intelligence &amp; Reasoning, General Knowledge &amp; General Awareness, Elementary Mathematics, and English/Hindi. Click a part name in the top bar to navigate to it.'; });
+} catch (e) {} }
 
 /* TSSC-TESTGATE-V3 — ?paywall=off REMOVED.
    It wrote sessionStorage.tssc_paywall_override='off', which made
@@ -2193,7 +2208,7 @@ function renderQ(){_qtTick();
   const isHindiTest=(new URLSearchParams(window.location.search).get('lang')==='hi');
   // Offer the toggle on Q1-75 for Hindi tests even before the English map is
   // fetched — the map loads lazily on first tap.
-  const hasEnglish=isHindiTest && qNum>=1 && qNum<=75;
+  const hasEnglish=isHindiTest && qNum>=1 && qNum<=(TG_IS_GD?60:75);   /* TSSC-GD-MOCK-V1 */
   if(enBtn){
     if(hasEnglish){
       enBtn.style.display='flex';
@@ -2789,8 +2804,8 @@ window.submitTest=async()=>{
     else{wrong++;subjectStats[subj].wrong++;}
     _ansLog.push({q:(parseInt(q.qNum,10)||(i+1)),s:subj,ch:String(q.chapter||q.concept||'').replace(/<[^>]*>/g,' ').replace(/&nbsp;|&amp;/g,m=>m==='&amp;'?'&':' ').replace(/\s+/g,' ').trim().slice(0,40),   /* chapter, else the solution's concept tag (HTML stripped) */d:String(q.difficulty||'').trim().toLowerCase(),a:a||'',c:String(q.correct||''),r:(!a?'k':(a===q.correct?'c':'w')),t:Math.round((_qtime[i]||0)/1000)});
   });
-  const marks=(correct*2-wrong*0.5).toFixed(1);
-  const _subjMarks={};Object.keys(subjectStats).forEach(k=>{const _s=subjectStats[k];_subjMarks[k]=+(_s.correct*2-_s.wrong*0.5).toFixed(1);});
+  const marks=(correct*2-wrong*TG_NEG).toFixed(1);   /* TSSC-GD-MOCK-V1 */
+  const _subjMarks={};Object.keys(subjectStats).forEach(k=>{const _s=subjectStats[k];_subjMarks[k]=+(_s.correct*2-_s.wrong*TG_NEG).toFixed(1);});
   const _timeUsed=Math.round(Object.values(_qtime).reduce((x,y)=>x+y,0)/1000);  // TSSC-ANSWERS-V1
   const maxMarks = questions.length * 2;
   const pct = parseFloat(((parseFloat(marks)/maxMarks)*100).toFixed(1));
@@ -2856,7 +2871,7 @@ window.imgFail = function (el) {
     // Per-solution EN/HI toggle: available for Q1–75 when an English counterpart
     // solution exists in enQMap. Q76–100 are English-only, so no toggle there.
     const _qn=parseInt(q.qNum)||(i+1);
-    const _enDoc=(_qn>=1&&_qn<=75)?(enQMap&&enQMap[_qn]):null;
+    const _enDoc=(_qn>=1&&_qn<=(TG_IS_GD?60:75))?(enQMap&&enQMap[_qn]):null;   /* TSSC-GD-MOCK-V1 */
     const _hasEnSol=!!(_enDoc&&(_enDoc.explanation||'').trim());
     const _enExp=_hasEnSol?_enDoc.explanation:'';
     const _enTrk=(_enDoc&&_enDoc.trick)||'';
@@ -3667,7 +3682,7 @@ window.doLogout=()=>{
     if(lbM==null||!(lbM>0)){ /* no leaderboard score yet: each question on its own */
       its.forEach(function(it){var q=it.getAttribute('data-qn'),pc=pcOf(it),pOk=Math.min(0.97,0.5+pc/100*0.55),u=seed(q+'p');
         var r=u<pOk?'c':(u<pOk+(1-pOk)*0.6?'w':'k');m[q]=r+(r==='k'?0:topTime(it,q));});return m;}
-    var mk=/tier2/i.test(location.pathname)?[3,1]:[2,0.5];
+    var mk=window.TSSC_MK||(/tier2/i.test(location.pathname)?[3,1]:[2,0.5]);   /* TSSC-GD-MOCK-V1 */
     var sm=LBT.subjectMarks||{},keys=Object.keys(sm),byKind={},plan=[],sum=0,ok=keys.length>1;
     its.forEach(function(it){var k=secKind(it)||'_';(byKind[k]=byKind[k]||[]).push(it);});
     keys.forEach(function(k){var kk=kindOf(k),v=Number(sm[k])||0;sum+=v;if(!kk||!byKind[kk])ok=false;else plan.push([byKind[kk],v]);});
@@ -3836,7 +3851,7 @@ window.doLogout=()=>{
     var vp=visiblePanel(), ci=vp&&cur(vp);
     var h=ring(cnt.correct,all.length,'#22C55E','Correct')+ring(cnt.wrong,all.length,'#EF4444','Incorrect')+ring(cnt.skip,all.length,'#94A3B8','Unattempted');
     var tl='';
-    if(QS){ if(!TOPMAP)TOPMAP=buildTopMap(); var tc={c:0,w:0,k:0}, mk=/tier2/i.test(location.pathname)?[3,1]:[2,0.5];
+    if(QS){ if(!TOPMAP)TOPMAP=buildTopMap(); var tc={c:0,w:0,k:0}, mk=window.TSSC_MK||(/tier2/i.test(location.pathname)?[3,1]:[2,0.5]);   /* TSSC-GD-MOCK-V1 */
       all.forEach(function(it){var t=String(TOPMAP[it.getAttribute('data-qn')]||'k0').charAt(0);if(tc[t]!=null)tc[t]++;});
       tl='<div class="rvp-topline">👑 Topper: <b>'+(Math.round((tc.c*mk[0]-tc.w*mk[1])*10)/10)+' marks</b> · ✓ '+tc.c+' · ✕ '+tc.w+' · – '+tc.k+'</div>'; }
     h='<div class="rvp-rings">'+h+'</div>'+tl+'<div class="rvp-flt">'

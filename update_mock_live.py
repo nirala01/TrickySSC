@@ -15,6 +15,7 @@ TSSC-MOCKLIVE-V2 (2026-10-15): covers every series, not just CGL Tier I —
     SSC CGL  Tier II  -> ssc-cgl-mock-test.html, mock-list.html, ssc-cgl-tier-2-mock-test.html
     SSC CHSL Tier I   -> ssc-chsl-mock-test.html
     SSC CHSL Tier II  -> ssc-chsl-tier-2-mock-test.html
+    SSC GD   CBE      -> ssc-gd-mock-test.html + the four ssc-gd-*-mock-test.html subject pages (TSSC-GD-MOCK-V1)
 CHSL Refresher cards (Mock 31-40, data-refresher) are never flipped here: they
 open by date through tssc-chsl-refresher.js, so the page script handles them.
 
@@ -42,11 +43,16 @@ SERIES = {
                             "ssc-cgl-tier-2-mock-test.html"],
     ("ssc-chsl", "tier1"): ["ssc-chsl-mock-test.html"],
     ("ssc-chsl", "tier2"): ["ssc-chsl-tier-2-mock-test.html"],
+    # TSSC-GD-MOCK-V1: the GD series is a single CBE stored as tier1; its subject pages carry the same cards
+    ("ssc-gd", "tier1"):   ["ssc-gd-mock-test.html", "ssc-gd-reasoning-mock-test.html", "ssc-gd-gk-mock-test.html",
+                            "ssc-gd-maths-mock-test.html", "ssc-gd-english-mock-test.html"],
 }
 # pages that show the "N Live" status bar for an exam's tiers
 BAR_PAGES = {
     "ssc-cgl":  ["ssc-cgl-mock-test.html", "ssc-cgl-tier-2-mock-test.html"],
     "ssc-chsl": ["ssc-chsl-mock-test.html", "ssc-chsl-tier-2-mock-test.html"],
+    "ssc-gd":   ["ssc-gd-mock-test.html", "ssc-gd-reasoning-mock-test.html", "ssc-gd-gk-mock-test.html",
+                 "ssc-gd-maths-mock-test.html", "ssc-gd-english-mock-test.html"],
 }
 ALL_PAGES = sorted({p for v in SERIES.values() for p in v})
 
@@ -65,7 +71,7 @@ PAID_TAG = ('\n  <div class="mc-lock mc-paid-tag">'
             '\n  <button class="mc-locktag" type="button" '
             'aria-label="Premium mock — unlock to attempt">'
             '<i>&#128274;</i>Unlock</button>')
-FREE_UPTO = {"ssc-cgl": 4, "ssc-chsl": 2}
+FREE_UPTO = {"ssc-cgl": 4, "ssc-chsl": 2, "ssc-gd": 2}
 
 
 # ----------------------------------------------------------------- Firestore
@@ -214,8 +220,15 @@ if __name__ == "__main__":
 
     missing = [f for f in ALL_PAGES if not os.path.exists(f)]
     if missing:
-        print("!! missing files: %s" % missing)
-        sys.exit(1)
+        # TSSC-GD-MOCK-V1: a series whose pages are not uploaded yet is skipped, not fatal
+        print("!! missing files (skipped): %s" % missing)
+        for k in list(SERIES):
+            SERIES[k] = [p for p in SERIES[k] if os.path.exists(p)]
+        for k in list(BAR_PAGES):
+            BAR_PAGES[k] = [p for p in BAR_PAGES[k] if os.path.exists(p)]
+        ALL_PAGES = [p for p in ALL_PAGES if os.path.exists(p)]
+        if not ALL_PAGES:
+            sys.exit(1)
 
     if a.live:
         if not 1 <= a.live <= 50:

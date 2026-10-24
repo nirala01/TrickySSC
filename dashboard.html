@@ -868,7 +868,9 @@ async function loadDashboard(user) {
           'ssc-cgl-dashboard':   'Dashboard Pro',
           'p-ssc-cgl-dashboard': 'Dashboard Pro',
           'ssc-chsl-mocks':      'SSC CHSL Mock Test Series 2026',     /* TSSC-CGLUPSELL-V1 */
-          'p-ssc-chsl-mocks':    'SSC CHSL Mock Test Series 2026'
+          'p-ssc-chsl-mocks':    'SSC CHSL Mock Test Series 2026',
+          'ssc-gd-mocks':        'SSC GD Constable Mock Test Series 2027',   /* TSSC-GD-MOCK-V1 */
+          'p-ssc-gd-mocks':      'SSC GD Constable Mock Test Series 2027'
         };
         /* TSSC-PLANLIST-V1 — every series the student holds, each with its OWN end
            date. Someone who bought CGL and CHSL on different days sees two dates,
@@ -876,8 +878,8 @@ async function loadDashboard(user) {
            grant that has not expired). */
         const fmtD = t => new Date(t).toLocaleDateString('en-IN',
           { day:'numeric', month:'short', year:'numeric' });
-        const RANK = { 'ssc-cgl-mocks': 1, 'ssc-chsl-mocks': 2, 'ssc-cgl-dashboard': 3 };
-        const SHORT = { 'ssc-cgl-mocks': 'SSC CGL mocks', 'ssc-chsl-mocks': 'SSC CHSL mocks',
+        const RANK = { 'ssc-cgl-mocks': 1, 'ssc-chsl-mocks': 2, 'ssc-gd-mocks': 3, 'ssc-cgl-dashboard': 4 };   /* TSSC-GD-MOCK-V1 */
+        const SHORT = { 'ssc-cgl-mocks': 'SSC CGL mocks', 'ssc-chsl-mocks': 'SSC CHSL mocks', 'ssc-gd-mocks': 'SSC GD mocks',
                         'ssc-cgl-dashboard': 'Dashboard Pro' };
         const nameOf = k => LABELS[k] || LABELS[String(k).replace(/^p-/, '')]
                          || String(k).replace(/^p-/, '').replace(/-/g, ' ');
@@ -1310,8 +1312,9 @@ function renderAttempts(attempts) {
       /* TSSC-REVIEW-V1 — pick the engine that actually ran this paper */
       const _t2 = (a.tier==='tier2') || String(a.paperId||'').includes('tier2');
       const _isSubj = a.testKind==='pyq-subject' && a.subjectKey;
-      const _eng = _isSubj ? 'test-subject.html'
-                 : (a.exam==='ssc-chsl' ? (_t2?'test-chsl-tier2.html':'test-chsl.html') : (_t2?'test-tier2.html':'test.html'));
+      /* TSSC-GD-MOCK-V1: each exam has its own engines; subject tests use that exam's subject engine */
+      const _eng = _isSubj ? (a.exam==='ssc-gd' ? 'test-gd-subject.html' : a.exam==='ssc-chsl' ? 'test-chsl-subject.html' : 'test-subject.html')
+                 : (a.exam==='ssc-gd' ? 'test-gd.html' : a.exam==='ssc-chsl' ? (_t2?'test-chsl-tier2.html':'test-chsl.html') : (_t2?'test-tier2.html':'test.html'));
       const _pidR = _isSubj ? (a.basePaperId||a.paperId||'') : (a.paperId||'');
       const _hiR  = /(_|-)(hi|hindi)$/i.test(String(a.paperId||'')) ? '&lang=hi' : '';
       retryUrl = _eng+'?exam='+a.exam+(a.year?'&year='+a.year:'')+(_pidR?'&paperId='+encodeURIComponent(_pidR):'')+(_isSubj?'&subject='+encodeURIComponent(a.subjectKey):'')+_hiR;
@@ -1416,8 +1419,12 @@ const CUTOFFS = {
      Computer (Section III) is qualifying. The gauge compares your Section I+II marks. */
   'ssc-cgl|tier2':  { label:'SSC CGL 2024 Tier II final (lowest post, Sec I+II / 390)', max:390, merit:true,
                       cut:{ GEN:322.77, OBC:306.28, EWS:300.04, SC:285.46, ST:266.50 },
-                      prev:{ label:'2025 Inspector (Income Tax)', cut:{ GEN:342, OBC:334, EWS:334, SC:322, ST:313 } } }
+                      prev:{ label:'2025 Inspector (Income Tax)', cut:{ GEN:342, OBC:334, EWS:334, SC:322, ST:313 } } },
   /* 'ssc-chsl|tier2': add here when SSC publishes category-wise final cut-offs (Sec I+II / 360) */
+  /* TSSC-GD-MOCK-V1 — SSC GD 2026 CBE result (12 Oct 2026), male candidates, marks out of 160. GD cut-offs are
+     state- and force-wise; these are the overall category figures, so treat the gauge as indicative. */
+  'ssc-gd|tier1':   { label:'SSC GD 2026 CBE (male, overall)', max:160,
+                      cut:{ GEN:146.18, OBC:145.56, EWS:144.21, SC:140.95, ST:135.03 } }
 };
 /* Marks to compare with a cut-off: Tier II uses only Section I+II subjects (no Computer/Statistics) */
 function meritMarks(a){
@@ -1460,7 +1467,7 @@ const isMock = a => !isChapter(a) && !!(a.mockId || a.type==='mock' || (a.paperI
 const isTier2 = a => a.tier==='tier2' || /tier2|tier-2|tier_2/i.test((a.paperId||'')+(a.mockId||''));
 const marksOf = a => { const h=a.marks!==undefined&&a.marks!==null&&a.marks!==''; return h?(parseFloat(a.marks)||0):Math.round(((parseFloat(a.percentage)||0)/100)*maxOf(a)); };
 const maxOf = a => a.maxMarks ? Number(a.maxMarks) : (parseInt(a.total)||100)*(isTier2(a)?3:2);
-const posneg = a => isTier2(a) ? {pos:3,neg:1} : {pos:2,neg:0.5};
+const posneg = a => a.exam==='ssc-gd' ? {pos:2,neg:0.25} : isTier2(a) ? {pos:3,neg:1} : {pos:2,neg:0.5};   /* TSSC-GD-MOCK-V1: GD is +2/−0.25 */
 const tsOf = a => a.timestamp?.toDate ? a.timestamp.toDate().getTime() : (a.clientSubmittedAt ? new Date(a.clientSubmittedAt).getTime() : 0);
 /* TSSC-CWRANK-V1: chapter tests carry a board key cw_<chapterId stripped>_L<level>_T<test> (stored as lbKey from this update; derived for older attempts) */
 const cwLbKey = a => { const c=String(a.chapterId||a.chapter||'').replace(/[^a-zA-Z0-9]/g,''); return c ? 'cw_'+c+'_L'+(parseInt(a.level)||1)+'_T'+(parseInt(a.testNum)||1) : ''; };
@@ -1486,7 +1493,7 @@ function scopeOf(a){
 function scopeLabel(key, a){
   const p=key.split('|');
   if(p[0]==='ch') return ((a&&(a.chapterName||a.examName))||p[1]||'Chapter')+' · Chapter tests';
-  const ex=(p[1]==='ssc-chsl'?'SSC CHSL':'SSC CGL')+' '+(p[2]==='tier2'?'Tier II':'Tier I');
+  const ex=p[1]==='ssc-gd' ? 'SSC GD Constable CBE' : ((p[1]==='ssc-chsl'?'SSC CHSL':'SSC CGL')+' '+(p[2]==='tier2'?'Tier II':'Tier I'));   /* TSSC-GD-MOCK-V1 */
   if(p[0]==='subj') return ex+' · '+(SUBJ_NAME[skey(p[3])]||p[3])+' subject tests';
   return ex+' · Full tests (PYQ + mocks)';
 }
@@ -1506,7 +1513,7 @@ function testUrl(a){
   if(isMock(a)){
     if(a.testKind==='mock-subject' && a.subjectKey){ const mid=a.baseMockId||String(a.mockId||'').replace(/__[a-z]+$/i,''); return (isTier2(a)?'mock-test-tier2-subject.html':'mock-test-subject.html')+'?exam='+(a.exam||'')+'&mockId='+encodeURIComponent(mid)+'&lang='+(mid.endsWith('_hi')?'hi':'en')+'&subject='+encodeURIComponent(a.subjectKey); }   /* TSSC-SUBJECT-MOCK-V1 */
     const mid=a.mockId||a.paperId||''; return (isTier2(a)?'mock-test-tier2.html':'mock-test.html')+'?exam='+(a.exam||'')+'&mockId='+encodeURIComponent(mid)+'&lang='+(mid.endsWith('_hi')?'hi':'en'); }
-  return (a.exam==='ssc-chsl'?(isTier2(a)?'test-chsl-tier2.html':'test-chsl.html'):(isTier2(a)?'test-tier2.html':'test.html'))+'?exam='+(a.exam||'')+(a.year?'&year='+a.year:'')+(a.paperId?'&paperId='+encodeURIComponent(a.paperId):'');
+  return (a.exam==='ssc-gd'?'test-gd.html':a.exam==='ssc-chsl'?(isTier2(a)?'test-chsl-tier2.html':'test-chsl.html'):(isTier2(a)?'test-tier2.html':'test.html'))+'?exam='+(a.exam||'')+(a.year?'&year='+a.year:'')+(a.paperId?'&paperId='+encodeURIComponent(a.paperId):'');   /* TSSC-GD-MOCK-V1 */
 }
 /** subject marks map {Q:..,R:..} from subjectMarks or subjectStats */
 function subjMarks(a){
