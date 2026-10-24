@@ -1,6 +1,6 @@
 name: Update Mock Live Count
 
-# Keeps every mock page (SSC CGL Tier I + II, SSC CHSL Tier I + II) in step with
+# Keeps every mock page (SSC CGL Tier I + II, SSC CHSL Tier I + II, SSC GD) in step with
 # Firestore, the same way the PYQ page build does — TSSC-MOCKLIVE-V2. Runs on a schedule, and can be triggered by
 # hand from the Actions tab the moment a new mock is uploaded.
 
@@ -41,13 +41,14 @@ jobs:
 
       - name: Commit if anything changed
         run: |
-          if [ -z "$(git status --porcelain ssc-cgl-mock-test.html mock-list.html ssc-cgl-tier-2-mock-test.html ssc-chsl-mock-test.html ssc-chsl-tier-2-mock-test.html)" ]; then
+          if [ -z "$(git status --porcelain ssc-cgl-mock-test.html mock-list.html ssc-cgl-tier-2-mock-test.html ssc-chsl-mock-test.html ssc-chsl-tier-2-mock-test.html ssc-gd-mock-test.html ssc-gd-reasoning-mock-test.html ssc-gd-gk-mock-test.html ssc-gd-maths-mock-test.html ssc-gd-english-mock-test.html)" ]; then
             echo "No change — nothing to commit."
             exit 0
           fi
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add ssc-cgl-mock-test.html mock-list.html ssc-cgl-tier-2-mock-test.html ssc-chsl-mock-test.html ssc-chsl-tier-2-mock-test.html
+          for f in ssc-gd-mock-test.html ssc-gd-reasoning-mock-test.html ssc-gd-gk-mock-test.html ssc-gd-maths-mock-test.html ssc-gd-english-mock-test.html; do [ -f "$f" ] && git add "$f"; done   # TSSC-GD-MOCK-V1
           # NO [skip ci] HERE (TSSC-MOCKLIVE-V2). GitHub Pages publishes through the
           # `pages build and deployment` workflow and [skip ci] suppresses it, so the
           # synced pages never reached the live site until some other commit landed.

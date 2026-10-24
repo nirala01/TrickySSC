@@ -1,0 +1,68 @@
+# .github/workflows/build-gd-pyq.yml
+#
+# Rebuilds the static SSC GD Constable PYQ list (hub + the four subject-wise
+# pages) so newly uploaded GD papers become crawlable HTML links. Mirrors the
+# CHSL build but reads the small `papers` cards, not the questions collection.
+# Before the first GD paper is uploaded every run is a harmless no-op.
+
+name: Build SSC GD PYQ page
+
+on:
+  schedule:
+    - cron: '40 */6 * * *'      # every 6 hours, offset from the CGL (:00) and CHSL (:20) builds
+  workflow_dispatch:            # rebuild by hand right after an upload
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-gd-pyq
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Bake the paper list into ssc-gd-pyq.html and the four subject-wise GD PYQ pages
+        run: |
+          python build_gd_pyq_page.py \
+            --page ssc-gd-pyq.html \
+            --sitemap sitemap-gd-pyq.xml
+
+      - name: Commit if anything changed
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for f in ssc-gd-pyq.html sitemap-gd-pyq.xml \
+            ssc-gd-reasoning-previous-year-questions.html ssc-gd-gk-previous-year-questions.html \
+            ssc-gd-maths-previous-year-questions.html ssc-gd-english-previous-year-questions.html; do
+            [ -f "$f" ] && git add "$f"
+          done
+          if git diff --cached --quiet; then
+            echo "No GD paper changes — nothing to commit."
+            exit 0
+          fi
+
+          # NO [skip ci] HERE. GitHub Pages publishes via the `pages build and
+          # deployment` workflow and [skip ci] suppresses it — the commit lands on
+          # main and the site keeps serving the old file (that is what hid 8 CHSL
+          # papers on 2026-08-20). This workflow runs only on schedule/dispatch,
+          # never on push, so there is no loop to guard against.
+          git commit -m "chore: rebuild SSC GD PYQ list"
+
+          for i in 1 2 3; do
+            if git push; then
+              echo "pushed on attempt $i"
+              exit 0
+            fi
+            echo "push rejected — rebasing onto origin/main and retrying"
+            git pull --rebase --autostash origin main
+          done
+          echo "::error::could not push after 3 attempts"
+          exit 1
