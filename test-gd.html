@@ -1390,6 +1390,8 @@ const SUBJECT_SHORT={
   'Quantitative Aptitude':'Quant',
   'General Awareness':'Gen. Awareness',
   'English Language':'English',
+  'Hindi Language':'Hindi',   /* TSSC-GD-PARTD-V1: Part D on the Hindi paper */
+  'हिंदी भाषा':'Hindi',
   'English':'English',
   'reasoning':'Reasoning','quant':'Quant','gk':'Gen. Awareness','english':'English',
   // Hindi subject names → English short labels
@@ -1457,6 +1459,31 @@ let enFetchParams=null;  // {exam, year, mNum, heldOn, shift, paperId} stashed f
 let testStarted=false;
 
 function setLoaderMsg(msg){const el=document.getElementById('loader-msg');if(el)el.textContent=msg;}
+
+/* TSSC-GD-PARTD-V1 — Part D language pills on the instruction sheet. Changing the
+   choice reloads the page with ?partd=, so the swap happens before anything is answered. */
+function tsscPartDSelector(){
+  if(!window.__tsscPartDBase) return;
+  const foot=document.querySelector('#instrScreen .instr-footer'); if(!foot||document.getElementById('gdPartD')) return;
+  const base=window.__tsscPartDBase, cur=window.__tsscPartD||base, un=window.__tsscPartDUnavailable;
+  const box=document.createElement('div'); box.id='gdPartD';
+  box.style.cssText='margin:0 0 1rem;padding:0.85rem 1rem;background:#FFF7ED;border:1.5px solid #FDBA74;border-radius:12px;';
+  const pill=(v,label,sub)=>'<label style="position:relative;display:inline-flex;align-items:center;gap:0.45rem;padding:0.45rem 0.9rem;border-radius:999px;border:1.5px solid '+(cur===v?'#FF6B00':'#E2E8F0')+';background:'+(cur===v?'#FF6B00':'#fff')+';color:'+(cur===v?'#fff':'#1A202C')+';font-family:Rajdhani,sans-serif;font-weight:700;font-size:0.95rem;cursor:pointer;margin:0.25rem 0.5rem 0.25rem 0;"><input type="radio" name="gdPartD" value="'+v+'" '+(cur===v?'checked':'')+' style="position:absolute;opacity:0;width:0;height:0;margin:0;">'+label+'<span style="font-weight:600;font-size:0.72rem;opacity:0.85;">'+sub+'</span></label>';
+  box.innerHTML='<div style="font-family:Rajdhani,sans-serif;font-weight:800;font-size:1rem;color:#9A3412;margin-bottom:0.35rem;">&#128214; Part D (Q61&ndash;80) language &middot; <span lang="hi">भाग D की भाषा</span></div>'
+    +'<div style="font-size:0.8rem;color:#475569;line-height:1.5;margin-bottom:0.5rem;">In the real SSC GD CBE you answer Part D in <b>either</b> English or Hindi. Parts A&ndash;C stay in the medium you opened ('+(base==='hi'?'Hindi':'English')+').</div>'
+    +'<div>'+pill('en','English Language','20 Qs')+pill('hi','हिंदी भाषा','20 प्रश्न')+'</div>'
+    +(un?'<div style="font-size:0.76rem;color:#B91C1C;margin-top:0.45rem;">'+(un==='hi'?'Hindi':'English')+' Part D is not uploaded for this paper yet &mdash; continuing with '+(base==='hi'?'Hindi':'English')+'.</div>':'');
+  foot.parentNode.insertBefore(box,foot);
+  box.querySelectorAll('input[name="gdPartD"]').forEach(r=>r.addEventListener('change',()=>{
+    const want=r.value; if(want===(window.__tsscPartD||base)||window.__tsscPartDReloading) return;
+    window.__tsscPartDReloading=true;
+    const u=new URL(location.href); if(want===base) u.searchParams.delete('partd'); else u.searchParams.set('partd',want);
+    const b=document.getElementById('instrStartBtn'); if(b){b.disabled=true;b.textContent='Switching Part D...';}
+    location.replace(u.toString());
+  }));
+}
+window.tsscPartDSelector=tsscPartDSelector;
+
 
 function getStoredUser(){
   try{const s=localStorage.getItem('tssc_user');if(s){const u=JSON.parse(s);if(u&&u.uid)return u;}}catch(e){}
@@ -1803,6 +1830,38 @@ async function loadTest(){
     questions.sort((a,b)=>(parseInt(a.qNum)||0)-(parseInt(b.qNum)||0));
     questions.forEach(q=>normaliseQ(q));
 
+    /* TSSC-GD-PARTD-V1 (2026-10-25) — SSC GD: Part D (Q61-80) may be taken in the other
+       language. ?partd=en|hi swaps Q61-80 for the twin paper's Part D (English Language on
+       the EN paper, Hindi Language on the HI paper). Q1-60 keep the chosen medium. */
+    window.__tsscPartD=''; window.__tsscPartDBase=''; window.__tsscPartDUnavailable='';
+    try{
+      const _gdId=String(paperId||mockId||'');
+      const _gdLang=(lang==='hi'||/[_-](hi|hindi)$/i.test(_gdId))?'hi':'en';
+      const _isGd=(exam==='ssc-gd')||/^ssc-gd/i.test(_gdId);
+      const _partDReq=String(p.get('partd')||'').toLowerCase();
+      if(_isGd){ window.__tsscPartDBase=_gdLang; window.__tsscPartD=_gdLang; }
+      if(_isGd&&(_partDReq==='en'||_partDReq==='hi')&&_partDReq!==_gdLang&&questions.length){
+        setLoaderMsg('Loading Part D ('+(_partDReq==='hi'?'Hindi':'English')+')...');
+        const _twinId=_gdId.replace(/([_-])(en|hi|english|hindi)$/i,(m,sep,l)=>sep+(_partDReq==='hi'?(l.length>2?'hindi':'hi'):(l.length>2?'english':'en')));
+        let _twin=[];
+        if(_twinId&&_twinId!==_gdId){
+          const _f=paperId?where('paperId','==',_twinId):where('mockId','==',_twinId);
+          const _snap=await Promise.race([getDocs(query(collection(db,'questions'),_f)),new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),9000))]);
+          _snap.forEach(d=>_twin.push({id:d.id,...d.data()}));
+        }
+        const _rows=_twin.map(q=>{normaliseQ(q);return q;}).filter(q=>{const n=parseInt(q.qNum)||0;return n>=61&&n<=80;}).sort((a,b)=>(parseInt(a.qNum)||0)-(parseInt(b.qNum)||0));
+        if(_rows.length===20){
+          for(let i=questions.length-1;i>=0;i--){const n=parseInt(questions[i].qNum)||0;if(n>=61&&n<=80)questions.splice(i,1);}
+          _rows.forEach(q=>questions.push(q));
+          questions.sort((a,b)=>(parseInt(a.qNum)||0)-(parseInt(b.qNum)||0));
+          window.__tsscPartD=_partDReq;
+        }else{
+          window.__tsscPartDUnavailable=_partDReq;
+          console.warn('[TrickySSC] Part D swap skipped: twin rows',_rows.length,'for',_twinId);
+        }
+      }
+    }catch(e){ window.__tsscPartDUnavailable=String(p.get('partd')||''); console.warn('[TrickySSC] Part D swap failed:',e&&e.message); }
+
     // ── English counterpart for Hindi tests (Q1-75): LAZY ──
     // Don't fetch the English paper on open (it doubles network work and
     // competes for bandwidth on mobile). Instead stash what we'd need and
@@ -1834,6 +1893,7 @@ async function loadTest(){
     else if(mNum) title+=' — Mock '+mNum;
     if(lLabel) title+=' · '+lLabel;
 
+    if(window.__tsscPartD&&window.__tsscPartDBase&&window.__tsscPartD!==window.__tsscPartDBase) title+=' · Part D '+(window.__tsscPartD==='hi'?'Hindi':'English');   /* TSSC-GD-PARTD-V1 */
     document.getElementById('examTitle').textContent=title;
     document.getElementById('userName').textContent=currentUser?.displayName||'Student';
 
@@ -1856,6 +1916,7 @@ async function loadTest(){
     if(REVIEW_ID){ await tsscEnterReview(); return; }   /* TSSC-REVIEW-V1 */
     document.getElementById('loader').style.display='none';
     document.getElementById('instrScreen').style.display='flex';
+    try{ tsscPartDSelector(); }catch(e){}   /* TSSC-GD-PARTD-V1 */
 
   }catch(e){
     clearTimeout(_hardTimeout);
@@ -2717,7 +2778,7 @@ window.submitTest=async()=>{
   const _examLabel = mockMeta?.title || ((_examNames[exam]||(exam||'').toUpperCase().replace(/-/g,' '))+(year?' '+year:''));
   const _pid=new URLSearchParams(window.location.search).get('paperId')||'';
   const _mid=new URLSearchParams(window.location.search).get('mockId')||'';
-  const payload={uid:currentUser.uid,exam,year:year||'',examName:_examLabel,paperId:_pid,mockId:_mid,total:questions.length,correct,wrong,skip,marks:parseFloat(marks),percentage:pct,subjectStats,subjectMarks:_subjMarks,answers:_ansLog,timeUsed:_timeUsed,analyticsV:1,timestamp:serverTimestamp(),clientSubmittedAt:new Date().toISOString()};
+  const payload={uid:currentUser.uid,exam,year:year||'',examName:_examLabel,paperId:_pid,mockId:_mid,total:questions.length,correct,wrong,skip,marks:parseFloat(marks),percentage:pct,subjectStats,subjectMarks:_subjMarks,answers:_ansLog,timeUsed:_timeUsed,analyticsV:1,partD:(window.__tsscPartD||''),timestamp:serverTimestamp(),clientSubmittedAt:new Date().toISOString()};
   // Leaderboard: record best score for this paper (non-blocking) + reveal Rank button
   const _lbId=_pid||_mid;
   // Language-agnostic leaderboard key so Hindi & English candidates for the
