@@ -727,8 +727,17 @@ function validatePaper(p) {
   if (qEn.length && qHi.length) {
     if (qEn.length !== qHi.length) errs.push(`EN has ${qEn.length} questions but HI has ${qHi.length}`);
     const hiKey = {}; qHi.forEach(r => hiKey[parseInt(r.qNum)] = (r.correct || '').trim());
-    const clash = qEn.filter(r => hiKey[parseInt(r.qNum)] && hiKey[parseInt(r.qNum)] !== (r.correct || '').trim());
+    /* TSSC-GD-PYQ-V1 (2026-10-24): on SSC GD the Hindi paper's Part D (Q61-80) is a
+       different set of questions (Hindi Language) from the English paper's English
+       Language items, so their keys legitimately differ. Compare Q1-60 only for GD. */
+    const GD_LANG_BAND = (m.exam === 'ssc-gd') ? [61, 80] : null;
+    const inLangBand = n => GD_LANG_BAND && n >= GD_LANG_BAND[0] && n <= GD_LANG_BAND[1];
+    const clash = qEn.filter(r => !inLangBand(parseInt(r.qNum)) && hiKey[parseInt(r.qNum)] && hiKey[parseInt(r.qNum)] !== (r.correct || '').trim());
     if (clash.length) errs.push(`answer key differs between EN and HI at Q${clash.map(r => r.qNum).join(', Q')}`);
+    if (GD_LANG_BAND) {
+      const hiLang = qHi.filter(r => inLangBand(parseInt(r.qNum)) && !/[\u0900-\u097F]/.test(r.text || ''));
+      if (hiLang.length) warns.push(`SSC GD: ${hiLang.length} Hindi-paper Part D row(s) (Q61-80) carry no Devanagari — expected the paper's own Hindi Language questions`);
+    }
   }
 
   for (const [sk, qk, label] of [['sEn','qEn','EN'],['sHi','qHi','HI']]) {
