@@ -585,19 +585,24 @@ document.addEventListener('click', async (e)=>{
 
 /* ══════════════════════════════════════════════════════════════════
    AI AUTO-CORRECT
-   Locate the flagged question doc(s) → send to Claude with the
+   Locate the flagged question doc(s) → send to the AI (OpenAI) with the
    candidate's complaint → preview an editable field-level diff →
    approve → write to Firestore + audit log.
    ══════════════════════════════════════════════════════════════════ */
 
 // ── Config: adjust these if your worker/collections differ ──
-const AI_ENDPOINT   = "https://trickyssc-ai.nirala01.workers.dev";
-const AI_MODEL      = "claude-sonnet-5";        // must match what your worker allows
-const AI_MAX_TOKENS  = 8000;         // correctness pass — short reply
-const SOL_MAX_TOKENS = 16000;        // solution rewrite — one document per call
-const RW_MAX_TOKENS  = 16000;        // TSSC-QREWRITE-V1 — question repair / replacement, one document per call
+// TSSC-OPENAI-V1 (2026-10-27): moved from Claude (trickyssc-ai worker) to OpenAI via the
+// trickyssc-openai worker, which holds the OpenAI key and only answers signed-in admins.
+const AI_ENDPOINT   = "https://trickyssc-openai.nirala01.workers.dev";
+const AI_MODEL      = "gpt-6.1-sol";  // must be in the worker's ALLOWED_MODELS (gpt-6-astra = stronger, gpt-6.1-terra = cheaper)
+const AI_EFFORT     = "medium";       // reasoning effort: low | medium | high | xhigh
+// OpenAI counts its hidden reasoning inside the output cap, so these are set higher than the Claude values were.
+// You are only billed for tokens actually used, not for the cap.
+const AI_MAX_TOKENS  = 16000;        // correctness pass — short reply
+const SOL_MAX_TOKENS = 32000;        // solution rewrite — one document per call
+const RW_MAX_TOKENS  = 32000;        // TSSC-QREWRITE-V1 — question repair / replacement, one document per call
 const RW_VERIFY      = true;         // blind re-solve of a rewritten question (key hidden) before you review it
-const VERIFY_MAX_TOKENS = 3000;
+const VERIFY_MAX_TOKENS = 8000;
 const NEIGH_SPAN       = 9;          // question numbers read either side to find the questions sharing a passage
 const PASSAGE_MIN      = 160;        // a shared opening shorter than this is not treated as a passage
 const PASSAGE_TEXT_MIN = 350;        // question text shorter than this cannot hold a passage — no neighbour reads
@@ -1042,7 +1047,7 @@ function renderStage2(){
   $('goSol').onclick = () => { FIX.from = null; runAI('solution'); };
 }
 
-// ── Stage 3: call Claude ───────────────────────────────────────────
+// ── Stage 3: call the AI ───────────────────────────────────────────
 function buildPrompt(){
   const L = [];
   L.push("You are a senior SSC exam content reviewer for TrickySSC, an SSC exam-prep platform.");
@@ -1378,23 +1383,35 @@ function parseAI(raw){
 // stop_reason, so never rely on it alone.
 const looksCut = raw => !/}\s*$/.test(stripFences(raw));
 
-// ── One API call ───────────────────────────────────────────────────
+// ── One API call (OpenAI Responses API through the trickyssc-openai worker) ──
 async function callAI(prompt, maxTokens){
+  const user = auth.currentUser;
+  if(!user) throw new Error('Not signed in — sign in again and retry.');
+  const token = await user.getIdToken();          // the worker checks this is an admin
   const res = await fetch(AI_ENDPOINT, {
     method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ model: AI_MODEL, max_tokens: maxTokens,
-      messages:[{role:'user', content: prompt}] })
+    headers:{'Content-Type':'application/json', 'Authorization':'Bearer '+token},
+    body: JSON.stringify({ model: AI_MODEL, max_output_tokens: maxTokens,
+      reasoning:{effort: AI_EFFORT}, input: prompt })
   });
   const j = await res.json().catch(()=>null);
-  if(!res.ok) throw new Error(`HTTP ${res.status} — ${JSON.stringify(j||'').slice(0,300)}`);
-  const raw = Array.isArray(j?.content)
-    ? j.content.filter(b=>b.type==='text').map(b=>b.text).join('\n')
-    : (j?.text || j?.completion || j?.output_text || (typeof j==='string'? j : ''));
-  return {raw, stop: String(j?.stop_reason || j?.stopReason || '')};
+  if(!res.ok){
+    const m = j?.error?.message || j?.error || JSON.stringify(j||'');
+    throw new Error(`HTTP ${res.status} — ${String(m).slice(0,300)}`);
+  }
+  // Collect the assistant text; if the model labels a final answer, use only that.
+  const msgs = Array.isArray(j?.output) ? j.output.filter(o => o && o.type==='message') : [];
+  const fin  = msgs.filter(o => o.phase==='final_answer');
+  const raw  = msgs.length
+    ? (fin.length ? fin : msgs).flatMap(o => o.content||[])
+        .filter(c => c && (c.type==='output_text' || c.type==='text')).map(c => c.text).join('\n')
+    : (typeof j?.output_text==='string' ? j.output_text : '');
+  const stop = (j?.status==='incomplete' && /max_output_tokens/.test(j?.incomplete_details?.reason||''))
+    ? 'max_tokens' : String(j?.status || '');
+  return {raw, stop};
 }
 
-const aiFailMsg = e => `AI request failed: ${esc(e.message||e)}<br><span class="muted">Check that <code>${esc(AI_ENDPOINT)}</code> accepts a standard Anthropic messages body and allows <code>${esc(AI_MODEL)}</code>.</span>`;
+const aiFailMsg = e => `AI request failed: ${esc(e.message||e)}<br><span class="muted">Check that <code>${esc(AI_ENDPOINT)}</code> is deployed with the OPENAI_API_KEY secret, that it allows <code>${esc(AI_MODEL)}</code>, and that your OpenAI account has credit.</span>`;
 
 function busyPane(stepLabel, line, sub){
   $('fixBody').innerHTML = `<div class="steps">1 · Located → <b>2 · ${stepLabel}</b> → 3 · Review → 4 · Publish</div>
@@ -1439,7 +1456,7 @@ async function runAI(mode){
 const SHORT_FIELD = f => /^(correct|answer|correct_option|correctOption|key|ans)$/i.test(String(f));
 
 async function runCorrection(){
-  busyPane('Analysing', 'Claude is solving the question and checking the stored content…');
+  busyPane('Analysing', 'The AI is solving the question and checking the stored content…');
   let r;
   try{ r = await callAI(buildPrompt(), AI_MAX_TOKENS); }
   catch(e){ return fail(aiFailMsg(e)); }
@@ -1588,7 +1605,7 @@ async function runQuestionRewrite(){
     }
     busyPane('Rewriting the question',
       ref ? `Carrying the same question into ${LG} — document ${n+1} of ${order.length}…`
-          : `Claude is repairing / rewriting the question — ${LG}, document ${n+1} of ${order.length}…`,
+          : `The AI is repairing / rewriting the question — ${LG}, document ${n+1} of ${order.length}…`,
       `${esc(d.coll)}/${esc(d.id)}${d._pi && d._pi.passage ? ` · passage found (${d._pi.passage.length} characters, ${d._pi.siblings.length} sibling question(s)) — it will not be touched` : ''}`);
 
     let r;
