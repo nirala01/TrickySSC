@@ -968,13 +968,13 @@ onAuthStateChanged(auth, user=>{
        if(c&&(Date.now()-c.t)<TTL_MS){ hit=c.n; hitT=c.t; } }catch(e){}
   if(hit){
     paintAll(hit);
-    /* TSSC-ZEROCHECK-V1 — a chapter that has its own page (data-page="1") is
-       expected to be live. If the saved counts still say 0 for one — saved
-       before its tests were uploaded — ask again for just those chapters, so
-       a freshly uploaded chapter never sits at "Coming soon" for six hours.
-       Usually this list is empty and costs nothing. */
+    /* TSSC-ZEROCHECK-V2 — if the saved counts say 0 for any chapter (saved
+       before its tests were uploaded), ask again for just those chapters, so a
+       freshly uploaded chapter never sits at "Coming soon" for six hours —
+       whether or not it has its own page yet. Only the "Coming soon" rows are
+       re-asked, one count query each, so this costs almost nothing. */
     var stale=rows.filter(function(r){
-      return r.getAttribute('data-page')==='1' && hit[r.getAttribute('data-chapter')]===0;
+      return hit[r.getAttribute('data-chapter')]===0;
     }).map(function(r){ return r.getAttribute('data-chapter'); });
     if(!stale.length) return;
     Promise.all(stale.map(function(id){
