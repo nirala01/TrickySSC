@@ -675,6 +675,12 @@ border-radius:9px;background:linear-gradient(135deg,#2563EB,#1D4ED8);color:#fff;
 font-family:'Rajdhani',sans-serif;font-weight:800;font-size:.98rem;letter-spacing:.02em;}
 #mockBuyPop .mbp-up-go:hover{filter:brightness(1.08);}
 #mockBuyPop .mbp-up-f{display:block;font-size:.72rem;color:#475569;}
+/* TSSC-COMBOINTENT-V1 — combo box spotlighted when the visitor came for the combo */
+#mockBuyPop .mbp-up.mbp-up-hi{border:2px solid #F59E0B;background:#FFFBEB;color:#78350F;
+  box-shadow:0 0 0 4px rgba(245,158,11,.18);animation:mbpUpHi 1.6s ease-in-out 3;}
+#mockBuyPop .mbp-up.mbp-up-hi b{color:#B45309;}
+@keyframes mbpUpHi{0%,100%{box-shadow:0 0 0 4px rgba(245,158,11,.18)}50%{box-shadow:0 0 0 9px rgba(245,158,11,.06)}}
+@media(prefers-reduced-motion:reduce){#mockBuyPop .mbp-up.mbp-up-hi{animation:none}}
 /* TSSC-LOGINNOTE-V1 — which login the buyer must keep using */
 #mockBuyPop .mbp-login{background:#FFF7ED;border:1px solid #FDBA74;color:#7C2D12;
 border-radius:9px;padding:.6rem .75rem;font-size:.78rem;margin-bottom:.75rem;line-height:1.55;}
@@ -3623,11 +3629,30 @@ async function loadEntitlement(uid) {
 classify();
 applyEntitlement();          // signed-out default: locked
 
+/* TSSC-COMBOINTENT-V1 (2026-10-27) — arriving from the site popup's "Get both for
+   Rs 79" button (?combo=1): open the buy popup once and spotlight the CGL + CHSL
+   combo box in it. Signed-out visitors get the login popup first (openBuy does
+   that). A buyer who owns the SSC CGL mocks sees the Rs 29 upgrade instead,
+   exactly as before; a buyer who owns the CHSL mocks sees nothing. */
+function comboIntent() {
+  if (OWNED || window.__tsscComboOpened || !/[?&]combo=1(&|$)/.test(location.search)) return;
+  window.__tsscComboOpened = true;
+  setTimeout(async () => {
+    try { await openBuy(null); } catch (e) { return; }
+    const up = document.getElementById('mbpUp');
+    if (up && !up.hidden) {
+      up.classList.add('mbp-up-hi');
+      try { up.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {}
+    }
+  }, 700);
+}
+
 onAuthStateChanged(_auth, async user => {
-  if (!user) { OWNED = false; applyEntitlement(); return; }
+  if (!user) { OWNED = false; applyEntitlement(); comboIntent(); return; }
   OWNED = await loadEntitlement(user.uid);
   applyEntitlement();
   resumePending();
+  comboIntent();                                  /* TSSC-COMBOINTENT-V1 */
   /* TSSC-UPGRADE-V2 — arriving from the upgrade popup (?upgrade=1): open the
      buy popup once; it leads with the Rs 29 upgrade if this buyer qualifies. */
   if (!OWNED && /[?&]upgrade=1(&|$)/.test(location.search) && !window.__tsscUpgOpened) {
