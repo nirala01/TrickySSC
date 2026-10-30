@@ -1464,33 +1464,11 @@ function setLoaderMsg(msg){const el=document.getElementById('loader-msg');if(el)
 /* TSSC-GD-PARTD-V1 — Part D language pills on the instruction sheet. Changing the
    choice reloads the page with ?partd=, so the swap happens before anything is answered. */
 function tsscPartDSelector(){
-  if(!window.__tsscPartDBase) return;
-  const foot=document.querySelector('#instrScreen .instr-footer'); if(!foot||document.getElementById('gdPartD')) return;
-  const base=window.__tsscPartDBase, cur=window.__tsscPartD||base, un=window.__tsscPartDUnavailable;
-  const box=document.createElement('div'); box.id='gdPartD';
-  box.style.cssText='margin:0 0 1rem;padding:0.85rem 1rem;background:#FFF7ED;border:1.5px solid #FDBA74;border-radius:12px;';
-  /* TSSC-GD-PARTD-V2 — the mock/PYQ list pages now ask for Part D in the chooser popup and pass
-     ?partd=; when that choice arrived and the twin loaded, show it as a one-line confirmation
-     instead of the pills. The pills stay for a direct/old link and when the twin is missing. */
-  const _pdq=String(new URLSearchParams(location.search).get('partd')||'').toLowerCase();
-  if((_pdq==='en'||_pdq==='hi')&&!un){
-    box.innerHTML='<div style="font-family:Rajdhani,sans-serif;font-weight:800;font-size:1rem;color:#9A3412;">&#128214; Part D (Q61&ndash;80): <span style="color:#1A202C;">'+(cur==='hi'?'\u0939\u093f\u0902\u0926\u0940 \u092d\u093e\u0937\u093e / Hindi Language':'English Language')+'</span></div>'
-      +'<div style="font-size:0.78rem;color:#475569;line-height:1.5;margin-top:0.25rem;">Parts A&ndash;C are in '+(base==='hi'?'Hindi':'English')+'. To change the Part D language, go back and pick again from the test list.</div>';
-    foot.parentNode.insertBefore(box,foot); return;
-  }
-  const pill=(v,label,sub)=>'<label style="position:relative;display:inline-flex;align-items:center;gap:0.45rem;padding:0.45rem 0.9rem;border-radius:999px;border:1.5px solid '+(cur===v?'#FF6B00':'#E2E8F0')+';background:'+(cur===v?'#FF6B00':'#fff')+';color:'+(cur===v?'#fff':'#1A202C')+';font-family:Rajdhani,sans-serif;font-weight:700;font-size:0.95rem;cursor:pointer;margin:0.25rem 0.5rem 0.25rem 0;"><input type="radio" name="gdPartD" value="'+v+'" '+(cur===v?'checked':'')+' style="position:absolute;opacity:0;width:0;height:0;margin:0;">'+label+'<span style="font-weight:600;font-size:0.72rem;opacity:0.85;">'+sub+'</span></label>';
-  box.innerHTML='<div style="font-family:Rajdhani,sans-serif;font-weight:800;font-size:1rem;color:#9A3412;margin-bottom:0.35rem;">&#128214; Part D (Q61&ndash;80) language &middot; <span lang="hi">भाग D की भाषा</span></div>'
-    +'<div style="font-size:0.8rem;color:#475569;line-height:1.5;margin-bottom:0.5rem;">In the real SSC GD CBE you answer Part D in <b>either</b> English or Hindi. Parts A&ndash;C stay in the medium you opened ('+(base==='hi'?'Hindi':'English')+').</div>'
-    +'<div>'+pill('en','English Language','20 Qs')+pill('hi','हिंदी भाषा','20 प्रश्न')+'</div>'
-    +(un?'<div style="font-size:0.76rem;color:#B91C1C;margin-top:0.45rem;">'+(un==='hi'?'Hindi':'English')+' Part D is not uploaded for this paper yet &mdash; continuing with '+(base==='hi'?'Hindi':'English')+'.</div>':'');
-  foot.parentNode.insertBefore(box,foot);
-  box.querySelectorAll('input[name="gdPartD"]').forEach(r=>r.addEventListener('change',()=>{
-    const want=r.value; if(want===(window.__tsscPartD||base)||window.__tsscPartDReloading) return;
-    window.__tsscPartDReloading=true;
-    const u=new URL(location.href); if(want===base) u.searchParams.delete('partd'); else u.searchParams.set('partd',want);
-    const b=document.getElementById('instrStartBtn'); if(b){b.disabled=true;b.textContent='Switching Part D...';}
-    location.replace(u.toString());
-  }));
+  /* TSSC-GD-PARTD-V3 (2026-10-30) — the Part D language is chosen in the popup on the
+     mock/PYQ list page (?partd=), so the instruction sheet no longer shows the pills box.
+     The swap logic above is untouched; if the other language is not uploaded the paper
+     simply continues in its own medium. */
+  return;
 }
 window.tsscPartDSelector=tsscPartDSelector;
 
