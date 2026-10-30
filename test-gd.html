@@ -1468,6 +1468,15 @@ function tsscPartDSelector(){
   const base=window.__tsscPartDBase, cur=window.__tsscPartD||base, un=window.__tsscPartDUnavailable;
   const box=document.createElement('div'); box.id='gdPartD';
   box.style.cssText='margin:0 0 1rem;padding:0.85rem 1rem;background:#FFF7ED;border:1.5px solid #FDBA74;border-radius:12px;';
+  /* TSSC-GD-PARTD-V2 — the mock/PYQ list pages now ask for Part D in the chooser popup and pass
+     ?partd=; when that choice arrived and the twin loaded, show it as a one-line confirmation
+     instead of the pills. The pills stay for a direct/old link and when the twin is missing. */
+  const _pdq=String(new URLSearchParams(location.search).get('partd')||'').toLowerCase();
+  if((_pdq==='en'||_pdq==='hi')&&!un){
+    box.innerHTML='<div style="font-family:Rajdhani,sans-serif;font-weight:800;font-size:1rem;color:#9A3412;">&#128214; Part D (Q61&ndash;80): <span style="color:#1A202C;">'+(cur==='hi'?'\u0939\u093f\u0902\u0926\u0940 \u092d\u093e\u0937\u093e / Hindi Language':'English Language')+'</span></div>'
+      +'<div style="font-size:0.78rem;color:#475569;line-height:1.5;margin-top:0.25rem;">Parts A&ndash;C are in '+(base==='hi'?'Hindi':'English')+'. To change the Part D language, go back and pick again from the test list.</div>';
+    foot.parentNode.insertBefore(box,foot); return;
+  }
   const pill=(v,label,sub)=>'<label style="position:relative;display:inline-flex;align-items:center;gap:0.45rem;padding:0.45rem 0.9rem;border-radius:999px;border:1.5px solid '+(cur===v?'#FF6B00':'#E2E8F0')+';background:'+(cur===v?'#FF6B00':'#fff')+';color:'+(cur===v?'#fff':'#1A202C')+';font-family:Rajdhani,sans-serif;font-weight:700;font-size:0.95rem;cursor:pointer;margin:0.25rem 0.5rem 0.25rem 0;"><input type="radio" name="gdPartD" value="'+v+'" '+(cur===v?'checked':'')+' style="position:absolute;opacity:0;width:0;height:0;margin:0;">'+label+'<span style="font-weight:600;font-size:0.72rem;opacity:0.85;">'+sub+'</span></label>';
   box.innerHTML='<div style="font-family:Rajdhani,sans-serif;font-weight:800;font-size:1rem;color:#9A3412;margin-bottom:0.35rem;">&#128214; Part D (Q61&ndash;80) language &middot; <span lang="hi">भाग D की भाषा</span></div>'
     +'<div style="font-size:0.8rem;color:#475569;line-height:1.5;margin-bottom:0.5rem;">In the real SSC GD CBE you answer Part D in <b>either</b> English or Hindi. Parts A&ndash;C stay in the medium you opened ('+(base==='hi'?'Hindi':'English')+').</div>'

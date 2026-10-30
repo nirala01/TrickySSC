@@ -464,7 +464,7 @@ if(o&&o.m&&o.m['ssc-gd-mocks'])e.style.display='none';}catch(x){}})();
       <div class="lc-title" id="lcTitle">Choose Your Language</div>
       <div class="lc-sub" id="lcSub"></div>
     </div>
-    <div class="lc-body">
+    <div class="lc-body" id="lcStep1">
       <button class="lc-opt en" id="lcEn">
         <span class="lc-badge">A</span>
         <span class="lc-opt-main">
@@ -482,6 +482,26 @@ if(o&&o.m&&o.m['ssc-gd-mocks'])e.style.display='none';}catch(x){}})();
         <span class="lc-arrow">→</span>
       </button>
       <button class="lc-cancel" onclick="closeLangChooser()">Cancel</button>
+    </div>
+    <div class="lc-body" id="lcStep2" style="display:none;">
+      <button class="lc-opt en" id="lcPdEn" onclick="lcGo('en')">
+        <span class="lc-badge">A</span>
+        <span class="lc-opt-main">
+          <span class="lc-opt-name">English Language</span>
+          <span class="lc-opt-desc" id="lcPdEnDesc">Part D (Q61&ndash;80) in English</span>
+        </span>
+        <span class="lc-arrow">&rarr;</span>
+      </button>
+      <button class="lc-opt hi" id="lcPdHi" onclick="lcGo('hi')">
+        <span class="lc-badge">&#2309;</span>
+        <span class="lc-opt-main">
+          <span class="lc-opt-name">&#2361;&#2367;&#2306;&#2342;&#2368; &#2349;&#2366;&#2359;&#2366; / Hindi Language</span>
+          <span class="lc-opt-desc" id="lcPdHiDesc">&#2349;&#2366;&#2327; D (&#2346;&#2381;&#2352;&#2358;&#2381;&#2344; 61&ndash;80) &#2361;&#2367;&#2306;&#2342;&#2368; &#2350;&#2375;&#2306;</span>
+        </span>
+        <span class="lc-arrow">&rarr;</span>
+      </button>
+      <div class="lc-partd" style="font-size:0.76rem;color:#64748B;line-height:1.5;text-align:center;margin:0.2rem 0 0.4rem;">As in the real SSC GD CBE, Part D can be answered in English or Hindi. Parts A&ndash;C stay in <b id="lcPdBase">English</b>. <span lang="hi">&#2349;&#2366;&#2327; A&ndash;C &#2310;&#2346;&#2325;&#2368; &#2330;&#2369;&#2344;&#2368; &#2349;&#2366;&#2359;&#2366; &#2350;&#2375;&#2306; &#2352;&#2361;&#2375;&#2306;&#2327;&#2375;&#3002;</span></div>
+      <button class="lc-cancel" onclick="lcShowStep(1)">&larr; Back</button>
     </div>
   </div>
 </div>
@@ -507,8 +527,9 @@ if(o&&o.m&&o.m['ssc-gd-mocks'])e.style.display='none';}catch(x){}})();
     var hiB = document.getElementById('lcHi');
     enB.style.display = en ? 'flex' : 'none';
     hiB.style.display = hi ? 'flex' : 'none';
-    enB.onclick = function(){ window.location = en; };
-    hiB.onclick = function(){ window.location = hi; };
+    enB.onclick = function(){ lcPickLang(en,'en'); };   /* TSSC-GD-PARTD-V2 */
+    hiB.onclick = function(){ lcPickLang(hi,'hi'); };
+    lcShowStep(1);
     m.style.display = 'block';
     document.body.style.overflow = 'hidden';
     return false;
@@ -517,7 +538,30 @@ if(o&&o.m&&o.m['ssc-gd-mocks'])e.style.display='none';}catch(x){}})();
     var m = document.getElementById('langChooser');
     if(m) m.style.display = 'none';
     document.body.style.overflow = '';
+    _lcPick.url=''; lcShowStep(1);
   }
+  /* TSSC-GD-PARTD-V2 — step 2 of the chooser: Part D (Q61-80) language, asked right after the
+     paper language instead of on the engine's instruction sheet. The engine reads ?partd=. */
+  var _lcPick={url:'',lang:''};
+  function lcShowStep(n){
+    var s1=document.getElementById('lcStep1'), s2=document.getElementById('lcStep2'), t=document.getElementById('lcTitle');
+    if(s1) s1.style.display=(n===1)?'':'none';
+    if(s2) s2.style.display=(n===2)?'flex':'none';
+    if(t) t.innerHTML=(n===2)?'Choose Part D Language <span style="font-size:0.8em;color:#94A3B8;">(Q61&ndash;80)</span>':'Choose Your Language';
+  }
+  function lcPickLang(url,lang){
+    _lcPick.url=url; _lcPick.lang=lang;
+    var b=document.getElementById('lcPdBase'); if(b) b.textContent=(lang==='hi')?'Hindi':'English';
+    var de=document.getElementById('lcPdEnDesc'), dh=document.getElementById('lcPdHiDesc');
+    if(de) de.innerHTML='Part D (Q61&ndash;80) in English'+(lang==='en'?' &middot; same as paper':'');
+    if(dh) dh.innerHTML='\u092d\u093e\u0917 D (\u092a\u094d\u0930\u0936\u094d\u0928 61\u201380) \u0939\u093f\u0902\u0926\u0940 \u092e\u0947\u0902'+(lang==='hi'?' &middot; \u092a\u0947\u092a\u0930 \u0915\u0940 \u092d\u093e\u0937\u093e':'');
+    lcShowStep(2);
+  }
+  function lcGo(pd){
+    if(!_lcPick.url) return;
+    window.location=_lcPick.url+(_lcPick.url.indexOf('?')>-1?'&':'?')+'partd='+pd;
+  }
+
   document.addEventListener('keydown', function(e){
     if(e.key === 'Escape') closeLangChooser();
   });
