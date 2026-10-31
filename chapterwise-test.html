@@ -1381,9 +1381,51 @@
     </div>
   </div>
 
+<style id="tssc-cw-offer-css">
+/* TSSC:CW-MOCKOFFER (2026-10-30) — after a chapter test is finished, show every mock series
+   with its rate: SSC CHSL, SSC CGL (Tier II called out) and the CGL + CHSL combo.
+   Prices here are DISPLAY ONLY — the mock pages charge from config/pricing. */
+#cwMockOffer{margin:0 0 24px;}
+#cwMockOffer:empty{display:none;}
+.cwo{background:#fff;border:1.5px solid #E2E8F0;border-radius:18px;padding:18px 18px 16px;box-shadow:0 6px 24px rgba(15,23,42,.07);font-family:'Rajdhani',sans-serif;}
+.cwo-head{text-align:center;margin:0 0 12px;}
+.cwo-eyebrow{display:inline-block;font-weight:800;font-size:11px;letter-spacing:1.6px;color:#059669;background:#ECFDF5;border:1px solid #A7F3D0;border-radius:100px;padding:3px 10px;}
+.cwo-title{font-family:'Baloo 2',sans-serif;font-weight:800;font-size:22px;line-height:1.15;color:#1E293B;margin:8px 0 2px;}
+.cwo-title span{color:#FF6B00;}
+.cwo-sub{font-size:14px;font-weight:600;color:#64748B;margin:0;line-height:1.4;}
+.cwo-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:14px;}
+.cwo-card{position:relative;display:flex;flex-direction:column;gap:6px;border-radius:14px;padding:14px 12px 12px;border:1.5px solid #E2E8F0;background:#F8FAFC;text-align:center;}
+.cwo-card.chsl{border-color:#BAE6FD;background:#F0F9FF;}
+.cwo-card.cgl{border-color:#C7D2FE;background:#EEF2FF;}
+.cwo-card.combo{border-color:#FDBA74;background:linear-gradient(160deg,#FFF7ED,#FFEDD5);box-shadow:0 8px 22px rgba(255,107,0,.16);}
+.cwo-flag{position:absolute;top:-10px;left:50%;transform:translateX(-50%);white-space:nowrap;font-weight:800;font-size:10px;letter-spacing:1.2px;color:#fff;border-radius:100px;padding:3px 9px;background:#FF6B00;}
+.cwo-card.chsl .cwo-flag{background:#0EA5E9;}
+.cwo-card.cgl .cwo-flag{background:#6366F1;}
+.cwo-name{font-weight:800;font-size:15px;color:#1E293B;letter-spacing:.3px;margin-top:4px;}
+.cwo-count{font-family:'Baloo 2',sans-serif;font-weight:800;font-size:26px;line-height:1;color:#1E293B;}
+.cwo-count small{display:block;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:12px;color:#475569;margin-top:3px;letter-spacing:.2px;}
+.cwo-tier2{display:inline-block;margin:2px auto 0;font-weight:800;font-size:11.5px;letter-spacing:.4px;color:#4338CA;background:#fff;border:1.5px solid #A5B4FC;border-radius:100px;padding:3px 9px;}
+.cwo-card.chsl .cwo-tier2{color:#0369A1;border-color:#7DD3FC;}
+.cwo-price{margin-top:auto;padding-top:6px;font-weight:700;font-size:13px;color:#64748B;}
+.cwo-price b{display:block;font-family:'Baloo 2',sans-serif;font-weight:800;font-size:26px;line-height:1;color:#00875A;}
+.cwo-price s{color:#94A3B8;font-weight:600;}
+.cwo-save{display:inline-block;margin-left:4px;background:#00A86B;color:#fff;border-radius:6px;padding:1px 6px;font-size:11px;font-weight:800;letter-spacing:.3px;vertical-align:middle;}
+.cwo-go{display:block;margin-top:6px;padding:10px 10px;border-radius:10px;text-decoration:none;color:#fff;font-weight:800;font-size:14px;letter-spacing:.3px;box-shadow:0 4px 12px rgba(0,0,0,.12);}
+.cwo-card.chsl .cwo-go{background:linear-gradient(135deg,#0EA5E9,#38BDF8);}
+.cwo-card.cgl .cwo-go{background:linear-gradient(135deg,#6366F1,#818CF8);}
+.cwo-card.combo .cwo-go{background:linear-gradient(120deg,#6D28D9,#DB2777,#F59E0B);background-size:200% 200%;animation:cwoGrad 5s ease infinite;}
+@keyframes cwoGrad{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+.cwo-free{font-size:12px;font-weight:600;color:#00875A;}
+.cwo-link{font-size:12.5px;font-weight:700;color:#4338CA;text-decoration:none;}
+.cwo-link:hover{text-decoration:underline;}
+.cwo-foot{text-align:center;margin:12px 0 0;font-size:12.5px;font-weight:600;color:#64748B;line-height:1.45;}
+@media(max-width:640px){.cwo-grid{grid-template-columns:1fr;gap:14px;}.cwo{padding:16px 12px 14px;}.cwo-card.combo{order:-1;}.cwo-title{font-size:20px;}}
+@media(prefers-reduced-motion:reduce){.cwo-card.combo .cwo-go{animation:none;}}
+</style>
   <!-- result screen -->
   <div id="resultScreen">
     <div id="cwResultCard"></div>
+    <div id="cwMockOffer"></div><!-- TSSC:CW-MOCKOFFER — filled by cwRenderMockOffer() on submit -->
 
     <div class="rate-card" id="rateCard">
       <h3>&#11088; Rate this test</h3>
@@ -2178,6 +2220,61 @@ async function saveChapterAttempt(correct,wrong,skip,marks,pct){
   catch(e){ console.warn('[chapterwise] could not save attempt:', e); }
 }
 
+
+/* TSSC:CW-MOCKOFFER (2026-10-30) — once a chapter test is finished, show the mock series and
+   their rates. Three cards (CHSL, CGL with Tier II called out, CGL + CHSL combo) for anyone not
+   known to own a series; "add the other one" for a buyer of one series; nothing for a buyer of
+   both. Ownership comes from the session cache the mock pages leave behind (tssc_ent_v2_*) —
+   no Firestore read here. Prices are display only; the mock pages charge from config/pricing. */
+function cwRenderMockOffer(){
+  const box=document.getElementById('cwMockOffer'); if(!box) return;
+  let m=null;
+  try{
+    for(let i=0;i<sessionStorage.length;i++){
+      const k=sessionStorage.key(i);
+      if(k && k.indexOf('tssc_ent_v2_')===0){ const o=JSON.parse(sessionStorage.getItem(k)||'null'); if(o&&o.m){ m=o.m; break; } }
+    }
+  }catch(e){}
+  const hasCgl=!!(m&&m['ssc-cgl-mocks']===true), hasChsl=!!(m&&m['ssc-chsl-mocks']===true);
+  if(hasCgl&&hasChsl){ box.innerHTML=''; return; }
+  const H='https://trickyssc.com/';
+  const chsl=
+    '<div class="cwo-card chsl"><span class="cwo-flag">TIER I + TIER II</span>'
+    +'<div class="cwo-name">SSC CHSL 2026</div>'
+    +'<div class="cwo-count">80 mocks<small>40 Tier I + 40 Tier II</small></div>'
+    +'<span class="cwo-tier2">Tier II mocks included</span>'
+    +'<div class="cwo-price"><b>\u20b949</b>for a full year</div>'
+    +'<a class="cwo-go" href="'+H+'ssc-chsl-mock-test.html'+(hasCgl?'?upgrade=1':'')+'">'+(hasCgl?'Add CHSL to your CGL pass \u2192':'Get CHSL mocks \u2192')+'</a>'
+    +'<span class="cwo-free">Mock 1\u20132 free \u2014 try before you pay</span></div>';
+  const cgl=
+    '<div class="cwo-card cgl"><span class="cwo-flag">TIER II SPECIAL</span>'
+    +'<div class="cwo-name">SSC CGL 2026</div>'
+    +'<div class="cwo-count">100 mocks<small>50 Tier I + 50 Tier II</small></div>'
+    +'<span class="cwo-tier2">\u2b50 50 full Tier II mocks \u2014 Dec 2026 ready</span>'
+    +'<div class="cwo-price"><b>\u20b949</b>for a full year</div>'
+    +'<a class="cwo-go" href="'+H+'ssc-cgl-mock-test.html">'+(hasChsl?'Add CGL mocks \u2192':'Get CGL mocks \u2192')+'</a>'
+    +'<a class="cwo-link" href="'+H+'ssc-cgl-tier-2-mock-test.html">Go straight to Tier II mocks \u2192</a>'
+    +'<span class="cwo-free">Mock 1\u20134 free on each tier</span></div>';
+  const combo=
+    '<div class="cwo-card combo"><span class="cwo-flag">BEST VALUE \u00b7 COMBO</span>'
+    +'<div class="cwo-name">SSC CGL + SSC CHSL</div>'
+    +'<div class="cwo-count">180 mocks<small>Both exams \u00b7 Tier I + Tier II of each</small></div>'
+    +'<span class="cwo-tier2">One pass \u00b7 two exams \u00b7 one year</span>'
+    +'<div class="cwo-price"><b>\u20b979</b><s>\u20b998</s><span class="cwo-save">SAVE \u20b919</span></div>'
+    +'<a class="cwo-go" href="'+H+'ssc-chsl-mock-test.html?combo=1">\ud83d\ude80 Get both for \u20b979 \u2192</a>'
+    +'<span class="cwo-free">Hindi &amp; English \u00b7 sectional timing</span></div>';
+  let title, sub, cards;
+  if(hasCgl){ title='Add <span>SSC CHSL</span> to your pass'; sub='You already have the SSC CGL mocks. Add CHSL \u2014 40 Tier I + 40 Tier II mocks \u2014 at a special upgrade price for CGL buyers.'; cards=chsl; }
+  else if(hasChsl){ title='Add <span>SSC CGL</span> to your pass'; sub='You already have the SSC CHSL mocks. Add CGL \u2014 50 Tier I + 50 Tier II mocks, in Hindi &amp; English.'; cards=cgl; }
+  else { title='Chapter done. Now take <span>full mock tests</span>'; sub='Chapter-wise tests are free for everyone. Full-length mocks for SSC CHSL and SSC CGL \u2014 Tier I and Tier II \u2014 start at \u20b949 for a whole year.'; cards=chsl+cgl+combo; }
+  box.innerHTML=
+    '<div class="cwo"><div class="cwo-head"><span class="cwo-eyebrow">MOCK TEST SERIES &amp; PLANS</span>'
+    +'<h3 class="cwo-title">'+title+'</h3><p class="cwo-sub">'+sub+'</p></div>'
+    +'<div class="cwo-grid">'+cards+'</div>'
+    +'<p class="cwo-foot">All mocks in Hindi &amp; English with solutions, rank and analysis \u00b7 one payment, nothing more to pay as new mocks release \u00b7 chapter tests and previous year papers stay free.</p></div>';
+}
+window.cwRenderMockOffer=cwRenderMockOffer;
+
 window.submitTest=async(auto)=>{
   if(isSubmitting) return;
   isSubmitting=true;
@@ -2224,6 +2321,7 @@ window.submitTest=async(auto)=>{
       +'<button class="cw-res-done" onclick="location.href=\'dashboard.html\'">\ud83d\udcca Analyse your performance here</button>'
     +'</div>'
     +'</div>';
+  try{ cwRenderMockOffer(); }catch(e){}   /* TSSC:CW-MOCKOFFER */
   document.getElementById('testScreen').style.display='none';
   document.getElementById('resultScreen').style.display='block';
   try{ if(!enMapLoaded) await ensureEnglishMap(); }catch(e){}
