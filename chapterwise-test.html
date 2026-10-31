@@ -1416,6 +1416,11 @@
 .cwo-card.combo .cwo-go{background:linear-gradient(120deg,#6D28D9,#DB2777,#F59E0B);background-size:200% 200%;animation:cwoGrad 5s ease infinite;}
 @keyframes cwoGrad{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
 .cwo-free{font-size:12px;font-weight:600;color:#00875A;}
+.cwo-note{margin:10px auto 0;max-width:620px;padding:10px 14px;border-radius:10px;background:#FFF7ED;border:1.5px solid #FDBA74;color:#9A3412;font-weight:700;font-size:14px;line-height:1.4;}
+.cwo-note[hidden]{display:none;}
+.cwo-upg{margin:12px 0 0;padding:10px 14px;border-radius:10px;background:#F5F3FF;border:1.5px dashed #C4B5FD;color:#4C1D95;font-weight:600;font-size:13.5px;line-height:1.45;text-align:center;}
+.cwo-upg b{font-weight:800;}
+.cwo-go.is-busy,.cwo-link.is-busy{opacity:.7;pointer-events:none;}
 .cwo-link{font-size:12.5px;font-weight:700;color:#4338CA;text-decoration:none;}
 .cwo-link:hover{text-decoration:underline;}
 .cwo-foot{text-align:center;margin:12px 0 0;font-size:12.5px;font-weight:600;color:#64748B;line-height:1.45;}
@@ -2221,59 +2226,117 @@ async function saveChapterAttempt(correct,wrong,skip,marks,pct){
 }
 
 
-/* TSSC:CW-MOCKOFFER (2026-10-30) — once a chapter test is finished, show the mock series and
-   their rates. Three cards (CHSL, CGL with Tier II called out, CGL + CHSL combo) for anyone not
-   known to own a series; "add the other one" for a buyer of one series; nothing for a buyer of
-   both. Ownership comes from the session cache the mock pages leave behind (tssc_ent_v2_*) —
-   no Firestore read here. Prices are display only; the mock pages charge from config/pricing. */
+/* TSSC:CW-MOCKOFFER v2 (2026-10-31) — once a chapter test is finished, show the mock series
+   and their rates. The banner is the SAME for everyone (CHSL / CGL with Tier II called out /
+   CGL + CHSL combo, plus a line that existing buyers can upgrade for Rs 29). Ownership is
+   NOT used to hide anything: it is read fresh from Firestore (entitlements/{uid}) only when a
+   plan is clicked, and the click is then routed accordingly — already owned → the mock page,
+   owns the other series → that series' buy popup leading with the Rs 29 upgrade, no pass →
+   the normal buy flow. Prices here are display only; the mock pages charge from config/pricing. */
+const CWO_H='https://trickyssc.com/';
 function cwRenderMockOffer(){
   const box=document.getElementById('cwMockOffer'); if(!box) return;
-  let m=null;
-  try{
-    for(let i=0;i<sessionStorage.length;i++){
-      const k=sessionStorage.key(i);
-      if(k && k.indexOf('tssc_ent_v2_')===0){ const o=JSON.parse(sessionStorage.getItem(k)||'null'); if(o&&o.m){ m=o.m; break; } }
-    }
-  }catch(e){}
-  const hasCgl=!!(m&&m['ssc-cgl-mocks']===true), hasChsl=!!(m&&m['ssc-chsl-mocks']===true);
-  if(hasCgl&&hasChsl){ box.innerHTML=''; return; }
-  const H='https://trickyssc.com/';
-  const chsl=
-    '<div class="cwo-card chsl"><span class="cwo-flag">TIER I + TIER II</span>'
-    +'<div class="cwo-name">SSC CHSL 2026</div>'
-    +'<div class="cwo-count">80 mocks<small>40 Tier I + 40 Tier II</small></div>'
-    +'<span class="cwo-tier2">Tier II mocks included</span>'
-    +'<div class="cwo-price"><b>\u20b949</b>for a full year</div>'
-    +'<a class="cwo-go" href="'+H+'ssc-chsl-mock-test.html'+(hasCgl?'?upgrade=1':'')+'">'+(hasCgl?'Add CHSL to your CGL pass \u2192':'Get CHSL mocks \u2192')+'</a>'
-    +'<span class="cwo-free">Mock 1\u20132 free \u2014 try before you pay</span></div>';
-  const cgl=
-    '<div class="cwo-card cgl"><span class="cwo-flag">TIER II SPECIAL</span>'
-    +'<div class="cwo-name">SSC CGL 2026</div>'
-    +'<div class="cwo-count">100 mocks<small>50 Tier I + 50 Tier II</small></div>'
-    +'<span class="cwo-tier2">\u2b50 50 full Tier II mocks \u2014 Dec 2026 ready</span>'
-    +'<div class="cwo-price"><b>\u20b949</b>for a full year</div>'
-    +'<a class="cwo-go" href="'+H+'ssc-cgl-mock-test.html">'+(hasChsl?'Add CGL mocks \u2192':'Get CGL mocks \u2192')+'</a>'
-    +'<a class="cwo-link" href="'+H+'ssc-cgl-tier-2-mock-test.html">Go straight to Tier II mocks \u2192</a>'
-    +'<span class="cwo-free">Mock 1\u20134 free on each tier</span></div>';
-  const combo=
-    '<div class="cwo-card combo"><span class="cwo-flag">BEST VALUE \u00b7 COMBO</span>'
-    +'<div class="cwo-name">SSC CGL + SSC CHSL</div>'
-    +'<div class="cwo-count">180 mocks<small>Both exams \u00b7 Tier I + Tier II of each</small></div>'
-    +'<span class="cwo-tier2">One pass \u00b7 two exams \u00b7 one year</span>'
-    +'<div class="cwo-price"><b>\u20b979</b><s>\u20b998</s><span class="cwo-save">SAVE \u20b919</span></div>'
-    +'<a class="cwo-go" href="'+H+'ssc-chsl-mock-test.html?combo=1">\ud83d\ude80 Get both for \u20b979 \u2192</a>'
-    +'<span class="cwo-free">Hindi &amp; English \u00b7 sectional timing</span></div>';
-  let title, sub, cards;
-  if(hasCgl){ title='Add <span>SSC CHSL</span> to your pass'; sub='You already have the SSC CGL mocks. Add CHSL \u2014 40 Tier I + 40 Tier II mocks \u2014 at a special upgrade price for CGL buyers.'; cards=chsl; }
-  else if(hasChsl){ title='Add <span>SSC CGL</span> to your pass'; sub='You already have the SSC CHSL mocks. Add CGL \u2014 50 Tier I + 50 Tier II mocks, in Hindi &amp; English.'; cards=cgl; }
-  else { title='Chapter done. Now take <span>full mock tests</span>'; sub='Chapter-wise tests are free for everyone. Full-length mocks for SSC CHSL and SSC CGL \u2014 Tier I and Tier II \u2014 start at \u20b949 for a whole year.'; cards=chsl+cgl+combo; }
+  const H=CWO_H;
   box.innerHTML=
     '<div class="cwo"><div class="cwo-head"><span class="cwo-eyebrow">MOCK TEST SERIES &amp; PLANS</span>'
-    +'<h3 class="cwo-title">'+title+'</h3><p class="cwo-sub">'+sub+'</p></div>'
-    +'<div class="cwo-grid">'+cards+'</div>'
-    +'<p class="cwo-foot">All mocks in Hindi &amp; English with solutions, rank and analysis \u00b7 one payment, nothing more to pay as new mocks release \u00b7 chapter tests and previous year papers stay free.</p></div>';
+    +'<h3 class="cwo-title">Chapter done. Now take <span>full mock tests</span></h3>'
+    +'<p class="cwo-sub">Chapter-wise tests are free for everyone. Full-length mocks for SSC CHSL and SSC CGL — Tier I and Tier II — start at ₹49 for a whole year.</p>'
+    +'<div class="cwo-note" id="cwoNote" hidden></div></div>'
+    +'<div class="cwo-grid">'
+    +'<div class="cwo-card chsl"><span class="cwo-flag">TIER I + TIER II</span>'
+      +'<div class="cwo-name">SSC CHSL 2026</div>'
+      +'<div class="cwo-count">80 mocks<small>40 Tier I + 40 Tier II</small></div>'
+      +'<span class="cwo-tier2">Tier II mocks included</span>'
+      +'<div class="cwo-price"><b>₹49</b>for a full year</div>'
+      +'<a class="cwo-go" data-plan="chsl" href="'+H+'ssc-chsl-mock-test.html">Get CHSL mocks →</a>'
+      +'<span class="cwo-free">Mock 1–2 free — try before you pay</span></div>'
+    +'<div class="cwo-card cgl"><span class="cwo-flag">TIER II SPECIAL</span>'
+      +'<div class="cwo-name">SSC CGL 2026</div>'
+      +'<div class="cwo-count">100 mocks<small>50 Tier I + 50 Tier II</small></div>'
+      +'<span class="cwo-tier2">⭐ 50 full Tier II mocks — Dec 2026 ready</span>'
+      +'<div class="cwo-price"><b>₹49</b>for a full year</div>'
+      +'<a class="cwo-go" data-plan="cgl" href="'+H+'ssc-cgl-mock-test.html">Get CGL mocks →</a>'
+      +'<a class="cwo-link" data-plan="cgl-t2" href="'+H+'ssc-cgl-tier-2-mock-test.html">Go straight to Tier II mocks →</a>'
+      +'<span class="cwo-free">Mock 1–4 free on each tier</span></div>'
+    +'<div class="cwo-card combo"><span class="cwo-flag">BEST VALUE · COMBO</span>'
+      +'<div class="cwo-name">SSC CGL + SSC CHSL</div>'
+      +'<div class="cwo-count">180 mocks<small>Both exams · Tier I + Tier II of each</small></div>'
+      +'<span class="cwo-tier2">One pass · two exams · one year</span>'
+      +'<div class="cwo-price"><b>₹79</b><s>₹98</s><span class="cwo-save">SAVE ₹19</span></div>'
+      +'<a class="cwo-go" data-plan="combo" href="'+H+'ssc-chsl-mock-test.html?combo=1">🚀 Get both for ₹79 →</a>'
+      +'<span class="cwo-free">Hindi &amp; English · sectional timing</span></div>'
+    +'</div>'
+    +'<div class="cwo-upg"><b>Already have a CGL or CHSL pass?</b> Existing users can upgrade — add the other series for just <b>₹29</b>. '
+      +'Click any plan: we check your pass first and show you only what you still need. <span lang="hi">पहले से पास है? दूसरी सीरीज़ सिर्फ़ ₹29 में जोड़ें।</span></div>'
+    +'<p class="cwo-foot">All mocks in Hindi &amp; English with solutions, rank and analysis · one payment, nothing more to pay as new mocks release · chapter tests and previous year papers stay free.</p></div>';
+  box.querySelectorAll('[data-plan]').forEach(a=>a.addEventListener('click',cwPlanClick));
 }
 window.cwRenderMockOffer=cwRenderMockOffer;
+
+/* read the signed-in student's entitlements from Firestore (fresh), fall back to the session cache */
+async function cwReadEntitlement(){
+  const u=currentUser||null;
+  if(!u||!u.uid) return {signedIn:false,m:null};
+  const act=g=>{ if(!g||g.active!==true) return false; const e=g.expiresAt; if(!e) return true;
+    const ms=e.toDate?e.toDate().getTime():(e.seconds?e.seconds*1000:Date.parse(e)); return !isFinite(ms)||ms>Date.now(); };
+  try{
+    const snap=await getDoc(doc(db,'entitlements',u.uid));
+    const d=snap.exists()?(snap.data()||{}):{};
+    const all=act(d.allAccess), mods=d.modules||{};
+    const m={'ssc-cgl-mocks':all||act(mods['ssc-cgl-mocks']),'ssc-chsl-mocks':all||act(mods['ssc-chsl-mocks'])};
+    try{ sessionStorage.setItem('tssc_ent_v2_'+u.uid,JSON.stringify({ts:Date.now(),m})); }catch(_){}
+    return {signedIn:true,m};
+  }catch(e){
+    try{ const o=JSON.parse(sessionStorage.getItem('tssc_ent_v2_'+u.uid)||'null'); if(o&&o.m) return {signedIn:true,m:o.m}; }catch(_){}
+    return {signedIn:true,m:{'ssc-cgl-mocks':false,'ssc-chsl-mocks':false}};
+  }
+}
+
+/* decide where a plan click goes, given what the student already holds */
+function cwPlanRoute(plan,m){
+  const H=CWO_H, cgl=!!(m&&m['ssc-cgl-mocks']), chsl=!!(m&&m['ssc-chsl-mocks']);
+  const P={chsl:H+'ssc-chsl-mock-test.html', cgl:H+'ssc-cgl-mock-test.html', cglT2:H+'ssc-cgl-tier-2-mock-test.html'};
+  if(cgl&&chsl){
+    return {msg:'✅ You already have both passes — every CGL and CHSL mock is unlocked. Opening your mocks…',
+            url:(plan==='chsl')?P.chsl:(plan==='cgl-t2'?P.cglT2:P.cgl)};
+  }
+  if(plan==='chsl'){
+    if(chsl) return {msg:'✅ SSC CHSL is already in your pass — all 80 mocks are unlocked. Opening them…', url:P.chsl};
+    if(cgl)  return {msg:'⬆️ You have the SSC CGL pass — add all 80 CHSL mocks for just ₹29 (upgrade price). Taking you there…', url:P.chsl+'?upgrade=1'};
+    return   {msg:'Taking you to the SSC CHSL mock series (₹49 for a year) — Mock 1–2 are free to try…', url:P.chsl+'?upgrade=1'};
+  }
+  if(plan==='cgl'||plan==='cgl-t2'){
+    const dest=(plan==='cgl-t2')?P.cglT2:P.cgl;
+    if(cgl)  return {msg:'✅ SSC CGL is already in your pass — all 100 mocks (Tier I + Tier II) are unlocked. Opening them…', url:dest};
+    if(chsl) return {msg:'⬆️ You have the SSC CHSL pass — add all 100 CGL mocks for just ₹29 (upgrade price). Taking you there…', url:P.cgl+'?upgrade=1'};
+    return   {msg:'Taking you to the SSC CGL mock series (₹49 for a year) — Mock 1–4 are free on each tier…', url:(plan==='cgl-t2')?dest:P.cgl+'?upgrade=1'};
+  }
+  /* combo */
+  if(cgl)  return {msg:'⬆️ You already have SSC CGL — you only need CHSL, and as a CGL buyer it is ₹29, not ₹79. Taking you there…', url:P.chsl+'?upgrade=1'};
+  if(chsl) return {msg:'⬆️ You already have SSC CHSL — you only need CGL, and as a CHSL buyer it is ₹29, not ₹79. Taking you there…', url:P.cgl+'?upgrade=1'};
+  return   {msg:'Taking you to the CGL + CHSL combo — 180 mocks for ₹79…', url:P.chsl+'?combo=1'};
+}
+
+async function cwPlanClick(ev){
+  const a=ev.currentTarget; if(!a||a.dataset.busy) return;
+  ev.preventDefault();
+  const plan=a.dataset.plan, fallback=a.getAttribute('href');
+  const note=document.getElementById('cwoNote');
+  const label=a.innerHTML;
+  a.dataset.busy='1'; a.classList.add('is-busy'); a.innerHTML='⏳ Checking your pass…';
+  let r;
+  try{
+    const ent=await cwReadEntitlement();
+    if(!ent.signedIn){
+      r={msg:'🔒 Sign in on the next page — if you already hold a pass, it will be recognised there.', url:fallback};
+    }else{
+      r=cwPlanRoute(plan,ent.m);
+    }
+  }catch(e){ r={msg:'',url:fallback}; }
+  if(note&&r.msg){ note.textContent=r.msg; note.hidden=false; try{ note.scrollIntoView({behavior:'smooth',block:'center'}); }catch(_){} }
+  a.innerHTML=label;
+  setTimeout(()=>{ location.href=r.url; }, r.msg?1800:0);
+}
 
 window.submitTest=async(auto)=>{
   if(isSubmitting) return;
