@@ -226,7 +226,7 @@ $('testKey').onclick = async () => {
 };
 
 const SYSTEM = `You classify SSC exam previous-year questions into chapters for TrickySSC.
-For each question, choose exactly ONE chapter id from the list given for that question's subject. Never invent an id and never pick an id from another subject.
+For each question, choose exactly ONE chapter id. The [subject] label is the paper section the question sat in and is usually right, so prefer that subject's list — but if the question clearly belongs to another subject (for example a number-system or speed-distance question labelled [reasoning], or a GK fact labelled [english]), pick the correct chapter from that other subject's list instead. Never invent an id.
 Prefer the most specific chapter; use an "other" chapter only when nothing fits. Ids marked (broad) are umbrella entries — use them only when no specific chapter applies.
 Hindi-medium questions of the other subjects describe the same chapters; judge by the content. Items marked [hindi] are Hindi Language (व्याकरण) questions — use only hindi.* ids for them.
 Give a confidence from 0 to 1.
@@ -314,7 +314,7 @@ async function tagPaper(j, signal) {
   for (const it of todo) {
     const a = byQ[it.idx]; let cid = a && String(a.c || '').trim(); let conf = a ? Number(a.p) || 0 : 0; let flag = '';
     if (!cid || !NAME[cid]) { cid = it.subj + '.other'; if (!NAME[cid]) cid = Object.keys(NAME).find(k => SUBJ_OF[k] === it.subj && /\.other$/.test(k)) || ''; conf = 0; flag = 'no valid chapter returned'; }
-    else if (SUBJ_OF[cid] !== it.subj) { flag = 'chapter from another subject (' + SUBJ_OF[cid] + ') — kept, check it'; conf = Math.min(conf, 0.5); }
+    else if (SUBJ_OF[cid] !== it.subj) { flag = 'moved to ' + SUBJ_OF[cid] + ' (paper section said ' + it.subj + ') — check'; conf = Math.min(conf, 0.65); }
     if (!cid) { flag = 'no chapter'; j.rows.push({ it, cid: '', conf: 0, flag }); continue; }
     if (conf < 0.7 || flag) j.low++;
     j.rows.push({ it, cid, conf, flag });
@@ -372,13 +372,14 @@ function chapterTotals() {
 function toggleReview(i) {
   const old = document.getElementById('rv' + i); if (old) { old.remove(); return; }
   const j = jobs[i]; const tr = document.createElement('tr'); tr.id = 'rv' + i; tr.className = 'review';
-  const opts = (subj, cid) => Object.keys(NAME).filter(k => SUBJ_OF[k] === subj || k === cid).map(k => `<option value="${k}" ${k === cid ? 'selected' : ''}>${esc(NAME[k])}</option>`).join('');
+  const opts = (subj, cid) => [subj].concat(Object.keys(CANON).filter(x => x !== subj)).map(sk => `<optgroup label="${esc(SUBJECT_LABEL[sk] || sk)}">` +
+    CANON[sk].map(([k, name]) => `<option value="${k}" ${k === cid ? 'selected' : ''}>${esc(name)}</option>`).join('') + '</optgroup>').join('');
   tr.innerHTML = `<td colspan="7"><div style="margin-bottom:6px"><label style="font-size:12.5px"><input type="checkbox" id="only${i}" checked> Show only questions to check</label>
     <button class="ghost sm" id="save${i}" style="margin-left:10px">Save changes to Firebase</button> <span class="hint" id="sm${i}"></span></div>
     <table><thead><tr><th>Q</th><th>Subject</th><th>Question</th><th>Chapter</th><th>Conf.</th></tr></thead><tbody>` +
     j.rows.map((r, k) => `<tr class="rr" data-check="${(r.conf < 0.7 || r.flag) ? 1 : 0}"><td>${r.it.q.qNum}</td><td><small>${r.it.subj}</small></td>
       <td class="qt">${esc(String(r.it.q.text || '').slice(0, 300))}<br><small style="color:var(--muted)">${esc(optText(r.it.q))}</small>${r.flag ? `<br><small class="low">${esc(r.flag)}</small>` : ''}</td>
-      <td><select class="chap" data-k="${k}">${opts(r.it.subj, r.cid)}</select></td><td class="${r.conf < 0.7 ? 'low' : ''}">${r.conf.toFixed(2)}</td></tr>`).join('') + '</tbody></table></td>';
+      <td><select class="chap" data-k="${k}">${opts(r.it.subj, r.cid)}</select>${r.cid && SUBJ_OF[r.cid] !== r.it.subj ? `<br><small class="low">→ ${esc(SUBJ_OF[r.cid])}</small>` : ''}</td><td class="${r.conf < 0.7 ? 'low' : ''}">${r.conf.toFixed(2)}</td></tr>`).join('') + '</tbody></table></td>';
   document.getElementById('jr' + i).after(tr);
   const filt = () => tr.querySelectorAll('tr.rr').forEach(x => x.classList.toggle('hidden', $('only' + i).checked && x.dataset.check === '0'));
   $('only' + i).onchange = filt; filt();
