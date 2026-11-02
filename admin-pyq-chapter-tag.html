@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>PYQ Chapter Tagger — TrickySSC admin</title>
+<style>
+  :root{--bg:#0f172a;--panel:#fff;--ink:#1e293b;--muted:#64748b;--line:#e2e8f0;--accent:#2563eb;
+        --ok:#16a34a;--ok-bg:#f0fdf4;--warn:#d97706;--warn-bg:#fffbeb;--bad:#dc2626;--bad-bg:#fef2f2;--chip:#f1f5f9}
+  *{box-sizing:border-box}
+  body{margin:0;font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans Devanagari",Arial,sans-serif;color:var(--ink);background:#f8fafc}
+  header{background:var(--bg);color:#fff;padding:12px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;position:sticky;top:0;z-index:20}
+  header h1{font-size:16px;margin:0;font-weight:600}
+  header .spacer{flex:1}
+  header .who{font-size:12px;color:#cbd5e1}
+  main{max-width:1200px;margin:0 auto;padding:18px}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin-bottom:14px}
+  .panel h2{font-size:13px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin:0 0 12px}
+  .step{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:var(--accent);color:#fff;font-size:11px;font-weight:700;margin-right:8px}
+  .row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
+  label.f{display:block;font-size:12px;color:var(--muted);margin-bottom:4px}
+  input[type=text],input[type=password],select{padding:8px 10px;border:1px solid var(--line);border-radius:7px;font:inherit;background:#fff;min-width:170px}
+  button{padding:8px 14px;border:1px solid transparent;border-radius:7px;font:inherit;font-weight:600;cursor:pointer;background:var(--accent);color:#fff}
+  button.ghost{background:#fff;color:var(--ink);border-color:var(--line)}
+  button.ghost:hover{background:#f8fafc}
+  button.sm{padding:4px 9px;font-size:12px;font-weight:500}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  button.danger{background:var(--bad)}
+  .hint{font-size:12px;color:var(--muted);margin-top:6px}
+  .chip{display:inline-block;background:var(--chip);border-radius:999px;padding:3px 10px;font-size:12px;font-weight:600;margin:2px 4px 2px 0}
+  .chip.ok{background:var(--ok-bg);color:var(--ok)} .chip.warn{background:var(--warn-bg);color:var(--warn)} .chip.bad{background:var(--bad-bg);color:var(--bad)}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);background:#f8fafc}
+  .st{font-size:11px;font-weight:700;padding:2px 7px;border-radius:5px;white-space:nowrap}
+  .st.todo{background:var(--chip);color:var(--muted)} .st.run{background:#dbeafe;color:#1d4ed8}
+  .st.done{background:var(--ok-bg);color:var(--ok)} .st.part{background:var(--warn-bg);color:var(--warn)} .st.fail{background:var(--bad-bg);color:var(--bad)}
+  .barwrap{height:8px;background:var(--line);border-radius:4px;overflow:hidden;margin:10px 0}
+  .bar{height:100%;width:0;background:var(--accent);transition:width .3s}
+  .log{font:12px/1.5 ui-monospace,Consolas,monospace;background:#0b1220;color:#cbd5e1;border-radius:8px;padding:10px;max-height:220px;overflow:auto;white-space:pre-wrap}
+  .log .e{color:#fca5a5} .log .w{color:#fcd34d} .log .o{color:#86efac}
+  .note{background:var(--warn-bg);border:1px solid #fde68a;color:#92400e;border-radius:8px;padding:10px 12px;font-size:12.5px;margin-bottom:14px}
+  .groups{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px}
+  .grp{border:1px solid var(--line);border-radius:8px;padding:8px 10px;display:flex;gap:8px;align-items:flex-start;background:#fff;cursor:pointer}
+  .grp.sel{border-color:var(--accent);background:#eff6ff}
+  .grp small{color:var(--muted);display:block}
+  .review{background:#f8fafc;border-top:1px solid var(--line)}
+  .review td{font-size:12.5px}
+  .qt{max-width:520px}
+  select.chap{min-width:220px;max-width:260px;font-size:12px;padding:4px 6px}
+  .low{color:var(--warn);font-weight:700}
+  .hidden{display:none!important}
+  .kv{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:4px 16px;font-size:12.5px}
+</style>
+</head>
+<body>
+<header>
+  <h1>PYQ Chapter Tagger</h1>
+  <span class="who" id="who">not signed in</span>
+  <div class="spacer"></div>
+  <span class="who" id="usage"></span>
+  <button class="ghost" id="signIn">Sign in</button>
+</header>
+<main>
+  <div class="note">
+    Tags every previous-year question with a chapter from the same canonical chapter list the chapter tests use.
+    It reads a paper's questions, asks Claude to pick a chapter for each one, and writes <b>only</b>
+    <code>chapterId</code>, <code>chapterName</code>, <code>chapterConf</code> and <code>chapterTaggedAt</code>
+    with <code>update()</code> — it can never create, delete or change anything else. Papers that are already fully
+    tagged are skipped unless you tick <i>Re-tag</i>.
+  </div>
+
+  <div class="panel">
+    <h2><span class="step">1</span>Claude API key &amp; model</h2>
+    <div class="row">
+      <div style="flex:1;min-width:260px"><label class="f">API key (platform.claude.com → Keys &amp; access). Kept only in this browser.</label>
+        <input type="password" id="apiKey" placeholder="sk-ant-..." style="width:100%"></div>
+      <div><label class="f">Model</label>
+        <select id="model">
+          <option value="claude-opus-5-5">Opus 5.5 (most accurate)</option>
+          <option value="claude-sonnet-5-5">Sonnet 5.5 (cheaper)</option>
+        </select></div>
+      <div><label class="f">Papers at a time</label>
+        <select id="parallel"><option>1</option><option>2</option><option selected>3</option><option>4</option></select></div>
+      <button class="ghost" id="testKey">Test key</button><span class="hint" id="keyMsg"></span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2><span class="step">2</span>Pick the papers</h2>
+    <div class="row">
+      <div><label class="f">Exam</label>
+        <select id="exam"><option value="ssc-cgl">SSC CGL</option><option value="ssc-chsl">SSC CHSL</option><option value="ssc-gd">SSC GD</option></select></div>
+      <button class="ghost" id="loadPapers" disabled>Load papers</button>
+      <span class="hint" id="papersMsg">Sign in first.</span>
+    </div>
+    <div class="groups" id="groups" style="margin-top:12px"></div>
+    <div class="row" style="margin-top:12px">
+      <button class="ghost sm" id="selAll">Select all</button><button class="ghost sm" id="selNone">Select none</button>
+      <label style="font-size:13px"><input type="checkbox" id="retag"> Re-tag papers that are already tagged</label>
+      <label style="font-size:13px"><input type="checkbox" id="dry"> Dry run (tag with Claude, but don't write to Firebase)</label>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2><span class="step">3</span>Tag</h2>
+    <div class="row">
+      <button id="start" disabled>Tag selected papers</button>
+      <button class="danger" id="stop" disabled>Stop</button>
+      <span class="hint" id="runMsg"></span>
+    </div>
+    <div class="barwrap"><div class="bar" id="bar"></div></div>
+    <div id="chips"></div>
+    <div style="overflow:auto;margin-top:10px">
+      <table><thead><tr><th>Paper</th><th>Qs</th><th>Status</th><th>Tagged</th><th>Low conf.</th><th>Result</th><th></th></tr></thead>
+      <tbody id="rows"><tr><td colspan="7" style="color:var(--muted);text-align:center;padding:24px">Load papers to begin.</td></tr></tbody></table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Log</h2>
+    <div class="log" id="log"></div>
+  </div>
+</main>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script>
+"use strict";
+/* ───────────── config ───────────── */
+const firebaseConfig = {
+  apiKey: "AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",
+  authDomain: "trickyssc-17bb3.firebaseapp.com",
+  projectId: "trickyssc-17bb3",
+  storageBucket: "trickyssc-17bb3.firebasestorage.app",
+  messagingSenderId: "450627057220",
+  appId: "1:450627057220:web:366267bf437d94f20c6e11"
+};
+const ADMIN_EMAILS = ['nirala01@gmail.com', 'ashish@trickyssc.com'];
+const CANON = {"hindi":[["hindi.sandhi","संधि एवं संधि-विच्छेद (Sandhi)"],["hindi.samas","समास (Samas)"],["hindi.upsarg-pratyay","उपसर्ग एवं प्रत्यय (Upsarg & Pratyay)"],["hindi.paryayvachi","पर्यायवाची शब्द (Synonyms)"],["hindi.vilom","विलोम शब्द (Antonyms)"],["hindi.anek-shabd","वाक्यांश के लिए एक शब्द (One Word Substitution)"],["hindi.muhavare-lokoktiyan","मुहावरे एवं लोकोक्तियाँ (Idioms & Proverbs)"],["hindi.vartani","शुद्ध वर्तनी (Spelling)"],["hindi.vakya-shuddhi","वाक्य शुद्धि / अशुद्ध वाक्य (Sentence Correction)"],["hindi.rikt-sthan","रिक्त स्थान की पूर्ति (Fill in the Blanks)"],["hindi.vakya-kram","वाक्य क्रम / वाक्य विन्यास (Sentence Rearrangement)"],["hindi.gadyansh","अपठित गद्यांश (Reading Comprehension)"],["hindi.shabd-bhed","तत्सम-तद्भव, देशज-विदेशज शब्द (Word Origin)"],["hindi.anekarthi-shabd","अनेकार्थी एवं समश्रुत भिन्नार्थक शब्द (Homonyms)"],["hindi.vyakaran","संज्ञा, सर्वनाम, विशेषण, क्रिया, लिंग, वचन, कारक, काल (Grammar)"],["hindi.vakya-bhed","वाक्य भेद एवं रचनांतरण (Sentence Types)"],["hindi.other","अन्य / अवर्गीकृत हिंदी (Other Hindi)"]],"reasoning":[["reason.analogy","Analogy (Word / Letter / Number)"],["reason.analogy-word","Word Analogy"],["reason.analogy-letter","Letter Analogy"],["reason.analogy-number","Number Analogy"],["reason.analogy-number-set","Number-Set & Triad Analogy"],["reason.analogy-mixed","Mixed Analogy (Letter–Number & Coded)"],["reason.classification","Classification (Odd One Out)"],["reason.classification-word","Word Classification"],["reason.classification-letter","Letter Classification"],["reason.classification-number","Number Classification"],["reason.classification-number-pair","Number-Pair & Triad Classification"],["reason.classification-mixed","Word-Pair & Mixed Classification"],["reason.series","Number & Letter Series"],["reason.coding-decoding","Letter & Number Coding"],["reason.blood-relation","Family Relations"],["reason.direction-distance","Direction Sense & Distance"],["reason.ranking-arrangement","Ranking, Order & Day Sequence"],["reason.seating-arrangement","Seating Arrangement"],["reason.syllogism","Syllogism"],["reason.statement-conclusion","Statement & Conclusion / Inference"],["reason.venn-diagram","Venn Diagram"],["reason.mathematical-operations","Mathematical Operations (BODMAS / Symbols)"],["reason.word-formation","Alphabet & Dictionary Order"],["reason.missing-number","Missing Number (Matrix)"],["reason.puzzle","Puzzle / Data Arrangement"],["reason.calendar-clock","Calendar & Clock"],["reason.mirror-image","Mirror & Water Image"],["reason.water-image","Water Image"],["reason.paper-folding","Paper Folding, Embedded & Figure Completion"],["reason.embedded-figure","Embedded / Hidden Figures"],["reason.figure-completion","Figure / Pattern Completion"],["reason.figure-series","Figure Series, Classification, Analogy & Counting"],["reason.figure-classification","Figure Classification"],["reason.figure-analogy","Figure Analogy"],["reason.counting-figures","Counting of Figures (Triangles etc.)"],["reason.dice","Dice, Cube, Cuboid & Dot Situation"],["reason.cube-cuboid","Cube & Cuboid"],["reason.dot-situation","Dot Situation"],["reason.other","Other / Uncategorized Reasoning"]],"ga":[["ga.history-ancient","History: Ancient India"],["ga.history-medieval","History: Medieval India"],["ga.history-modern","History: Modern India & Freedom Struggle"],["ga.art-culture","Art & Culture"],["ga.geography-india","Geography: India"],["ga.geography-world","Geography: World & Physical"],["ga.polity","Polity & Constitution"],["ga.economics","Economics"],["ga.physics","Science: Physics"],["ga.chemistry","Science: Chemistry"],["ga.biology","Science: Biology"],["ga.computer","Computer & Technology"],["ga.static-books-authors","Static: Books & Authors"],["ga.static-awards","Static: Awards & Honours"],["ga.static-days-events","Static: Important Days & Events"],["ga.static-sports","Static: Sports"],["ga.static-schemes","Govt Schemes"],["ga.static-organizations","National & International Organizations"],["ga.static-misc","Static GK: Misc (Dances, Festivals, Symbols, Superlatives)"],["ga.current-affairs","Current Affairs"],["ga.other","Other / Uncategorized GA"]],"quant":[["quant.number-system","Number System"],["quant.divisibility","Rule of Divisibility"],["quant.remainder-theorem","Remainder Theorem"],["quant.decimal-fraction","Decimal & Fraction"],["quant.lcm-hcf","LCM & HCF"],["quant.square-cube-root","Square, Square Root & Cube, Cube Root"],["quant.series-ap-gp","Series (AP & GP)"],["quant.simplification","Power, Indices & Surds"],["quant.algebraic-formula","Algebraic Formula"],["quant.algebraic-result","Algebraic Result"],["quant.percentage","Percentage"],["quant.profit-loss","Profit & Loss"],["quant.discount","Discount"],["quant.simple-interest","Simple Interest"],["quant.compound-interest","Compound Interest"],["quant.ratio-proportion","Ratio & Proportion"],["quant.partnership","Partnership"],["quant.average","Average"],["quant.ages","Age"],["quant.mixture-alligation","Mixture & Alligation"],["quant.time-work","Time & Work"],["quant.pipe-cistern","Pipe & Cistern"],["quant.time-speed-distance","Time, Speed, Distance & Train"],["quant.algebra","Algebraic Expression & Identities"],["quant.quadratic-equation","Quadratic Equation"],["quant.boat-stream","Boat & Stream"],["quant.race","Race"],["quant.trigonometry","Trigonometry"],["quant.height-distance","Height & Distance"],["quant.geometry","Geometry & Circle"],["quant.mensuration","Mensuration (2D & 3D)"],["quant.coordinate-geometry","Co-ordinate Geometry"],["quant.probability","Probability"],["quant.statistics","Statistics"],["quant.data-interpretation","Data Interpretation"],["quant.other","Other / Uncategorized Quant"]],"english":[["eng.error-spotting","Spot the Error"],["eng.sentence-improvement","Sentence Improvement"],["eng.fill-blanks","Fill in the Blanks"],["eng.active-passive","Active & Passive Voice"],["eng.narration","Direct & Indirect Narration"],["eng.para-jumbles","Sentence Rearrangement / Para Jumbles"],["eng.synonyms","Synonyms"],["eng.antonyms","Antonyms"],["eng.spelling","Spelling Correction"],["eng.idioms-phrases","Idioms & Phrases"],["eng.one-word","One Word Substitution"],["eng.homonyms","Homonyms"],["eng.cloze-test","Cloze Test"],["eng.reading-comprehension","Reading Comprehension"],["eng.other","Other / Uncategorized English"]],"computer":[["computer.fundamentals","Computer Fundamentals & Organization (CPU, I/O, Ports, Generations)"],["computer.memory-storage","Memory & Storage Devices"],["computer.os-windows","Operating System & Windows (Explorer, Shortcuts)"],["computer.ms-office","MS Office (Word, Excel, PowerPoint)"],["computer.internet-email","Internet, Web Browsing & E-mail (incl. e-Banking)"],["computer.networking","Networking (Devices & Protocols)"],["computer.cyber-security","Cyber Security (Virus, Hacking, Threats)"],["computer.other","Other / Uncategorized Computer"]],"statistics":[["statistics.data-collection","Collection, Classification & Presentation of Data"],["statistics.central-tendency","Measures of Central Tendency"],["statistics.dispersion","Measures of Dispersion"],["statistics.moments-skewness-kurtosis","Moments, Skewness & Kurtosis"],["statistics.correlation-regression","Correlation & Regression"],["statistics.probability","Probability Theory"],["statistics.random-variable","Random Variable & Probability Distributions"],["statistics.sampling","Sampling Theory"],["statistics.inference","Statistical Inference (Estimation & Testing)"],["statistics.anova","Analysis of Variance (ANOVA)"],["statistics.time-series","Time Series Analysis"],["statistics.index-numbers","Index Numbers"],["statistics.other","Other / Uncategorized Statistics"]],"finance_economics":[["fineco.accounting-fundamentals","Financial Accounting: Nature, Concepts & Conventions (GAAP)"],["fineco.accounting-basics","Basic Accounting: Single/Double Entry, Journal, Ledger, Trial Balance"],["fineco.bank-reconciliation","Bank Reconciliation Statement"],["fineco.rectification-errors","Rectification of Errors"],["fineco.final-accounts","Final Accounts (Trading, P&L, Balance Sheet)"],["fineco.capital-revenue","Capital & Revenue Expenditure"],["fineco.depreciation","Depreciation Accounting"],["fineco.inventory-valuation","Valuation of Inventories"],["fineco.non-profit-accounts","Non-Profit Org Accounts (Receipts & Payments, Income & Expenditure)"],["fineco.bills-exchange","Bills of Exchange"],["fineco.self-balancing-ledgers","Self-Balancing Ledgers"],["fineco.constitutional-bodies","Constitutional Bodies: CAG & Finance Commission"],["fineco.economics-basics","Basic Concepts & Micro Economics Intro (PPC, Central Problems)"],["fineco.demand-supply","Theory of Demand & Supply (Elasticity, Consumer Behaviour)"],["fineco.production-cost","Theory of Production & Cost (Returns to Scale)"],["fineco.market-forms","Forms of Market & Price Determination"],["fineco.indian-economy","Indian Economy: Sectors (Agriculture, Industry, Services)"],["fineco.national-income","National Income (Concepts & Measurement)"],["fineco.population","Population & Growth"],["fineco.poverty-unemployment","Poverty & Unemployment"],["fineco.infrastructure","Infrastructure (Energy, Transport, Communication)"],["fineco.economic-reforms","Economic Reforms since 1991 (LPG & Disinvestment)"],["fineco.money-banking","Money & Banking (RBI, Commercial Banks, Monetary Policy)"],["fineco.budget-fiscal","Budget, Fiscal Deficit, BoP & FRBM Act"],["fineco.it-governance","Role of IT in Governance"],["fineco.other","Other / Uncategorized Finance & Economics"]]};
+const SUBJECT_LABEL = { reasoning:'General Intelligence & Reasoning', ga:'General Awareness', quant:'Quantitative Aptitude / Elementary Maths',
+  english:'English Language', hindi:'Hindi Language (SSC GD Part D, Hindi paper)', computer:'Computer Knowledge', statistics:'Statistics', finance_economics:'Finance & Economics' };
+// Chapter ids that are umbrella / duplicate entries: Claude is told to prefer the specific ones.
+const BROAD = new Set(['reason.analogy','reason.classification','reason.water-image','reason.embedded-figure','reason.figure-completion',
+  'reason.figure-classification','reason.figure-analogy','reason.counting-figures','reason.cube-cuboid','reason.dot-situation','quant.simple-compound-interest']);
+const NAME = {}; const SUBJ_OF = {};
+for (const s in CANON) CANON[s].forEach(([id, name]) => { NAME[id] = name; SUBJ_OF[id] = s; });
+
+/* question-number bands, used only when the doc's subject field is blank or unrecognised */
+function bandSubject(exam, tier, q) {
+  const t2 = /2|ii/i.test(String(tier || ''));
+  if (exam === 'ssc-gd') return q <= 20 ? 'reasoning' : q <= 40 ? 'ga' : q <= 60 ? 'quant' : 'english';
+  if (!t2) return q <= 25 ? 'reasoning' : q <= 50 ? 'ga' : q <= 75 ? 'quant' : 'english';
+  if (exam === 'ssc-chsl') return q <= 30 ? 'quant' : q <= 60 ? 'reasoning' : q <= 100 ? 'english' : q <= 125 ? 'ga' : 'computer';
+  return q <= 30 ? 'quant' : q <= 60 ? 'reasoning' : q <= 105 ? 'english' : q <= 130 ? 'ga' : 'computer';
+}
+function normSubject(name) {
+  const k = String(name || '').trim().toLowerCase();
+  if (!k) return null;
+  if (/हिंदी|हिन्दी|hindi/.test(k)) return 'hindi';
+  if (/statistic|सांख्यिक/.test(k)) return 'statistics';
+  if (/finance|econom|वित्त|अर्थ/.test(k)) return 'finance_economics';
+  if (/computer|कंप्यूटर|कम्प्यूटर/.test(k)) return 'computer';
+  if (/english|अंग्रेज/.test(k)) return 'english';
+  if (/quant|math|गणित|numer|arith/.test(k)) return 'quant';
+  if (/reason|intelligen|तर्क|बुद्धि/.test(k)) return 'reasoning';
+  if (/aware|knowledge|studies|सामान्य|ज्ञान|जागरूकता|^ga$|^gk$/.test(k)) return 'ga';
+  return null;
+}
+
+/* ───────────── state ───────────── */
+const $ = id => document.getElementById(id);
+let db, auth, user = null, papers = [], groups = [], jobs = [], running = false, stopFlag = false;
+const USAGE = { calls: 0, input: 0, output: 0 };
+const store = { get: k => { try { return localStorage.getItem('tssc_pyqtag_' + k) || ''; } catch (e) { return ''; } },
+                set: (k, v) => { try { localStorage.setItem('tssc_pyqtag_' + k, v); } catch (e) {} } };
+$('apiKey').value = store.get('key'); $('model').value = store.get('model') || 'claude-opus-5-5';
+$('apiKey').oninput = () => store.set('key', $('apiKey').value.trim());
+$('model').onchange = () => store.set('model', $('model').value);
+
+function log(msg, cls) { const d = document.createElement('div'); d.className = cls || ''; d.textContent = new Date().toLocaleTimeString() + '  ' + msg; $('log').prepend(d); }
+function showUsage() { $('usage').textContent = USAGE.calls ? `${USAGE.calls} calls · ${(USAGE.input/1000).toFixed(0)}k in / ${(USAGE.output/1000).toFixed(1)}k out` : ''; }
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+/* ───────────── Firebase ───────────── */
+firebase.initializeApp(firebaseConfig); db = firebase.firestore(); auth = firebase.auth();
+auth.onAuthStateChanged(u => {
+  user = (u && (ADMIN_EMAILS.includes(u.email) || /@trickyssc\.com$/.test(u.email || ''))) ? u : null;
+  if (u && !user) { log('This account is not an admin: ' + u.email, 'e'); auth.signOut(); }
+  $('who').textContent = user ? 'signed in — ' + user.email : 'not signed in';
+  $('signIn').textContent = user ? 'Sign out' : 'Sign in';
+  $('loadPapers').disabled = !user; $('papersMsg').textContent = user ? '' : 'Sign in first.';
+});
+$('signIn').onclick = async () => {
+  if (user) return auth.signOut();
+  try { await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()); } catch (e) { alert('Sign-in failed: ' + e.message); }
+};
+
+/* ───────────── Claude ───────────── */
+async function claude(system, userText, maxTokens, signal) {
+  const key = $('apiKey').value.trim(); if (!key) throw new Error('No API key');
+  for (let attempt = 1; attempt <= 5; attempt++) {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST', signal,
+      headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+      body: JSON.stringify({ model: $('model').value, max_tokens: maxTokens, system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }],
+                             messages: [{ role: 'user', content: userText }] })
+    });
+    if (res.status === 429 || res.status === 529 || res.status >= 500) {
+      const wait = Math.min(60000, 3000 * 2 ** attempt); log(`API ${res.status} — waiting ${wait / 1000}s`, 'w'); await sleep(wait); continue;
+    }
+    if (!res.ok) { let m = await res.text(); try { m = JSON.parse(m).error.message; } catch (e) {} throw new Error(res.status + ': ' + m); }
+    const j = await res.json();
+    USAGE.calls++; USAGE.input += (j.usage.input_tokens || 0) + (j.usage.cache_creation_input_tokens || 0) + (j.usage.cache_read_input_tokens || 0); USAGE.output += j.usage.output_tokens || 0; showUsage();
+    return { text: j.content.map(c => c.text || '').join(''), stop: j.stop_reason };
+  }
+  throw new Error('API kept failing (rate limit / overload)');
+}
+$('testKey').onclick = async () => {
+  $('keyMsg').textContent = 'Checking…';
+  try { const r = await claude('Reply with the single word OK.', 'ping', 10); $('keyMsg').textContent = 'Key works ✓ (' + r.text.trim() + ')'; }
+  catch (e) { $('keyMsg').textContent = e.message; }
+};
+
+const SYSTEM = `You classify SSC exam previous-year questions into chapters for TrickySSC.
+For each question, choose exactly ONE chapter id from the list given for that question's subject. Never invent an id and never pick an id from another subject.
+Prefer the most specific chapter; use an "other" chapter only when nothing fits. Ids marked (broad) are umbrella entries — use them only when no specific chapter applies.
+Hindi-medium questions of the other subjects describe the same chapters; judge by the content. Items marked [hindi] are Hindi Language (व्याकरण) questions — use only hindi.* ids for them.
+Give a confidence from 0 to 1.
+Output ONLY a JSON array, no prose, no code fences: [{"i":1,"c":"reason.analogy-word","p":0.95}, ...] — "i" is the # number of the item, one object per item, in the given order.
+
+CHAPTER LISTS
+` + Object.keys(CANON).map(s => `## ${s} (${SUBJECT_LABEL[s]})\n` + CANON[s].map(([id, name]) => `${id} — ${name}${BROAD.has(id) ? ' (broad)' : ''}`).join('\n')).join('\n\n');
+
+/* ───────────── papers ───────────── */
+$('loadPapers').onclick = async () => {
+  const exam = $('exam').value; $('papersMsg').textContent = 'Loading…'; $('groups').innerHTML = ''; $('rows').innerHTML = ''; jobs = [];
+  try {
+    const snap = await db.collection('papers').where('exam', '==', exam).get();
+    const raw = []; snap.forEach(d => raw.push({ id: d.id, ...d.data() }));
+    const list = raw.filter(p => !(String(p.type || '').toLowerCase() === 'mock' || p.mockId));
+    const byKey = {};
+    list.forEach(p => {
+      const key = [p.year, p.tier, p.shift, p.heldOn].join('|');
+      const g = byKey[key] = byKey[key] || { exam, year: String(p.year || ''), tier: String(p.tier || ''), shift: p.shift || '', heldOn: p.heldOn || '', en: '', hi: '', n: 0 };
+      const lang = /^h/i.test(String(p.language || p.lang || 'en')) ? 'hi' : 'en';
+      g[lang] = p.paperId || p.id; g.n = Math.max(g.n, Number(p.questionCount) || 0);
+    });
+    papers = Object.values(byKey).filter(p => p.en || p.hi).sort((a, b) => (b.year + b.heldOn).localeCompare(a.year + a.heldOn) || String(a.shift).localeCompare(String(b.shift)));
+    const gk = {}; papers.forEach(p => { const k = p.year + '|' + p.tier; (gk[k] = gk[k] || { year: p.year, tier: p.tier, papers: [], sel: false }).papers.push(p); });
+    groups = Object.values(gk).sort((a, b) => b.year.localeCompare(a.year) || a.tier.localeCompare(b.tier));
+    $('papersMsg').textContent = `${papers.length} papers (${list.length} cards) in ${groups.length} groups — mocks excluded`;
+    renderGroups();
+  } catch (e) { $('papersMsg').textContent = 'Failed: ' + e.message; log(e.message, 'e'); }
+};
+function renderGroups() {
+  $('groups').innerHTML = groups.map((g, i) => `<label class="grp ${g.sel ? 'sel' : ''}"><input type="checkbox" data-g="${i}" ${g.sel ? 'checked' : ''}>
+    <span><b>${esc(g.year)} · ${/2|ii/i.test(g.tier) ? 'Tier II' : 'Tier I'}</b><small>${g.papers.length} papers · ${g.papers.reduce((a, p) => a + (p.n || 0), 0)} questions</small></span></label>`).join('');
+  $('groups').querySelectorAll('input').forEach(cb => cb.onchange = () => { groups[+cb.dataset.g].sel = cb.checked; renderGroups(); buildJobs(); });
+  $('start').disabled = running || !groups.some(g => g.sel);
+}
+$('selAll').onclick = () => { groups.forEach(g => g.sel = true); renderGroups(); buildJobs(); };
+$('selNone').onclick = () => { groups.forEach(g => g.sel = false); renderGroups(); buildJobs(); };
+function buildJobs() {
+  jobs = []; groups.filter(g => g.sel).forEach(g => g.papers.forEach(p => jobs.push({ p, status: 'todo', tagged: 0, low: 0, total: 0, note: '', rows: [] })));
+  renderRows();
+}
+function label(p) { return `${p.year} · ${/2|ii/i.test(p.tier) ? 'T2' : 'T1'} · ${p.heldOn || ''} · ${p.shift || ''}`.replace(/ · $/, ''); }
+function renderRows() {
+  if (!jobs.length) { $('rows').innerHTML = '<tr><td colspan="7" style="color:var(--muted);text-align:center;padding:24px">Select one or more groups.</td></tr>'; return; }
+  $('rows').innerHTML = jobs.map((j, i) => `<tr id="jr${i}"><td>${esc(label(j.p))}<br><small style="color:var(--muted)">${esc(j.p.en || '')}${j.p.hi ? ' + HI' : ''}</small></td>
+    <td>${j.total || j.p.n || ''}</td><td><span class="st ${j.status}">${{ todo: 'Waiting', run: 'Tagging…', done: 'Done', part: 'Check', fail: 'Failed', skip: 'Already tagged' }[j.status] || j.status}</span></td>
+    <td>${j.tagged || ''}</td><td>${j.low ? `<span class="low">${j.low}</span>` : ''}</td><td style="font-size:12px;color:var(--muted)">${esc(j.note)}</td>
+    <td>${j.rows.length ? `<button class="ghost sm" data-rev="${i}">Review</button>` : ''}</td></tr>`).join('');
+  $('rows').querySelectorAll('[data-rev]').forEach(b => b.onclick = () => toggleReview(+b.dataset.rev));
+}
+
+/* ───────────── tagging ───────────── */
+async function fetchQs(paperId) {
+  if (!paperId) return [];
+  const snap = await db.collection('questions').where('paperId', '==', paperId).get();
+  const out = []; snap.forEach(d => out.push({ id: d.id, ...d.data() }));
+  return out.sort((a, b) => (a.qNum || 0) - (b.qNum || 0));
+}
+function subjectOf(q, p) {
+  const s = normSubject(q.subject || q.section); if (s) return s;
+  return bandSubject(p.exam, p.tier, Number(q.qNum) || 0);
+}
+function optText(q) { const o = q.options || {}; return ['A', 'B', 'C', 'D'].map(k => o[k] ? `(${k}) ${String(o[k]).slice(0, 120)}` : '').filter(Boolean).join(' '); }
+
+async function tagPaper(j, signal) {
+  const p = j.p; j.status = 'run'; j.note = ''; renderRows();
+  const retag = $('retag').checked, dry = $('dry').checked;
+  const en = await fetchQs(p.en), hi = await fetchQs(p.hi);
+  if (!en.length && !hi.length) { j.status = 'fail'; j.note = 'no question docs found'; return; }
+  // Base language = the one that has docs (EN preferred). HI docs get the EN tag by qNum, except GD Part D (Hindi language).
+  const base = en.length ? en : hi, baseLang = en.length ? 'en' : 'hi';
+  const hiByQ = {}; hi.forEach(q => hiByQ[q.qNum] = q);
+  j.total = base.length;
+  const items = base.map(q => ({ q, subj: subjectOf(q, p), old: q.chapterId || '', twin: true }));
+  // GD: the Hindi paper's Part D is Hindi Language — it has no English twin, so it is tagged from the HI docs directly (hindi.* chapters).
+  if (baseLang === 'en') hi.forEach(q => { if (normSubject(q.subject || q.section) === 'hindi') items.push({ q, subj: 'hindi', old: q.chapterId || '', twin: false }); });
+  const todo = items.filter(it => retag || !it.old);
+  if (!todo.length) { j.status = 'skip'; j.tagged = items.filter(it => it.old).length; j.note = 'all questions already have a chapter'; return; }
+  todo.forEach((it, i) => it.idx = i + 1);
+  const prompt = 'Paper: ' + label(p) + ` (${p.exam})\n\n` + todo.map(it => `#${it.idx} (Q${it.q.qNum}) [${it.subj}] ${String(it.q.text || '').replace(/\s+/g, ' ').slice(0, 600)} ${optText(it.q)}`).join('\n');
+  const r = await claude(SYSTEM, prompt + '\n\nReturn the JSON array now, one object per # item.', 8000, signal);
+  let arr; try { arr = JSON.parse(r.text.replace(/```[a-z]*/gi, '').trim()); } catch (e) { throw new Error('Claude did not return valid JSON' + (r.stop === 'max_tokens' ? ' (output cut off)' : '')); }
+  const byQ = {}; (Array.isArray(arr) ? arr : []).forEach(a => byQ[Number(a.i)] = a);
+  const writes = []; j.low = 0; j.rows = [];
+  for (const it of todo) {
+    const a = byQ[it.idx]; let cid = a && String(a.c || '').trim(); let conf = a ? Number(a.p) || 0 : 0; let flag = '';
+    if (!cid || !NAME[cid]) { cid = it.subj + '.other'; if (!NAME[cid]) cid = Object.keys(NAME).find(k => SUBJ_OF[k] === it.subj && /\.other$/.test(k)) || ''; conf = 0; flag = 'no valid chapter returned'; }
+    else if (SUBJ_OF[cid] !== it.subj) { flag = 'chapter from another subject (' + SUBJ_OF[cid] + ') — kept, check it'; conf = Math.min(conf, 0.5); }
+    if (!cid) { flag = 'no chapter'; j.rows.push({ it, cid: '', conf: 0, flag }); continue; }
+    if (conf < 0.7 || flag) j.low++;
+    j.rows.push({ it, cid, conf, flag });
+    const payload = { chapterId: cid, chapterName: NAME[cid], chapterConf: Math.round(conf * 100) / 100, chapterTaggedAt: firebase.firestore.FieldValue.serverTimestamp() };
+    writes.push([it.q.id, payload]);
+    const twin = (it.twin && baseLang === 'en') ? hiByQ[it.q.qNum] : null;
+    if (twin && twin.id !== it.q.id && normSubject(twin.subject || twin.section) !== 'hindi') writes.push([twin.id, payload]);
+  }
+  if (!dry) {
+    for (let i = 0; i < writes.length; i += 400) {
+      const b = db.batch(); writes.slice(i, i + 400).forEach(([id, data]) => b.update(db.collection('questions').doc(id), data)); await b.commit();
+    }
+  }
+  j.tagged = writes.length;
+  j.status = j.low ? 'part' : 'done';
+  const nh = todo.filter(it => it.subj === 'hindi').length;
+  j.note = (dry ? 'DRY RUN — nothing written. ' : '') + `${todo.length - nh} ${baseLang.toUpperCase()} Qs tagged (${writes.length} docs incl. twins)` + (nh ? ` + ${nh} Hindi-language Qs` : '') + (j.low ? `, ${j.low} to check` : '');
+}
+
+async function worker(queue, signal) {
+  while (queue.length && !stopFlag) {
+    const j = queue.shift();
+    try { await tagPaper(j, signal); log(`${label(j.p)}: ${j.note || j.status}`, j.status === 'fail' ? 'e' : j.low ? 'w' : 'o'); }
+    catch (e) { if (e.name === 'AbortError') { j.status = 'todo'; return; } j.status = 'fail'; j.note = e.message; log(`${label(j.p)}: ${e.message}`, 'e'); }
+    renderRows(); updateBar();
+  }
+}
+function updateBar() {
+  const done = jobs.filter(j => !['todo', 'run'].includes(j.status)).length;
+  $('bar').style.width = (jobs.length ? 100 * done / jobs.length : 0) + '%';
+  const c = s => jobs.filter(j => j.status === s).length;
+  $('chips').innerHTML = `<span class="chip">${done} / ${jobs.length} papers</span><span class="chip ok">${c('done')} done</span><span class="chip warn">${c('part')} to check</span><span class="chip">${c('skip')} already tagged</span><span class="chip bad">${c('fail')} failed</span>`;
+}
+let abort = null;
+$('start').onclick = async () => {
+  if (!jobs.length) return;
+  if (!$('apiKey').value.trim()) return alert('Add the API key first.');
+  running = true; stopFlag = false; abort = new AbortController();
+  $('start').disabled = true; $('stop').disabled = false; $('loadPapers').disabled = true;
+  const queue = jobs.filter(j => ['todo', 'fail'].includes(j.status)); queue.forEach(j => j.status = 'todo');
+  $('runMsg').textContent = `Tagging ${queue.length} papers… keep this tab open.`;
+  log(`Start: ${queue.length} papers, model ${$('model').value}${$('dry').checked ? ', DRY RUN' : ''}`);
+  await Promise.all(Array.from({ length: Number($('parallel').value) }, () => worker(queue, abort.signal)));
+  running = false; $('start').disabled = false; $('stop').disabled = true; $('loadPapers').disabled = false;
+  $('runMsg').textContent = stopFlag ? 'Stopped. Press Tag again to continue.' : 'Finished.'; updateBar(); renderRows();
+  if (!stopFlag) log('Finished. Chapter totals for this run: ' + chapterTotals(), 'o');
+};
+$('stop').onclick = () => { stopFlag = true; if (abort) abort.abort(); };
+function chapterTotals() {
+  const n = {}; jobs.forEach(j => j.rows.forEach(r => { if (r.cid) n[r.cid] = (n[r.cid] || 0) + 1; }));
+  return Object.entries(n).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${v}`).join(', ');
+}
+
+/* ───────────── review & fix ───────────── */
+function toggleReview(i) {
+  const old = document.getElementById('rv' + i); if (old) { old.remove(); return; }
+  const j = jobs[i]; const tr = document.createElement('tr'); tr.id = 'rv' + i; tr.className = 'review';
+  const opts = (subj, cid) => Object.keys(NAME).filter(k => SUBJ_OF[k] === subj || k === cid).map(k => `<option value="${k}" ${k === cid ? 'selected' : ''}>${esc(NAME[k])}</option>`).join('');
+  tr.innerHTML = `<td colspan="7"><div style="margin-bottom:6px"><label style="font-size:12.5px"><input type="checkbox" id="only${i}" checked> Show only questions to check</label>
+    <button class="ghost sm" id="save${i}" style="margin-left:10px">Save changes to Firebase</button> <span class="hint" id="sm${i}"></span></div>
+    <table><thead><tr><th>Q</th><th>Subject</th><th>Question</th><th>Chapter</th><th>Conf.</th></tr></thead><tbody>` +
+    j.rows.map((r, k) => `<tr class="rr" data-check="${(r.conf < 0.7 || r.flag) ? 1 : 0}"><td>${r.it.q.qNum}</td><td><small>${r.it.subj}</small></td>
+      <td class="qt">${esc(String(r.it.q.text || '').slice(0, 300))}<br><small style="color:var(--muted)">${esc(optText(r.it.q))}</small>${r.flag ? `<br><small class="low">${esc(r.flag)}</small>` : ''}</td>
+      <td><select class="chap" data-k="${k}">${opts(r.it.subj, r.cid)}</select></td><td class="${r.conf < 0.7 ? 'low' : ''}">${r.conf.toFixed(2)}</td></tr>`).join('') + '</tbody></table></td>';
+  document.getElementById('jr' + i).after(tr);
+  const filt = () => tr.querySelectorAll('tr.rr').forEach(x => x.classList.toggle('hidden', $('only' + i).checked && x.dataset.check === '0'));
+  $('only' + i).onchange = filt; filt();
+  tr.querySelectorAll('select.chap').forEach(s => s.onchange = () => { j.rows[+s.dataset.k].newCid = s.value; });
+  $('save' + i).onclick = async () => {
+    const changed = j.rows.filter(r => r.newCid && r.newCid !== r.cid); if (!changed.length) { $('sm' + i).textContent = 'Nothing changed.'; return; }
+    const hi = await fetchQs(j.p.hi); const hiByQ = {}; hi.forEach(q => hiByQ[q.qNum] = q);
+    const b = db.batch();
+    changed.forEach(r => { const data = { chapterId: r.newCid, chapterName: NAME[r.newCid], chapterConf: 1, chapterTaggedAt: firebase.firestore.FieldValue.serverTimestamp() };
+      b.update(db.collection('questions').doc(r.it.q.id), data);
+      const t = hiByQ[r.it.q.qNum]; if (t && t.id !== r.it.q.id && normSubject(t.subject) !== 'hindi') b.update(db.collection('questions').doc(t.id), data);
+      r.cid = r.newCid; r.conf = 1; r.flag = ''; });
+    await b.commit(); $('sm' + i).textContent = changed.length + ' question(s) updated.'; log(`${label(j.p)}: ${changed.length} chapter(s) corrected by hand`, 'o');
+  };
+}
+</script>
+</body>
+</html>
