@@ -282,7 +282,8 @@ function renderRows() {
 async function loadSaved(i) {
   const j = jobs[i]; const p = j.p;
   try {
-    const en = await fetchQs(p.en), hi = await fetchQs(p.hi);
+    const en = await fetchQs(p.en, p, 'en'), hi = await fetchQs(p.hi, p, 'hi');
+  if (p.hi && !hi.length) log(`${label(p)}: Hindi paper card exists but no Hindi question docs were found`, 'w');
     const base = en.length ? en : hi;
     const rows = base.map(q => ({ q, subj: subjectOf(q, p), old: q.chapterId || '', twin: true }));
     if (en.length) hi.forEach(q => { if (normSubject(q.subject || q.section) === 'hindi') rows.push({ q, subj: 'hindi', old: q.chapterId || '', twin: false }); });
@@ -295,10 +296,22 @@ async function loadSaved(i) {
 }
 
 /* ───────────── tagging ───────────── */
-async function fetchQs(paperId) {
+async function fetchQs(paperId, p, lang) {
   if (!paperId) return [];
-  const snap = await db.collection('questions').where('paperId', '==', paperId).get();
-  const out = []; snap.forEach(d => out.push({ id: d.id, ...d.data() }));
+  const read = async q => { const snap = await q.get(); const out = []; snap.forEach(d => out.push({ id: d.id, ...d.data() })); return out; };
+  const isLang = (q, L) => { const v = String(q.language || q.lang || 'en').toLowerCase(); return L === 'hi' ? /^h/.test(v) : !/^h/.test(v); };
+  const ids = [paperId, paperId.replace(/_hi$/, '_hindi'), paperId.replace(/_hindi$/, '_hi'), paperId.replace(/_en$/, '_english'), paperId.replace(/_english$/, '_en')];
+  let out = [];
+  for (const id of [...new Set(ids)]) { out = await read(db.collection('questions').where('paperId', '==', id)); if (out.length) break; }
+  if (!out.length && p && lang) {
+    // paper card and question docs disagree on paperId — find the questions by the paper's details instead
+    let q = db.collection('questions').where('exam', '==', p.exam).where('type', '==', 'pyq');
+    if (p.year) q = q.where('year', '==', isNaN(Number(p.year)) ? p.year : Number(p.year));
+    if (p.heldOn) q = q.where('heldOn', '==', p.heldOn);
+    if (p.shift) q = q.where('shift', '==', p.shift);
+    out = (await read(q)).filter(x => isLang(x, lang));
+    if (out.length) log(`${label(p)}: ${lang.toUpperCase()} questions found by date/shift (their paperId differs from the paper card)`, 'w');
+  }
   return out.sort((a, b) => (a.qNum || 0) - (b.qNum || 0));
 }
 function subjectOf(q, p) {
@@ -310,7 +323,8 @@ function optText(q) { const o = q.options || {}; return ['A', 'B', 'C', 'D'].map
 async function tagPaper(j, signal) {
   const p = j.p; j.status = 'run'; j.note = ''; renderRows();
   const retag = $('retag').checked, dry = $('dry').checked;
-  const en = await fetchQs(p.en), hi = await fetchQs(p.hi);
+  const en = await fetchQs(p.en, p, 'en'), hi = await fetchQs(p.hi, p, 'hi');
+  if (p.hi && !hi.length) log(`${label(p)}: Hindi paper card exists but no Hindi question docs were found`, 'w');
   if (!en.length && !hi.length) { j.status = 'fail'; j.note = 'no question docs found'; return; }
   // Base language = the one that has docs (EN preferred). HI docs get the EN tag by qNum, except GD Part D (Hindi language).
   const base = en.length ? en : hi, baseLang = en.length ? 'en' : 'hi';
@@ -320,6 +334,14 @@ async function tagPaper(j, signal) {
   // GD: the Hindi paper's Part D is Hindi Language — it has no English twin, so it is tagged from the HI docs directly (hindi.* chapters).
   if (baseLang === 'en') hi.forEach(q => { if (normSubject(q.subject || q.section) === 'hindi') items.push({ q, subj: 'hindi', old: q.chapterId || '', twin: false }); });
   const todo = items.filter(it => retag || !it.old);
+  // Hindi twins that missed the tag (e.g. the Hindi docs were not found in an earlier run): copy the English tag, no API call needed.
+  if (!retag && baseLang === 'en') {
+    const copy = [];
+    en.forEach(q => { const t = hiByQ[q.qNum]; if (q.chapterId && t && !t.chapterId && normSubject(t.subject || t.section) !== 'hindi')
+      copy.push([t.id, { chapterId: q.chapterId, chapterName: q.chapterName || NAME[q.chapterId] || '', chapterConf: q.chapterConf == null ? 1 : q.chapterConf, chapterTaggedAt: firebase.firestore.FieldValue.serverTimestamp() }]); });
+    if (copy.length && !dry) { for (let i = 0; i < copy.length; i += 400) { const b = db.batch(); copy.slice(i, i + 400).forEach(([id, d]) => b.update(db.collection('questions').doc(id), d)); await b.commit(); } }
+    if (copy.length) { log(`${label(p)}: copied ${copy.length} English tags to Hindi twins`, 'o'); if (!todo.length) { j.status = 'done'; j.tagged = copy.length; j.note = `${copy.length} Hindi twins tagged from the English paper`; return; } }
+  }
   if (!todo.length) { j.status = 'skip'; j.tagged = items.filter(it => it.old).length; j.note = 'all questions already have a chapter'; return; }
   todo.forEach((it, i) => it.idx = i + 1);
   const prompt = 'Paper: ' + label(p) + ` (${p.exam})\n\n` + todo.map(it => `#${it.idx} (Q${it.q.qNum}) [${it.subj}] ${String(it.q.text || '').replace(/\s+/g, ' ').slice(0, 600)} ${optText(it.q)}`).join('\n');
@@ -402,7 +424,7 @@ function toggleReview(i) {
   tr.querySelectorAll('select.chap').forEach(s => s.onchange = () => { j.rows[+s.dataset.k].newCid = s.value; });
   $('save' + i).onclick = async () => {
     const changed = j.rows.filter(r => r.newCid && r.newCid !== r.cid); if (!changed.length) { $('sm' + i).textContent = 'Nothing changed.'; return; }
-    const hi = await fetchQs(j.p.hi); const hiByQ = {}; hi.forEach(q => hiByQ[q.qNum] = q);
+    const hi = await fetchQs(j.p.hi, j.p, 'hi'); const hiByQ = {}; hi.forEach(q => hiByQ[q.qNum] = q);
     const b = db.batch();
     changed.forEach(r => { const data = { chapterId: r.newCid, chapterName: NAME[r.newCid], chapterConf: 1, chapterTaggedAt: firebase.firestore.FieldValue.serverTimestamp() };
       b.update(db.collection('questions').doc(r.it.q.id), data);
