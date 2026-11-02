@@ -274,8 +274,24 @@ function renderRows() {
   $('rows').innerHTML = jobs.map((j, i) => `<tr id="jr${i}"><td>${esc(label(j.p))}<br><small style="color:var(--muted)">${esc(j.p.en || '')}${j.p.hi ? ' + HI' : ''}</small></td>
     <td>${j.total || j.p.n || ''}</td><td><span class="st ${j.status}">${{ todo: 'Waiting', run: 'Tagging…', done: 'Done', part: 'Check', fail: 'Failed', skip: 'Already tagged' }[j.status] || j.status}</span></td>
     <td>${j.tagged || ''}</td><td>${j.low ? `<span class="low">${j.low}</span>` : ''}</td><td style="font-size:12px;color:var(--muted)">${esc(j.note)}</td>
-    <td>${j.rows.length ? `<button class="ghost sm" data-rev="${i}">Review</button>` : ''}</td></tr>`).join('');
+    <td>${j.rows.length ? `<button class="ghost sm" data-rev="${i}">Review</button>` : (j.status !== 'run' ? `<button class="ghost sm" data-load="${i}">Review saved</button>` : '')}</td></tr>`).join('');
   $('rows').querySelectorAll('[data-rev]').forEach(b => b.onclick = () => toggleReview(+b.dataset.rev));
+  $('rows').querySelectorAll('[data-load]').forEach(b => b.onclick = () => loadSaved(+b.dataset.load));
+}
+/* Rebuild a paper's review table from the tags already saved in Firebase (for papers tagged in an earlier session). */
+async function loadSaved(i) {
+  const j = jobs[i]; const p = j.p;
+  try {
+    const en = await fetchQs(p.en), hi = await fetchQs(p.hi);
+    const base = en.length ? en : hi;
+    const rows = base.map(q => ({ q, subj: subjectOf(q, p), old: q.chapterId || '', twin: true }));
+    if (en.length) hi.forEach(q => { if (normSubject(q.subject || q.section) === 'hindi') rows.push({ q, subj: 'hindi', old: q.chapterId || '', twin: false }); });
+    j.rows = rows.map(it => { const cid = it.old, conf = Number(it.q.chapterConf); return { it, cid, conf: isNaN(conf) ? (cid ? 1 : 0) : conf,
+      flag: !cid ? 'no chapter' : /\.other$/.test(cid) ? 'uncategorized' : (SUBJ_OF[cid] && SUBJ_OF[cid] !== it.subj ? 'moved to ' + SUBJ_OF[cid] + ' (paper section said ' + it.subj + ')' : '') }; });
+    j.total = base.length; j.tagged = j.rows.filter(r => r.cid).length; j.low = j.rows.filter(r => r.conf < 0.7 || r.flag).length;
+    if (!j.rows.length) { log(label(p) + ': no question docs found', 'e'); return; }
+    renderRows(); toggleReview(i);
+  } catch (e) { log(label(p) + ': ' + e.message, 'e'); }
 }
 
 /* ───────────── tagging ───────────── */
