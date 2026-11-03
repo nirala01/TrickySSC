@@ -326,6 +326,7 @@ ACCENT = {   # subject -> (accent, soft, dark, shadow)   — same colours as ssc
     "statistics":        ("#14B8A6", "rgba(20,184,166,.10)", "#0D9488", "rgba(20,184,166,.32)"),
     "finance_economics": ("#6366F1", "rgba(99,102,241,.10)", "#4F46E5", "rgba(99,102,241,.32)"),
 }
+SHORT_BTN = {"reasoning": "Reasoning", "ga": "GK", "quant": "Maths", "english": "English", "hindi": "Hindi", "computer": "Computer", "statistics": "Statistics", "finance_economics": "Finance"}
 SUBJ_ICON = {"quant": "🔢", "reasoning": "🧠", "english": "✍️", "ga": "🌍", "hindi": "📝", "computer": "💻", "statistics": "📊", "finance_economics": "💰"}
 def accent_css(subj):
     a, s, d, sh = ACCENT.get(subj, ACCENT["quant"])
@@ -343,10 +344,41 @@ a{color:var(--accent);}
 .nav-inner{max-width:1100px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:1rem;height:60px;padding:0 1.25rem;}
 .logo{font-family:'Baloo 2',cursive;font-size:1.5rem;font-weight:800;text-decoration:none;color:#1A202C;white-space:nowrap;}
 .logo span{color:#FF6B00;}
-.nav-links{display:flex;gap:1.1rem;flex-wrap:wrap;}
-.nav-links a{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.85rem;letter-spacing:.4px;text-transform:uppercase;color:#4A5568;text-decoration:none;}
+.nav-links{display:flex;gap:.95rem;flex-wrap:nowrap;}
+.nav-links a{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.82rem;letter-spacing:.3px;text-transform:uppercase;color:#4A5568;text-decoration:none;white-space:nowrap;}
 .nav-links a:hover,.nav-links a.on{color:#FF6B00;}
-@media(max-width:820px){.nav-links{display:none;}}
+.nav-new{display:inline-block;margin-left:.3rem;font-size:.62rem;letter-spacing:1px;color:#fff;background:linear-gradient(135deg,#EF4444,#F97316);border-radius:100px;padding:.08rem .45rem;vertical-align:middle;animation:navNew 1.2s ease-in-out infinite;}
+@keyframes navNew{0%,100%{opacity:1}50%{opacity:.35}}
+.nav-toggle{display:none;width:42px;height:42px;border:1px solid #E2E8F0;background:#fff;border-radius:11px;cursor:pointer;align-items:center;justify-content:center;flex-shrink:0;}
+.nav-toggle span,.nav-toggle span::before,.nav-toggle span::after{content:'';display:block;width:19px;height:2px;border-radius:2px;background:#4A5568;}
+.nav-toggle span{position:relative;}.nav-toggle span::before{position:absolute;top:-6px;left:0;}.nav-toggle span::after{position:absolute;top:6px;left:0;}
+@media(max-width:820px){
+  .nav-toggle{display:flex;}
+  .nav-links{display:none;position:absolute;top:60px;left:0;right:0;flex-direction:column;gap:0;background:#fff;border-bottom:1px solid #E2E8F0;box-shadow:0 12px 30px rgba(0,0,0,.1);padding:.4rem 0;}
+  .nav-links.open{display:flex;}
+  .nav-links a{padding:.8rem 1.25rem;border-bottom:1px solid #F1F5F9;font-size:.9rem;}
+  .nav-links a:last-child{border-bottom:none;}
+  .nav-inner{position:relative;}
+}
+/* subject cards (hub) */
+.sub-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:1rem;}
+.sub{position:relative;display:flex;flex-direction:column;background:#fff;border:1px solid #E2E8F0;border-top:5px solid var(--accent);border-radius:18px;padding:1.15rem 1.15rem 1.1rem;box-shadow:0 2px 12px rgba(0,0,0,.05);transition:transform .16s ease,box-shadow .16s ease;overflow:hidden;}
+.sub::after{content:'';position:absolute;right:-40px;top:-40px;width:140px;height:140px;border-radius:50%;background:var(--accent-soft);pointer-events:none;z-index:0;}
+.sub>*{position:relative;z-index:1;}
+.sub:hover{transform:translateY(-3px);box-shadow:0 14px 34px rgba(0,0,0,.1);}
+.sub-top{display:flex;align-items:center;gap:.8rem;margin-bottom:.8rem;position:relative;}
+.sub-ic{width:50px;height:50px;border-radius:14px;background:var(--accent-soft);display:flex;align-items:center;justify-content:center;font-size:1.5rem;flex-shrink:0;}
+.sub-name{font-family:'Baloo 2',cursive;font-weight:800;font-size:1.15rem;line-height:1.2;color:#1A202C;}
+.sub-name small{display:block;font-family:'Hind',sans-serif;font-weight:500;font-size:.78rem;color:#718096;margin-top:.1rem;}
+.sub-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem;padding:.7rem .5rem;border-radius:14px;background:var(--accent-soft);margin-bottom:.8rem;}
+.sub-stat{text-align:center;}.sub-stat b{display:block;font-family:'Baloo 2',cursive;font-weight:800;font-size:1.35rem;line-height:1.1;color:var(--accent-dark);}.sub-stat span{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.7rem;letter-spacing:.5px;text-transform:uppercase;color:#718096;}
+.sub-ex{display:flex;flex-wrap:wrap;gap:.3rem;margin-bottom:.7rem;}
+.sub-ex i{font-style:normal;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.74rem;letter-spacing:.4px;color:#4A5568;background:#F7FAFC;border:1px solid #E2E8F0;border-radius:6px;padding:.14rem .5rem;}
+.sub-ex i b{color:var(--accent-dark);}
+.sub-desc{font-size:.86rem;color:#4A5568;flex:1;margin-bottom:.9rem;line-height:1.5;}
+.sub-btn{display:flex;align-items:center;justify-content:center;gap:.4rem;padding:.7rem 1rem;border-radius:12px;background:linear-gradient(135deg,var(--accent),var(--accent-dark));color:#fff;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1rem;letter-spacing:.3px;text-decoration:none;box-shadow:0 4px 14px var(--accent-shadow);}
+.sub-btn em{font-style:normal;transition:transform .16s;}.sub:hover .sub-btn em{transform:translateX(3px);}
+@media(max-width:640px){.sub-grid{grid-template-columns:1fr;gap:.8rem;}.sub{padding:1rem .95rem;}.sub-stat b{font-size:1.2rem;}}
 .nav-acct{display:flex;align-items:center;gap:.5rem;flex-shrink:0;}
 .nav-cta{display:inline-flex;align-items:center;gap:.35rem;background:linear-gradient(135deg,#FF6B00,#FF8C38);color:#fff!important;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.85rem;padding:.4rem .9rem;border-radius:100px;text-decoration:none;box-shadow:0 4px 14px rgba(255,107,0,.3);}
 .acct{display:flex;align-items:center;gap:.5rem;}
@@ -540,10 +572,11 @@ NAV_EXAMS = [("ssc-cgl", "SSC CGL"), ("ssc-chsl", "SSC CHSL"), ("ssc-gd", "SSC G
 def nav():
     return f"""<nav class="nav"><div class="nav-inner">
   <a class="logo" href="/index.html">Tricky<span>SSC</span></a>
-  <div class="nav-links">
+  <button class="nav-toggle" type="button" aria-label="Menu" aria-expanded="false" onclick="var m=document.getElementById('navLinks');var o=m.classList.toggle('open');this.setAttribute('aria-expanded',o);"><span></span></button>
+  <div class="nav-links" id="navLinks">
     <a href="/index.html">Home</a>
-    <a href="/{HUB}" class="on">Chapter-wise PYQ</a>
-    {''.join(f'<a href="/{EXAMS[e]["hub"]}">{n} PYQ</a>' for e, n in NAV_EXAMS)}
+    <a href="/{HUB}" class="on">Chapter-wise PYQ<span class="nav-new">NEW</span></a>
+    {''.join(f'<a href="/{EXAMS[e]["hub"]}">{n.replace("SSC ", "")} PYQ</a>' for e, n in NAV_EXAMS)}
     <a href="/ssc-cgl-chapterwise.html">Chapter Tests</a>
     <a href="/ssc-cgl-mock-test.html">Mock Tests</a>
   </div>
@@ -700,14 +733,16 @@ def gen_subject_page(index, exams, subj):
     return page(title, desc, subject_file(subj), body, index, subj=subj, extra_head=head, extra_js=ATTEMPT_JS)
 
 def gen_hub(index, counts, exams):
-    rows = []
+    cards = []
     for s in all_subjects(index):
         chs = index[s]; total_q, total_t, n_ch, by_exam = subj_totals(chs)
         top = ", ".join(c["name"].split(" (")[0] for c in chs[:4])
-        rows.append(f"""<li class="ch-item" style="{accent_css(s)}"><div class="ch-top"><a class="ch-row no-exp" href="/{subject_file(s)}">
-<span class="ch-ico" aria-hidden="true">{SUBJ_ICON.get(s, '📘')}</span>
-<span class="ch-body"><span class="ch-name">{E(subj_label(s))}</span><span class="ch-meta"><b>{n_ch}</b> chapters · <b>{total_q}</b> PYQs · most asked: {E(top)}</span>{exam_tags(by_exam)}</span>
-<span class="ch-count"><span class="ch-n">{total_t}</span> tests</span><span class="ch-cta"><span>Open chapters</span><em>&rarr;</em></span></a></div></li>""")
+        cards.append(f"""<article class="sub" style="{accent_css(s)}">
+<div class="sub-top"><div class="sub-ic" aria-hidden="true">{SUBJ_ICON.get(s, '📘')}</div><div class="sub-name">{E(subj_label(s))}<small>Previous year questions, chapter wise</small></div></div>
+<div class="sub-stats"><div class="sub-stat"><b>{n_ch}</b><span>Chapters</span></div><div class="sub-stat"><b>{total_t}</b><span>Tests</span></div><div class="sub-stat"><b>{total_q}</b><span>PYQs</span></div></div>
+<div class="sub-ex">{"".join(f"<i><b>{E(short_name(e))}</b> {n}</i>" for e, n in by_exam.items())}</div>
+<p class="sub-desc"><b>Most asked:</b> {E(top)}.</p>
+<a class="sub-btn" href="/{subject_file(s)}">Open {E(SHORT_BTN.get(s, subj_short(s)))} chapters <em>&rarr;</em></a></article>""")
     tot_q = sum(c["count"] for v in index.values() for c in v); tot_t = sum(c["tests"] for v in index.values() for c in v); tot_c = sum(1 for v in index.values() for c in v if c["tests"])
     names = exams_sentence(exams)
     body = crumbs([("Home", "/index.html"), ("Chapter-wise PYQ", "")])
@@ -717,7 +752,7 @@ def gen_hub(index, counts, exams):
     body += f"""<main>
 <section id="subjects"><h2>Choose a subject</h2><p>Each subject page lists every chapter with its tests. Attempted tests are marked and keep a Review link.</p>
 <div class="chips" style="margin:0 0 1rem">{exam_strip(exams)}</div>
-<ol class="ch-list">{''.join(rows)}</ol></section>
+<div class="sub-grid">{''.join(cards)}</div></section>
 <section id="why"><h2>Why chapter-wise PYQs across all SSC exams?</h2>
 <p>Solving a full paper tells you your score. Solving the same questions chapter-wise tells you <b>which chapters</b> cost you marks — and shows the exact patterns SSC repeats year after year. CGL, CHSL, GD, MTS and CPO are set by the same commission from the same syllabus, so a chapter's questions from every exam together give you the complete picture of how it is asked. These tests are built only from real previous-year questions, so the difficulty is the real difficulty.</p>
 <p>Questions are added automatically whenever a new paper of any SSC exam is uploaded to TrickySSC. Each chapter's tests are fixed in paper order, so Test 3 is always the same Test 3 — new questions open a new test at the end.</p></section>
