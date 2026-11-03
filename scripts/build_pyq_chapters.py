@@ -408,9 +408,8 @@ p{margin-bottom:.9rem;color:#2D3748;}
 .ch-cta{flex:0 0 auto;display:inline-flex;align-items:center;gap:.4rem;padding:.5rem 1.1rem;border-radius:100px;background:linear-gradient(135deg,var(--accent),var(--accent-dark));color:#fff;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.86rem;letter-spacing:.4px;white-space:nowrap;box-shadow:0 3px 10px var(--accent-shadow);}
 .ch-cta em{font-style:normal;font-size:1rem;line-height:1;transition:transform .16s ease;}
 .ch-row:hover .ch-cta em{transform:translateX(3px);}
-.ch-item.is-soon .ch-row{opacity:.85;pointer-events:none;}
 .ch-item.is-soon .ch-ico{filter:grayscale(1);background:#F1F5F9;color:#94A3B8;}
-.ch-item.is-soon .ch-cta{display:none;}
+.ch-item.is-soon .ch-cta{background:#fff;color:var(--accent);border:1.5px solid var(--accent);box-shadow:none;}
 .ch-exp{position:absolute;right:.8rem;top:50%;transform:translateY(-50%);width:34px;height:34px;display:flex;align-items:center;justify-content:center;background:var(--accent-soft);border:none;border-radius:50%;cursor:pointer;color:var(--accent);font-size:.8rem;transition:background .15s;}
 .ch-exp:hover,.ch-exp[aria-expanded="true"]{background:var(--accent);color:#fff;}
 .ch-exp span{display:block;transition:transform .2s ease;line-height:1;}
@@ -477,19 +476,21 @@ footer a{color:#CBD5E0;text-decoration:none;margin-right:1rem;}footer a:hover{co
 ATTEMPT_JS = """
 <script>
 window.tsscPaintAttempts=async function(user){
-  const KEY='tsscPyqChAtt:all:'+user.uid, TTL=10*60*1000;
-  let rows=null; try{ const c=JSON.parse(localStorage.getItem(KEY)||'null'); if(c&&(Date.now()-c.t)<TTL) rows=c.r; }catch(e){}
+  const KEY='tsscPyqChAtt:all:'+user.uid, TTL=5*60*1000;
+  let rows=null; try{ const c=JSON.parse(localStorage.getItem(KEY)||'null'); let last=0; try{ last=(JSON.parse(sessionStorage.getItem('tssc_cw_last')||'null')||{}).ts||0; }catch(_){}
+    if(c&&(Date.now()-c.t)<TTL&&c.t>last) rows=c.r; }catch(e){}
   if(!rows){
     let token=''; try{ token=await user.getIdToken(); }catch(e){}
     const headers={'Content-Type':'application/json'}; if(token) headers['Authorization']='Bearer '+token;
     const body={structuredQuery:{from:[{collectionId:'attempts'}],
-      where:{compositeFilter:{op:'AND',filters:[{fieldFilter:{field:{fieldPath:'uid'},op:'EQUAL',value:{stringValue:user.uid}}},{fieldFilter:{field:{fieldPath:'type'},op:'EQUAL',value:{stringValue:'pyq-chapter'}}}]}},
-      select:{fields:[{fieldPath:'exam'},{fieldPath:'tier'},{fieldPath:'chapterId'},{fieldPath:'testNum'},{fieldPath:'language'},{fieldPath:'analyticsV'}]},limit:1000}};
+      where:{fieldFilter:{field:{fieldPath:'uid'},op:'EQUAL',value:{stringValue:user.uid}}},
+      select:{fields:[{fieldPath:'type'},{fieldPath:'chapterId'},{fieldPath:'chapter'},{fieldPath:'testNum'},{fieldPath:'language'},{fieldPath:'analyticsV'}]},limit:1000}};
     try{
       const r=await fetch('https://firestore.googleapis.com/v1/projects/trickyssc-17bb3/databases/(default)/documents:runQuery?key=AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA',{method:'POST',headers,body:JSON.stringify(body)});
       if(!r.ok) return; const j=await r.json(); rows=[];
       (j||[]).forEach(x=>{ const d=x&&x.document; if(!d||!d.fields) return; const f=d.fields, v=k=>f[k]&&(f[k].stringValue||f[k].integerValue||'');
-        rows.push({id:d.name.split('/').pop(),exam:v('exam'),tier:v('tier'),ch:v('chapterId'),tn:parseInt(v('testNum'))||0,lang:v('language')==='hi'?'hi':'en',rev:!!f.analyticsV}); });
+        if(v('type')!=='pyq-chapter') return;
+        rows.push({id:d.name.split('/').pop(),ch:v('chapterId')||v('chapter'),tn:parseInt(v('testNum'))||0,lang:v('language')==='hi'?'hi':'en',rev:!!f.analyticsV}); });
       try{ localStorage.setItem(KEY,JSON.stringify({t:Date.now(),r:rows})); }catch(e){}
     }catch(e){ return; }
   }
@@ -601,7 +602,7 @@ def chapter_row(ch):
 <div class="ch-top"><a class="ch-row{'' if live else ' no-exp'}" href="/{chapter_file(cid)}">
 <span class="ch-ico" aria-hidden="true">{icon_of(cid)}</span>
 <span class="ch-body"><span class="ch-name">{E(ch['name'])}</span><span class="ch-meta">{meta}</span>{exam_tags(ch['exams'])}</span>
-{count}<span class="ch-cta"><span>Practice</span><em>&rarr;</em></span></a>{exp}</div>{panel}</li>"""
+{count}<span class="ch-cta"><span>{'Practice' if live else 'View'}</span><em>&rarr;</em></span></a>{exp}</div>{panel}</li>"""
 
 def exam_strip(exams):
     return "".join(f'<span class="chip"><b>{E(v["name"])}</b> {v["papers"]} papers · {v["questions"]} PYQs</span>' for e, v in sorted(exams.items(), key=lambda kv: (EXAM_ORDER.index(kv[0]) if kv[0] in EXAM_ORDER else 99, kv[0])))
@@ -691,7 +692,9 @@ def gen_hub(index, counts, exams):
 def gen_chapter_page(index, ch):
     subj = ch["subject"]; short = subj_short(subj); name = ch["name"]; ex = ch["exams"]; names = exams_sentence(ex)
     years = ch["years"]; yr = f"{years[0]}–{years[-1]}" if len(years) > 1 else (years[0] if years else "")
-    wait = f'<div class="waiting">+{ch["waiting"]} more questions collected — the next test opens at {SET_SIZE}.</div>' if ch["waiting"] else ""
+    wait = f'<div class="waiting">+{ch["waiting"]} more questions collected — the next test opens at {SET_SIZE}.</div>' if (ch["waiting"] and ch["tests"]) else ""
+    if not ch["tests"]:
+        wait = f'<div class="note"><b>Collecting questions.</b> {ch["count"]} {E(name)} PYQ{"s" if ch["count"] != 1 else ""} tagged so far — the first test opens automatically at {MIN_FIRST_SET} and grows to {SET_SIZE}. New papers of any SSC exam add to it.</div>'
     siblings = [c for c in index[subj] if c["id"] != ch["id"] and c["tests"]][:12]
     sib = "".join(f'<a href="/{chapter_file(c["id"])}">{icon_of(c["id"])} {E(c["name"])}<span>{c["count"]} PYQs · {c["tests"]} tests</span></a>' for c in siblings)
     exam_rows = "".join(f'<tr><td>{E(exam_name(e))}</td><td class="num">{n}</td><td><a href="/{exam_meta(e)["hub"]}">{E(exam_name(e))} papers</a></td></tr>' for e, n in ex.items())
@@ -703,7 +706,7 @@ def gen_chapter_page(index, ch):
     body += f"""<main>
 <section id="tests"><h2>{E(name)} Tests — Pick a Test and Start</h2>
 <p>Tests are in paper order: Test 1 has the oldest papers, the last test the newest. Attempted tests are marked and keep a Review link.</p>
-{tiles(ch)}{wait}</section>
+{tiles(ch) if ch["tests"] else ""}{wait}</section>
 <section id="about"><h2>About these {E(name)} questions</h2>
 <p>These are the actual {E(name)} questions SSC asked in the {E(names)} {yr} papers on TrickySSC — not model questions. Questions from every exam sit together in paper order, and a new test opens at the end whenever {SET_SIZE} more questions are tagged from a newly uploaded paper of any SSC exam, so the tests you have attempted never change.</p>
 <div class="tbl-wrap"><table><thead><tr><th>Exam</th><th>{E(name)} PYQs</th><th>Full papers</th></tr></thead><tbody>{exam_rows}</tbody></table></div>
@@ -735,7 +738,6 @@ def gen_pages(index, counts, exams):
         files.append(subject_file(s)); write_if_changed(os.path.join(ROOT, subject_file(s)), gen_subject_page(index, exams, s))
     for s, chs in index.items():
         for c in chs:
-            if not c["tests"]: continue
             files.append(chapter_file(c["id"]))
             write_if_changed(os.path.join(ROOT, chapter_file(c["id"])), gen_chapter_page(index, c))
     return files
