@@ -307,8 +307,9 @@ onAuthStateChanged(auth, async user=>{
   if(user){ const data={uid:user.uid,name:user.displayName||'Student',phone:user.phoneNumber||'',email:user.email||'',photoURL:user.photoURL||'',loginMethod:user.phoneNumber?'phone':'google'};
     try{ const c=JSON.parse(localStorage.getItem('tssc_user')||'null'); if(c&&c.uid===user.uid){ if((!data.name||data.name==='Student')&&c.name) data.name=c.name; if(!data.photoURL&&c.photoURL) data.photoURL=c.photoURL; } }catch(e){}
     try{ localStorage.setItem('tssc_user', JSON.stringify(data)); }catch(e){} paint(data);
+    window.__tsscUser=user;
     if(window.tsscPaintAttempts){ try{ window.tsscPaintAttempts(user); }catch(e){} }
-  } else { try{ localStorage.removeItem('tssc_user'); }catch(e){} paint(null); }
+  } else { window.__tsscUser=null; try{ localStorage.removeItem('tssc_user'); }catch(e){} paint(null); }
 });
 </script>
 """
@@ -494,15 +495,34 @@ window.tsscPaintAttempts=async function(user){
       try{ localStorage.setItem(KEY,JSON.stringify({t:Date.now(),r:rows})); }catch(e){}
     }catch(e){ return; }
   }
-  rows.forEach(a=>{
-    document.querySelectorAll('.tt[data-ch="'+a.ch+'"][data-n="'+a.tn+'"]').forEach(t=>{
-      t.classList.add('is-done');
-      if(!t.querySelector('.tt-done')){ const b=document.createElement('span'); b.className='tt-done'; b.textContent='\\u2713 ATTEMPTED'; t.insertBefore(b, t.querySelector('.tt-q')); }
-      const go=t.querySelector('.tt-go[data-lang="'+a.lang+'"]'); if(go){ go.classList.add('is-re'); go.innerHTML=(a.lang==='hi'?'\\u0926\\u094b\\u092c\\u093e\\u0930\\u093e':'Re-attempt')+' &rarr;'; }
-      if(a.rev && !t.querySelector('a.tt-rev')){ const l=document.createElement('a'); l.className='tt-rev'; l.innerHTML='\\uD83D\\uDCC4 Review solutions &rarr;'; l.href=t.getAttribute('data-href')+'&lang='+a.lang+'&review='+encodeURIComponent(a.id); t.appendChild(l); }
-    });
-  });
+  rows.forEach(tsscMarkTile);
+  tsscPaintLast();
 };
+/* mark one test tile as attempted (a = {ch, tn, lang, rev, id}); tiles are matched by chapter id or by its key form (cwp_… lbKey) */
+function tsscMarkTile(a){
+  const key=String(a.ch||'').replace(/[^a-zA-Z0-9]/g,'');
+  document.querySelectorAll('.tt[data-n="'+a.tn+'"]').forEach(t=>{
+    const ch=t.getAttribute('data-ch')||''; if(ch!==a.ch && ch.replace(/[^a-zA-Z0-9]/g,'')!==key) return;
+    t.classList.add('is-done');
+    if(!t.querySelector('.tt-done')){ const b=document.createElement('span'); b.className='tt-done'; b.textContent='\\u2713 ATTEMPTED'; t.insertBefore(b, t.querySelector('.tt-q')); }
+    const go=t.querySelector('.tt-go[data-lang="'+a.lang+'"]'); if(go){ go.classList.add('is-re'); go.innerHTML=(a.lang==='hi'?'\\u0926\\u094b\\u092c\\u093e\\u0930\\u093e':'Re-attempt')+' &rarr;'; }
+    if(a.rev && a.id && !t.querySelector('a.tt-rev')){ const l=document.createElement('a'); l.className='tt-rev'; l.innerHTML='\\uD83D\\uDCC4 Review solutions &rarr;'; l.href=t.getAttribute('data-href')+'&lang='+a.lang+'&review='+encodeURIComponent(a.id); t.appendChild(l); }
+  });
+}
+/* the test just submitted in this tab (pyq-chapter-test.html stores it as tssc_cw_last) — painted at once, before Firestore answers */
+function tsscPaintLast(){
+  try{ const o=JSON.parse(sessionStorage.getItem('tssc_cw_last')||'null'); if(!o||!o.key) return;
+    const m=/^cwp_ssc_all_(.+)_T(\\d+)$/.exec(o.key); if(!m) return;
+    tsscMarkTile({ch:m[1],tn:parseInt(m[2],10),lang:o.lang==='hi'?'hi':'en',rev:true,id:o.attemptId||''}); }catch(e){}
+}
+document.addEventListener('DOMContentLoaded',tsscPaintLast);
+/* "Back to tests" after a submit is a history.back(): the page is restored from the back/forward cache
+   with its old DOM, so repaint — the just-submitted test first, then a fresh attempts read */
+window.addEventListener('pageshow',function(ev){
+  if(!ev.persisted) return;
+  tsscPaintLast();
+  if(window.__tsscUser&&window.tsscPaintAttempts){ try{ window.tsscPaintAttempts(window.__tsscUser); }catch(e){} }
+});
 </script>
 """
 
@@ -549,7 +569,8 @@ def page(title, desc, canonical, body, index, subj=None, extra_head="", extra_js
 <link rel="canonical" href="{SITE}/{canonical}">
 <meta name="robots" content="index,follow,max-snippet:-1,max-image-preview:large">
 <meta property="og:type" content="website"><meta property="og:site_name" content="TrickySSC"><meta property="og:title" content="{E(title)}"><meta property="og:description" content="{E(desc)}"><meta property="og:url" content="{SITE}/{canonical}">
-<meta name="twitter:card" content="summary_large_image">
+<meta property="og:image" content="{SITE}/favicon.png">
+<meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="{E(title)}"><meta name="twitter:description" content="{E(desc)}">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Baloo+2:wght@400;600;700;800&family=Hind:wght@300;400;500;600&display=swap" rel="stylesheet">
 <link rel="icon" href="/favicon.png">
@@ -566,6 +587,27 @@ def page(title, desc, canonical, body, index, subj=None, extra_head="", extra_js
 </body>
 </html>
 """
+
+def ld(obj):
+    return '<script type="application/ld+json">' + json.dumps(obj, ensure_ascii=False) + '</script>'
+
+def ld_breadcrumb(items):
+    return ld({"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [
+        {"@type": "ListItem", "position": i + 1, "name": n, "item": f"{SITE}/{u}"} for i, (n, u) in enumerate(items)]})
+
+def ld_collection(title, desc, canonical, about, list_name, items):
+    return ld({"@context": "https://schema.org", "@type": "CollectionPage", "name": title, "description": desc, "url": f"{SITE}/{canonical}",
+               "inLanguage": ["en", "hi"], "isPartOf": {"@type": "WebSite", "name": "TrickySSC", "url": SITE + "/"},
+               "about": {"@type": "Thing", "name": about}, "isAccessibleForFree": True,
+               "mainEntity": {"@type": "ItemList", "name": list_name, "numberOfItems": len(items),
+                              "itemListElement": [{"@type": "ListItem", "position": i + 1, "name": n, "url": f"{SITE}/{u}"} for i, (n, u) in enumerate(items)]}})
+
+def ld_faq(qa):
+    return ld({"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [
+        {"@type": "Question", "name": q, "acceptedAnswer": {"@type": "Answer", "text": a}} for q, a in qa]})
+
+def faq_html(qa):
+    return '<div class="faq">' + "".join(f"<details><summary>{E(q)}</summary><div class=\"ans\">{E(a)}</div></details>" for q, a in qa) + "</div>"
 
 def crumbs(items):
     return '<div class="breadcrumb">' + " / ".join(f'<a href="{h}">{t}</a>' if h else f"<span>{t}</span>" for t, h in items) + "</div>"
@@ -646,9 +688,16 @@ def gen_subject_page(index, exams, subj):
 {''.join(f'<a href="/{EXAMS[e]["hub"]}">{n} previous year papers<span>Full shift-wise papers with solutions</span></a>' for e, n in NAV_EXAMS)}
 <a href="/ssc-cgl-chapterwise.html">SSC CGL chapter-wise tests<span>Model questions, two levels, 25 per test</span></a></div></section>
 </main>"""
-    title = f"SSC {short} PYQ Chapter Wise — {total_q} Previous Year Questions ({exams_line(by_exam, ', ')}) in {n_ch} Chapters | TrickySSC"
-    desc = f"Free SSC {short} previous year questions chapter wise from {exams_sentence(by_exam)} papers: {total_q} PYQs in {total_t} tests of {SET_SIZE}, English and Hindi, with the exam, paper and shift under every question."
-    return page(title, desc, subject_file(subj), body, index, subj=subj, extra_js=ATTEMPT_JS)
+    title = f"SSC {short} PYQ Chapter Wise – {total_q} Previous Year Questions ({exams_line(by_exam, ', ')}) | TrickySSC"
+    desc = f"Free SSC {short} previous year questions chapter wise from {exams_sentence(by_exam)} papers: {total_q} PYQs in {n_ch} chapters, {total_t} tests of {SET_SIZE} in English and Hindi, with the exam, paper and shift under every question."
+    qa = [(f"Are these real SSC {short} previous year questions?", f"Yes. Every question comes from a {exams_sentence(by_exam)} paper hosted on TrickySSC — {total_q} {short} questions in all — and the exam, date and shift are shown under each question."),
+          (f"How many {short} chapters have PYQ tests?", f"{n_ch} chapters have tests right now; {len(chs)} chapters are listed. A chapter's first test opens at {MIN_FIRST_SET} tagged questions and every test after that has {SET_SIZE}."),
+          ("Can I practise in Hindi?", "Yes — the हिंदी button opens the same test in Hindi wherever the Hindi paper is available, with a View in English toggle on every question."),
+          ("Are the chapter-wise PYQ tests free?", "Yes, every test is free. A free TrickySSC account is needed to start one so your attempts, review and rank are saved.")]
+    body = body.replace("</main>", f'<section id="faq"><h2>SSC {E(short)} PYQ — Frequently Asked Questions</h2>{faq_html(qa)}</section>\n</main>')
+    head = ld_breadcrumb([("Home", "index.html"), ("Chapter-wise PYQ", HUB), (short + " PYQ", subject_file(subj))]) \
+         + ld_collection(title, desc, subject_file(subj), f"SSC {short} previous year questions", f"{short} chapters", [(c["name"], chapter_file(c["id"])) for c in chs]) + ld_faq(qa)
+    return page(title, desc, subject_file(subj), body, index, subj=subj, extra_head=head, extra_js=ATTEMPT_JS)
 
 def gen_hub(index, counts, exams):
     rows = []
@@ -685,9 +734,16 @@ def gen_hub(index, counts, exams):
 <a href="/ssc-cgl-mock-test.html">SSC CGL mock tests<span>Full-length, real sectional timing</span></a>
 <a href="/ssc-chsl-mock-test.html">SSC CHSL mock tests<span>Tier I + Tier II, ₹49 a year</span></a></div></section>
 </main>"""
-    title = f"SSC Chapter-wise PYQ {dt.date.today().year} — {tot_q} Previous Year Questions of CGL, CHSL, GD by Chapter, Free Tests | TrickySSC"
+    title = f"SSC PYQ Chapter Wise – {tot_q} Previous Year Questions of CGL, CHSL, GD | TrickySSC"
     desc = f"Free SSC chapter-wise previous year questions: {tot_q} PYQs from {counts['papers']} {names} papers in {tot_c} chapters, {SET_SIZE}-question tests in English and Hindi with solutions. One chapter, every SSC exam."
-    return page(title, desc, HUB, body, index)
+    qa = [("Are the questions really from previous SSC papers?", f"Yes. Every question comes from a {names} paper hosted on TrickySSC, and the exam, date and shift are shown under the question in the test."),
+          ("Why are CGL, CHSL and GD questions together in one test?", "The chapter is the same; only the exam differs. Seeing every way SSC has asked a chapter — across exams and years — is the fastest way to master it. The label under each question tells you which exam and shift it came from."),
+          ("How many questions are in one test?", f"{SET_SIZE}. A new chapter shows its first test once {MIN_FIRST_SET} questions have been tagged; that test grows to {SET_SIZE}, after which every further test is a full {SET_SIZE}."),
+          ("Can I take the tests in Hindi?", "Yes — the हिंदी button opens the same test in Hindi wherever the Hindi paper is available, with a View in English toggle on every question."),
+          ("Is there negative marking?", "Tests use +2 for a correct answer and −0.5 for a wrong one, like the chapter tests. Unattempted questions score zero.")]
+    head = ld_breadcrumb([("Home", "index.html"), ("Chapter-wise PYQ", HUB)]) \
+         + ld_collection(title, desc, HUB, "SSC previous year questions chapter wise", "Subjects", [(subj_label(s), subject_file(s)) for s in all_subjects(index)]) + ld_faq(qa)
+    return page(title, desc, HUB, body, index, extra_head=head)
 
 def gen_chapter_page(index, ch):
     subj = ch["subject"]; short = subj_short(subj); name = ch["name"]; ex = ch["exams"]; names = exams_sentence(ex)
@@ -717,19 +773,27 @@ def gen_chapter_page(index, ch):
 {''.join(f'<a href="/{EXAMS[e]["hub"]}">{n} previous year papers<span>Full shift-wise papers</span></a>' for e, n in NAV_EXAMS)}
 <a href="/ssc-cgl-mock-test.html">SSC CGL mock tests<span>Full-length, real sectional timing</span></a></div></section>
 </main>"""
-    title = f"{name} PYQ {yr} — {ch['count']} SSC Previous Year Questions ({exams_line(ex, ', ')}), Chapter Wise Tests | TrickySSC"
-    desc = f"Practise {ch['count']} real SSC {name} previous year questions from {names} ({yr}) as {SET_SIZE}-question tests, in English and Hindi, with solutions and the exam, paper and shift under every question."
-    ld = json.dumps({"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [
-        {"@type": "ListItem", "position": 1, "name": "Home", "item": SITE + "/index.html"},
-        {"@type": "ListItem", "position": 2, "name": "Chapter-wise PYQ", "item": f"{SITE}/{HUB}"},
-        {"@type": "ListItem", "position": 3, "name": short, "item": f"{SITE}/{subject_file(subj)}"},
-        {"@type": "ListItem", "position": 4, "name": name, "item": f"{SITE}/{chapter_file(ch['id'])}"}]}, ensure_ascii=False)
-    return page(title, desc, chapter_file(ch["id"]), body, index, subj=subj, extra_head=f'<script type="application/ld+json">{ld}</script>', extra_js=ATTEMPT_JS)
+    title = f"{name} PYQ – SSC Previous Year Questions Chapter Wise ({exams_line(ex, ', ')}) | TrickySSC"
+    desc = f"Practise {ch['count']} real SSC {name} previous year questions from {names} ({yr}) papers as {SET_SIZE}-question tests, in English and Hindi, with solutions and the exam, paper and shift under every question. Free."
+    qa = [(f"How many {name} questions has SSC asked?", f"{ch['count']} {name} questions from the {names} {yr} papers on TrickySSC" + (": " + exams_line(ex, ", ") if len(ex) > 1 else "") + ". The count grows automatically as new papers are uploaded."),
+          (f"Are these the actual SSC {name} questions?", f"Yes — not model questions. Every question was asked in a real {names} paper, and the exam, date and shift are shown under it in the test and in the review."),
+          (f"How are the {name} PYQ tests arranged?", f"In paper order, {SET_SIZE} questions per test: Test 1 holds the oldest papers, the last test the newest. A new test opens when {SET_SIZE} more questions are tagged, so attempted tests never change."),
+          ("Is it free and available in Hindi?", "Yes on both counts. Sign in with a free TrickySSC account; the हिंदी button opens the same test in Hindi wherever the Hindi paper exists.")]
+    body = body.replace("</main>", f'<section id="faq"><h2>{E(name)} PYQ — Frequently Asked Questions</h2>{faq_html(qa)}</section>\n</main>')
+    head = ld_breadcrumb([("Home", "index.html"), ("Chapter-wise PYQ", HUB), (short, subject_file(subj)), (name, chapter_file(ch["id"]))]) \
+         + ld_collection(title, desc, chapter_file(ch["id"]), f"SSC {name} previous year questions", f"{name} PYQ tests", [(f"{name} PYQ Test {i}", test_href(ch["id"], i).lstrip("/")) for i in range(1, ch["tests"] + 1)]) + ld_faq(qa)
+    return page(title, desc, chapter_file(ch["id"]), body, index, subj=subj, extra_head=head, extra_js=ATTEMPT_JS)
 
+LASTMOD_PATH = os.path.join(OUT, "lastmod.json")
+LASTMOD = json.load(open(LASTMOD_PATH, encoding="utf-8")) if os.path.exists(LASTMOD_PATH) else {}
 def write_if_changed(path, txt):
     old = open(path, encoding="utf-8").read() if os.path.exists(path) else None
+    name = os.path.basename(path)
     if old != txt:
-        open(path, "w", encoding="utf-8").write(txt); return True
+        open(path, "w", encoding="utf-8").write(txt)
+        if name.endswith(".html"): LASTMOD[name] = TODAY
+        return True
+    if name.endswith(".html"): LASTMOD.setdefault(name, TODAY)
     return False
 
 def gen_pages(index, counts, exams):
@@ -747,7 +811,7 @@ def update_sitemap(all_files):
     if not os.path.exists(path): return
     s = open(path, encoding="utf-8").read()
     block = "<!-- PYQCH:START (generated by scripts/build_pyq_chapters.py — do not edit by hand) -->\n" + "".join(
-        f"  <url>\n    <loc>{SITE}/{f}</loc>\n    <lastmod>{TODAY}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>{'0.8' if f == HUB or 'chapter-wise-pyq' in f else '0.6'}</priority>\n  </url>\n" for f in all_files) + "<!-- PYQCH:END -->\n"
+        f"  <url>\n    <loc>{SITE}/{f}</loc>\n    <lastmod>{LASTMOD.get(f, TODAY)}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>{'0.9' if f == HUB else '0.8' if 'chapter-wise-pyq' in f else '0.7'}</priority>\n  </url>\n" for f in all_files) + "<!-- PYQCH:END -->\n"
     if "<!-- PYQCH:START" in s:
         s = re.sub(r"<!-- PYQCH:START.*?<!-- PYQCH:END -->\n?", lambda _m: block, s, flags=re.S)
     else:
@@ -771,8 +835,12 @@ def main():
         print("no PYQ questions found — nothing built"); return
     index, counts, exams = build_all(papers, qs)
     files = gen_pages(index, counts, exams)
-    json.dump(sorted(set(files)), open(os.path.join(OUT, "pages.json"), "w", encoding="utf-8"), indent=0)
-    update_sitemap(sorted(set(files)))
+    files = sorted(set(files))
+    json.dump(files, open(os.path.join(OUT, "pages.json"), "w", encoding="utf-8"), indent=0)
+    json.dump(LASTMOD, open(LASTMOD_PATH, "w", encoding="utf-8"), indent=0, sort_keys=True)
+    # plain list of every chapter-wise PYQ URL — paste into Google Search Console / Bing URL submission
+    open(os.path.join(OUT, "urls.txt"), "w", encoding="utf-8").write("\n".join(f"{SITE}/{f}" for f in files) + "\n")
+    update_sitemap(files)
     print("done")
 
 if __name__ == "__main__":
