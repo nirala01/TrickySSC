@@ -1,5 +1,6 @@
-# Rebuilds the chapter-wise PYQ tests (pyq-chapters/*.json), the chapter-wise PYQ pages
-# for SSC CGL / CHSL / GD and their sitemap block from the tagged questions in Firestore.
+# Rebuilds the chapter-wise PYQ tests (pyq-chapters/all/*.json) and the chapter-wise PYQ
+# pages (ssc-pyq-chapterwise.html, ssc-<subject>-chapter-wise-pyq.html, ssc-<chapter>-pyq.html)
+# from the tagged questions of EVERY SSC exam in Firestore, plus their sitemap block.
 #
 # Runs once a day (reads every PYQ question doc once: a few thousand Firestore reads)
 # and whenever you press "Run workflow". After uploading + tagging a new paper, run it
@@ -11,11 +12,6 @@ on:
   schedule:
     - cron: '25 21 * * *'        # 02:55 IST daily
   workflow_dispatch:
-    inputs:
-      exam:
-        description: 'Only this exam (ssc-cgl / ssc-chsl / ssc-gd); blank = all'
-        required: false
-        default: ''
 
 permissions:
   contents: write
@@ -34,12 +30,7 @@ jobs:
         with:
           python-version: '3.11'
       - name: Build tests and pages
-        run: |
-          if [ -n "${{ github.event.inputs.exam }}" ]; then
-            python scripts/build_pyq_chapters.py --exam "${{ github.event.inputs.exam }}"
-          else
-            python scripts/build_pyq_chapters.py
-          fi
+        run: python scripts/build_pyq_chapters.py
       - name: Commit if anything changed
         run: |
           git config user.name  "github-actions[bot]"
