@@ -257,7 +257,8 @@ def build_all(papers, qs):
         index[subj].sort(key=lambda c: (-c["tests"], -c["count"], c["name"]))
     exams = {e: {"name": exam_name(e), "papers": v["papers"], "questions": v["questions"], "years": sorted(v["years"])} for e, v in exams_seen.items()}
     json.dump({"built": TODAY, "counts": counts, "exams": exams, "subjects": index}, open(os.path.join(OUT, "index.json"), "w", encoding="utf-8"), ensure_ascii=False, indent=1)
-    print(f"all exams: {counts} · exams {', '.join(f'{e} {v['papers']}p/{v['questions']}q' for e, v in exams.items())} → {sum(len(v) for v in index.values())} chapters, {written} test files changed")
+    ex_txt = ", ".join("%s %dp/%dq" % (e, v["papers"], v["questions"]) for e, v in exams.items())
+    print(f"all exams: {counts} · exams {ex_txt} → {sum(len(v) for v in index.values())} chapters, {written} test files changed")
     return index, counts, exams
 
 
