@@ -956,7 +956,7 @@ async function loadDashboard(user) {
     // Classify: chapter tests are single-subject 100-mark practice, kept apart
     // from full 200-mark PYQ/Mock papers so they don't skew the /200 stat cards
     // or the performance analysis (they still count in Tests Taken + the table).
-    const isChapter = a => a.type==='chapterwise';
+    const isChapter = a => a.type==='chapterwise' || a.type==='pyq-chapter';   /* TSSC-PYQCH-V1 */
     const isMock    = a => !isChapter(a) && !!(a.mockId || a.type==='mock' || (a.paperId||'').includes('_mock'));
     const paperAttempts = attempts.filter(a => !isChapter(a));   // PYQ + Mock only
 
@@ -1043,7 +1043,7 @@ async function loadDashboardMobile(mUser) {
     const snap = await getDocs(q);
     const attempts = [];
     snap.forEach(d => attempts.push({id:d.id,...d.data()}));
-    const isChapter = a => a.type==='chapterwise';
+    const isChapter = a => a.type==='chapterwise' || a.type==='pyq-chapter';   /* TSSC-PYQCH-V1 */
     const isMock    = a => !isChapter(a) && !!(a.mockId || a.type==='mock' || (a.paperId||'').includes('_mock'));
     const paperAttempts = attempts.filter(a => !isChapter(a));   // PYQ + Mock only
     if(attempts.length > 0){
@@ -1280,21 +1280,24 @@ function renderAttempts(attempts) {
     const date = a.timestamp?.toDate
       ? a.timestamp.toDate().toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})
       : '—';
-    const _isChapter = a.type==='chapterwise';
+    const _isChapter = a.type==='chapterwise' || a.type==='pyq-chapter';   /* TSSC-PYQCH-V1 */
     const _isMock = !_isChapter && !!(a.mockId || a.type==='mock' || (a.paperId||'').includes('_mock'));
     let examName, retryUrl, typeTag, detail = '';
     if(_isChapter){
       examName = a.chapterName || a.examName || 'Chapter Test';
       const lang = (a.language==='hi') ? 'hi' : '';
-      retryUrl = 'chapterwise-test.html?exam='+(a.exam||'ssc-cgl')
+      retryUrl = (a.type==='pyq-chapter'?'pyq-chapter-test.html':'chapterwise-test.html')+'?exam='+(a.exam||'ssc-cgl')   /* TSSC-PYQCH-V1 */
+        +(a.type==='pyq-chapter'&&a.tier?'&tier='+encodeURIComponent(a.tier):'')
         +'&subject='+encodeURIComponent(a.subject||'')
         +'&chapter='+encodeURIComponent(a.chapterId||a.chapter||'')
         + (a.level?'&level='+encodeURIComponent(a.level):'')        /* TSSC-REVIEW-V1: the player needs level+test, */
         + (a.testNum?'&test='+encodeURIComponent(a.testNum):'')     /* else it bounces to the chapter list */
         + (lang?'&lang='+lang:'');
-      typeTag = '<span style="background:#F0FDFA;color:#0D9488;border-radius:5px;padding:0.05rem 0.4rem;font-size:0.66rem;font-weight:700;margin-left:0.4rem;">CHAPTER</span>';
+      typeTag = (a.type==='pyq-chapter')
+        ? '<span style="background:#FFF7ED;color:#C2410C;border-radius:5px;padding:0.05rem 0.4rem;font-size:0.66rem;font-weight:700;margin-left:0.4rem;">PYQ · CHAPTER</span>'   /* TSSC-PYQCH-V1 */
+        : '<span style="background:#F0FDFA;color:#0D9488;border-radius:5px;padding:0.05rem 0.4rem;font-size:0.66rem;font-weight:700;margin-left:0.4rem;">CHAPTER</span>';
       const bits = [];
-      if(a.level!==undefined && a.level!==null && a.level!=='') bits.push('Level '+a.level);
+      if(a.type!=='pyq-chapter' && a.level!==undefined && a.level!==null && a.level!=='') bits.push('Level '+a.level);
       if(a.testNum!==undefined && a.testNum!==null && a.testNum!=='') bits.push('Test '+a.testNum);
       if(bits.length) detail = '<span style="color:var(--gray);font-weight:500;font-size:0.78rem;margin-left:0.4rem;">· '+bits.join(' · ')+'</span>';
     } else if(_isMock){
@@ -1461,7 +1464,7 @@ const chSlug = n => String(n||'').toLowerCase().replace(/&/g,'and').replace(/[^a
 const $ = id => document.getElementById(id);
 const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const n1 = v => (Math.round(v*10)/10).toString();
-const isChapter = a => a.type==='chapterwise';
+const isChapter = a => a.type==='chapterwise' || a.type==='pyq-chapter';   /* TSSC-PYQCH-V1 */
 const isFullPaper = a => !isChapter(a) && a.testKind!=='pyq-subject' && a.testKind!=='mock-subject';   // subject-wise PYQ/mock sets and chapter tests have no cut-off
 const isMock = a => !isChapter(a) && !!(a.mockId || a.type==='mock' || (a.paperId||'').includes('_mock'));
 const isTier2 = a => a.tier==='tier2' || /tier2|tier-2|tier_2/i.test((a.paperId||'')+(a.mockId||''));
@@ -1509,7 +1512,7 @@ function renderScopeSel(){
   sel.onchange=()=>{ SCOPE=sel.value; PERF_SEL=''; paintTop(); renderAll(); const a=scopeAtt()[0]; const k=a?lbKey(a):''; if(OWNED&&k&&!LB[k]) fetchRanks([a]).then(()=>{ renderAll(); paintTableRanks(); }).catch(()=>{}); };
 }
 function testUrl(a){
-  if(isChapter(a)) return 'chapterwise-test.html?exam='+(a.exam||'ssc-cgl')+'&subject='+encodeURIComponent(a.subject||'')+'&chapter='+encodeURIComponent(a.chapterId||a.chapter||'');
+  if(isChapter(a)) return (a.type==='pyq-chapter'?'pyq-chapter-test.html':'chapterwise-test.html')+'?exam='+(a.exam||'ssc-cgl')+(a.type==='pyq-chapter'&&a.tier?'&tier='+encodeURIComponent(a.tier):'')+'&subject='+encodeURIComponent(a.subject||'')+'&chapter='+encodeURIComponent(a.chapterId||a.chapter||'')+(a.type==='pyq-chapter'&&a.testNum?'&test='+encodeURIComponent(a.testNum):'');   /* TSSC-PYQCH-V1 */
   if(isMock(a)){
     if(a.testKind==='mock-subject' && a.subjectKey){ const mid=a.baseMockId||String(a.mockId||'').replace(/__[a-z]+$/i,''); return (isTier2(a)?'mock-test-tier2-subject.html':'mock-test-subject.html')+'?exam='+(a.exam||'')+'&mockId='+encodeURIComponent(mid)+'&lang='+(mid.endsWith('_hi')?'hi':'en')+'&subject='+encodeURIComponent(a.subjectKey); }   /* TSSC-SUBJECT-MOCK-V1 */
     const mid=a.mockId||a.paperId||''; return (isTier2(a)?'mock-test-tier2.html':'mock-test.html')+'?exam='+(a.exam||'')+'&mockId='+encodeURIComponent(mid)+'&lang='+(mid.endsWith('_hi')?'hi':'en'); }
