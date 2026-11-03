@@ -89,9 +89,8 @@ p{margin-bottom:.9rem;color:#2D3748;}
 .ch-cta{flex:0 0 auto;display:inline-flex;align-items:center;gap:.4rem;padding:.5rem 1.1rem;border-radius:100px;background:linear-gradient(135deg,var(--accent),var(--accent-dark));color:#fff;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.86rem;letter-spacing:.4px;white-space:nowrap;box-shadow:0 3px 10px var(--accent-shadow);}
 .ch-cta em{font-style:normal;font-size:1rem;line-height:1;transition:transform .16s ease;}
 .ch-row:hover .ch-cta em{transform:translateX(3px);}
-.ch-item.is-soon .ch-row{opacity:.85;pointer-events:none;}
 .ch-item.is-soon .ch-ico{filter:grayscale(1);background:#F1F5F9;color:#94A3B8;}
-.ch-item.is-soon .ch-cta{display:none;}
+.ch-item.is-soon .ch-cta{background:#fff;color:var(--accent);border:1.5px solid var(--accent);box-shadow:none;}
 .ch-exp{position:absolute;right:.8rem;top:50%;transform:translateY(-50%);width:34px;height:34px;display:flex;align-items:center;justify-content:center;background:var(--accent-soft);border:none;border-radius:50%;cursor:pointer;color:var(--accent);font-size:.8rem;transition:background .15s;}
 .ch-exp:hover,.ch-exp[aria-expanded="true"]{background:var(--accent);color:#fff;}
 .ch-exp span{display:block;transition:transform .2s ease;line-height:1;}
@@ -315,7 +314,7 @@ footer a{color:#CBD5E0;text-decoration:none;margin-right:1rem;}footer a:hover{co
 <div class="ch-top"><a class="ch-row no-exp" href="/ssc-quadratic-equation-pyq.html">
 <span class="ch-ico" aria-hidden="true">ax²</span>
 <span class="ch-body"><span class="ch-name">Quadratic Equation</span><span class="ch-meta"><b>4</b> PYQs · 2023–2025 papers</span><span class="ch-ex"><i>CGL 1</i><i>CHSL 3</i></span></span>
-<span class="ch-count soon">Collecting · 4/10</span><span class="ch-cta"><span>Practice</span><em>&rarr;</em></span></a></div></li></ol>
+<span class="ch-count soon">Collecting · 4/10</span><span class="ch-cta"><span>View</span><em>&rarr;</em></span></a></div></li></ol>
 </section>
 <section id="weightage"><h2>Which Quantitative Aptitude chapters does SSC ask most?</h2><p>Counted across every SSC exam paper on this site — use it to decide where to spend your time first.</p>
 <div class="tbl-wrap"><table><thead><tr><th>Chapter</th><th>PYQs</th><th>By exam</th><th>Tests</th></tr></thead><tbody><tr><td><a href="/ssc-geometry-pyq.html">Geometry &amp; Circle</a></td><td class="num">657</td><td>CGL 372 · CHSL 285</td><td class="num">26</td></tr><tr><td><a href="/ssc-mensuration-pyq.html">Mensuration (2D &amp; 3D)</a></td><td class="num">607</td><td>CGL 358 · CHSL 239 · GD 10</td><td class="num">24</td></tr><tr><td><a href="/ssc-trigonometry-pyq.html">Trigonometry</a></td><td class="num">505</td><td>CGL 333 · CHSL 172</td><td class="num">20</td></tr><tr><td><a href="/ssc-data-interpretation-pyq.html">Data Interpretation</a></td><td class="num">406</td><td>CGL 232 · CHSL 174</td><td class="num">16</td></tr><tr><td><a href="/ssc-algebra-pyq.html">Algebraic Expression &amp; Identities</a></td><td class="num">311</td><td>CGL 203 · CHSL 108</td><td class="num">12</td></tr><tr><td><a href="/ssc-discount-pyq.html">Discount</a></td><td class="num">274</td><td>CGL 143 · CHSL 121 · GD 10</td><td class="num">10</td></tr><tr><td><a href="/ssc-percentage-pyq.html">Percentage</a></td><td class="num">270</td><td>CGL 127 · CHSL 122 · GD 21</td><td class="num">10</td></tr><tr><td><a href="/ssc-time-work-pyq.html">Time &amp; Work</a></td><td class="num">258</td><td>CGL 161 · CHSL 86 · GD 11</td><td class="num">10</td></tr></tbody></table></div></section>
@@ -364,19 +363,21 @@ document.addEventListener('click',function(e){
 
 <script>
 window.tsscPaintAttempts=async function(user){
-  const KEY='tsscPyqChAtt:all:'+user.uid, TTL=10*60*1000;
-  let rows=null; try{ const c=JSON.parse(localStorage.getItem(KEY)||'null'); if(c&&(Date.now()-c.t)<TTL) rows=c.r; }catch(e){}
+  const KEY='tsscPyqChAtt:all:'+user.uid, TTL=5*60*1000;
+  let rows=null; try{ const c=JSON.parse(localStorage.getItem(KEY)||'null'); let last=0; try{ last=(JSON.parse(sessionStorage.getItem('tssc_cw_last')||'null')||{}).ts||0; }catch(_){}
+    if(c&&(Date.now()-c.t)<TTL&&c.t>last) rows=c.r; }catch(e){}
   if(!rows){
     let token=''; try{ token=await user.getIdToken(); }catch(e){}
     const headers={'Content-Type':'application/json'}; if(token) headers['Authorization']='Bearer '+token;
     const body={structuredQuery:{from:[{collectionId:'attempts'}],
-      where:{compositeFilter:{op:'AND',filters:[{fieldFilter:{field:{fieldPath:'uid'},op:'EQUAL',value:{stringValue:user.uid}}},{fieldFilter:{field:{fieldPath:'type'},op:'EQUAL',value:{stringValue:'pyq-chapter'}}}]}},
-      select:{fields:[{fieldPath:'exam'},{fieldPath:'tier'},{fieldPath:'chapterId'},{fieldPath:'testNum'},{fieldPath:'language'},{fieldPath:'analyticsV'}]},limit:1000}};
+      where:{fieldFilter:{field:{fieldPath:'uid'},op:'EQUAL',value:{stringValue:user.uid}}},
+      select:{fields:[{fieldPath:'type'},{fieldPath:'chapterId'},{fieldPath:'chapter'},{fieldPath:'testNum'},{fieldPath:'language'},{fieldPath:'analyticsV'}]},limit:1000}};
     try{
       const r=await fetch('https://firestore.googleapis.com/v1/projects/trickyssc-17bb3/databases/(default)/documents:runQuery?key=AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA',{method:'POST',headers,body:JSON.stringify(body)});
       if(!r.ok) return; const j=await r.json(); rows=[];
       (j||[]).forEach(x=>{ const d=x&&x.document; if(!d||!d.fields) return; const f=d.fields, v=k=>f[k]&&(f[k].stringValue||f[k].integerValue||'');
-        rows.push({id:d.name.split('/').pop(),exam:v('exam'),tier:v('tier'),ch:v('chapterId'),tn:parseInt(v('testNum'))||0,lang:v('language')==='hi'?'hi':'en',rev:!!f.analyticsV}); });
+        if(v('type')!=='pyq-chapter') return;
+        rows.push({id:d.name.split('/').pop(),ch:v('chapterId')||v('chapter'),tn:parseInt(v('testNum'))||0,lang:v('language')==='hi'?'hi':'en',rev:!!f.analyticsV}); });
       try{ localStorage.setItem(KEY,JSON.stringify({t:Date.now(),r:rows})); }catch(e){}
     }catch(e){ return; }
   }

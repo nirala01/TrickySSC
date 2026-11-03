@@ -89,9 +89,8 @@ p{margin-bottom:.9rem;color:#2D3748;}
 .ch-cta{flex:0 0 auto;display:inline-flex;align-items:center;gap:.4rem;padding:.5rem 1.1rem;border-radius:100px;background:linear-gradient(135deg,var(--accent),var(--accent-dark));color:#fff;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.86rem;letter-spacing:.4px;white-space:nowrap;box-shadow:0 3px 10px var(--accent-shadow);}
 .ch-cta em{font-style:normal;font-size:1rem;line-height:1;transition:transform .16s ease;}
 .ch-row:hover .ch-cta em{transform:translateX(3px);}
-.ch-item.is-soon .ch-row{opacity:.85;pointer-events:none;}
 .ch-item.is-soon .ch-ico{filter:grayscale(1);background:#F1F5F9;color:#94A3B8;}
-.ch-item.is-soon .ch-cta{display:none;}
+.ch-item.is-soon .ch-cta{background:#fff;color:var(--accent);border:1.5px solid var(--accent);box-shadow:none;}
 .ch-exp{position:absolute;right:.8rem;top:50%;transform:translateY(-50%);width:34px;height:34px;display:flex;align-items:center;justify-content:center;background:var(--accent-soft);border:none;border-radius:50%;cursor:pointer;color:var(--accent);font-size:.8rem;transition:background .15s;}
 .ch-exp:hover,.ch-exp[aria-expanded="true"]{background:var(--accent);color:#fff;}
 .ch-exp span{display:block;transition:transform .2s ease;line-height:1;}
@@ -280,19 +279,21 @@ document.addEventListener('click',function(e){
 
 <script>
 window.tsscPaintAttempts=async function(user){
-  const KEY='tsscPyqChAtt:all:'+user.uid, TTL=10*60*1000;
-  let rows=null; try{ const c=JSON.parse(localStorage.getItem(KEY)||'null'); if(c&&(Date.now()-c.t)<TTL) rows=c.r; }catch(e){}
+  const KEY='tsscPyqChAtt:all:'+user.uid, TTL=5*60*1000;
+  let rows=null; try{ const c=JSON.parse(localStorage.getItem(KEY)||'null'); let last=0; try{ last=(JSON.parse(sessionStorage.getItem('tssc_cw_last')||'null')||{}).ts||0; }catch(_){}
+    if(c&&(Date.now()-c.t)<TTL&&c.t>last) rows=c.r; }catch(e){}
   if(!rows){
     let token=''; try{ token=await user.getIdToken(); }catch(e){}
     const headers={'Content-Type':'application/json'}; if(token) headers['Authorization']='Bearer '+token;
     const body={structuredQuery:{from:[{collectionId:'attempts'}],
-      where:{compositeFilter:{op:'AND',filters:[{fieldFilter:{field:{fieldPath:'uid'},op:'EQUAL',value:{stringValue:user.uid}}},{fieldFilter:{field:{fieldPath:'type'},op:'EQUAL',value:{stringValue:'pyq-chapter'}}}]}},
-      select:{fields:[{fieldPath:'exam'},{fieldPath:'tier'},{fieldPath:'chapterId'},{fieldPath:'testNum'},{fieldPath:'language'},{fieldPath:'analyticsV'}]},limit:1000}};
+      where:{fieldFilter:{field:{fieldPath:'uid'},op:'EQUAL',value:{stringValue:user.uid}}},
+      select:{fields:[{fieldPath:'type'},{fieldPath:'chapterId'},{fieldPath:'chapter'},{fieldPath:'testNum'},{fieldPath:'language'},{fieldPath:'analyticsV'}]},limit:1000}};
     try{
       const r=await fetch('https://firestore.googleapis.com/v1/projects/trickyssc-17bb3/databases/(default)/documents:runQuery?key=AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA',{method:'POST',headers,body:JSON.stringify(body)});
       if(!r.ok) return; const j=await r.json(); rows=[];
       (j||[]).forEach(x=>{ const d=x&&x.document; if(!d||!d.fields) return; const f=d.fields, v=k=>f[k]&&(f[k].stringValue||f[k].integerValue||'');
-        rows.push({id:d.name.split('/').pop(),exam:v('exam'),tier:v('tier'),ch:v('chapterId'),tn:parseInt(v('testNum'))||0,lang:v('language')==='hi'?'hi':'en',rev:!!f.analyticsV}); });
+        if(v('type')!=='pyq-chapter') return;
+        rows.push({id:d.name.split('/').pop(),ch:v('chapterId')||v('chapter'),tn:parseInt(v('testNum'))||0,lang:v('language')==='hi'?'hi':'en',rev:!!f.analyticsV}); });
       try{ localStorage.setItem(KEY,JSON.stringify({t:Date.now(),r:rows})); }catch(e){}
     }catch(e){ return; }
   }
