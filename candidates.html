@@ -134,6 +134,8 @@ body{font-family:'Noto Sans',sans-serif;background:var(--bg);color:var(--text);m
 .drill-tag.pyq{background:rgba(255,107,0,0.15);color:var(--orange);}
 .drill-tag.mock{background:rgba(0,196,122,0.15);color:var(--green);}
 .drill-tag.chapter{background:rgba(78,142,255,0.15);color:var(--blue);}
+.drill-tag.pyqch{background:rgba(168,85,247,0.18);color:#C084FC;}   /* TSSC-PYQCH-V1: chapter-wise PYQ */
+.stat-val.purple{color:#C084FC;}
 .drill-tag.paid{background:rgba(255,107,0,0.22);color:var(--orange);}
 .drill-tag.free{background:rgba(107,114,128,0.25);color:#9CA3AF;}
 .drill-new{
@@ -338,6 +340,12 @@ body{font-family:'Noto Sans',sans-serif;background:var(--bg);color:var(--text);m
       <div class="stat-val blue" id="chapterToday">—</div>
       <div class="stat-sub" id="chapterTodaySub">—</div>
     </div>
+    <!-- TSSC-PYQCH-V1: chapter-wise PYQ tests (pyq-chapter-test.html, attempt type 'pyq-chapter') -->
+    <div class="stat-card clickable" tabindex="0" onclick="showDrill('pyqch')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();showDrill('pyqch');}">
+      <div class="stat-label">📌 Chapter-wise PYQ Today</div>
+      <div class="stat-val purple" id="pyqchToday">—</div>
+      <div class="stat-sub" id="pyqchTodaySub">—</div>
+    </div>
     <div class="stat-card clickable" tabindex="0" onclick="showDrill('new')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();showDrill('new');}">
       <div class="stat-label">New Users Today</div>
       <div class="stat-val blue" id="newUsersToday">—</div>
@@ -466,7 +474,7 @@ let todayCtx = { attempts: [], activeUsers: [], newUsers: [], dashUsers: [], mob
 // Every "N new" figure on the cards and in the drill-downs is a lookup in here.
 let newTodayIds = new Set();
 
-let drillKind = 'active';    // 'active' | 'pyq' | 'mock' | 'chapter' | 'new' | 'dashboard' | 'mobile'
+let drillKind = 'active';    // 'active' | 'pyq' | 'mock' | 'chapter' | 'pyqch' | 'new' | 'dashboard' | 'mobile'
 let drillView = 'candidate'; // 'candidate' | 'test'
 
 // Every date on this dashboard is rendered in Indian Standard Time, regardless of
@@ -498,7 +506,16 @@ function isChapterAttempt(a){
   return false;
 }
 
+function isPyqChapterAttempt(a){   // TSSC-PYQCH-V1: chapter-wise previous-year-question tests
+  const t = (a.type || '').toString().toLowerCase();
+  if(t === 'pyq-chapter' || (t.includes('pyq') && t.includes('chapter'))) return true;
+  if(a.src === 'pyq' && (a.chapterId || a.chapter)) return true;
+  return /^cwp_/.test(String(a.lbKey || a.id || a._id || ''));
+}
+
 function attemptType(a){
+  // Chapter-wise PYQ first (its type also contains 'chapter'), then chapter tests.
+  if(isPyqChapterAttempt(a)) return 'pyqch';
   // Checked FIRST: before this card existed, every chapter test fell through to
   // the PYQ bucket, which is exactly what the PYQ number should stop counting.
   if(isChapterAttempt(a)) return 'chapter';
@@ -545,6 +562,11 @@ function mockPlan(a){
 // Pulls whichever name field the doc carries and appends year / shift only
 // when they aren't already part of the name, so labels stay tidy.
 function testLabel(a){
+  if(isPyqChapterAttempt(a)){
+    const base = (a.chapterName || a.chapter || a.chapterId || 'Chapter PYQ').toString().replace(/\s*\(PYQ\)\s*$/i,'').replace(/\s+/g,' ').trim();
+    const tn = (a.testNum !== undefined && a.testNum !== null && a.testNum !== '') ? ' · Test ' + a.testNum : '';
+    return base + ' (PYQ)' + tn + (a.language === 'hi' ? ' · हिंदी' : '');
+  }
   if(isChapterAttempt(a)){
     let base = (a.chapterName || a.chapter || a.chapterId || a.testName || a.examName ||
                 a.mockName || a.testKey || a.testId || a._reportTestId || 'Chapter test')
@@ -838,10 +860,10 @@ window.loadStats = async () => {
     const todaysAttempts = [];
     attSnap.forEach(d => { const a = {id:d.id, ...d.data()}; if(inDay(_td(a.timestamp))) todaysAttempts.push(a); });
 
-    const pyqUsersToday = new Set(), mockUsersToday = new Set(), chapterUsersToday = new Set();
+    const pyqUsersToday = new Set(), mockUsersToday = new Set(), chapterUsersToday = new Set(), pyqchUsersToday = new Set();
     const paidMockUsers = new Set(), freeMockUsers = new Set();
     const testTakersToday = new Set();
-    let pyqAttemptsToday = 0, mockAttemptsToday = 0, chapterAttemptsToday = 0;
+    let pyqAttemptsToday = 0, mockAttemptsToday = 0, chapterAttemptsToday = 0, pyqchAttemptsToday = 0;
     let paidMockAttempts = 0, freeMockAttempts = 0, untaggedMockAttempts = 0;
     todaysAttempts.forEach(a => {
       const t = attemptType(a);
@@ -854,6 +876,7 @@ window.loadStats = async () => {
         else untaggedMockAttempts++;
       }
       else if(t==='chapter'){ chapterUsersToday.add(a.uid); chapterAttemptsToday++; }
+      else if(t==='pyqch'){ pyqchUsersToday.add(a.uid); pyqchAttemptsToday++; }
       else { pyqUsersToday.add(a.uid); pyqAttemptsToday++; }
     });
 
@@ -895,6 +918,8 @@ window.loadStats = async () => {
       + (untaggedMockAttempts ? ' · ' + untaggedMockAttempts + ' untagged' : '') + ')</span>';
     document.getElementById('chapterToday').textContent = chapterUsersToday.size;
     document.getElementById('chapterTodaySub').innerHTML = subLine(chapterAttemptsToday, chapterUsersToday);
+    document.getElementById('pyqchToday').textContent = pyqchUsersToday.size;
+    document.getElementById('pyqchTodaySub').innerHTML = subLine(pyqchAttemptsToday, pyqchUsersToday);
     document.getElementById('newUsersToday').textContent = newUsersToday;
     document.getElementById('newUsersTodaySub').innerHTML =
       '<span style="color:var(--green);font-weight:600;">'+newTesting+' gave a test</span> · '
@@ -1053,7 +1078,7 @@ window.filterTable = () => {
 // ── DRILL-DOWN: who is doing what today ─────────────────────────────────────
 const DRILL_TITLES = {
   active:'Active today', pyq:'PYQ tests today', mock:'Mock tests today',
-  chapter:'Chapter tests today', new:'New candidates today', dashboard:'Opened the dashboard today',
+  chapter:'Chapter tests today', pyqch:'Chapter-wise PYQ tests today', new:'New candidates today', dashboard:'Opened the dashboard today',
   mobile:'Mobile (OTP) logins today'
 };
 
@@ -1065,6 +1090,7 @@ function drillAttempts(){
   if(drillKind === 'pyq')     return todayCtx.attempts.filter(a => attemptType(a) === 'pyq');
   if(drillKind === 'mock')    return todayCtx.attempts.filter(a => attemptType(a) === 'mock');
   if(drillKind === 'chapter') return todayCtx.attempts.filter(a => attemptType(a) === 'chapter');
+  if(drillKind === 'pyqch')   return todayCtx.attempts.filter(a => attemptType(a) === 'pyqch');
   // Everything today's signups attempted, whichever kind of paper it was.
   if(drillKind === 'new')     return todayCtx.attempts.filter(a => newTodayIds.has(a.uid));
   // Whatever today's dashboard visitors attempted, so the list shows if a
@@ -1091,7 +1117,7 @@ function attemptTime(a){ return (a.timestamp && a.timestamp.toDate) ? a.timestam
 
 function typeTag(a){
   const t = attemptType(a);
-  const label = t === 'mock' ? 'MOCK' : t === 'chapter' ? 'CHAPTER' : 'PYQ';
+  const label = t === 'mock' ? 'MOCK' : t === 'chapter' ? 'CHAPTER' : t === 'pyqch' ? 'PYQ · CHAPTER' : 'PYQ';
   const plan = mockPlan(a);
   const planTag = plan ? `<span class="drill-tag ${plan}">${plan.toUpperCase()}</span>` : '';
   return `<span class="drill-tag ${t}">${label}</span>${planTag}`;
