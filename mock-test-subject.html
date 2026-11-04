@@ -1585,9 +1585,9 @@ const TG_MODULE      = TG_IS_GD ? 'ssc-gd-mocks' : (TG_IS_CHSL ? 'ssc-chsl-mocks
 /* CHSL FREE PERIOD (Sep 2026): every CHSL mock is free while Tier 1 is being released.
    To switch the CHSL pass on, set TG_CHSL_FREE_ALL to false (Mock 1-2 stay free). */
 const TG_CHSL_FREE_ALL = false;   /* TSSC-CHSLPAY-V1 2026-10-05: CHSL pass ON, Mock 1-2 free */
-const TG_GD_FREE_ALL   = true;    /* TSSC-GD-FREEALL-V1: every GD mock free for now; set false = Mock 1-2 free, Mock 3+ need the pass */
+const TG_GD_FREE_ALL   = false;   /* TSSC-GDFREE-V1 2026-11-04: Mock 1-2 free, Mock 3+ need the GD pass once TG_ENFORCE_FROM passes (every GD mock free till 7 Nov) */
 const TG_FREE_UP_TO  = TG_IS_GD ? (TG_GD_FREE_ALL ? 999 : 2) : (TG_IS_CHSL ? (TG_CHSL_FREE_ALL ? 999 : 2) : 4);
-const TG_ENFORCE_FROM= (TG_IS_CHSL || TG_IS_GD) ? null : '2026-08-25T00:00:00+05:30';   // null = enforce now
+const TG_ENFORCE_FROM= TG_IS_GD ? '2026-11-08T00:00:00+05:30' : (TG_IS_CHSL ? null : '2026-08-25T00:00:00+05:30');   // null = enforce now; TSSC-GDFREE-V1: GD locks from 8 Nov 2026
 const TG_BUY_URL     = (typeof SUBJ_PAGE!=='undefined' && SUBJ && SUBJ_PAGE[subjectKey]) ? SUBJ_PAGE[subjectKey] : (TG_IS_GD?'ssc-gd-mock-test.html':(TG_IS_CHSL?'ssc-chsl-mock-test.html':'ssc-cgl-mock-test.html'));   /* TSSC-SUBJECT-MOCK-V1 */
 
 /* TSSC-GD-MOCK-V1 — the instruction sheet and result card are written for −0.5;
@@ -1686,7 +1686,7 @@ function tgShowLocked(mockNum){
     +'margin-bottom:0.6rem;">Mock Test '+mockNum+' is part of Premium</div>'
     +'<div style="font-size:0.9rem;opacity:0.9;line-height:1.65;margin-bottom:1.5rem;">'
     +'Mock 1 to '+TG_FREE_UP_TO+' are free to attempt. Unlock the full series &mdash; '
-    +'all Tier I and Tier II mocks &mdash; with one payment.</div>'
+    +(TG_IS_GD?'all 60 SSC GD mocks and every subject-wise test &mdash; for &#8377;49 a year.':'all Tier I and Tier II mocks &mdash; with one payment.')+'</div>'
     +'<a href="'+TG_BUY_URL+'" style="display:inline-block;background:white;color:#FF6B00;'
     +'font-family:\'Rajdhani\',sans-serif;font-weight:700;font-size:1rem;padding:0.7rem 2rem;'
     +'border-radius:10px;text-decoration:none;margin-bottom:1rem;">Unlock all mocks &rarr;</a><br>'

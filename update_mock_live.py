@@ -71,7 +71,7 @@ PAID_TAG = ('\n  <div class="mc-lock mc-paid-tag">'
             '\n  <button class="mc-locktag" type="button" '
             'aria-label="Premium mock — unlock to attempt">'
             '<i>&#128274;</i>Unlock</button>')
-FREE_UPTO = {"ssc-cgl": 4, "ssc-chsl": 2, "ssc-gd": 3}   # TSSC-GD-FREEALL-V1: Free pill on Mock 1-3 while all GD mocks are free (restore 2)
+FREE_UPTO = {"ssc-cgl": 4, "ssc-chsl": 2, "ssc-gd": 2}   # TSSC-GDFREE-V1: GD Mock 1-2 free (all free till 7 Nov 2026, then the Rs 49 pass)
 
 
 # ----------------------------------------------------------------- Firestore
