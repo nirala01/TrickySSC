@@ -1,6 +1,6 @@
 /* ===================== TSSC-DAILYLIMIT-V1 =====================
    Daily test limit for every test engine (PYQ, subject-wise PYQ, chapter
-   tests, mocks): FREE users 20 tests per day, PAID users 80 per day.
+   tests, mocks): FREE users 10 tests per day, PAID users 80 per day.
    The day is the IST calendar day and resets at midnight IST.
 
    - A test is COUNTED when it is submitted (not when it is opened), so a
@@ -22,7 +22,7 @@ import { getApps } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.
 import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { getAuth } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
-export const FREE_LIMIT = 20;
+export const FREE_LIMIT = 10;   // was 20 (Nov 2026)
 export const PAID_LIMIT = 80;
 
 const ADMINS = ['nirala01@gmail.com', 'ashish@trickyssc.com'];

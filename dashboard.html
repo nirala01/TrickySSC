@@ -1407,8 +1407,12 @@ const auth = getAuth(app);
    has been removed from this page, so this switch must stay false. */
 const PRO_ENFORCE = false;
 const PRO_MODULES = ['ssc-cgl-dashboard', 'ssc-cgl-mocks'];   // either unlocks the dashboard
-const MAX_RANKED  = 12;          // latest N full tests get live rank lookups
-const LB_TTL      = 10*60*1000;  // leaderboard aggregate cache
+/* TSSC-DASHREADS-V1: each rank lookup reads up to ~300 leaderboard rows. Only the latest
+   few tests are looked up automatically; older rows in the table get a "Show rank" tap,
+   and every result is kept on the phone for 6 hours (was 10 min, per tab). */
+const MAX_RANKED  = 4;           // latest N full tests get live rank lookups (was 12)
+const LB_TTL      = 10*60*1000;  // question-text cache (unchanged)
+const LB_RANK_TTL = 6*60*60*1000; // leaderboard aggregate cache
 
 /* Official previous-year Tier I cut-offs (all posts except JSO/SI for CGL;
    LDC/JSA for CHSL). Edit here once a year. GEN = Unreserved. */
@@ -1605,8 +1609,8 @@ function paintTop(){
 }
 
 /* ───────── leaderboard lookups (paid) ───────── */
-function lbCacheGet(k){ try{ const o=JSON.parse(sessionStorage.getItem('tssc_dp_lb_'+k)||'null'); if(o&&Date.now()-o.ts<LB_TTL) return o.v; }catch(e){} return null; }
-function lbCacheSet(k,v){ try{ sessionStorage.setItem('tssc_dp_lb_'+k, JSON.stringify({ts:Date.now(),v})); }catch(e){} }
+function lbCacheGet(k){ try{ const o=JSON.parse(localStorage.getItem('tssc_dp_lb_'+k)||'null'); if(o&&Date.now()-o.ts<LB_RANK_TTL) return o.v; }catch(e){} return null; }
+function lbCacheSet(k,v){ try{ localStorage.setItem('tssc_dp_lb_'+k, JSON.stringify({ts:Date.now(),v})); }catch(e){} }
 async function fetchRanks(full){
   const keys=[]; const sc=scopeAtt(); if(sc.length&&lbKey(sc[0])) keys.push(lbKey(sc[0]));   /* TSSC-CWRANK-V1: the analysed test first */
   full.forEach(a=>{ const k=lbKey(a); if(k&&!keys.includes(k)) keys.push(k); });
@@ -1643,7 +1647,8 @@ function paintTableRanks(){
     if(!OWNED){ el.className='dp-rank lock'; el.innerHTML='🔒'; el.title='Rank not available'; return; }
     const v=LB[el.getAttribute('data-lb')]; const r=rankOf(v);
     el.className='dp-rank'; el.onclick=null;
-    el.innerHTML = r ? '#'+r+'<small>of '+v.total+' · top '+Math.max(1,Math.round(r/v.total*100))+'%</small>' : (v&&v.none?'<span class="muted">not ranked</span>':(v?'—':'<span class="muted">…</span>'));
+    el.innerHTML = r ? '#'+r+'<small>of '+v.total+' · top '+Math.max(1,Math.round(r/v.total*100))+'%</small>' : (v&&v.none?'<span class="muted">not ranked</span>':(v?'—':'<span class="muted" style="cursor:pointer;text-decoration:underline">Show rank</span>'));
+    if(!v){ const k=el.getAttribute('data-lb'); el.onclick=()=>{ const a=ATT.find(x=>lbKey(x)===k); if(!a) return; el.onclick=null; el.innerHTML='<span class="muted">…</span>'; fetchRanks([a]).then(paintTableRanks).catch(()=>{}); }; }   /* TSSC-DASHREADS-V1 */
   });
 }
 

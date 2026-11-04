@@ -4177,11 +4177,12 @@ window._fsdb = {
 
 /* ── Live PYQ question count (hero stat) ──
    Uses Firestore's count() aggregation — no documents are downloaded.
-   Cached in localStorage for 12h so repeat visits cost nothing. */
+   Cached in localStorage for 7 days (was 12h) — the count costs ~1 read per
+   1,000 questions, and the hero number does not need to be fresher than that. */
 (function(){
   var el=document.getElementById('statQCount');
   if(!el) return;
-  var KEY='tssc_qcount', TTL=12*60*60*1000;
+  var KEY='tssc_qcount', TTL=7*24*60*60*1000;
   function fmt(n){
     if(n>=1000) return Math.floor(n/1000)+'K+';
     return n.toLocaleString('en-IN')+'+';
