@@ -217,6 +217,23 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:10
   animation:imgSpin 0.7s linear infinite;flex-shrink:0;
 }
 @keyframes imgSpin{to{transform:rotate(360deg);}}
+/* TSSC-IMGLOAD-V1 — slow-connection figure loading */
+#qImgLoader{flex-wrap:wrap;text-align:center;}
+#qImgLoader .img-msg{line-height:1.4;}
+.img-retry-btn{
+  display:inline-block;margin-top:6px;padding:7px 16px;border-radius:8px;
+  border:1.5px solid #FF6B00;background:#FFF7ED;color:#C2410C;
+  font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;
+}
+.opt-img-box{position:relative;display:block;min-height:0;}
+.opt-img-box.loading{min-height:80px;border-radius:6px;background:#F8FAFC;border:1px dashed #E2E8F0;}
+.opt-img-box.loading img{opacity:0;}
+.opt-img-box.loading::after{
+  content:"";position:absolute;left:50%;top:50%;width:18px;height:18px;margin:-9px 0 0 -9px;
+  border:2.5px solid #E2E8F0;border-top-color:#FF6B00;border-radius:50%;
+  animation:imgSpin 0.7s linear infinite;
+}
+.opt-img-box img{transition:opacity .15s;}
 
 /* ─── Options ─── */
 .options-wrap{display:flex;flex-direction:column;gap:10px;}
@@ -981,6 +998,228 @@ window.imgFail = function (el) {
     window.__figFails = (window.__figFails || []).concat([el.getAttribute('src')]);
   } catch (e) {}
 };
+</script>
+<script>
+/* TSSC-IMGLOAD-V1 — figures on slow connections
+   1. figures of the next 3 questions are downloaded in the background, then the
+      rest of the section, so they are already there when the student reaches them
+   2. a figure that fails is retried (up to 3 tries) before giving up, and then
+      shows a "Tap to retry" button instead of silently disappearing
+   3. option figures show a loading placeholder instead of an empty option card
+   4. tapping an option / Mark / Clear no longer re-creates the figures (that
+      cancelled half-finished downloads and started them again from zero) */
+(function () {
+  var TRIES = 4;
+  var okSrc = {};   // original url -> the src that actually loaded
+  var state = {};   // url -> 'q' queued | 'loading' | 'ok' | 'fail'
+  var hold = {};    // keeps preloaded Image objects alive
+  var queue = [], active = 0;
+  var conn = navigator.connection || {};
+  var MAX = /(^|-)2g$/.test(conn.effectiveType || '') ? 1 : 2;
+  var SAVE = !!conn.saveData;
+
+  /* imgbb (i.ibb.co) sometimes answers with its own "service unavailable" picture
+     instead of the figure. So imgbb figures are loaded through the wsrv.nl image
+     CDN (Cloudflare): it keeps a cached copy, so a figure fetched once keeps working
+     while imgbb is down, and an imgbb error comes back as an error (→ retry),
+     not as the blue placeholder. Direct imgbb is the fallback. */
+  function isIbb(u) { return /^https?:\/\/(i\.)?ibb\.co\//i.test(u || ''); }
+  function px(u) { return 'https://wsrv.nl/?url=' + encodeURIComponent(String(u).replace(/^https?:\/\//i, '')) + '&w=1000&we'; }
+  function cb(u, n) { return u + (u.indexOf('?') < 0 ? '?' : '&') + '_r=' + n + Date.now().toString(36).slice(-4); }
+  // the src for attempt n (0 = first try)
+  function bust(u, n) {
+    if (isIbb(u)) {
+      if (!n) return px(u);           // 1st: CDN copy
+      if (n === 1) return u;          // 2nd: straight from imgbb
+      if (n === 2) return px(cb(u, n)); // 3rd: CDN, fresh fetch
+      return cb(u, n);                // 4th: imgbb, fresh fetch
+    }
+    return n ? cb(u, n) : u;
+  }
+  function wait(n) { return n === 1 ? 0 : 1500 * (n - 1); }
+  window.TSSC_px = function (u) { return isIbb(u) ? px(u) : u; };
+  // review/solution figures: CDN copy failed -> try imgbb directly once, then give up
+  // how: undefined = show "could not be loaded" box, 1 = hide, 2 = leave as is
+  window.TSSC_rvErr = function (el, how) {
+    var o = el.getAttribute('data-o');
+    if (o && el.getAttribute('src') !== o) { el.src = o; return; }
+    el.onerror = null;
+    if (how === 1) el.style.display = 'none';
+    else if (how !== 2 && window.imgFail) window.imgFail(el);
+  };
+  function pump() {
+    while (active < MAX && queue.length) {
+      var u = queue.shift();
+      if (state[u] !== 'q') continue;
+      state[u] = 'loading'; active++;
+      pre(u, 0);
+    }
+  }
+  function pre(u, n) {
+    var im = new Image(), src = bust(u, n), done = false;
+    try { im.fetchPriority = 'low'; } catch (e) {}
+    im.decoding = 'async';
+    function fin(ok) {
+      if (done) return; done = true;
+      if (ok) { if (state[u] !== 'ok') okSrc[u] = src; state[u] = 'ok'; active--; pump(); }
+      else if (state[u] === 'ok') { active--; pump(); }               // the screen copy got it
+      else if (n + 1 < TRIES) setTimeout(function () { pre(u, n + 1); }, wait(n + 1));
+      else { state[u] = 'fail'; active--; pump(); }
+    }
+    im.onload = function () { fin(true); };
+    im.onerror = function () { fin(false); };
+    hold[u] = im;
+    im.src = src;
+  }
+  function markOk(u, src) { if (!u) return; okSrc[u] = src || u; state[u] = 'ok'; }
+  window.TSSC_imgSrc = function (u) { return okSrc[u] || bust(u, 0); };
+
+  window.TSSC_prefetch = function (urls, front) {
+    var add = [];
+    (urls || []).forEach(function (u) {
+      if (!u) return;
+      if (!state[u] || (state[u] === 'fail')) { state[u] = 'q'; add.push(u); }
+      else if (state[u] === 'q' && front) {
+        var i = queue.indexOf(u); if (i >= 0) queue.splice(i, 1); add.push(u);
+      }
+    });
+    queue = front ? add.concat(queue) : queue.concat(add);
+    pump();
+  };
+
+  function qUrls(q) {
+    if (!q) return [];
+    var a = [q.imageUrl], oi = q.optionImages || {};
+    ['A', 'B', 'C', 'D'].forEach(function (k) { a.push(oi[k]); });
+    return a.filter(Boolean);
+  }
+  // cur = current index; lo..hi = bounds of the active section
+  window.TSSC_prefetchFrom = function (qs, cur, lo, hi) {
+    try {
+      var near = [];
+      for (var i = cur + 1; i <= Math.min(hi, cur + 3); i++) near = near.concat(qUrls(qs[i]));
+      window.TSSC_prefetch(near, true);
+      if (SAVE) return;
+      var rest = [];
+      for (var j = cur + 4; j <= hi; j++) rest = rest.concat(qUrls(qs[j]));
+      for (var k = lo; k < cur; k++) rest = rest.concat(qUrls(qs[k]));
+      window.TSSC_prefetch(rest, false);
+    } catch (e) {}
+  };
+
+  /* ── option figures ── */
+  window.TSSC_optImgOk = function (el) {
+    var b = el.parentNode; if (b && b.classList) b.classList.remove('loading');
+    markOk(el.getAttribute('data-src'), el.getAttribute('src'));
+  };
+  window.TSSC_optImgErr = function (el) {
+    var u = el.getAttribute('data-src') || el.getAttribute('src');
+    var n = (+el.getAttribute('data-try') || 0) + 1;
+    if (n < TRIES) {
+      el.setAttribute('data-try', n);
+      setTimeout(function () { if (el.isConnected) el.src = bust(u, n); }, wait(n));
+      return;
+    }
+    var box = el.parentNode;
+    var d = document.createElement('div');
+    d.className = 'img-fail';
+    d.innerHTML = 'Figure could not load.<br><button type="button" class="img-retry-btn">↻ Tap to retry</button>';
+    d.querySelector('button').onclick = function (ev) {
+      ev.stopPropagation();            // don't select the option
+      var im = document.createElement('img');
+      im.setAttribute('style', el.getAttribute('style') || '');
+      im.setAttribute('data-src', u);
+      im.onload = function () { window.TSSC_optImgOk(im); };
+      im.onerror = function () { window.TSSC_optImgErr(im); };
+      if (box && box.classList) box.classList.add('loading');
+      if (d.parentNode) d.parentNode.replaceChild(im, d);
+      im.src = bust(u, 2);
+    };
+    if (box && box.classList) box.classList.remove('loading');
+    if (el.parentNode) el.parentNode.replaceChild(d, el);
+    try {
+      console.warn('[TrickySSC] figure failed to load:', u);
+      window.__figFails = (window.__figFails || []).concat([u]);
+    } catch (e) {}
+  };
+  // call after the options HTML is inserted: clears placeholders of figures already in cache
+  window.TSSC_optImgSweep = function (root) {
+    if (!root) return;
+    root.querySelectorAll('.opt-img-box.loading img').forEach(function (im) {
+      if (im.complete && im.naturalWidth > 0) window.TSSC_optImgOk(im);
+    });
+  };
+
+  /* ── question figure ── */
+  var slowT1 = null, slowT2 = null;
+  function setLoader(mode, n) {
+    var ld = document.getElementById('qImgLoader');
+    if (!ld) return;
+    ld.style.display = 'flex';
+    var msg = mode === 'slow' ? 'Slow connection — figure is still loading…'
+            : mode === 'retry' ? 'Connection dropped — retrying (' + n + '/' + (TRIES - 1) + ')…'
+            : mode === 'fail' ? 'Figure could not load. Check your internet and tap retry.'
+            : 'Image is loading…';
+    var btn = (mode === 'fail' || mode === 'stuck')
+      ? '<div style="flex-basis:100%;"><button type="button" class="img-retry-btn" onclick="TSSC_retryQImg()">↻ ' +
+        (mode === 'fail' ? 'Tap to retry' : 'Reload figure') + '</button></div>' : '';
+    if (mode === 'stuck') msg = 'Slow connection — figure is still loading…';
+    ld.innerHTML = (mode === 'fail' ? '' : '<div class="img-spin"></div>') + '<span class="img-msg">' + msg + '</span>' + btn;
+  }
+  function clearTimers() { clearTimeout(slowT1); clearTimeout(slowT2); }
+
+  window.TSSC_showQImg = function (url, force) {
+    var wrap = document.getElementById('qImgWrap');
+    var img = document.getElementById('qImg');
+    var ld = document.getElementById('qImgLoader');
+    if (!wrap || !img || !ld) return;
+    if (!url) {
+      clearTimers();
+      wrap.style.display = 'none';
+      img.onload = img.onerror = null;
+      img.removeAttribute('data-src');
+      img.removeAttribute('src');
+      return;
+    }
+    wrap.style.display = 'block';
+    // Same figure as before (re-render after answering / marking): leave it alone,
+    // so a download that is still in progress is not cancelled and restarted.
+    if (!force && img.getAttribute('data-src') === url) {
+      if (img.complete && img.naturalWidth > 0) { ld.style.display = 'none'; img.style.display = ''; }
+      return;
+    }
+    clearTimers();
+    img.setAttribute('data-src', url);
+    img.style.display = 'none';
+    setLoader('loading');
+    try { img.fetchPriority = 'high'; } catch (e) {}
+    var n = 0;
+    img.onload = function () {
+      if (img.getAttribute('data-src') !== url) return;
+      clearTimers();
+      ld.style.display = 'none';
+      img.style.display = '';
+      markOk(url, img.getAttribute('src'));
+    };
+    img.onerror = function () {
+      if (img.getAttribute('data-src') !== url) return;
+      n++;
+      if (n < TRIES) {
+        setLoader('retry', n);
+        setTimeout(function () { if (img.getAttribute('data-src') === url) img.src = bust(url, n); }, wait(n));
+      } else { clearTimers(); setLoader('fail'); }
+    };
+    function stillLoading() { return img.getAttribute('data-src') === url && !(img.complete && img.naturalWidth > 0); }
+    slowT1 = setTimeout(function () { if (stillLoading()) setLoader('slow'); }, 8000);
+    slowT2 = setTimeout(function () { if (stillLoading()) setLoader('stuck'); }, 20000);
+    img.src = force ? bust(url, 2) : window.TSSC_imgSrc(url);
+  };
+  window.TSSC_retryQImg = function () {
+    var img = document.getElementById('qImg');
+    var url = img && img.getAttribute('data-src');
+    if (url) window.TSSC_showQImg(url, true);
+  };
+})();
 </script>
 <!-- TSSC-LOGINMODAL-V1: in-place login popup -->
 <script type="module" src="/login-modal.js"></script>
@@ -2219,25 +2458,20 @@ function renderQ(){_qtTick();
   mathDress(document.getElementById('qText'));
 
   // Image
-  const imgWrap=document.getElementById('qImgWrap');
-  const imgEl=document.getElementById('qImg');
-  const imgLoader=document.getElementById('qImgLoader');
-  if(q.imageUrl){
-    imgWrap.style.display='block';
-    imgLoader.style.display='flex';
-    imgEl.style.display='none';
-    imgEl.onload=function(){imgLoader.style.display='none';imgEl.style.display='';};
-    imgEl.onerror=function(){imgLoader.style.display='none';imgEl.style.display='none';};
-    imgEl.src=q.imageUrl;
-  } else {
-    imgWrap.style.display='none';
-    imgEl.src='';
-  }
+  /* TSSC-IMGLOAD-V1: loader, retries and slow-connection message live in TSSC_showQImg */
+  TSSC_showQImg(q.imageUrl||'');
 
   // Options — support all storage formats (A/B/C/D or a/b/c/d keys, or option_A fields)
   const opts=['A','B','C','D'];
   if(currentQ===0) console.log('[TrickySSC] Q1 options debug:', JSON.stringify(q.options), '| option_A:', q.option_A||q.optionA||'(none)');
-  document.getElementById('options').innerHTML=opts.map(o=>{
+  /* TSSC-IMGLOAD-V1: same question re-rendered (option tapped, Mark, Clear) —
+     only move the highlight; rebuilding the cards would cancel figures still downloading */
+  const _optsEl=document.getElementById('options');
+  if(_optsEl._rq===q && _optsEl.children.length===opts.length){
+    Array.prototype.forEach.call(_optsEl.children,(el,i)=>el.classList.toggle('selected',answers[currentQ]===opts[i]));
+  } else {
+  _optsEl._rq=q;
+  _optsEl.innerHTML=opts.map(o=>{
     const lo=o.toLowerCase();
     const txt=stripFigRef((q.options&&(q.options[o]!=null&&q.options[o]!==''?q.options[o]:(q.options[lo]!=null&&q.options[lo]!==''?q.options[lo]:'')))
       ||(q['option'+o]||q['option_'+o]||q['option'+lo]||''));
@@ -2248,11 +2482,15 @@ function renderQ(){_qtTick();
       <span class="opt-label">${o}</span>
       <div class="opt-body">
         ${fmtTxt}
-        ${optImg?`<img src="${optImg}" style="max-width:100%;max-height:${txt?'90px':'160px'};border-radius:6px;object-fit:contain;display:block;margin-top:${txt?'7px':'0'};" onerror="imgFail(this)">`:''}
+        ${optImg?`<span class="opt-img-box loading" style="margin-top:${txt?'7px':'0'};"><img src="${TSSC_imgSrc(optImg)}" data-src="${optImg}" decoding="async" style="max-width:100%;max-height:${txt?'90px':'160px'};border-radius:6px;object-fit:contain;display:block;" onload="TSSC_optImgOk(this)" onerror="TSSC_optImgErr(this)"></span>`:''}
       </div>
     </div>`;
   }).join('');
-  mathDress(document.getElementById('options'));
+  mathDress(_optsEl);
+  TSSC_optImgSweep(_optsEl);
+  }
+  /* TSSC-IMGLOAD-V1: download the next questions' figures in the background */
+  { const _s=sections[curTS]; TSSC_prefetchFrom(questions,currentQ,_s?_s.from:0,_s?_s.to:questions.length-1); }
 
   // ── English toggle (Hindi tests, Q1-75 only) ──
   const enBtn=document.getElementById('enToggleBtn');
@@ -2918,7 +3156,7 @@ window.imgFail = function (el) {
       const isCorrect=o===q.correct;const isWrong=o===a&&a!==q.correct;
       const cls=isCorrect?'rv-opt c':isWrong?'rv-opt w':'rv-opt';
       const marker=isCorrect?'<span class="rv-mk">✓</span>':isWrong?'<span class="rv-mk">✕</span>':'';
-      return `<div class="${cls}"><span class="rv-key">${o}</span><span>${applyBRBold(txt)}${marker}${optImg?`<span style="display:block;margin-top:6px;"><img src="${optImg}" style="max-width:100%;max-height:${txt?'100px':'170px'};border-radius:5px;object-fit:contain;" onerror="imgFail(this)"></span>`:''}</span></div>`;
+      return `<div class="${cls}"><span class="rv-key">${o}</span><span>${applyBRBold(txt)}${marker}${optImg?`<span style="display:block;margin-top:6px;"><img src="${TSSC_px(optImg)}" data-o="${optImg}" loading="lazy" decoding="async" style="max-width:100%;max-height:${txt?'100px':'170px'};border-radius:5px;object-fit:contain;" onerror="TSSC_rvErr(this)"></span>`:''}</span></div>`;
     }).join('')}</div>`;
     const solImg=q.solutionImage||'';
     // Per-solution EN/HI toggle: available for Q1–75 when an English counterpart
@@ -2932,7 +3170,7 @@ window.imgFail = function (el) {
     const _enc=s=>encodeURIComponent(s||'');
     const solToggleBtn=_hasEnSol
       ?`<button class="sol-lang-btn" onclick="toggleSolLang(this)">View in English</button>`:'';
-    const solHtml=(q.explanation||solImg)?`<div class="sol-panel sol-sol"><div class="sol-head"><span class="sol-ic">💡</span>Step-by-Step Solution${solToggleBtn}</div><div class="sol-body" data-hi="${_enc(q.explanation||'')}" data-en="${_enc(_enExp)}" data-lang="hi">${renderContent(q.explanation||'')}${solImg?`<img src="${solImg}" onerror="this.style.display='none'" alt="Solution">`:''}</div></div>`:'';
+    const solHtml=(q.explanation||solImg)?`<div class="sol-panel sol-sol"><div class="sol-head"><span class="sol-ic">💡</span>Step-by-Step Solution${solToggleBtn}</div><div class="sol-body" data-hi="${_enc(q.explanation||'')}" data-en="${_enc(_enExp)}" data-lang="hi">${renderContent(q.explanation||'')}${solImg?`<img src="${TSSC_px(solImg)}" data-o="${solImg}" loading="lazy" decoding="async" onerror="TSSC_rvErr(this,1)" alt="Solution">`:''}</div></div>`:'';
     const trickToggleBtn=(_hasEnSol&&_enTrk)
       ?`<button class="sol-lang-btn" onclick="toggleSolLang(this)">View in English</button>`:'';
     const trickHtml=q.trick?`<div class="sol-panel sol-trick"><div class="sol-head"><span class="sol-ic">⚡</span>Quick Trick${trickToggleBtn}</div><div class="sol-body" data-hi="${_enc(q.trick)}" data-en="${_enc(_enTrk)}" data-lang="hi">${renderContent(q.trick)}</div></div>`:'';
@@ -2942,7 +3180,7 @@ window.imgFail = function (el) {
     const verdictHtml=`<div class="verdict ${status}"><span class="v-ic">${vIcon}</span><span>${vText}</span></div>`;
     const rawRT=(q.text||q.question||'').replace(/^\s*\[FIGURE-BASED\]\s*/i,'');
     const reviewQHtml=formatQTextReview(rawRT,i+1);
-    const html=`<div class="review-item ${status}" id="rvq${i}" data-t="${Math.round(((typeof _qtime!=='undefined'&&_qtime[i])||0)/1000)}" data-qn="${parseInt(q.qNum,10)||(i+1)}" data-d="${String(q.difficulty||'').trim().toLowerCase().replace(/[^a-z]/g,'')}" data-s="${String(q.subject||q.section||q.chapter||'').replace(/[^A-Za-z .]/g,'').slice(0,40)}">${headHtml}${reviewQHtml}${q.imageUrl?`<div style="text-align:center;margin:8px 0;"><img src="${q.imageUrl}" style="max-width:100%;max-height:220px;border-radius:8px;border:1px solid #E2E8F0;object-fit:contain;background:#F9FAFB;" onerror="this.style.display='none'"></div>`:''}${optsHtml}${verdictHtml}${solHtml}${trickHtml}${conceptHtml}${solReportHtml}</div>`;
+    const html=`<div class="review-item ${status}" id="rvq${i}" data-t="${Math.round(((typeof _qtime!=='undefined'&&_qtime[i])||0)/1000)}" data-qn="${parseInt(q.qNum,10)||(i+1)}" data-d="${String(q.difficulty||'').trim().toLowerCase().replace(/[^a-z]/g,'')}" data-s="${String(q.subject||q.section||q.chapter||'').replace(/[^A-Za-z .]/g,'').slice(0,40)}">${headHtml}${reviewQHtml}${q.imageUrl?`<div style="text-align:center;margin:8px 0;"><img src="${TSSC_px(q.imageUrl)}" data-o="${q.imageUrl}" loading="lazy" decoding="async" style="max-width:100%;max-height:220px;border-radius:8px;border:1px solid #E2E8F0;object-fit:contain;background:#F9FAFB;" onerror="TSSC_rvErr(this,1)"></div>`:''}${optsHtml}${verdictHtml}${solHtml}${trickHtml}${conceptHtml}${solReportHtml}</div>`;
     return {status,html};
   }
 
@@ -3263,7 +3501,7 @@ function dressRoots(root){
 function resolveImg(text){
   if(!text||text.indexOf('[IMG]')===-1) return text;
   return text.replace(/\[IMG\](.*?)\[\/IMG\]/g, function(_,url){
-    return '<img src="'+url+'" class="q-figure-img" alt="Figure" loading="lazy">';
+    return '<img src="'+TSSC_px(url)+'" data-o="'+url+'" class="q-figure-img" alt="Figure" loading="lazy" decoding="async" onerror="TSSC_rvErr(this,2)">';
   });
 }
 
