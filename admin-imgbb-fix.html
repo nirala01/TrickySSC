@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex,nofollow">
+<title>TrickySSC — imgbb Figure Fixer</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+  :root {
+    --bg:#0f0f11; --surface:#18181c; --surface2:#222228; --border:#2e2e38;
+    --accent:#a855f7; --accent2:#22d3ee; --green:#22c55e; --red:#f43f5e; --yellow:#f59e0b;
+    --text:#e4e4ef; --muted:#6b7280;
+    --mono:'IBM Plex Mono',monospace; --sans:'IBM Plex Sans',sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;min-height:100vh}
+  .header{border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:12px;background:var(--surface);position:sticky;top:0;z-index:100}
+  .header-logo{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--accent2);letter-spacing:.05em}
+  .header-title{font-size:13px;color:var(--muted)}
+  .header-sep{flex:1}
+  .badge{font-family:var(--mono);font-size:11px;padding:3px 9px;border-radius:5px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);white-space:nowrap}
+  .badge.ok{color:var(--green);border-color:rgba(34,197,94,.35);background:rgba(34,197,94,.10)}
+  .badge.bad{color:var(--red);border-color:rgba(244,63,94,.35);background:rgba(244,63,94,.10)}
+  .badge.warn{color:var(--yellow);border-color:rgba(245,158,11,.35);background:rgba(245,158,11,.10)}
+  .badge.info{color:var(--accent2);border-color:rgba(34,211,238,.35);background:rgba(34,211,238,.10)}
+  .wrap{max-width:1500px;margin:0 auto;padding:22px 24px 80px}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px 20px;margin-bottom:18px}
+  .card h2{font-size:14px;font-weight:600;margin-bottom:4px;display:flex;align-items:center;gap:9px}
+  .step-n{font-family:var(--mono);font-size:11px;width:22px;height:22px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;background:var(--accent);color:#fff;flex:none}
+  .card p.hint{color:var(--muted);font-size:12.5px;margin:6px 0 14px 31px;line-height:1.55}
+  button{font-family:var(--sans);font-size:13px;font-weight:500;cursor:pointer;padding:8px 15px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--text);transition:.12s}
+  button:hover:not(:disabled){border-color:var(--accent)}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  button.green{background:rgba(34,197,94,.16);border-color:rgba(34,197,94,.45);color:var(--green)}
+  button.ghost{background:transparent}
+  button.sm{padding:5px 10px;font-size:12px}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th{text-align:left;font-family:var(--mono);font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:8px 9px;border-bottom:1px solid var(--border);white-space:nowrap}
+  td{padding:8px 9px;border-bottom:1px solid rgba(46,46,56,.55);vertical-align:middle}
+  tr.grp:hover td{background:rgba(168,85,247,.05)}
+  tr.done td{background:rgba(34,197,94,.06)}
+  input[type=checkbox]{accent-color:var(--accent);cursor:pointer}
+  input[type=search]{font-family:var(--sans);font-size:12.5px;padding:6px 9px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);width:260px}
+  label.chk{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;cursor:pointer}
+  .toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px}
+  .stats{display:flex;gap:10px;flex-wrap:wrap;margin:4px 0 12px 31px}
+  .stat{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;min-width:120px}
+  .stat b{display:block;font-size:18px;font-family:var(--mono)}
+  .stat span{font-size:11px;color:var(--muted)}
+  .prog-outer{height:6px;background:var(--surface2);border-radius:3px;overflow:hidden;margin-top:10px}
+  .prog-inner{height:100%;width:0;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width .2s}
+  #log{font-family:var(--mono);font-size:11.5px;line-height:1.65;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px 14px;max-height:300px;overflow-y:auto;white-space:pre-wrap;word-break:break-word}
+  #log .l-ok{color:var(--green)} #log .l-err{color:var(--red)} #log .l-warn{color:var(--yellow)} #log .l-info{color:var(--muted)} #log .l-head{color:var(--accent2);font-weight:600}
+  .gate{max-width:420px;margin:90px auto;text-align:center}
+  .gate h1{font-size:19px;margin-bottom:10px}
+  .gate p{color:var(--muted);font-size:13px;margin-bottom:22px;line-height:1.6}
+  .mono{font-family:var(--mono);font-size:11.5px}
+  .muted{color:var(--muted)}
+  .nowrap{white-space:nowrap}
+  .tbl-wrap{max-height:560px;overflow:auto;border:1px solid var(--border);border-radius:8px}
+  .tbl-wrap thead th{position:sticky;top:0;background:var(--surface);z-index:2}
+  /* paper panel */
+  #panel{display:none}
+  .thumb{width:150px;height:96px;border:1px solid var(--border);border-radius:6px;background:#fff;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative}
+  .thumb img{max-width:100%;max-height:100%;object-fit:contain}
+  .thumb .t-msg{font-size:11px;color:#64748b;text-align:center;padding:4px}
+  .thumb.broken{background:rgba(244,63,94,.08);border-color:rgba(244,63,94,.45)}
+  .thumb.broken .t-msg{color:var(--red)}
+  .thumb.empty{background:var(--surface2)}
+  .thumb.empty .t-msg{color:var(--muted)}
+  .drop{border:2px dashed var(--border);border-radius:10px;padding:22px 18px;text-align:center;cursor:pointer;background:var(--surface2);transition:.15s}
+  .drop:hover,.drop.over{border-color:var(--accent);background:rgba(168,85,247,.07)}
+  .slot{font-family:var(--mono);font-size:11px;padding:2px 7px;border-radius:4px;background:var(--surface2);border:1px solid var(--border)}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <span class="header-logo">TRICKYSSC</span>
+  <span class="header-title">imgbb Figure Fixer — find questions with imgbb figures, re-upload them from the figures docx to Firebase</span>
+  <span class="header-sep"></span>
+  <span class="badge" id="userBadge">not signed in</span>
+  <button class="sm ghost" id="signBtn" onclick="doSignIn()">Sign in</button>
+</div>
+
+<div id="gate" class="gate">
+  <h1>Admin sign-in required</h1>
+  <p>Firestore and Storage writes are limited to the admin accounts. Sign in with your admin Google account.</p>
+  <button class="primary" onclick="doSignIn()">Sign in with Google</button>
+</div>
+
+<div class="wrap" id="main" style="display:none">
+
+  <!-- STEP 1 — scan -->
+  <div class="card">
+    <h2><span class="step-n">1</span> Scan all questions for imgbb figures</h2>
+    <p class="hint">Reads only the questions whose question figure, option figures or solution image is an imgbb link
+      (a few hundred reads, not the whole database). Results are grouped by paper / mock / chapter test.</p>
+    <div class="toolbar" style="margin-left:31px">
+      <button class="primary" id="scanBtn" onclick="scan()">🔍 Scan now</button>
+      <label class="chk"><input type="checkbox" id="optFigs"> Also list figures already moved to trickyssc.com/figs</label>
+    </div>
+    <div class="prog-outer" style="margin-left:31px"><div class="prog-inner" id="scanProg"></div></div>
+    <div class="muted mono" id="scanText" style="margin:6px 0 0 31px"></div>
+  </div>
+
+  <!-- STEP 2 — report -->
+  <div class="card" id="reportCard" style="display:none">
+    <h2><span class="step-n">2</span> Report — papers that still use imgbb</h2>
+    <p class="hint">“Check links” opens every imgbb link from your browser and marks the ones that are already broken
+      (those questions show no figure to students today). Open a paper to fix it.</p>
+    <div class="stats" id="stats"></div>
+    <div class="toolbar" style="margin:0 0 10px 31px">
+      <button id="checkBtn" onclick="checkLinks()">🩺 Check links</button>
+      <button onclick="downloadCsv()">⬇ Download report (CSV)</button>
+      <input type="search" id="filter" placeholder="Filter papers…" oninput="renderReport()">
+      <span class="muted mono" id="checkText"></span>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr>
+          <th>Paper</th><th>Type</th><th>Lang</th><th>Questions</th><th>Figures</th><th>Links</th><th>Question numbers</th><th></th>
+        </tr></thead>
+        <tbody id="reportBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- STEP 3 — fix one paper -->
+  <div class="card" id="panel">
+    <h2><span class="step-n">3</span> <span id="pTitle">Paper</span></h2>
+    <p class="hint" id="pHint"></p>
+    <div style="margin-left:31px">
+      <div class="drop" id="drop">
+        <div style="font-weight:500;margin-bottom:4px">Drop this paper's figures .docx here (or click to choose)</div>
+        <div class="muted" style="font-size:12.5px">Same figures docx you use with the batch uploaders. Figures are matched by question number
+          (Q7 → question 7) and slot (question figure, option 1–4, solution).</div>
+        <input type="file" id="docxInput" accept=".docx" style="display:none">
+      </div>
+      <div class="muted mono" id="docxInfo" style="margin-top:8px"></div>
+      <div class="toolbar">
+        <label class="chk"><input type="checkbox" id="selAll" checked onchange="selectAll(this.checked)"> Select all ready</label>
+        <button class="green" id="applyBtn" onclick="applyPaper()" disabled>⬆ Upload to Firebase &amp; replace links</button>
+        <button class="ghost" onclick="closePanel()">Close</button>
+        <span class="muted mono" id="applyText"></span>
+      </div>
+      <div class="prog-outer"><div class="prog-inner" id="applyProg"></div></div>
+      <div class="tbl-wrap" style="margin-top:12px">
+        <table>
+          <thead><tr><th></th><th>Q</th><th>Slot</th><th>Now (imgbb)</th><th>New figure</th><th>Status</th><th></th></tr></thead>
+          <tbody id="pBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="step-n">·</span> Log</h2>
+    <div id="log" style="margin-top:10px"><span class="l-info">Ready.</span></div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js';
+import { getFirestore, collection, doc, getDoc, getDocs, query, where, writeBatch }
+  from 'https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js';
+import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged }
+  from 'https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js';
+import { getStorage, ref as storageRef, uploadBytes, getDownloadURL }
+  from 'https://www.gstatic.com/firebasejs/11.0.0/firebase-storage.js';
+
+const firebaseConfig = {
+  apiKey: "AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",
+  authDomain: "trickyssc-17bb3.firebaseapp.com",
+  projectId: "trickyssc-17bb3",
+  storageBucket: "trickyssc-17bb3.firebasestorage.app",
+  messagingSenderId: "450627057220",
+  appId: "1:450627057220:web:366267bf437d94f20c6e11"
+};
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const storage = getStorage(app);
+const auth = getAuth(app);
+const provider = new GoogleAuthProvider();
+const ADMIN_EMAILS = ['nirala01@gmail.com', 'ashish@trickyssc.com'];
+
+/* ── auth ─────────────────────────────────────────────────────────── */
+window.doSignIn = async () => {
+  try { await signInWithPopup(auth, provider); }
+  catch (e) { log('Sign-in failed: ' + e.message, 'err'); }
+};
+onAuthStateChanged(auth, user => {
+  const ok = user && (ADMIN_EMAILS.includes(user.email) || (user.email || '').endsWith('@trickyssc.com'));
+  document.getElementById('gate').style.display = ok ? 'none' : 'block';
+  document.getElementById('main').style.display = ok ? 'block' : 'none';
+  document.getElementById('signBtn').style.display = ok ? 'none' : 'inline-block';
+  const b = document.getElementById('userBadge');
+  if (ok) { b.textContent = user.email; b.className = 'badge ok'; }
+  else if (user) { b.textContent = 'not an admin'; b.className = 'badge bad'; }
+  else { b.textContent = 'not signed in'; b.className = 'badge'; }
+});
+
+/* ── helpers ──────────────────────────────────────────────────────── */
+function log(msg, kind = 'info') {
+  const el = document.getElementById('log');
+  const line = document.createElement('div');
+  line.className = 'l-' + kind;
+  line.textContent = new Date().toTimeString().slice(0, 8) + '  ' + msg;
+  el.appendChild(line); el.scrollTop = el.scrollHeight;
+}
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad3 = n => String(n).padStart(3, '0');
+
+// The figure fields a question can have. key = slot name used by the docx parser.
+const SLOTS = [
+  { key: 'q',    field: 'imageUrl',       label: 'Question' },
+  { key: 'optA', field: 'optionImages.A', label: 'Option A' },
+  { key: 'optB', field: 'optionImages.B', label: 'Option B' },
+  { key: 'optC', field: 'optionImages.C', label: 'Option C' },
+  { key: 'optD', field: 'optionImages.D', label: 'Option D' },
+  { key: 'sol',  field: 'solutionImage',  label: 'Solution' },
+];
+const IBB = ['https://i.ibb.co/', 'http://i.ibb.co/'];
+const FIGS = ['https://trickyssc.com/figs/'];
+function isTarget(u) {
+  if (!u || typeof u !== 'string') return false;
+  if (IBB.some(p => u.startsWith(p))) return true;
+  return document.getElementById('optFigs').checked && FIGS.some(p => u.startsWith(p));
+}
+function getField(d, path) {
+  return path.split('.').reduce((o, k) => (o && typeof o === 'object') ? o[k] : undefined, d);
+}
+function langOf(d, id) {
+  const l = String(d.language || d.lang || '').toLowerCase();
+  if (l.startsWith('h')) return 'hi';
+  if (l.startsWith('e')) return 'en';
+  const m = String(id).match(/_(en|hi)(?:_q\d+)?$/i);
+  return m ? m[1].toLowerCase() : '?';
+}
+const stripLang = k => String(k).replace(/[-_ ](en|hi|english|hindi)$/i, '');
+
+// Which paper a question belongs to — EN and HI copies land in the same group.
+function groupOf(d, id) {
+  if (d.mockId) return {
+    key: 'mock:' + stripLang(d.mockId), kind: 'Mock',
+    label: [String(d.exam || '').toUpperCase().replace('SSC-', 'SSC '),
+            d.tier === 'tier2' ? 'Tier II' : (d.tier ? 'Tier I' : ''),
+            'Mock ' + (d.mockNum ?? d.mockSeriesNum ?? '')].filter(Boolean).join(' · '),
+    raw: stripLang(d.mockId) };
+  if (d.paperId) return {
+    key: 'pyq:' + stripLang(d.paperId), kind: 'PYQ',
+    label: [String(d.exam || '').toUpperCase().replace('SSC-', 'SSC '), d.tier === 'tier2' ? 'Tier II' : (d.tier ? 'Tier I' : ''),
+            d.year, d.shift, d.heldOn].filter(Boolean).join(' · '),
+    raw: stripLang(d.paperId) };
+  if (d.chapterId || d.testNum) {
+    const raw = `cw_${d.chapterId || d.chapter || 'chapter'}_l${d.level || '?'}_t${d.testNum || '?'}`;
+    return { key: 'cw:' + raw, kind: 'Chapter test',
+             label: `${d.chapter || d.chapterId || 'Chapter'} · L${d.level || '?'} · Test ${d.testNum || '?'}`, raw };
+  }
+  const m = String(id).match(/^(.*)_q\d+$/);
+  if (m) return { key: 'id:' + stripLang(m[1]), kind: d.type || 'Other', label: stripLang(m[1]), raw: stripLang(m[1]) };
+  return { key: 'misc:' + (d.exam || '') + (d.year || ''), kind: d.type || 'Other',
+           label: 'Ungrouped ' + [d.exam, d.year, d.shift].filter(Boolean).join(' · '), raw: 'misc' };
+}
+
+/* ── state ────────────────────────────────────────────────────────── */
+let groups = new Map();   // key -> {key, kind, label, raw, langs:Set, items: Map(itemKey -> item)}
+// item = one figure slot of one question number: {qNum, slot, targets:[{id, field, old, lang}], newBlob, newName, status}
+const linkStatus = {};    // url -> 'ok' | 'broken' | 'checking'
+let current = null;       // group being fixed
+
+/* ── step 1: scan ─────────────────────────────────────────────────── */
+window.scan = async () => {
+  const btn = document.getElementById('scanBtn'); btn.disabled = true;
+  groups = new Map();
+  const prefixes = IBB.concat(document.getElementById('optFigs').checked ? FIGS : []);
+  const docs = new Map();
+  const jobs = [];
+  for (const s of SLOTS) for (const p of prefixes) jobs.push([s.field, p]);
+  let n = 0;
+  try {
+    for (const [field, p] of jobs) {
+      const hi = p.slice(0, -1) + String.fromCharCode(p.charCodeAt(p.length - 1) + 1);
+      const snap = await getDocs(query(collection(db, 'questions'), where(field, '>=', p), where(field, '<', hi)));
+      snap.forEach(s => docs.set(s.id, s.data()));
+      n++;
+      document.getElementById('scanProg').style.width = Math.round(100 * n / jobs.length) + '%';
+      document.getElementById('scanText').textContent = `${n}/${jobs.length} field checks · ${docs.size} questions found`;
+    }
+  } catch (e) {
+    log('Scan failed: ' + e.message, 'err');
+    if (/index/i.test(e.message)) log('Firestore asks for an index — open the link in the error above once, wait 2 minutes, scan again.', 'warn');
+    btn.disabled = false; return;
+  }
+  for (const [id, d] of docs) addDoc(id, d);
+  log(`Scan done: ${docs.size} questions in ${groups.size} papers use imgbb figures.`, docs.size ? 'warn' : 'ok');
+  btn.disabled = false;
+  document.getElementById('reportCard').style.display = 'block';
+  renderReport();
+};
+
+function addDoc(id, d) {
+  const g0 = groupOf(d, id);
+  let g = groups.get(g0.key);
+  if (!g) { g = { ...g0, langs: new Set(), items: new Map(), docIds: new Set() }; groups.set(g0.key, g); }
+  const lang = langOf(d, id);
+  const qNum = parseInt(d.qNum, 10) || parseInt((String(id).match(/_q(\d+)$/) || [])[1], 10) || 0;
+  for (const s of SLOTS) {
+    const v = getField(d, s.field);
+    if (!isTarget(v)) continue;
+    g.langs.add(lang); g.docIds.add(id);
+    const k = qNum + ':' + s.key;
+    let it = g.items.get(k);
+    if (!it) { it = { qNum, slot: s.key, label: s.label, targets: [], newBlob: null, newName: '', status: 'need', sel: true }; g.items.set(k, it); }
+    it.targets.push({ id, field: s.field, old: v, lang });
+  }
+}
+
+/* ── step 2: report ───────────────────────────────────────────────── */
+function groupStats(g) {
+  const items = [...g.items.values()].filter(i => i.status !== 'done');
+  const urls = new Set(); items.forEach(i => i.targets.forEach(t => urls.add(t.old)));
+  let ok = 0, bad = 0;
+  urls.forEach(u => { if (linkStatus[u] === 'ok') ok++; else if (linkStatus[u] === 'broken') bad++; });
+  const qs = [...new Set(items.map(i => i.qNum))].sort((a, b) => a - b);
+  return { items, urls, ok, bad, qs };
+}
+function qRanges(qs) {
+  const out = []; let a = null, b = null;
+  for (const q of qs) { if (a === null) { a = b = q; } else if (q === b + 1) b = q; else { out.push(a === b ? a : a + '–' + b); a = b = q; } }
+  if (a !== null) out.push(a === b ? a : a + '–' + b);
+  return out.join(', ');
+}
+window.renderReport = () => {
+  const f = (document.getElementById('filter').value || '').toLowerCase();
+  const list = [...groups.values()].sort((x, y) => x.kind.localeCompare(y.kind) || x.raw.localeCompare(y.raw, undefined, { numeric: true }));
+  let tq = 0, tf = 0, tb = 0, tp = 0, tdone = 0;
+  const rows = [];
+  for (const g of list) {
+    const st = groupStats(g);
+    if (!st.items.length) { tdone++; }
+    else { tp++; tq += st.qs.length; tf += st.urls.size; tb += st.bad; }
+    if (f && !(g.label + ' ' + g.raw + ' ' + g.kind).toLowerCase().includes(f)) continue;
+    const linkCell = (st.ok + st.bad) ? `<span class="badge ok">${st.ok} ok</span> ${st.bad ? `<span class="badge bad">${st.bad} broken</span>` : ''}` : '<span class="muted">—</span>';
+    rows.push(`<tr class="grp ${st.items.length ? '' : 'done'}">
+      <td><div>${esc(g.label)}</div><div class="mono muted">${esc(g.raw)}</div></td>
+      <td>${esc(g.kind)}</td>
+      <td class="mono">${[...g.langs].sort().join(' + ').toUpperCase()}</td>
+      <td class="mono">${st.qs.length}</td>
+      <td class="mono">${st.urls.size}</td>
+      <td class="nowrap">${linkCell}</td>
+      <td class="mono muted" style="max-width:340px">${esc(qRanges(st.qs))}</td>
+      <td>${st.items.length ? `<button class="sm primary" onclick="openPanel('${esc(g.key)}')">Fix →</button>` : '<span class="badge ok">done</span>'}</td>
+    </tr>`);
+  }
+  document.getElementById('reportBody').innerHTML = rows.join('') || '<tr><td colspan="8" class="muted">No questions use imgbb figures. 🎉</td></tr>';
+  document.getElementById('stats').innerHTML = [
+    [tp, 'papers to fix'], [tq, 'questions'], [tf, 'imgbb figures'], [tb, 'already broken'], [tdone, 'papers fixed']
+  ].map(([v, l]) => `<div class="stat"><b>${v}</b><span>${l}</span></div>`).join('');
+};
+
+window.checkLinks = async () => {
+  const urls = new Set();
+  groups.forEach(g => groupStats(g).urls.forEach(u => urls.add(u)));
+  const todo = [...urls].filter(u => !linkStatus[u]);
+  const btn = document.getElementById('checkBtn'); btn.disabled = true;
+  let done = 0;
+  const one = u => new Promise(res => {
+    const im = new Image(); let fin = false;
+    const end = ok => { if (fin) return; fin = true; linkStatus[u] = ok ? 'ok' : 'broken'; res(); };
+    im.onload = () => end(im.naturalWidth > 0); im.onerror = () => end(false);
+    setTimeout(() => end(false), 20000);
+    im.src = u;
+  });
+  const workers = Array.from({ length: 6 }, async () => {
+    while (todo.length) {
+      await one(todo.shift()); done++;
+      document.getElementById('checkText').textContent = `checked ${done}/${done + todo.length}`;
+      if (done % 20 === 0) renderReport();
+    }
+  });
+  await Promise.all(workers);
+  btn.disabled = false;
+  const bad = Object.values(linkStatus).filter(v => v === 'broken').length;
+  log(`Link check done: ${bad} imgbb figure(s) do not load right now.`, bad ? 'warn' : 'ok');
+  renderReport();
+};
+
+window.downloadCsv = () => {
+  const rows = [['paper', 'type', 'paper_key', 'qNum', 'slot', 'language', 'question_doc_id', 'imgbb_url', 'link_status']];
+  groups.forEach(g => g.items.forEach(it => {
+    if (it.status === 'done') return;
+    it.targets.forEach(t => rows.push([g.label, g.kind, g.raw, it.qNum, it.label, t.lang, t.id, t.old, linkStatus[t.old] || ''])); }));
+  const csv = rows.map(r => r.map(c => /[",\n]/.test(String(c)) ? '"' + String(c).replace(/"/g, '""') + '"' : c).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv' }));
+  a.download = 'imgbb-figures-report-' + new Date().toISOString().slice(0, 10) + '.csv';
+  a.click();
+};
+
+/* ── docx figure parser (same rules as the batch uploaders) ────────── */
+async function parseFiguresDocx(file) {
+  const zip = await JSZip.loadAsync(await file.arrayBuffer());
+  const blobs = {};
+  for (const path of Object.keys(zip.files).filter(f => f.startsWith('word/media/'))) {
+    blobs[path.split('/').pop()] = await zip.files[path].async('blob');
+  }
+  const docXml = await zip.files['word/document.xml'].async('string');
+  const relsXml = await zip.files['word/_rels/document.xml.rels'].async('string');
+  const parser = new DOMParser();
+  const relsDoc = parser.parseFromString(relsXml, 'text/xml');
+  const docDOM = parser.parseFromString(docXml, 'text/xml');
+  const ridMap = {};
+  relsDoc.querySelectorAll('Relationship').forEach(rel => {
+    const tgt = rel.getAttribute('Target') || '';
+    if (tgt.includes('media/')) ridMap[rel.getAttribute('Id')] = tgt.split('/').pop();
+  });
+  const NS_W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+  const NS_A = 'http://schemas.openxmlformats.org/drawingml/2006/main';
+  const NS_R = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+  const paras = [];
+  for (const para of docDOM.getElementsByTagNameNS(NS_W, 'p')) {
+    let text = '';
+    for (const t of para.getElementsByTagNameNS(NS_W, 't')) text += t.textContent;
+    text = text.trim();
+    const imgs = [];
+    for (const blip of para.getElementsByTagNameNS(NS_A, 'blip')) {
+      const rid = blip.getAttributeNS(NS_R, 'embed') || blip.getAttribute('r:embed');
+      if (rid && ridMap[rid]) imgs.push(ridMap[rid]);
+    }
+    if (text || imgs.length) paras.push({ text, imgs });
+  }
+  const title = paras.length ? paras[0].text : '';
+  const questions = [];
+  const used = new Set();
+  let cur = null;
+  const nextFreeOpt = (q, img) => { for (const l of ['A','B','C','D']) { if (!q.imgs['opt' + l]) { q.imgs['opt' + l] = img; return; } } };
+  const putOpt = (q, slot, img) => { const l = 'ABCD'[slot - 1]; if (l && !q.imgs['opt' + l]) { q.imgs['opt' + l] = img; return; } nextFreeOpt(q, img); };
+  let pendingLabel = null;
+  for (const para of paras) {
+    const qm = para.text.match(/^Q\.?\s*(\d+)[.)]?\s*(.*)/i);
+    if (qm) {
+      if (cur) questions.push(cur);
+      cur = { qNum: parseInt(qm[1]), imgs: {} };
+      pendingLabel = null;
+      para.imgs.forEach((img, i) => { cur.imgs[i === 0 ? 'q' : 'opt' + String.fromCharCode(64 + i)] = img; used.add(img); });
+      continue;
+    }
+    if (!cur) continue;
+    if (/^(Solution|Explanation|Answer)\s*:?$/i.test(para.text)) cur._expectSol = true;
+    const optM = para.text.match(/^(?:Diagram|Figure|Option|Image)\s*(\d+)/i);
+    const stemM = /^\[\s*figure\s*\]$/i.test(para.text);
+    if (!para.imgs.length) {
+      if (optM) pendingLabel = parseInt(optM[1]);
+      else if (stemM) pendingLabel = 'stem';
+      else if (para.text) pendingLabel = null;
+      continue;
+    }
+    const label = optM ? parseInt(optM[1]) : (stemM ? 'stem' : pendingLabel);
+    pendingLabel = null;
+    if (cur._expectSol) {
+      cur.imgs.sol = para.imgs[0]; used.add(para.imgs[0]); cur._expectSol = false;
+      para.imgs.slice(1).forEach(img => { used.add(img); nextFreeOpt(cur, img); });
+    } else if (typeof label === 'number') {
+      para.imgs.forEach((img, i) => { used.add(img); putOpt(cur, label + i, img); });
+    } else if (label === 'stem' || !cur.imgs.q) {
+      cur.imgs.q = para.imgs[0]; used.add(para.imgs[0]);
+      para.imgs.slice(1).forEach(img => { used.add(img); nextFreeOpt(cur, img); });
+    } else {
+      para.imgs.forEach(img => { used.add(img); nextFreeOpt(cur, img); });
+    }
+  }
+  if (cur) questions.push(cur);
+  const unassigned = Object.keys(blobs).filter(n => !used.has(n));
+  return { title, blobs, questions, unassigned };
+}
+
+/* ── step 3: fix one paper ────────────────────────────────────────── */
+const blobUrls = [];
+function freeBlobs() { while (blobUrls.length) URL.revokeObjectURL(blobUrls.pop()); }
+function blobUrl(b) { const u = URL.createObjectURL(b); blobUrls.push(u); return u; }
+
+window.openPanel = key => {
+  current = groups.get(key); if (!current) return;
+  freeBlobs();
+  groups.forEach(g => g.items.forEach(it => { it._url = null; }));
+  document.getElementById('panel').style.display = 'block';
+  document.getElementById('pTitle').textContent = `${current.label}  (${current.kind})`;
+  const st = groupStats(current);
+  document.getElementById('pHint').innerHTML =
+    `<span class="mono">${esc(current.raw)}</span> · ${st.qs.length} questions · ${st.items.length} figure slots · languages ${[...current.langs].join(' + ').toUpperCase()}.
+     Each new figure is uploaded once and used for both the English and Hindi copies.`;
+  document.getElementById('docxInfo').textContent = '';
+  document.getElementById('applyText').textContent = '';
+  document.getElementById('applyProg').style.width = '0';
+  renderPanel();
+  document.getElementById('panel').scrollIntoView({ behavior: 'smooth' });
+};
+window.closePanel = () => { document.getElementById('panel').style.display = 'none'; current = null; freeBlobs(); };
+
+function thumb(src, emptyMsg, oldUrl) {
+  if (!src) return `<div class="thumb empty"><span class="t-msg">${esc(emptyMsg)}</span></div>`;
+  const broken = oldUrl && linkStatus[oldUrl] === 'broken';
+  return `<div class="thumb ${broken ? 'broken' : ''}"><img src="${esc(src)}" loading="lazy"
+    onerror="this.parentNode.classList.add('broken');this.replaceWith(Object.assign(document.createElement('span'),{className:'t-msg',textContent:'does not load'}))"></div>`;
+}
+function renderPanel() {
+  if (!current) return;
+  const items = [...current.items.values()].sort((a, b) => a.qNum - b.qNum || SLOTS.findIndex(s => s.key === a.slot) - SLOTS.findIndex(s => s.key === b.slot));
+  let ready = 0;
+  document.getElementById('pBody').innerHTML = items.map((it, i) => {
+    const k = it.qNum + ':' + it.slot;
+    if (it.newBlob && it.status !== 'done') ready++;
+    if (!it._url && it.newBlob) it._url = blobUrl(it.newBlob);
+    const status = it.status === 'done' ? '<span class="badge ok">replaced</span>'
+      : it.status === 'error' ? `<span class="badge bad" title="${esc(it.err || '')}">failed</span>`
+      : it.newBlob ? `<span class="badge info">ready${it.fromDocx ? '' : ' (picked)'}</span>`
+      : '<span class="badge warn">not in docx</span>';
+    return `<tr class="${it.status === 'done' ? 'done' : ''}">
+      <td><input type="checkbox" ${it.sel && it.newBlob && it.status !== 'done' ? 'checked' : ''} ${it.newBlob && it.status !== 'done' ? '' : 'disabled'}
+           onchange="setSel('${k}', this.checked)"></td>
+      <td class="mono">Q${it.qNum}</td>
+      <td><span class="slot">${esc(it.label)}</span><div class="mono muted" style="margin-top:4px">${it.targets.map(t => t.lang.toUpperCase()).join(' + ')}</div></td>
+      <td>${thumb(it.targets[0].old, '', it.targets[0].old)}</td>
+      <td>${thumb(it.newBlob ? it._url : '', 'no figure yet')}</td>
+      <td>${status}</td>
+      <td>${it.status === 'done' ? '' : `<button class="sm" onclick="pickFile('${k}')">${it.newBlob ? 'Change' : 'Choose image'}</button>`}</td>
+    </tr>`;
+  }).join('');
+  document.getElementById('applyBtn').disabled = !items.some(it => it.sel && it.newBlob && it.status !== 'done');
+}
+window.setSel = (k, v) => { const it = current.items.get(k); if (it) it.sel = v; renderPanel(); };
+window.selectAll = v => { current && current.items.forEach(it => { it.sel = v; }); renderPanel(); };
+window.pickFile = k => {
+  const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*';
+  inp.onchange = () => {
+    const f = inp.files[0]; if (!f) return;
+    const it = current.items.get(k);
+    it.newBlob = f; it.newName = f.name; it.fromDocx = false; it._url = null; it.sel = true; it.status = 'need';
+    renderPanel();
+  };
+  inp.click();
+};
+
+// docx input
+const drop = document.getElementById('drop');
+const docxInput = document.getElementById('docxInput');
+drop.addEventListener('click', () => docxInput.click());
+['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', e => { const f = [...e.dataTransfer.files].find(f => /\.docx$/i.test(f.name)); if (f) loadDocx(f); });
+docxInput.addEventListener('change', () => { if (docxInput.files[0]) loadDocx(docxInput.files[0]); docxInput.value = ''; });
+
+async function loadDocx(file) {
+  if (!current) return;
+  let parsed;
+  try { parsed = await parseFiguresDocx(file); }
+  catch (e) { log(`Could not read ${file.name}: ${e.message}`, 'err'); return; }
+  const byQ = {}; parsed.questions.forEach(q => { byQ[q.qNum] = q; });
+  let found = 0, missing = 0;
+  current.items.forEach(it => {
+    if (it.status === 'done') return;
+    const q = byQ[it.qNum];
+    const name = q && q.imgs[it.slot];
+    const blob = name && parsed.blobs[name];
+    if (blob) {
+      const ext = (name.match(/\.(\w+)$/) || [, 'png'])[1].toLowerCase();
+      it.newBlob = blob; it.newName = name; it.newExt = ext; it.fromDocx = true; it._url = null; it.sel = true; it.status = 'need';
+      found++;
+    } else if (!it.newBlob) missing++;
+  });
+  const info = `${file.name}: ${parsed.questions.length} questions with figures in the docx · matched ${found} of ${current.items.size} slots` +
+               (missing ? ` · ${missing} not in the docx (choose those by hand, or leave them)` : '') +
+               (parsed.unassigned.length ? ` · ${parsed.unassigned.length} picture(s) in the docx could not be placed` : '');
+  document.getElementById('docxInfo').textContent = info;
+  log(info, missing ? 'warn' : 'ok');
+  if (parsed.title) log(`docx heading: "${parsed.title}" — check it is the right paper before uploading.`, 'info');
+  renderPanel();
+}
+
+// Upload + replace
+const SAFE_MIME = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', bmp: 'image/bmp' };
+function safeKey(s) { return String(s).toLowerCase().replace(/[^a-z0-9_-]+/g, '-').slice(0, 80); }
+
+window.applyPaper = async () => {
+  if (!current) return;
+  const g = current;
+  const items = [...g.items.values()].filter(it => it.sel && it.newBlob && it.status !== 'done');
+  if (!items.length) return;
+  if (!confirm(`Upload ${items.length} figure(s) to Firebase and replace the imgbb links in "${g.label}"?`)) return;
+  const btn = document.getElementById('applyBtn'); btn.disabled = true;
+  const uid = auth.currentUser.uid;
+  log(`── ${g.label}: uploading ${items.length} figure(s)`, 'head');
+
+  // 1. read the affected questions fresh, so we never overwrite a link changed since the scan
+  const ids = [...new Set(items.flatMap(it => it.targets.map(t => t.id)))];
+  const fresh = {};
+  for (const id of ids) {
+    try { const s = await getDoc(doc(db, 'questions', id)); if (s.exists()) fresh[id] = s.data(); }
+    catch (e) { log(`Could not read ${id}: ${e.message}`, 'err'); }
+  }
+
+  // 2. upload each figure once
+  let done = 0, failed = 0;
+  const updates = {};   // docId -> {field: url}
+  for (const it of items) {
+    const rawExt = (it.newExt || (it.newName.match(/\.(\w+)$/) || [, ''])[1] || '').toLowerCase();
+    const mime = SAFE_MIME[rawExt] || (it.newBlob.type && it.newBlob.type.startsWith('image/') ? it.newBlob.type : 'image/png');
+    const ext = SAFE_MIME[rawExt] ? rawExt : (mime.split('/')[1] || 'png').replace('jpeg', 'jpg');
+    const path = `question-images/${uid}/fix_${safeKey(g.raw)}_q${pad3(it.qNum)}_${it.slot}.${ext}`;
+    try {
+      const snap = await uploadBytes(storageRef(storage, path), it.newBlob, { contentType: mime, cacheControl: 'public, max-age=31536000' });
+      const url = await getDownloadURL(snap.ref);
+      let n = 0;
+      for (const t of it.targets) {
+        const d = fresh[t.id];
+        if (!d) continue;
+        if (getField(d, t.field) !== t.old) { log(`Q${it.qNum} ${it.label} (${t.lang}): link was changed since the scan — left alone`, 'warn'); continue; }
+        (updates[t.id] = updates[t.id] || {})[t.field] = url;
+        n++;
+      }
+      it._newUrl = url; it._n = n;
+      done++;
+    } catch (e) {
+      it.status = 'error'; it.err = e.code || e.message; failed++;
+      log(`Q${it.qNum} ${it.label}: upload failed — ${e.code || e.message}`, 'err');
+      if (/unauthorized|permission/i.test(e.code || e.message)) { log('Storage refused the upload (rules). Stopped.', 'err'); break; }
+    }
+    document.getElementById('applyProg').style.width = Math.round(100 * (done + failed) / items.length * 0.85) + '%';
+    document.getElementById('applyText').textContent = `uploaded ${done}/${items.length}`;
+  }
+
+  // 3. write the new links (only the changed fields)
+  const entries = Object.entries(updates);
+  let written = 0;
+  try {
+    for (let i = 0; i < entries.length; i += 400) {
+      const b = writeBatch(db);
+      for (const [id, fields] of entries.slice(i, i + 400)) b.update(doc(db, 'questions', id), { ...fields, updatedAt: new Date() });
+      await b.commit();
+      written += Math.min(400, entries.length - i);
+    }
+  } catch (e) {
+    log('Firestore write failed: ' + e.message + ' — the figures are uploaded; press the button again to retry.', 'err');
+    btn.disabled = false; renderPanel(); return;
+  }
+  for (const it of items) if (it._newUrl && it.status !== 'error') it.status = 'done';
+  document.getElementById('applyProg').style.width = '100%';
+  document.getElementById('applyText').textContent = `done — ${done} figure(s) uploaded, ${written} question(s) updated`;
+  log(`${g.label}: ${done} figure(s) uploaded, ${written} question(s) now use Firebase links${failed ? `, ${failed} failed` : ''}.`, failed ? 'warn' : 'ok');
+  renderPanel(); renderReport();
+};
+</script>
+</body>
+</html>
