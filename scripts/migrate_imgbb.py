@@ -182,27 +182,37 @@ def scan(full):
 # ── downloading ──────────────────────────────────────────────────────────────
 UA = {"User-Agent": "TrickySSC-figure-migration/1.0 (+https://trickyssc.com)"}
 
-def fetch(url, tries=4):
-    """Return (bytes, content_type) or raise."""
-    last = None
+def _get(url):
+    r = requests.get(url, timeout=(10, 30), headers=UA, allow_redirects=True)
+    ct = (r.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+    if r.status_code == 404:
+        raise FileNotFoundError("404 — image deleted on imgbb")
+    if r.status_code != 200 or not ct.startswith("image/") or len(r.content) <= 60:
+        raise RuntimeError(f"HTTP {r.status_code} {ct}")
+    if len(r.content) > MAX_BYTES:
+        raise RuntimeError(f"too large ({len(r.content)} bytes)")
+    return r.content, ct
+
+
+def fetch(url, tries=2):
+    """Return (bytes, content_type) or raise.
+    Tries imgbb directly; if imgbb is slow or refuses, gets the same file through the
+    wsrv.nl image cache (the same one mock-test.html uses)."""
+    last, gone = None, False
+    via = "https://wsrv.nl/?url=" + requests.utils.quote(re.sub(r"^https?://", "", url), safe="")
     for i in range(tries):
-        try:
-            r = requests.get(url, timeout=60, headers=UA, allow_redirects=True)
-            ct = (r.headers.get("Content-Type") or "").split(";")[0].strip().lower()
-            if r.status_code == 200 and ct.startswith("image/") and len(r.content) > 60:
-                if r.url.split("?")[0].rstrip("/") != url.split("?")[0].rstrip("/") and "ibb.co" not in r.url:
-                    raise RuntimeError(f"redirected to {r.url}")
-                if len(r.content) > MAX_BYTES:
-                    raise RuntimeError(f"too large ({len(r.content)} bytes)")
-                return r.content, ct
-            if r.status_code == 404:
-                raise FileNotFoundError("404 — image deleted on imgbb")
-            last = RuntimeError(f"HTTP {r.status_code} {ct}")
-        except FileNotFoundError:
-            raise
-        except Exception as e:
-            last = e
-        time.sleep(2 * (i + 1))
+        for src in (url, via):
+            try:
+                return _get(src)
+            except FileNotFoundError as e:
+                gone, last = True, e
+            except Exception as e:
+                last = e
+        if gone:
+            break
+        time.sleep(3)
+    if gone:
+        raise FileNotFoundError("404 — image deleted on imgbb")
     raise last
 
 
@@ -259,16 +269,27 @@ def cmd_download(a):
             return u, fetch(u), None
         except Exception as e:
             return u, None, e
-    with cf.ThreadPoolExecutor(max_workers=4) as ex:
-        for i, (u, res, err) in enumerate(ex.map(one, todo), 1):
+    # Never let one run spend hours here: after the time budget, keep what we have
+    # (it is saved and used) and leave the rest for the next run.
+    deadline = time.time() + a.budget_min * 60
+    stopped = 0
+    ex = cf.ThreadPoolExecutor(max_workers=8)
+    futs = [ex.submit(one, u) for u in todo]
+    try:
+        for i, f in enumerate(cf.as_completed(futs, timeout=max(1, deadline - time.time())), 1):
+            u, res, err = f.result()
             if res:
                 got[u] = res
             elif isinstance(err, FileNotFoundError):
                 gone.append(u)
             else:
                 failed[u] = str(err)
-            if i % 200 == 0:
-                log(f"  {i}/{len(todo)} downloaded")
+            if i % 25 == 0 or i == len(todo):
+                log(f"  {i}/{len(todo)} done — {len(got)} ok, {len(failed)} failed, {len(gone)} deleted on imgbb")
+    except cf.TimeoutError:
+        stopped = sum(1 for f in futs if not f.done())
+        log(f"  time budget reached — {stopped} figures left for the next run")
+    ex.shutdown(wait=False, cancel_futures=True)
 
     # imgbb sometimes answers with its own "service unavailable" picture (HTTP 200).
     # The same picture behind many different links is that placeholder — never save it.
@@ -335,7 +356,9 @@ def cmd_download(a):
         summary(f"- ⚠️ {len(held)} link(s) returned the same picture (imgbb's 'unavailable' placeholder?) — skipped, retried next run")
     if cap_hit:
         summary("- 🛑 Stopped: figs/ is near the GitHub Pages size limit (1 GB). Tell Claude before running again.")
-    if left - len(failed) - len(gone) - len(held) > 0 and not cap_hit:
+    if stopped:
+        summary(f"- ⏱ Time budget reached: {stopped} figures were not tried yet — run the workflow again to continue")
+    if left - len(failed) - len(gone) - len(held) - stopped > 0 and not cap_hit:
         summary(f"- {left} figure(s) still to copy — they are done in the next runs (limit {a.max_images} per run)")
     if a.dry_run:
         summary("- **Dry run**: nothing will be committed or changed in Firestore.")
@@ -411,6 +434,7 @@ def main():
     d.add_argument("--full", default="auto", choices=["yes", "no", "auto"])
     d.add_argument("--max-images", type=int, default=4000)
     d.add_argument("--dry-run", action="store_true")
+    d.add_argument("--budget-min", type=float, default=40)
     w = sp.add_parser("wait")
     w.add_argument("--timeout", type=int, default=900)
     sp.add_parser("rewrite")
