@@ -1,0 +1,76 @@
+# Moves test figures off imgbb: copies every i.ibb.co figure used by a question into
+# figs/ in this repo (served as https://trickyssc.com/figs/...) and points the
+# questions in Firestore at the copies. Figures uploaded later through the admin pages
+# still go to imgbb first — the daily run moves them within a day.
+#
+# First time: Actions → "Move figures off imgbb" → Run workflow (full scan = yes).
+# Needs the secret FIREBASE_SERVICE_ACCOUNT (Firebase service-account JSON key).
+
+name: Move figures off imgbb
+
+on:
+  schedule:
+    - cron: '10 21 * * *'        # 02:40 IST daily (quick scan; full scan on Sundays)
+  workflow_dispatch:
+    inputs:
+      full_scan:
+        description: 'Scan every question (also finds imgbb links inside question text and solutions)'
+        type: boolean
+        default: true
+      max_images:
+        description: 'Most figures to copy in one run'
+        default: '4000'
+      dry_run:
+        description: 'Dry run — only report, change nothing'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: migrate-imgbb
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install
+        run: pip install --quiet google-auth requests pillow
+
+      - name: Download imgbb figures into figs/
+        run: >
+          python scripts/migrate_imgbb.py download
+          --full ${{ github.event_name == 'workflow_dispatch' && (inputs.full_scan && 'yes' || 'no') || 'auto' }}
+          --max-images ${{ github.event_name == 'workflow_dispatch' && inputs.max_images || '4000' }}
+          ${{ (github.event_name == 'workflow_dispatch' && inputs.dry_run) && '--dry-run' || '' }}
+
+      - name: Commit figures
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.dry_run) }}
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A figs
+          if git diff --cached --quiet; then echo "No new figures."; exit 0; fi
+          git commit -q -m "chore: copy imgbb figures to figs/"
+          for i in 1 2 3; do
+            git pull --rebase -q origin main && git push -q && exit 0
+            sleep 10
+          done
+          echo "Push failed"; exit 1
+
+      - name: Wait until the figures are live on trickyssc.com
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.dry_run) }}
+        run: python scripts/migrate_imgbb.py wait --timeout 1200
+
+      - name: Point the questions at the new figures
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.dry_run) }}
+        run: python scripts/migrate_imgbb.py rewrite
