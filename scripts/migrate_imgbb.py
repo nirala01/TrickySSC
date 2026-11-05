@@ -33,6 +33,7 @@ SITE      = os.environ.get("SITE_BASE", "https://trickyssc.com")
 ROOT      = Path(__file__).resolve().parent.parent
 FIGS      = ROOT / "figs"
 MAP_FILE  = FIGS / "map.json"
+MISS_FILE = FIGS / "missing.json"   # imgbb links that answered 404: {url: {"days": [...]}}
 WORK      = ROOT / ".migrate"
 COLL      = "questions"
 
@@ -260,11 +261,14 @@ def cmd_download(a):
     docs = scan(full)
 
     urls = sorted({u for d in docs.values() for v in d.get("fields", {}).values() for u in ibb_urls(v)})
-    todo = [u for u in urls if u not in mp][: a.max_images]
+    miss = json.loads(MISS_FILE.read_text()) if MISS_FILE.exists() else {}
+    # figures that answered 404 before go last, so new ones are always tried first
+    todo = sorted((u for u in urls if u not in mp), key=lambda u: len(miss.get(u, {}).get("days", [])))[: a.max_images]
     log(f"{len(urls)} different imgbb links in use; {len(urls) - len([u for u in urls if u not in mp])} already copied; downloading {len(todo)}")
 
     got, failed, gone = {}, {}, []
     def one(u):
+        time.sleep(0.4)          # be gentle: too many requests in a row make imgbb refuse
         try:
             return u, fetch(u), None
         except Exception as e:
@@ -273,7 +277,7 @@ def cmd_download(a):
     # (it is saved and used) and leave the rest for the next run.
     deadline = time.time() + a.budget_min * 60
     stopped = 0
-    ex = cf.ThreadPoolExecutor(max_workers=8)
+    ex = cf.ThreadPoolExecutor(max_workers=3)
     futs = [ex.submit(one, u) for u in todo]
     try:
         for i, f in enumerate(cf.as_completed(futs, timeout=max(1, deadline - time.time())), 1):
@@ -346,9 +350,27 @@ def cmd_download(a):
         summary(f"- ⚠️ {len(failed)} figure(s) could not be downloaded now (imgbb busy?) — the next run tries again")
         for u, e in list(failed.items())[:15]:
             summary(f"  - {u} — {e}")
+    # A single 404 is not proof: imgbb also answers 404 when it is refusing too many
+    # requests. A figure counts as deleted only after 404s on 3 different days.
+    today = time.strftime("%Y-%m-%d")
+    for u in got:
+        miss.pop(u, None)
+    for u in gone:
+        days = miss.setdefault(u, {"days": []})["days"]
+        if today not in days:
+            days.append(today)
+    for u in list(miss):
+        if u not in urls:
+            miss.pop(u)
+    if not a.dry_run:
+        MISS_FILE.write_text(json.dumps(dict(sorted(miss.items())), indent=0) + "\n")
+    sure = sorted(u for u in gone if len(miss[u]["days"]) >= 3)
     if gone:
-        summary(f"- ❌ {len(gone)} figure(s) are deleted on imgbb (404) — these questions need the figure re-uploaded:")
-        for u in gone[:30]:
+        summary(f"- {len(gone)} figure(s) answered 404 (not found) this run — retried on the next days; "
+                f"{len(sure)} of them have now failed on 3 different days")
+    if sure:
+        summary("- ❌ Deleted on imgbb (404 on 3 different days) — upload these figures again in admin:")
+        for u in sure[:60]:
             ids = [n.rsplit('/', 1)[-1] for n, d in docs.items()
                    if any(u in ibb_urls(v) for v in d.get('fields', {}).values())]
             summary(f"  - {u} → question {', '.join(ids[:5])}")
