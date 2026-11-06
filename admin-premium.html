@@ -456,11 +456,35 @@ function filtered() {
   return out;
 }
 
+/* TSSC-WHYUNPAID-V1 (2026-11-06) — an unpaid order row now shows WHY it is
+   unpaid, from the checkoutIntents breadcrumb (closed Razorpay / bank declined /
+   order call failed), plus "paid on another order" when the same student
+   retried and succeeded. Before this, the reason was recorded but only shown
+   for people with NO order, so the "created" rows had no explanation. */
+const WHY_STAGE = { opened: 'opened the popup', details: 'filled in details',
+                    razorpay: 'Razorpay opened, no result yet', paid: 'paid', failed: 'failed' };
+const WHY_WHERE = { order: 'order call failed', razorpay: 'payment failed in Razorpay',
+                    dismissed: 'closed the Razorpay window', form: 'form not accepted',
+                    warning: 'backed out at the notice', prefill: 'profile read stalled' };
+function whyUnpaid(r, paidUids) {
+  if (!r.uid) return '';
+  if (paidUids.has(r.uid)) return '<div class="em" style="color:#15803D;font-weight:700">paid on another order (retry)</div>';
+  const i = INTENTS.find(x => x.uid === r.uid);
+  if (!i) return '';
+  const what = i.stage === 'failed'
+    ? (WHY_WHERE[i.failedAt] || i.failedAt || 'failed') + (i.lastError ? ' — ' + i.lastError : '')
+    : (WHY_STAGE[i.stage] || i.stage || '');
+  const tries = i.clicks ? ' · ' + i.clicks + ' tries' : '';
+  return `<div class="em" style="margin-top:.25rem;color:#B91C1C">${esc(what)}${esc(tries)}</div>`;
+}
+
 function render() {
   const rows = filtered();
   const paid = ROWS.filter(r => r.status === 'paid');
   const live = paid.filter(r => r.mode === 'live');
   const now = Date.now();
+  const paidUids = new Set(paid.map(r => r.uid).filter(Boolean));   /* TSSC-WHYUNPAID-V1 */
+  const unpaidPeople = new Set(ROWS.filter(r => r.status !== 'paid' && r.uid && !paidUids.has(r.uid)).map(r => r.uid));
   const active = paid.filter(r => r.expiresAt && r.expiresAt > now);
   const abandoned = ROWS.filter(r => r.status !== 'paid');
   const revenue = live.reduce((s, r) => s + r.amount, 0);
@@ -470,6 +494,7 @@ function render() {
     <div class="stat green"><div class="k">Revenue</div><div class="v">₹${revenue.toLocaleString('en-IN')}</div></div>
     <div class="stat"><div class="k">Active access</div><div class="v">${active.length}</div></div>
     <div class="stat orange"><div class="k">Started, not paid</div><div class="v">${abandoned.length}</div></div>
+    <div class="stat orange"><div class="k">Students who never paid</div><div class="v">${unpaidPeople.size}</div></div>
     <div class="stat"><div class="k">Test payments</div><div class="v">${paid.length - live.length}</div></div>`;
 
   $('empty').hidden = rows.length > 0;
@@ -512,6 +537,7 @@ function render() {
       <td data-l="Status">
         <span class="pill p-${r.status === 'paid' ? 'paid' : 'created'}">${esc(r.status)}</span>
         ${r.mode === 'test' ? '<span class="pill p-test">test mode</span>' : ''}   <!-- TSSC-ADMINKEYS-V1: "live" was Razorpay mode, not access -->
+        ${r.status !== 'paid' ? whyUnpaid(r, paidUids) : ''}   <!-- TSSC-WHYUNPAID-V1 -->
       </td>
       <td data-l="Access until">${expPill}</td>
       <td data-l="Purchased">${fmt(r.paidAt || r.createdAt)}</td>
