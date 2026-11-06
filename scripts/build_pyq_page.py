@@ -366,11 +366,80 @@ def tier_label(tier):
 
 
 # ---------------------------------------------------------------------------
+# SHIFT-WISE QUESTION-PAPER PAGES (pyq/ folder)  — added 2026-11-06
+# ---------------------------------------------------------------------------
+# Some Tier I shifts also have a static HTML question-paper page in pyq/,
+# e.g. pyq/ssc-cgl-12-september-2025-shift-1.html. When one exists for a
+# paper, its row on ssc-cgl-pyq.html gets a visible "View Paper" link and
+# its ItemList entry points to that page, so Google can find and rank it.
+# Both name styles are recognised:
+#   ssc-cgl-12-september-2025-shift-1.html
+#   ssc-cgl-2026-tier-1-12-november-shift-1.html
+# Tier II pages (name contains "tier-2") are ignored here.
+PYQ_PAGE_DIR = "pyq"
+_MONTH_NUM = {v.lower(): k for k, v in MONTHS.items()}
+
+
+def find_shift_pages():
+    """Return {(heldOn 'YYYY-MM-DD', shift number): 'pyq/<file>.html'}."""
+    import os
+    found = {}
+    if not os.path.isdir(PYQ_PAGE_DIR):
+        return found
+    month_re = "|".join(_MONTH_NUM)
+    for name in sorted(os.listdir(PYQ_PAGE_DIR)):
+        low = name.lower()
+        if not (low.startswith("ssc-cgl-") and low.endswith(".html")):
+            continue
+        if "tier-2" in low or "tier-ii" in low:
+            continue
+        m = re.search(rf"(\d{{1,2}})-({month_re})(?:-(\d{{4}}))?-shift-(\d+)\.html$", low)
+        if not m:
+            continue
+        year = m.group(3)
+        if not year:
+            y = re.search(r"-(20\d\d)-", low)
+            if not y:
+                continue
+            year = y.group(1)
+        held = f"{year}-{_MONTH_NUM[m.group(2)]}-{int(m.group(1)):02d}"
+        found[(held, int(m.group(4)))] = f"{PYQ_PAGE_DIR}/{name}"
+    return found
+
+
+def _shift_num(shift):
+    m = re.search(r"(\d+)", str(shift))
+    return int(m.group(1)) if m else 0
+
+
+def latest_tier1_year(ordered):
+    """Newest year that has at least one Tier I paper (e.g. '2026')."""
+    for y, groups in ordered.items():  # already newest first
+        if any(not _is_tier2(g["tier"]) for g in groups):
+            return y
+    return next(iter(ordered), "")
+
+
+# ---------------------------------------------------------------------------
 # 4. RENDER HTML
 # ---------------------------------------------------------------------------
 def render(ordered):
     total_papers = sum(len(v) for v in ordered.values())
     updated = datetime.datetime.utcnow().strftime("%d %b %Y")
+
+    # Newest Tier I year drives the title, H1, description and FAQ, so the page
+    # targets "SSC CGL <year> Tier 1 papers" and moves on to the next year by
+    # itself as soon as that year's first Tier I paper is uploaded.
+    LY = latest_tier1_year(ordered)
+    year_keys_all = [y for y in ordered if str(y).isdigit()]
+    oldest_year = min(year_keys_all) if year_keys_all else LY
+    shift_pages = find_shift_pages()
+
+    def page_for(g):
+        """pyq/ question-paper page for this Tier I paper, or ''."""
+        if _is_tier2(g["tier"]) or not g.get("heldOn"):
+            return ""
+        return shift_pages.get((g["heldOn"], _shift_num(g["shift"])), "")
 
     YEAR_COLORS = ['#FF6B00', '#6366F1', '#00A86B', '#0EA5E9',
                    '#E11D48', '#F59E0B', '#8B5CF6', '#10B981']
@@ -486,7 +555,23 @@ def render(ordered):
                     f'<span class="attempt-pill todo" data-pill="{html.escape(pick_id)}">'
                     f'○ Not Attempted</span>'
                 )
-                btns_html = attempt_btn + hidden_links
+                # Visible link to the shift's static question-paper page, when
+                # one exists in pyq/ (see find_shift_pages).
+                paper_page = '' if is_t2 else page_for(g)
+                view_link = ''
+                if paper_page:
+                    vl_title = f"SSC CGL {year} Tier 1 {shift} {date_label} question paper".strip()
+                    view_link = (
+                        f'<a href="{SITE}/{html.escape(paper_page)}" '
+                        f'title="{html.escape(vl_title)}" '
+                        f'style="display:inline-flex;align-items:center;gap:0.3rem;'
+                        f'background:#fff;color:#FF6B00;border:1.5px solid #FFD2B0;'
+                        f'padding:0.48rem 0.8rem;border-radius:9px;'
+                        f"font-family:'Rajdhani',sans-serif;font-weight:700;"
+                        f'font-size:0.82rem;white-space:nowrap;text-decoration:none;">'
+                        f'📄 View Paper</a>'
+                    )
+                btns_html = view_link + attempt_btn + hidden_links
 
                 rows.append(f"""
             <div style="display:flex;align-items:center;justify-content:space-between;gap:0.6rem;padding:0.85rem 1.1rem;{border_bottom}background:white;">
@@ -507,20 +592,42 @@ def render(ordered):
                   </div>
                 </div>
               </div>
-              <div style="display:flex;align-items:center;gap:0.4rem;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;">{btns_html}</div>
+              <div class="pyq-btns{' has-view' if view_link else ''}" style="display:flex;align-items:center;gap:0.4rem;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;">{btns_html}</div>
             </div>""")
 
             # Newest year opens by default; older years start collapsed.
             open_attr = ' open' if yi == 0 else ''
+
+            # Tier I years get a real <h3> ("SSC CGL 2026 Tier 1 Question Papers")
+            # and a one-line intro, so each year can rank for "ssc cgl <year>
+            # tier 1 paper". Tier II keeps a plain <span>: on this page the
+            # Tier II pane deliberately carries no Tier II headings (that intent
+            # belongs to ssc-cgl-tier-2-pyq.html, which reuses this markup).
+            if is_t2:
+                title_html = f'<span class="yr-title">SSC CGL {tier_label} {year}</span>'
+                intro_html = ''
+            else:
+                title_html = f'<h3 class="yr-title">SSC CGL {year} Tier 1 Question Papers</h3>'
+                dates = sorted(g["heldOn"] for g in groups if g.get("heldOn"))
+                held = ''
+                if dates:
+                    d0, d1 = pretty_date(dates[0]), pretty_date(dates[-1])
+                    held = f' (held {d0})' if d0 == d1 else f' (held {d0} – {d1})'
+                n_shift = f"{ycount} shift-wise paper{'s' if ycount != 1 else ''}"
+                intro_html = (
+                    f'<p class="yr-intro">{n_shift} from SSC CGL {year} Tier 1{html.escape(held)}, '
+                    f'free to attempt online in English &amp; Hindi with answer key and '
+                    f'step-by-step solutions.</p>'
+                )
             blocks.append(f"""
         <details class="yr-acc"{open_attr}>
           <summary class="yr-head">
             <span class="yr-badge" style="background:{accent};">{year}</span>
-            <span class="yr-title">SSC CGL {tier_label} {year}</span>
+            {title_html}
             <span class="yr-count">{ycount} test{'s' if ycount != 1 else ''}</span>
             <span class="yr-chev" aria-hidden="true">▾</span>
           </summary>
-          <div class="yr-body" style="border-left:3px solid {accent};">{''.join(rows)}</div>
+          <div class="yr-body" style="border-left:3px solid {accent};">{intro_html}{''.join(rows)}</div>
         </details>""")
         return "".join(blocks)
 
@@ -531,58 +638,90 @@ def render(ordered):
     t2_count = sum(len(v) for v in tier2.values())
 
     # ---- schema for SEO ----
+    # Tier I first (newest year first), then Tier II. Each name states the exam
+    # year and tier; when a paper was held in a later calendar year than its
+    # exam year (e.g. CGL 2025 Tier 2 held on 19 January 2026) the date is
+    # shown as "held …" so it is never read as a 2026 paper. Papers that have
+    # a static question-paper page in pyq/ point to that page.
     item_list = []
     pos = 1
-    for y, groups in ordered.items():
-        for g in groups:
-            lang = "en" if "en" in g["langs"] else next(iter(g["langs"]))
-            item_list.append({
-                "@type": "ListItem",
-                "position": pos,
-                "name": f"SSC CGL {pretty_date(g['heldOn'])} {g['shift']} — Free Online Test",
-                "url": test_url(g, lang),
-            })
-            pos += 1
+    for want_t2 in (False, True):
+        for y, groups in ordered.items():
+            for g in groups:
+                if _is_tier2(g["tier"]) != want_t2:
+                    continue
+                lang = "en" if "en" in g["langs"] else next(iter(g["langs"]))
+                tnum = "Tier 2" if want_t2 else "Tier 1"
+                date_txt = pretty_date(g["heldOn"]) if g.get("heldOn") else ""
+                held_year = str(g.get("heldOn", ""))[:4]
+                if date_txt and held_year and held_year != str(y):
+                    date_txt = f"(held {date_txt})"
+                name = " ".join(p for p in (f"SSC CGL {y} {tnum}", date_txt,
+                                            str(g["shift"] or "")) if p)
+                pp = page_for(g)
+                item_list.append({
+                    "@type": "ListItem",
+                    "position": pos,
+                    "name": f"{name} — {'Question Paper' if pp else 'Free Online Test'}",
+                    "url": f"{SITE}/{pp}" if pp else test_url(g, lang),
+                })
+                pos += 1
 
     itemlist_schema = {
         "@context": "https://schema.org", "@type": "ItemList",
-        "name": "Free SSC CGL PYQ Tests (Previous Year Papers) — Online in Hindi & English",
+        "name": f"SSC CGL {LY} Tier 1 Papers & Previous Year Question Papers — Free Online Tests",
         "numberOfItems": total_papers, "itemListElement": item_list,
     }
 
+    # FAQ — one list feeds both the FAQPage schema and the visible FAQ, so the
+    # two always match. The first two questions follow the newest Tier I year.
+    ly_pages = any(k[0].startswith(f"{LY}-") for k in shift_pages)
+    faqs = [
+        (f"Where can I get the SSC CGL {LY} Tier 1 question paper?",
+         f"All SSC CGL {LY} Tier 1 question papers on TrickySSC are on this page, shift-wise, "
+         f"in the \"SSC CGL {LY} Tier 1 Question Papers\" section at the top of the list. "
+         f"Attempt any shift free online in English or Hindi"
+         + (", or open the full question paper for the shifts marked View Paper." if ly_pages else ".")),
+        (f"Is the SSC CGL {LY} Tier 1 answer key available?",
+         f"Yes. Every SSC CGL {LY} Tier 1 paper on TrickySSC comes with the correct answer key "
+         f"and step-by-step solutions for each question, shown as soon as you submit the test."),
+        ("Are SSC CGL previous year papers free on TrickySSC?",
+         "Yes. All SSC CGL Tier 1 previous year question papers (PYQ) on TrickySSC are completely free to attempt online. No payment or subscription is required."),
+        ("Can I attempt SSC CGL PYQ papers in Hindi and English?",
+         "Yes. Every SSC CGL previous year paper is available in both English and Hindi. You can choose your preferred language before starting the test."),
+        ("Do the SSC CGL PYQ tests include answer keys and solutions?",
+         "Yes. Each paper comes with the correct answer key and step-by-step solutions so you can review every question after submitting the test."),
+        ("Which SSC CGL years are available for practice?",
+         f"TrickySSC provides shift-wise SSC CGL previous year papers from {oldest_year} to {LY}, "
+         f"including the latest SSC CGL {LY} Tier 1 exam shifts, added regularly as new papers are processed."),
+        ("Is the test interface similar to the real SSC CGL exam?",
+         "Yes. The online test engine mirrors the real SSC CGL exam pattern with sectional layout, a question palette, a timer, and negative marking, so you practice in exam-like conditions."),
+        ("Are SSC CGL PYQ tests free?",
+         "Yes. Every SSC CGL PYQ test on TrickySSC is completely free to attempt online — no payment, subscription, or hidden charges."),
+        ("Where can I attempt SSC CGL PYQ tests online?",
+         "You can attempt SSC CGL PYQ tests online at TrickySSC (trickyssc.com). Shift-wise Tier I and Tier II previous year papers are available in a real exam-like interface with timer and solutions."),
+        ("Which website provides free SSC CGL previous year paper tests?",
+         "TrickySSC provides free SSC CGL previous year paper tests online, shift-wise, in both English and Hindi, with answer keys and step-by-step solutions for every question."),
+    ]
     faq_schema = {
         "@context": "https://schema.org", "@type": "FAQPage",
         "mainEntity": [
-            {"@type": "Question", "name": "Are SSC CGL previous year papers free on TrickySSC?",
-             "acceptedAnswer": {"@type": "Answer", "text": "Yes. All SSC CGL Tier 1 previous year question papers (PYQ) on TrickySSC are completely free to attempt online. No payment or subscription is required."}},
-            {"@type": "Question", "name": "Can I attempt SSC CGL PYQ papers in Hindi and English?",
-             "acceptedAnswer": {"@type": "Answer", "text": "Yes. Every SSC CGL previous year paper is available in both English and Hindi. You can choose your preferred language before starting the test."}},
-            {"@type": "Question", "name": "Do the SSC CGL PYQ tests include answer keys and solutions?",
-             "acceptedAnswer": {"@type": "Answer", "text": "Yes. Each paper comes with the correct answer key and step-by-step solutions so you can review every question after submitting the test."}},
-            {"@type": "Question", "name": "Which SSC CGL years are available for practice?",
-             "acceptedAnswer": {"@type": "Answer", "text": "TrickySSC provides shift-wise SSC CGL previous year papers across multiple years, including the most recent 2025 Tier 1 exam shifts, added regularly as new papers are processed."}},
-            {"@type": "Question", "name": "Is the test interface similar to the real SSC CGL exam?",
-             "acceptedAnswer": {"@type": "Answer", "text": "Yes. The online test engine mirrors the real SSC CGL exam pattern with sectional layout, a question palette, a timer, and negative marking, so you practice in exam-like conditions."}},
-            {"@type": "Question", "name": "Are SSC CGL PYQ tests free?",
-             "acceptedAnswer": {"@type": "Answer", "text": "Yes. Every SSC CGL PYQ test on TrickySSC is completely free to attempt online — no payment, subscription, or hidden charges."}},
-            {"@type": "Question", "name": "Where can I attempt SSC CGL PYQ tests online?",
-             "acceptedAnswer": {"@type": "Answer", "text": "You can attempt SSC CGL PYQ tests online at TrickySSC (trickyssc.com). Shift-wise Tier I and Tier II previous year papers are available in a real exam-like interface with timer and solutions."}},
-            {"@type": "Question", "name": "Which website provides free SSC CGL previous year paper tests?",
-             "acceptedAnswer": {"@type": "Answer", "text": "TrickySSC provides free SSC CGL previous year paper tests online, shift-wise, in both English and Hindi, with answer keys and step-by-step solutions for every question."}},
+            {"@type": "Question", "name": q,
+             "acceptedAnswer": {"@type": "Answer", "text": a}}
+            for q, a in faqs
         ],
     }
 
-    faq_visible = """
+    faq_items = "".join(
+        f'\n        <details style="background:#fff;border:1px solid #E2E8F0;border-radius:11px;'
+        f'padding:0.85rem 1.1rem;margin-bottom:0.6rem;"><summary style="cursor:pointer;'
+        f'font-weight:700;font-size:0.92rem;color:#1A202C;">{html.escape(q)}</summary>'
+        f'<p style="color:#4A5568;margin:0.6rem 0 0;font-size:0.88rem;">{html.escape(a)}</p></details>'
+        for q, a in faqs
+    )
+    faq_visible = f"""
       <div style="margin-top:2rem;">
-        <h2 style="font-family:'Rajdhani',sans-serif;font-weight:800;font-size:1.25rem;color:#1A202C;margin:0 0 0.8rem;display:flex;align-items:center;gap:0.5rem;"><span style="display:inline-block;width:3px;height:18px;background:linear-gradient(180deg,#FF6B00,#FF8C38);border-radius:2px;"></span>Frequently Asked Questions</h2>
-        <details style="background:#fff;border:1px solid #E2E8F0;border-radius:11px;padding:0.85rem 1.1rem;margin-bottom:0.6rem;"><summary style="cursor:pointer;font-weight:700;font-size:0.92rem;color:#1A202C;">Are SSC CGL previous year papers free on TrickySSC?</summary><p style="color:#4A5568;margin:0.6rem 0 0;font-size:0.88rem;">Yes. All SSC CGL Tier 1 previous year question papers (PYQ) on TrickySSC are completely free to attempt online. No payment or subscription is required.</p></details>
-        <details style="background:#fff;border:1px solid #E2E8F0;border-radius:11px;padding:0.85rem 1.1rem;margin-bottom:0.6rem;"><summary style="cursor:pointer;font-weight:700;font-size:0.92rem;color:#1A202C;">Can I attempt SSC CGL PYQ papers in Hindi and English?</summary><p style="color:#4A5568;margin:0.6rem 0 0;font-size:0.88rem;">Yes. Every SSC CGL previous year paper is available in both English and Hindi. Choose your preferred language before starting the test.</p></details>
-        <details style="background:#fff;border:1px solid #E2E8F0;border-radius:11px;padding:0.85rem 1.1rem;margin-bottom:0.6rem;"><summary style="cursor:pointer;font-weight:700;font-size:0.92rem;color:#1A202C;">Do the tests include answer keys and solutions?</summary><p style="color:#4A5568;margin:0.6rem 0 0;font-size:0.88rem;">Yes. Each paper comes with the correct answer key and step-by-step solutions, so you can review every question after submitting the test.</p></details>
-        <details style="background:#fff;border:1px solid #E2E8F0;border-radius:11px;padding:0.85rem 1.1rem;margin-bottom:0.6rem;"><summary style="cursor:pointer;font-weight:700;font-size:0.92rem;color:#1A202C;">Which SSC CGL years are available?</summary><p style="color:#4A5568;margin:0.6rem 0 0;font-size:0.88rem;">Shift-wise SSC CGL previous year papers across multiple years, including the most recent 2025 Tier 1 exam shifts, added regularly as new papers are processed.</p></details>
-        <details style="background:#fff;border:1px solid #E2E8F0;border-radius:11px;padding:0.85rem 1.1rem;margin-bottom:0.6rem;"><summary style="cursor:pointer;font-weight:700;font-size:0.92rem;color:#1A202C;">Is the interface similar to the real SSC CGL exam?</summary><p style="color:#4A5568;margin:0.6rem 0 0;font-size:0.88rem;">Yes. The test engine mirrors the real exam pattern with a sectional layout, question palette, timer, and negative marking for exam-like practice.</p></details>
-        <details style="background:#fff;border:1px solid #E2E8F0;border-radius:11px;padding:0.85rem 1.1rem;margin-bottom:0.6rem;"><summary style="cursor:pointer;font-weight:700;font-size:0.92rem;color:#1A202C;">Are SSC CGL PYQ tests free?</summary><p style="color:#4A5568;margin:0.6rem 0 0;font-size:0.88rem;">Yes. Every SSC CGL PYQ test on TrickySSC is completely free to attempt online — no payment, subscription, or hidden charges.</p></details>
-        <details style="background:#fff;border:1px solid #E2E8F0;border-radius:11px;padding:0.85rem 1.1rem;margin-bottom:0.6rem;"><summary style="cursor:pointer;font-weight:700;font-size:0.92rem;color:#1A202C;">Where can I attempt SSC CGL PYQ tests online?</summary><p style="color:#4A5568;margin:0.6rem 0 0;font-size:0.88rem;">You can attempt SSC CGL PYQ tests online at TrickySSC (trickyssc.com). Shift-wise Tier I and Tier II previous year papers are available in a real exam-like interface with timer and solutions.</p></details>
-        <details style="background:#fff;border:1px solid #E2E8F0;border-radius:11px;padding:0.85rem 1.1rem;margin-bottom:0.6rem;"><summary style="cursor:pointer;font-weight:700;font-size:0.92rem;color:#1A202C;">Which website provides free SSC CGL previous year paper tests?</summary><p style="color:#4A5568;margin:0.6rem 0 0;font-size:0.88rem;">TrickySSC provides free SSC CGL previous year paper tests online, shift-wise, in both English and Hindi, with answer keys and step-by-step solutions for every question.</p></details>
+        <h2 style="font-family:'Rajdhani',sans-serif;font-weight:800;font-size:1.25rem;color:#1A202C;margin:0 0 0.8rem;display:flex;align-items:center;gap:0.5rem;"><span style="display:inline-block;width:3px;height:18px;background:linear-gradient(180deg,#FF6B00,#FF8C38);border-radius:2px;"></span>Frequently Asked Questions</h2>{faq_items}
       </div>"""
 
     seo_content = f"""
@@ -731,23 +870,33 @@ def render(ordered):
     </div>"""
 
     desc = (
-        f"Attempt {total_papers}+ SSC CGL Tier 1 previous year question papers "
-        f"(PYQ) free online, shift-wise, in English & Hindi with answer keys and "
-        f"step-by-step solutions. Real exam-pattern interface, no payment needed."
+        f"Attempt SSC CGL {LY} Tier 1 question papers shift-wise and "
+        f"{total_papers}+ SSC CGL PYQs in all, free online in English & Hindi "
+        f"with answer keys and step-by-step solutions."
     )
+    page_title = (f"SSC CGL {LY} Tier 1 Question Papers & PYQ Tests Free "
+                  f"| All Shifts (Hindi & English)")
+    keywords = (
+        f"SSC CGL {LY} Tier 1 paper, SSC CGL {LY} question paper, "
+        f"SSC CGL {LY} Tier 1 question paper, SSC CGL {LY} answer key, "
+        f"SSC CGL PYQ, SSC CGL previous year paper, SSC CGL previous year paper online free, "
+        f"SSC CGL PYQ test, SSC CGL question paper with solution, SSC CGL Tier 1 PYQ, "
+        f"SSC CGL free online test"
+    )
+    newest_year = max(year_keys_all) if year_keys_all else LY
 
     page = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SSC CGL PYQ Tests Free | Previous Year Papers Online (Hindi &amp; English) | TrickySSC</title>
+<title>{html.escape(page_title)}</title>
 <meta name="description" content="{html.escape(desc)}">
-<meta name="keywords" content="SSC CGL PYQ, SSC CGL previous year paper, SSC CGL previous year paper online free, SSC CGL PYQ test, SSC CGL question paper with solution, SSC CGL 2025 paper, SSC CGL Tier 1 PYQ, SSC CGL free online test">
+<meta name="keywords" content="{html.escape(keywords)}">
 <meta name="robots" content="index, follow, max-image-preview:large">
 <link rel="canonical" href="{SITE}/{OUTPUT_FILE}">
 <meta property="og:type" content="website">
-<meta property="og:title" content="SSC CGL PYQ Tests Free | Previous Year Papers Online (Hindi &amp; English)">
+<meta property="og:title" content="{html.escape(page_title)}">
 <meta property="og:description" content="{html.escape(desc)}">
 <meta property="og:url" content="{SITE}/{OUTPUT_FILE}">
 <meta property="og:site_name" content="TrickySSC">
@@ -808,7 +957,8 @@ def render(ordered):
   .yr-head:focus:not(:focus-visible) {{ outline:none; }}
   .yr-head:focus-visible {{ outline:2px solid #FF6B00; outline-offset:2px; }}
   .yr-badge {{ width:46px; height:46px; border-radius:11px; display:inline-flex; align-items:center; justify-content:center; font-family:'Rajdhani',sans-serif; font-weight:800; font-size:0.92rem; color:#fff; letter-spacing:-0.3px; flex-shrink:0; }}
-  .yr-title {{ font-family:'Rajdhani',sans-serif; font-weight:800; font-size:1.32rem; color:#1A202C; line-height:1.15; }}
+  .yr-title {{ font-family:'Rajdhani',sans-serif; font-weight:800; font-size:1.32rem; color:#1A202C; line-height:1.15; min-width:0; }}
+  .yr-intro {{ margin:0; padding:0.75rem 1.1rem; background:#FFFAF5; border-bottom:1px solid #F1F5F9; font-size:0.84rem; line-height:1.5; color:#475569; }}
   .yr-count {{ background:#F1F5F9; border-radius:20px; padding:0.3rem 0.8rem; font-family:'Rajdhani',sans-serif; font-weight:700; font-size:0.88rem; color:#64748B; white-space:nowrap; flex-shrink:0; }}
   .yr-chev {{ margin-left:auto; flex-shrink:0; width:32px; height:32px; border-radius:50%; background:#F8FAFC; color:#94A3B8; display:inline-flex; align-items:center; justify-content:center; font-size:1.05rem; line-height:1; transition:transform .2s ease; }}
   details[open] > .yr-head .yr-chev {{ transform:rotate(180deg); background:#FFF1E6; color:#FF6B00; }}
@@ -818,6 +968,8 @@ def render(ordered):
     .yr-head {{ gap:0.7rem; padding:0.8rem 0.85rem; }}
     .yr-badge {{ width:40px; height:40px; font-size:0.82rem; border-radius:10px; }}
     .yr-title {{ font-size:1.12rem; }}
+    .pyq-btns.has-view {{ flex-direction:column; align-items:stretch !important; flex-wrap:nowrap !important; }}
+    .pyq-btns.has-view > a, .pyq-btns.has-view > button {{ justify-content:center; }}
     .yr-count {{ font-size:0.8rem; padding:0.24rem 0.65rem; }}
     .yr-chev {{ width:28px; height:28px; }}
   }}
@@ -845,7 +997,7 @@ def render(ordered):
 <div style="background:#F0F2F7;min-height:100vh;padding-top:1.5rem;">
 
   <div style="max-width:960px;margin:0 auto;padding:0.2rem 1.25rem 0.2rem;">
-    <h1 style="font-family:'Rajdhani',sans-serif;font-weight:800;font-size:clamp(1.1rem,4.2vw,1.55rem);line-height:1.25;color:#1A202C;margin:0;">Free SSC CGL PYQ Tests (Previous Year Papers) – Online in Hindi &amp; English</h1>
+    <h1 style="font-family:'Rajdhani',sans-serif;font-weight:800;font-size:clamp(1.1rem,4.2vw,1.55rem);line-height:1.25;color:#1A202C;margin:0;">SSC CGL {LY} Tier 1 Papers &amp; Previous Year Question Papers (PYQ) – Free Online Tests</h1>
   </div>
 
   <div style="background:#fff;border-bottom:1px solid #E8ECF2;padding:0.55rem 1.5rem;margin-top:0.6rem;">
@@ -870,7 +1022,7 @@ def render(ordered):
         <div style="width:50px;height:50px;background:linear-gradient(135deg,#FF6B00,#FFB347);border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:1.5rem;flex-shrink:0;box-shadow:0 4px 16px rgba(255,107,0,0.45);">📋</div>
         <div>
           <div style="font-family:'Rajdhani',sans-serif;font-size:1.6rem;font-weight:800;color:#fff;margin:0;line-height:1.15;letter-spacing:0.2px;">SSC CGL Previous Year Papers</div>
-          <p style="color:rgba(255,255,255,0.5);font-size:0.8rem;margin:0.25rem 0 0;letter-spacing:0.1px;">Tier I &amp; Tier II · 2010–2025 · {total_papers}+ Papers</p>
+          <p style="color:rgba(255,255,255,0.5);font-size:0.8rem;margin:0.25rem 0 0;letter-spacing:0.1px;">Tier I &amp; Tier II · {oldest_year}–{newest_year} · {total_papers}+ Papers</p>
         </div>
       </div>
       <div style="display:flex;gap:0.75rem;margin-top:1.1rem;position:relative;flex-wrap:wrap;">
@@ -1538,6 +1690,18 @@ def main():
     # Keep the sitemap's "last updated" date for this page in sync, so Google
     # re-crawls it promptly after new papers are added.
     update_sitemap_lastmod()
+
+    # Any shift-wise question-paper page in pyq/ that is not in the sitemap yet
+    # is added once (existing entries are left untouched). Added 2026-11-06.
+    try:
+        with open(SITEMAP_FILE, encoding="utf-8") as f:
+            sm = f.read()
+        for _key, rel in sorted(find_shift_pages().items(), reverse=True):
+            if f"<loc>{SITE}/{rel}</loc>" not in sm:
+                update_sitemap_lastmod(rel, insert_after=OUTPUT_FILE,
+                                       changefreq="monthly", priority="0.8")
+    except FileNotFoundError:
+        pass
 
     # Dedicated Tier II page. Isolated: a failure here must never stop the
     # main PYQ page above from being published.
