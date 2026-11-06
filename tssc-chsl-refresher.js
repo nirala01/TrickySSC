@@ -16,13 +16,13 @@
    examLabel — shown in the notes ("20 days before the Tier I exam (…)").
 
    Rule of thumb: opensAt = first exam date minus 20 days. The CHSL Tier I
-   2026 window is 30 Nov – 31 Dec, so Tier I opens 10 Nov 2026.
+   2026 window is 30 Nov – 31 Dec; Tier I was opened early, on 6 Nov 2026.
    ------------------------------------------------------------------------ */
 (function () {
   window.TSSC_CHSL_REFRESHER = {
     tier1: {
       from: 31, to: 40,
-      opensAt:   '2026-11-10T00:00:00+05:30',
+      opensAt:   '2026-11-06T00:00:00+05:30',   /* opened early on 6 Nov 2026 — Mock 31-40 live */
       examLabel: '30 Nov \u2013 31 Dec 2026',
       caLabel:   'current affairs updated to November 2026'
     },
@@ -68,6 +68,7 @@
                         : '\uD83D\uDCC5 20 days before exam';
     }
     if (mode === 'date') {
+      if (st.open) return 'now';
       return st.opensAt ? fmt(st.opensAt, true) : '20 days before the ' + tn + ' exam';
     }
     /* long */
