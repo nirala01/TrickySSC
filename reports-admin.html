@@ -59,6 +59,20 @@
   .fix{background:#EEF2FF;color:#4338CA;border:1.5px solid #C7D2FE;border-radius:8px;font-size:12px;font-weight:700;padding:6px 10px;cursor:pointer;white-space:nowrap;margin-right:6px;}
   .fix:hover{background:#E0E7FF;}
   .fix:disabled{opacity:.5;cursor:default;}
+  /* ── TSSC-QVIEW-V1 — 👁 Open: read-only view of the reported question ── */
+  .view{background:#F0FDF4;color:#15803D;border:1.5px solid #BBF7D0;border-radius:8px;font-size:12px;font-weight:700;padding:6px 10px;cursor:pointer;white-space:nowrap;margin-right:6px;}
+  .view:hover{background:#DCFCE7;}
+  .qv-card{border:1.5px solid #E2E8F0;border-radius:12px;padding:12px 14px;margin-bottom:14px;background:#fff;}
+  .qv-head{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin-bottom:8px;}
+  .qv-stem{font-size:14.5px;font-weight:600;line-height:1.7;color:#0F172A;margin:6px 0 10px;word-break:break-word;}
+  .qv-card img{max-width:100%;height:auto;border-radius:6px;}
+  .qv-key{display:inline-block;font-size:12px;font-weight:800;padding:3px 10px;border-radius:99px;background:#DCFCE7;color:#15803D;border:1px solid #86EFAC;margin:4px 0 8px;}
+  .qv-key.warn{background:#FEF3C7;color:#92400E;border-color:#FCD34D;}
+  .qv-sol{border:1px solid #FED7AA;background:#FFFBF5;border-radius:10px;padding:10px 12px;margin-top:10px;}
+  .qv-sol .lbl{color:#C2410C;}
+  .qv-solbody{font-size:13.5px;line-height:1.7;color:#1E293B;margin-top:4px;word-break:break-word;}
+  .qv-solbody table{border-collapse:collapse;} .qv-solbody table td,.qv-solbody table th{border:1px solid #CBD5E1;padding:3px 6px;}
+  .qv-tick{margin-left:auto;font-weight:800;color:#15803D;}
   /* ── AI fix modal ── */
   .modal{position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:50;display:flex;align-items:flex-start;justify-content:center;padding:24px 12px;overflow:auto;}
   .modal.hidden{display:none;}
@@ -209,6 +223,18 @@
       </div>
       <div class="sheet-body" id="fixBody"></div>
       <div class="sheet-foot" id="fixFoot"></div>
+    </div>
+  </div>
+
+  <!-- TSSC-QVIEW-V1: read-only question viewer -->
+  <div id="viewModal" class="modal hidden" onclick="if(event.target===this)closeView()">
+    <div class="sheet">
+      <div class="sheet-head">
+        <span class="t" id="viewTitle">Question</span>
+        <button class="x" onclick="closeView()">×</button>
+      </div>
+      <div class="sheet-body" id="viewBody"></div>
+      <div class="sheet-foot" id="viewFoot"></div>
     </div>
   </div>
 
@@ -432,7 +458,7 @@ window.renderReports = function(){
       <td style="white-space:nowrap">${v.parts.question?`<span class="pill qn">Question ×${v.parts.question}</span>`:''}${v.parts.solution?`<span class="pill sol">Solution ×${v.parts.solution}</span>`:''}</td>
       <td>${Object.entries(v.reasons).map(([rn,c])=>`<span class="pill b">${esc(rn)} ×${c}</span>`).join('')}</td>
       <td class="muted">${esc(v.note||'')}</td>
-      <td style="white-space:nowrap"><button class="fix" data-mockid="${esc(v.mockId)}" data-qnum="${esc(v.qNum)}" title="Analyse with AI and propose a correction">✨ AI Fix</button><button class="del" data-act="delq" data-mockid="${esc(v.mockId)}" data-qnum="${esc(v.qNum)}" title="Fixed — clear all reports for this question">🗑 Clear ${v.count}</button></td></tr>`).join('') + `</table>`
+      <td style="white-space:nowrap"><button class="fix" data-mockid="${esc(v.mockId)}" data-qnum="${esc(v.qNum)}" title="Analyse with AI and propose a correction">✨ AI Fix</button><button class="view" data-mockid="${esc(v.mockId)}" data-qnum="${esc(v.qNum)}" title="Open the question, options, key and solution to check it yourself">👁 Open</button><button class="del" data-act="delq" data-mockid="${esc(v.mockId)}" data-qnum="${esc(v.qNum)}" title="Fixed — clear all reports for this question">🗑 Clear ${v.count}</button></td></tr>`).join('') + `</table>`
     : `<div class="muted">No reports${f?' match this filter':''}.</div>`;
 
   // Raw list
@@ -445,7 +471,7 @@ window.renderReports = function(){
       <td><span class="pill">${esc(r.reason||'—')}</span></td>
       <td>${esc(r.note||'')}</td>
       <td class="muted">${byCell(r)}</td>
-      <td><button class="del" data-act="delr" data-id="${esc(r.id)}" title="Delete this report">🗑</button></td></tr>`).join('') + `</table>`
+      <td style="white-space:nowrap"><button class="view" data-mockid="${esc(r.mockId)}" data-qnum="${esc(r.qNum)}" title="Open the question, options, key and solution">👁</button><button class="del" data-act="delr" data-id="${esc(r.id)}" title="Delete this report">🗑</button></td></tr>`).join('') + `</table>`
     : `<div class="muted">No reports${f?' match this filter':''}.</div>`;
 };
 
@@ -1998,6 +2024,141 @@ async function applyFix(){
       : 'Could not update: '+code);
   }
 }
+
+/* ══════════════════════════════════════════════════════════════════
+   TSSC-QVIEW-V1 (2026-11-07) — 👁 Open: read-only view of a reported
+   question (text, figure, options, correct key, full solution) so it can
+   be checked by hand before going to the AI. Nothing is written.
+   ══════════════════════════════════════════════════════════════════ */
+let VIEW_TOKEN = 0;
+const QV_LETTERS = ['A','B','C','D','E'];
+
+function qvOpts(data){
+  const o = data.options, out = {};
+  if(Array.isArray(o)) o.forEach((v,i) => { if(i < QV_LETTERS.length) out[QV_LETTERS[i]] = v; });
+  ['A','B','C','D','E'].forEach(L => {
+    if(out[L]!==undefined && out[L]!==null && out[L]!=='') return;
+    const v = optOf(data, L);
+    if(v!==undefined && v!==null && v!=='') out[L] = v;
+  });
+  ['A','B','C','D'].forEach(L => { if(out[L]===undefined) out[L] = ''; });
+  return out;
+}
+function qvOptImg(data, L){
+  const oi = data.optionImages;
+  if(!oi) return '';
+  if(Array.isArray(oi)) return oi[QV_LETTERS.indexOf(L)] || '';
+  if(typeof oi==='object') return oi[L] || oi[L.toLowerCase()] || '';
+  return '';
+}
+const qvPlain = v => String(v==null?'':v).replace(/<[^>]*>/g,'').replace(/\s+/g,' ').trim().toLowerCase();
+function qvKey(data, opts){
+  const kf = keyFieldOf(data);
+  if(!kf) return {field:null, raw:'', L:null};
+  const raw = data[kf], s = String(raw).trim();
+  let m = /^\(?\s*(?:option\s*)?([A-Ea-e])\s*\)?\.?$/i.exec(s), L = m ? m[1].toUpperCase() : null;
+  if(!L && s === '0' && Array.isArray(data.options)) L = 'A';
+  if(!L){ const t = qvPlain(s); L = Object.keys(opts).find(k => t && qvPlain(opts[k]) === t) || null; }
+  return {field:kf, raw:s, L};
+}
+const QV_SKIP = /^(text|question|questionText|options?|option_?[A-E]|correct|answer|correct_option|correctOption|key|ans|imageUrl|optionImages)$/i;
+const qvIsSol = (k,v) => typeof v==='string' && v.trim() && (SOL_FIELD(k) || /^(solution|explanation|sol|trick|concept|hint|shortcut)/i.test(k));
+const qvIsImg = (k,v) => typeof v==='string' && /^https?:\/\//i.test(v) && /(image|img|figure|fig|photo|pic)/i.test(k) && !/^imageUrl$/.test(k);
+
+function qvCard(d, idx){
+  const data = d.data || {};
+  const tf = textFieldOf(data);
+  const opts = qvOpts(data);
+  const key = qvKey(data, opts);
+  const hasQ = !!tf || Object.values(opts).some(Boolean);
+  const head = `<div class="qv-head"><span class="docpill">${esc(d.coll)}/${esc(d.id)}</span>${d.lang && d.lang!=='?'?`<span class="pill b">${esc(String(d.lang).toUpperCase())}</span>`:''}${data.subject?`<span class="pill">${esc(data.subject)}</span>`:''}</div>`;
+  let h = `<div class="qv-card">${head}`;
+  if(hasQ){
+    h += `<div class="qv-stem" id="qvS${idx}"></div>`;
+    if(data.imageUrl) h += `<div style="margin:0 0 10px;"><a href="${esc(data.imageUrl)}" target="_blank" rel="noopener"><img src="${esc(data.imageUrl)}" alt="figure" loading="lazy"></a></div>`;
+    Object.keys(opts).forEach(L => {
+      const img = qvOptImg(data, L);
+      h += `<div class="qp-opt${key.L===L?' key':''}"><b>${L}.</b><span style="flex:1;min-width:0;"><span id="qvO${idx}${L}"></span>${img?`<div><img src="${esc(img)}" alt="option ${L}" loading="lazy" style="max-height:140px;"></div>`:''}</span>${key.L===L?'<span class="qv-tick">✓ Correct</span>':''}</div>`;
+    });
+    h += key.field
+      ? `<div class="qv-key${key.L?'':' warn'}">Correct answer: ${key.L ? key.L : '?'} &nbsp;<span style="font-weight:600;opacity:.75">(${esc(key.field)} = ${esc(key.raw)})</span></div>`
+      : `<div class="qv-key warn">No correct-answer field found on this document</div>`;
+  }
+  const sols = Object.entries(data).filter(([k,v]) => qvIsSol(k,v));
+  sols.forEach(([k], j) => {
+    h += `<div class="qv-sol"><span class="lbl">${esc(k)}</span><div class="qv-solbody" id="qvL${idx}_${j}"></div></div>`;
+  });
+  const imgs = Object.entries(data).filter(([k,v]) => qvIsImg(k,v));
+  imgs.forEach(([k,v]) => {
+    h += `<div class="qv-sol" style="background:#F8FAFC;border-color:#E2E8F0;"><span class="lbl" style="color:#64748B">${esc(k)}</span><div><a href="${esc(v)}" target="_blank" rel="noopener"><img src="${esc(v)}" alt="${esc(k)}" loading="lazy"></a></div></div>`;
+  });
+  if(hasQ && !sols.length) h += `<div class="why">⚠ No solution / explanation field on this document.</div>`;
+  const others = Object.entries(data).filter(([k,v]) => !QV_SKIP.test(k) && !qvIsSol(k,v) && !qvIsImg(k,v) && (typeof v==='string'||typeof v==='number'||typeof v==='boolean'));
+  h += `<details style="margin-top:10px;"><summary class="muted" style="cursor:pointer;font-size:12px;">Other fields (${others.length}) &amp; full JSON</summary>
+      ${others.map(([k,v]) => `<div style="margin:3px 0;"><span class="lbl">${esc(k)}</span> <span class="qtext">${esc(v)}</span></div>`).join('')}
+      <pre style="font-size:11px;overflow:auto;background:#F8FAFC;padding:8px;border-radius:8px;">${esc(JSON.stringify(data,null,1))}</pre></details>`;
+  h += `</div>`;
+  return {html:h, paint:() => {
+    if(hasQ){
+      const st = $('qvS'+idx); if(st) paintRich(st, tf ? data[tf] : '', true);
+      Object.keys(opts).forEach(L => { const el = $('qvO'+idx+L); if(el) paintRich(el, opts[L], true); });
+    }
+    sols.forEach(([k,v], j) => { const el = $('qvL'+idx+'_'+j); if(el) paintRich(el, v, true); });
+  }};
+}
+
+window.openView = async function(mockId, qNum){
+  const my = ++VIEW_TOKEN;
+  const reports = REPORTS.filter(r => String(r.mockId)===String(mockId) && String(r.qNum)===String(qNum));
+  $('viewModal').classList.remove('hidden');
+  $('viewTitle').textContent = `${mockId} · Q${qNum}`;
+  $('viewFoot').innerHTML = `<button class="btn btn-ghost" onclick="closeView()">Close</button>`;
+  $('viewBody').innerHTML = `<div style="text-align:center;padding:30px;"><div class="spin"></div><div class="muted" style="margin-top:10px;">Loading the question…</div></div>`;
+  let docs;
+  try{ docs = await locateDocs(mockId, qNum); }
+  catch(e){ if(my!==VIEW_TOKEN) return; $('viewBody').innerHTML = `<div class="verdict v-fix">Lookup failed: ${esc(e.message||e)}</div>`; return; }
+  if(my!==VIEW_TOKEN) return;   // closed or another question opened meanwhile
+  const rep = reports.map(r =>
+    `<div style="margin-bottom:5px;">${tgtPill(r)}<span class="pill">${esc(r.reason||'—')}</span>
+     <span class="muted">${esc(r.note||'(no note)')}</span>
+     <span class="muted"> — ${esc(r.name||r.uid||'')}, ${esc(fmtTime(r.createdAt))}</span></div>`).join('');
+  const repHtml = `<div class="sec"><h3>What the candidate${reports.length===1?'':'s'} reported (${reports.length})</h3>${rep||'<span class="muted">none</span>'}</div>`;
+  if(!docs.length){
+    $('viewBody').innerHTML = repHtml + `<div class="verdict v-fix">Couldn't find a document for <code>${esc(mockId)}</code> Q${esc(qNum)} in ${[...Q_COLLECTIONS,...X_COLLECTIONS].join(', ')}.</div>`;
+    return;
+  }
+  // reported language first, then its twin
+  const rl = isHi(mockId) ? 'hi' : 'en';
+  docs.sort((a,b) => (a.lang===rl?0:1) - (b.lang===rl?0:1));
+  const cards = docs.map((d,i) => qvCard(d, i));
+  $('viewBody').innerHTML = repHtml + cards.map(c => c.html).join('');
+  cards.forEach(c => c.paint());
+  const n = reports.length;
+  $('viewFoot').innerHTML =
+    `<button class="btn btn-orange" id="viewToAI">✨ Looks wrong — AI Fix</button>
+     ${n?`<button class="del" data-act="delq" data-mockid="${esc(mockId)}" data-qnum="${esc(qNum)}" id="viewClear" title="Fixed / not an error — clear all reports for this question">🗑 Clear ${n}</button>`:''}
+     <button class="btn btn-ghost" onclick="closeView()">Close</button>
+     <span class="muted" style="margin-left:auto;">Read-only — nothing is changed here.</span>`;
+  $('viewToAI').onclick = () => { closeView(); openFix(mockId, qNum); };
+  const vc = $('viewClear');
+  if(vc) vc.addEventListener('click', () => {
+    // the shared delete handler runs first (same click); close once the reports are gone
+    const t = setInterval(() => {
+      if(!REPORTS.some(r => String(r.mockId)===String(mockId) && String(r.qNum)===String(qNum))){ clearInterval(t); closeView(); }
+    }, 300);
+    setTimeout(() => clearInterval(t), 20000);
+  });
+};
+
+window.closeView = function(){ VIEW_TOKEN++; $('viewModal').classList.add('hidden'); $('viewBody').innerHTML = ''; };
+
+document.addEventListener('click', (e)=>{
+  const b = e.target.closest('button.view'); if(!b) return;
+  openView(b.dataset.mockid, b.dataset.qnum);
+});
+document.addEventListener('keydown', (e)=>{
+  if(e.key==='Escape' && !$('viewModal').classList.contains('hidden')) closeView();
+});
 
 document.addEventListener('click', (e)=>{
   const b = e.target.closest('button.fix'); if(!b) return;
