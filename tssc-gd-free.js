@@ -29,7 +29,7 @@
   'use strict';
 
   /* ---- SETTINGS ---------------------------------------------------------- */
-  var FREE_END = Date.parse('2026-11-08T00:00:00+05:30');   // locks switch on (IST)
+  var FREE_END = Date.parse('2026-11-07T00:00:00+05:30');   // TSSC-GDPAY-NOW-V1: free period ended early on 7 Nov 2026 (paywall live now)
   var PRICE    = 49;
   var POP_KEY  = 'tsscGdFreePopSeen';
   /* ------------------------------------------------------------------------ */
