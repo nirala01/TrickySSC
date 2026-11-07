@@ -977,6 +977,7 @@ margin:0 0 1rem;}
 <script>setTimeout(function(){var h=document.documentElement;if(!/tssc-auth-/.test(h.className))h.classList.add('tssc-auth-out');},3000);</script>
 <script type="module" src="/login-modal.js"></script>
 <script src="https://trickyssc.com/tssc-gd-free.js"></script><!-- TSSC-GDFREE-V1 -->
+<script src="/tssc-launch-price.js" async></script>   <!-- TSSC-GDADDON-V1: Rs 20 GD add-on popup for CHSL holders -->
 </head>
 <body>
 
@@ -3476,15 +3477,22 @@ async function openBuy(card) {
   // Lead with the cheapest product that unlocks what this page gates. That is
   // usually the single course, but if you ever price a combo below it, the
   // combo leads automatically.
-  let lead = P.bestFor(cat, CFG.module);
-  /* TSSC-UPGRADE-V2 — a buyer who already owns the OTHER mock series is offered this
-     one through the upgrade product (id p-upgrade-…, Rs 29) instead of the normal
-     plan. Everyone else sees the normal plan. It runs for as long as the upgrade
-     product is Live in admin-pricing; untick Live there to stop it. */
+  /* TSSC-NODOUBLE-V1 (2026-11-07) — nobody is offered a plan that sells them a
+     mock series they already hold (directly, through a combo, or All Access).
+     Ownership comes from the entitlement doc; if it cannot be read, only the
+     plain single plan for this page is offered (never a combo or an add-on).
+     The same check runs once more in tsscStartCheckout before any money moves. */
+  const OWN = await ownedKeysForBuy();
+  const offerable = p => OWN ? !tsscSellsOwned(p, OWN) : (tsscSeries(p).length === 1);
+  let lead = P.productsGranting(cat, CFG.module).filter(offerable)
+               .sort((a, b) => a.price - b.price)[0] || null;
+  /* TSSC-UPGRADE-V3 — the add-on price (product id p-upgrade-…) goes to buyers who
+     already hold a qualifying series (TSSC_UPGRADE_IF): CHSL -> GD for Rs 20,
+     CHSL -> CGL and CGL -> CHSL as before. Untick Live in admin-pricing to stop one. */
   let upgraded = false;
-  if (lead && typeof P.upgradeFor === 'function') {
+  if (OWN && typeof P.upgradeFor === 'function') {
     const upg = P.upgradeFor(cat, CFG.module);
-    if (upg && (await cglOwnedForBuy()) === true) { lead = upg; upgraded = true; }
+    if (upg && tsscUpgradeAllowed(upg, OWN)) { lead = upg; upgraded = true; }
   }
   if (!lead) {
     document.getElementById('mbpPrice').innerHTML =
@@ -3496,44 +3504,32 @@ async function openBuy(card) {
   document.getElementById('mbpSub').textContent = lead.label;
   document.getElementById('mbpPrice').innerHTML = money(lead);
 
-  // combos that also include this module, shown as an upsell line
-  const combos = P.combosFor(cat, CFG.module).filter(c => c.id !== lead.id);
-  /* TSSC-CGLUPSELL-V1 — a plan that unlocks the SSC CGL mocks as well as these
-     CHSL mocks gets its own box (below), not a line in the list. It appears
-     only once such a plan exists in admin-pricing, so nothing shows before. */
-  /* TSSC-CGLUPSELL-V2 — someone who already has the SSC CGL mocks is never
-     offered a plan that sells them again: no box, no line, not in the list.
-     If their access cannot be read, the plan is left out too. */
-  const hasCgl = c => c.grants.indexOf('ssc-cgl-mocks') !== -1;   /* TSSC-GD-MOCK-V1: still never re-sell CGL to a CGL owner */
-  const cglOwned = combos.some(hasCgl) ? await cglOwnedForBuy() : false;
-  if (cglOwned !== false) {
-    for (let i = combos.length - 1; i >= 0; i--) if (hasCgl(combos[i])) combos.splice(i, 1);
-  }
-  const upsell = combos.filter(hasCgl).sort((a, b) => a.price - b.price)[0] || null;
+  // combos that also include this module — only ones that sell nothing already owned
+  const combos = (OWN && !upgraded)
+    ? P.combosFor(cat, CFG.module).filter(c => c.id !== lead.id && tsscSeries(c).length > 1 && offerable(c))
+    : [];
+  const upKey = TSSC_UPSELL_KEY[CFG.module];
+  const upsell = combos.filter(c => c.grants.indexOf(upKey) !== -1).sort((a, b) => a.price - b.price)[0] || null;
   document.getElementById('mbpPerks').innerHTML =
     (lead.blurb ? '<li>' + lead.blurb + '</li>' : '') +
-    '<li>One payment \u2014 not per test</li>' +
+    '<li>One payment — not per test</li>' +
     '<li>Access for ' + (lead.durationDays || 365) + ' days</li>' +
     combos.filter(c => c !== upsell).map(c =>
-      '<li><b>' + c.label + '</b> \u2014 \u20b9' + c.price +
-      ' for ' + c.grants.length + ' modules. Pick it in the next step.</li>').join('');
+      '<li><b>' + c.label + '</b> — ₹' + c.price +
+      ' for ' + tsscSeries(c).length + ' mock series. Pick it in the next step.</li>').join('');
 
-  paintReleaseNote();                            /* TSSC-RELNOTE-V1 */
+  if (typeof paintReleaseNote === 'function') paintReleaseNote();   /* TSSC-RELNOTE-V1 */
 
-  // step 2 dropdown: every live product for this exam, combos included
-  const all = P.productsFor(cat, CFG.exam);
-  /* TSSC-CGLUPSELL-V1 — a combo filed under SSC CGL still belongs in this list */
+  // step 2 dropdown: live plans for this exam + the combos above, nothing already owned
+  const all = upgraded ? [lead] : P.productsFor(cat, CFG.exam).filter(offerable);
   combos.forEach(c => { if (!all.some(x => x.id === c.id)) all.push(c); });
-  if (upgraded) { all.length = 0; all.push(lead); }        /* TSSC-UPGRADE-V1: only the upgrade */
-  if (cglOwned !== false) {                       /* TSSC-CGLUPSELL-V2 */
-    for (let i = all.length - 1; i >= 0; i--) if (hasCgl(all[i]) && all[i].id !== lead.id) all.splice(i, 1);
-  }
+  if (!all.some(x => x.id === lead.id)) all.unshift(lead);
   const sel = document.getElementById('mbpCourse');
   sel.innerHTML = all.map(c =>
-    '<option value="' + c.id + '">' + c.label + ' \u2014 \u20b9' + c.price +
+    '<option value="' + c.id + '">' + c.label + ' — ₹' + c.price +
     (c.grants.length > 1 ? ' (' + c.grants.length + ' modules)' : '') + '</option>').join('');
   sel.value = lead.id;
-  paintUpsell(upsell, lead, cat);                /* TSSC-CGLUPSELL-V3 */
+  paintUpsell(upsell, lead, cat, upgraded);
 
   PREFILL = prefill();
 }
@@ -3555,16 +3551,87 @@ async function cglOwnedForBuy() {
   return grantActive(d.allAccess) || grantActive((d.modules || {})['ssc-cgl-mocks']);
 }
 
-/* TSSC-CGLUPSELL-V3 — the SSC CGL + SSC CHSL combo in its own box in step 1. Until the end of
-   22 Oct 2026 it is labelled as the Dussehra offer; after that it reads as a plain
-   offer. The button picks the combo in the step-2 list and moves on; the buyer can
-   still switch back there. */
-/* TSSC-GD-MOCK-V1 — no cross-exam combo box on the GD page yet. Combos that
-   include ssc-gd-mocks still appear in the step-2 list the moment they exist in
-   admin-pricing; this box stays hidden until a GD combo is worth promoting. */
-function paintUpsell(up, lead, cat) {
+/* TSSC-GDCOMBO-V1 (2026-11-07) — the SSC CHSL + SSC GD combo in its own box in
+   step 1, for buyers who hold neither series (anyone holding CHSL gets the GD
+   add-on price instead, and the combo is never shown to them). The button picks
+   the combo in the step-2 list and moves on; the buyer can still switch back. */
+function paintUpsell(up, lead, cat, upgraded) {
   const box = document.getElementById('mbpUp');
-  if (box) { box.hidden = true; box.innerHTML = ''; }
+  if (!box) return;
+  /* TSSC-GDADDON-V1 — a buyer who already holds the SSC CHSL mocks is told so,
+     and is sold the GD add-on price (the lead plan) with one tap. */
+  if (upgraded) {
+    const reg = (window.TSSC_PRICING && window.TSSC_PRICING.bestFor) ? window.TSSC_PRICING.bestFor(cat, CFG.module) : null;
+    box.innerHTML =
+      '<span class="mbp-up-h">\u2705 You already have the SSC CHSL mocks</span>' +
+      'So you get all <b>60 SSC GD mocks</b> + every subject-wise test for just <b>\u20b9' + lead.price + '</b>' +
+      (reg && reg.price > lead.price ? ' instead of <s>\u20b9' + reg.price + '</s>' : '') + ', for a full year.' +
+      '<button type="button" class="mbp-up-go" id="mbpUpGo">Pay \u20b9' + lead.price + ' for SSC GD &rarr;</button>' +
+      '<span class="mbp-up-f">Special price only for SSC CHSL students.</span>';
+    box.hidden = false;
+    document.getElementById('mbpUpGo').onclick = () => {
+      const sel = document.getElementById('mbpCourse');
+      if (sel) sel.value = lead.id;
+      ORDER = { courseId: lead.id };
+      document.getElementById('mbpNext')?.click();
+    };
+    return;
+  }
+  if (!up) { box.hidden = true; box.innerHTML = ''; return; }
+  const other = ((cat && cat.products) || [])
+    .filter(p => p.live !== false && !/^p-upgrade-/.test(p.id) && p.grants.indexOf('ssc-chsl-mocks') !== -1 && p.grants.indexOf('ssc-gd-mocks') === -1 && p.grants.indexOf('ssc-cgl-mocks') === -1)
+    .sort((a, b) => a.price - b.price)[0];
+  const apart = other ? lead.price + other.price : 0;
+  box.innerHTML =
+    '<span class="mbp-up-h">📚 Preparing for SSC CHSL too?</span>' +
+    '<b>₹' + up.price + '</b> gets you all <b>60 SSC GD mocks</b> <b>and</b> all ' +
+    '<b>SSC CHSL Tier 1 + Tier 2 mocks</b> for a year, in one payment' +
+    (apart > up.price ? ', instead of <s>₹' + apart + '</s> for the two separately.' : '.') +
+    '<button type="button" class="mbp-up-go" id="mbpUpGo">Choose the ₹' + up.price +
+    ' CHSL + GD combo &rarr;</button>' +
+    '<span class="mbp-up-f">Only need GD? The ₹' + lead.price +
+    ' GD plan above is all you need.</span>';
+  box.hidden = false;
+  document.getElementById('mbpUpGo').onclick = () => {
+    const sel = document.getElementById('mbpCourse');
+    if (sel) sel.value = up.id;
+    ORDER = { courseId: up.id };
+    document.getElementById('mbpNext')?.click();
+  };
+}
+
+/* TSSC-NODOUBLE-V1 (2026-11-07) — what the signed-in buyer already holds, for
+   every mock series: { all: <All Access>, keys: Set of active series keys },
+   or null when it cannot be read. fresh=true skips the copy this page already
+   read (used once more just before payment). Dashboard Pro is not a series:
+   owning it never hides the CGL plan that also includes it. */
+const TSSC_SERIES = ['ssc-cgl-mocks', 'ssc-chsl-mocks', 'ssc-gd-mocks'];
+const TSSC_SERIES_NAME = { 'ssc-cgl-mocks': 'SSC CGL mocks', 'ssc-chsl-mocks': 'SSC CHSL mocks', 'ssc-gd-mocks': 'SSC GD mocks' };
+/* add-on (p-upgrade-…) for series X is sold only to holders of one of these */
+const TSSC_UPGRADE_IF = { 'ssc-cgl-mocks': ['ssc-chsl-mocks'], 'ssc-chsl-mocks': ['ssc-cgl-mocks'], 'ssc-gd-mocks': ['ssc-chsl-mocks'] };
+/* the combo that gets its own box in step 1 on this page */
+const TSSC_UPSELL_KEY = { 'ssc-cgl-mocks': 'ssc-chsl-mocks', 'ssc-chsl-mocks': 'ssc-cgl-mocks', 'ssc-gd-mocks': 'ssc-chsl-mocks' };
+async function ownedKeysForBuy(fresh) {
+  const u = _auth.currentUser;
+  if (!u) return null;
+  if (fresh || !ENT_SEEN || ENT_SEEN.uid !== u.uid) {
+    try {
+      const snap = await Promise.race([
+        getDoc(doc(_db, 'entitlements', u.uid)),
+        new Promise((_, no) => setTimeout(() => no(new Error('Access read timed out')), 5000))
+      ]);
+      ENT_SEEN = { uid: u.uid, d: snap.exists() ? (snap.data() || {}) : {} };
+    } catch (e) { return null; }
+  }
+  const d = ENT_SEEN.d || {}, mods = d.modules || {};
+  const all = grantActive(d.allAccess);
+  return { all, keys: new Set(TSSC_SERIES.filter(k => all || grantActive(mods[k]))) };
+}
+function tsscSeries(p) { return ((p && p.grants) || []).filter(k => TSSC_SERIES.indexOf(k) !== -1); }
+function tsscSellsOwned(p, own) { return !!own && (own.all || tsscSeries(p).some(k => own.keys.has(k))); }
+function tsscUpgradeAllowed(p, own) {
+  if (!own || tsscSellsOwned(p, own)) return false;
+  return tsscSeries(p).every(k => (TSSC_UPGRADE_IF[k] || []).some(q => own.keys.has(q)));
 }
 
 /* ---- TSSC-LOGINNOTE-V1 ----------------------------------------------------
@@ -4077,6 +4144,28 @@ window.tsscStartCheckout = async function (order) {
   const api = payApi(cat);
   const user = _auth.currentUser;
   if (!user) throw new Error('Please sign in again.');
+
+  /* TSSC-NODOUBLE-V1 — last check before any money moves: never charge for a
+     mock series this account already holds, and sell an add-on price only to
+     someone who qualifies. Reads the entitlement afresh; if that read fails the
+     sale goes ahead as chosen (the plan list was already filtered). */
+  {
+    const own = await ownedKeysForBuy(true);
+    const p = (cat.products || []).find(x => x.id === order.courseId);
+    if (own && p) {
+      const dup = tsscSeries(p).filter(k => own.all || own.keys.has(k));
+      if (dup.length) {
+        throw new Error('You already have the ' + dup.map(k => TSSC_SERIES_NAME[k] || k).join(' and ') +
+          ' on this account, so you don’t need to pay for ' + (dup.length > 1 ? 'them' : 'it') +
+          ' again. Close this, refresh the page and choose another plan.');
+      }
+      if (/^p-upgrade-/.test(p.id) && !tsscUpgradeAllowed(p, own)) {
+        throw new Error('This add-on price is only for students who already have the ' +
+          tsscSeries(p).map(k => (TSSC_UPGRADE_IF[k] || []).map(q => TSSC_SERIES_NAME[q]).join(' or ')).join(', ') +
+          '. Close this, refresh the page and choose the normal plan.');
+      }
+    }
+  }
 
   const _wt = window.tsscWithTimeout || ((p) => p);                 /* TSSC-CHSLTRACK-V1 */
   await _wt(loadRazorpay(), 20000, 'Loading the payment page');

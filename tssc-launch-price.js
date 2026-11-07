@@ -213,14 +213,21 @@
      The "prices not increased" popup ends with the Dussehra offer (FEST_END).
      Anything unclear -> no popup.
   ========================================================================== */
-  var ON_MOCK_PAGE = /\/(mock-list|ssc-(?:cgl|chsl)-(?:[a-z0-9]+-)*mock-test)(?:\.html)?\/?$/i.test(location.pathname);
+  /* TSSC-GDADDON-V1 (2026-11-07) — the SSC GD mock pages run this too, for the
+     Rs 20 GD add-on offered to anyone who holds the SSC CHSL mocks (CHSL plan,
+     CGL + CHSL combo or All Access) but not the GD mocks. That offer comes first
+     on every mock page; the CGL/CHSL Rs 29 upgrades follow as before. */
+  var ON_MOCK_PAGE = /\/(mock-list|ssc-(?:cgl|chsl|gd)-(?:[a-z0-9]+-)*mock-test)(?:\.html)?\/?$/i.test(location.pathname);
   if (!ON_MOCK_PAGE) return;
+  var IS_GD     = /ssc-gd-/i.test(location.pathname);
   var IS_CHSL   = /ssc-chsl-/i.test(location.pathname);
   var THIS_KEY  = IS_CHSL ? 'ssc-chsl-mocks' : 'ssc-cgl-mocks';
   var OTHER_KEY = IS_CHSL ? 'ssc-cgl-mocks'  : 'ssc-chsl-mocks';
-  var NAME  = { 'ssc-cgl-mocks': 'SSC CGL', 'ssc-chsl-mocks': 'SSC CHSL' };
-  var COUNT = { 'ssc-cgl-mocks': 100,       'ssc-chsl-mocks': 80 };
-  var HUB   = { 'ssc-cgl-mocks': '/ssc-cgl-mock-test.html', 'ssc-chsl-mocks': '/ssc-chsl-mock-test.html' };
+  var GD_KEY    = 'ssc-gd-mocks';
+  var NAME  = { 'ssc-cgl-mocks': 'SSC CGL', 'ssc-chsl-mocks': 'SSC CHSL', 'ssc-gd-mocks': 'SSC GD' };
+  var COUNT = { 'ssc-cgl-mocks': 100,       'ssc-chsl-mocks': 80,         'ssc-gd-mocks': 60 };
+  var HUB   = { 'ssc-cgl-mocks': '/ssc-cgl-mock-test.html', 'ssc-chsl-mocks': '/ssc-chsl-mock-test.html',
+                'ssc-gd-mocks': '/ssc-gd-mock-test.html' };
 
   var POP_KEY      = 'tsscFestPopSeen';
   var ENT_FRESH_MS = 10 * 60 * 1000;      // same life as the page's own entitlement cache
@@ -327,7 +334,7 @@
     no.type = 'button';
 
     if (kind === 'upgrade') {
-      var have = opt.key === 'ssc-cgl-mocks' ? 'ssc-chsl-mocks' : 'ssc-cgl-mocks';
+      var have = opt.have || (opt.key === 'ssc-cgl-mocks' ? 'ssc-chsl-mocks' : 'ssc-cgl-mocks');
       top = make('div', 'lpP-top', (Date.now() < FEST_END ? '\uD83E\uDE94 ' + OFFER : '\uD83C\uDF81 Special offer') + ' \u00B7 just for you');
       h   = make('h2', 'lpP-h', 'Add ' + NAME[opt.key] + ' mocks for ' + RUPEE + opt.price);
       var rows = make('ul', 'lpP-rows');
@@ -395,6 +402,20 @@
   function decide(st) {
     var fest  = Date.now() < FEST_END;
     var later = function (kind, opt) { setTimeout(function () { openPopup(kind, opt); }, POP_DELAY_MS); };
+    /* TSSC-GDADDON-V1 — holds the CHSL mocks, not the GD mocks: offer GD for the
+       add-on price (p-upgrade-… granting ssc-gd-mocks, Live in admin-pricing). */
+    if (st.signedIn && st.m['ssc-chsl-mocks'] === true && st.m[GD_KEY] === false) {
+      upgradePrice(GD_KEY, function (price, regular) {
+        if (price) later('upgrade', { key: GD_KEY, have: 'ssc-chsl-mocks', price: price, regular: regular, here: IS_GD });
+        else if (!IS_GD) decideSeries(st, fest, later);
+      });
+      return;
+    }
+    if (IS_GD) return;                         // the GD pages show only the GD add-on
+    decideSeries(st, fest, later);
+  }
+
+  function decideSeries(st, fest, later) {
     if (!st.signedIn) { if (fest) later('offer', { combo: true }); return; }
     var mine = !!st.m[THIS_KEY], other = !!st.m[OTHER_KEY];
     if (mine && other) return;                                   // owns both: no offer at all
