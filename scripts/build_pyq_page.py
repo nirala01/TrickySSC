@@ -266,7 +266,12 @@ def organize(papers):
     for p in papers:
         if p.get("exam") != EXAM_FILTER:
             continue
-        if not p.get("paperId"):
+        # TSSC:NO-PID-SKIP (2026-11-07) — a paper doc without paperId used to be
+        # dropped here, so the page showed fewer papers than ssc-cgl.html (which
+        # lists them anyway). test.html opens a paper by exam/year/tier/shift/
+        # heldOn when paperId is absent, so keep it; skip only docs with no
+        # shift and no date (nothing to identify or open).
+        if not p.get("paperId") and not (p.get("shift") or p.get("heldOn")):
             continue
 
         key = (
@@ -286,7 +291,7 @@ def organize(papers):
             "langs": {},  # 'en' -> paperId, 'hi' -> paperId
         })
         lang = (p.get("language") or "en").lower()
-        g["langs"][lang] = p.get("paperId")
+        g["langs"][lang] = p.get("paperId") or ""
         if p.get("questionCount"):
             g["questionCount"] = p.get("questionCount")
 
@@ -334,8 +339,9 @@ def test_url(group, lang):
         "shift": group["shift"],
         "heldOn": group["heldOn"],
         "lang": lang,
-        "paperId": pid,
     }
+    if pid:  # omitted when the doc has no paperId, same as ssc-cgl.html
+        parts["paperId"] = pid
     qs = "&".join(
         f"{k}={urllib.parse.quote(str(v))}" for k, v in parts.items()
     )
@@ -619,6 +625,15 @@ def render(ordered):
                     f'free to attempt online in English &amp; Hindi with answer key and '
                     f'step-by-step solutions.</p>'
                 )
+                # TSSC:YR-ADDING (2026-11-07) — newest Tier I year only: tell
+                # visitors more shifts of this exam are still being uploaded.
+                # Moves to the next year by itself once that year's papers land.
+                if yi == 0:
+                    intro_html = (
+                        f'<div class="yr-adding"><span class="yr-adding-dot" aria-hidden="true"></span>'
+                        f'<span><b>Papers are being added regularly</b> &middot; more SSC CGL {year} '
+                        f'Tier 1 shifts are uploaded as they are ready. Check back soon.</span></div>'
+                    ) + intro_html
             blocks.append(f"""
         <details class="yr-acc"{open_attr}>
           <summary class="yr-head">
@@ -959,6 +974,11 @@ def render(ordered):
   .yr-badge {{ width:46px; height:46px; border-radius:11px; display:inline-flex; align-items:center; justify-content:center; font-family:'Rajdhani',sans-serif; font-weight:800; font-size:0.92rem; color:#fff; letter-spacing:-0.3px; flex-shrink:0; }}
   .yr-title {{ font-family:'Rajdhani',sans-serif; font-weight:800; font-size:1.32rem; color:#1A202C; line-height:1.15; min-width:0; }}
   .yr-intro {{ margin:0; padding:0.75rem 1.1rem; background:#FFFAF5; border-bottom:1px solid #F1F5F9; font-size:0.84rem; line-height:1.5; color:#475569; }}
+  .yr-adding {{ display:flex; align-items:center; gap:0.6rem; margin:0; padding:0.6rem 1.1rem; background:linear-gradient(90deg,#ECFDF5,#F0FDF4); border-bottom:1px solid #D1FAE5; font-size:0.84rem; line-height:1.45; color:#065F46; }}
+  .yr-adding b {{ font-weight:700; color:#047857; }}
+  .yr-adding-dot {{ flex-shrink:0; width:9px; height:9px; border-radius:50%; background:#10B981; box-shadow:0 0 0 0 rgba(16,185,129,0.6); animation:yrAddPulse 1.6s ease-out infinite; }}
+  @keyframes yrAddPulse {{ 0%{{box-shadow:0 0 0 0 rgba(16,185,129,0.6);}} 70%{{box-shadow:0 0 0 8px rgba(16,185,129,0);}} 100%{{box-shadow:0 0 0 0 rgba(16,185,129,0);}} }}
+  @media (prefers-reduced-motion:reduce) {{ .yr-adding-dot {{ animation:none; }} }}
   .yr-count {{ background:#F1F5F9; border-radius:20px; padding:0.3rem 0.8rem; font-family:'Rajdhani',sans-serif; font-weight:700; font-size:0.88rem; color:#64748B; white-space:nowrap; flex-shrink:0; }}
   .yr-chev {{ margin-left:auto; flex-shrink:0; width:32px; height:32px; border-radius:50%; background:#F8FAFC; color:#94A3B8; display:inline-flex; align-items:center; justify-content:center; font-size:1.05rem; line-height:1; transition:transform .2s ease; }}
   details[open] > .yr-head .yr-chev {{ transform:rotate(180deg); background:#FFF1E6; color:#FF6B00; }}
