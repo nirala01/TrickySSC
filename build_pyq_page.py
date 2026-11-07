@@ -75,302 +75,113 @@ MONTHS = {
 # Plain raw string (no brace doubling) interpolated into the template as
 # {SUBJECT_LINKS}, right after the intro paragraph and before the tier buttons.
 # ---------------------------------------------------------------------------
-T2_PYQ_CARDS = r"""
-    <!-- TSSC:T2-PYQ-CARDS:START (TSSC-PYQCARDS-V1) -->
-<style>
-/* TSSC-PYQCARDS-V1 (2026-11-02) — Chapter-wise PYQ card (NEW) + Section-wise PYQ card */
-.pqc-wrap{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0.9rem;margin:0 0 1.4rem;}
-.pqc{position:relative;display:flex;flex-direction:column;background:#fff;border:1.5px solid #E2E8F0;border-radius:16px;padding:1rem 1.05rem 1rem;box-shadow:0 8px 24px rgba(15,23,42,.07);font-family:'Rajdhani',sans-serif;min-width:0;}
-.pqc.pqc-ch{border-color:#C7D2FE;border-left:5px solid #6366F1;background:linear-gradient(160deg,#fff 55%,#F5F3FF);box-shadow:0 10px 28px rgba(99,102,241,.14);}
-.pqc.pqc-sec{border-color:#FED7AA;border-left:5px solid #FF6B00;background:linear-gradient(160deg,#fff 55%,#FFF7ED);box-shadow:0 10px 28px rgba(255,107,0,.10);}
-.pqc-new{position:absolute;top:-16px;right:14px;z-index:2;display:inline-flex;align-items:center;gap:.35rem;font-weight:900;font-size:.9rem;letter-spacing:2px;color:#fff;background:linear-gradient(120deg,#DC2626,#F97316,#FACC15,#F97316,#DC2626);background-size:300% 100%;border:3px solid #fff;border-radius:100px;padding:.38rem .95rem;box-shadow:0 0 0 0 rgba(239,68,68,.55),0 8px 22px rgba(239,68,68,.45);transform:rotate(5deg);animation:pqcShimmer 2.2s linear infinite,pqcPulse 1.4s ease-out infinite;pointer-events:none;text-shadow:0 1px 2px rgba(0,0,0,.25);}
-@keyframes pqcShimmer{0%{background-position:0% 50%}100%{background-position:300% 50%}}
-@keyframes pqcPulse{0%{box-shadow:0 0 0 0 rgba(239,68,68,.6),0 8px 22px rgba(239,68,68,.45);transform:rotate(5deg) scale(1)}60%{box-shadow:0 0 0 14px rgba(239,68,68,0),0 8px 22px rgba(239,68,68,.45);transform:rotate(5deg) scale(1.06)}100%{box-shadow:0 0 0 0 rgba(239,68,68,0),0 8px 22px rgba(239,68,68,.45);transform:rotate(5deg) scale(1)}}
-.pqc-free{position:absolute;top:-11px;left:14px;z-index:2;font-weight:800;font-size:.7rem;letter-spacing:1.2px;color:#fff;background:linear-gradient(135deg,#059669,#10B981);border:2px solid #fff;border-radius:100px;padding:.22rem .6rem;box-shadow:0 4px 12px rgba(16,185,129,.4);pointer-events:none;}
-.pqc-top{display:flex;gap:0.7rem;align-items:flex-start;}
-.pqc-ico{font-size:1.55rem;line-height:1;margin-top:.1rem;flex-shrink:0;}
-.pqc-kicker{font-weight:700;font-size:.78rem;letter-spacing:.6px;text-transform:uppercase;color:#6366F1;}
-.pqc-sec .pqc-kicker{color:#EA580C;}
-.pqc-title{margin:.08rem 0 0;font-weight:800;font-size:1.12rem;line-height:1.2;color:#1A202C;}
-.pqc-title a{color:#1A202C;text-decoration:none;}
-.pqc-title a:hover{color:#4F46E5;}
-.pqc-sub{margin:.2rem 0 0;font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-size:.8rem;color:#64748B;line-height:1.45;}
-.pqc-pills{display:flex;flex-wrap:wrap;gap:.4rem;margin:.75rem 0 0;}
-.pqc-row{display:flex;flex-wrap:wrap;align-items:center;gap:.4rem;margin:.6rem 0 0;}
-.pqc-row>b{font-weight:800;font-size:.78rem;letter-spacing:.5px;color:#64748B;min-width:3.6rem;text-transform:uppercase;}
-.pqc-pill{display:inline-flex;align-items:center;gap:.35rem;background:#fff;border:1.5px solid #E2E8F0;border-radius:100px;padding:.32rem .72rem;color:#1A202C;font-weight:700;font-size:.86rem;text-decoration:none;transition:transform .15s,border-color .15s,box-shadow .15s;}
-.pqc-pill:hover{transform:translateY(-1px);}
-.pqc-pill-cur{border-color:#6366F1;background:#EEF2FF;color:#3730A3;}
-.pqc-ch .pqc-pill:hover{border-color:#6366F1;box-shadow:0 5px 14px rgba(99,102,241,.2);}
-.pqc-sec .pqc-pill:hover{border-color:#FF6B00;box-shadow:0 5px 14px rgba(255,107,0,.2);}
-.pqc-btn{display:flex;align-items:center;justify-content:space-between;gap:.6rem;margin-top:auto;padding:.58rem .8rem;border-radius:11px;color:#fff;text-decoration:none;font-weight:800;font-size:.98rem;transition:transform .15s,filter .15s;}
-.pqc-pills+.pqc-btn,.pqc-row+.pqc-btn,.pqc-mock+.pqc-btn{margin-top:.8rem;}
-.pqc-ch .pqc-btn{background:linear-gradient(135deg,#6366F1,#8B5CF6);box-shadow:0 5px 16px rgba(99,102,241,.3);}
-.pqc-sec .pqc-btn{background:linear-gradient(135deg,#FF6B00,#FF8C38);box-shadow:0 5px 16px rgba(255,107,0,.3);}
-.pqc-btn:hover{transform:translateY(-2px);filter:brightness(1.05);}
-.pqc-go{background:#fff;border-radius:8px;padding:.18rem .6rem;font-size:.85rem;white-space:nowrap;flex-shrink:0;}
-.pqc-ch .pqc-go{color:#4F46E5;}
-.pqc-sec .pqc-go{color:#EA580C;}
-.pqc-mock{margin:.7rem 0 0;font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-size:.8rem;color:#475569;line-height:1.5;}
-.pqc-mock a{color:#FF6B00;font-weight:700;text-decoration:none;}
-@media (max-width:760px){.pqc-wrap{grid-template-columns:1fr;gap:1.1rem;}}
-@media (max-width:520px){.pqc{padding:1.1rem .85rem .9rem;}.pqc-new{top:-14px;right:10px;font-size:.78rem;padding:.3rem .75rem;letter-spacing:1.5px;}.pqc-title{font-size:1.04rem;}}
-@media (prefers-reduced-motion:reduce){.pqc-new{animation:none;}}
-</style>
-<div class="pqc-wrap">
-  <div class="pqc pqc-ch" role="region" aria-labelledby="pqcChTitle">
-    <span class="pqc-free" aria-hidden="true">✅ FREE</span>
-    <span class="pqc-new" aria-label="New">🔥 NEW</span>
-    <div class="pqc-top"><span class="pqc-ico" aria-hidden="true">📚</span>
-      <div><div class="pqc-kicker">Chapter-wise PYQs · CGL · CHSL · GD</div>
-        <h2 class="pqc-title" id="pqcChTitle"><a href="https://trickyssc.com/ssc-pyq-chapterwise.html">SSC Exams Chapter-wise Previous Year Questions</a></h2>
-        <p class="pqc-sub">Every SSC CGL, CHSL and GD previous year question sorted into its chapter — one Percentage page holds the Percentage questions of all exams. 25 Qs per test · Hindi &amp; English · the exam, shift &amp; date is shown under every question.</p></div></div>
-    <div class="pqc-pills"><a class="pqc-pill" href="https://trickyssc.com/ssc-quant-chapter-wise-pyq.html">📐 Quant</a><a class="pqc-pill" href="https://trickyssc.com/ssc-reasoning-chapter-wise-pyq.html">🧠 Reasoning</a><a class="pqc-pill" href="https://trickyssc.com/ssc-english-chapter-wise-pyq.html">📖 English</a><a class="pqc-pill" href="https://trickyssc.com/ssc-gk-chapter-wise-pyq.html">🌍 GK</a><a class="pqc-pill" href="https://trickyssc.com/ssc-hindi-chapter-wise-pyq.html">📝 Hindi</a></div>
-    <a class="pqc-btn" href="https://trickyssc.com/ssc-pyq-chapterwise.html"><span>Practise PYQs chapter by chapter</span><span class="pqc-go" aria-hidden="true">Start &rsaquo;</span></a>
-  </div>
-  <div class="pqc pqc-sec" role="region" aria-labelledby="pqcSecTitle">
-    <div class="pqc-top"><span class="pqc-ico" aria-hidden="true">🎯</span>
-      <div><div class="pqc-kicker">Section-wise PYQs</div>
-        <h2 class="pqc-title" id="pqcSecTitle">Practise one section of a SSC CGL paper at a time</h2>
-        <p class="pqc-sub">Sit only the Quant, Reasoning, English or GK part of any shift — 25 Qs · 15 min per section (Tier I) with that section's own clock.</p></div></div>
-    <div class="pqc-row"><b>Tier I</b><a class="pqc-pill" href="https://trickyssc.com/ssc-cgl-quant-previous-year-questions.html">📐 Quant</a><a class="pqc-pill" href="https://trickyssc.com/ssc-cgl-reasoning-previous-year-questions.html">🧠 Reasoning</a><a class="pqc-pill" href="https://trickyssc.com/ssc-cgl-english-previous-year-questions.html">📖 English</a><a class="pqc-pill" href="https://trickyssc.com/ssc-cgl-gk-previous-year-questions.html">🌍 GK</a></div><div class="pqc-row"><b>Tier II</b><a class="pqc-pill" href="https://trickyssc.com/ssc-cgl-tier-2-quant-previous-year-questions.html">📐 Maths</a><a class="pqc-pill" href="https://trickyssc.com/ssc-cgl-tier-2-reasoning-previous-year-questions.html">🧠 Reasoning</a><a class="pqc-pill" href="https://trickyssc.com/ssc-cgl-tier-2-english-previous-year-questions.html">📖 English</a><a class="pqc-pill" href="https://trickyssc.com/ssc-cgl-tier-2-gk-previous-year-questions.html">🌍 GK</a></div>
-    <div class="pqc-mock">Mock tests: <a href="https://trickyssc.com/ssc-cgl-mock-test.html">SSC CGL Tier 1 Mock Test</a> · <a href="https://trickyssc.com/ssc-cgl-tier-2-mock-test.html">SSC CGL Tier 2 Mock Test</a></div>
-    <a class="pqc-btn" href="https://trickyssc.com/ssc-cgl-quant-previous-year-questions.html"><span>All Tier I section-wise PYQs</span><span class="pqc-go" aria-hidden="true">Open &rsaquo;</span></a>
-  </div>
-</div>
-    <!-- TSSC:T2-PYQ-CARDS:END -->
-"""
-
 SUBJECT_LINKS = r"""
-    <!-- TSSC:SUBJECT-PYQ-LINKS:START (TSSC-PYQCARDS-V1) -->
-<style>
-/* TSSC-PYQCARDS-V1 (2026-11-02) — Chapter-wise PYQ card (NEW) + Section-wise PYQ card */
-.pqc-wrap{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0.9rem;margin:0 0 1.4rem;}
-.pqc{position:relative;display:flex;flex-direction:column;background:#fff;border:1.5px solid #E2E8F0;border-radius:16px;padding:1rem 1.05rem 1rem;box-shadow:0 8px 24px rgba(15,23,42,.07);font-family:'Rajdhani',sans-serif;min-width:0;}
-.pqc.pqc-ch{border-color:#C7D2FE;border-left:5px solid #6366F1;background:linear-gradient(160deg,#fff 55%,#F5F3FF);box-shadow:0 10px 28px rgba(99,102,241,.14);}
-.pqc.pqc-sec{border-color:#FED7AA;border-left:5px solid #FF6B00;background:linear-gradient(160deg,#fff 55%,#FFF7ED);box-shadow:0 10px 28px rgba(255,107,0,.10);}
-.pqc-new{position:absolute;top:-16px;right:14px;z-index:2;display:inline-flex;align-items:center;gap:.35rem;font-weight:900;font-size:.9rem;letter-spacing:2px;color:#fff;background:linear-gradient(120deg,#DC2626,#F97316,#FACC15,#F97316,#DC2626);background-size:300% 100%;border:3px solid #fff;border-radius:100px;padding:.38rem .95rem;box-shadow:0 0 0 0 rgba(239,68,68,.55),0 8px 22px rgba(239,68,68,.45);transform:rotate(5deg);animation:pqcShimmer 2.2s linear infinite,pqcPulse 1.4s ease-out infinite;pointer-events:none;text-shadow:0 1px 2px rgba(0,0,0,.25);}
-@keyframes pqcShimmer{0%{background-position:0% 50%}100%{background-position:300% 50%}}
-@keyframes pqcPulse{0%{box-shadow:0 0 0 0 rgba(239,68,68,.6),0 8px 22px rgba(239,68,68,.45);transform:rotate(5deg) scale(1)}60%{box-shadow:0 0 0 14px rgba(239,68,68,0),0 8px 22px rgba(239,68,68,.45);transform:rotate(5deg) scale(1.06)}100%{box-shadow:0 0 0 0 rgba(239,68,68,0),0 8px 22px rgba(239,68,68,.45);transform:rotate(5deg) scale(1)}}
-.pqc-free{position:absolute;top:-11px;left:14px;z-index:2;font-weight:800;font-size:.7rem;letter-spacing:1.2px;color:#fff;background:linear-gradient(135deg,#059669,#10B981);border:2px solid #fff;border-radius:100px;padding:.22rem .6rem;box-shadow:0 4px 12px rgba(16,185,129,.4);pointer-events:none;}
-.pqc-top{display:flex;gap:0.7rem;align-items:flex-start;}
-.pqc-ico{font-size:1.55rem;line-height:1;margin-top:.1rem;flex-shrink:0;}
-.pqc-kicker{font-weight:700;font-size:.78rem;letter-spacing:.6px;text-transform:uppercase;color:#6366F1;}
-.pqc-sec .pqc-kicker{color:#EA580C;}
-.pqc-title{margin:.08rem 0 0;font-weight:800;font-size:1.12rem;line-height:1.2;color:#1A202C;}
-.pqc-title a{color:#1A202C;text-decoration:none;}
-.pqc-title a:hover{color:#4F46E5;}
-.pqc-sub{margin:.2rem 0 0;font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-size:.8rem;color:#64748B;line-height:1.45;}
-.pqc-pills{display:flex;flex-wrap:wrap;gap:.4rem;margin:.75rem 0 0;}
-.pqc-row{display:flex;flex-wrap:wrap;align-items:center;gap:.4rem;margin:.6rem 0 0;}
-.pqc-row>b{font-weight:800;font-size:.78rem;letter-spacing:.5px;color:#64748B;min-width:3.6rem;text-transform:uppercase;}
-.pqc-pill{display:inline-flex;align-items:center;gap:.35rem;background:#fff;border:1.5px solid #E2E8F0;border-radius:100px;padding:.32rem .72rem;color:#1A202C;font-weight:700;font-size:.86rem;text-decoration:none;transition:transform .15s,border-color .15s,box-shadow .15s;}
-.pqc-pill:hover{transform:translateY(-1px);}
-.pqc-pill-cur{border-color:#6366F1;background:#EEF2FF;color:#3730A3;}
-.pqc-ch .pqc-pill:hover{border-color:#6366F1;box-shadow:0 5px 14px rgba(99,102,241,.2);}
-.pqc-sec .pqc-pill:hover{border-color:#FF6B00;box-shadow:0 5px 14px rgba(255,107,0,.2);}
-.pqc-btn{display:flex;align-items:center;justify-content:space-between;gap:.6rem;margin-top:auto;padding:.58rem .8rem;border-radius:11px;color:#fff;text-decoration:none;font-weight:800;font-size:.98rem;transition:transform .15s,filter .15s;}
-.pqc-pills+.pqc-btn,.pqc-row+.pqc-btn,.pqc-mock+.pqc-btn{margin-top:.8rem;}
-.pqc-ch .pqc-btn{background:linear-gradient(135deg,#6366F1,#8B5CF6);box-shadow:0 5px 16px rgba(99,102,241,.3);}
-.pqc-sec .pqc-btn{background:linear-gradient(135deg,#FF6B00,#FF8C38);box-shadow:0 5px 16px rgba(255,107,0,.3);}
-.pqc-btn:hover{transform:translateY(-2px);filter:brightness(1.05);}
-.pqc-go{background:#fff;border-radius:8px;padding:.18rem .6rem;font-size:.85rem;white-space:nowrap;flex-shrink:0;}
-.pqc-ch .pqc-go{color:#4F46E5;}
-.pqc-sec .pqc-go{color:#EA580C;}
-.pqc-mock{margin:.7rem 0 0;font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-size:.8rem;color:#475569;line-height:1.5;}
-.pqc-mock a{color:#FF6B00;font-weight:700;text-decoration:none;}
-@media (max-width:760px){.pqc-wrap{grid-template-columns:1fr;gap:1.1rem;}}
-@media (max-width:520px){.pqc{padding:1.1rem .85rem .9rem;}.pqc-new{top:-14px;right:10px;font-size:.78rem;padding:.3rem .75rem;letter-spacing:1.5px;}.pqc-title{font-size:1.04rem;}}
-@media (prefers-reduced-motion:reduce){.pqc-new{animation:none;}}
-</style>
-<div class="pqc-wrap">
-  <div class="pqc pqc-ch" role="region" aria-labelledby="pqcChTitle">
-    <span class="pqc-free" aria-hidden="true">✅ FREE</span>
-    <span class="pqc-new" aria-label="New">🔥 NEW</span>
-    <div class="pqc-top"><span class="pqc-ico" aria-hidden="true">📚</span>
-      <div><div class="pqc-kicker">Chapter-wise PYQs · CGL · CHSL · GD</div>
-        <h2 class="pqc-title" id="pqcChTitle"><a href="https://trickyssc.com/ssc-pyq-chapterwise.html">SSC Exams Chapter-wise Previous Year Questions</a></h2>
-        <p class="pqc-sub">Every SSC CGL, CHSL and GD previous year question sorted into its chapter — one Percentage page holds the Percentage questions of all exams. 25 Qs per test · Hindi &amp; English · the exam, shift &amp; date is shown under every question.</p></div></div>
-    <div class="pqc-pills"><a class="pqc-pill" href="https://trickyssc.com/ssc-quant-chapter-wise-pyq.html">📐 Quant</a><a class="pqc-pill" href="https://trickyssc.com/ssc-reasoning-chapter-wise-pyq.html">🧠 Reasoning</a><a class="pqc-pill" href="https://trickyssc.com/ssc-english-chapter-wise-pyq.html">📖 English</a><a class="pqc-pill" href="https://trickyssc.com/ssc-gk-chapter-wise-pyq.html">🌍 GK</a><a class="pqc-pill" href="https://trickyssc.com/ssc-hindi-chapter-wise-pyq.html">📝 Hindi</a></div>
-    <a class="pqc-btn" href="https://trickyssc.com/ssc-pyq-chapterwise.html"><span>Practise PYQs chapter by chapter</span><span class="pqc-go" aria-hidden="true">Start &rsaquo;</span></a>
-  </div>
-  <div class="pqc pqc-sec" role="region" aria-labelledby="pqcSecTitle">
-    <div class="pqc-top"><span class="pqc-ico" aria-hidden="true">🎯</span>
-      <div><div class="pqc-kicker">Section-wise PYQs</div>
-        <h2 class="pqc-title" id="pqcSecTitle">Practise one section of a SSC CGL paper at a time</h2>
-        <p class="pqc-sub">Sit only the Quant, Reasoning, English or GK part of any shift — 25 Qs · 15 min per section (Tier I) with that section's own clock.</p></div></div>
-    <div class="pqc-row"><b>Tier I</b><a class="pqc-pill" href="https://trickyssc.com/ssc-cgl-quant-previous-year-questions.html">📐 Quant</a><a class="pqc-pill" href="https://trickyssc.com/ssc-cgl-reasoning-previous-year-questions.html">🧠 Reasoning</a><a class="pqc-pill" href="https://trickyssc.com/ssc-cgl-english-previous-year-questions.html">📖 English</a><a class="pqc-pill" href="https://trickyssc.com/ssc-cgl-gk-previous-year-questions.html">🌍 GK</a></div><div class="pqc-row"><b>Tier II</b><a class="pqc-pill" href="https://trickyssc.com/ssc-cgl-tier-2-quant-previous-year-questions.html">📐 Maths</a><a class="pqc-pill" href="https://trickyssc.com/ssc-cgl-tier-2-reasoning-previous-year-questions.html">🧠 Reasoning</a><a class="pqc-pill" href="https://trickyssc.com/ssc-cgl-tier-2-english-previous-year-questions.html">📖 English</a><a class="pqc-pill" href="https://trickyssc.com/ssc-cgl-tier-2-gk-previous-year-questions.html">🌍 GK</a></div>
-    <div class="pqc-mock">Mock tests: <a href="https://trickyssc.com/ssc-cgl-mock-test.html">SSC CGL Tier 1 Mock Test</a> · <a href="https://trickyssc.com/ssc-cgl-tier-2-mock-test.html">SSC CGL Tier 2 Mock Test</a></div>
-    <a class="pqc-btn" href="https://trickyssc.com/ssc-cgl-quant-previous-year-questions.html"><span>All Tier I section-wise PYQs</span><span class="pqc-go" aria-hidden="true">Open &rsaquo;</span></a>
-  </div>
-</div>
+    <!-- TSSC:SUBJECT-PYQ-LINKS:START -->
+    <style>
+      .subj-pyq-links { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:0.6rem; margin:0 0 1.4rem; }
+      .subj-pyq-links a { position:relative; overflow:hidden; display:flex; align-items:center; gap:0.55rem; background:#fff; border:1.5px solid #E2E8F0; border-radius:12px; padding:0.7rem 0.9rem; color:#1A202C; font-family:'Rajdhani',sans-serif; font-weight:700; font-size:0.92rem; transition:all .2s; }
+      .subj-pyq-links a:hover { transform:translateY(-2px); }
+      .subj-pyq-links a.q:hover { border-color:#FF6B00; box-shadow:0 6px 18px rgba(255,107,0,.2); }
+      .subj-pyq-links a.r:hover { border-color:#6366F1; box-shadow:0 6px 18px rgba(99,102,241,.2); }
+      .subj-pyq-links a.g:hover { border-color:#00A86B; box-shadow:0 6px 18px rgba(0,168,107,.2); }
+      .subj-pyq-links a.e:hover { border-color:#0EA5E9; box-shadow:0 6px 18px rgba(14,165,233,.2); }
+      .subj-pyq-links .spl-new { margin-left:auto; background:linear-gradient(135deg,#EF4444,#F97316); color:#fff; font-size:0.62rem; font-weight:800; letter-spacing:1.5px; padding:0.18rem 0.5rem; border-radius:100px; animation:tsscSplBlink 1.15s ease-in-out infinite; }
+      @keyframes tsscSplBlink { 0%,100%{opacity:1} 50%{opacity:.2} }
+      @media (prefers-reduced-motion:reduce) { .subj-pyq-links .spl-new { animation:none; } }
+    </style>
+    <div style="font-family:'Rajdhani',sans-serif;font-weight:800;font-size:0.95rem;color:#1E293B;margin:0 0 0.55rem;">🧮 Practice one subject at a time — 25 Qs · 15 min per shift</div>
+    <div class="subj-pyq-links">
+      <a class="q" href="https://trickyssc.com/ssc-cgl-quant-previous-year-questions.html"><span style="font-size:1.2rem;">🧮</span>Quant Previous Year Questions<span class="spl-new">NEW</span></a>
+      <a class="r" href="https://trickyssc.com/ssc-cgl-reasoning-previous-year-questions.html"><span style="font-size:1.2rem;">🧠</span>Reasoning Previous Year Questions<span class="spl-new">NEW</span></a>
+      <a class="g" href="https://trickyssc.com/ssc-cgl-gk-previous-year-questions.html"><span style="font-size:1.2rem;">🌍</span>GK Previous Year Questions<span class="spl-new">NEW</span></a>
+      <a class="e" href="https://trickyssc.com/ssc-cgl-english-previous-year-questions.html"><span style="font-size:1.2rem;">📖</span>English Previous Year Questions<span class="spl-new">NEW</span></a>
+    </div>
     <!-- TSSC:SUBJECT-PYQ-LINKS:END -->
 """
 
 MOCK_PROMO = r"""
 <!-- TSSC:MOCK-PROMO:START -->
 <style id="tsscMockPromoCSS">
-/* TSSC-COMBOPOPUP-V1 (2026-10-27) — CGL Tier 1 is over: the site-wide popup now
-   sells the SSC CHSL mocks through the Rs 79 CGL + CHSL combo. Prices shown here
-   are DISPLAY ONLY; what a buyer is charged comes from config/pricing. */
 #tsscMP{position:fixed;inset:0;z-index:99999;display:none;align-items:center;justify-content:center;
-  background:rgba(26,32,44,.5);backdrop-filter:blur(2px);padding:16px;}
+  background:rgba(26,32,44,.45);backdrop-filter:blur(2px);padding:18px;}
 #tsscMP.on{display:flex;animation:tsscMPin .22s ease-out;}
 @keyframes tsscMPin{from{opacity:0}to{opacity:1}}
-.tsscMP-box{position:relative;width:100%;max-width:400px;max-height:88vh;overflow-y:auto;overflow-x:hidden;
-  border-radius:18px;background:#FFFFFF;border:1px solid #E2E8F0;text-align:center;
-  box-shadow:0 12px 40px rgba(0,0,0,0.18);
+.tsscMP-box{position:relative;width:100%;max-width:400px;max-height:78vh;overflow-y:auto;overflow-x:hidden;
+  border-radius:16px;background:#FFFFFF;border:1px solid #E2E8F0;text-align:center;
+  box-shadow:0 8px 30px rgba(0,0,0,0.12);
   font-family:'Rajdhani',sans-serif;font-style:normal;color:#1A202C;
   animation:tsscMPup .26s cubic-bezier(.16,1,.3,1);}
-.tsscMP-box *{font-style:normal;box-sizing:border-box;}
+.tsscMP-box *{font-style:normal;}
 @keyframes tsscMPup{from{transform:translateY(12px);opacity:0}to{transform:none;opacity:1}}
 .tsscMP-top{background:linear-gradient(135deg,#FF6B00,#FF8C38);color:#fff;
-  padding:.62rem 2.6rem;font-weight:700;font-size:.86rem;letter-spacing:.5px;}
+  padding:.62rem .9rem;font-weight:700;font-size:.86rem;letter-spacing:.5px;}
 .tsscMP-x{position:absolute;top:8px;right:10px;width:30px;height:30px;border:0;border-radius:100px;
   background:rgba(255,255,255,.24);color:#fff;font-size:1rem;line-height:1;cursor:pointer;}
 .tsscMP-x:hover{background:rgba(255,255,255,.42);}
-.tsscMP-body{padding:1rem 1.15rem 1.15rem;}
-.tsscMP-clock{display:inline-block;margin:0 0 .6rem;padding:.28rem .8rem;border-radius:100px;
-  background:#FEF2F2;border:1px solid #FECACA;color:#B91C1C;font-weight:700;font-size:.9rem;letter-spacing:.3px;}
-.tsscMP-clock[hidden]{display:none;}
-.tsscMP-eyebrow{font-weight:700;font-size:.82rem;letter-spacing:1.6px;color:#718096;margin:0;}
-.tsscMP-big{font-family:'Baloo 2',sans-serif;font-weight:800;font-size:2.35rem;line-height:1.05;
-  margin:.1rem 0 0;color:#1A202C;}
+.tsscMP-body{padding:1.15rem 1.25rem 1.25rem;}
+.tsscMP-big{font-family:'Baloo 2',sans-serif;font-weight:800;font-size:2.75rem;line-height:1;
+  margin:0;color:#1A202C;}
 .tsscMP-big span{color:#FF6B00;}
-.tsscMP-kicker{font-weight:700;font-size:1rem;color:#4A5568;margin:.25rem 0 .8rem;line-height:1.3;}
-.tsscMP-pair{display:grid;grid-template-columns:1fr auto 1fr;align-items:stretch;gap:.35rem;margin:0 0 .8rem;}
-.tsscMP-card{border-radius:12px;padding:.6rem .4rem .55rem;text-align:center;}
-.tsscMP-card.chsl{background:#FFF7F0;border:1.5px solid #FDBA74;}
-.tsscMP-card.cgl{background:#EEF2FF;border:1.5px solid #A5B4FC;}
-.tsscMP-card .n{display:block;font-weight:700;font-size:.8rem;letter-spacing:.8px;}
-.tsscMP-card.chsl .n{color:#C2410C;}
-.tsscMP-card.cgl .n{color:#4338CA;}
-.tsscMP-card .c{display:block;font-family:'Baloo 2',sans-serif;font-weight:800;font-size:1.55rem;line-height:1.1;color:#1A202C;}
-.tsscMP-card .d{display:block;font-weight:600;font-size:.8rem;color:#4A5568;line-height:1.25;}
-.tsscMP-card .p{display:block;margin-top:.25rem;font-weight:700;font-size:.85rem;color:#718096;}
-.tsscMP-plus{align-self:center;font-family:'Baloo 2',sans-serif;font-weight:800;font-size:1.5rem;color:#A0AEC0;}
+.tsscMP-kicker{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.04rem;
+  color:#4A5568;margin:.25rem 0 .8rem;}
+.tsscMP-pills{display:flex;gap:.4rem;justify-content:center;flex-wrap:wrap;margin-bottom:.8rem;}
+.tsscMP-pill{border-radius:100px;padding:.3rem .75rem;font-size:.82rem;font-weight:600;
+  letter-spacing:.5px;background:#FFF7F0;border:1px solid #FFEDD5;color:#CC5500;}
+.tsscMP-pill.g{background:#ECFDF5;border-color:#A7F3D0;color:#00875A;}
 .tsscMP-band{background:linear-gradient(135deg,#FFF7F0,#FFEDD5);color:#CC5500;
-  font-weight:700;font-size:.95rem;padding:.5rem .6rem;margin:0 -1.15rem .8rem;
+  font-weight:700;font-size:.98rem;padding:.55rem .6rem;margin:0 -1.25rem .9rem;
   border-top:1px solid #FFEDD5;border-bottom:1px solid #FFEDD5;}
-.tsscMP-price{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:.1rem .45rem;
-  font-weight:600;font-size:1rem;color:#718096;margin-bottom:.8rem;}
+.tsscMP-price{font-weight:600;font-size:1.02rem;color:#718096;margin-bottom:.85rem;}
 .tsscMP-was{text-decoration:line-through;}
-.tsscMP-now{font-family:'Baloo 2',sans-serif;font-weight:800;font-size:2.15rem;line-height:1;color:#00A86B;}
-.tsscMP-save{background:#00A86B;color:#fff;border-radius:6px;padding:.12rem .5rem;font-weight:700;font-size:.82rem;letter-spacing:.4px;}
+.tsscMP-now{font-family:'Baloo 2',sans-serif;font-weight:800;font-size:2.05rem;
+  color:#00A86B;margin:0 .35rem;vertical-align:-4px;}
 .tsscMP-go{display:flex;align-items:center;justify-content:center;gap:.5rem;text-decoration:none;
-  border-radius:10px;padding:.95rem 1.1rem;color:#fff;letter-spacing:.4px;
+  border-radius:10px;padding:1rem 1.1rem;color:#fff;letter-spacing:.4px;
   font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.15rem;
   background:linear-gradient(120deg,#6D28D9,#DB2777,#F59E0B);background-size:200% 200%;
   box-shadow:0 4px 22px rgba(219,39,119,0.4);animation:tsscMPgrad 5s ease infinite;}
 @keyframes tsscMPgrad{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
-.tsscMP-alt{display:inline-block;margin:.65rem 0 0;font-weight:700;font-size:.92rem;color:#C2410C;text-decoration:none;}
-.tsscMP-alt:hover{text-decoration:underline;}
-.tsscMP-free{font-size:.86rem;font-weight:600;color:#00875A;margin:.45rem 0 0;}
-.tsscMP-up{display:none;}
-#tsscMP.is-up .tsscMP-up{display:block;}
-#tsscMP.is-up .tsscMP-combo{display:none;}
-@media(max-width:360px){.tsscMP-big{font-size:2rem}.tsscMP-card .c{font-size:1.35rem}}
+.tsscMP-free{font-size:.88rem;font-weight:600;color:#00875A;margin:.7rem 0 0;}
 @media(prefers-reduced-motion:reduce){#tsscMP.on,.tsscMP-box,.tsscMP-go{animation:none}}
 </style>
 
 <div id="tsscMP" role="dialog" aria-modal="true" aria-labelledby="tsscMPh">
   <div class="tsscMP-box">
-    <div class="tsscMP-top">&#127919; CGL TIER 1 DONE &middot; NEXT: SSC CHSL</div>
+    <div class="tsscMP-top">&#128227; SSC CGL MOCK TESTS 2026</div>
     <button class="tsscMP-x" type="button" aria-label="Close">&times;</button>
     <div class="tsscMP-body">
-      <div class="tsscMP-clock" data-mp-clock hidden></div>
-
-      <!-- shown to everyone not known to own a series -->
-      <div class="tsscMP-combo">
-        <p class="tsscMP-eyebrow">ONE PASS &middot; TWO EXAMS</p>
-        <h2 class="tsscMP-big" id="tsscMPh">CGL <span>+</span> CHSL</h2>
-        <div class="tsscMP-kicker">Crack CHSL now. Keep CGL Tier II sharp.</div>
-        <div class="tsscMP-pair">
-          <div class="tsscMP-card chsl">
-            <span class="n">SSC CHSL</span>
-            <span class="c">80 mocks</span>
-            <span class="d">40 Tier I + 40 Tier II</span>
-            <span class="p">&#8377;49</span>
-          </div>
-          <div class="tsscMP-plus" aria-hidden="true">+</div>
-          <div class="tsscMP-card cgl">
-            <span class="n">SSC CGL</span>
-            <span class="c">100 mocks</span>
-            <span class="d">50 Tier I + 50 Tier II</span>
-            <span class="p">&#8377;49</span>
-          </div>
-        </div>
-        <div class="tsscMP-band">180 mocks &middot; Hindi &amp; English &middot; Sectional timing</div>
-        <div class="tsscMP-price">
-          <span class="tsscMP-was">&#8377;98</span>
-          <span class="tsscMP-now">&#8377;79</span>
-          <span>for a full year</span>
-          <span class="tsscMP-save">SAVE &#8377;19</span>
-        </div>
-        <a class="tsscMP-go" href="https://trickyssc.com/ssc-chsl-mock-test.html?combo=1">&#128640; GET BOTH FOR &#8377;79</a>
-        <a class="tsscMP-alt" href="https://trickyssc.com/ssc-chsl-mock-test.html">Only need CHSL? Get it for &#8377;49 &rarr;</a>
-        <p class="tsscMP-free">CHSL Mock 1&ndash;2 free &mdash; try before you pay</p>
+      <h2 class="tsscMP-big" id="tsscMPh">100 <span>MOCKS</span></h2>
+      <div class="tsscMP-kicker">PYQs show the pattern. Mocks show your rank.</div>
+      <div class="tsscMP-pills">
+        <span class="tsscMP-pill">50 Tier I &middot; live now</span>
+        <span class="tsscMP-pill g">50 Tier II &middot; 15 Oct 2026</span>
       </div>
-
-      <!-- shown instead when this browser already holds the SSC CGL mocks only -->
-      <div class="tsscMP-up">
-        <p class="tsscMP-eyebrow">YOU ALREADY HAVE SSC CGL</p>
-        <h2 class="tsscMP-big">ADD <span>CHSL</span></h2>
-        <div class="tsscMP-kicker">All 80 SSC CHSL mocks &mdash; 40 Tier I + 40 Tier II, for a full year.</div>
-        <div class="tsscMP-band">Special upgrade price for CGL buyers</div>
-        <a class="tsscMP-go" href="https://trickyssc.com/ssc-chsl-mock-test.html?upgrade=1">&#128275; ADD CHSL NOW</a>
-        <p class="tsscMP-free">CHSL Mock 1&ndash;2 free &mdash; try before you pay</p>
+      <div class="tsscMP-band">Real Sectional Timing &mdash; Just Like The Exam</div>
+      <div class="tsscMP-price">
+        <span class="tsscMP-was">&#8377;199</span><span class="tsscMP-now" data-lp>&#8377;49</span>for a full year
       </div>
+      <div data-lp-note="popup" hidden></div>
+      <a class="tsscMP-go" href="https://trickyssc.com/ssc-cgl-mock-test">&#128640; START NOW</a>
+      <p class="tsscMP-free">Mocks 1&ndash;4 free &mdash; no payment needed</p>
     </div>
   </div>
 </div>
 
 <script>
 (function(){
-  var KEY='tsscComboPromoSeen', PAID='tssc_entitlement', DELAY=1500;
-  var CHSL_T1_START=Date.parse('2026-11-30T00:00:00+05:30'),   // SSC CHSL 2026 Tier 1: 30 Nov - 31 Dec 2026
-      CHSL_T1_END  =Date.parse('2027-01-01T00:00:00+05:30');
+  var KEY='tsscMockPromoSeen', PAID='tssc_entitlement', DELAY=1200;
   var box=document.getElementById('tsscMP');
   if(!box) return;
+  // Never nag someone who already paid. localStorage only — no Firestore read,
+  // so these pages stay at zero read cost per pageview.
   try{
     var p=localStorage.getItem(PAID);
     if(p && p!=='false' && p!=='null' && p!=='0') return;
   }catch(e){}
-  // Once per browser session, shared across index / cgl-pyq / chsl-pyq.
+  // sessionStorage, not localStorage: the flag dies when the browser session
+  // ends, so a visitor sees the popup once per visit to the site and again
+  // the next time they come back. Shared across index / cgl-pyq / chsl-pyq.
   try{ if(sessionStorage.getItem(KEY)) return; }catch(e){}
-
-  // What the mock pages found this session (TSSC-ENTCACHE-V2). No Firestore read here.
-  var m=null;
-  try{
-    for(var i=0;i<sessionStorage.length;i++){
-      var k=sessionStorage.key(i);
-      if(k && k.indexOf('tssc_ent_v2_')===0){
-        var o=JSON.parse(sessionStorage.getItem(k)||'null');
-        if(o && o.m){ m=o.m; break; }
-      }
-    }
-  }catch(e){}
-  if(m && m['ssc-chsl-mocks']===true) return;              // already has CHSL: nothing to sell
-  if(m && m['ssc-cgl-mocks']===true) box.classList.add('is-up');   // has CGL only: upgrade pitch
-  if(box.classList.contains('is-up')){
-    var h=box.querySelector('.tsscMP-up .tsscMP-big'), c=box.querySelector('.tsscMP-combo .tsscMP-big');
-    if(c) c.removeAttribute('id');
-    if(h) h.id='tsscMPh';
-  }
-
-  // Real countdown to the CHSL Tier 1 exam, not a fake offer timer.
-  var clk=box.querySelector('[data-mp-clock]'), now=Date.now();
-  if(clk){
-    if(now<CHSL_T1_START){
-      var d=Math.ceil((CHSL_T1_START-now)/86400000);
-      clk.textContent='⏳ CHSL Tier 1 starts in '+d+(d===1?' day':' days');
-      clk.hidden=false;
-    } else if(now<CHSL_T1_END){
-      clk.textContent='📝 CHSL Tier 1 is on — practise before your shift';
-      clk.hidden=false;
-    }
-  }
-
   function close(){
     box.classList.remove('on');
     try{ sessionStorage.setItem(KEY,'1'); }catch(e){}
@@ -379,8 +190,7 @@ MOCK_PROMO = r"""
   box.querySelector('.tsscMP-x').addEventListener('click',close);
   box.addEventListener('click',function(e){ if(e.target===box) close(); });
   document.addEventListener('keydown',function(e){ if(e.key==='Escape') close(); });
-  var links=box.querySelectorAll('a');
-  for(var j=0;j<links.length;j++) links[j].addEventListener('click',function(){
+  box.querySelector('.tsscMP-go').addEventListener('click',function(){
     try{ sessionStorage.setItem(KEY,'1'); }catch(e){}
   });
 })();
@@ -556,11 +366,80 @@ def tier_label(tier):
 
 
 # ---------------------------------------------------------------------------
+# SHIFT-WISE QUESTION-PAPER PAGES (pyq/ folder)  — added 2026-11-06
+# ---------------------------------------------------------------------------
+# Some Tier I shifts also have a static HTML question-paper page in pyq/,
+# e.g. pyq/ssc-cgl-12-september-2025-shift-1.html. When one exists for a
+# paper, its row on ssc-cgl-pyq.html gets a visible "View Paper" link and
+# its ItemList entry points to that page, so Google can find and rank it.
+# Both name styles are recognised:
+#   ssc-cgl-12-september-2025-shift-1.html
+#   ssc-cgl-2026-tier-1-12-november-shift-1.html
+# Tier II pages (name contains "tier-2") are ignored here.
+PYQ_PAGE_DIR = "pyq"
+_MONTH_NUM = {v.lower(): k for k, v in MONTHS.items()}
+
+
+def find_shift_pages():
+    """Return {(heldOn 'YYYY-MM-DD', shift number): 'pyq/<file>.html'}."""
+    import os
+    found = {}
+    if not os.path.isdir(PYQ_PAGE_DIR):
+        return found
+    month_re = "|".join(_MONTH_NUM)
+    for name in sorted(os.listdir(PYQ_PAGE_DIR)):
+        low = name.lower()
+        if not (low.startswith("ssc-cgl-") and low.endswith(".html")):
+            continue
+        if "tier-2" in low or "tier-ii" in low:
+            continue
+        m = re.search(rf"(\d{{1,2}})-({month_re})(?:-(\d{{4}}))?-shift-(\d+)\.html$", low)
+        if not m:
+            continue
+        year = m.group(3)
+        if not year:
+            y = re.search(r"-(20\d\d)-", low)
+            if not y:
+                continue
+            year = y.group(1)
+        held = f"{year}-{_MONTH_NUM[m.group(2)]}-{int(m.group(1)):02d}"
+        found[(held, int(m.group(4)))] = f"{PYQ_PAGE_DIR}/{name}"
+    return found
+
+
+def _shift_num(shift):
+    m = re.search(r"(\d+)", str(shift))
+    return int(m.group(1)) if m else 0
+
+
+def latest_tier1_year(ordered):
+    """Newest year that has at least one Tier I paper (e.g. '2026')."""
+    for y, groups in ordered.items():  # already newest first
+        if any(not _is_tier2(g["tier"]) for g in groups):
+            return y
+    return next(iter(ordered), "")
+
+
+# ---------------------------------------------------------------------------
 # 4. RENDER HTML
 # ---------------------------------------------------------------------------
 def render(ordered):
     total_papers = sum(len(v) for v in ordered.values())
     updated = datetime.datetime.utcnow().strftime("%d %b %Y")
+
+    # Newest Tier I year drives the title, H1, description and FAQ, so the page
+    # targets "SSC CGL <year> Tier 1 papers" and moves on to the next year by
+    # itself as soon as that year's first Tier I paper is uploaded.
+    LY = latest_tier1_year(ordered)
+    year_keys_all = [y for y in ordered if str(y).isdigit()]
+    oldest_year = min(year_keys_all) if year_keys_all else LY
+    shift_pages = find_shift_pages()
+
+    def page_for(g):
+        """pyq/ question-paper page for this Tier I paper, or ''."""
+        if _is_tier2(g["tier"]) or not g.get("heldOn"):
+            return ""
+        return shift_pages.get((g["heldOn"], _shift_num(g["shift"])), "")
 
     YEAR_COLORS = ['#FF6B00', '#6366F1', '#00A86B', '#0EA5E9',
                    '#E11D48', '#F59E0B', '#8B5CF6', '#10B981']
@@ -676,7 +555,23 @@ def render(ordered):
                     f'<span class="attempt-pill todo" data-pill="{html.escape(pick_id)}">'
                     f'○ Not Attempted</span>'
                 )
-                btns_html = attempt_btn + hidden_links
+                # Visible link to the shift's static question-paper page, when
+                # one exists in pyq/ (see find_shift_pages).
+                paper_page = '' if is_t2 else page_for(g)
+                view_link = ''
+                if paper_page:
+                    vl_title = f"SSC CGL {year} Tier 1 {shift} {date_label} question paper".strip()
+                    view_link = (
+                        f'<a href="{SITE}/{html.escape(paper_page)}" '
+                        f'title="{html.escape(vl_title)}" '
+                        f'style="display:inline-flex;align-items:center;gap:0.3rem;'
+                        f'background:#fff;color:#FF6B00;border:1.5px solid #FFD2B0;'
+                        f'padding:0.48rem 0.8rem;border-radius:9px;'
+                        f"font-family:'Rajdhani',sans-serif;font-weight:700;"
+                        f'font-size:0.82rem;white-space:nowrap;text-decoration:none;">'
+                        f'📄 View Paper</a>'
+                    )
+                btns_html = view_link + attempt_btn + hidden_links
 
                 rows.append(f"""
             <div style="display:flex;align-items:center;justify-content:space-between;gap:0.6rem;padding:0.85rem 1.1rem;{border_bottom}background:white;">
@@ -697,20 +592,51 @@ def render(ordered):
                   </div>
                 </div>
               </div>
-              <div style="display:flex;align-items:center;gap:0.4rem;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;">{btns_html}</div>
+              <div class="pyq-btns{' has-view' if view_link else ''}" style="display:flex;align-items:center;gap:0.4rem;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;">{btns_html}</div>
             </div>""")
 
             # Newest year opens by default; older years start collapsed.
             open_attr = ' open' if yi == 0 else ''
+
+            # Tier I years get a real <h3> ("SSC CGL 2026 Tier 1 Question Papers")
+            # and a one-line intro, so each year can rank for "ssc cgl <year>
+            # tier 1 paper". Tier II keeps a plain <span>: on this page the
+            # Tier II pane deliberately carries no Tier II headings (that intent
+            # belongs to ssc-cgl-tier-2-pyq.html, which reuses this markup).
+            if is_t2:
+                title_html = f'<span class="yr-title">SSC CGL {tier_label} {year}</span>'
+                intro_html = ''
+            else:
+                title_html = f'<h3 class="yr-title">SSC CGL {year} Tier 1 Question Papers</h3>'
+                dates = sorted(g["heldOn"] for g in groups if g.get("heldOn"))
+                held = ''
+                if dates:
+                    d0, d1 = pretty_date(dates[0]), pretty_date(dates[-1])
+                    held = f' (held {d0})' if d0 == d1 else f' (held {d0} – {d1})'
+                n_shift = f"{ycount} shift-wise paper{'s' if ycount != 1 else ''}"
+                intro_html = (
+                    f'<p class="yr-intro">{n_shift} from SSC CGL {year} Tier 1{html.escape(held)}, '
+                    f'free to attempt online in English &amp; Hindi with answer key and '
+                    f'step-by-step solutions.</p>'
+                )
+                # TSSC:YR-ADDING (2026-11-07) — newest Tier I year only: tell
+                # visitors more shifts of this exam are still being uploaded.
+                # Moves to the next year by itself once that year's papers land.
+                if yi == 0:
+                    intro_html = (
+                        f'<div class="yr-adding"><span class="yr-adding-dot" aria-hidden="true"></span>'
+                        f'<span><b>Papers are being added regularly</b> &middot; more SSC CGL {year} '
+                        f'Tier 1 shifts are uploaded as they are ready. Check back soon.</span></div>'
+                    ) + intro_html
             blocks.append(f"""
         <details class="yr-acc"{open_attr}>
           <summary class="yr-head">
             <span class="yr-badge" style="background:{accent};">{year}</span>
-            <span class="yr-title">SSC CGL {tier_label} {year}</span>
+            {title_html}
             <span class="yr-count">{ycount} test{'s' if ycount != 1 else ''}</span>
             <span class="yr-chev" aria-hidden="true">▾</span>
           </summary>
-          <div class="yr-body" style="border-left:3px solid {accent};">{''.join(rows)}</div>
+          <div class="yr-body" style="border-left:3px solid {accent};">{intro_html}{''.join(rows)}</div>
         </details>""")
         return "".join(blocks)
 
@@ -721,58 +647,90 @@ def render(ordered):
     t2_count = sum(len(v) for v in tier2.values())
 
     # ---- schema for SEO ----
+    # Tier I first (newest year first), then Tier II. Each name states the exam
+    # year and tier; when a paper was held in a later calendar year than its
+    # exam year (e.g. CGL 2025 Tier 2 held on 19 January 2026) the date is
+    # shown as "held …" so it is never read as a 2026 paper. Papers that have
+    # a static question-paper page in pyq/ point to that page.
     item_list = []
     pos = 1
-    for y, groups in ordered.items():
-        for g in groups:
-            lang = "en" if "en" in g["langs"] else next(iter(g["langs"]))
-            item_list.append({
-                "@type": "ListItem",
-                "position": pos,
-                "name": f"SSC CGL {pretty_date(g['heldOn'])} {g['shift']} — Free Online Test",
-                "url": test_url(g, lang),
-            })
-            pos += 1
+    for want_t2 in (False, True):
+        for y, groups in ordered.items():
+            for g in groups:
+                if _is_tier2(g["tier"]) != want_t2:
+                    continue
+                lang = "en" if "en" in g["langs"] else next(iter(g["langs"]))
+                tnum = "Tier 2" if want_t2 else "Tier 1"
+                date_txt = pretty_date(g["heldOn"]) if g.get("heldOn") else ""
+                held_year = str(g.get("heldOn", ""))[:4]
+                if date_txt and held_year and held_year != str(y):
+                    date_txt = f"(held {date_txt})"
+                name = " ".join(p for p in (f"SSC CGL {y} {tnum}", date_txt,
+                                            str(g["shift"] or "")) if p)
+                pp = page_for(g)
+                item_list.append({
+                    "@type": "ListItem",
+                    "position": pos,
+                    "name": f"{name} — {'Question Paper' if pp else 'Free Online Test'}",
+                    "url": f"{SITE}/{pp}" if pp else test_url(g, lang),
+                })
+                pos += 1
 
     itemlist_schema = {
         "@context": "https://schema.org", "@type": "ItemList",
-        "name": "Free SSC CGL PYQ Tests (Previous Year Papers) — Online in Hindi & English",
+        "name": f"SSC CGL {LY} Tier 1 Papers & Previous Year Question Papers — Free Online Tests",
         "numberOfItems": total_papers, "itemListElement": item_list,
     }
 
+    # FAQ — one list feeds both the FAQPage schema and the visible FAQ, so the
+    # two always match. The first two questions follow the newest Tier I year.
+    ly_pages = any(k[0].startswith(f"{LY}-") for k in shift_pages)
+    faqs = [
+        (f"Where can I get the SSC CGL {LY} Tier 1 question paper?",
+         f"All SSC CGL {LY} Tier 1 question papers on TrickySSC are on this page, shift-wise, "
+         f"in the \"SSC CGL {LY} Tier 1 Question Papers\" section at the top of the list. "
+         f"Attempt any shift free online in English or Hindi"
+         + (", or open the full question paper for the shifts marked View Paper." if ly_pages else ".")),
+        (f"Is the SSC CGL {LY} Tier 1 answer key available?",
+         f"Yes. Every SSC CGL {LY} Tier 1 paper on TrickySSC comes with the correct answer key "
+         f"and step-by-step solutions for each question, shown as soon as you submit the test."),
+        ("Are SSC CGL previous year papers free on TrickySSC?",
+         "Yes. All SSC CGL Tier 1 previous year question papers (PYQ) on TrickySSC are completely free to attempt online. No payment or subscription is required."),
+        ("Can I attempt SSC CGL PYQ papers in Hindi and English?",
+         "Yes. Every SSC CGL previous year paper is available in both English and Hindi. You can choose your preferred language before starting the test."),
+        ("Do the SSC CGL PYQ tests include answer keys and solutions?",
+         "Yes. Each paper comes with the correct answer key and step-by-step solutions so you can review every question after submitting the test."),
+        ("Which SSC CGL years are available for practice?",
+         f"TrickySSC provides shift-wise SSC CGL previous year papers from {oldest_year} to {LY}, "
+         f"including the latest SSC CGL {LY} Tier 1 exam shifts, added regularly as new papers are processed."),
+        ("Is the test interface similar to the real SSC CGL exam?",
+         "Yes. The online test engine mirrors the real SSC CGL exam pattern with sectional layout, a question palette, a timer, and negative marking, so you practice in exam-like conditions."),
+        ("Are SSC CGL PYQ tests free?",
+         "Yes. Every SSC CGL PYQ test on TrickySSC is completely free to attempt online — no payment, subscription, or hidden charges."),
+        ("Where can I attempt SSC CGL PYQ tests online?",
+         "You can attempt SSC CGL PYQ tests online at TrickySSC (trickyssc.com). Shift-wise Tier I and Tier II previous year papers are available in a real exam-like interface with timer and solutions."),
+        ("Which website provides free SSC CGL previous year paper tests?",
+         "TrickySSC provides free SSC CGL previous year paper tests online, shift-wise, in both English and Hindi, with answer keys and step-by-step solutions for every question."),
+    ]
     faq_schema = {
         "@context": "https://schema.org", "@type": "FAQPage",
         "mainEntity": [
-            {"@type": "Question", "name": "Are SSC CGL previous year papers free on TrickySSC?",
-             "acceptedAnswer": {"@type": "Answer", "text": "Yes. All SSC CGL Tier 1 previous year question papers (PYQ) on TrickySSC are completely free to attempt online. No payment or subscription is required."}},
-            {"@type": "Question", "name": "Can I attempt SSC CGL PYQ papers in Hindi and English?",
-             "acceptedAnswer": {"@type": "Answer", "text": "Yes. Every SSC CGL previous year paper is available in both English and Hindi. You can choose your preferred language before starting the test."}},
-            {"@type": "Question", "name": "Do the SSC CGL PYQ tests include answer keys and solutions?",
-             "acceptedAnswer": {"@type": "Answer", "text": "Yes. Each paper comes with the correct answer key and step-by-step solutions so you can review every question after submitting the test."}},
-            {"@type": "Question", "name": "Which SSC CGL years are available for practice?",
-             "acceptedAnswer": {"@type": "Answer", "text": "TrickySSC provides shift-wise SSC CGL previous year papers across multiple years, including the most recent 2025 Tier 1 exam shifts, added regularly as new papers are processed."}},
-            {"@type": "Question", "name": "Is the test interface similar to the real SSC CGL exam?",
-             "acceptedAnswer": {"@type": "Answer", "text": "Yes. The online test engine mirrors the real SSC CGL exam pattern with sectional layout, a question palette, a timer, and negative marking, so you practice in exam-like conditions."}},
-            {"@type": "Question", "name": "Are SSC CGL PYQ tests free?",
-             "acceptedAnswer": {"@type": "Answer", "text": "Yes. Every SSC CGL PYQ test on TrickySSC is completely free to attempt online — no payment, subscription, or hidden charges."}},
-            {"@type": "Question", "name": "Where can I attempt SSC CGL PYQ tests online?",
-             "acceptedAnswer": {"@type": "Answer", "text": "You can attempt SSC CGL PYQ tests online at TrickySSC (trickyssc.com). Shift-wise Tier I and Tier II previous year papers are available in a real exam-like interface with timer and solutions."}},
-            {"@type": "Question", "name": "Which website provides free SSC CGL previous year paper tests?",
-             "acceptedAnswer": {"@type": "Answer", "text": "TrickySSC provides free SSC CGL previous year paper tests online, shift-wise, in both English and Hindi, with answer keys and step-by-step solutions for every question."}},
+            {"@type": "Question", "name": q,
+             "acceptedAnswer": {"@type": "Answer", "text": a}}
+            for q, a in faqs
         ],
     }
 
-    faq_visible = """
+    faq_items = "".join(
+        f'\n        <details style="background:#fff;border:1px solid #E2E8F0;border-radius:11px;'
+        f'padding:0.85rem 1.1rem;margin-bottom:0.6rem;"><summary style="cursor:pointer;'
+        f'font-weight:700;font-size:0.92rem;color:#1A202C;">{html.escape(q)}</summary>'
+        f'<p style="color:#4A5568;margin:0.6rem 0 0;font-size:0.88rem;">{html.escape(a)}</p></details>'
+        for q, a in faqs
+    )
+    faq_visible = f"""
       <div style="margin-top:2rem;">
-        <h2 style="font-family:'Rajdhani',sans-serif;font-weight:800;font-size:1.25rem;color:#1A202C;margin:0 0 0.8rem;display:flex;align-items:center;gap:0.5rem;"><span style="display:inline-block;width:3px;height:18px;background:linear-gradient(180deg,#FF6B00,#FF8C38);border-radius:2px;"></span>Frequently Asked Questions</h2>
-        <details style="background:#fff;border:1px solid #E2E8F0;border-radius:11px;padding:0.85rem 1.1rem;margin-bottom:0.6rem;"><summary style="cursor:pointer;font-weight:700;font-size:0.92rem;color:#1A202C;">Are SSC CGL previous year papers free on TrickySSC?</summary><p style="color:#4A5568;margin:0.6rem 0 0;font-size:0.88rem;">Yes. All SSC CGL Tier 1 previous year question papers (PYQ) on TrickySSC are completely free to attempt online. No payment or subscription is required.</p></details>
-        <details style="background:#fff;border:1px solid #E2E8F0;border-radius:11px;padding:0.85rem 1.1rem;margin-bottom:0.6rem;"><summary style="cursor:pointer;font-weight:700;font-size:0.92rem;color:#1A202C;">Can I attempt SSC CGL PYQ papers in Hindi and English?</summary><p style="color:#4A5568;margin:0.6rem 0 0;font-size:0.88rem;">Yes. Every SSC CGL previous year paper is available in both English and Hindi. Choose your preferred language before starting the test.</p></details>
-        <details style="background:#fff;border:1px solid #E2E8F0;border-radius:11px;padding:0.85rem 1.1rem;margin-bottom:0.6rem;"><summary style="cursor:pointer;font-weight:700;font-size:0.92rem;color:#1A202C;">Do the tests include answer keys and solutions?</summary><p style="color:#4A5568;margin:0.6rem 0 0;font-size:0.88rem;">Yes. Each paper comes with the correct answer key and step-by-step solutions, so you can review every question after submitting the test.</p></details>
-        <details style="background:#fff;border:1px solid #E2E8F0;border-radius:11px;padding:0.85rem 1.1rem;margin-bottom:0.6rem;"><summary style="cursor:pointer;font-weight:700;font-size:0.92rem;color:#1A202C;">Which SSC CGL years are available?</summary><p style="color:#4A5568;margin:0.6rem 0 0;font-size:0.88rem;">Shift-wise SSC CGL previous year papers across multiple years, including the most recent 2025 Tier 1 exam shifts, added regularly as new papers are processed.</p></details>
-        <details style="background:#fff;border:1px solid #E2E8F0;border-radius:11px;padding:0.85rem 1.1rem;margin-bottom:0.6rem;"><summary style="cursor:pointer;font-weight:700;font-size:0.92rem;color:#1A202C;">Is the interface similar to the real SSC CGL exam?</summary><p style="color:#4A5568;margin:0.6rem 0 0;font-size:0.88rem;">Yes. The test engine mirrors the real exam pattern with a sectional layout, question palette, timer, and negative marking for exam-like practice.</p></details>
-        <details style="background:#fff;border:1px solid #E2E8F0;border-radius:11px;padding:0.85rem 1.1rem;margin-bottom:0.6rem;"><summary style="cursor:pointer;font-weight:700;font-size:0.92rem;color:#1A202C;">Are SSC CGL PYQ tests free?</summary><p style="color:#4A5568;margin:0.6rem 0 0;font-size:0.88rem;">Yes. Every SSC CGL PYQ test on TrickySSC is completely free to attempt online — no payment, subscription, or hidden charges.</p></details>
-        <details style="background:#fff;border:1px solid #E2E8F0;border-radius:11px;padding:0.85rem 1.1rem;margin-bottom:0.6rem;"><summary style="cursor:pointer;font-weight:700;font-size:0.92rem;color:#1A202C;">Where can I attempt SSC CGL PYQ tests online?</summary><p style="color:#4A5568;margin:0.6rem 0 0;font-size:0.88rem;">You can attempt SSC CGL PYQ tests online at TrickySSC (trickyssc.com). Shift-wise Tier I and Tier II previous year papers are available in a real exam-like interface with timer and solutions.</p></details>
-        <details style="background:#fff;border:1px solid #E2E8F0;border-radius:11px;padding:0.85rem 1.1rem;margin-bottom:0.6rem;"><summary style="cursor:pointer;font-weight:700;font-size:0.92rem;color:#1A202C;">Which website provides free SSC CGL previous year paper tests?</summary><p style="color:#4A5568;margin:0.6rem 0 0;font-size:0.88rem;">TrickySSC provides free SSC CGL previous year paper tests online, shift-wise, in both English and Hindi, with answer keys and step-by-step solutions for every question.</p></details>
+        <h2 style="font-family:'Rajdhani',sans-serif;font-weight:800;font-size:1.25rem;color:#1A202C;margin:0 0 0.8rem;display:flex;align-items:center;gap:0.5rem;"><span style="display:inline-block;width:3px;height:18px;background:linear-gradient(180deg,#FF6B00,#FF8C38);border-radius:2px;"></span>Frequently Asked Questions</h2>{faq_items}
       </div>"""
 
     seo_content = f"""
@@ -921,23 +879,33 @@ def render(ordered):
     </div>"""
 
     desc = (
-        f"Attempt {total_papers}+ SSC CGL Tier 1 previous year question papers "
-        f"(PYQ) free online, shift-wise, in English & Hindi with answer keys and "
-        f"step-by-step solutions. Real exam-pattern interface, no payment needed."
+        f"Attempt SSC CGL {LY} Tier 1 question papers shift-wise and "
+        f"{total_papers}+ SSC CGL PYQs in all, free online in English & Hindi "
+        f"with answer keys and step-by-step solutions."
     )
+    page_title = (f"SSC CGL {LY} Tier 1 Question Papers & PYQ Tests Free "
+                  f"| All Shifts (Hindi & English)")
+    keywords = (
+        f"SSC CGL {LY} Tier 1 paper, SSC CGL {LY} question paper, "
+        f"SSC CGL {LY} Tier 1 question paper, SSC CGL {LY} answer key, "
+        f"SSC CGL PYQ, SSC CGL previous year paper, SSC CGL previous year paper online free, "
+        f"SSC CGL PYQ test, SSC CGL question paper with solution, SSC CGL Tier 1 PYQ, "
+        f"SSC CGL free online test"
+    )
+    newest_year = max(year_keys_all) if year_keys_all else LY
 
     page = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SSC CGL PYQ Tests Free | Previous Year Papers Online (Hindi &amp; English) | TrickySSC</title>
+<title>{html.escape(page_title)}</title>
 <meta name="description" content="{html.escape(desc)}">
-<meta name="keywords" content="SSC CGL PYQ, SSC CGL previous year paper, SSC CGL previous year paper online free, SSC CGL PYQ test, SSC CGL question paper with solution, SSC CGL 2025 paper, SSC CGL Tier 1 PYQ, SSC CGL free online test">
+<meta name="keywords" content="{html.escape(keywords)}">
 <meta name="robots" content="index, follow, max-image-preview:large">
 <link rel="canonical" href="{SITE}/{OUTPUT_FILE}">
 <meta property="og:type" content="website">
-<meta property="og:title" content="SSC CGL PYQ Tests Free | Previous Year Papers Online (Hindi &amp; English)">
+<meta property="og:title" content="{html.escape(page_title)}">
 <meta property="og:description" content="{html.escape(desc)}">
 <meta property="og:url" content="{SITE}/{OUTPUT_FILE}">
 <meta property="og:site_name" content="TrickySSC">
@@ -998,7 +966,13 @@ def render(ordered):
   .yr-head:focus:not(:focus-visible) {{ outline:none; }}
   .yr-head:focus-visible {{ outline:2px solid #FF6B00; outline-offset:2px; }}
   .yr-badge {{ width:46px; height:46px; border-radius:11px; display:inline-flex; align-items:center; justify-content:center; font-family:'Rajdhani',sans-serif; font-weight:800; font-size:0.92rem; color:#fff; letter-spacing:-0.3px; flex-shrink:0; }}
-  .yr-title {{ font-family:'Rajdhani',sans-serif; font-weight:800; font-size:1.32rem; color:#1A202C; line-height:1.15; }}
+  .yr-title {{ font-family:'Rajdhani',sans-serif; font-weight:800; font-size:1.32rem; color:#1A202C; line-height:1.15; min-width:0; }}
+  .yr-intro {{ margin:0; padding:0.75rem 1.1rem; background:#FFFAF5; border-bottom:1px solid #F1F5F9; font-size:0.84rem; line-height:1.5; color:#475569; }}
+  .yr-adding {{ display:flex; align-items:center; gap:0.6rem; margin:0; padding:0.6rem 1.1rem; background:linear-gradient(90deg,#ECFDF5,#F0FDF4); border-bottom:1px solid #D1FAE5; font-size:0.84rem; line-height:1.45; color:#065F46; }}
+  .yr-adding b {{ font-weight:700; color:#047857; }}
+  .yr-adding-dot {{ flex-shrink:0; width:9px; height:9px; border-radius:50%; background:#10B981; box-shadow:0 0 0 0 rgba(16,185,129,0.6); animation:yrAddPulse 1.6s ease-out infinite; }}
+  @keyframes yrAddPulse {{ 0%{{box-shadow:0 0 0 0 rgba(16,185,129,0.6);}} 70%{{box-shadow:0 0 0 8px rgba(16,185,129,0);}} 100%{{box-shadow:0 0 0 0 rgba(16,185,129,0);}} }}
+  @media (prefers-reduced-motion:reduce) {{ .yr-adding-dot {{ animation:none; }} }}
   .yr-count {{ background:#F1F5F9; border-radius:20px; padding:0.3rem 0.8rem; font-family:'Rajdhani',sans-serif; font-weight:700; font-size:0.88rem; color:#64748B; white-space:nowrap; flex-shrink:0; }}
   .yr-chev {{ margin-left:auto; flex-shrink:0; width:32px; height:32px; border-radius:50%; background:#F8FAFC; color:#94A3B8; display:inline-flex; align-items:center; justify-content:center; font-size:1.05rem; line-height:1; transition:transform .2s ease; }}
   details[open] > .yr-head .yr-chev {{ transform:rotate(180deg); background:#FFF1E6; color:#FF6B00; }}
@@ -1008,6 +982,8 @@ def render(ordered):
     .yr-head {{ gap:0.7rem; padding:0.8rem 0.85rem; }}
     .yr-badge {{ width:40px; height:40px; font-size:0.82rem; border-radius:10px; }}
     .yr-title {{ font-size:1.12rem; }}
+    .pyq-btns.has-view {{ flex-direction:column; align-items:stretch !important; flex-wrap:nowrap !important; }}
+    .pyq-btns.has-view > a, .pyq-btns.has-view > button {{ justify-content:center; }}
     .yr-count {{ font-size:0.8rem; padding:0.24rem 0.65rem; }}
     .yr-chev {{ width:28px; height:28px; }}
   }}
@@ -1035,7 +1011,7 @@ def render(ordered):
 <div style="background:#F0F2F7;min-height:100vh;padding-top:1.5rem;">
 
   <div style="max-width:960px;margin:0 auto;padding:0.2rem 1.25rem 0.2rem;">
-    <h1 style="font-family:'Rajdhani',sans-serif;font-weight:800;font-size:clamp(1.1rem,4.2vw,1.55rem);line-height:1.25;color:#1A202C;margin:0;">Free SSC CGL PYQ Tests (Previous Year Papers) – Online in Hindi &amp; English</h1>
+    <h1 style="font-family:'Rajdhani',sans-serif;font-weight:800;font-size:clamp(1.1rem,4.2vw,1.55rem);line-height:1.25;color:#1A202C;margin:0;">SSC CGL {LY} Tier 1 Papers &amp; Previous Year Question Papers (PYQ) – Free Online Tests</h1>
   </div>
 
   <div style="background:#fff;border-bottom:1px solid #E8ECF2;padding:0.55rem 1.5rem;margin-top:0.6rem;">
@@ -1060,7 +1036,7 @@ def render(ordered):
         <div style="width:50px;height:50px;background:linear-gradient(135deg,#FF6B00,#FFB347);border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:1.5rem;flex-shrink:0;box-shadow:0 4px 16px rgba(255,107,0,0.45);">📋</div>
         <div>
           <div style="font-family:'Rajdhani',sans-serif;font-size:1.6rem;font-weight:800;color:#fff;margin:0;line-height:1.15;letter-spacing:0.2px;">SSC CGL Previous Year Papers</div>
-          <p style="color:rgba(255,255,255,0.5);font-size:0.8rem;margin:0.25rem 0 0;letter-spacing:0.1px;">Tier I &amp; Tier II · 2010–2025 · {total_papers}+ Papers</p>
+          <p style="color:rgba(255,255,255,0.5);font-size:0.8rem;margin:0.25rem 0 0;letter-spacing:0.1px;">Tier I &amp; Tier II · {oldest_year}–{newest_year} · {total_papers}+ Papers</p>
         </div>
       </div>
       <div style="display:flex;gap:0.75rem;margin-top:1.1rem;position:relative;flex-wrap:wrap;">
@@ -1514,7 +1490,6 @@ def render_tier2_page(main_page, ordered):
       <a href="{T2_MOCK_URL}" style="display:inline-flex;align-items:center;gap:0.4rem;background:linear-gradient(120deg,#6D28D9,#DB2777);color:#fff;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.95rem;padding:0.65rem 1.1rem;border-radius:10px;">SSC CGL Tier 2 Mock Tests</a>
     </div>
 
-    {T2_PYQ_CARDS}
     <div style="margin-top:2rem;">
       {h2("Practise Tier II One Subject at a Time")}
       <p style="{P}">Each Tier II paper is also split by section, so you can sit only its Maths, Reasoning, English or General Awareness part, with that subject's Tier II sectional clock, when you want to work on one weak area.</p>
@@ -1729,6 +1704,18 @@ def main():
     # Keep the sitemap's "last updated" date for this page in sync, so Google
     # re-crawls it promptly after new papers are added.
     update_sitemap_lastmod()
+
+    # Any shift-wise question-paper page in pyq/ that is not in the sitemap yet
+    # is added once (existing entries are left untouched). Added 2026-11-06.
+    try:
+        with open(SITEMAP_FILE, encoding="utf-8") as f:
+            sm = f.read()
+        for _key, rel in sorted(find_shift_pages().items(), reverse=True):
+            if f"<loc>{SITE}/{rel}</loc>" not in sm:
+                update_sitemap_lastmod(rel, insert_after=OUTPUT_FILE,
+                                       changefreq="monthly", priority="0.8")
+    except FileNotFoundError:
+        pass
 
     # Dedicated Tier II page. Isolated: a failure here must never stop the
     # main PYQ page above from being published.
