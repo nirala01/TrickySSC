@@ -871,7 +871,9 @@ async function loadDashboard(user) {
           'ssc-chsl-mocks':      'SSC CHSL Mock Test Series 2026',     /* TSSC-CGLUPSELL-V1 */
           'p-ssc-chsl-mocks':    'SSC CHSL Mock Test Series 2026',
           'ssc-gd-mocks':        'SSC GD Constable Mock Test Series 2027',   /* TSSC-GD-MOCK-V1 */
-          'p-ssc-gd-mocks':      'SSC GD Constable Mock Test Series 2027'
+          'p-ssc-gd-mocks':      'SSC GD Constable Mock Test Series 2027',
+          'ssc-mts-mocks':       'SSC MTS Mock Test Series 2027',            /* TSSC-MTS-MOCK-V1 */
+          'p-ssc-mts-mocks':     'SSC MTS Mock Test Series 2027'
         };
         /* TSSC-PLANLIST-V1 — every series the student holds, each with its OWN end
            date. Someone who bought CGL and CHSL on different days sees two dates,
@@ -879,8 +881,8 @@ async function loadDashboard(user) {
            grant that has not expired). */
         const fmtD = t => new Date(t).toLocaleDateString('en-IN',
           { day:'numeric', month:'short', year:'numeric' });
-        const RANK = { 'ssc-cgl-mocks': 1, 'ssc-chsl-mocks': 2, 'ssc-gd-mocks': 3, 'ssc-cgl-dashboard': 4 };   /* TSSC-GD-MOCK-V1 */
-        const SHORT = { 'ssc-cgl-mocks': 'SSC CGL mocks', 'ssc-chsl-mocks': 'SSC CHSL mocks', 'ssc-gd-mocks': 'SSC GD mocks',
+        const RANK = { 'ssc-cgl-mocks': 1, 'ssc-chsl-mocks': 2, 'ssc-gd-mocks': 3, 'ssc-mts-mocks': 4, 'ssc-cgl-dashboard': 5 };   /* TSSC-GD-MOCK-V1 / TSSC-MTS-MOCK-V1 */
+        const SHORT = { 'ssc-cgl-mocks': 'SSC CGL mocks', 'ssc-chsl-mocks': 'SSC CHSL mocks', 'ssc-gd-mocks': 'SSC GD mocks', 'ssc-mts-mocks': 'SSC MTS mocks',
                         'ssc-cgl-dashboard': 'Dashboard Pro' };
         const nameOf = k => LABELS[k] || LABELS[String(k).replace(/^p-/, '')]
                          || String(k).replace(/^p-/, '').replace(/-/g, ' ');
@@ -1474,8 +1476,8 @@ const isFullPaper = a => !isChapter(a) && a.testKind!=='pyq-subject' && a.testKi
 const isMock = a => !isChapter(a) && !!(a.mockId || a.type==='mock' || (a.paperId||'').includes('_mock'));
 const isTier2 = a => a.tier==='tier2' || /tier2|tier-2|tier_2/i.test((a.paperId||'')+(a.mockId||''));
 const marksOf = a => { const h=a.marks!==undefined&&a.marks!==null&&a.marks!==''; return h?(parseFloat(a.marks)||0):Math.round(((parseFloat(a.percentage)||0)/100)*maxOf(a)); };
-const maxOf = a => a.maxMarks ? Number(a.maxMarks) : (parseInt(a.total)||100)*(isTier2(a)?3:2);
-const posneg = a => a.exam==='ssc-gd' ? {pos:2,neg:0.25} : isTier2(a) ? {pos:3,neg:1} : {pos:2,neg:0.5};   /* TSSC-GD-MOCK-V1: GD is +2/−0.25 */
+const maxOf = a => a.maxMarks ? Number(a.maxMarks) : (parseInt(a.total)||100)*((isTier2(a)||a.exam==='ssc-mts')?3:2);   /* TSSC-MTS-MOCK-V1: MTS is +3 a question */
+const posneg = a => a.exam==='ssc-mts' ? {pos:3,neg:1} : a.exam==='ssc-gd' ? {pos:2,neg:0.25} : isTier2(a) ? {pos:3,neg:1} : {pos:2,neg:0.5};   /* TSSC-GD-MOCK-V1: GD is +2/−0.25 */
 const tsOf = a => a.timestamp?.toDate ? a.timestamp.toDate().getTime() : (a.clientSubmittedAt ? new Date(a.clientSubmittedAt).getTime() : 0);
 /* TSSC-CWRANK-V1: chapter tests carry a board key cw_<chapterId stripped>_L<level>_T<test> (stored as lbKey from this update; derived for older attempts) */
 const cwLbKey = a => { const c=String(a.chapterId||a.chapter||'').replace(/[^a-zA-Z0-9]/g,''); return c ? 'cw_'+c+'_L'+(parseInt(a.level)||1)+'_T'+(parseInt(a.testNum)||1) : ''; };
@@ -1501,7 +1503,7 @@ function scopeOf(a){
 function scopeLabel(key, a){
   const p=key.split('|');
   if(p[0]==='ch') return ((a&&(a.chapterName||a.examName))||p[1]||'Chapter')+' · Chapter tests';
-  const ex=p[1]==='ssc-gd' ? 'SSC GD Constable CBE' : ((p[1]==='ssc-chsl'?'SSC CHSL':'SSC CGL')+' '+(p[2]==='tier2'?'Tier II':'Tier I'));   /* TSSC-GD-MOCK-V1 */
+  const ex=p[1]==='ssc-mts' ? 'SSC MTS' : p[1]==='ssc-gd' ? 'SSC GD Constable CBE' : ((p[1]==='ssc-chsl'?'SSC CHSL':'SSC CGL')+' '+(p[2]==='tier2'?'Tier II':'Tier I'));   /* TSSC-GD-MOCK-V1 */
   if(p[0]==='subj') return ex+' · '+(SUBJ_NAME[skey(p[3])]||p[3])+' subject tests';
   return ex+' · Full tests (PYQ + mocks)';
 }

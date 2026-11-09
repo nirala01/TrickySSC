@@ -1408,7 +1408,7 @@ let questions=[],answers={},markedForReview={},currentQ=0,timeLeft=3600,timerInt
 const _qtime={};let _qtLast=null,_qtAt=0;
 function _qtTick(){try{const now=Date.now();if(_qtLast!==null&&!paused&&_qtAt)_qtime[_qtLast]=(_qtime[_qtLast]||0)+(now-_qtAt);_qtAt=now;_qtLast=currentQ;}catch(_){}}
 
-const SECTION_DUR=15*60; // 15 minutes per section
+let SECTION_DUR=15*60; // 15 minutes per section (TSSC-MTS-MOCK-V1: MTS subject tests reset this below)
 /* ── TSSC-SUBJECT-MOCK-V1: subject-wise MOCK engine (Tier I) ──
    Same engine as mock-test.html; ?subject=quant|reasoning|gk|english keeps
    only that subject's band of the mock: one 15-minute section, +2 / −0.5.
@@ -1444,6 +1444,19 @@ if(IS_GD_MOCK){
   Object.keys(_B).forEach(function(k){ if(SUBJ_META[k]) SUBJ_META[k].band=_B[k]; if(_P[k]) SUBJ_PAGE[k]=_P[k]; });
   SUBJ_META.quant.label='Elementary Mathematics'; SUBJ_META.gk.label='General Knowledge & General Awareness'; SUBJ_META.english.label='English / Hindi';
 }
+/* TSSC-MTS-MOCK-V1 — SSC MTS mocks: Maths 1-20 · Reasoning 21-40 (Session I, no negative) ·
+   GA 41-65 · English 66-90 (Session II, −1). +3 each. Subject test times: Maths 25, Reasoning 20,
+   GA 20, English 25 minutes (the 45-minute sessions split by question count and weight). */
+const IS_MTS_MOCK=/^ssc-mts_/i.test(new URLSearchParams(location.search).get('mockId')||'');
+if(IS_MTS_MOCK){
+  const _B={quant:[1,20],reasoning:[21,40],gk:[41,65],english:[66,90]};
+  const _P={quant:'ssc-mts-maths-mock-test.html',reasoning:'ssc-mts-reasoning-mock-test.html',gk:'ssc-mts-gk-mock-test.html',english:'ssc-mts-english-mock-test.html'};
+  Object.keys(_B).forEach(function(k){ if(SUBJ_META[k]) SUBJ_META[k].band=_B[k]; if(_P[k]) SUBJ_PAGE[k]=_P[k]; });
+  SUBJ_META.quant.label='Numerical & Mathematical Ability'; SUBJ_META.quant.short='Quant';
+  SUBJ_META.reasoning.label='Reasoning Ability & Problem Solving'; SUBJ_META.english.label='English Language & Comprehension';
+  const _D={quant:25,reasoning:20,gk:20,english:25};
+  if(_D[subjectKey]) SECTION_DUR=_D[subjectKey]*60;
+}
 (function(){ const b=document.getElementById('subjBackBtn'); if(b&&SUBJ){ b.href='https://trickyssc.com/'+SUBJ_PAGE[subjectKey]; b.textContent='\u2190 More '+SUBJ.short+' mock tests'; b.style.display='inline-block'; } })();
 (function(){ try{ const sj=document.getElementById('instrSubjName'); if(sj&&SUBJ) sj.textContent=SUBJ.label; }catch(e){} })();
 let curTS=0, tsRemaining=[], tsSubmitted=[];
@@ -1454,6 +1467,9 @@ const SUBJECT_SHORT={
   'General Awareness':'Gen. Awareness',
   'English Language':'English',
   'Hindi Language':'Hindi',   /* TSSC-GD-PARTD-V1: Part D on the Hindi paper */
+  'Numerical and Mathematical Ability':'Quant',          /* TSSC-MTS-MOCK-V1: SSC MTS section names */
+  'Reasoning Ability and Problem Solving':'Reasoning',
+  'English Language and Comprehension':'English',
   'हिंदी भाषा':'Hindi',
   'English':'English',
   'reasoning':'Reasoning','quant':'Quant','gk':'Gen. Awareness','english':'English',
@@ -1579,16 +1595,27 @@ const TG_IS_CHSL     = /^ssc-chsl_/i.test(new URLSearchParams(location.search).g
 /* TSSC-GD-MOCK-V1 (2026-10-24) — the SSC GD Constable series runs on this engine too:
    mockId ssc-gd_tier1_mockN_<lang>, pass key ssc-gd-mocks, Mock 1-2 free, +2/−0.25. */
 const TG_IS_GD       = /^ssc-gd_/i.test(new URLSearchParams(location.search).get('mockId')||'');
-const TG_NEG         = TG_IS_GD ? 0.25 : 0.5;          /* marks lost per wrong answer */
-window.TSSC_MK       = [2, TG_NEG];                      /* read by the review panel below */
-const TG_MODULE      = TG_IS_GD ? 'ssc-gd-mocks' : (TG_IS_CHSL ? 'ssc-chsl-mocks' : 'ssc-cgl-mocks');
+/* TSSC-MTS-MOCK-V1 (2026-11-08) — the SSC MTS series runs on this engine too:
+   mockId ssc-mts_tier1_mockN_<lang>, pass key ssc-mts-mocks, Mock 1-2 free.
+   90 questions, +3 each, in two 45-minute sessions:
+     Session I  = Numerical & Mathematical Ability Q1-20 + Reasoning Q21-40 — NO negative marking
+     Session II = General Awareness Q41-65 + English Q66-90                  — −1 per wrong answer
+   The Hindi paper is Q1-65 in Hindi; Q66-90 are the same English questions. */
+const TG_IS_MTS      = /^ssc-mts_/i.test(new URLSearchParams(location.search).get('mockId')||'');
+const TG_POS         = TG_IS_MTS ? 3 : 2;               /* marks for a correct answer */
+const TG_NEG         = TG_IS_MTS ? 1 : (TG_IS_GD ? 0.25 : 0.5);   /* marks lost per wrong answer (MTS: Session II only) */
+window.TSSC_MK       = [TG_POS, TG_NEG];                 /* read by the review panel below */
+/* TSSC-MTS-MOCK-V1 — negative marks for one question: MTS Session I (Q1-40) carries none */
+function tgNegFor(q,i){ if(!TG_IS_MTS) return TG_NEG; const n=parseInt(q&&q.qNum,10)||(i+1); return n>40?1:0; }
+const TG_MODULE      = TG_IS_MTS ? 'ssc-mts-mocks' : (TG_IS_GD ? 'ssc-gd-mocks' : (TG_IS_CHSL ? 'ssc-chsl-mocks' : 'ssc-cgl-mocks'));
 /* CHSL FREE PERIOD (Sep 2026): every CHSL mock is free while Tier 1 is being released.
    To switch the CHSL pass on, set TG_CHSL_FREE_ALL to false (Mock 1-2 stay free). */
 const TG_CHSL_FREE_ALL = false;   /* TSSC-CHSLPAY-V1 2026-10-05: CHSL pass ON, Mock 1-2 free */
 const TG_GD_FREE_ALL   = false;   /* TSSC-GDFREE-V1 2026-11-04: Mock 1-2 free, Mock 3+ need the GD pass once TG_ENFORCE_FROM passes (every GD mock free till 7 Nov) */
-const TG_FREE_UP_TO  = TG_IS_GD ? (TG_GD_FREE_ALL ? 999 : 2) : (TG_IS_CHSL ? (TG_CHSL_FREE_ALL ? 999 : 2) : 4);
-const TG_ENFORCE_FROM= TG_IS_GD ? null : (TG_IS_CHSL ? null : '2026-08-25T00:00:00+05:30');   // null = enforce now; TSSC-GDPAY-NOW-V1: GD pass live from 7 Nov 2026
-const TG_BUY_URL     = (typeof SUBJ_PAGE!=='undefined' && SUBJ && SUBJ_PAGE[subjectKey]) ? SUBJ_PAGE[subjectKey] : (TG_IS_GD?'ssc-gd-mock-test.html':(TG_IS_CHSL?'ssc-chsl-mock-test.html':'ssc-cgl-mock-test.html'));   /* TSSC-SUBJECT-MOCK-V1 */
+const TG_MTS_FREE_ALL  = false;   /* TSSC-MTS-MOCK-V1: Mock 1-2 free, Mock 3+ need the SSC MTS pass. Set true to open every MTS mock. */
+const TG_FREE_UP_TO  = TG_IS_MTS ? (TG_MTS_FREE_ALL ? 999 : 2) : (TG_IS_GD ? (TG_GD_FREE_ALL ? 999 : 2) : (TG_IS_CHSL ? (TG_CHSL_FREE_ALL ? 999 : 2) : 4));
+const TG_ENFORCE_FROM= (TG_IS_GD || TG_IS_MTS) ? null : (TG_IS_CHSL ? null : '2026-08-25T00:00:00+05:30');   // null = enforce now; TSSC-GDPAY-NOW-V1: GD pass live from 7 Nov 2026
+const TG_BUY_URL     = (typeof SUBJ_PAGE!=='undefined' && SUBJ && SUBJ_PAGE[subjectKey]) ? SUBJ_PAGE[subjectKey] : (TG_IS_MTS?'ssc-mts-mock-test.html':TG_IS_GD?'ssc-gd-mock-test.html':(TG_IS_CHSL?'ssc-chsl-mock-test.html':'ssc-cgl-mock-test.html'));   /* TSSC-SUBJECT-MOCK-V1 */
 
 /* TSSC-GD-MOCK-V1 — the instruction sheet and result card are written for −0.5;
    repaint the three static strings when a GD mock is open. */
@@ -1597,6 +1624,21 @@ if (TG_IS_GD) { try {
   document.querySelectorAll('.instr-marking-note').forEach(el => { el.innerHTML = el.innerHTML.replace('Wrong &times; 0.5', 'Wrong &times; 0.25').replace('Wrong × 0.5', 'Wrong × 0.25'); });
   const w = document.querySelector('#statWrong + .stat-lbl span'); if (w) w.textContent = '−0.25 each';
   document.querySelectorAll('.instr-list li').forEach(li => { if (/4 sections/.test(li.textContent)) li.innerHTML = 'This test has <strong>4 parts</strong>, as in the real SSC GD paper: General Intelligence &amp; Reasoning, General Knowledge &amp; General Awareness, Elementary Mathematics, and English/Hindi. Click a part name in the top bar to navigate to it.'; });
+} catch (e) {} }
+
+/* TSSC-MTS-MOCK-V1 — repaint the instruction sheet and result card for an MTS subject test. */
+if (TG_IS_MTS) { try {
+  const _mtsNeg = /^(quant|reasoning)$/.test(subjectKey) ? 0 : 1;
+  const _mtsMin = Math.round(SECTION_DUR/60);
+  document.querySelectorAll('.instr-mark-row.correct .instr-mark-val').forEach(el => { el.innerHTML = '+3.00'; });
+  document.querySelectorAll('.instr-mark-row.wrong .instr-mark-val').forEach(el => { el.innerHTML = _mtsNeg ? '&minus;1.00' : '0'; });
+  if (!_mtsNeg) document.querySelectorAll('.instr-mark-row.wrong .instr-mark-desc').forEach(el => { el.innerHTML = 'No negative marking &mdash; this section is in Session I of the MTS paper'; });
+  document.querySelectorAll('.instr-marking-note').forEach(el => { el.innerHTML = el.innerHTML.replace(/Total marks = \(Correct &times; 2\) &minus; \(Wrong &times; 0\.5\)/, _mtsNeg ? 'Total marks = (Correct &times; 3) &minus; (Wrong &times; 1)' : 'Total marks = Correct &times; 3 (no negative marking)'); });
+  const w = document.querySelector('#statWrong + .stat-lbl span'); if (w) w.textContent = _mtsNeg ? '−1 each' : 'no negative';
+  document.querySelectorAll('.instr-list li').forEach(li => {
+    if (/15-minute/.test(li.innerHTML)) li.innerHTML = li.innerHTML.replace('15-minute', _mtsMin + '-minute');
+    else if (/4 sections/.test(li.textContent)) li.innerHTML = 'This subject-wise test is one section of an SSC MTS mock. The full paper has 4 sections in 2 sessions: Session I &mdash; Maths and Reasoning (no negative marking); Session II &mdash; General Awareness and English (&minus;1).';
+  });
 } catch (e) {} }
 
 /* TSSC-TESTGATE-V3 — ?paywall=off REMOVED.
@@ -1686,7 +1728,7 @@ function tgShowLocked(mockNum){
     +'margin-bottom:0.6rem;">Mock Test '+mockNum+' is part of Premium</div>'
     +'<div style="font-size:0.9rem;opacity:0.9;line-height:1.65;margin-bottom:1.5rem;">'
     +'Mock 1 to '+TG_FREE_UP_TO+' are free to attempt. Unlock the full series &mdash; '
-    +(TG_IS_GD?'all 60 SSC GD mocks and every subject-wise test &mdash; for &#8377;49 a year.':'all Tier I and Tier II mocks &mdash; with one payment.')+'</div>'
+    +(TG_IS_MTS?'all 60 SSC MTS mocks and every subject-wise test &mdash; with one payment.':TG_IS_GD?'all 60 SSC GD mocks and every subject-wise test &mdash; for &#8377;49 a year.':'all Tier I and Tier II mocks &mdash; with one payment.')+'</div>'
     +'<a href="'+TG_BUY_URL+'" style="display:inline-block;background:white;color:#FF6B00;'
     +'font-family:\'Rajdhani\',sans-serif;font-weight:700;font-size:1rem;padding:0.7rem 2rem;'
     +'border-radius:10px;text-decoration:none;margin-bottom:1rem;">Unlock all mocks &rarr;</a><br>'
@@ -2089,7 +2131,7 @@ async function loadTest(){
     if(_instrTitle) _instrTitle.textContent=document.getElementById('examTitle').textContent;
     if(_instrUser) _instrUser.textContent=currentUser?.displayName||'Student';
     const _instrMax=document.getElementById('instrMaxMarks');
-    if(_instrMax) _instrMax.textContent=questions.length*2;
+    if(_instrMax) _instrMax.textContent=questions.length*TG_POS;   /* TSSC-MTS-MOCK-V1 */
     if(REVIEW_ID){ await tsscEnterReview(); return; }   /* TSSC-REVIEW-V1 */
     document.getElementById('loader').style.display='none';
     document.getElementById('instrScreen').style.display='flex';
@@ -2272,7 +2314,7 @@ function renderQ(){_qtTick();
   const isHindiTest=(new URLSearchParams(window.location.search).get('lang')==='hi');
   // Offer the toggle on Q1-75 for Hindi tests even before the English map is
   // fetched — the map loads lazily on first tap.
-  const hasEnglish=isHindiTest && qNum>=1 && qNum<=(TG_IS_GD?60:75);   /* TSSC-GD-MOCK-V1 */
+  const hasEnglish=isHindiTest && qNum>=1 && qNum<=(TG_IS_MTS?65:(TG_IS_GD?60:75));   /* TSSC-GD-MOCK-V1 / TSSC-MTS-MOCK-V1 */
   if(enBtn){
     if(hasEnglish){
       enBtn.style.display='flex';
@@ -2861,17 +2903,23 @@ window.submitTest=async()=>{
   _qtTick();const _ansLog=[];  // TSSC-ANSWERS-V1
   questions.forEach((q,i)=>{
     const a=answers[i];
-    const subj=(SUBJECT_SHORT[(q.subject||q.section||'').trim()]||(q.subject||q.section||'General').trim()||'General');
+    const subj=TG_IS_MTS?(canonSubject(q.subject||q.section||'')||'General'):(SUBJECT_SHORT[(q.subject||q.section||'').trim()]||(q.subject||q.section||'General').trim()||'General');   /* TSSC-MTS-MOCK-V1: Hindi section names fold into the same 4 keys */
     if(!subjectStats[subj])subjectStats[subj]={correct:0,wrong:0,skip:0};
     if(!a){skip++;subjectStats[subj].skip++;}
     else if(a===q.correct){correct++;subjectStats[subj].correct++;}
     else{wrong++;subjectStats[subj].wrong++;}
     _ansLog.push({q:(parseInt(q.qNum,10)||(i+1)),s:subj,ch:String(q.chapter||q.concept||'').replace(/<[^>]*>/g,' ').replace(/&nbsp;|&amp;/g,m=>m==='&amp;'?'&':' ').replace(/\s+/g,' ').trim().slice(0,40),   /* chapter, else the solution's concept tag (HTML stripped) */d:String(q.difficulty||'').trim().toLowerCase(),a:a||'',c:String(q.correct||''),r:(!a?'k':(a===q.correct?'c':'w')),t:Math.round((_qtime[i]||0)/1000)});
   });
-  const marks=(correct*2-wrong*TG_NEG).toFixed(1);   /* TSSC-GD-MOCK-V1 */
-  const _subjMarks={};Object.keys(subjectStats).forEach(k=>{const _s=subjectStats[k];_subjMarks[k]=+(_s.correct*2-_s.wrong*TG_NEG).toFixed(1);});
+  /* TSSC-MTS-MOCK-V1 — marks counted question by question, so the MTS rule (no negative in
+     Session I) holds; CGL/CHSL/GD give exactly the old (correct*2 − wrong*neg). */
+  let _mk=0; const _subjMk={};
+  questions.forEach((q,i)=>{ const a=answers[i]; if(!a) return;
+    const subj=TG_IS_MTS?(canonSubject(q.subject||q.section||'')||'General'):(SUBJECT_SHORT[(q.subject||q.section||'').trim()]||(q.subject||q.section||'General').trim()||'General');
+    const v=(a===q.correct)?TG_POS:-tgNegFor(q,i); _mk+=v; _subjMk[subj]=(_subjMk[subj]||0)+v; });
+  const marks=_mk.toFixed(1);   /* TSSC-GD-MOCK-V1 */
+  const _subjMarks={};Object.keys(subjectStats).forEach(k=>{_subjMarks[k]=+((_subjMk[k]||0)).toFixed(1);});
   const _timeUsed=Math.round(Object.values(_qtime).reduce((x,y)=>x+y,0)/1000);  // TSSC-ANSWERS-V1
-  const maxMarks = questions.length * 2;
+  const maxMarks = questions.length * TG_POS;   /* TSSC-MTS-MOCK-V1 */
   const pct = parseFloat(((parseFloat(marks)/maxMarks)*100).toFixed(1));
   document.getElementById('testScreen').style.display='none';
   document.getElementById('resultScreen').style.display='block';
@@ -2935,7 +2983,7 @@ window.imgFail = function (el) {
     // Per-solution EN/HI toggle: available for Q1–75 when an English counterpart
     // solution exists in enQMap. Q76–100 are English-only, so no toggle there.
     const _qn=parseInt(q.qNum)||(i+1);
-    const _enDoc=(_qn>=1&&_qn<=(TG_IS_GD?60:75))?(enQMap&&enQMap[_qn]):null;   /* TSSC-GD-MOCK-V1 */
+    const _enDoc=(_qn>=1&&_qn<=(TG_IS_MTS?65:(TG_IS_GD?60:75)))?(enQMap&&enQMap[_qn]):null;   /* TSSC-GD-MOCK-V1 / TSSC-MTS-MOCK-V1 */
     const _hasEnSol=!!(_enDoc&&(_enDoc.explanation||'').trim());
     const _enExp=_hasEnSol?_enDoc.explanation:'';
     const _enTrk=(_enDoc&&_enDoc.trick)||'';
