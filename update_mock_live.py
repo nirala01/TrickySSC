@@ -16,6 +16,7 @@ TSSC-MOCKLIVE-V2 (2026-10-15): covers every series, not just CGL Tier I —
     SSC CHSL Tier I   -> ssc-chsl-mock-test.html
     SSC CHSL Tier II  -> ssc-chsl-tier-2-mock-test.html
     SSC GD   CBE      -> ssc-gd-mock-test.html + the four ssc-gd-*-mock-test.html subject pages (TSSC-GD-MOCK-V1)
+    SSC MTS  CBE      -> ssc-mts-mock-test.html + the four ssc-mts-*-mock-test.html subject pages (TSSC-MTS-MOCK-V1)
 CHSL Refresher cards (Mock 31-40, data-refresher) are never flipped here: they
 open by date through tssc-chsl-refresher.js, so the page script handles them.
 
@@ -46,6 +47,9 @@ SERIES = {
     # TSSC-GD-MOCK-V1: the GD series is a single CBE stored as tier1; its subject pages carry the same cards
     ("ssc-gd", "tier1"):   ["ssc-gd-mock-test.html", "ssc-gd-reasoning-mock-test.html", "ssc-gd-gk-mock-test.html",
                             "ssc-gd-maths-mock-test.html", "ssc-gd-english-mock-test.html"],
+    # TSSC-MTS-MOCK-V1: the MTS series is one paper (two sessions) stored as tier1, like GD
+    ("ssc-mts", "tier1"):  ["ssc-mts-mock-test.html", "ssc-mts-maths-mock-test.html", "ssc-mts-reasoning-mock-test.html",
+                            "ssc-mts-gk-mock-test.html", "ssc-mts-english-mock-test.html"],
 }
 # pages that show the "N Live" status bar for an exam's tiers
 BAR_PAGES = {
@@ -53,6 +57,8 @@ BAR_PAGES = {
     "ssc-chsl": ["ssc-chsl-mock-test.html", "ssc-chsl-tier-2-mock-test.html"],
     "ssc-gd":   ["ssc-gd-mock-test.html", "ssc-gd-reasoning-mock-test.html", "ssc-gd-gk-mock-test.html",
                  "ssc-gd-maths-mock-test.html", "ssc-gd-english-mock-test.html"],
+    "ssc-mts":  ["ssc-mts-mock-test.html", "ssc-mts-maths-mock-test.html", "ssc-mts-reasoning-mock-test.html",
+                 "ssc-mts-gk-mock-test.html", "ssc-mts-english-mock-test.html"],
 }
 ALL_PAGES = sorted({p for v in SERIES.values() for p in v})
 
@@ -71,7 +77,7 @@ PAID_TAG = ('\n  <div class="mc-lock mc-paid-tag">'
             '\n  <button class="mc-locktag" type="button" '
             'aria-label="Premium mock — unlock to attempt">'
             '<i>&#128274;</i>Unlock</button>')
-FREE_UPTO = {"ssc-cgl": 4, "ssc-chsl": 2, "ssc-gd": 2}   # TSSC-GDFREE-V1: GD Mock 1-2 free (all free till 7 Nov 2026, then the Rs 49 pass)
+FREE_UPTO = {"ssc-cgl": 4, "ssc-chsl": 2, "ssc-gd": 2, "ssc-mts": 2}   # TSSC-MTS-MOCK-V1: MTS Mock 1-2 free   # TSSC-GDFREE-V1: GD Mock 1-2 free (all free till 7 Nov 2026, then the Rs 49 pass)
 
 
 # ----------------------------------------------------------------- Firestore
