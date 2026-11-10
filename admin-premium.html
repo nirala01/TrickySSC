@@ -496,15 +496,15 @@ function render() {
      UTC+5:30), whatever time zone the admin's browser is in. A payment
      counts on the day it was paid (paidAt, falling back to createdAt).
      "People" = distinct buyers, so one student buying twice counts once. */
-  const IST = 330 * 60 * 1000, DAY = 86400000;
-  const todayStart = Math.floor((now + IST) / DAY) * DAY - IST;
-  const yestStart = todayStart - DAY;
+  const IST_MS = 330 * 60 * 1000, DAY_MS = 86400000;
+  const todayStart = Math.floor((now + IST_MS) / DAY_MS) * DAY_MS - IST_MS;
+  const yestStart = todayStart - DAY_MS;
   const dayStats = (from, to) => {
     const rs = live.filter(r => { const t = r.paidAt || r.createdAt; return t && t >= from && t < to; });
     const people = new Set(rs.map(r => r.uid || r.email || r.mobile || r.orderId));
     return { rev: rs.reduce((s, r) => s + r.amount, 0), people: people.size };
   };
-  const dToday = dayStats(todayStart, todayStart + DAY);
+  const dToday = dayStats(todayStart, todayStart + DAY_MS);
   const dYest = dayStats(yestStart, todayStart);
 
   $('stats').innerHTML = `
