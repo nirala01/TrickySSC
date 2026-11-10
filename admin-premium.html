@@ -492,9 +492,28 @@ function render() {
   const abandoned = ROWS.filter(r => r.status !== 'paid');
   const revenue = live.reduce((s, r) => s + r.amount, 0);
 
+  /* TSSC-DAYSTATS-V1 (2026-11-10) — today / yesterday on India time (IST,
+     UTC+5:30), whatever time zone the admin's browser is in. A payment
+     counts on the day it was paid (paidAt, falling back to createdAt).
+     "People" = distinct buyers, so one student buying twice counts once. */
+  const IST = 330 * 60 * 1000, DAY = 86400000;
+  const todayStart = Math.floor((now + IST) / DAY) * DAY - IST;
+  const yestStart = todayStart - DAY;
+  const dayStats = (from, to) => {
+    const rs = live.filter(r => { const t = r.paidAt || r.createdAt; return t && t >= from && t < to; });
+    const people = new Set(rs.map(r => r.uid || r.email || r.mobile || r.orderId));
+    return { rev: rs.reduce((s, r) => s + r.amount, 0), people: people.size };
+  };
+  const dToday = dayStats(todayStart, todayStart + DAY);
+  const dYest = dayStats(yestStart, todayStart);
+
   $('stats').innerHTML = `
     <div class="stat green"><div class="k">Paid (live)</div><div class="v">${live.length}</div></div>
     <div class="stat green"><div class="k">Revenue</div><div class="v">₹${revenue.toLocaleString('en-IN')}</div></div>
+    <div class="stat green"><div class="k">Revenue today</div><div class="v">₹${dToday.rev.toLocaleString('en-IN')}</div></div>
+    <div class="stat"><div class="k">Revenue yesterday</div><div class="v">₹${dYest.rev.toLocaleString('en-IN')}</div></div>
+    <div class="stat green"><div class="k">Paid today</div><div class="v">${dToday.people}</div></div>
+    <div class="stat"><div class="k">Paid yesterday</div><div class="v">${dYest.people}</div></div>
     <div class="stat"><div class="k">Active access</div><div class="v">${active.length}</div></div>
     <div class="stat orange"><div class="k">Started, not paid</div><div class="v">${abandoned.length}</div></div>
     <div class="stat orange"><div class="k">Students who never paid</div><div class="v">${unpaidPeople.size}</div></div>
