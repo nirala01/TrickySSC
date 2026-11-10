@@ -3120,11 +3120,30 @@ const _db   = getFirestore(_app);
 
 let OWNED = false;
 
+/* TSSC-MTS-PREPASS-V1 (2026-11-09) — no payment popup until the SSC MTS pass is
+   LIVE in admin-pricing. While no live product in config/pricing grants
+   'ssc-mts-mocks', every MTS mock and subject test is open and nothing on this
+   page leads to checkout. Tick "Live" on the MTS product in admin-pricing and
+   the paywall switches on by itself (within ~10 minutes, the pricing cache) —
+   no file edit needed. ?paywall=on still forces it on in your own browser. */
+let MTS_PASS_LIVE = false;
+(function () {
+  try {
+    const P = window.TSSC_PRICING;
+    if (!P) return;
+    P.load().then(cat => {
+      MTS_PASS_LIVE = !cat.fallback && P.productsGranting(cat, CFG.module).length > 0;
+      applyEntitlement();
+    }).catch(() => {});
+  } catch (e) {}
+})();
+
 const enforcing = () => {
   let o = null;
   try { o = sessionStorage.getItem('tssc_paywall_override'); } catch (e) {}
   if (o === 'on')  return true;   // testing: paywall live for THIS browser only
   if (o === 'off') return false;
+  if (!MTS_PASS_LIVE) return false;   /* TSSC-MTS-PREPASS-V1 */
   return !CFG.enforceFrom || Date.now() >= new Date(CFG.enforceFrom).getTime();
 };
 
@@ -3297,6 +3316,7 @@ window.tsscSoonGuard = tsscSoonGuard;
 
 async function openBuy(card) {
   if (!pop) return;
+  if (!enforcing()) return;                        /* TSSC-MTS-PREPASS-V1: MTS pass not live yet — no checkout */
   if (tsscSoonGuard(card)) return;                 /* TSSC-GD-SOON-V1 */
 
   /* TSSC-LOGINFIRST-V1 — a signed-out visitor gets the LOGIN popup first, not

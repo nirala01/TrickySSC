@@ -1971,11 +1971,38 @@ function tgNeedsCheck(){
   return !!n && n>TG_FREE_UP_TO && tgEnforcing();
 }
 
+/* TSSC-MTS-PREPASS-V1 (2026-11-09) — SSC MTS stays fully open until the MTS pass
+   is LIVE in admin-pricing: while no live product in config/pricing grants
+   'ssc-mts-mocks', every MTS mock opens with no lock screen. The moment the
+   product is ticked Live, the normal Mock 1-2 free / pass gate applies — no file
+   edit needed. If the pricing read fails, the normal gate runs (never free by accident). */
+async function tgMtsPassLive(){
+  let cat=null;
+  try{
+    const o=JSON.parse(sessionStorage.getItem('tssc_pricing_v1')||'null');
+    if(o&&o.data&&Date.now()-o.ts<10*60*1000) cat=o.data;
+  }catch(e){}
+  if(!cat){
+    try{
+      const r=await fetch('https://firestore.googleapis.com/v1/projects/trickyssc-17bb3/databases/(default)/documents/config/pricing?key=AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA');
+      if(!r.ok) return true;
+      const j=await r.json();
+      const dec=v=>v==null?null:('stringValue' in v)?v.stringValue:('booleanValue' in v)?v.booleanValue:('integerValue' in v)?+v.integerValue:('doubleValue' in v)?+v.doubleValue:('arrayValue' in v)?(v.arrayValue.values||[]).map(dec):('mapValue' in v)?Object.fromEntries(Object.entries(v.mapValue.fields||{}).map(([k,x])=>[k,dec(x)])):null;
+      cat=Object.fromEntries(Object.entries(j.fields||{}).map(([k,x])=>[k,dec(x)]));
+    }catch(e){ return true; }   // could not read pricing: keep the normal gate
+  }
+  return (cat.products||[]).some(p=>p&&p.live!==false&&!/^p-upgrade-/.test(String(p.id||''))&&(p.grants||[]).indexOf('ssc-mts-mocks')!==-1);
+}
+
 /* true = let them in, false = locked screen shown, do not start the test */
 async function tgAllowed(uid){
   const n=tgMockNumber();
   if(!n||n<=TG_FREE_UP_TO) return true;      // PYQ paper, or a free mock
   if(!tgEnforcing()) return true;            // before the paid launch date
+  if(TG_IS_MTS){                             /* TSSC-MTS-PREPASS-V1 */
+    let ov=null; try{ ov=sessionStorage.getItem('tssc_paywall_override'); }catch(e){}
+    if(ov!=='on' && !(await tgMtsPassLive())) return true;
+  }
   if(await tgOwns(uid)) return true;
   /* A paid user on a flaky connection must never see a payment screen. */
   if(tgReadFailed) tgShowCheckFailed(); else tgShowLocked(n);
