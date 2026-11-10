@@ -468,7 +468,9 @@ const WHY_WHERE = { order: 'order call failed', razorpay: 'payment failed in Raz
                     warning: 'backed out at the notice', prefill: 'profile read stalled' };
 function whyUnpaid(r, paidUids) {
   if (!r.uid) return '';
-  if (paidUids.has(r.uid)) return '<div class="em" style="color:#15803D;font-weight:700">paid on another order (retry)</div>';
+  /* TSSC-WHYUNPAID-V2 (2026-11-10) — "retry" only when the SAME course was paid
+     on another order; a paid CHSL order must not mark an unpaid GD add-on as paid. */
+  if (paidUids.has(r.uid + '|' + r.courseId)) return '<div class="em" style="color:#15803D;font-weight:700">paid on another order (retry)</div>';
   const i = INTENTS.find(x => x.uid === r.uid);
   if (!i) return '';
   const what = i.stage === 'failed'
@@ -485,6 +487,7 @@ function render() {
   const now = Date.now();
   const paidUids = new Set(paid.map(r => r.uid).filter(Boolean));   /* TSSC-WHYUNPAID-V1 */
   const unpaidPeople = new Set(ROWS.filter(r => r.status !== 'paid' && r.uid && !paidUids.has(r.uid)).map(r => r.uid));
+  const paidUidCourse = new Set(paid.filter(r => r.uid).map(r => r.uid + '|' + r.courseId));   /* TSSC-WHYUNPAID-V2 */
   const active = paid.filter(r => r.expiresAt && r.expiresAt > now);
   const abandoned = ROWS.filter(r => r.status !== 'paid');
   const revenue = live.reduce((s, r) => s + r.amount, 0);
@@ -537,7 +540,7 @@ function render() {
       <td data-l="Status">
         <span class="pill p-${r.status === 'paid' ? 'paid' : 'created'}">${esc(r.status)}</span>
         ${r.mode === 'test' ? '<span class="pill p-test">test mode</span>' : ''}   <!-- TSSC-ADMINKEYS-V1: "live" was Razorpay mode, not access -->
-        ${r.status !== 'paid' ? whyUnpaid(r, paidUids) : ''}   <!-- TSSC-WHYUNPAID-V1 -->
+        ${r.status !== 'paid' ? whyUnpaid(r, paidUidCourse) : ''}   <!-- TSSC-WHYUNPAID-V1 -->
       </td>
       <td data-l="Access until">${expPill}</td>
       <td data-l="Purchased">${fmt(r.paidAt || r.createdAt)}</td>
