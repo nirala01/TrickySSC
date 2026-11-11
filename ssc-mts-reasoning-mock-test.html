@@ -650,6 +650,13 @@ box-shadow:0 2px 8px rgba(5,150,105,.32),inset 0 1px 0 rgba(255,255,255,.35)!imp
 .mock-card.tssc-owned .mc-paid-tag i{animation:none!important;}
 /* while entitlement is still being read, don't flash a wrong state */
 body:not(.tssc-ent-resolved) .mc-locktag{opacity:.55;pointer-events:none;}
+/* TSSC-ENTFAST-V1 (2026-11-11) — a signed-in student whose pass is still being
+   read sees NO lock (and no sell button) until the answer is in. A paid student
+   therefore never sees "locked" first. */
+body.tssc-ent-pending .mock-card.tssc-premium:not(.tssc-owned) .mc-lockover{display:none!important;}
+body.tssc-ent-pending.tssc-enforce .mock-card.tssc-premium:not(.tssc-owned) .mc-locktag{display:none!important;}
+body.tssc-ent-pending.tssc-enforce .mock-card.tssc-premium:not(.tssc-owned){cursor:default;}
+body.tssc-ent-pending.tssc-enforce .pn-buy{display:none!important;}
 /* TSSC-KEEPOPEN-V1 — last screen before Razorpay. While the webhook is the
    backstop, the browser round-trip is what actually grants access, so it is
    worth one deliberate beat to stop people closing the tab. */
@@ -3119,6 +3126,12 @@ const _auth = getAuth(_app);
 const _db   = getFirestore(_app);
 
 let OWNED = false;
+/* TSSC-ENTFAST-V1 — PENDING: signed in on this device before, pass not read yet.
+   ENT_READY resolves the moment the real answer is known. */
+let PENDING = false;
+let _entReady = null;
+const ENT_READY = new Promise(r => { _entReady = r; });
+function entSettle() { PENDING = false; try { _entReady(); } catch (e) {} }
 
 /* TSSC-MTS-PREPASS-V1 (2026-11-09) — no payment popup until the SSC MTS pass is
    LIVE in admin-pricing. While no live product in config/pricing grants
@@ -3187,7 +3200,8 @@ function classify() {
 
 /* ---- paint ownership onto the cards ---- */
 function applyEntitlement() {
-  document.body.classList.add('tssc-ent-resolved');
+  document.body.classList.toggle('tssc-ent-pending', PENDING);        /* TSSC-ENTFAST-V1 */
+  if (!PENDING) document.body.classList.add('tssc-ent-resolved');
   document.body.classList.toggle('tssc-enforce', enforcing());
   document.body.classList.toggle('tssc-owned-user', OWNED);
   document.querySelectorAll('.mock-card.tssc-premium')
@@ -3202,6 +3216,7 @@ function isGated(card) {
   return !!card
       && card.classList.contains('tssc-premium')
       && !card.classList.contains('tssc-owned')
+      && !PENDING                                  /* TSSC-ENTFAST-V1 */
       && enforcing();
 }
 window.tsscIsGated = isGated;
@@ -3330,6 +3345,7 @@ async function openBuy(card) {
     if (!u) return;                              // dismissed — nothing to sell
     try { sessionStorage.removeItem(ENT_KEY(u.uid)); } catch (e) {}
     OWNED = await loadEntitlement(u.uid);
+    entSettle();                                  /* TSSC-ENTFAST-V1 */
     applyEntitlement();
     try { tsscPaintLockOverlays(); } catch (e) {}
     if (OWNED) {
@@ -3937,8 +3953,19 @@ window.tsscOnPaymentSuccess = async function (msg) {
   recordIntent('paid');                         /* TSSC-INTENT-V1 */
   const user = _auth.currentUser;
   if (user) {
-    try { sessionStorage.removeItem(ENT_KEY(user.uid)); } catch (e) {}
-    OWNED = await loadEntitlement(user.uid);
+    /* TSSC-ENTFAST-V2 — the payment is confirmed, so do not accept one failed or
+       early read as "no pass": ask up to three times. Also drops the rank-card
+       cache so the result page does not keep the analysis locked. */
+    for (let i = 0; i < 3; i++) {
+      try {
+        sessionStorage.removeItem(ENT_KEY(user.uid));
+        sessionStorage.removeItem('tssc_entd_' + user.uid);
+      } catch (e) {}
+      OWNED = await loadEntitlement(user.uid);
+      if (OWNED || i === 2) break;
+      await new Promise(r => setTimeout(r, 1200));
+    }
+    entSettle();
   }
   applyEntitlement();
   showUnlocked(msg);
@@ -3999,6 +4026,12 @@ const _origChooser = window.openLangChooser;
 if (typeof _origChooser === 'function') {
   window.openLangChooser = function (btn) {
     const card = btn?.closest?.('.mock-card');
+    /* TSSC-ENTFAST-V1 — pass still being read: wait for it, then open the test
+       (owner) or the buy popup (not an owner). Never guess. */
+    if (PENDING && card && card.classList.contains('tssc-premium')) {
+      ENT_READY.then(() => { try { window.openLangChooser(btn); } catch (e) {} });
+      return;
+    }
     if (isGated(card)) {
       openBuy(card);
       return;
@@ -4197,6 +4230,11 @@ function readCache(uid) {
        every series, and each page reads its own. */
     const o = JSON.parse(sessionStorage.getItem(ENT_KEY(uid)) || 'null');
     if (o && o.m && Date.now() - (o.ts || 0) < CFG.cacheTtlMs && typeof o.m[CFG.module] === 'boolean') {
+      /* TSSC-ENTFAST-V2 — a cached "no pass" is believed for 60 s only (a cached
+         "has pass" keeps the full 10 min). A student whose payment lands late, or
+         who paid in another tab, is therefore unlocked on the next page load
+         instead of staying locked for up to 10 minutes. */
+      if (o.m[CFG.module] === false && Date.now() - (o.ts || 0) > 60 * 1000) return null;
       window.tsscOwnsOther = !!o.m[OTHER_KEY];
       return o.m[CFG.module];
     }
@@ -4208,6 +4246,52 @@ const OTHER_KEY = 'ssc-cgl-mocks';   /* tsscOwnsOther = CGL (kept from the GD pa
 function writeCache(uid, m) {
   try { sessionStorage.setItem(ENT_KEY(uid), JSON.stringify({ ts: Date.now(), m })); }
   catch (e) {}
+}
+
+/* TSSC-ENTFAST-V1 — the last VERIFIED answer, kept on this device (localStorage,
+   so it survives closing the tab). Used only to choose what to paint while the
+   real read is in flight; the server is still asked on every visit as before.
+     m[module] = owned yes/no      x[module] = expiry in ms (0 = no expiry)  */
+const HINT_KEY = 'tssc_ent_hint_v1';
+const HINT_MAX_AGE = 30 * 24 * 60 * 60 * 1000;
+function grantExpMs(g) {
+  if (!grantActive(g)) return -1;
+  const exp = g.expiresAt;
+  if (!exp) return 0;
+  const ms = exp.toDate ? exp.toDate().getTime()
+           : (exp.seconds ? exp.seconds * 1000 : Date.parse(exp));
+  return isFinite(ms) ? ms : 0;
+}
+function writeHint(uid, m, d) {
+  try {
+    const mods = (d && d.modules) || {}, a = grantExpMs(d && d.allAccess), x = {};
+    Object.keys(m).forEach(k => {
+      const b = grantExpMs(mods[k]);
+      x[k] = (a === 0 || b === 0) ? 0 : Math.max(a, b, 0);
+    });
+    localStorage.setItem(HINT_KEY, JSON.stringify({ uid, ts: Date.now(), m, x }));
+  } catch (e) {}
+}
+function clearHint() { try { localStorage.removeItem(HINT_KEY); } catch (e) {} }
+function savedUser() {            /* null = nobody has signed in on this device */
+  try { const u = JSON.parse(localStorage.getItem('tssc_user') || 'null'); return u || null; }
+  catch (e) { return null; }
+}
+/* true / false = remembered answer for THIS page's series; null = nothing usable */
+function readHint(uid) {
+  try {
+    const h = JSON.parse(localStorage.getItem(HINT_KEY) || 'null');
+    if (!h || !h.m || typeof h.m[CFG.module] !== 'boolean') return null;
+    if (Date.now() - (h.ts || 0) > HINT_MAX_AGE) return null;
+    if (uid) { if (h.uid !== uid) return null; }
+    else {
+      const u = savedUser();                    // logged out since -> do not trust it
+      if (!u || (u.uid && u.uid !== h.uid)) return null;
+    }
+    if (!h.m[CFG.module]) return false;
+    const x = h.x ? h.x[CFG.module] : 0;
+    return !(x > 0) || x > Date.now();          // pass ran out -> locked at once
+  } catch (e) { return null; }
 }
 
 function grantActive(g) {
@@ -4238,21 +4322,37 @@ async function loadEntitlement(uid) {
       m[CFG.module] = owned;
       window.tsscOwnsOther = !!m[OTHER_KEY];
       writeCache(uid, m);
+      writeHint(uid, m, d);                        /* TSSC-ENTFAST-V1 */
     }
     } catch (e2) {}
     return owned;
   } catch (e) {
     console.warn('entitlement read failed:', e.message);
-    return false;   // fail closed
+    /* TSSC-ENTFAST-V1 — the read failed (weak network). A pass verified earlier on
+       this device and not yet expired stays open; everyone else fails closed. */
+    return readHint(uid) === true;
   }
 }
 
 classify();
-applyEntitlement();          // signed-out default: locked
+/* TSSC-ENTFAST-V1 — first paint, before the login has even been restored:
+     remembered pass          -> unlocked at once (verified in the background)
+     remembered "no pass"     -> locked at once
+     signed in before, no memory -> no lock yet (PENDING), decided when read
+     never signed in here     -> locked, exactly as before */
+{
+  const h = readHint(null);
+  if (h === true) OWNED = true;
+  else if (h === null && savedUser()) PENDING = true;
+}
+applyEntitlement();
+/* never leave the page undecided: if the login has not answered in 8 s, lock */
+setTimeout(() => { if (PENDING) { entSettle(); applyEntitlement(); } }, 8000);
 
 onAuthStateChanged(_auth, async user => {
-  if (!user) { OWNED = false; applyEntitlement(); return; }
+  if (!user) { OWNED = false; entSettle(); clearHint(); applyEntitlement(); return; }
   OWNED = await loadEntitlement(user.uid);
+  entSettle();                                    /* TSSC-ENTFAST-V1 */
   applyEntitlement();
   resumePending();
   /* TSSC-UPGRADE-V2 — arriving from the upgrade popup (?upgrade=1): open the
