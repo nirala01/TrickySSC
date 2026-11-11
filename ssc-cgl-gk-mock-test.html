@@ -4423,8 +4423,19 @@ window.tsscOnPaymentSuccess = async function (msg) {
   recordIntent('paid');                         /* TSSC-INTENT-V1 */
   const user = _auth.currentUser;
   if (user) {
-    try { sessionStorage.removeItem(ENT_KEY(user.uid)); } catch (e) {}
-    OWNED = await loadEntitlement(user.uid);
+    /* TSSC-ENTFAST-V2 — the payment is confirmed, so do not accept one failed or
+       early read as "no pass": ask up to three times. Also drops the rank-card
+       cache so the result page does not keep the analysis locked. */
+    for (let i = 0; i < 3; i++) {
+      try {
+        sessionStorage.removeItem(ENT_KEY(user.uid));
+        sessionStorage.removeItem('tssc_entd_' + user.uid);
+      } catch (e) {}
+      OWNED = await loadEntitlement(user.uid);
+      if (OWNED || i === 2) break;
+      await new Promise(r => setTimeout(r, 1200));
+    }
+    entSettle();
   }
   applyEntitlement();
   showUnlocked(msg);
@@ -4682,6 +4693,11 @@ function readCache(uid) {
        every series, and each page reads its own. */
     const o = JSON.parse(sessionStorage.getItem(ENT_KEY(uid)) || 'null');
     if (o && o.m && Date.now() - (o.ts || 0) < CFG.cacheTtlMs && typeof o.m[CFG.module] === 'boolean') {
+      /* TSSC-ENTFAST-V2 — a cached "no pass" is believed for 60 s only (a cached
+         "has pass" keeps the full 10 min). A student whose payment lands late, or
+         who paid in another tab, is therefore unlocked on the next page load
+         instead of staying locked for up to 10 minutes. */
+      if (o.m[CFG.module] === false && Date.now() - (o.ts || 0) > 60 * 1000) return null;
       window.tsscOwnsOther = !!o.m[OTHER_KEY];
       return o.m[CFG.module];
     }
