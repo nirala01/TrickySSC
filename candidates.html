@@ -99,6 +99,31 @@ body{font-family:'Noto Sans',sans-serif;background:var(--bg);color:var(--text);m
 }
 .stat-card.clickable:hover::after{opacity:1;color:var(--orange);}
 
+/* TSSC-FUNNEL-V1 — sales funnel panel */
+.funnel-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1.25rem 1.5rem;margin-bottom:2rem;}
+.fn-head{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:0.4rem;margin-bottom:1rem;}
+.fn-note{font-size:0.72rem;color:var(--muted);font-family:'JetBrains Mono',monospace;}
+.fn-row{display:grid;grid-template-columns:minmax(150px,220px) 1fr 120px;gap:0.75rem;align-items:center;margin-bottom:0.7rem;}
+.fn-label{font-size:0.85rem;color:var(--text);}
+.fn-label small{display:block;font-size:0.68rem;color:var(--muted);margin-top:0.1rem;}
+.fn-track{background:var(--surface2);border-radius:6px;height:22px;overflow:hidden;}
+.fn-bar{height:100%;border-radius:6px;background:var(--blue);min-width:4px;}
+.fn-num{font-family:'Rajdhani',sans-serif;font-size:1.35rem;font-weight:700;text-align:right;line-height:1;}
+.fn-num small{display:block;font-family:'JetBrains Mono',monospace;font-size:0.66rem;font-weight:400;color:var(--muted);margin-top:0.2rem;}
+.fn-num small.drop{color:var(--red);}
+.fn-sum{font-size:0.8rem;color:var(--muted);margin-top:0.9rem;padding-top:0.9rem;border-top:1px solid var(--border);}
+.fn-sum b{color:var(--text);}
+.fn-stuck{margin-top:0.6rem;}
+.fn-stuck-row{display:grid;grid-template-columns:1fr auto;gap:0.5rem;padding:0.55rem 0;border-bottom:1px solid var(--border);font-size:0.8rem;}
+.fn-stuck-row:last-child{border-bottom:none;}
+.fn-stuck-row .who{color:var(--text);font-weight:600;}
+.fn-stuck-row .em{color:var(--muted);font-size:0.72rem;margin-top:0.15rem;}
+.fn-stuck-row .why{color:var(--red);font-size:0.72rem;text-align:right;}
+@media (max-width:640px){
+  .fn-row{grid-template-columns:1fr auto;grid-template-areas:"label num" "track track";row-gap:0.35rem;}
+  .fn-label{grid-area:label;} .fn-num{grid-area:num;} .fn-track{grid-area:track;height:14px;}
+}
+
 /* DRILL-DOWN */
 .modal.wide{max-width:860px;}
 .drill-bar{display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;margin-bottom:1rem;}
@@ -356,6 +381,15 @@ body{font-family:'Noto Sans',sans-serif;background:var(--bg);color:var(--text);m
       <div class="stat-val" id="newUsersYesterday">—</div>
       <div class="stat-sub" id="newUsersYesterdaySub">—</div>
     </div>
+  </div>
+
+  <!-- TSSC-FUNNEL-V1 (2026-11-12): sales funnel for the report day. Read-only. -->
+  <div class="funnel-card" id="funnelCard">
+    <div class="fn-head">
+      <span class="stat-label" style="margin:0;">💰 Sales Funnel Today</span>
+      <span class="fn-note">7 AM–7 AM IST · your own test accounts left out</span>
+    </div>
+    <div id="funnelBody"><div class="fn-note">Loading…</div></div>
   </div>
 
   <!-- Controls (revealed once the candidate list is actually loaded) -->
@@ -929,11 +963,150 @@ window.loadStats = async () => {
     stamp.textContent = 'Updated: '+new Date().toLocaleTimeString('en-IN',{timeZone:IST_TZ})+' IST · report day 7 AM–7 AM IST'
       + (futureJoins ? ' · ⚠ '+futureJoins+' future-dated join'+(futureJoins===1?'':'s') : '');
 
+    // TSSC-FUNNEL-V1 — not awaited: a funnel failure must never break the cards above.
+    loadFunnel({ reportStart, reportEnd, newUsers: newUsersToday, testTakers: testTakersToday, freeMock: freeMockUsers });
+
     await paintOverallAvg();
   } catch(e) {
     stamp.textContent = '⚠ Stats error: ' + e.message;
   }
 };
+
+// ── TSSC-FUNNEL-V1 (2026-11-12): sales funnel for the report day ───────────
+// READ-ONLY. Reads two collections admin-premium.html already reads as admin:
+//   payments/{orderId}        written by the payment Worker (createdAt / paidAt
+//                             are ISO strings, status 'created' | 'paid')
+//   checkoutIntents/{uid}     written by the buy popup (stage, failedAt, lastAt)
+// It writes nothing and no student page changes, so checkout and paid access
+// are untouched. Only today's docs are fetched (date-filtered queries), and any
+// error is shown inside this panel alone.
+const FUNNEL_TEST_EMAILS  = ['nirala01@gmail.com','examhall1987@gmail.com'];
+const FUNNEL_TEST_MOBILES = ['9506227827','9506227820','9999999990'];
+const FUNNEL_WHERE = { order:'order call failed', razorpay:'payment failed in Razorpay',
+  dismissed:'closed the Razorpay window', form:'form not accepted',
+  warning:'backed out at the notice', prefill:'profile read stalled' };
+const FUNNEL_STAGE = { opened:'opened popup only', details:'filled details, did not pay',
+  razorpay:'Razorpay opened, not completed', failed:'failed' };
+
+async function loadFunnel(ctx){
+  const box = document.getElementById('funnelBody');
+  if(!box) return;
+  try{
+    const me = auth.currentUser ? auth.currentUser.uid : '';
+    const last10 = s => String(s||'').replace(/\D/g,'').slice(-10);
+    const isTest = (email, mobile, uid) =>
+      (uid && uid === me) ||
+      FUNNEL_TEST_EMAILS.includes(String(email||'').trim().toLowerCase()) ||
+      (last10(mobile) && FUNNEL_TEST_MOBILES.includes(last10(mobile)));
+    const startIso = ctx.reportStart.toISOString(), endIso = ctx.reportEnd.toISOString();
+    const inWin = iso => typeof iso === 'string' && iso >= startIso && iso < endIso;
+
+    const [createdSnap, paidSnap, intentSnap] = await Promise.all([
+      getDocs(query(collection(db,'payments'),        where('createdAt','>=', startIso))),
+      getDocs(query(collection(db,'payments'),        where('paidAt','>=', startIso))),
+      getDocs(query(collection(db,'checkoutIntents'), where('lastAt','>=', ctx.reportStart)))
+    ]);
+
+    const testUids = new Set(me ? [me] : []);
+    const started = new Map();   // uid -> latest order created today
+    createdSnap.forEach(d => {
+      const p = d.data() || {};
+      if(p.mode === 'test' || !inWin(p.createdAt)) return;
+      const key = p.uid || d.id;
+      if(isTest(p.email, p.mobile, p.uid)){ if(p.uid) testUids.add(p.uid); return; }
+      const prev = started.get(key);
+      if(!prev || String(p.createdAt) > String(prev.createdAt)) started.set(key, {id:d.id, ...p});
+    });
+    const paid = new Map();      // uid -> paid order(s) today
+    let revenue = 0, paidOrders = 0;
+    paidSnap.forEach(d => {
+      const p = d.data() || {};
+      if(p.status !== 'paid' || p.mode === 'test' || !inWin(p.paidAt)) return;
+      if(isTest(p.email, p.mobile, p.uid)){ if(p.uid) testUids.add(p.uid); return; }
+      paid.set(p.uid || d.id, p);
+      revenue += Number(p.amount) || 0; paidOrders++;
+    });
+    const intents = new Map();   // uid -> intent touched today
+    intentSnap.forEach(d => {
+      const v = d.data() || {};
+      const t = v.lastAt && v.lastAt.toDate ? v.lastAt.toDate() : null;
+      if(!t || t >= ctx.reportEnd) return;
+      if(testUids.has(d.id) || isTest(v.email, v.mobile, d.id)) return;
+      intents.set(d.id, v);
+    });
+
+    // Each step includes everyone who got further, so the funnel never widens.
+    const paidSet    = new Set(paid.keys());
+    const startedSet = new Set([...started.keys(), ...paidSet]);
+    const openedSet  = new Set([...intents.keys(), ...startedSet]);
+    const drop = s => { const n = new Set(s); testUids.forEach(u => n.delete(u)); return n; };
+    const takers = drop(ctx.testTakers), freeMock = drop(ctx.freeMock);
+
+    // base = which step this one is compared with. The buy popup can be opened
+    // from a locked mock without taking a free one, so it is compared with all
+    // test-takers, not with the free-mock step (that would read over 100%).
+    const steps = [
+      { label:'Sat any test',            note:'PYQ, chapter or mock',          n: takers.size,     color:'var(--blue)' },
+      { label:'Took a free mock',        note:'saw what a full mock is like',  n: freeMock.size,   color:'var(--blue)',   base:0, of:'of test-takers' },
+      { label:'Opened the buy popup',    note:'signed-in students only',       n: openedSet.size,  color:'var(--orange)', base:0, of:'of test-takers' },
+      { label:'Started payment',         note:'order created, went to pay',    n: startedSet.size, color:'var(--orange)', base:2, of:'of popup openers' },
+      { label:'Paid',                    note:'payment confirmed',             n: paidSet.size,    color:'var(--green)',  base:3, of:'of those who started' }
+    ];
+    const top = Math.max(1, ...steps.map(s => s.n));
+    const pct = (n, of) => {
+      if(!of) return '—';
+      const v = n*100/of;
+      return (v < 10 && v > 0 ? v.toFixed(1) : Math.round(v)) + '%';
+    };
+
+    let html = steps.map((s, i) => {
+      const prev = i ? steps[s.base].n : 0;
+      const sub = i ? pct(s.n, prev) + ' ' + s.of : (ctx.newUsers + ' new users today');
+      const warn = i >= 3 && prev && (s.n*100/prev) < 50;   // half or more lost at checkout: flag red
+      return '<div class="fn-row">'
+        + '<div class="fn-label">' + esc(s.label) + '<small>' + esc(s.note) + '</small></div>'
+        + '<div class="fn-track"><div class="fn-bar" style="width:' + Math.max(1, s.n*100/top).toFixed(1) + '%;background:' + s.color + ';"></div></div>'
+        + '<div class="fn-num">' + s.n + '<small' + (warn ? ' class="drop"' : '') + '>' + esc(sub) + '</small></div>'
+        + '</div>';
+    }).join('');
+
+    html += '<div class="fn-sum">Revenue today: <b>Rs ' + revenue.toLocaleString('en-IN') + '</b> from <b>'
+      + paidOrders + '</b> paid order' + (paidOrders === 1 ? '' : 's')
+      + ' · <b>' + pct(paidSet.size, takers.size) + '</b> of today’s test-takers paid</div>';
+
+    // Who got as far as the details form or payment today but did not pay —
+    // these are the people worth a WhatsApp / call follow-up.
+    const stuck = [];
+    new Set([...startedSet, ...[...intents.keys()].filter(u => (intents.get(u).stage||'opened') !== 'opened')])
+      .forEach(u => {
+        if(paidSet.has(u)) return;
+        const o = started.get(u) || {}, i = intents.get(u) || {};
+        if((i.stage||'') === 'paid') return;
+        const why = i.stage === 'failed'
+          ? (FUNNEL_WHERE[i.failedAt] || i.failedAt || 'failed') + (i.lastError ? ' — ' + i.lastError : '')
+          : (FUNNEL_STAGE[i.stage] || (o.id ? 'order created, not paid' : 'did not pay'));
+        stuck.push({
+          name: o.name || i.name || '(no name)',
+          contact: o.mobile || i.mobile || o.email || i.email || '',
+          course: o.productLabel || o.courseId || i.courseId || '',
+          amount: o.amount ? 'Rs ' + o.amount : '',
+          why
+        });
+      });
+    if(stuck.length){
+      html += '<div class="fn-sum">⚠ <b>' + stuck.length + '</b> started buying today but did not pay — worth a follow-up:</div>'
+        + '<div class="fn-stuck">' + stuck.slice(0, 20).map(s =>
+            '<div class="fn-stuck-row"><div><div class="who">' + esc(s.name) + '</div>'
+            + '<div class="em">' + esc([s.contact, s.course, s.amount].filter(Boolean).join(' · ')) + '</div></div>'
+            + '<div class="why">' + esc(s.why) + '</div></div>').join('')
+        + (stuck.length > 20 ? '<div class="em" style="padding-top:0.4rem;">+ ' + (stuck.length-20) + ' more on admin-premium.html</div>' : '')
+        + '</div>';
+    }
+    box.innerHTML = html;
+  }catch(e){
+    box.innerHTML = '<div class="fn-note" style="color:var(--red);">⚠ Funnel could not load: ' + esc(e.message) + '</div>';
+  }
+}
 
 // ── HEAVY LOAD: every candidate + every attempt, on demand only ────────────
 window.loadCandidates = async () => {
