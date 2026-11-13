@@ -473,6 +473,17 @@ function whyUnpaid(r, paidUids) {
   if (paidUids.has(r.uid + '|' + r.courseId)) return '<div class="em" style="color:#15803D;font-weight:700">paid on another order (retry)</div>';
   const i = INTENTS.find(x => x.uid === r.uid);
   if (!i) return '';
+  /* TSSC-WHYUNPAID-V3 (2026-11-13) — the breadcrumb is one per student, not per order.
+     When its last stage is 'paid' the student DID pay, but for another course on
+     another order (e.g. opened the All Mocks Pass, then bought CHSL). Showing a red
+     "paid" under this unpaid order read like a payment that failed to unlock. */
+  if (i.stage === 'paid') {
+    const others = [...new Set(ROWS.filter(x => x.status === 'paid' && x.uid === r.uid && x.courseId !== r.courseId)
+                                   .map(x => x.productLabel || x.courseId).filter(Boolean))];
+    /* no paid order found for this student: keep the plain red "paid" below so the odd case stays visible */
+    if (others.length) return '<div class="em" style="margin-top:.25rem;color:#475569">this order was not paid \u00b7 paid for a different course on another order: <b>' +
+           others.map(esc).join(', ') + '</b></div>';
+  }
   const what = i.stage === 'failed'
     ? (WHY_WHERE[i.failedAt] || i.failedAt || 'failed') + (i.lastError ? ' — ' + i.lastError : '')
     : (WHY_STAGE[i.stage] || i.stage || '');
