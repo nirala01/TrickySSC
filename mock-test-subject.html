@@ -1722,6 +1722,11 @@ function tgGrantActive(g){
 /* TSSC-TESTGATE-V3 — set when all read attempts failed, so tgAllowed() can
    tell "you have not paid" apart from "we could not check right now". */
 let tgReadFailed=false;
+/* TSSC-GATEMSG-V1 (2026-11-13) — true once the Premium lock screen or the
+   "could not verify" screen is on display. The 4-second "Session expired —
+   log in" fallback used to overwrite both, so a signed-in student without the
+   pass saw a login prompt instead of the Unlock button. */
+let tgGateShown=false;
 
 async function tgOwns(uid){
   tgReadFailed=false;
@@ -1745,6 +1750,7 @@ async function tgOwns(uid){
 }
 
 function tgShowLocked(mockNum){
+  tgGateShown=true;                              /* TSSC-GATEMSG-V1 */
   const loader=document.getElementById('loader');
   if(!loader) { location.href=TG_BUY_URL; return; }
   loader.innerHTML=
@@ -1765,6 +1771,7 @@ function tgShowLocked(mockNum){
 /* TSSC-TESTGATE-V3 — shown when the entitlement read itself failed. Never
    mentions buying: the person may well have paid already. */
 function tgShowCheckFailed(){
+  tgGateShown=true;                              /* TSSC-GATEMSG-V1 */
   const loader=document.getElementById('loader');
   if(!loader) return;
   loader.innerHTML=
@@ -1873,7 +1880,7 @@ onAuthStateChanged(auth,async user=>{
 
 // Show login button after 4s if still stuck
 setTimeout(()=>{
-  if(testStarted)return;
+  if(testStarted||tgGateShown)return;            /* TSSC-GATEMSG-V1: never replace the lock screen */
   showLoginPrompt();
 },4000);
 function showLoginPrompt(){
