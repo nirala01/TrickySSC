@@ -59,6 +59,19 @@ font-family:'Rajdhani',sans-serif;letter-spacing:.02em;white-space:nowrap;}
 .p-manual{background:#EDE9FE;color:#5B21B6;}
 .p-stage{background:#F1F5F9;color:#475569;}
 .p-fail{background:#FEE2E2;color:#B91C1C;}   /* TSSC-INTENT-V2 */
+/* TSSC-FOLLOWUP-V1 */
+.fu{display:flex;gap:.3rem;flex-wrap:wrap;margin-top:.35rem;}
+.act.wa{border-color:#BBF7D0;color:#15803D;} .act.wa:hover{border-color:#22C55E;color:#166534;}
+.act.ml{border-color:#BFDBFE;color:#1D4ED8;} .act.ml:hover{border-color:#3B82F6;color:#1E40AF;}
+.act.done{background:#F1F5F9;border-color:#E2E8F0;color:#94A3B8;}
+.fld textarea{width:100%;border:1px solid #E2E8F0;border-radius:9px;padding:.5rem .7rem;font-size:.85rem;
+font-family:'Plus Jakarta Sans',sans-serif;outline:none;resize:vertical;line-height:1.5;}
+.fld textarea:focus{border-color:#FF6B00;}
+#fuPanel{position:fixed;right:1rem;bottom:1rem;z-index:98;background:#fff;border:1px solid #BFDBFE;
+border-radius:12px;box-shadow:0 8px 28px rgba(15,23,42,.18);padding:.8rem .9rem;max-width:340px;font-size:.8rem;display:none;}
+#fuPanel.on{display:block;}
+#fuPanel b{display:block;margin-bottom:.15rem;}
+#fuPanel .fu{margin-top:.55rem;}
 .dlg{position:fixed;inset:0;background:rgba(15,23,42,.5);display:none;
 align-items:center;justify-content:center;padding:1rem;z-index:99;}
 .dlg.on{display:flex;}
@@ -99,6 +112,7 @@ letter-spacing:.04em;color:#94A3B8;}}
     <div style="display:flex;align-items:center;gap:.6rem;">
       <span class="sub" id="who"></span>
       <button class="btn-p" id="grantBtn" style="padding:.55rem 1rem;font-size:.85rem;">+ Grant access</button>
+      <button class="btn" id="fuEdit">✎ Follow-up message</button>
       <button class="btn" id="reload">↻ Refresh</button>
       <button class="btn" id="csv">Export CSV</button>
       <button class="btn" id="signout">Sign out</button>
@@ -147,7 +161,8 @@ letter-spacing:.04em;color:#94A3B8;}}
       <div>
         <h1 style="font-size:1.15rem;">Reached checkout, no payment</h1>
         <div class="sub">Opened the unlock popup but never completed a purchase.
-          Grant access here if they say they paid.</div>
+          Grant access here if they say they paid. <b>WhatsApp</b> / <b>Email</b> open a
+          ready-written follow-up message for that student.</div>
       </div>
       <button class="btn" id="intentCsv">Export CSV</button>
     </div>
@@ -190,6 +205,50 @@ letter-spacing:.04em;color:#94A3B8;}}
     </div>
   </div>
 </div>
+
+<!-- TSSC-FOLLOWUP-V1 — follow-up message editor -->
+<div class="dlg" id="fuDlg">
+  <div class="dlg-card" style="max-width:580px;max-height:92vh;overflow:auto;">
+    <h2>Follow-up message</h2>
+    <div class="sub">Sent to students who opened the unlock popup but did not pay.
+      <span class="mono">{name}</span>, <span class="mono">{course}</span> and
+      <span class="mono">{link}</span> are filled in for each student. Saved in this browser.</div>
+    <div class="fld">
+      <label for="fuWa">WhatsApp message</label>
+      <textarea id="fuWa" rows="6"></textarea>
+    </div>
+    <div class="fld">
+      <label for="fuSub">Email subject</label>
+      <input id="fuSub" type="text">
+    </div>
+    <div class="fld">
+      <label for="fuBody">Email message</label>
+      <textarea id="fuBody" rows="8"></textarea>
+    </div>
+    <div class="fld">
+      <label for="fuLink">Link used for {link}</label>
+      <input id="fuLink" type="text">
+    </div>
+    <div class="fld">
+      <label for="fuMode">Email button opens</label>
+      <select id="fuMode">
+        <option value="hostinger">Hostinger webmail — contact@trickyssc.com (message copied, paste into New message)</option>
+        <option value="mailto">Default mail app (address, subject, message pre-filled)</option>
+        <option value="gmail">Gmail compose (address, subject, message pre-filled)</option>
+      </select>
+    </div>
+    <div class="fld">
+      <label for="fuBox">Hostinger mailbox link (contact@trickyssc.com)</label>
+      <input id="fuBox" type="text">
+    </div>
+    <div class="dlg-row">
+      <button class="btn" id="fuReset">Reset to default</button>
+      <button class="btn" id="fuCancel">Cancel</button>
+      <button class="btn-p" id="fuSave">Save</button>
+    </div>
+  </div>
+</div>
+<div id="fuPanel"></div>
 
 <!-- prices + the payment server address live in Firestore config/pricing -->
 <script src="https://trickyssc.com/tssc-pricing.js"></script>
@@ -574,7 +633,9 @@ function render() {
       </td>
       <td data-l="Access until">${expPill}</td>
       <td data-l="Purchased">${fmt(r.paidAt || r.createdAt)}</td>
-      <td data-l="Actions">${actionCell(r.uid, r.courseId, r.courseActive)}</td>
+      <td data-l="Actions">${actionCell(r.uid, r.courseId, r.courseActive)}${
+        (r.status !== 'paid' && !r.courseActive && !(r.uid && paidUidCourse.has(r.uid + '|' + r.courseId)))
+          ? followCell('row', r.orderId, r) : ''}</td>   <!-- TSSC-FOLLOWUP-V1 -->
     </tr>`;
   }).join('');
 
@@ -654,7 +715,8 @@ function renderIntents() {
     <td data-l="Got as far as">${stageCell(i)}${buildCell(i)}</td>
     <td data-l="Tries" class="mono">${i.clicks}</td>
     <td data-l="Last seen">${fmt(i.lastAt)}</td>
-    <td data-l="Actions">${actionCell(i.uid, i.courseId)}</td>
+    <td data-l="Actions">${actionCell(i.uid, i.courseId)}${
+      (i.stage !== 'paid' && !ownsAnything(i.uid)) ? followCell('intent', i.uid, i) : ''}</td>
   </tr>`).join('');
 }
 
@@ -819,6 +881,153 @@ document.addEventListener('click', async e => {
     r.disabled = false;
   }
 });
+
+/* =========================================== TSSC-FOLLOWUP-V1 (2026-11-13)
+   One-click follow-up for students who opened the unlock popup / started an
+   order and did not pay. Nothing is sent from this page and nothing is written
+   to Firestore: the WhatsApp button opens WhatsApp Web on that student's chat
+   with the message already typed (you press Enter), and the Email button opens
+   your mail with the message ready. The message text, and a tick for who has
+   already been messaged, live in this browser's localStorage only. */
+const FU_TPL_KEY = 'tssc_followup_tpl', FU_SENT_KEY = 'tssc_followup_sent';
+const FU_DEFAULT = {
+  wa: 'Hi {name}, this is Ashish from TrickySSC.\n\n' +
+      'I saw you started unlocking {course} but the payment did not complete. ' +
+      'Did you face any problem while paying?\n\n' +
+      'Reply here and I will help you right away. You can also complete it any time here: {link}',
+  sub: 'Need help completing your TrickySSC purchase?',
+  body: 'Hi {name},\n\n' +
+        'This is Ashish from TrickySSC. I saw you started unlocking {course} but the payment did not complete.\n\n' +
+        'Did you face any problem while paying? Just reply to this email and I will help you right away.\n\n' +
+        'You can also complete it any time here: {link}\n\n' +
+        'Regards,\nAshish\nTrickySSC\ncontact@trickyssc.com',
+  link: 'https://trickyssc.com/',
+  mode: 'hostinger',
+  box: 'https://mail.hostinger.com/0/mailboxes/INBOX'   /* the contact@trickyssc.com mailbox */
+};
+const FU_FROM = 'contact@trickyssc.com';
+const HOSTINGER_INBOX = 'https://mail.hostinger.com/0/mailboxes/INBOX';
+const fuLoad = (k, d) => { try { return Object.assign({}, d, JSON.parse(localStorage.getItem(k) || '{}')); } catch (e) { return Object.assign({}, d); } };
+const fuStore = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
+let FU_TPL = fuLoad(FU_TPL_KEY, FU_DEFAULT);
+let FU_SENT = fuLoad(FU_SENT_KEY, {});
+
+/* 10-digit Indian mobile -> 91XXXXXXXXXX; anything that is not clearly a
+   mobile number gets no WhatsApp button rather than a wrong chat. */
+function waNumber(m) {
+  let d = String(m || '').replace(/\D/g, '');
+  if (d.length === 11 && d[0] === '0') d = d.slice(1);
+  if (d.length === 10 && /^[6-9]/.test(d)) return '91' + d;
+  if (d.length === 12 && d.slice(0, 2) === '91' && /^[6-9]/.test(d[2])) return d;
+  return '';
+}
+const fuPerson = rec => rec.uid || waNumber(rec.mobile) || rec.email || '';
+function fuCourse(rec) {
+  if (rec.productLabel && rec.productLabel !== rec.courseId) return rec.productLabel;
+  const hit = PRODUCTS.find(c => c.id === rec.courseId);
+  return (hit && hit.label) || 'the TrickySSC mock test series';
+}
+function fuFill(t, rec) {
+  const first = String(rec.profileName || rec.name || '').trim().split(/\s+/)[0] || '';
+  const name = (!first || /^student$/i.test(first)) ? 'there' : first.charAt(0).toUpperCase() + first.slice(1);
+  return String(t || '').replace(/\{name\}/g, name).replace(/\{course\}/g, fuCourse(rec))
+                        .replace(/\{link\}/g, FU_TPL.link || FU_DEFAULT.link);
+}
+function followCell(src, key, rec) {
+  const ph = waNumber(rec.mobile), em = String(rec.email || '').trim();
+  if (!ph && !em) return '<div class="em" style="margin-top:.35rem">no mobile or email</div>';
+  const sent = FU_SENT[fuPerson(rec)] || {};
+  const day = t => new Date(t).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: IST });
+  const b = (kind, cls, label) => {
+    const t = sent[kind];
+    return `<button class="act ${cls}${t ? ' done' : ''}" data-fu="${kind}" data-src="${src}" data-key="${esc(key)}"` +
+           ` title="${t ? 'Opened on ' + day(t) + ' — click to open again' : ''}">${t ? '✓ ' : ''}${label}${t ? ' · ' + day(t) : ''}</button>`;
+  };
+  return '<div class="fu">' + (ph ? b('wa', 'wa', 'WhatsApp') : '') + (em ? b('ml', 'ml', 'Email') : '') + '</div>';
+}
+async function fuCopy(text) {
+  try { await navigator.clipboard.writeText(text); return true; }
+  catch (e) {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      const ok = document.execCommand('copy'); ta.remove(); return ok;
+    } catch (e2) { return false; }
+  }
+}
+let FU_LAST = null;
+document.addEventListener('click', async e => {
+  const c = e.target.closest?.('[data-fucopy]');
+  if (c && FU_LAST) {
+    const ok = await fuCopy(FU_LAST[c.getAttribute('data-fucopy')] || '');
+    const was = c.textContent; c.textContent = ok ? 'Copied ✓' : 'Copy failed';
+    setTimeout(() => { c.textContent = was; }, 1200);
+    return;
+  }
+  if (e.target.closest?.('[data-fuclose]')) { $('fuPanel').classList.remove('on'); return; }
+
+  const btn = e.target.closest?.('[data-fu]');
+  if (!btn) return;
+  const kind = btn.getAttribute('data-fu'), key = btn.getAttribute('data-key');
+  const rec = btn.getAttribute('data-src') === 'row'
+    ? ROWS.find(r => r.orderId === key) : INTENTS.find(i => i.uid === key);
+  if (!rec) return;
+
+  if (kind === 'wa') {
+    /* one named tab, reused — WhatsApp Web only works in one tab at a time */
+    window.open('https://web.whatsapp.com/send?phone=' + waNumber(rec.mobile) +
+                '&text=' + encodeURIComponent(fuFill(FU_TPL.wa, rec)), 'tssc_wa');
+  } else {
+    const to = String(rec.email || '').trim();
+    const sub = fuFill(FU_TPL.sub, rec), body = fuFill(FU_TPL.body, rec);
+    if (FU_TPL.mode === 'mailto') {
+      location.href = 'mailto:' + encodeURIComponent(to) + '?subject=' + encodeURIComponent(sub) +
+                      '&body=' + encodeURIComponent(body);
+    } else if (FU_TPL.mode === 'gmail') {
+      window.open('https://mail.google.com/mail/?view=cm&fs=1&to=' + encodeURIComponent(to) +
+                  '&su=' + encodeURIComponent(sub) + '&body=' + encodeURIComponent(body), 'tssc_mail');
+    } else {
+      /* Hostinger webmail has no link that opens a pre-filled draft, so the
+         message goes to the clipboard and the mailbox opens; the address and
+         subject stay one click away in the corner panel. */
+      FU_LAST = { to, sub, body };
+      const ok = await fuCopy(body);
+      $('fuPanel').innerHTML =
+        `<b>${ok ? 'Message copied' : 'Could not copy automatically'} — Hostinger webmail opened</b>` +
+        `New message → paste. To: <span class="mono">${esc(to)}</span>` +
+        `<div class="em" style="margin-top:.3rem">Send from <b style="display:inline">${FU_FROM}</b> — check the mailbox shown at the top right of webmail.</div>` +
+        `<div class="fu"><button class="act ml" data-fucopy="to">Copy address</button>` +
+        `<button class="act ml" data-fucopy="sub">Copy subject</button>` +
+        `<button class="act ml" data-fucopy="body">Copy message</button>` +
+        `<button class="act" data-fuclose="1">Close</button></div>`;
+      $('fuPanel').classList.add('on');
+      window.open(/^https:\/\/mail\.hostinger\.com\//.test(FU_TPL.box || '') ? FU_TPL.box : HOSTINGER_INBOX, 'tssc_mail');
+    }
+  }
+  const who = fuPerson(rec);
+  if (who) {
+    FU_SENT[who] = Object.assign({}, FU_SENT[who], { [kind]: Date.now() });
+    fuStore(FU_SENT_KEY, FU_SENT);
+    render();
+  }
+});
+
+/* ---- message editor ---- */
+const fuDlg = $('fuDlg');
+const fuShow = t => { $('fuWa').value = t.wa; $('fuSub').value = t.sub; $('fuBody').value = t.body;
+                      $('fuLink').value = t.link; $('fuMode').value = t.mode; $('fuBox').value = t.box; };
+$('fuEdit').onclick = () => { fuShow(FU_TPL); fuDlg.classList.add('on'); };
+$('fuCancel').onclick = () => fuDlg.classList.remove('on');
+$('fuReset').onclick = () => fuShow(FU_DEFAULT);
+$('fuSave').onclick = () => {
+  FU_TPL = { wa: $('fuWa').value.trim() || FU_DEFAULT.wa, sub: $('fuSub').value.trim() || FU_DEFAULT.sub,
+             body: $('fuBody').value.trim() || FU_DEFAULT.body, link: $('fuLink').value.trim() || FU_DEFAULT.link,
+             mode: $('fuMode').value || 'hostinger', box: $('fuBox').value.trim() || FU_DEFAULT.box };
+  fuStore(FU_TPL_KEY, FU_TPL);
+  fuDlg.classList.remove('on');
+  say('Follow-up message saved.', 'ok');
+};
 
 /* ---- intents csv ---- */
 $('intentCsv').onclick = () => {
