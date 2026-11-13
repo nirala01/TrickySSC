@@ -4248,86 +4248,256 @@ onAuthStateChanged(_auth, async user => {
 
 <!-- TSSC:MOCK-PROMO:START -->
 <style id="tsscMockPromoCSS">
+/* TSSC-OFFERSPOPUP-V1 (2026-11-08) — the site-wide popup is now an offers board:
+   SSC CGL Rs 49, SSC CHSL Rs 49, SSC GD Rs 49, CGL + CHSL combo Rs 79 and
+   CHSL + GD combo Rs 79. Replaces TSSC-COMBOPOPUP-V1. Prices shown here are
+   DISPLAY ONLY; what a buyer is charged comes from config/pricing. Rows that
+   sell a series this browser already holds are hidden; single-exam rows that
+   qualify for the add-on price link with ?upgrade=1. */
 #tsscMP{position:fixed;inset:0;z-index:99999;display:none;align-items:center;justify-content:center;
-  background:rgba(26,32,44,.45);backdrop-filter:blur(2px);padding:18px;}
+  background:rgba(26,32,44,.5);backdrop-filter:blur(2px);padding:16px;}
 #tsscMP.on{display:flex;animation:tsscMPin .22s ease-out;}
 @keyframes tsscMPin{from{opacity:0}to{opacity:1}}
-.tsscMP-box{position:relative;width:100%;max-width:400px;max-height:78vh;overflow-y:auto;overflow-x:hidden;
-  border-radius:16px;background:#FFFFFF;border:1px solid #E2E8F0;text-align:center;
-  box-shadow:0 8px 30px rgba(0,0,0,0.12);
+.tsscMP-box{position:relative;width:100%;max-width:410px;max-height:90vh;overflow-y:auto;overflow-x:hidden;
+  border-radius:18px;background:#FFFFFF;border:1px solid #E2E8F0;text-align:center;
+  box-shadow:0 12px 40px rgba(0,0,0,0.18);
   font-family:'Rajdhani',sans-serif;font-style:normal;color:#1A202C;
   animation:tsscMPup .26s cubic-bezier(.16,1,.3,1);}
-.tsscMP-box *{font-style:normal;}
+.tsscMP-box *{font-style:normal;box-sizing:border-box;}
 @keyframes tsscMPup{from{transform:translateY(12px);opacity:0}to{transform:none;opacity:1}}
 .tsscMP-top{background:linear-gradient(135deg,#FF6B00,#FF8C38);color:#fff;
-  padding:.62rem .9rem;font-weight:700;font-size:.86rem;letter-spacing:.5px;}
+  padding:.62rem 2.6rem;font-weight:700;font-size:.86rem;letter-spacing:.5px;}
 .tsscMP-x{position:absolute;top:8px;right:10px;width:30px;height:30px;border:0;border-radius:100px;
   background:rgba(255,255,255,.24);color:#fff;font-size:1rem;line-height:1;cursor:pointer;}
 .tsscMP-x:hover{background:rgba(255,255,255,.42);}
-.tsscMP-body{padding:1.15rem 1.25rem 1.25rem;}
-.tsscMP-big{font-family:'Baloo 2',sans-serif;font-weight:800;font-size:2.75rem;line-height:1;
-  margin:0;color:#1A202C;}
+.tsscMP-body{padding:.95rem 1rem 1.05rem;}
+.tsscMP-clock{display:inline-block;margin:0 0 .55rem;padding:.26rem .8rem;border-radius:100px;
+  background:#FEF2F2;border:1px solid #FECACA;color:#B91C1C;font-weight:700;font-size:.88rem;letter-spacing:.3px;}
+.tsscMP-clock[hidden]{display:none;}
+.tsscMP-eyebrow{font-weight:700;font-size:.8rem;letter-spacing:1.6px;color:#718096;margin:0;}
+.tsscMP-big{font-family:'Baloo 2',sans-serif;font-weight:800;font-size:2.05rem;line-height:1.05;
+  margin:.1rem 0 .15rem;color:#1A202C;}
 .tsscMP-big span{color:#FF6B00;}
-.tsscMP-kicker{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.04rem;
-  color:#4A5568;margin:.25rem 0 .8rem;}
-.tsscMP-pills{display:flex;gap:.4rem;justify-content:center;flex-wrap:wrap;margin-bottom:.8rem;}
-.tsscMP-pill{border-radius:100px;padding:.3rem .75rem;font-size:.82rem;font-weight:600;
-  letter-spacing:.5px;background:#FFF7F0;border:1px solid #FFEDD5;color:#CC5500;}
-.tsscMP-pill.g{background:#ECFDF5;border-color:#A7F3D0;color:#00875A;}
+.tsscMP-kicker{font-weight:700;font-size:.95rem;color:#4A5568;margin:0 0 .75rem;line-height:1.3;}
+.tsscMP-lbl{display:flex;align-items:center;gap:.5rem;margin:0 0 .45rem;font-weight:700;font-size:.78rem;
+  letter-spacing:1.4px;color:#718096;text-transform:uppercase;}
+.tsscMP-lbl::before,.tsscMP-lbl::after{content:"";flex:1;height:1px;background:#E2E8F0;}
+.tsscMP-lbl[hidden]{display:none;}
+/* TSSC-ALLPASS-V1 (2026-11-13) — Rs 99 All Mocks Pass row on top of the board:
+   every existing + upcoming mock series for a year (grants 'all-mocks' plus each
+   series key). Hidden from anyone who already holds a series (no double selling). */
+.tsscMP-all{position:relative;display:flex;align-items:center;gap:.6rem;text-decoration:none;color:#fff;
+  text-align:left;border-radius:14px;padding:.8rem .8rem .7rem;margin:.55rem 0 .8rem;
+  background:linear-gradient(135deg,#1E1B4B,#4C1D95 55%,#9D174D);
+  box-shadow:0 6px 18px rgba(76,29,149,.28);transition:transform .15s,box-shadow .15s;}
+.tsscMP-all:hover{transform:translateY(-2px);box-shadow:0 10px 24px rgba(76,29,149,.36);}
+.tsscMP-all[hidden]{display:none;}
+.tsscMP-all .tag{position:absolute;top:-9px;left:12px;background:linear-gradient(120deg,#F59E0B,#FBBF24);color:#1A202C;
+  border-radius:100px;padding:.05rem .55rem;font-weight:700;font-size:.68rem;letter-spacing:.8px;}
+.tsscMP-all .who{flex:1;min-width:0;}
+.tsscMP-all .nm{display:block;font-family:'Baloo 2',sans-serif;font-weight:800;font-size:1.15rem;line-height:1.15;color:#fff;}
+.tsscMP-all .ct{display:block;font-weight:600;font-size:.82rem;color:#E9D5FF;line-height:1.25;margin-top:.1rem;}
+.tsscMP-all .up{display:block;font-weight:700;font-size:.8rem;color:#FDE68A;line-height:1.25;margin-top:.2rem;}
+.tsscMP-all .pr{text-align:right;flex:none;}
+.tsscMP-all .was{display:block;font-weight:600;font-size:.82rem;color:#C4B5FD;text-decoration:line-through;line-height:1;}
+.tsscMP-all .now{display:block;font-family:'Baloo 2',sans-serif;font-weight:800;font-size:1.85rem;line-height:1;color:#FDE68A;}
+.tsscMP-all .sv{display:inline-block;margin-top:.15rem;background:#FDE68A;color:#4C1D95;border-radius:5px;
+  padding:.05rem .4rem;font-weight:700;font-size:.72rem;letter-spacing:.3px;}
+.tsscMP-sg.mts{background:#F0FDFA;border-color:#5EEAD4;} .tsscMP-sg.mts .n,.tsscMP-sg.mts .p{color:#0F766E;}
+.tsscMP-sg.ntpc{background:#EFF6FF;border-color:#93C5FD;} .tsscMP-sg.ntpc .n,.tsscMP-sg.ntpc .p{color:#1D4ED8;}
+.tsscMP-singles{flex-wrap:wrap} .tsscMP-singles .tsscMP-sg{flex:1 1 calc(33.33% - .4rem)}
+/* combo rows */
+.tsscMP-cb{position:relative;display:flex;align-items:center;gap:.6rem;text-decoration:none;color:#1A202C;
+  text-align:left;border-radius:12px;padding:.65rem .7rem .6rem;margin:0 0 .5rem;
+  background:linear-gradient(#fff,#fff) padding-box,linear-gradient(120deg,#6D28D9,#DB2777,#F59E0B) border-box;
+  border:2px solid transparent;transition:transform .15s,box-shadow .15s;}
+.tsscMP-cb:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(219,39,119,.18);}
+.tsscMP-cb[hidden]{display:none;}
+.tsscMP-cb .who{flex:1;min-width:0;}
+.tsscMP-cb .nm{display:block;font-family:'Baloo 2',sans-serif;font-weight:800;font-size:1.08rem;line-height:1.15;}
+.tsscMP-cb .nm i{color:#DB2777;font-weight:800;padding:0 .12rem;}
+.tsscMP-cb .ct{display:block;font-weight:600;font-size:.82rem;color:#4A5568;line-height:1.25;margin-top:.1rem;}
+.tsscMP-cb .pr{text-align:right;flex:none;}
+.tsscMP-cb .was{display:block;font-weight:600;font-size:.82rem;color:#A0AEC0;text-decoration:line-through;line-height:1;}
+.tsscMP-cb .now{display:block;font-family:'Baloo 2',sans-serif;font-weight:800;font-size:1.65rem;line-height:1;color:#00A86B;}
+.tsscMP-cb .sv{display:inline-block;margin-top:.15rem;background:#00A86B;color:#fff;border-radius:5px;
+  padding:.05rem .4rem;font-weight:700;font-size:.72rem;letter-spacing:.3px;}
+.tsscMP-cb .tag{position:absolute;top:-9px;left:12px;background:linear-gradient(120deg,#6D28D9,#DB2777);color:#fff;
+  border-radius:100px;padding:.05rem .55rem;font-weight:700;font-size:.68rem;letter-spacing:.8px;}
+/* single-exam tiles */
+.tsscMP-singles{display:flex;gap:.4rem;margin:0 0 .3rem;}
+.tsscMP-sg{display:block;flex:1 1 0;min-width:0;text-decoration:none;border-radius:11px;padding:.5rem .3rem .45rem;text-align:center;
+  border:1.5px solid #E2E8F0;background:#F8FAFC;color:#1A202C;transition:transform .15s,border-color .15s;}
+.tsscMP-sg:hover{transform:translateY(-2px);}
+.tsscMP-sg[hidden]{display:none;}
+.tsscMP-sg .n{display:block;font-weight:700;font-size:.78rem;letter-spacing:.6px;}
+.tsscMP-sg .c{display:block;font-weight:600;font-size:.76rem;color:#4A5568;line-height:1.2;}
+.tsscMP-sg .p{display:block;margin-top:.15rem;font-family:'Baloo 2',sans-serif;font-weight:800;font-size:1.3rem;line-height:1.05;}
+.tsscMP-sg.cgl{background:#EEF2FF;border-color:#A5B4FC;} .tsscMP-sg.cgl .n,.tsscMP-sg.cgl .p{color:#4338CA;}
+.tsscMP-sg.chsl{background:#FFF7F0;border-color:#FDBA74;} .tsscMP-sg.chsl .n,.tsscMP-sg.chsl .p{color:#C2410C;}
+.tsscMP-sg.gd{background:#FEF2F2;border-color:#FCA5A5;} .tsscMP-sg.gd .n,.tsscMP-sg.gd .p{color:#B91C1C;}
+.tsscMP-sg.is-addon .p{font-family:'Rajdhani',sans-serif;font-size:.92rem;font-weight:700;padding:.2rem 0 .05rem;}
 .tsscMP-band{background:linear-gradient(135deg,#FFF7F0,#FFEDD5);color:#CC5500;
-  font-weight:700;font-size:.98rem;padding:.55rem .6rem;margin:0 -1.25rem .9rem;
+  font-weight:700;font-size:.9rem;padding:.45rem .6rem;margin:.65rem -1rem .1rem;
   border-top:1px solid #FFEDD5;border-bottom:1px solid #FFEDD5;}
-.tsscMP-price{font-weight:600;font-size:1.02rem;color:#718096;margin-bottom:.85rem;}
-.tsscMP-was{text-decoration:line-through;}
-.tsscMP-now{font-family:'Baloo 2',sans-serif;font-weight:800;font-size:2.05rem;
-  color:#00A86B;margin:0 .35rem;vertical-align:-4px;}
-.tsscMP-go{display:flex;align-items:center;justify-content:center;gap:.5rem;text-decoration:none;
-  border-radius:10px;padding:1rem 1.1rem;color:#fff;letter-spacing:.4px;
-  font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.15rem;
-  background:linear-gradient(120deg,#6D28D9,#DB2777,#F59E0B);background-size:200% 200%;
-  box-shadow:0 4px 22px rgba(219,39,119,0.4);animation:tsscMPgrad 5s ease infinite;}
-@keyframes tsscMPgrad{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
-.tsscMP-free{font-size:.88rem;font-weight:600;color:#00875A;margin:.7rem 0 0;}
-@media(prefers-reduced-motion:reduce){#tsscMP.on,.tsscMP-box,.tsscMP-go{animation:none}}
+.tsscMP-free{font-size:.84rem;font-weight:600;color:#00875A;margin:.5rem 0 0;line-height:1.35;}
+@media(max-width:360px){.tsscMP-big{font-size:1.75rem}.tsscMP-cb .nm{font-size:.98rem}.tsscMP-cb .now{font-size:1.45rem}
+  .tsscMP-sg .p{font-size:1.15rem}}
+@media(prefers-reduced-motion:reduce){#tsscMP.on,.tsscMP-box{animation:none}.tsscMP-cb,.tsscMP-sg{transition:none}}
 </style>
 
 <div id="tsscMP" role="dialog" aria-modal="true" aria-labelledby="tsscMPh">
   <div class="tsscMP-box">
-    <div class="tsscMP-top">&#128227; SSC CGL MOCK TESTS 2026</div>
+    <div class="tsscMP-top">&#127991;&#65039; MOCK TEST OFFERS</div>
     <button class="tsscMP-x" type="button" aria-label="Close">&times;</button>
     <div class="tsscMP-body">
-      <h2 class="tsscMP-big" id="tsscMPh">100 <span>MOCKS</span></h2>
-      <div class="tsscMP-kicker">PYQs show the pattern. Mocks show your rank.</div>
-      <div class="tsscMP-pills">
-        <span class="tsscMP-pill">50 Tier I &middot; live now</span>
-        <span class="tsscMP-pill g">50 Tier II &middot; 15 Oct 2026</span>
+      <div class="tsscMP-clock" data-mp-clock hidden></div>
+      <p class="tsscMP-eyebrow">ONE PAYMENT &middot; FULL YEAR</p>
+      <h2 class="tsscMP-big" id="tsscMPh">Pick your <span>pass</span></h2>
+      <div class="tsscMP-kicker">Every new mock released in the year is included.</div>
+
+      <a class="tsscMP-all" data-mp-grants="ssc-cgl-mocks ssc-chsl-mocks ssc-gd-mocks ssc-mts-mocks rrb-ntpc-mocks all-mocks" href="https://trickyssc.com/ssc-chsl-mock-test.html?pass=all">
+        <span class="tag">&#11088; ALL ACCESS PASS</span>
+        <span class="who">
+          <span class="nm">All Mocks Pass &middot; 1 year</span>
+          <span class="ct">Every existing mock: SSC CGL + CHSL + GD + MTS + RRB NTPC (360 mocks)</span>
+          <span class="up">+ every new mock series added in the year joins your pass automatically</span>
+        </span>
+        <span class="pr"><span class="was">&#8377;245</span><span class="now">&#8377;99</span><span class="sv">1 YEAR</span></span>
+      </a>
+
+      <div class="tsscMP-lbl" data-mp-lbl="combo">&#128293; Combo offers</div>
+      <a class="tsscMP-cb" data-mp-grants="ssc-cgl-mocks ssc-chsl-mocks" href="https://trickyssc.com/ssc-chsl-mock-test.html?combo=1">
+        <span class="tag">BEST VALUE</span>
+        <span class="who">
+          <span class="nm">SSC CGL <i>+</i> SSC CHSL</span>
+          <span class="ct">180 mocks &middot; 100 CGL + 80 CHSL</span>
+        </span>
+        <span class="pr"><span class="was">&#8377;98</span><span class="now">&#8377;79</span><span class="sv">SAVE &#8377;19</span></span>
+      </a>
+      <a class="tsscMP-cb" data-mp-grants="ssc-chsl-mocks ssc-gd-mocks" href="https://trickyssc.com/ssc-gd-mock-test.html?combo=1">
+        <span class="tag">NEW</span>
+        <span class="who">
+          <span class="nm">SSC CHSL <i>+</i> SSC GD</span>
+          <span class="ct">140 mocks &middot; 80 CHSL + 60 GD</span>
+        </span>
+        <span class="pr"><span class="was">&#8377;98</span><span class="now">&#8377;79</span><span class="sv">SAVE &#8377;19</span></span>
+      </a>
+      <a class="tsscMP-cb" data-mp-grants="ssc-mts-mocks ssc-gd-mocks" href="https://trickyssc.com/ssc-mts-mock-test.html?combo=1">
+        <span class="tag">NEW</span>
+        <span class="who">
+          <span class="nm">SSC MTS <i>+</i> SSC GD</span>
+          <span class="ct">120 mocks &middot; 60 MTS + 60 GD</span>
+        </span>
+        <span class="pr"><span class="was">&#8377;98</span><span class="now">&#8377;79</span><span class="sv">SAVE &#8377;19</span></span>
+      </a>
+
+      <div class="tsscMP-lbl" data-mp-lbl="single">Single exam pass</div>
+      <div class="tsscMP-singles">
+        <a class="tsscMP-sg cgl" data-mp-grants="ssc-cgl-mocks" data-mp-addon-if="ssc-chsl-mocks" href="https://trickyssc.com/ssc-cgl-mock-test.html">
+          <span class="n">SSC CGL</span><span class="c">100 mocks</span><span class="p">&#8377;49</span>
+        </a>
+        <a class="tsscMP-sg chsl" data-mp-grants="ssc-chsl-mocks" data-mp-addon-if="ssc-cgl-mocks" href="https://trickyssc.com/ssc-chsl-mock-test.html">
+          <span class="n">SSC CHSL</span><span class="c">80 mocks</span><span class="p">&#8377;49</span>
+        </a>
+        <a class="tsscMP-sg gd" data-mp-grants="ssc-gd-mocks" data-mp-addon-if="ssc-chsl-mocks" href="https://trickyssc.com/ssc-gd-mock-test.html">
+          <span class="n">SSC GD</span><span class="c">60 mocks</span><span class="p">&#8377;49</span>
+        </a>
+        <a class="tsscMP-sg mts" data-mp-grants="ssc-mts-mocks" href="https://trickyssc.com/ssc-mts-mock-test.html">
+          <span class="n">SSC MTS</span><span class="c">60 mocks</span><span class="p">&#8377;49</span>
+        </a>
+        <a class="tsscMP-sg ntpc" data-mp-grants="rrb-ntpc-mocks" href="https://trickyssc.com/rrb-ntpc-mock-test.html">
+          <span class="n">RRB NTPC</span><span class="c">60 mocks</span><span class="p">&#8377;49</span>
+        </a>
       </div>
-      <div class="tsscMP-band">Real Sectional Timing &mdash; Just Like The Exam</div>
-      <div class="tsscMP-price">
-        <span class="tsscMP-was">&#8377;199</span><span class="tsscMP-now" data-lp>&#8377;49</span>for a full year
-      </div>
-      <div data-lp-note="popup" hidden></div>
-      <a class="tsscMP-go" href="https://trickyssc.com/ssc-cgl-mock-test">&#128640; START NOW</a>
-      <p class="tsscMP-free">Mocks 1&ndash;4 free &mdash; no payment needed</p>
+
+      <div class="tsscMP-band">Hindi &amp; English &middot; Sectional timing</div>
+      <p class="tsscMP-free">Try first: CGL Mock 1&ndash;4, CHSL, GD &amp; MTS Mock 1&ndash;2, NTPC Mock 1&ndash;3 are free</p>
     </div>
   </div>
 </div>
 
 <script>
 (function(){
-  var KEY='tsscMockPromoSeen', PAID='tssc_entitlement', DELAY=1200;
+  var KEY='tsscComboPromoSeen', PAID='tssc_entitlement', DELAY=1500;
+  var CHSL_T1_START=Date.parse('2026-11-30T00:00:00+05:30'),   // SSC CHSL 2026 Tier 1: 30 Nov - 31 Dec 2026
+      CHSL_T1_END  =Date.parse('2027-01-01T00:00:00+05:30');
   var box=document.getElementById('tsscMP');
   if(!box) return;
-  // Never nag someone who already paid. localStorage only — no Firestore read,
-  // so these pages stay at zero read cost per pageview.
   try{
     var p=localStorage.getItem(PAID);
     if(p && p!=='false' && p!=='null' && p!=='0') return;
   }catch(e){}
-  // sessionStorage, not localStorage: the flag dies when the browser session
-  // ends, so a visitor sees the popup once per visit to the site and again
-  // the next time they come back. Shared across index / cgl-pyq / chsl-pyq.
+  // Once per browser session, shared across index / cgl-pyq / chsl-pyq.
   try{ if(sessionStorage.getItem(KEY)) return; }catch(e){}
+
+  // What the mock pages found this session (TSSC-ENTCACHE-V2). No Firestore read here.
+  var m=null;
+  try{
+    for(var i=0;i<sessionStorage.length;i++){
+      var k=sessionStorage.key(i);
+      if(k && k.indexOf('tssc_ent_v2_')===0){
+        var o=JSON.parse(sessionStorage.getItem(k)||'null');
+        if(o && o.m){ m=o.m; break; }
+      }
+    }
+  }catch(e){}
+  function owns(key){ return !!(m && m[key]===true); }
+
+  // TSSC-OFFERSPOPUP-V1 — never sell a series this browser already holds;
+  // single plans that qualify for the add-on price say so and open it.
+  var rows=box.querySelectorAll('[data-mp-grants]'), shown=0;
+  for(var r=0;r<rows.length;r++){
+    var el=rows[r], keys=(el.getAttribute('data-mp-grants')||'').split(' '), hit=false;
+    /* TSSC-ALLUP-V1 — the All Mocks Pass row: Rs 99 for someone who holds nothing; for a
+       pass holder it becomes the upgrade (they pay only the difference: 1 series held
+       Rs 49, 2 held Rs 19 — display only, the charge comes from config/pricing);
+       hidden for someone who already holds 3 or more series. */
+    if(el.className.indexOf('tsscMP-all')!==-1){
+      var S5=['ssc-cgl-mocks','ssc-chsl-mocks','ssc-gd-mocks','ssc-mts-mocks','rrb-ntpc-mocks'], held=0;
+      for(var h5=0;h5<S5.length;h5++) if(owns(S5[h5])) held++;
+      if(held>=3){ el.hidden=true; continue; }
+      if(held>0){
+        var more=[49,19][held-1], set=function(c,t){ var x=el.querySelector(c); if(x) x.textContent=t; };
+        set('.tag','\u2B50 UPGRADE FOR YOU');
+        set('.nm','Upgrade to All Mocks Pass');
+        set('.ct','You already hold '+(held===1?'a mock pass':held+' mock passes')+' \u2014 pay only the difference');
+        set('.up','All SSC CGL, CHSL, GD, MTS & RRB NTPC mocks + every new series, for 1 year');
+        set('.was','\u20B999'); set('.now','+\u20B9'+more); set('.sv','UPGRADE');
+      }
+      shown++; continue;
+    }
+    for(var q=0;q<keys.length;q++) if(keys[q] && owns(keys[q])) hit=true;
+    if(hit){ el.hidden=true; continue; }
+    shown++;
+    var addIf=el.getAttribute('data-mp-addon-if');
+    if(addIf && owns(addIf)){
+      el.classList.add('is-addon');
+      var pp=el.querySelector('.p'); if(pp) pp.textContent='Add-on price';
+      el.href=el.href+(el.href.indexOf('?')===-1?'?':'&')+'upgrade=1';
+    }
+  }
+  if(!shown) return;                                       // owns everything: nothing to sell
+  var groups={combo:'.tsscMP-cb',single:'.tsscMP-sg'};
+  for(var g in groups){
+    var lbl=box.querySelector('[data-mp-lbl="'+g+'"]'), any=false, els=box.querySelectorAll(groups[g]);
+    for(var e2=0;e2<els.length;e2++) if(!els[e2].hidden) any=true;
+    if(lbl && !any) lbl.hidden=true;
+  }
+
+  // Real countdown to the CHSL Tier 1 exam, not a fake offer timer.
+  var clk=box.querySelector('[data-mp-clock]'), now=Date.now();
+  if(clk){
+    if(now<CHSL_T1_START){
+      var d=Math.ceil((CHSL_T1_START-now)/86400000);
+      clk.textContent='⏳ CHSL Tier 1 starts in '+d+(d===1?' day':' days');
+      clk.hidden=false;
+    } else if(now<CHSL_T1_END){
+      clk.textContent='📝 CHSL Tier 1 is on — practise before your shift';
+      clk.hidden=false;
+    }
+  }
+
   function close(){
     box.classList.remove('on');
     try{ sessionStorage.setItem(KEY,'1'); }catch(e){}
@@ -4336,13 +4506,12 @@ onAuthStateChanged(_auth, async user => {
   box.querySelector('.tsscMP-x').addEventListener('click',close);
   box.addEventListener('click',function(e){ if(e.target===box) close(); });
   document.addEventListener('keydown',function(e){ if(e.key==='Escape') close(); });
-  box.querySelector('.tsscMP-go').addEventListener('click',function(){
+  var links=box.querySelectorAll('a');
+  for(var j=0;j<links.length;j++) links[j].addEventListener('click',function(){
     try{ sessionStorage.setItem(KEY,'1'); }catch(e){}
   });
 })();
 </script>
-<script src="/tssc-launch-price.js" async></script>
-<script src="/tssc-telegram.js" defer></script>
 <!-- TSSC:MOCK-PROMO:END -->
 
 </body>

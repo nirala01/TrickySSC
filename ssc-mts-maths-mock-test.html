@@ -7,7 +7,7 @@
      BUMP the content below on EVERY deploy of this file. A browser holding a
      cached older copy re-fetches this page on open, sees a newer stamp, and
      reloads itself once — the candidate just sees the page load. -->
-<meta name="tssc-build" content="mts-2026-11-09-60-y27-quant">
+<meta name="tssc-build" content="allup-2026-11-13">
 <script>
 (function () {
   var META = 'meta[name="tssc-build"]';
@@ -2988,6 +2988,7 @@ onAuthStateChanged(_aAuth, user => {
 <!-- pricing catalog loader: prices live in Firestore config/pricing,
      edited in admin-pricing.html. No code change to alter a price. -->
 <script src="https://trickyssc.com/tssc-pricing.js"></script>
+<script src="https://trickyssc.com/tssc-allpass.js" async></script>   <!-- TSSC-ALLUP-V1: "upgrade to All Mocks Pass" strip for pass holders -->
 
 <!-- ===== premium unlock: 3-step checkout (TSSC-PAYWALL-V1) =====
      step 1  what this mock is        (details card)
@@ -3519,12 +3520,12 @@ function paintUpsell(up, lead, cat, upgraded) {
    or null when it cannot be read. fresh=true skips the copy this page already
    read (used once more just before payment). Dashboard Pro is not a series:
    owning it never hides the CGL plan that also includes it. */
-const TSSC_SERIES = ['ssc-cgl-mocks', 'ssc-chsl-mocks', 'ssc-gd-mocks', 'ssc-mts-mocks'];   /* TSSC-MTS-MOCK-V1 */
-const TSSC_SERIES_NAME = { 'ssc-cgl-mocks': 'SSC CGL mocks', 'ssc-chsl-mocks': 'SSC CHSL mocks', 'ssc-gd-mocks': 'SSC GD mocks', 'ssc-mts-mocks': 'SSC MTS mocks' };
+const TSSC_SERIES = ['ssc-cgl-mocks', 'ssc-chsl-mocks', 'ssc-gd-mocks', 'ssc-mts-mocks', 'rrb-ntpc-mocks'];   /* TSSC-ALLPASS-V1: every series, so no plan re-sells one already held */
+const TSSC_SERIES_NAME = { 'ssc-cgl-mocks': 'SSC CGL mocks', 'ssc-chsl-mocks': 'SSC CHSL mocks', 'ssc-gd-mocks': 'SSC GD mocks', 'ssc-mts-mocks': 'SSC MTS mocks', 'rrb-ntpc-mocks': 'RRB NTPC mocks' };
 /* add-on (p-upgrade-…) for series X is sold only to holders of one of these */
-const TSSC_UPGRADE_IF = { 'ssc-cgl-mocks': ['ssc-chsl-mocks'], 'ssc-chsl-mocks': ['ssc-cgl-mocks'], 'ssc-gd-mocks': ['ssc-chsl-mocks'], 'ssc-mts-mocks': [] };   /* TSSC-MTS-MOCK-V1: no MTS add-on price (yet) */
+const TSSC_UPGRADE_IF = { 'ssc-cgl-mocks': ['ssc-chsl-mocks'], 'ssc-chsl-mocks': ['ssc-cgl-mocks'], 'ssc-gd-mocks': ['ssc-chsl-mocks'], 'ssc-mts-mocks': [], 'rrb-ntpc-mocks': [] };
 /* the combo that gets its own box in step 1 on this page */
-const TSSC_UPSELL_KEY = { 'ssc-cgl-mocks': 'ssc-chsl-mocks', 'ssc-chsl-mocks': 'ssc-cgl-mocks', 'ssc-gd-mocks': 'ssc-chsl-mocks', 'ssc-mts-mocks': 'ssc-gd-mocks' };   /* TSSC-MTS-MOCK-V1: a GD + MTS combo gets the box if one is ever priced */
+const TSSC_UPSELL_KEY = { 'ssc-cgl-mocks': 'ssc-chsl-mocks', 'ssc-chsl-mocks': 'ssc-cgl-mocks', 'ssc-gd-mocks': 'ssc-chsl-mocks', 'ssc-mts-mocks': 'ssc-gd-mocks' };
 async function ownedKeysForBuy(fresh) {
   const u = _auth.currentUser;
   if (!u) return null;
@@ -3538,13 +3539,26 @@ async function ownedKeysForBuy(fresh) {
     } catch (e) { return null; }
   }
   const d = ENT_SEEN.d || {}, mods = d.modules || {};
-  const all = grantActive(d.allAccess);
+  const all = grantActive(d.allAccess) || grantActive(mods['all-mocks']);   /* TSSC-ALLPASS-V1 */
   return { all, keys: new Set(TSSC_SERIES.filter(k => all || grantActive(mods[k]))) };
 }
 function tsscSeries(p) { return ((p && p.grants) || []).filter(k => TSSC_SERIES.indexOf(k) !== -1); }
 function tsscSellsOwned(p, own) { return !!own && (own.all || tsscSeries(p).some(k => own.keys.has(k))); }
+/* TSSC-ALLUP-V1 (2026-11-13) — a buyer who already holds a mock series pays only the
+   difference to move up to the Rs 99 All Mocks Pass: products p-upgrade-all-1
+   (holds 1 series, Rs 49) and p-upgrade-all-2 (holds 2, Rs 19) in admin-pricing;
+   a product p-upgrade-all-3 would serve holders of 3 or more, none exists. They
+   grant the all-mocks key, which every page and engine treats as every series.
+   null = nothing to offer (holds nothing, holds everything, or not Live). */
+function tsscAllUpgrade(cat, own) {
+  if (!own || own.all || !own.keys.size) return null;
+  const id = 'p-upgrade-all-' + Math.min(own.keys.size, 3);
+  return ((cat && cat.products) || []).find(p => p.id === id && p.live !== false) || null;
+}
 function tsscUpgradeAllowed(p, own) {
   if (!own || tsscSellsOwned(p, own)) return false;
+  /* TSSC-ALLUP-V1 — the All Mocks Pass upgrade: only the price for the number of series held */
+  if (/^p-upgrade-all-/.test(p.id)) return own.keys.size > 0 && p.id === 'p-upgrade-all-' + Math.min(own.keys.size, 3);
   return tsscSeries(p).every(k => (TSSC_UPGRADE_IF[k] || []).some(q => own.keys.has(q)));
 }
 
@@ -4090,6 +4104,9 @@ window.tsscStartCheckout = async function (order) {
           ' on this account, so you don’t need to pay for ' + (dup.length > 1 ? 'them' : 'it') +
           ' again. Close this, refresh the page and choose another plan.');
       }
+      if (/^p-upgrade-all-/.test(p.id) && !tsscUpgradeAllowed(p, own)) {   /* TSSC-ALLUP-V1 */
+        throw new Error('This upgrade price does not match the passes on this account. Close this, refresh the page and try again.');
+      }
       if (/^p-upgrade-/.test(p.id) && !tsscUpgradeAllowed(p, own)) {
         throw new Error('This add-on price is only for students who already have the ' +
           tsscSeries(p).map(k => (TSSC_UPGRADE_IF[k] || []).map(q => TSSC_SERIES_NAME[q]).join(' or ')).join(', ') +
@@ -4264,7 +4281,8 @@ function grantExpMs(g) {
 }
 function writeHint(uid, m, d) {
   try {
-    const mods = (d && d.modules) || {}, a = grantExpMs(d && d.allAccess), x = {};
+    const mods = (d && d.modules) || {}, a0 = grantExpMs(d && d.allAccess), a1 = grantExpMs(mods['all-mocks']),
+          a = (a0 === 0 || a1 === 0) ? 0 : Math.max(a0, a1), x = {};   /* TSSC-ALLPASS-V1 */
     Object.keys(m).forEach(k => {
       const b = grantExpMs(mods[k]);
       x[k] = (a === 0 || b === 0) ? 0 : Math.max(a, b, 0);
@@ -4309,16 +4327,18 @@ async function loadEntitlement(uid) {
   try {
     const snap = await getDoc(doc(_db, 'entitlements', uid));
     const d = snap.exists() ? (snap.data() || {}) : {};
-    const owned = grantActive(d.allAccess) || grantActive((d.modules || {})[CFG.module]);
+    const owned = grantActive(d.allAccess) || grantActive((d.modules || {})[CFG.module])
+                  || grantActive((d.modules || {})['all-mocks']);   /* TSSC-ALLPASS-V1: Rs 99 pass opens every series, incl. ones added later */
     try {                                          /* extras below can never change `owned` */
     ENT_SEEN = { uid, d };                         /* TSSC-CGLUPSELL-V2 — reused by the buy popup */
     window.tsscOwnsOther = grantActive(d.allAccess) || grantActive((d.modules || {})['ssc-cgl-mocks']);   /* TSSC-DUSSEHRA-V1 */
     {                                              /* TSSC-ENTCACHE-V2: both series */
-      const all = grantActive(d.allAccess), mods = d.modules || {};
+      const all = grantActive(d.allAccess) || grantActive((d.modules || {})['all-mocks']), mods = d.modules || {};   /* TSSC-ALLPASS-V1 */
       const m = { 'ssc-cgl-mocks':  all || grantActive(mods['ssc-cgl-mocks']),
                   'ssc-chsl-mocks': all || grantActive(mods['ssc-chsl-mocks']),
                   'ssc-gd-mocks':   all || grantActive(mods['ssc-gd-mocks']),
-                  'ssc-mts-mocks':  all || grantActive(mods['ssc-mts-mocks']) };   /* TSSC-GD-MOCK-V1 / TSSC-MTS-MOCK-V1 */
+                  'ssc-mts-mocks':  all || grantActive(mods['ssc-mts-mocks']),
+                  'rrb-ntpc-mocks': all || grantActive(mods['rrb-ntpc-mocks']) };   /* TSSC-ALLUP-V1: all five series, so the upgrade price can be worked out */
       m[CFG.module] = owned;
       window.tsscOwnsOther = !!m[OTHER_KEY];
       writeCache(uid, m);

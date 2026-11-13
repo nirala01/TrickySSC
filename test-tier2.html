@@ -1574,8 +1574,8 @@ async function tsscReadEntitlement(){
   try{
     const snap=await getDoc(doc(db,'entitlements',u.uid));
     const d=snap.exists()?(snap.data()||{}):{};
-    const all=act(d.allAccess), mods=d.modules||{};
-    const m={'ssc-cgl-mocks':all||act(mods['ssc-cgl-mocks']),'ssc-chsl-mocks':all||act(mods['ssc-chsl-mocks'])};
+    const mods=d.modules||{}, all=act(d.allAccess)||act(mods['all-mocks']);   /* TSSC-ALLPASS-V1 */
+    const m={'ssc-cgl-mocks':all||act(mods['ssc-cgl-mocks']),'ssc-chsl-mocks':all||act(mods['ssc-chsl-mocks']),'ssc-gd-mocks':all||act(mods['ssc-gd-mocks']),'ssc-mts-mocks':all||act(mods['ssc-mts-mocks']),'rrb-ntpc-mocks':all||act(mods['rrb-ntpc-mocks'])};   /* TSSC-ALLUP-V1 */
     try{ sessionStorage.setItem('tssc_ent_v2_'+u.uid,JSON.stringify({ts:Date.now(),m})); }catch(_){}
     return {signedIn:true,m};
   }catch(e){
