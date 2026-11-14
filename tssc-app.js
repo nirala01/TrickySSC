@@ -89,7 +89,7 @@
     'html.tssc-app .masthead,html.tssc-app .intro-block,html.tssc-app .exam-grid .soon,html.tssc-app .exam-grid~.info,' +
     'html.tssc-app .sc.soon,html.tssc-app .sc-facts,html.tssc-app .sc-desc,html.tssc-app .sc-sub,html.tssc-app #subjects .tier-label{display:none!important;}' +
     /* chapter-test home: one row per subject */
-    'html.tssc-app .sc-stat:nth-child(n+3),html.tssc-app body>.foot,html.tssc-app body>header.bar{display:none!important;}html.tssc-app .feat-wrap{margin-top:14px!important;}' +
+    'html.tssc-app .sc-stat:nth-child(n+3),html.tssc-app [data-tg-join],html.tssc-app body>header.site-head,html.tssc-app header.mast,html.tssc-app body>.foot,html.tssc-app body>header.bar{display:none!important;}html.tssc-app .feat-wrap{margin-top:14px!important;}' +
     'html.tssc-app .subj-grid{display:grid!important;grid-template-columns:1fr!important;gap:9px!important;margin:0!important;}' +
     'html.tssc-app .sc{position:relative!important;display:flex!important;flex-direction:row!important;flex-wrap:wrap;align-items:center;gap:0 12px;padding:11px 12px!important;border:1px solid #E2E8F0!important;border-left:5px solid var(--c)!important;border-radius:14px!important;box-shadow:0 1px 6px rgba(0,0,0,.04)!important;transform:none!important;overflow:hidden;}' +
     'html.tssc-app .sc::before,html.tssc-app .sc::after{display:none!important;}' +
