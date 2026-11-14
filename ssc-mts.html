@@ -242,12 +242,34 @@ details.gd-faq p{color:#4A5568;margin:0.6rem 0 0;font-size:0.9rem;line-height:1.
   .pyq-shift { font-family:'Rajdhani',sans-serif; font-weight:700; font-size:0.95rem; color:#1A202C; }
   .pyq-date { font-size:0.75rem; color:#94A3B8; font-weight:500; }
   .pyq-meta { display:flex; align-items:center; gap:0.4rem; flex-wrap:wrap; font-size:0.74rem; color:#94A3B8; margin-top:0.25rem; }
-  .pyq-attempt-btn { flex-shrink:0; display:inline-flex; align-items:center; gap:0.35rem; background:linear-gradient(135deg,#FF6B00,#FF8C38); color:#fff; border:none; padding:0.55rem 1.05rem; border-radius:9px; font-family:'Rajdhani',sans-serif; font-weight:700; font-size:0.88rem; text-decoration:none; white-space:nowrap; cursor:pointer; }
+  .pyq-attempt-btn { flex-shrink:0; display:inline-flex; align-items:center; gap:0.35rem; background:linear-gradient(135deg,#FF6B00,#FF8C38); color:#fff!important;   /* beats .gd-wrap a{color:#FF6B00} */ border:none; padding:0.55rem 1.05rem; border-radius:9px; font-family:'Rajdhani',sans-serif; font-weight:700; font-size:0.88rem; text-decoration:none; white-space:nowrap; cursor:pointer; }
   .pyq-attempt-btn:hover { filter:brightness(1.05); }
   @media(max-width:520px){ .pyq-attempt-btn { padding:0.5rem 0.8rem; font-size:0.8rem; } }
   .attempt-pill { display:inline-flex; align-items:center; gap:0.25rem; white-space:nowrap; font-family:'Rajdhani',sans-serif; font-weight:700; font-size:0.68rem; padding:0.18rem 0.55rem; border-radius:100px; border:1px solid transparent; letter-spacing:0.2px; line-height:1.3; }
   .attempt-pill.done { background:#E8F5E9; color:#15803D; border-color:#BBF7D0; }
   .attempt-pill.todo { background:#F1F5F9; color:#64748B; border-color:#E2E8F0; }
+  /* TSSC-MTS-PYQ-V3: year dropdown (accordion), same as ssc-gd-pyq.html — newest year open, older years collapsed */
+  .yr-acc { margin-bottom:1rem; }
+  .yr-head { list-style:none; cursor:pointer; display:flex; align-items:center; gap:0.9rem; padding:1rem 1.15rem; background:#fff; border:1px solid #E2E8F0; border-radius:15px; box-shadow:0 2px 8px rgba(0,0,0,0.05); -webkit-user-select:none; user-select:none; transition:border-color .15s, box-shadow .15s, transform .12s; }
+  .yr-head::-webkit-details-marker { display:none; }
+  .yr-head::marker { content:''; }
+  .yr-head:hover { border-color:#CBD5E1; box-shadow:0 5px 16px rgba(0,0,0,0.09); }
+  .yr-head:focus:not(:focus-visible) { outline:none; }
+  .yr-head:focus-visible { outline:2px solid #FF6B00; outline-offset:2px; }
+  .yr-badge { width:46px; height:46px; border-radius:11px; display:inline-flex; align-items:center; justify-content:center; font-family:'Rajdhani',sans-serif; font-weight:800; font-size:0.92rem; color:#fff; letter-spacing:-0.3px; flex-shrink:0; }
+  .yr-title { font-family:'Rajdhani',sans-serif; font-weight:800; font-size:1.2rem; color:#1A202C; line-height:1.15; }
+  .yr-count { background:#F1F5F9; border-radius:20px; padding:0.3rem 0.8rem; font-family:'Rajdhani',sans-serif; font-weight:700; font-size:0.88rem; color:#64748B; white-space:nowrap; flex-shrink:0; }
+  .yr-chev { margin-left:auto; flex-shrink:0; width:32px; height:32px; border-radius:50%; background:#F8FAFC; color:#94A3B8; display:inline-flex; align-items:center; justify-content:center; font-size:1.05rem; line-height:1; transition:transform .2s ease; }
+  details[open] > .yr-head .yr-chev { transform:rotate(180deg); background:#FFF1E6; color:#FF6B00; }
+  details[open] > .yr-head { border-bottom-left-radius:0; border-bottom-right-radius:0; }
+  .yr-body { background:#fff; border:1px solid #E2E8F0; border-top:none; border-radius:0 0 15px 15px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,0.05); }
+  @media (max-width:480px) {
+    .yr-head { gap:0.7rem; padding:0.8rem 0.85rem; }
+    .yr-badge { width:40px; height:40px; font-size:0.82rem; border-radius:10px; }
+    .yr-title { font-size:1.05rem; }
+    .yr-count { font-size:0.8rem; padding:0.24rem 0.65rem; }
+    .yr-chev { width:28px; height:28px; }
+  }
   #langChooser { display:none; position:fixed; inset:0; z-index:6000; background:rgba(15,23,42,0.55); backdrop-filter:blur(4px); animation:lcFade .18s ease; }
   .lc-card { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:min(400px,92vw); background:#fff; border-radius:22px; box-shadow:0 30px 80px rgba(15,23,42,0.4); overflow:hidden; animation:lcPop .24s cubic-bezier(.2,.8,.3,1.2); }
   .lc-head { padding:1.6rem 1.5rem 0.4rem; text-align:center; background:linear-gradient(180deg,#FBFCFE 0%,#fff 100%); border-bottom:1px solid #F1F5F9; }
@@ -641,9 +663,12 @@ function tsscHideDrop(li){ var m=li.querySelector('.nav-drop-menu'); if(m)m.styl
     var byYear={},years=[];
     papers.forEach(function(p){var y=p.year||'Other';if(!byYear[y]){byYear[y]=[];years.push(y);}byYear[y].push(p);});
     var h='';
-    years.forEach(function(y){
-      h+='<h3 style="font-family:\'Rajdhani\',sans-serif;font-weight:800;font-size:1.05rem;color:#1A202C;margin:1.1rem 0 0.5rem;">SSC MTS '+esc(y)+' <span style="font-size:0.78rem;color:#64748B;font-weight:700;">&middot; '+byYear[y].length+' paper'+(byYear[y].length!==1?'s':'')+'</span></h3>';
-      h+='<div style="background:#fff;border:1px solid #E2E8F0;border-left:3px solid #FF6B00;border-radius:12px;overflow:hidden;">';
+    var YC=['#FF6B00','#6366F1','#00A86B','#0EA5E9','#E11D48','#F59E0B','#8B5CF6','#10B981'];
+    years.forEach(function(y,yi){
+      var ac=YC[yi%YC.length];
+      /* TSSC-MTS-PYQ-V3: one dropdown per year — newest open, the rest collapsed */
+      h+='<details class="yr-acc"'+(yi===0?' open':'')+'><summary class="yr-head"><span class="yr-badge" style="background:'+ac+';">'+esc(y)+'</span><span class="yr-title">SSC MTS '+esc(y)+'</span><span class="yr-count">'+byYear[y].length+' paper'+(byYear[y].length!==1?'s':'')+'</span><span class="yr-chev" aria-hidden="true">&#9662;</span></summary>';
+      h+='<div class="yr-body" style="border-left:3px solid '+ac+';">';
       byYear[y].forEach(function(p){
         var n=Math.max(p.en,p.hi), shift=p.shift||'Full Paper', date=p.heldOn?fmt(p.heldOn):'';
         var enUrl=p.en?url(p,'en',p.pidEn):'', hiUrl=p.hi?url(p,'hi',p.pidHi):'';
@@ -657,7 +682,7 @@ function tsscHideDrop(li){ var m=li.querySelector('.nav-drop-menu'); if(m)m.styl
           +(hiUrl?' data-hi="'+esc(hiUrl)+'"'+(p.pidHi?' data-pid-hi="'+esc(p.pidHi)+'"':''):'')
           +' data-title="'+esc(title)+'" onclick="return openLangChooser(this)">&#9654; Attempt Test</a></div>';
       });
-      h+='</div>';
+      h+='</div></details>';
     });
     document.getElementById('mts-pyq-list').innerHTML=h;
     var sec=document.getElementById('mts-pyq-page'); sec.hidden=false;
