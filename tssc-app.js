@@ -60,6 +60,13 @@
     'html.tssc-app nav.tssc-nav,html.tssc-app nav.topbar,html.tssc-app nav.nav,html.tssc-app nav.site-nav,html.tssc-app header.nav,html.tssc-app body>nav:first-of-type{visibility:hidden!important;}' +
     'html.tssc-app .tsa-gone,html.tssc-app .mobile-menu,html.tssc-app .tssc-mobile-menu,html.tssc-app footer,html.tssc-app .crumb,html.tssc-app .breadcrumb,html.tssc-app nav.crumbs,' +
     'html.tssc-app [id$="seo-content"],html.tssc-app .pyq-seo-index{display:none!important;}' +
+    /* list pages: go straight to the tests. The page title is already in the app bar, and the long
+       introductions are written for search visitors, not for someone already inside the app. */
+    'html.tssc-app .wrap>.hero,html.tssc-app .wrap>.tier-intro,html.tssc-app .wrap>.tier-bars,html.tssc-app .mock-list-block>h2,html.tssc-app .mock-list-block>.mlb-sub,' +
+    'html.tssc-app .mock-list-block>.mock-explain,html.tssc-app section.seo-content,' +
+    'html.tssc-app nav.topbar+div>div:first-child,html.tssc-app nav.topbar+div>div:nth-child(3)>p,' +
+    'html.tssc-app #pane-t1~div[style^="margin-top:2"],html.tssc-app #pane-t1~div[style^="margin-top:1.8rem"]{display:none!important;}' +
+    'html.tssc-app .wrap{padding-top:12px!important;}' +
     'html.tssc-app{-webkit-tap-highlight-color:transparent;}' +
     'html.tssc-app-tabs body{padding-bottom:calc(' + TAB + 'px + env(safe-area-inset-bottom,0px))!important;}' +
     'html.tssc-app-tabs .tgf{bottom:calc(' + (TAB + 14) + 'px + env(safe-area-inset-bottom,0px))!important;}' +
@@ -106,7 +113,8 @@
   }
   function pageTitle() {
     var t = String(document.title || '').replace(/\s*[|–—-]\s*TrickySSC.*$/i, '');
-    t = t.split(/\s[–—|]\s|:\s|\s-\s/)[0].trim();
+    t = t.split(/\s[–—|]\s|:\s|\s-\s/)[0];
+    t = t.replace(/\s+(Free\b.*|in Hindi\b.*|with Solutions?\b.*)$/i, '').trim();
     return t || 'TrickySSC';
   }
   function siteNav() {
