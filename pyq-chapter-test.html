@@ -1872,6 +1872,30 @@ let timeLeft=0,timerInterval=null,paused=false,isSubmitting=false;
    Purely additive: nothing here touches the paywall, gate, login or REST paths. ── */
 const _qtime={};let _qtLast=null,_qtAt=0;
 function _qtTick(){try{const now=Date.now();if(_qtLast!==null&&!paused&&_qtAt)_qtime[_qtLast]=(_qtime[_qtLast]||0)+(now-_qtAt);_qtAt=now;_qtLast=currentQ;}catch(_){}}
+/* ── TSSC-RESUME-V1: hands the live test state to /tssc-resume.js, so a test dropped mid-way
+   (fault, error, page closed by mistake) can be resumed from the same question with the same
+   answers and time. Additive only — nothing here touches the paywall, gate, login or REST paths. ── */
+window.__tsscResumeAdapter={
+  review:()=>!!REVIEW_ID,
+  uid:()=>(currentUser&&currentUser.uid)||'',
+  id:()=>location.pathname+'|'+(_reportTestId||''),
+  count:()=>questions.length,
+  busy:()=>!!isSubmitting,
+  snap:()=>({a:answers,m:markedForReview,q:currentQ,qt:_qtime,tm:!!CW.timed,tl:timeLeft}),
+  restore:(s)=>{
+    if(!currentUser) return false;
+    const put=()=>{
+      answers=Object.assign({},s.a||{}); markedForReview=Object.assign({},s.m||{});
+      currentQ=Math.min(Math.max(0,parseInt(s.q,10)||0),questions.length-1);
+    };
+    window.cwSetTimed(!!s.tm);
+    put(); Object.assign(_qtime,s.qt||{});
+    window.__tdlPass=true; try{ window.beginTest(); }finally{ window.__tdlPass=false; }   /* resuming is not a new test start */
+    put(); if(s.tm) timeLeft=Math.max(1,parseInt(s.tl,10)||1);
+    buildGrid(); updateSubmitBtn();
+    return true;
+  }
+};
 
 let currentUser=null;
 let authReady=false;          // true once onAuthStateChanged has fired at least once
@@ -3430,6 +3454,7 @@ init();
 <!-- Shared in-place login popup. Loaded LAST so this page's module has already
      called initializeFirestore(); the modal then reuses that same app and db.
      It also intercepts the nav Login link, so that no longer leaves the page. -->
+<script src="/tssc-resume.js"></script>   <!-- TSSC-RESUME-V1 -->
 <script type="module" src="/login-modal.js"></script>
 <!-- TSSC-RVPAGER-V3 (+V4 estimates, V5 compare strip, V6 real-data blend, TOPPER-V2 consistent topper, RVMODE-V1 scroll / one-by-one switch) — solutions screen, one question at a time (app-style):
      question header "8 / 150 · Time · Status", You vs All students table (status, time,

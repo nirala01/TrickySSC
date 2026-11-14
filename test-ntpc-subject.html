@@ -970,6 +970,7 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:10
 .vfrac .vf-den{display:block;padding:1px .4em 0;border-top:1.5px solid currentColor;text-align:center;}
 </style>
 <!-- TSSC-LOGINMODAL-V1: in-place login popup -->
+<script src="/tssc-resume.js"></script>   <!-- TSSC-RESUME-V1 -->
 <script type="module" src="/login-modal.js"></script>
 <style id="tsscPyqPlansCSS">
 /* TSSC:PYQ-MOCKOFFER (TSSC-PYQCARDS-V1, 2026-11-02) — mock series & plans shown after a PYQ attempt (same design as chapter tests) */
@@ -1428,6 +1429,32 @@ let questions=[],answers={},markedForReview={},currentQ=0,timeLeft=3600,timerInt
    Purely additive: nothing here touches the paywall, gate, login or REST paths. ── */
 const _qtime={};let _qtLast=null,_qtAt=0;
 function _qtTick(){try{const now=Date.now();if(_qtLast!==null&&!paused&&_qtAt)_qtime[_qtLast]=(_qtime[_qtLast]||0)+(now-_qtAt);_qtAt=now;_qtLast=currentQ;}catch(_){}}
+/* ── TSSC-RESUME-V1: hands the live test state to /tssc-resume.js, so a test dropped mid-way
+   (fault, error, page closed by mistake) can be resumed from the same question with the same
+   answers and time. Additive only — nothing here touches the paywall, gate, login or REST paths. ── */
+window.__tsscResumeAdapter={
+  review:()=>!!REVIEW_ID,
+  uid:()=>(currentUser&&currentUser.uid)||'',
+  id:()=>'',
+  count:()=>questions.length,
+  busy:()=>!!isSubmitting,
+  snap:()=>({a:answers,m:markedForReview,q:currentQ,ts:curTS,tr:tsRemaining,sb:tsSubmitted,qt:_qtime}),
+  restore:(s)=>{
+    if(!Array.isArray(s.tr)||s.tr.length!==tsRemaining.length) return false;
+    const ts=parseInt(s.ts,10)||0; if(ts<0||ts>=s.tr.length) return false;
+    const put=()=>{
+      answers=Object.assign({},s.a||{}); markedForReview=Object.assign({},s.m||{});
+      tsRemaining=s.tr.map(x=>Math.max(0,parseInt(x,10)||0)); if(tsRemaining[ts]<1) tsRemaining[ts]=1;
+      tsSubmitted=s.tr.map((_,i)=>!!(s.sb&&s.sb[i])); curTS=ts;
+      currentQ=Math.min(Math.max(0,parseInt(s.q,10)||0),questions.length-1);
+      if(!inActiveTS(currentQ)){ for(let i=0;i<questions.length;i++){ if(inActiveTS(i)){ currentQ=i; break; } } }
+    };
+    put(); Object.assign(_qtime,s.qt||{});
+    window.__tdlPass=true; try{ window.beginTest(); }finally{ window.__tdlPass=false; }   /* resuming is not a new test start */
+    put(); buildSectionBar(); buildGrid(); updateSubmitBtn();
+    return true;
+  }
+};
 
 let SECTION_DUR=27*60; // 15 minutes for Tier I; Tier II is set below (TSSC-T2-SUBJ-TIME-V1)
 /* ── TSSC-SUBJECT-PYQ-V1 (CHSL port, TSSC-CHSL-SUBJ-V1): subject-wise PYQ engine for SSC CHSL ──
