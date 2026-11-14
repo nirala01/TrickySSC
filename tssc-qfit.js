@@ -115,3 +115,126 @@
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
 })();
+
+/* TSSC-RESULT2-V1 — inside the app the result comes in two screens.
+     1. Result: marks, the four counts, dashboard and rank buttons, rating. Fits one screen.
+     2. Answers and solutions: opened by the bold button; scrolls as before.
+   The engine still draws everything; this only shows one half at a time. Fail-open. */
+(function () {
+  'use strict';
+  if (window.__tsscRes2) return; window.__tsscRes2 = 1;
+  var css =
+    '@media(max-width:820px){' +
+    '#resultScreen.tsr-sum{position:fixed!important;inset:0!important;z-index:5;display:flex!important;flex-direction:column;justify-content:center;gap:10px;box-sizing:border-box;max-width:none!important;margin:0!important;' +
+      'padding:calc(10px + env(safe-area-inset-top,0px)) 12px calc(10px + env(safe-area-inset-bottom,0px))!important;background:#F0F4F8;overflow:hidden;}' +
+    '#resultScreen.tsr-sum.tsr-4{overflow-y:auto;justify-content:flex-start;}' +
+    /* level 3: no room for the rating here, so it waits at the end of the solutions screen */
+    '#resultScreen.tsr-sum.tsr-3>.rate-card{display:none!important;}' +
+    '#resultScreen.tsr-sol.tsr-rate{display:flex!important;flex-direction:column;}' +
+    '#resultScreen.tsr-sol.tsr-rate>.rate-card{display:block!important;order:9;margin:14px 0 20px!important;}' +
+    '#resultScreen.tsr-sum>*{flex:0 0 auto;margin:0!important;}' +
+    '#resultScreen.tsr-sum>#review{display:none!important;}' +
+    '#resultScreen.tsr-sum>.result-card{padding:16px 14px!important;}' +
+    '#resultScreen.tsr-sum #resultExamName{font-size:19px!important;margin-bottom:8px!important;line-height:1.15;}' +
+    '#resultScreen.tsr-sum .result-verdict{margin-top:10px!important;}' +
+    '#resultScreen.tsr-sum .stats{margin-top:14px!important;gap:7px!important;flex-wrap:nowrap!important;}' +
+    '#resultScreen.tsr-sum .stat{padding:9px 4px!important;min-width:0!important;flex:1 1 0!important;}' +
+    '#resultScreen.tsr-sum .gz-row{margin-top:14px!important;gap:8px!important;}' +
+    '#resultScreen.tsr-sum .gz-row>#goDashboardBtn,#resultScreen.tsr-sum .gz-row>#viewRankBtn{white-space:normal!important;line-height:1.2!important;font-size:13px!important;padding:10px 8px!important;overflow:visible!important;}' +
+    '#resultScreen.tsr-sum #saveStatus{margin-top:7px!important;}' +
+    '#resultScreen.tsr-sum .rate-card{padding:12px 14px!important;text-align:center;}' +
+    '#resultScreen.tsr-sum .rate-card h3{font-size:16px!important;}' +
+    '#resultScreen.tsr-sum .rate-card .rc-sub{margin-bottom:6px!important;}' +
+    '#resultScreen.tsr-sum .rc-stars{margin-bottom:8px!important;}' +
+    '#resultScreen.tsr-sum .rc-star{font-size:30px!important;}' +
+    '#resultScreen.tsr-sum .rc-diff{gap:6px!important;margin-bottom:10px!important;}' +
+    '#resultScreen.tsr-sum .rc-chip{padding:6px 12px!important;font-size:12.5px!important;}' +
+    '#resultScreen.tsr-sum .rc-submit{padding:9px 24px!important;}' +
+    /* level 1 and 2: tighter, then the rating loses its small print */
+    '#resultScreen.tsr-sum.tsr-1 .score-big{font-size:44px!important;}' +
+    '#resultScreen.tsr-sum.tsr-1 .stat-val{font-size:22px!important;}' +
+    '#resultScreen.tsr-sum.tsr-1>.result-card{padding:12px 12px!important;}' +
+    '#resultScreen.tsr-sum.tsr-1 .stats,#resultScreen.tsr-sum.tsr-1 .gz-row{margin-top:10px!important;}' +
+    '#resultScreen.tsr-sum.tsr-1{gap:8px;}' +
+    '#resultScreen.tsr-sum.tsr-2 .rate-card .rc-sub{display:none!important;}' +
+    '#resultScreen.tsr-sum.tsr-2 .rc-star{font-size:26px!important;}' +
+    '#resultScreen.tsr-sum.tsr-2 .rate-card h3{display:inline-block;margin:0 0 4px!important;}' +
+    '#resultScreen.tsr-sum.tsr-2 .rc-stars{margin-bottom:6px!important;}' +
+    '#resultScreen.tsr-sum.tsr-2 .rc-diff{flex-wrap:nowrap!important;gap:4px!important;margin-bottom:8px!important;}' +
+    '#resultScreen.tsr-sum.tsr-2 .rc-chip{padding:5px 8px!important;font-size:11.5px!important;white-space:nowrap;}' +
+    '#resultScreen.tsr-sum.tsr-2 #resultExamName{font-size:17px!important;margin-bottom:5px!important;}' +
+    '#resultScreen.tsr-sum.tsr-2 .stat-lbl span{display:none!important;}' +
+    '#resultScreen.tsr-sum.tsr-2 .stat-lbl br{display:none!important;}' +
+    /* the bold way in to the second screen */
+    '.tsr-cta{display:none;align-items:center;justify-content:center;gap:10px;width:100%;min-height:56px;box-sizing:border-box;border:0;border-radius:16px;padding:10px 14px;cursor:pointer;' +
+      'background:linear-gradient(135deg,#0B3B8C,#1D4ED8);color:#fff;font:700 19px/1.15 Rajdhani,system-ui,sans-serif;letter-spacing:.01em;box-shadow:0 8px 20px rgba(29,78,216,.32);}' +
+    '.tsr-cta small{display:block;font:500 11.5px/1.2 system-ui,sans-serif;opacity:.9;margin-top:2px;letter-spacing:0;}' +
+    '.tsr-cta i{font-style:normal;font-size:22px;}.tsr-cta u{text-decoration:none;font-size:22px;margin-left:auto;}' +
+    '.tsr-cta span{text-align:left;}' +
+    '#resultScreen.tsr-sum>.tsr-cta{display:flex;}' +
+    '#resultScreen.tsr-sum.tsr-1>.tsr-cta{min-height:50px;font-size:18px;padding:8px 12px;}' +
+    '#resultScreen.tsr-sum.tsr-2>.tsr-cta small{display:none;}' +
+    /* second screen */
+    '#resultScreen.tsr-sol>*{display:none!important;}' +
+    '#resultScreen.tsr-sol>#review{display:block!important;}' +
+    '#resultScreen.tsr-sol>.tsr-bar{display:flex!important;}' +
+    '#resultScreen.tsr-sol{padding-top:0!important;}' +
+    '.tsr-bar{display:none;position:sticky;top:0;z-index:30;align-items:center;gap:6px;height:50px;margin:0 -12px 10px;padding:0 8px;background:#fff;border-bottom:1px solid #E2E8F0;box-shadow:0 1px 6px rgba(15,23,42,.05);' +
+      'font:700 18px/1 Rajdhani,system-ui,sans-serif;color:#1A202C;}' +
+    '.tsr-bar button{flex:0 0 auto;display:flex;align-items:center;gap:4px;height:36px;padding:0 12px 0 8px;border:0;border-radius:10px;background:#F1F5F9;color:#0B3B8C;font:700 14px/1 Rajdhani,system-ui,sans-serif;cursor:pointer;}' +
+    '.tsr-bar b{flex:1;min-width:0;text-align:center;padding-right:70px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}' +
+    '}';
+  var st = document.createElement('style'); st.id = 'tssc-res2-css'; st.textContent = css;
+  (document.head || document.documentElement).appendChild(st);
+
+  var rs, cta, bar, mode = '', wasShown = false;
+  function shown() { return rs.style.display && rs.style.display !== 'none'; }
+  function small() { return window.innerWidth <= 820; }
+  function fitSum() {
+    if (mode !== 'sum') return;
+    rs.classList.remove('tsr-1', 'tsr-2', 'tsr-3', 'tsr-4');
+    var lv = ['tsr-1', 'tsr-2', 'tsr-3', 'tsr-4'];
+    for (var i = 0; i < lv.length && rs.scrollHeight > rs.clientHeight + 1; i++) rs.classList.add(lv[i]);
+    rs.classList.toggle('tsr-rate', rs.classList.contains('tsr-3'));
+    rs.scrollTop = 0;
+  }
+  function set(m) {
+    mode = m;
+    rs.classList.toggle('tsr-sum', m === 'sum'); rs.classList.toggle('tsr-sol', m === 'sol');
+    if (m !== 'sum') rs.classList.remove('tsr-1', 'tsr-2', 'tsr-3', 'tsr-4');
+    try { window.scrollTo(0, 0); } catch (e) {}
+    if (m === 'sum') { fitSum(); setTimeout(fitSum, 400); setTimeout(fitSum, 1500); }
+  }
+  function openSol() {
+    if (mode === 'sol') return;
+    try { history.pushState({ tsrSol: 1 }, ''); } catch (e) {}
+    set('sol');
+  }
+  function sync() {
+    if (!small()) { if (mode) set(''); return; }
+    var on = shown();
+    if (on && !wasShown) set('sum');
+    if (!on && wasShown) set('');
+    wasShown = on;
+  }
+  function start() {
+    rs = document.getElementById('resultScreen'); var review = document.getElementById('review');
+    if (!rs || !review || review.parentNode !== rs || !window.MutationObserver) return;
+    cta = document.createElement('button'); cta.type = 'button'; cta.className = 'tsr-cta';
+    cta.innerHTML = '<i>📝</i><span>Check answers &amp; solutions<small>Every question with the correct answer and explanation</small></span><u>→</u>';
+    cta.addEventListener('click', openSol);
+    var card = rs.querySelector('.result-card');
+    rs.insertBefore(cta, card ? card.nextSibling : rs.firstChild);
+    bar = document.createElement('div'); bar.className = 'tsr-bar';
+    bar.innerHTML = '<button type="button">‹ Result</button><b>Answers &amp; solutions</b>';
+    bar.querySelector('button').addEventListener('click', function () { try { history.back(); } catch (e) { set('sum'); } });
+    rs.insertBefore(bar, rs.firstChild);
+    window.addEventListener('popstate', function () { if (mode === 'sol') set('sum'); });
+    new MutationObserver(sync).observe(rs, { attributes: true, attributeFilter: ['style'] });
+    /* buttons and the rank card fill in after saving: fit again when they do */
+    new MutationObserver(function () { if (mode === 'sum') fitSum(); }).observe(rs, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'disabled'] });
+    window.addEventListener('resize', function () { sync(); fitSum(); });
+    sync();
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
+})();
