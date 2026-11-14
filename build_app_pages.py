@@ -701,6 +701,33 @@ CHECKOUT = """
 </script>
 """
 
+MOCK_BARS = """
+<style>
+/* TSSC-APPBARS-V1: mock list as one horizontal bar per mock */
+.mock-grid{grid-template-columns:1fr!important;gap:8px!important;}
+.mock-card{flex-direction:row!important;align-items:stretch!important;min-height:70px;border-radius:14px!important;transform:none!important;}
+.mc-top{flex:0 0 76px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;padding:6px 4px 20px!important;text-align:center;}
+.mc-num{font-size:1rem!important;white-space:nowrap;}
+.mc-tier{font-size:.62rem!important;margin:0!important;}
+.mc-body{flex:1 1 auto!important;min-width:0;display:grid!important;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto auto;column-gap:10px;row-gap:3px;align-content:center;align-items:center;padding:8px 10px!important;}
+.mc-title{display:none!important;}
+.mc-stats{grid-column:1;grid-row:1;margin:0!important;gap:.5rem!important;flex-wrap:nowrap!important;white-space:nowrap;overflow:hidden;}
+.mc-stat:nth-child(2){display:none!important;}
+.mc-stat{font-size:.74rem!important;}.mc-stat b{font-size:.98rem!important;}
+.mc-foot{display:contents!important;}
+.mc-langs{grid-column:1;grid-row:2;justify-content:flex-start!important;}
+.mc-langs .lg{font-size:.64rem!important;padding:.08rem .4rem!important;}
+.mc-attempt{grid-column:2;grid-row:1 / span 2;align-self:center;width:auto!important;min-width:96px;padding:.55rem .7rem!important;font-size:.8rem!important;border-radius:10px!important;}
+/* Free / Premium tag sits under the mock number, inside the coloured block */
+.mock-card.live .mc-free-tag,.mock-card .mc-paid-tag{left:0!important;right:auto!important;top:auto!important;position:absolute!important;inset:auto auto 5px 0!important;width:76px!important;display:flex!important;justify-content:center!important;background:none!important;backdrop-filter:none!important;pointer-events:none;}
+.mock-card.live .mc-free-tag span,.mock-card .mc-paid-tag span{font-size:.56rem!important;padding:1px 6px!important;border-radius:100px!important;box-shadow:none!important;background:rgba(255,255,255,.92)!important;color:#C2410C!important;text-shadow:none!important;white-space:nowrap;}
+.mock-card .mc-paid-tag span::after{display:none!important;}
+.mock-card.live .mc-free-tag i,.mock-card .mc-paid-tag i{font-size:.6rem!important;animation:none!important;margin-right:2px;}
+@media(max-width:345px){.mc-top{flex-basis:66px;}.mock-card.live .mc-free-tag,.mock-card .mc-paid-tag{width:66px!important;}.mc-attempt{min-width:84px;font-size:.74rem!important;}.mc-stat{font-size:.68rem!important;}.mc-stat b{font-size:.88rem!important;}}
+</style>
+"""
+
+
 LOGIN_CSS = """
 <style id="tssc-app-login-css">
 body{padding-bottom:0!important;display:block!important;background:#FFF8F2!important;min-height:100vh;}
@@ -766,7 +793,7 @@ def build(src_name, tab):
         doc = trim_chapters(doc, js, log)
 
     head_end = doc.lower().find('</head>')
-    extra = {'mocks': CHECKOUT, 'login': LOGIN_CSS, 'chapters': CHAPTERS_CSS}.get(tab, '')
+    extra = {'mocks': CHECKOUT + MOCK_BARS, 'login': LOGIN_CSS, 'chapters': CHAPTERS_CSS}.get(tab, '')
     doc = doc[:head_end] + (CHROME_CSS % {'src': src_name}) + extra + doc[head_end:]
     if tab == 'login':
         # no bars on the sign-in screen: just the brand above the website's own sign-in card

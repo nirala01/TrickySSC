@@ -12,7 +12,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700;800&family=Rajdhani:wght@600;700&display=swap" rel="stylesheet">
-<!-- TSSC-APP-V3 (2026-11-14): the Android app's own screens, in one file.
+<!-- TSSC-APP-V4 (2026-11-14): the Android app's own screens, in one file.
        1. sign in first            (app-login.html, then back here)
        2. choose your exam         (#choose, remembered on the phone)
        3. home for that exam       (#home, never scrolls)
@@ -499,7 +499,17 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;}
     app.classList.toggle('no-tabs', view==='choose' && !k);     // first run: nothing to tab to yet
     $('ttl').textContent = back ? title : (view==='choose' && k ? 'Change exam' : '');
     $('examName').textContent = k ? E[k].name : '';
-    var n=first(user()); $('me').textContent='👤 '+(n||'Me');
+    var n=first(user()); $('me').textContent='👤 '+(n||'Me');    if(view==='home') offerOnce();
+  }
+  /* TSSC-APPOFFERS-V1: the "Pick your pass" popup, once each time the app is opened (rules in /tssc-app-offers.js) */
+  var _offerAsked=false;
+  function offerOnce(){
+    if(_offerAsked) return; _offerAsked=true;
+    setTimeout(function(){
+      function go(){ try{ window.TSSC_APP_OFFERS.openOnce(); }catch(e){} }
+      if(window.TSSC_APP_OFFERS){ go(); return; }
+      var s=document.createElement('script'); s.src='/tssc-app-offers.js?v=1'; s.onload=go; document.head.appendChild(s);
+    }, 700);
   }
   $('back').addEventListener('click', function(){ if(history.length>1) history.back(); else location.hash='#home'; });
   window.addEventListener('hashchange', route);

@@ -116,6 +116,17 @@
     '.tsa-sheet-h b{flex:1;min-width:0;}.tsa-sheet-h button{flex:0 0 34px;width:34px;height:34px;border:0;border-radius:50%;background:#F1F5F9;font-size:15px;color:#475569;cursor:pointer;}' +
     '.tsa-sheet-b{flex:1 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:6px 16px 18px;}' +
     '.tsa-sheet-b>section{display:block!important;margin:0!important;padding:0!important;border:0!important;box-shadow:none!important;background:none!important;}.tsa-sheet-b>section>h2:first-child{display:none!important;}' +
+    /* TSSC-APPOFFER-V1: empty space under a short page shows the mock passes not bought yet */
+    '.tsa-offers{margin:18px 14px 14px;font-family:Rajdhani,system-ui,sans-serif;}' +
+    '.tsa-offers h4{margin:0 2px 8px;font:700 13px/1 Rajdhani,system-ui,sans-serif;letter-spacing:.6px;text-transform:uppercase;color:#64748B;}' +
+    '.tsa-offer{position:relative;overflow:hidden;display:flex;align-items:center;gap:11px;margin:0 0 9px;padding:11px 12px;border-radius:16px;color:#fff;text-decoration:none;background:linear-gradient(135deg,var(--c),var(--c2));box-shadow:0 5px 14px var(--s);}' +
+    '.tsa-offer::after{content:"";position:absolute;right:-30px;top:-40px;width:130px;height:130px;border-radius:50%;background:rgba(255,255,255,.13);}' +
+    '.tsa-offer i{position:relative;z-index:1;flex:0 0 40px;height:40px;border-radius:12px;background:rgba(255,255,255,.22);display:flex;align-items:center;justify-content:center;font-style:normal;font-size:20px;}' +
+    '.tsa-offer div{position:relative;z-index:1;flex:1;min-width:0;}' +
+    '.tsa-offer b{display:block;font-size:17px;font-weight:700;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}' +
+    '.tsa-offer small{display:block;font:500 12px/1.3 Hind,system-ui,sans-serif;opacity:.95;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}' +
+    '.tsa-offer span{position:relative;z-index:1;flex:0 0 auto;display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:64px;height:42px;padding:0 10px;border-radius:12px;background:#fff;color:#1A202C;font-size:16px;font-weight:700;line-height:1;box-shadow:0 3px 8px rgba(0,0,0,.12);}' +
+    '.tsa-offer span s{font-size:10.5px;font-weight:600;color:#94A3B8;margin-bottom:2px;}' +
     'html.tsa-lock,html.tsa-lock body{overflow:hidden!important;}' +
     'html.tssc-app .wrap{padding-top:12px!important;}' +
     'html.tssc-app{-webkit-tap-highlight-color:transparent;}' +
@@ -259,6 +270,30 @@
       if (k > 0 && /<b>\d/.test(h.slice(0, k))) metas[i].innerHTML = h.slice(0, k);
     }
   }
-  function start() { build(); try { trim(); } catch (e) {} }
+
+  /* TSSC-APPOFFER-V2: empty space under a short page shows the passes or upgrades that fit this
+     student. The rules (who sees what) live in /tssc-app-offers.js. */
+  function blank() {
+    var kids = document.body.children, bottom = 0;
+    for (var i = 0; i < kids.length; i++) {
+      var el = kids[i]; if (/^(SCRIPT|STYLE)$/.test(el.tagName) || el.classList.contains('tsa-tabs') || el.classList.contains('tsa-sheet')) continue;
+      var cs = getComputedStyle(el); if (cs.position === 'fixed' || cs.display === 'none') continue;
+      var r = el.getBoundingClientRect(); if (r.height > 0) bottom = Math.max(bottom, r.bottom + window.pageYOffset);
+    }
+    return window.innerHeight - TAB - bottom;
+  }
+  function offers() {
+    if (NO_TABS || document.querySelector('.tsa-offers') || /^(app-.*mock|app-login|dashboard|my-orders|contact|terms|privacy|refund|about|disclaimer)/.test(file)) return;
+    var room = blank(); if (room < 150) return;
+    function go() {
+      window.TSSC_APP_OFFERS.fill(room).then(function (box) {
+        if (!box || document.querySelector('.tsa-offers')) return;
+        document.body.insertBefore(box, document.querySelector('.tsa-tabs') || null);
+      });
+    }
+    if (window.TSSC_APP_OFFERS) { go(); return; }
+    var s = document.createElement('script'); s.src = '/tssc-app-offers.js?v=1'; s.onload = go; document.head.appendChild(s);
+  }
+  function start() { build(); try { trim(); } catch (e) {} setTimeout(function () { try { offers(); } catch (e) {} }, 900); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
 })();

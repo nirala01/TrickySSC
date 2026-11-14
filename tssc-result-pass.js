@@ -231,9 +231,24 @@
     document.addEventListener('keydown', onKey);
     document.body.appendChild(box);
     document.body.style.overflow = 'hidden';
-    markSeen();
+    if (!box._noMark) markSeen();
     try { box.querySelector('.rp-go').focus({ preventScroll: true }); } catch (e) {}
   }
+
+  /* TSSC-APPOFFERS-V1: the same popup, opened directly by the app (tssc-app-offers.js) with the
+     student's passes already read. Does not count as the once-a-day post-test showing. */
+  window.tsscPassPopup = function (m, o) {
+    try {
+      if (document.getElementById('tsscRP')) return false;
+      var box = build(m); if (!box) return false;
+      o = o || {};
+      var done = box.querySelector('.rp-done'); if (done) { if (o.badge) done.lastChild.nodeValue = o.badge; else done.hidden = true; }
+      var go = box.querySelector('.rp-go'); if (go && o.button) go.firstChild.nodeValue = o.button;
+      var links = box.querySelectorAll('a[href]');
+      for (var i = 0; i < links.length; i++) links[i].setAttribute('href', links[i].getAttribute('href').replace(H, '/'));
+      box._noMark = true; open(box); return true;
+    } catch (e) { return false; }
+  };
 
   window.tsscResultPass = function (opts) {
     try {
