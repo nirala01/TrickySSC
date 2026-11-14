@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!-- Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-3MMDNVBJQN"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){{dataLayer.push(arguments);}}
+      gtag("js", new Date());
+      gtag("config", "G-3MMDNVBJQN");
+    </script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Login / Register</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Baloo+2:wght@700;800&family=Hind:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  :root{
+    --orange:#FF6B00;
+    --orange2:#FF8C38;
+    --dark:#1A202C;
+    --gray:#64748B;
+    --light:#F8FAFC;
+    --border:#E2E8F0;
+    --green:#00A86B;
+  }
+  body{
+    font-family:'Hind',sans-serif;
+    min-height:100vh;
+    display:flex;
+    background:#F1F5F9;
+    overflow-x:hidden;
+  }
+
+  /* ── LEFT PANEL ── */
+  .left-panel{
+    width:45%;
+    background:linear-gradient(150deg,#1A202C 0%,#0F172A 50%,#1E3A2F 100%);
+    display:flex;flex-direction:column;justify-content:center;align-items:flex-start;
+    padding:4rem 3.5rem;
+    position:relative;
+    overflow:hidden;
+  }
+  .left-panel::before{
+    content:'';position:absolute;inset:0;
+    background:radial-gradient(ellipse at 20% 50%,rgba(255,107,0,0.12) 0%,transparent 60%),
+               radial-gradient(ellipse at 80% 20%,rgba(0,168,107,0.08) 0%,transparent 50%);
+  }
+  .bg-dots{
+    position:absolute;inset:0;
+    background-image:radial-gradient(circle,rgba(255,255,255,0.04) 1px,transparent 1px);
+    background-size:28px 28px;
+  }
+  .left-content{position:relative;z-index:1;}
+  .brand{
+    display:flex;align-items:center;gap:0.6rem;
+    margin-bottom:3rem;
+  }
+  .brand-icon{
+    width:44px;height:44px;background:linear-gradient(135deg,#FF6B00,#FF8C38);
+    border-radius:12px;display:flex;align-items:center;justify-content:center;
+    font-size:1.3rem;box-shadow:0 4px 20px rgba(255,107,0,0.4);
+  }
+  .brand-name{
+    font-family:'Baloo 2',cursive;font-size:1.5rem;font-weight:800;
+    color:#fff;letter-spacing:-0.3px;
+  }
+  .left-heading{
+    font-family:'Baloo 2',cursive;font-size:2.4rem;font-weight:800;
+    color:#fff;line-height:1.2;margin-bottom:1rem;
+  }
+  .left-heading span{color:#FF6B00;}
+  .left-sub{
+    font-size:1rem;color:rgba(255,255,255,0.6);line-height:1.7;
+    margin-bottom:2.5rem;max-width:340px;
+  }
+  .feature-list{display:flex;flex-direction:column;gap:0.75rem;}
+  .feature-item{
+    display:flex;align-items:center;gap:0.75rem;
+    font-family:'Rajdhani',sans-serif;font-size:0.95rem;font-weight:600;
+    color:rgba(255,255,255,0.8);
+  }
+  .feature-dot{
+    width:28px;height:28px;border-radius:8px;
+    display:flex;align-items:center;justify-content:center;font-size:0.9rem;
+    flex-shrink:0;
+  }
+  .fd-orange{background:rgba(255,107,0,0.2);}
+  .fd-green{background:rgba(0,168,107,0.2);}
+  .fd-blue{background:rgba(14,165,233,0.2);}
+  .fd-yellow{background:rgba(245,158,11,0.2);}
+  .bottom-badge{
+    margin-top:3rem;padding:0.75rem 1.2rem;
+    background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);
+    border-radius:12px;display:inline-flex;align-items:center;gap:0.6rem;
+    font-family:'Rajdhani',sans-serif;font-size:0.85rem;font-weight:600;color:rgba(255,255,255,0.5);
+  }
+  .bottom-badge strong{color:#FF6B00;}
+
+  /* ── RIGHT PANEL ── */
+  .right-panel{
+    flex:1;display:flex;align-items:center;justify-content:center;
+    padding:2rem;
+  }
+  .login-card{
+    width:100%;max-width:420px;
+    background:#fff;border-radius:24px;
+    box-shadow:0 20px 60px rgba(0,0,0,0.1);
+    overflow:hidden;
+  }
+  .card-header{
+    padding:2rem 2.5rem 1.5rem;
+    border-bottom:1px solid var(--border);
+    background:linear-gradient(135deg,#fff9f5 0%,#fff 100%);
+  }
+  .card-title{
+    font-family:'Baloo 2',cursive;font-size:1.6rem;font-weight:800;
+    color:var(--dark);margin-bottom:0.25rem;
+  }
+  .card-sub{font-size:0.88rem;color:var(--gray);}
+
+
+
+  /* ── FORMS ── */
+  .form-wrap{padding:1.5rem 2.5rem 2rem;}
+  .form-section{display:none;}
+  .form-section.active{display:block;}
+
+  /* Google Button */
+  .google-btn{
+    width:100%;display:flex;align-items:center;justify-content:center;gap:0.75rem;
+    background:#fff;border:2px solid var(--border);border-radius:12px;
+    padding:0.85rem 1rem;font-family:'Rajdhani',sans-serif;font-size:1rem;font-weight:700;
+    color:var(--dark);cursor:pointer;transition:all 0.2s;margin-bottom:1.2rem;
+  }
+  .google-btn:hover{border-color:#4285F4;box-shadow:0 4px 15px rgba(66,133,244,0.15);}
+  .google-btn:active{transform:scale(0.99);}
+
+  /* Divider */
+  .divider{
+    display:flex;align-items:center;gap:0.75rem;margin-bottom:1.2rem;
+  }
+  .divider-line{flex:1;height:1px;background:var(--border);}
+  .divider-text{font-family:'Rajdhani',sans-serif;font-size:0.75rem;font-weight:700;color:#94A3B8;letter-spacing:1px;}
+
+
+
+  /* Main CTA */
+  .cta-btn{
+    width:100%;padding:1rem;border:none;border-radius:12px;
+    font-family:'Rajdhani',sans-serif;font-size:1.05rem;font-weight:700;
+    letter-spacing:0.5px;cursor:pointer;transition:all 0.2s;
+    background:linear-gradient(135deg,var(--orange),var(--orange2));
+    color:#fff;box-shadow:0 4px 20px rgba(255,107,0,0.35);
+  }
+  .cta-btn:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(255,107,0,0.45);}
+  .cta-btn:active{transform:translateY(0);}
+  .cta-btn:disabled{opacity:0.6;cursor:not-allowed;transform:none;}
+
+  .resend-link{
+    text-align:center;margin-top:0.75rem;
+    font-size:0.85rem;color:var(--gray);
+  }
+  .resend-link a{color:var(--orange);font-weight:700;text-decoration:none;cursor:pointer;}
+
+  .msg-box{
+    padding:0.75rem 1rem;border-radius:10px;font-size:0.88rem;font-weight:600;
+    font-family:'Rajdhani',sans-serif;margin-bottom:1rem;display:none;
+  }
+  .msg-error{background:#FEF2F2;border:1px solid #FECACA;color:#DC2626;}
+  .msg-success{background:#F0FDF4;border:1px solid #BBF7D0;color:#16A34A;}
+
+  /* ── BACK LINK ── */
+  .back-link{
+    display:inline-flex;align-items:center;gap:0.4rem;
+    font-family:'Rajdhani',sans-serif;font-size:0.88rem;font-weight:600;
+    color:var(--gray);text-decoration:none;margin-bottom:1.5rem;
+    transition:color 0.2s;
+  }
+  .back-link:hover{color:var(--orange);}
+
+
+  /* ── RESPONSIVE ── */
+  @media(max-width:768px){
+    body{flex-direction:column;}
+    .left-panel{width:100%;padding:2rem 1.5rem;min-height:auto;}
+    .left-heading{font-size:1.8rem;}
+    .feature-list{display:none;}
+    .bottom-badge{display:none;}
+    .right-panel{padding:1.5rem 1rem;}
+    .form-wrap{padding:1.5rem 1.5rem 2rem;}
+    .card-header{padding:1.5rem;}
+    .tab-bar{margin:1.2rem 1.5rem 0;}
+  }
+</style>
+
+<!-- TSSC-APPPAGES-V1: app-only copy, built by build_app_pages.py from login.html. Do not edit by hand. -->
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#FFFFFF">
+<link rel="manifest" href="/manifest.webmanifest">
+<script>window.__tsscApp=1;try{sessionStorage.setItem('tssc_app','1');}catch(e){}</script>
+<style id="tssc-app-css">
+html{-webkit-tap-highlight-color:transparent;}
+nav.tssc-nav,nav.topbar,nav.nav,nav.site-nav,header.nav,.mobile-menu,.tssc-mobile-menu,footer,[data-tsa-hide]{display:none!important;}
+body{padding-bottom:calc(58px + env(safe-area-inset-bottom,0px))!important;}
+.wrap{padding-top:12px!important;}
+.tgf{bottom:calc(72px + env(safe-area-inset-bottom,0px))!important;}
+/* info boxes: the headline only. The long explanation stays on the website page. */
+.price-note{padding:10px 12px!important;margin:10px 0!important;align-items:center!important;}
+.price-note .pn-txt{font-size:0!important;line-height:1.3!important;}
+.price-note .pn-txt br{display:none!important;}
+.price-note .pn-txt>b:first-child,.price-note .pn-sell>b:first-child,.price-note .pn-own>b:first-child{font-size:13.5px!important;display:block;}
+.price-note .pn-app{display:block;font-size:12.5px!important;font-weight:600;margin-top:2px;opacity:.9;}
+.rb-txt{font-size:0!important;line-height:1.3!important;}
+.rb-txt>b:first-child{font-size:13.5px!important;}
+.smr-box .smr-sub{display:none!important;}
+.yr-intro{display:none!important;}
+.yr-adding span{font-size:0!important;}
+.yr-adding b{font-size:12.5px!important;}
+.tsa-top{position:sticky;top:0;left:0;right:0;z-index:1000;display:flex;align-items:center;gap:4px;box-sizing:border-box;height:calc(52px + env(safe-area-inset-top,0px));padding:env(safe-area-inset-top,0px) 6px 0;background:#fff;border-bottom:1px solid #EDF0F5;box-shadow:0 1px 6px rgba(15,23,42,.05);font-family:'Rajdhani',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;color:#1A202C;}
+.tsa-top a,.tsa-top button{flex:0 0 40px;width:40px;height:40px;border-radius:50%;border:0;background:none;display:flex;align-items:center;justify-content:center;color:#1A202C;cursor:pointer;padding:0;margin:0;text-decoration:none;}
+.tsa-top a svg,.tsa-top button svg{width:22px;height:22px;flex:0 0 22px;}
+.tsa-top a:active,.tsa-top button:active{background:#F1F5F9;}
+.tsa-top b{flex:1;min-width:0;font-weight:700;font-size:19px;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.tsa-tabs{position:fixed;left:0;right:0;bottom:0;z-index:980;display:grid;grid-template-columns:repeat(5,1fr);box-sizing:border-box;height:calc(58px + env(safe-area-inset-bottom,0px));padding:0 0 env(safe-area-inset-bottom,0px);margin:0;background:#fff;border-top:1px solid #EDF0F5;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;}
+.tsa-tabs a{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:10.5px;font-weight:700;line-height:1.2;color:#94A3B8;text-decoration:none;}
+.tsa-tabs a svg{width:23px;height:23px;}
+.tsa-tabs a.on{color:#FF6B00;}
+.tsa-tabs a.on::before{content:"";position:absolute;top:0;left:50%;width:26px;height:3px;margin-left:-13px;border-radius:0 0 4px 4px;background:#FF6B00;}
+.tsa-tabs a.on svg{fill:rgba(255,107,0,.14);}
+.tsa-tabs a:active{transform:scale(.94);}
+</style>
+
+<style id="tssc-app-login-css">
+body{padding-bottom:0!important;display:block!important;background:#FFF8F2!important;min-height:100vh;}
+.right-panel{display:flex!important;flex-direction:column!important;align-items:stretch!important;justify-content:flex-start!important;width:100%!important;max-width:460px;min-height:0!important;margin:0 auto!important;padding:calc(env(safe-area-inset-top,0px) + 18px) 16px 24px!important;}
+.login-card{width:100%!important;max-width:none!important;margin:0!important;}
+.tsa-brand{display:flex;align-items:center;justify-content:center;gap:10px;margin:18px 0 20px;font-family:'Baloo 2',system-ui,sans-serif;font-weight:800;font-size:30px;letter-spacing:-.5px;color:#1A202C;}
+.tsa-brand i{width:46px;height:46px;border-radius:50%;background:linear-gradient(135deg,#FF6B00,#FF9A3D);display:flex;align-items:center;justify-content:center;font-style:normal;font-size:22px;box-shadow:0 6px 16px rgba(255,107,0,.35);}
+.tsa-brand b{color:#FF6B00;}
+.tsa-tag{text-align:center;color:#64748B;font-size:14px;margin:-12px 0 18px;font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;}
+</style>
+</head>
+<body>
+
+<!-- LEFT PANEL -->
+
+
+<!-- RIGHT PANEL -->
+<div class="right-panel">
+<div class="tsa-brand"><i>⚡</i><span>Tricky<b>SSC</b></span></div><div class="tsa-tag">Mock tests &middot; Previous year papers &middot; Hindi &amp; English</div>
+
+  <div>
+    
+    <div class="login-card">
+      <div class="card-header">
+        <div class="card-title">Welcome to TrickySSC 👋</div>
+        <div class="card-sub">Sign in or create your free account</div>
+      </div>
+
+
+
+      <div class="form-wrap">
+
+        <!-- TAB BAR -->
+        <div style="display:flex;background:#F1F5F9;border-radius:10px;padding:3px;margin-bottom:1.5rem;">
+          <button id="tab-google" onclick="switchTab('google')" style="flex:1;padding:0.55rem;border:none;border-radius:8px;font-family:'Rajdhani',sans-serif;font-size:0.9rem;font-weight:700;cursor:pointer;transition:all 0.2s;background:#fff;color:#1A202C;box-shadow:0 2px 8px rgba(0,0,0,0.1);">🔵 Google</button>
+          <button id="tab-mobile" onclick="switchTab('mobile')" style="flex:1;padding:0.55rem;border:none;border-radius:8px;font-family:'Rajdhani',sans-serif;font-size:0.9rem;font-weight:700;cursor:pointer;transition:all 0.2s;background:transparent;color:#64748B;">📱 Mobile OTP</button>
+        </div>
+
+        <!-- Google Section -->
+        <div id="section-google">
+          <div id="msg-google" class="msg-box"></div>
+          <button class="google-btn" onclick="doGoogleLogin()" id="googleBtn">
+            <svg width="20" height="20" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+            Continue with Google
+          </button>
+          <p style="text-align:center;font-size:0.82rem;color:#94A3B8;font-family:'Rajdhani',sans-serif;">Sign in with your Google account · Free &amp; instant</p>
+        </div>
+
+        <!-- Mobile OTP Section -->
+        <div id="section-mobile" style="display:none;">
+          <div id="msg-mobile" class="msg-box"></div>
+
+          <!-- Step 1: Enter phone -->
+          <div id="step-phone">
+            <div style="margin-bottom:1rem;">
+              <label style="display:block;font-family:'Rajdhani',sans-serif;font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#64748B;margin-bottom:0.5rem;">📱 Mobile Number</label>
+              <div style="display:flex;border:2px solid #E2E8F0;border-radius:12px;overflow:hidden;transition:border-color 0.2s;" id="phoneWrap">
+                <div style="padding:0 1rem;background:#F8FAFC;font-family:'Rajdhani',sans-serif;font-size:0.95rem;font-weight:700;color:#1A202C;display:flex;align-items:center;border-right:2px solid #E2E8F0;">🇮🇳 +91</div>
+                <input type="tel" id="otpPhone" maxlength="10" placeholder="10-digit mobile number"
+                  oninput="this.value=this.value.replace(/\D/g,'').slice(0,10)"
+                  onfocus="document.getElementById('phoneWrap').style.borderColor='#FF6B00'"
+                  onblur="document.getElementById('phoneWrap').style.borderColor='#E2E8F0'"
+                  onkeydown="if(event.key==='Enter')sendOTP()"
+                  style="flex:1;padding:0.85rem 1rem;border:none;outline:none;font-family:'Hind',sans-serif;font-size:1rem;color:#1A202C;background:#fff;">
+              </div>
+            </div>
+            <button onclick="sendOTP()" id="sendOtpBtn" class="cta-btn">Send OTP →</button>
+            <div id="recaptcha-container" style="margin-top:1rem;"></div>
+          </div>
+
+          <!-- Step 2: Enter OTP -->
+          <div id="step-otp" style="display:none;">
+            <div style="text-align:center;margin-bottom:1rem;">
+              <div style="font-size:1.5rem;margin-bottom:0.4rem;">📨</div>
+              <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:#1A202C;">OTP sent to <span id="otpSentTo" style="color:#FF6B00;"></span></div>
+              <div style="font-size:0.8rem;color:#94A3B8;margin-top:0.2rem;">Enter the 6-digit code</div>
+            </div>
+            <div style="margin-bottom:1rem;">
+              <input type="tel" id="otpCode" maxlength="6" placeholder="Enter 6-digit OTP"
+                oninput="this.value=this.value.replace(/\D/g,'').slice(0,6)"
+                onkeydown="if(event.key==='Enter')verifyOTP()"
+                style="width:100%;background:#F8FAFC;border:2px solid #E2E8F0;border-radius:12px;padding:0.85rem 1rem;font-family:'Hind',sans-serif;font-size:1.3rem;color:#1A202C;outline:none;text-align:center;letter-spacing:0.4em;box-sizing:border-box;"
+                onfocus="this.style.borderColor='#FF6B00'" onblur="this.style.borderColor='#E2E8F0'">
+            </div>
+            <button onclick="verifyOTP()" id="verifyOtpBtn" class="cta-btn">Verify OTP →</button>
+            <div style="text-align:center;margin-top:0.75rem;">
+              <span style="font-size:0.82rem;color:#94A3B8;">Didn't receive? </span>
+              <a onclick="resetToPhone()" style="font-size:0.82rem;color:#FF6B00;font-weight:700;cursor:pointer;">Resend OTP</a>
+            </div>
+          </div>
+
+          <!-- Step 3: Enter Name (new users only) -->
+          <div id="step-name" style="display:none;">
+            <div style="text-align:center;margin-bottom:1.25rem;">
+              <div style="font-size:1.5rem;margin-bottom:0.4rem;">✅</div>
+              <div style="font-family:'Rajdhani',sans-serif;font-weight:700;color:#1A202C;">Phone verified!</div>
+              <div style="font-size:0.8rem;color:#94A3B8;margin-top:0.2rem;">Just tell us your name</div>
+            </div>
+            <div style="margin-bottom:1rem;">
+              <label style="display:block;font-family:'Rajdhani',sans-serif;font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#64748B;margin-bottom:0.5rem;">👤 Full Name</label>
+              <input type="text" id="otpName" placeholder="Enter your full name"
+                onkeydown="if(event.key==='Enter')completeMobileLogin()"
+                style="width:100%;background:#F8FAFC;border:2px solid #E2E8F0;border-radius:12px;padding:0.85rem 1rem;font-family:'Hind',sans-serif;font-size:0.95rem;color:#1A202C;outline:none;box-sizing:border-box;"
+                onfocus="this.style.borderColor='#FF6B00'" onblur="this.style.borderColor='#E2E8F0'">
+            </div>
+            <button onclick="completeMobileLogin()" id="completeBtn" class="cta-btn">Start Learning →</button>
+          </div>
+        </div>
+
+        </div><!-- /form-wrap -->
+    </div><!-- /login-card -->
+  </div>
+</div><!-- /right-panel -->
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getFirestore, doc, setDoc, getDoc, getDocs, collection, query, where, serverTimestamp }
+  from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import {
+  getAuth, signInWithPopup, GoogleAuthProvider,
+  onAuthStateChanged,
+  signInWithCustomToken, updateProfile, signOut
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+const app = initializeApp({
+  apiKey:"AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",
+  authDomain:"trickyssc-17bb3.firebaseapp.com",
+  projectId:"trickyssc-17bb3",
+  storageBucket:"trickyssc-17bb3.firebasestorage.app",
+  messagingSenderId:"450627057220",
+  appId:"1:450627057220:web:366267bf437d94f20c6e11"
+});
+const db = getFirestore(app);
+const auth = getAuth(app);
+const gProvider = new GoogleAuthProvider();
+
+/* TSSC-OTP-V2 (2026-09-26) ───────────────────────────────────────────
+   Phone OTPs are now SENT by the trickyssc-otp Cloudflare Worker (Fast2SMS
+   DLT route, sender TRKSSC — live 2026-10-03) instead of Firebase's own SMS. Firebase Auth is still the
+   identity: the Worker signs a custom token for the SAME uid a number always
+   had, so profiles, attempts, premium status and Google login are untouched.
+   Only sendOTP() / verifyOTP() below changed; everything after "user" is the
+   same code as before. */
+const TSSC_OTP_API = 'https://trickyssc-otp.nirala01.workers.dev';   // live: TSSC-OTP-V2.2, Fast2SMS DLT (TRKSSC)
+const TSSC_TURNSTILE_SITEKEY = '';   // optional Cloudflare Turnstile site key (leave '' to disable)
+
+async function tsscOtpCall(path, payload) {
+  let res, data;
+  try {
+    res = await fetch(TSSC_OTP_API + path, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    data = await res.json();
+  } catch (e) {
+    throw Object.assign(new Error('⚠️ Could not reach the OTP service. Check your connection and try again.'), { code: 'network' });
+  }
+  if (!res.ok || !data || !data.ok) {
+    throw Object.assign(new Error((data && data.message) || '⚠️ OTP service error. Please try again.'), { code: (data && data.error) || 'server_error' });
+  }
+  return data;
+}
+
+let _otpFlowActive = false; // prevents auto-redirect during OTP flow
+
+// ── If already logged in → go to dashboard ──
+onAuthStateChanged(auth, user => {
+  if (user && !_otpFlowActive && !window._googleFlowActive) goToDashboard();
+});
+
+// ── Save user profile to Firestore ──
+
+/* ---- TSSC-PHONEUNIQ-V1 ---------------------------------------------------
+   One mobile number, one account. Premium access is identified by this number
+   in support, so a duplicate makes that identification meaningless.
+
+   Returns: null  = free to use
+            {uid} = already taken by that account
+   Throws on failure, so callers must fail CLOSED. A check that cannot run is
+   not a check that passed. */
+function tsscNormPhone(v) {
+  let d = String(v == null ? '' : v).replace(/\D/g, '');
+  if (d.length === 12 && d.startsWith('91')) d = d.slice(2);
+  if (d.length === 11 && d.startsWith('0'))  d = d.slice(1);
+  return d.length === 10 ? d : '';
+}
+
+/* tsscPhoneOwner() removed 2026-10-03 (TSSC-PHONEUNIQ-V2): the uniqueness
+   check lives in the trickyssc-otp Worker now — see /verify there. */
+
+async function saveUserProfile(user, extraPhone='', extraName='') {
+  const ref = doc(db, 'users', user.uid);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) {
+    await setDoc(ref, {
+      uid: user.uid,
+      name: extraName || user.displayName || 'Student',
+      email: user.email || '',
+      phone: extraPhone || user.phoneNumber || '',
+      photoURL: user.photoURL || '',
+      createdAt: serverTimestamp(),
+      loginMethod: 'google',
+      totalTests: 0,
+      avgScore: 0,
+      bestScore: 0,
+    });
+  } else if(extraPhone && !snap.data().phone) {
+    // Update phone if missing
+    await setDoc(ref, {phone: extraPhone}, {merge: true});
+  }
+}
+
+// ── TSSC-NOPHONE-V1 — Google sign-in goes straight through ──
+// No mobile number is asked for here any more. It is collected at checkout,
+// where it is actually needed and where the buyer has a reason to get it right.
+// If the profile write fails, we still let them in: they are authenticated, and
+// a missing profile row is recoverable, whereas a dead signup is not.
+async function checkGoogleUserInfo(user) {
+  /* TSSC-NONAME-V1 (2026-09-24) — a Google account with no display name used
+     to be saved as "Student". Ask for the name first, on the same Step 3 the
+     OTP flow uses; the profile is written only after they give it. */
+  const dn = String(user.displayName || '').trim();
+  if (!dn || dn === 'Student') {
+    let stored = '';
+    try { const sn = await getDoc(doc(db, 'users', user.uid)); stored = sn.exists() ? String((sn.data() || {}).name || '').trim() : ''; } catch (e) {}
+    if (!stored || stored === 'Student') {
+      window._pendingPhoneUser = user;
+      window._googleNameFlow = true;             // keeps _googleFlowActive on
+      const st = document.getElementById('step-name');
+      const heads = st.querySelectorAll('div[style*="text-align:center"] > div');
+      if (heads[1]) heads[1].textContent = 'Signed in with Google!';
+      if (heads[2]) heads[2].textContent = 'Your Google account has no name \u2014 just tell us your name';
+      switchTab('mobile');
+      document.getElementById('step-phone').style.display = 'none';
+      document.getElementById('step-otp').style.display = 'none';
+      st.style.display = 'block';
+      showMsg('google', '', '');
+      setTimeout(() => document.getElementById('otpName')?.focus(), 100);
+      return;
+    }
+    try { await updateProfile(user, { displayName: stored }); } catch (e) {}
+    goToDashboard(user);
+    return;
+  }
+  try {
+    await saveUserProfile(user);
+  } catch (e) {
+    console.error('[register] profile write failed, continuing anyway:', e);
+  }
+  goToDashboard(user);
+}
+
+/* TSSC-NOPHONE-V1 — showGoogleInfoModal, submitGoogleExtra and
+   skipGoogleExtra were removed here. The mobile number is collected in
+   the checkout popup instead. */
+
+
+
+// Dismiss the "complete your profile" modal without adding a phone. The user is
+// already authenticated via Google, so we persist a minimal profile (name/email/
+// photo, no phone) and continue to the dashboard. This also unblocks the case
+// where the entered phone is "already linked to another account".
+
+
+// ── Redirect after login ──
+function goToDashboard(user) {
+  _otpFlowActive = false;
+  window._googleFlowActive = false;
+  window._pendingPhoneUser = null;   // TSSC-NONAME-V1: name is saved, pagehide must not sign out
+  if(user) {
+    localStorage.setItem('tssc_user', JSON.stringify({
+      uid: user.uid,
+      name: user.displayName || 'Student',
+      phone: user.phoneNumber || '',
+      email: user.email || '',
+      photoURL: user.photoURL || '',
+      loginMethod: 'google'
+    }));
+  }
+  /* TSSC-RETURN-V2 — where to go after login, in order of trust:
+       1. ?next= / ?return= / ?redirect= on THIS page's URL (set by the caller)
+       2. localStorage.loginReturnTo (legacy flow)
+       3. index.html
+     Only same-origin paths are accepted, and the legacy key is ALWAYS cleared so
+     a stale value from an earlier session can never send someone elsewhere. */
+  const qs = new URLSearchParams(location.search);
+  const legacy = localStorage.getItem('loginReturnTo');
+  localStorage.removeItem('loginReturnTo');
+  const target = safeReturn(qs.get('next') || qs.get('return') || qs.get('redirect'))
+              || safeReturn(legacy)
+              || 'index.html';
+  window.location.replace(target);
+}
+function safeReturn(n) {
+  if (!n) return '';
+  try {
+    const u = new URL(n, location.href);
+    if (u.origin !== location.origin) return '';
+    if (/(^|\/)login\.html$/i.test(u.pathname)) return '';   // never bounce back to ourselves
+    return u.pathname + u.search + u.hash;
+  } catch (_) { return ''; }
+}
+
+// ── GOOGLE LOGIN ──
+// Tab removed — Google login only
+
+
+/* TSSC-DEADCODE — the old anonymous-auth name+mobile login (window.mobileLogin)
+   was removed here: its inputs no longer existed and it signed in anonymously. */
+
+// ── TAB SWITCH ──
+window.switchTab = (tab) => {
+  /* TSSC-NAMELOCK-V1 — while the name step is open the tabs are frozen: the
+     account is already signed in, and the only way forward is a name. */
+  if (window._pendingPhoneUser && document.getElementById('step-name')?.style.display === 'block') {
+    const m = document.getElementById('msg-mobile');
+    m.className = 'msg-box msg-error'; m.textContent = '\u26A0\uFE0F Please enter your name to finish logging in.'; m.style.display = 'block';
+    document.getElementById('otpName')?.focus();
+    return;
+  }
+  document.getElementById('section-google').style.display = tab==='google' ? 'block' : 'none';
+  document.getElementById('section-mobile').style.display = tab==='mobile' ? 'block' : 'none';
+  const tg = document.getElementById('tab-google');
+  const tm = document.getElementById('tab-mobile');
+  if(tab==='google'){
+    tg.style.cssText += ';background:#fff;color:#1A202C;box-shadow:0 2px 8px rgba(0,0,0,0.1);';
+    tm.style.cssText += ';background:transparent;color:#64748B;box-shadow:none;';
+  } else {
+    tm.style.cssText += ';background:#fff;color:#1A202C;box-shadow:0 2px 8px rgba(0,0,0,0.1);';
+    tg.style.cssText += ';background:transparent;color:#64748B;box-shadow:none;';
+    // Init recaptcha when mobile tab opened
+    if(!window._recaptchaReady) initRecaptcha();
+  }
+};
+
+// ── BOT CHECK INIT (TSSC-OTP-V2) ──
+// Firebase's invisible reCAPTCHA is gone with Firebase SMS. If a Cloudflare
+// Turnstile site key is set, an invisible Turnstile widget renders into the
+// old #recaptcha-container and its token is sent with /send. With no key the
+// Worker's own rate limits are the only bot defence (fine to start with).
+function initRecaptcha() {
+  window._recaptchaReady = true;
+  if (!TSSC_TURNSTILE_SITEKEY) return;
+  const render = () => {
+    try {
+      const el = document.getElementById('recaptcha-container');
+      if (!el || el.dataset.tsRendered) return;
+      window._turnstileWidget = turnstile.render(el, { sitekey: TSSC_TURNSTILE_SITEKEY, size: 'invisible' });
+      el.dataset.tsRendered = '1';
+    } catch (e) { console.warn('Turnstile init failed:', e.message); }
+  };
+  if (window.turnstile) { render(); return; }
+  if (document.getElementById('cf-turnstile-js')) { document.getElementById('cf-turnstile-js').addEventListener('load', render); return; }
+  const s = document.createElement('script');
+  s.id = 'cf-turnstile-js'; s.async = true; s.defer = true;
+  s.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+  s.addEventListener('load', render);
+  document.head.appendChild(s);
+}
+async function tsscTurnstileToken() {
+  if (!TSSC_TURNSTILE_SITEKEY || !window.turnstile) return '';
+  try {
+    if (window._turnstileWidget === undefined) initRecaptcha();
+    turnstile.reset(window._turnstileWidget);
+    return await new Promise((resolve) => {
+      let done = false;
+      const finish = (t) => { if (!done) { done = true; resolve(t || ''); } };
+      turnstile.execute(window._turnstileWidget, { callback: finish, 'error-callback': () => finish('') });
+      setTimeout(() => finish(turnstile.getResponse(window._turnstileWidget) || ''), 8000);
+    });
+  } catch (e) { return ''; }
+}
+
+// ── SEND OTP ──
+window.sendOTP = async () => {
+  _otpFlowActive = true; // prevent onAuthStateChanged from redirecting
+  const phone = document.getElementById('otpPhone').value.trim();
+  const btn = document.getElementById('sendOtpBtn');
+  const msgEl = document.getElementById('msg-mobile');
+
+  function showM(type, text) {
+    msgEl.className = 'msg-box msg-' + type;
+    msgEl.textContent = text;
+    msgEl.style.display = 'block';
+  }
+
+  if(phone.length !== 10) { showM('error', '⚠️ Enter valid 10-digit mobile number'); return; }
+
+  btn.disabled = true; btn.textContent = '⏳ Sending OTP...';
+  msgEl.style.display = 'none';
+
+  try {
+    /* TSSC-OTP-V2 — the Worker sends the SMS (Fast2SMS DLT route, sender TRKSSC). */
+    if(!window._recaptchaReady) initRecaptcha();
+    const cf_token = await tsscTurnstileToken();
+    await tsscOtpCall('/send', { phone, cf_token });
+    window._otpPhone = '+91' + phone;
+    document.getElementById('otpSentTo').textContent = '+91 ' + phone;
+    document.getElementById('step-phone').style.display = 'none';
+    document.getElementById('step-otp').style.display = 'block';
+    showM('success', '✅ OTP sent to +91 ' + phone);
+    setTimeout(() => document.getElementById('otpCode')?.focus(), 100);
+  } catch(e) {
+    btn.disabled = false; btn.textContent = 'Send OTP →';
+    // The Worker already returns user-facing messages (cooldown, limits, SMS failure).
+    showM('error', e.message || '⚠️ Could not send OTP. Please try again.');
+  }
+};
+
+// ── VERIFY OTP ──
+window.verifyOTP = async () => {
+  const code = document.getElementById('otpCode').value.trim();
+  const btn = document.getElementById('verifyOtpBtn');
+  const msgEl = document.getElementById('msg-mobile');
+
+  function showM(type, text) {
+    msgEl.className = 'msg-box msg-' + type;
+    msgEl.textContent = text;
+    msgEl.style.display = 'block';
+  }
+
+  if(code.length !== 6) { showM('error', '⚠️ Enter the 6-digit OTP'); return; }
+  btn.disabled = true; btn.textContent = '⏳ Verifying...';
+
+  try {
+    /* TSSC-OTP-V2 — the Worker checks the code, looks up the
+       Firebase account for this number (same uid as always, or a new one for
+       a new number) and returns a custom token. From `user` onward nothing
+       below has changed. */
+    const v = await tsscOtpCall('/verify', { phone: tsscNormPhone(window._otpPhone), otp: code });
+    const result = await signInWithCustomToken(auth, v.token);
+    const user = result.user;
+
+    // Check if returning user — separate try/catch so Firestore errors don't block name step
+    let isReturning = false;
+    try {
+      const snap = await getDoc(doc(db, 'users', user.uid));
+      if(snap.exists() && snap.data().name && snap.data().name !== 'Student') {
+        isReturning = true;
+        const ud = snap.data();
+        // Back-fill displayName for users who signed up before this fix, so the
+        // name shows on every page from now on (nav bars read user.displayName).
+        if(!user.displayName){ try{ await updateProfile(user, { displayName: ud.name }); }catch(e){ console.warn('[OTP] updateProfile failed:', e.message); } }
+        localStorage.setItem('tssc_user', JSON.stringify({
+          uid: user.uid, name: ud.name, phone: window._otpPhone,
+          email: ud.email||'', photoURL:'', loginMethod:'phone'
+        }));
+        goToDashboard(user);
+      }
+    } catch(fsErr) {
+      console.warn('[OTP] Firestore check failed:', fsErr.message, '— treating as new user');
+    }
+
+    if(!isReturning) {
+      // New user — show name step (keep _otpFlowActive = true to prevent auto-redirect)
+      window._pendingPhoneUser = user;
+      document.getElementById('step-otp').style.display = 'none';
+      document.getElementById('step-name').style.display = 'block';
+      msgEl.style.display = 'none';
+      setTimeout(() => document.getElementById('otpName')?.focus(), 100);
+    }
+  } catch(e) {
+    btn.disabled = false; btn.textContent = 'Verify OTP →';
+    if(e.code === 'auth/invalid-custom-token' || e.code === 'auth/custom-token-mismatch')
+      showM('error', '⚠️ Sign-in could not be completed. Please request a new OTP.');
+    else showM('error', e.message || '⚠️ Verification failed. Please try again.');
+  }
+};
+
+// ── COMPLETE MOBILE LOGIN (save name) ──
+window.completeMobileLogin = async () => {
+  const name = document.getElementById('otpName').value.trim();
+  const btn = document.getElementById('completeBtn');
+  const msgEl = document.getElementById('msg-mobile');
+  if(name.length < 2) {
+    msgEl.className='msg-box msg-error'; msgEl.textContent='⚠️ Please enter your full name'; msgEl.style.display='block'; return;
+  }
+  btn.disabled = true; btn.textContent = '⏳ Saving...';
+  const user = window._pendingPhoneUser;
+
+  /* TSSC-NONAME-V1 — Google user finishing the name step: no phone check. */
+  if (window._googleNameFlow) {
+    try {
+      await setDoc(doc(db, 'users', user.uid), {
+        uid: user.uid, name, email: user.email || '', photoURL: user.photoURL || '',
+        loginMethod: 'google', createdAt: serverTimestamp(),
+        totalTests: 0, avgScore: 0, bestScore: 0,
+      }, { merge: true });
+      try { await updateProfile(user, { displayName: name }); } catch (e) {}
+      localStorage.setItem('tssc_user', JSON.stringify({ uid: user.uid, name,
+        phone: '', email: user.email || '', photoURL: user.photoURL || '', loginMethod: 'google' }));
+      window._googleNameFlow = false;
+      goToDashboard(user);
+    } catch (e) {
+      btn.disabled = false; btn.textContent = 'Start Learning →';
+      msgEl.className = 'msg-box msg-error'; msgEl.textContent = 'Error: ' + e.message; msgEl.style.display = 'block';
+    }
+    return;
+  }
+
+  /* TSSC-PHONEUNIQ-V2 — the "does a Google account already own this number?"
+     check now runs INSIDE the Worker's /verify, before any account is created
+     or signed in (it answers 409 phone_taken, which verifyOTP shows). The old
+     client-side query on `users` could never pass the owner-only Firestore
+     rules, so it failed for every phone login. Nothing to do here any more. */
+
+  try {
+    await setDoc(doc(db, 'users', user.uid), {
+      uid: user.uid, name, phone: window._otpPhone, email:'',
+      photoURL:'', loginMethod:'phone', createdAt: serverTimestamp(),
+      totalTests:0, avgScore:0, bestScore:0,
+    }, {merge: true});
+    // Persist name onto the Firebase Auth profile so user.displayName is
+    // populated on EVERY page (nav bars read user.displayName). Without this,
+    // phone users have a null displayName and pages fall back to "Student".
+    try{ await updateProfile(user, { displayName: name }); }catch(e){ console.warn('[OTP] updateProfile failed:', e.message); }
+    // Save to localStorage with name BEFORE going to dashboard
+    const tsscData = {uid: user.uid, name, phone: window._otpPhone, email:'', photoURL:'', loginMethod:'phone'};
+    localStorage.setItem('tssc_user', JSON.stringify(tsscData));
+    console.log('[OTP] Saved to localStorage:', tsscData);
+    _otpFlowActive = false;
+    goToDashboard(user);
+  } catch(e) {
+    btn.disabled = false; btn.textContent = 'Start Learning →';
+    msgEl.className='msg-box msg-error'; msgEl.textContent='Error: '+e.message; msgEl.style.display='block';
+  }
+};
+
+// ── RESET TO PHONE STEP ──
+window.resetToPhone = () => {
+  document.getElementById('step-otp').style.display = 'none';
+  document.getElementById('step-phone').style.display = 'block';
+  document.getElementById('otpCode').value = '';
+  document.getElementById('sendOtpBtn').disabled = false;
+  document.getElementById('sendOtpBtn').textContent = 'Send OTP →';
+  document.getElementById('msg-mobile').style.display = 'none';
+  // TSSC-OTP-V2 — no Firebase recaptcha to tear down any more; the
+  // Turnstile widget (if enabled) is reset inside tsscTurnstileToken().
+};
+
+/* TSSC-NONAME-V1 — leaving login.html while the name step is open would leave
+   a signed-in, nameless account behind. Best-effort sign-out on the way out. */
+window.addEventListener('pagehide', () => {
+  if (window._pendingPhoneUser && document.getElementById('step-name')?.style.display === 'block') {
+    try { signOut(auth); } catch (e) {}
+  }
+});
+
+window.doGoogleLogin = async () => {
+  window._googleFlowActive = true; // prevent onAuthStateChanged from redirecting during modal
+  const btn = document.getElementById('googleBtn');
+  btn.disabled = true;
+  btn.innerHTML = '⏳ Signing in...';
+  showMsg('google', '', '');
+  try {
+    const result = await signInWithPopup(auth, gProvider);
+    showMsg('google', 'success', '✅ Logged in! Redirecting...');
+    setTimeout(() => checkGoogleUserInfo(result.user), 500);
+  } catch (e) {
+    btn.disabled = false;
+    btn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg> Continue with Google';
+    if (e.code === 'auth/popup-blocked') showMsg('google','error','⚠️ Popup blocked. Please allow popups for trickyssc.com');
+    else showMsg('google','error','Login failed: ' + e.message);
+  }
+};
+
+// ── UI helpers ──
+
+function showMsg(section, type, text) {
+  const el = document.getElementById('msg-' + section);
+  if (!type || !text) { el.style.display = 'none'; return; }
+  el.className = 'msg-box msg-' + type;
+  el.textContent = text;
+  el.style.display = 'block';
+}
+
+</script>
+</body>
+</html>

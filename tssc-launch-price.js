@@ -217,7 +217,7 @@
      Rs 20 GD add-on offered to anyone who holds the SSC CHSL mocks (CHSL plan,
      CGL + CHSL combo or All Access) but not the GD mocks. That offer comes first
      on every mock page; the CGL/CHSL Rs 29 upgrades follow as before. */
-  var ON_MOCK_PAGE = /\/(mock-list|ssc-(?:cgl|chsl|gd)-(?:[a-z0-9]+-)*mock-test)(?:\.html)?\/?$/i.test(location.pathname);
+  var ON_MOCK_PAGE = /\/(?:app-)?(mock-list|ssc-(?:cgl|chsl|gd)-(?:[a-z0-9]+-)*mock-test)(?:\.html)?\/?$/i.test(location.pathname)   /* TSSC-APPPAGES-V1: app-<page>.html copies count too */;
   if (!ON_MOCK_PAGE) return;
   var IS_GD     = /ssc-gd-/i.test(location.pathname);
   var IS_CHSL   = /ssc-chsl-/i.test(location.pathname);
