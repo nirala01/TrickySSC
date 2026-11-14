@@ -542,17 +542,20 @@ function tsscHideDrop(li){ var m=li.querySelector('.nav-drop-menu'); if(m)m.styl
    (exam == 'ssc-mts'). Same public REST query here; the section and card switch on only
    when papers exist. Tests open loader.html exactly as before. */
 (function(){
-  var EXAM='ssc-mts', CK='pyq_index_ssc-mts';
+  var EXAM='ssc-mts', CK='pyq_index_ssc-mts_v2';   /* TSSC-MTS-PYQ-NOMOCK: v2 cache — rows now carry type/mockId */
   var URL='https://firestore.googleapis.com/v1/projects/trickyssc-17bb3/databases/(default)/documents:runQuery?key=AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA';
   function esc(t){return String(t==null?'':t).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
   function fmt(d){var p=String(d||'').split('-');var m=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];return p.length===3&&m[+p[1]-1]?(+p[2])+' '+m[+p[1]-1]+' '+p[0]:(d||'');}
   function get(){
     try{var c=JSON.parse(sessionStorage.getItem(CK)||'null');if(c&&c.data&&c.data.length&&Date.now()-c.ts<6e5)return Promise.resolve(c.data);}catch(e){}
     var body={structuredQuery:{from:[{collectionId:'questions'}],where:{fieldFilter:{field:{fieldPath:'exam'},op:'EQUAL',value:{stringValue:EXAM}}},
-      select:{fields:[{fieldPath:'year'},{fieldPath:'shift'},{fieldPath:'tier'},{fieldPath:'heldOn'},{fieldPath:'language'}]}}};
+      select:{fields:[{fieldPath:'year'},{fieldPath:'shift'},{fieldPath:'tier'},{fieldPath:'heldOn'},{fieldPath:'language'},{fieldPath:'type'},{fieldPath:'mockId'}]}}};
     return fetch(URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(function(r){return r.json();}).then(function(j){
       var v=function(f){return f?String(f.stringValue||f.integerValue||''):'';};
-      var d=(Array.isArray(j)?j:[]).filter(function(r){return r.document&&r.document.fields;}).map(function(r){var f=r.document.fields;
+      /* TSSC-MTS-PYQ-NOMOCK: the 60 MTS mocks live in the same `questions` collection with exam 'ssc-mts'
+         (type 'mock' + a mockId). They are not previous-year papers — skip them, as the GD/CHSL/NTPC PYQ builds do. */
+      var d=(Array.isArray(j)?j:[]).filter(function(r){return r.document&&r.document.fields;}).filter(function(r){var f=r.document.fields;
+        return v(f.type).trim().toLowerCase()!=='mock' && !v(f.mockId).trim();}).map(function(r){var f=r.document.fields;
         return {year:v(f.year),shift:v(f.shift),tier:v(f.tier),heldOn:v(f.heldOn),language:v(f.language)};});
       try{sessionStorage.setItem(CK,JSON.stringify({ts:Date.now(),data:d}));}catch(e){}
       return d;
