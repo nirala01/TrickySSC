@@ -44,7 +44,7 @@
   if ((path === '/' || path === '/index.html') && !location.hash) { location.replace('/app.html'); return; }
   /* TSSC-APPPAGES-V1: these list pages have an app-only copy (app-<page>.html, built by
      build_app_pages.py). Inside the app, any link to the website page lands on the copy. */
-  if (/^(ssc-cgl-mock-test|ssc-cgl-tier-2-mock-test|ssc-chsl-mock-test|ssc-chsl-tier-2-mock-test|ssc-mts-mock-test|ssc-gd-mock-test|rrb-ntpc-mock-test|ssc-cgl-pyq|ssc-chsl-pyq|ssc-gd-pyq|rrb-ntpc-pyq|login)\.html$/.test(file)) {
+  if (/^(ssc-cgl-mock-test|ssc-cgl-tier-2-mock-test|ssc-chsl-mock-test|ssc-chsl-tier-2-mock-test|ssc-mts-mock-test|ssc-gd-mock-test|rrb-ntpc-mock-test|ssc-cgl-pyq|ssc-chsl-pyq|ssc-gd-pyq|rrb-ntpc-pyq|ssc-pyq-chapterwise|login)\.html$/.test(file)) {
     location.replace('/app-' + file + location.search + location.hash);
     return;
   }

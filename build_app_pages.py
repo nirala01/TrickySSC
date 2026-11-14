@@ -37,6 +37,7 @@ PAGES = {
     'ssc-chsl-pyq.html': 'pyq',
     'ssc-gd-pyq.html': 'pyq',
     'rrb-ntpc-pyq.html': 'pyq',
+    'ssc-pyq-chapterwise.html': 'chapters',   # chapter-wise PYQs: subject list only
     'login.html': 'login',          # sign-in screen: no tabs, no back bar
 }
 
@@ -232,6 +233,71 @@ def trim_pyq(doc, js, log):
     return doc
 
 
+CHAPTERS_CSS = """
+<style>
+/* chapter-wise PYQ home in the app: one tidy row per subject, nothing else */
+.tsa-cw{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin:.2rem 0 .8rem;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.86rem;color:#4A5568}
+.tsa-cw b{background:linear-gradient(135deg,#059669,#10B981);color:#fff;border-radius:100px;padding:.16rem .6rem;font-size:.72rem;letter-spacing:.8px}
+#subjects>h2{font-size:1.12rem!important;margin:0 0 .15rem!important}
+.sub-grid{grid-template-columns:1fr!important;gap:.55rem!important}
+.sub{flex-direction:row!important;align-items:center;gap:.75rem;padding:.7rem .8rem!important;border-top:1px solid #E2E8F0!important;border-left:5px solid var(--accent)!important;border-radius:14px!important;box-shadow:0 1px 6px rgba(0,0,0,.04)!important;transform:none!important}
+.sub::after{display:none!important}
+.sub-top{display:contents!important}
+.sub-ic{width:42px!important;height:42px!important;border-radius:12px!important;font-size:1.3rem!important;order:1}
+.sub-name{order:2;flex:1 1 auto;min-width:0;font-size:1rem!important;line-height:1.2!important}
+.sub-name small{display:none!important}
+.sub-stats{order:3;position:absolute!important;left:calc(.8rem + 42px + .75rem);bottom:.62rem;display:block!important;padding:0!important;margin:0!important;background:none!important;white-space:nowrap}
+.sub-stat{display:inline!important}
+.sub-stat b,.sub-stat span{display:inline!important;font-family:'Hind',sans-serif!important;font-weight:500!important;font-size:.76rem!important;letter-spacing:0!important;text-transform:none!important;color:#718096!important}
+.sub-stat span{margin-left:.22em}
+.sub-stat b{font-weight:700!important;color:var(--accent-dark)!important}
+.sub-stat+.sub-stat::before{content:'\\00b7';color:#A0AEC0;margin:0 .35em}
+.sub-name{padding-bottom:1.15rem}
+@media(max-width:350px){.sub-stat b,.sub-stat span{font-size:.64rem!important}.sub-stat+.sub-stat::before{margin:0 .15em}.sub-stat span{margin-left:.15em}.sub-ic{width:38px!important;height:38px!important}.sub-stats{left:calc(.8rem + 38px + .75rem)}}
+.sub-btn{order:4;flex:0 0 auto;width:30px;height:30px;padding:0!important;border-radius:50%!important;background:var(--accent-soft)!important;color:var(--accent-dark)!important;font-size:0!important;box-shadow:none!important;position:static!important}
+.sub-btn em{font-size:1rem;font-weight:700;transform:none!important}
+.sub-btn::after{content:'';position:absolute;inset:0;z-index:2}
+</style>
+"""
+
+
+def cut_el(doc, pat, js, log, label, within=None):
+    """Cut every element whose opening tag matches pat (a regex)."""
+    rx = re.compile(pat)
+    pos = 0
+    while True:
+        m = rx.search(doc, pos)
+        if not m:
+            return doc
+        end = None if in_ranges(m.start(), raw_ranges(doc)) else element_end(doc, m.start())
+        if end is None:
+            pos = m.end()
+            continue
+        doc, pos = drop(doc, m.start(), end, js, log, label)
+
+
+def trim_chapters(doc, js, log):
+    """Chapter-wise PYQ home: keep the subject cards, cut the reading matter around them."""
+    nums = dict((k.lower(), n) for n, k in re.findall(r'<span class="chip"><b>(\d+)</b>\s*([A-Za-z]+)</span>', doc))
+    doc = cut_el(doc, r'<header\b[^>]*\bclass="hero"[^>]*>', js, log, 'header.hero')
+    for sid in ('why', 'faq', 'more'):
+        doc = cut_el(doc, r'<section\b[^>]*\bid="%s"[^>]*>' % sid, js, log, 'section#' + sid)
+    doc = cut_el(doc, r'<div\b[^>]*\bclass="sub-ex"[^>]*>', js, log, 'div.sub-ex')
+    doc = cut_el(doc, r'<p\b[^>]*\bclass="sub-desc"[^>]*>', js, log, 'p.sub-desc')
+    m = re.search(r'(<section\b[^>]*\bid="subjects"[^>]*>\s*<h2>.*?</h2>)(.*?)(<div class="sub-grid")', doc, re.S)
+    if m:
+        bits = ['<b>100% FREE</b>']
+        if nums.get('pyqs'):
+            bits.append('{:,} PYQs'.format(int(nums['pyqs'])))
+        if nums.get('chapters'):
+            bits.append('%s chapters' % nums['chapters'])
+        bits.append('English &amp; हिंदी')
+        strip = '<div class="tsa-cw">%s</div>' % ' <span>·</span> '.join(bits).replace('</b> <span>·</span> ', '</b> ')
+        doc = doc[:m.end(1)] + strip + '\n' + doc[m.start(3):]
+        log.append('cut  subject intro and exam chips; add one summary line')
+    return doc
+
+
 def pass_summary(note):
     """Reads the numbers out of the website's own pass note, so the app line can never disagree with it."""
     text = htmllib.unescape(re.sub(r'<[^>]+>', ' ', note))
@@ -282,6 +348,76 @@ def add_pass_summaries(doc, log):
         log.append('pass line: ' + line)
 
 
+# Option blocks that open as a bottom sheet in the app: (class, row label, sheet title).
+# On the website they are a grid of links in the page; in the app they are one row,
+# and tapping it lists the same links in a popup.
+SHEETS = [
+    ('smr-box', '\U0001F9E9 Subject-wise mock tests', 'Subject-wise mock tests'),
+    ('subj-links', '\U0001F9E9 Subject-wise mock tests', 'Subject-wise mock tests'),
+    ('subj-pyq-links', '\U0001F9EE Subject-wise previous year questions', 'Subject-wise previous year questions'),
+    ('pqc-wrap', '\U0001F5C2\uFE0F Chapter-wise and section-wise PYQs', 'Practise previous year questions', 'By chapter, or one section of a paper'),
+]
+CHEVRON = ('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" '
+           'stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>')
+
+
+def collapse_to_sheets(doc, log):
+    sheets = []
+    for entry in SHEETS:
+        cls, label, title = entry[:3]
+        if cls.startswith('#'):
+            pat = re.compile(r'<div\b[^>]*\bid="%s"[^>]*>' % re.escape(cls[1:]))
+        else:
+            pat = re.compile(r'<div\b[^>]*\bclass="(?:[^"]*\s)?%s(?:\s[^"]*)?"[^>]*>' % re.escape(cls))
+        m = pat.search(doc)
+        while m and in_ranges(m.start(), raw_ranges(doc)):
+            m = pat.search(doc, m.end())
+        if not m:
+            continue
+        start, end = m.start(), element_end(doc, m.start())
+        if end is None:
+            continue
+        block = doc[start:end]
+        # the small heading the website prints just above the grid becomes the row itself
+        head = re.search(r'<div\b[^>]*style="font-family:\'Rajdhani\',sans-serif;font-w[^"]*"[^>]*>(?:(?!<div\b).)*?</div>\s*$', doc[:start], re.S)
+        if head and len(head.group(0)) < 600:
+            start = head.start()
+        n = len(sheets) + 1
+        names = [htmllib.unescape(re.sub(r'<[^>]+>', ' ', a)).replace('\u2192', '') for a in re.findall(r'<a\b[^>]*>(.*?)</a>', block, re.S)]
+        names = [re.sub(r'\s+', ' ', re.sub(r'\(.*?\)|NEW|\d+ Qs.*$|Mock Tests?|Previous Year Questions|[^\w\s&]', ' ', x)).strip() for x in names]
+        short = [re.sub(r'^(?:CHSL|CGL|GD|MTS|NTPC|SSC|Tier 2|Tier II)\s+', '', x).strip() for x in names]
+        short = [re.sub(r'^(?:Tier 2|Tier II)\s+', '', x).strip() for x in short if x]
+        sub = entry[3] if len(entry) > 3 else ' \u00b7 '.join(short[:5])
+        row = ('<button type="button" class="tsa-row" data-tsa-sheet="tsaSheet%d"><span class="tsa-row-t">%s'
+               '<small>%s</small></span>%s</button>' % (n, label, htmllib.escape(sub, quote=False), CHEVRON))
+        doc = doc[:start] + row + doc[end:]
+        sheets.append('<div class="tsa-sheet" id="tsaSheet%d" data-tsa-close><div class="tsa-sheet-card">'
+                      '<div class="tsa-sheet-h"><b>%s</b><button type="button" data-tsa-close aria-label="Close">\u2715</button></div>%s</div></div>'
+                      % (n, title, block))
+        log.append('sheet: %s (%d options)' % (cls, len(names)))
+    if sheets:
+        body_end = doc.lower().rfind('</body>')
+        doc = doc[:body_end] + '\n' + '\n'.join(sheets) + SHEET_JS + doc[body_end:]
+    return doc
+
+
+SHEET_JS = """
+<script>
+/* TSSC-APPPAGES-V1: one-line rows that open their options as a bottom sheet */
+(function(){
+  function closeAll(){ var o=document.querySelectorAll('.tsa-sheet.open'); for(var i=0;i<o.length;i++) o[i].classList.remove('open'); }
+  document.addEventListener('click',function(e){
+    var t=e.target, r=t.closest?t.closest('[data-tsa-sheet]'):null;
+    if(r){ var s=document.getElementById(r.getAttribute('data-tsa-sheet')); if(s){ closeAll(); s.classList.add('open'); } return; }
+    if(t.classList&&t.classList.contains('tsa-sheet')){ closeAll(); return; }          /* tap outside the card */
+    var c=t.closest?t.closest('button[data-tsa-close]'):null; if(c) closeAll();
+  });
+  window.addEventListener('pageshow',closeAll);                                         /* coming back from a subject page */
+})();
+</script>
+"""
+
+
 def short_title(doc):
     m = re.search(r'<title>(.*?)</title>', doc, re.S)
     t = htmllib.unescape(m.group(1)).strip() if m else 'TrickySSC'
@@ -328,6 +464,23 @@ body{padding-bottom:calc(58px + env(safe-area-inset-bottom,0px))!important;}
 .rb-txt{font-size:0!important;line-height:1.3!important;}
 .rb-txt>b:first-child{font-size:13.5px!important;}
 .smr-box .smr-sub{display:none!important;}
+/* one-line rows, and the bottom sheet their options open in */
+.tsa-row{display:flex;align-items:center;gap:10px;width:100%%;min-height:56px;margin:10px 0;padding:10px 12px 10px 14px;border-radius:14px;border:1.5px solid #E2E8F0;background:#fff;text-align:left;cursor:pointer;font-family:'Rajdhani',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;font-weight:700;font-size:16.5px;line-height:1.2;color:#1A202C;box-shadow:0 2px 6px rgba(15,23,42,.04);}
+.tsa-row:active{background:#FFF7F0;border-color:#FF6B00;}
+.tsa-row-t{flex:1;min-width:0;}
+.tsa-row small{display:block;margin-top:2px;font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;font-size:12px;font-weight:600;color:#64748B;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.tsa-row svg{flex:0 0 20px;width:20px;height:20px;color:#FF6B00;}
+.tsa-sheet{display:none;position:fixed;inset:0;z-index:9990;background:rgba(15,23,42,.55);align-items:flex-end;justify-content:center;}
+.tsa-sheet.open{display:flex;}
+.tsa-sheet-card{width:100%%;max-width:560px;max-height:82vh;overflow-y:auto;background:#fff;border-radius:20px 20px 0 0;padding:6px 14px calc(18px + env(safe-area-inset-bottom,0px));box-shadow:0 -10px 30px rgba(0,0,0,.2);animation:tsaUp .18s ease-out;}
+@keyframes tsaUp{from{transform:translateY(24px);opacity:.6;}to{transform:none;opacity:1;}}
+.tsa-sheet-h{display:flex;align-items:center;gap:10px;padding:12px 2px 10px;position:sticky;top:0;background:#fff;z-index:1;}
+.tsa-sheet-h b{flex:1;font-family:'Rajdhani',system-ui,sans-serif;font-weight:700;font-size:19px;color:#1A202C;}
+.tsa-sheet-h button{width:36px;height:36px;border-radius:50%%;border:0;background:#F1F5F9;color:#475569;font-size:15px;cursor:pointer;}
+.tsa-sheet .smr-box{border:0!important;box-shadow:none!important;padding:0!important;margin:0!important;background:none!important;}
+.tsa-sheet .smr-head{display:none!important;}
+.tsa-sheet .subj-links,.tsa-sheet .subj-pyq-links,.tsa-sheet .pqc-wrap,.tsa-sheet #tsscPC{margin:0!important;}
+.tsa-sheet .pqc-wrap>*:first-child,.tsa-sheet #tsscPC>*:first-child{margin-top:0!important;}
 .yr-intro{display:none!important;}
 .yr-adding span{font-size:0!important;}
 .yr-adding b{font-size:12.5px!important;}
@@ -464,11 +617,15 @@ def build(src_name, tab):
         doc = cut_by_class(doc, tag, cls, js, log)
     doc = cut_mock_heading(doc, js, log)
     doc = add_pass_summaries(doc, log)
+    if tab in ('mocks', 'pyq'):
+        doc = collapse_to_sheets(doc, log)
     if tab == 'pyq':
         doc = trim_pyq(doc, js, log)
+    if tab == 'chapters':
+        doc = trim_chapters(doc, js, log)
 
     head_end = doc.lower().find('</head>')
-    extra = CHECKOUT if tab == 'mocks' else (LOGIN_CSS if tab == 'login' else '')
+    extra = {'mocks': CHECKOUT, 'login': LOGIN_CSS, 'chapters': CHAPTERS_CSS}.get(tab, '')
     doc = doc[:head_end] + (CHROME_CSS % {'src': src_name}) + extra + doc[head_end:]
     if tab == 'login':
         # no bars on the sign-in screen: just the brand above the website's own sign-in card
