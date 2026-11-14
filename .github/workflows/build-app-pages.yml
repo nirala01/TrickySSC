@@ -1,0 +1,87 @@
+# .github/workflows/build-app-pages.yml
+#
+# Rebuilds the app-only copies of the list pages (app-<page>.html) from the website
+# pages, so the Android app always shows the same mocks and papers as the website
+# without anyone editing two files. See build_app_pages.py for what a copy is.
+#
+# Runs when:
+#   - a website list page (or the builder) is pushed by hand
+#   - one of the scheduled builders has just rewritten a list page (their commits are
+#     made by the Actions bot, which does not fire "push" workflows, hence workflow_run)
+#   - you press "Run workflow"
+
+name: Build app pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'build_app_pages.py'
+      - 'ssc-cgl-mock-test.html'
+      - 'ssc-cgl-tier-2-mock-test.html'
+      - 'ssc-chsl-mock-test.html'
+      - 'ssc-chsl-tier-2-mock-test.html'
+      - 'ssc-mts-mock-test.html'
+      - 'ssc-gd-mock-test.html'
+      - 'rrb-ntpc-mock-test.html'
+      - 'ssc-cgl-pyq.html'
+      - 'ssc-chsl-pyq.html'
+      - 'ssc-gd-pyq.html'
+      - 'rrb-ntpc-pyq.html'
+      - 'login.html'
+  workflow_run:
+    workflows:
+      - 'Build SSC CGL PYQ Page'
+      - 'Build SSC CHSL PYQ page'
+      - 'Build SSC GD PYQ page'
+      - 'Build RRB NTPC PYQ page'
+      - 'Update Mock Live Count'
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-app-pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Build app-<page>.html from the website list pages
+        run: python build_app_pages.py -v
+
+      - name: Commit if anything changed
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app-*.html
+          if git diff --cached --quiet; then
+            echo "App pages already up to date — nothing to commit."
+            exit 0
+          fi
+
+          # No [skip ci]: GitHub Pages must publish this commit. The app-*.html files
+          # are not in this workflow's push paths, so it cannot trigger itself.
+          git commit -m "chore: rebuild app pages"
+
+          for i in 1 2 3; do
+            if git push; then
+              echo "pushed on attempt $i"
+              exit 0
+            fi
+            echo "push rejected — rebasing onto origin/main and retrying"
+            git pull --rebase --autostash origin main
+          done
+          echo "::error::could not push after 3 attempts"
+          exit 1
