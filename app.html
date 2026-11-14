@@ -12,7 +12,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700;800&family=Rajdhani:wght@600;700&display=swap" rel="stylesheet">
-<!-- TSSC-APP-V4 (2026-11-14): the Android app's own screens, in one file.
+<!-- TSSC-APP-V5 (2026-11-14): the Android app's own screens, in one file.
        1. sign in first            (app-login.html, then back here)
        2. choose your exam         (#choose, remembered on the phone)
        3. home for that exam       (#home, never scrolls)
@@ -175,6 +175,29 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;}
 .plan small{display:block;font-size:.76rem;color:var(--dim);line-height:1.35;margin-top:2px;}
 .plan .pr{flex:0 0 auto;text-align:right;font-family:'Rajdhani',system-ui,sans-serif;font-weight:700;font-size:1.25rem;line-height:1;}
 .plan .pr s{display:block;font-size:.8rem;color:#94A3B8;font-weight:600;margin-bottom:2px;}
+/* ---------- help ---------- */
+.faq{flex:0 0 auto;background:#fff;border:1px solid var(--line);border-radius:16px;overflow:hidden;}
+.faq details{border-bottom:1px solid var(--line);}
+.faq details:last-child{border-bottom:0;}
+.faq summary{list-style:none;display:flex;align-items:center;gap:10px;padding:13px 12px;font-weight:700;font-size:.92rem;line-height:1.3;cursor:pointer;}
+.faq summary::-webkit-details-marker{display:none;}
+.faq summary::after{content:"+";margin-left:auto;flex:0 0 24px;height:24px;border-radius:50%;background:#FFF1E6;color:var(--saffron);font-weight:800;display:flex;align-items:center;justify-content:center;}
+.faq details[open] summary::after{content:"\2212";background:var(--saffron);color:#fff;}
+.faq details[open] summary{color:#C2410C;}
+.faq .ans{padding:0 12px 13px;font-size:.86rem;line-height:1.5;color:#334155;}
+.faq .ans ol,.faq .ans ul{margin:6px 0 0 18px;padding:0;}
+.faq .ans li{margin-bottom:4px;}
+.faq .ans b{color:#0F172A;}
+.faq .ans a{color:#C2410C;font-weight:700;}
+.helplead{flex:0 0 auto;border-radius:16px;padding:13px 14px;background:linear-gradient(135deg,#0B3B8C,#1D4ED8);color:#fff;box-shadow:0 6px 16px rgba(29,78,216,.25);}
+.helplead b{display:block;font-family:'Baloo 2',system-ui,sans-serif;font-weight:800;font-size:1.2rem;line-height:1.1;}
+.helplead p{font-size:.8rem;opacity:.95;margin-top:4px;line-height:1.4;}
+.reach{flex:0 0 auto;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:9px;}
+.reach a{display:flex;flex-direction:column;gap:2px;border-radius:15px;padding:12px;background:#fff;border:1.5px solid var(--line);}
+.reach a:active{transform:scale(.97);}
+.reach i{font-style:normal;font-size:1.3rem;}
+.reach b{font-family:'Rajdhani',system-ui,sans-serif;font-weight:700;font-size:1rem;}
+.reach small{font-size:.72rem;color:var(--dim);overflow-wrap:anywhere;}
 .note{font-size:.78rem;color:var(--dim);line-height:1.5;margin:4px 2px 0;}
 .buybar{flex:0 0 auto;display:flex;align-items:center;gap:12px;padding:10px 14px;background:#fff;border-top:1px solid var(--line);box-shadow:0 -4px 14px rgba(15,23,42,.06);}
 .buybar div{flex:1;min-width:0;}
@@ -218,6 +241,7 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;}
     <section class="view" id="v-pyq"></section>
     <section class="view" id="v-chapters"></section>
     <section class="view" id="v-me"></section>
+    <section class="view" id="v-help"></section>
   </main>
 
   <nav class="tabs" id="tabs">
@@ -460,6 +484,58 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;}
       +mini('🌍','General Knowledge','Chapter tests','/ssc-cgl-gk-chapter-wise-test.html','#FEF3C7')+'</div>'
       +'<div class="sec">Chapter PYQs by subject</div>'+pyqMinis();
   }
+  /* ---------- help: the usual problems first, contact last ---------- */
+  var HELP = [
+    ['I paid, but my mocks are still locked', [
+      ['I am signed in, but the mocks still show a lock',
+       'A pass belongs to the account that paid for it. This is the most common reason.<ol><li>Open <b>Me</b> and check the name shown at the top.</li><li>Open <a href="/my-orders.html">My orders</a>. If your pass is not listed there, you are in a different account.</li><li>Sign in again with the same Google account or mobile number you used when you paid.</li></ol>'],
+      ['I just paid and the lock is still there',
+       'The pass is added to your account as soon as the payment is confirmed.<ol><li>Close the app fully and open it again.</li><li>Open the mock list once more.</li><li>Check <a href="/my-orders.html">My orders</a> to see that the pass is listed.</li></ol>If it is still locked after a few minutes, write to us with your payment ID.'],
+      ['Money was deducted but the payment did not finish',
+       'This can happen if the internet dropped or the payment screen was closed before it finished.<ul><li>If the pass shows in <a href="/my-orders.html">My orders</a>, you are fine. Reopen the app.</li><li>If it does not show, do not pay again yet. Send us a screenshot of the debit message or the payment ID and we will check it and activate the pass.</li><li>A payment that failed at the bank is normally returned by the bank on its own.</li></ul>'],
+      ['I bought a pass for one exam, but another exam is locked',
+       'Each single pass opens the mocks of its own exam only. An SSC CGL pass does not open SSC CHSL, MTS, GD or RRB NTPC mocks.<br><br>The <b>All Mocks Pass</b> opens every exam. If you already hold a pass, the app shows it to you as an upgrade and you pay only the difference.'],
+      ['Subject-wise mocks or Tier II mocks are locked',
+       'They are part of the same exam pass. If the full mocks of that exam open for you, these open too. If they are locked, check that you are in the account that paid (first answer above).'],
+      ['My pass was working and is now locked',
+       'A pass is valid for the period shown when you bought it, normally one year. <a href="/my-orders.html">My orders</a> shows what you bought and when. If it is still inside that period and locked, write to us.'],
+      ['A mock says it is not available yet',
+       'That mock has not been released. It is not a payment problem. New mocks released during your pass period open for you automatically.'],
+      ['I was charged twice',
+       'A duplicate payment is refunded after we check it. Write to us within 2 days of the payment with both payment IDs or debit messages. The full rules are in the <a href="/refund-policy.html">refund policy</a>.']
+    ]],
+    ['During a test', [
+      ['It says I have reached today\'s limit',
+       'There is a daily limit on tests: 15 a day on a free account and 80 a day with any pass. It starts again the next day.'],
+      ['My result did not save',
+       'Keep the internet on and stay on the result screen. If saving fails, a <b>Retry Save</b> button appears there. Tap it once the internet is back.'],
+      ['A question, option or answer looks wrong',
+       'Under the options of every question there is a link, <b>Report a problem with this question</b>. Use it during the test or on the solutions screen. Your test is not disturbed.'],
+      ['I want the test in Hindi or English',
+       'Choose the language when you start a test. In a Hindi test, the <b>View in English</b> button shows the English version of a question.'],
+      ['The question is too small or too long',
+       'The app fits each question to the screen and makes the text smaller only when needed. A very long passage can still need a little scrolling.']
+    ]],
+    ['Account and app', [
+      ['How do I change my exam?', 'Tap the exam name at the top of the home screen, or open <b>Me</b> and tap <b>My exam</b>.'],
+      ['The app looks old or a page will not load', 'Check your internet, then close the app fully and open it again. That loads the latest version.'],
+      ['Where do I see my scores and ranks?', 'Open <b>Me</b> and tap <b>My dashboard</b>.'],
+      ['Can I get a refund?', 'Refunds are given only in the cases listed in the <a href="/refund-policy.html">refund policy</a>, and the request must reach us within 2 days of the payment.']
+    ]]
+  ];
+  function renderHelp(){
+    var h='<div class="helplead"><b>Need help?</b><p>Most problems are solved by one of the answers below. If yours is not here, contact us at the end of this page.</p></div>';
+    HELP.forEach(function(g){
+      h+='<div class="sec">'+g[0]+'</div><div class="faq">'+g[1].map(function(q){ return '<details><summary>'+q[0]+'</summary><div class="ans">'+q[1]+'</div></details>'; }).join('')+'</div>';
+    });
+    var u=user()||{}, who=(u.name&&u.name!=='Student'?u.name:'')+(u.email?' ('+u.email+')':'');
+    var body=encodeURIComponent('My problem:\n\n\nAccount: '+(who||'')+'\nPayment ID (if about a payment): \nExam: '+(myExam()?E[myExam()].name:'')+'\n');
+    h+='<div class="sec">Still not solved? Contact us</div><div class="reach">'
+      +'<a href="mailto:contact@trickyssc.com?subject='+encodeURIComponent('Help needed - TrickySSC app')+'&body='+body+'"><i>✉️</i><b>Email</b><small>contact@trickyssc.com</small></a>'
+      +'<a href="https://wa.me/918957116586?text='+encodeURIComponent('Hi TrickySSC, I need help with: ')+'"><i>💬</i><b>WhatsApp</b><small>+91 89571 16586</small></a></div>'
+      +'<p class="note">Email is the fastest way and lets you attach a screenshot. For a payment problem, include the payment ID or the debit message and the mobile number or email of your TrickySSC account. We usually reply within 24 to 48 hours on working days.</p>';
+    var v=$('v-help'); v.innerHTML=h; v.scrollTop=0;
+  }
   function renderMe(){
     var u=user()||{}, n=first(u)||'Student', k=myExam();
     $('v-me').innerHTML=
@@ -467,7 +543,8 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;}
       +'<div class="sec">My account</div><div class="rows">'
       +row(['🎓','My exam',k?E[k].name+' · tap to change':'Choose your exam','#choose'])
       +row(['📊','My dashboard','Scores, ranks and attempted tests','/dashboard.html'])
-      +row(['🧾','My orders','Passes you have bought','/my-orders.html'])+'</div>'
+      +row(['🧾','My orders','Passes you have bought','/my-orders.html'])
+      +row(['🆘','Need help?','Locked mocks, payments, contact','#help'])+'</div>'
       +'<div class="sec">More</div><div class="rows">'
       +row(['📰','Current affairs','Daily, for SSC and Railway exams','/current-affairs.html'])
       +row(['📓','Study notes','Short notes and tricks','/study-notes.html'])
@@ -487,6 +564,7 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;}
     if(h.indexOf('p/')===0){ title=renderPass(h.slice(2)); if(title){ view='pass'; back=true; } }
     else if(h.indexOf('c/')===0){ title=renderCourse(h.slice(2)); if(title){ view='course'; back=true; } }
     else if(TITLES[h]){ view=h; tab=h; title=TITLES[h]; if(h==='me') renderMe(); if(h==='mocks') renderMocks(); if(h==='pyq') renderPyq(); }
+    else if(h==='help'){ renderHelp(); view='help'; title='Need help?'; back=true; tab='me'; }
     else if(h==='choose'){ view='choose'; }
     if(view==='home'){ if(!k){ view='choose'; } else renderHome(k); }
     if(view==='choose') renderChoose();
