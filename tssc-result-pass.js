@@ -246,6 +246,16 @@
       var go = box.querySelector('.rp-go'); if (go && o.button) go.firstChild.nodeValue = o.button;
       var links = box.querySelectorAll('a[href]');
       for (var i = 0; i < links.length; i++) links[i].setAttribute('href', links[i].getAttribute('href').replace(H, '/'));
+      /* a group left with one card shows it in the middle, not hanging on the left */
+      var groups = box.querySelectorAll('[data-rp-group]');
+      for (var g = 0; g < groups.length; g++) {
+        var vis = [], kids = groups[g].children;
+        for (var k = 0; k < kids.length; k++) if (!kids[k].hidden) vis.push(kids[k]);
+        if (vis.length === 1 && groups[g].getAttribute('data-rp-group') === 'single') {
+          groups[g].style.cssText = 'display:flex;justify-content:center;';
+          vis[0].style.cssText = 'flex:0 1 62%;';
+        }
+      }
       box._noMark = true; open(box); return true;
     } catch (e) { return false; }
   };

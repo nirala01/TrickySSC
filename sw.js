@@ -9,7 +9,7 @@
        error page
    Scripts, images, Firestore and payments are never intercepted or cached.
    Bump VERSION whenever app.html or offline.html must reach phones at once. */
-const VERSION = 'tssc-app-v14';
+const VERSION = 'tssc-app-v15';
 const SHELL = ['/app.html', '/offline.html', '/app-icon-192.png'];
 const APP_JS = '<script src="/tssc-app.js?v=11"></script>';
 

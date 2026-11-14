@@ -12,7 +12,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700;800&family=Rajdhani:wght@600;700&display=swap" rel="stylesheet">
-<!-- TSSC-APP-V5 (2026-11-14): the Android app's own screens, in one file.
+<!-- TSSC-APP-V6 (2026-11-14): the Android app's own screens, in one file.
        1. sign in first            (app-login.html, then back here)
        2. choose your exam         (#choose, remembered on the phone)
        3. home for that exam       (#home, never scrolls)
@@ -63,6 +63,11 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;}
 .has-back .ttl{display:block;}
 .me{margin-left:auto;display:flex;align-items:center;gap:6px;height:36px;padding:0 12px;border-radius:100px;background:#E8F7EF;color:#047857;font-weight:700;font-size:.82rem;max-width:36vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .me:active{transform:scale(.96);}
+.helpbtn{margin-left:auto;flex:0 0 auto;display:flex;align-items:center;gap:5px;height:36px;padding:0 11px 0 6px;border-radius:100px;background:#EEF2FF;color:#1D4ED8;font-weight:700;font-size:.82rem;}
+.helpbtn i{font-style:normal;width:24px;height:24px;border-radius:50%;background:#1D4ED8;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.85rem;}
+.helpbtn:active{transform:scale(.96);}
+.helpbtn+.me{margin-left:0;max-width:30vw;}
+@media(max-width:350px){.helpbtn{padding:0 6px;}.helpbtn span{display:none;}}
 
 /* ---------- views ---------- */
 .views{flex:1 1 auto;position:relative;min-height:0;}
@@ -226,6 +231,7 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;}
     <div class="logo"><i>⚡</i><span class="w">Tricky<b>SSC</b></span></div>
     <a class="exam" id="exam" href="#choose" aria-label="Change exam"><span id="examName"></span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></a>
     <div class="ttl" id="ttl"></div>
+    <a class="helpbtn" id="helpBtn" href="#help" aria-label="Need help"><i>?</i><span>Help</span></a>
     <a class="me" id="me" href="#me">Me</a>
   </header>
 
@@ -577,14 +583,16 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;}
     app.classList.toggle('no-tabs', view==='choose' && !k);     // first run: nothing to tab to yet
     $('ttl').textContent = back ? title : (view==='choose' && k ? 'Change exam' : '');
     $('examName').textContent = k ? E[k].name : '';
-    var n=first(user()); $('me').textContent='👤 '+(n||'Me');    if(view==='home') offerOnce();
+    var n=first(user()); $('me').textContent='👤 '+(n||'Me');    $('helpBtn').style.display = view==='help' ? 'none' : '';
+    if(view==='home') offerOnce();
   }
   /* TSSC-APPOFFERS-V1: the "Pick your pass" popup, once each time the app is opened (rules in /tssc-app-offers.js) */
   var _offerAsked=false;
   function offerOnce(){
     if(_offerAsked) return; _offerAsked=true;
     setTimeout(function(){
-      function go(){ try{ window.TSSC_APP_OFFERS.openOnce(); }catch(e){} }
+      function go(){ try{ window.TSSC_APP_OFFERS.openOnce();
+        window.TSSC_APP_OFFERS.readEnt().then(function(){ var k=myExam(), h=location.hash; if(k && (!h || h==='#home') && $('v-home').classList.contains('on')) renderHome(k); }); }catch(e){} }
       if(window.TSSC_APP_OFFERS){ go(); return; }
       var s=document.createElement('script'); s.src='/tssc-app-offers.js?v=1'; s.onload=go; document.head.appendChild(s);
     }, 700);
