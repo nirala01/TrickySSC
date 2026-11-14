@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>TrickySSC</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#FFFFFF">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/favicon.ico">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700;800&family=Rajdhani:wght@600;700&display=swap" rel="stylesheet">
+<!-- TSSC-APP-V1 (2026-11-14): app home for the Android app. One file, no Firebase on this screen,
+     so it opens instantly. Home never scrolls: the exam cards stretch to fill the screen. -->
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+:root{
+  --saffron:#FF6B00; --ink:#1A202C; --dim:#64748B; --line:#EDF0F5; --bg:#FFF8F2;
+  --sat:env(safe-area-inset-top,0px); --sab:env(safe-area-inset-bottom,0px);
+  --tab:58px;
+}
+html,body{height:100%;overflow:hidden;overscroll-behavior:none;}
+body{font-family:system-ui,-apple-system,'Segoe UI',Roboto,'Noto Sans','Noto Sans Devanagari',sans-serif;background:var(--bg);color:var(--ink);
+  -webkit-user-select:none;user-select:none;-webkit-text-size-adjust:100%;}
+a{color:inherit;text-decoration:none;}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;}
+.app{position:fixed;inset:0;display:flex;flex-direction:column;height:100vh;height:100dvh;}
+
+/* ---------- top bar ---------- */
+.top{flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:calc(var(--sat) + 8px) 14px 8px;background:#fff;border-bottom:1px solid var(--line);min-height:calc(var(--sat) + 54px);}
+.back{display:none;width:38px;height:38px;margin-left:-8px;border-radius:50%;align-items:center;justify-content:center;}
+.back:active{background:#F1F5F9;}
+.has-back .back{display:flex;}
+.has-back .logo{display:none;}
+.logo{display:flex;align-items:center;gap:8px;font-family:'Baloo 2',system-ui,sans-serif;font-weight:800;font-size:1.45rem;letter-spacing:-.4px;line-height:1;}
+.logo i{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#FF6B00,#FF9A3D);display:flex;align-items:center;justify-content:center;font-style:normal;font-size:1.05rem;box-shadow:0 2px 8px rgba(255,107,0,.35);}
+.logo b{color:var(--saffron);font-weight:800;}
+.ttl{display:none;font-family:'Rajdhani',system-ui,sans-serif;font-weight:700;font-size:1.25rem;line-height:1.1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.has-back .ttl{display:block;}
+.me{margin-left:auto;display:flex;align-items:center;gap:6px;height:36px;padding:0 12px;border-radius:100px;background:#FFF1E6;color:#C2410C;font-weight:700;font-size:.82rem;max-width:46vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.me.in{background:#E8F7EF;color:#047857;}
+.me:active{transform:scale(.96);}
+
+/* ---------- views ---------- */
+.views{flex:1 1 auto;position:relative;min-height:0;}
+.view{position:absolute;inset:0;display:none;flex-direction:column;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 14px 18px;}
+.view.on{display:flex;animation:in .16s ease-out;}
+@keyframes in{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+@media(prefers-reduced-motion:reduce){.view.on{animation:none;}}
+
+/* ---------- HOME: never scrolls ---------- */
+#v-home{overflow:hidden;padding:12px 14px 10px;gap:10px;}
+.promo{flex:0 0 auto;position:relative;overflow:hidden;display:flex;align-items:center;gap:12px;border-radius:18px;padding:12px 14px;color:#fff;
+  background:linear-gradient(120deg,#1E1B4B 0%,#1E3A5F 55%,#0F4C81 100%);box-shadow:0 6px 16px rgba(15,30,60,.22);}
+.promo::after{content:"";position:absolute;right:-30px;top:-40px;width:150px;height:150px;border-radius:50%;background:radial-gradient(circle,rgba(255,140,56,.45),rgba(255,140,56,0) 70%);}
+.promo div{min-width:0;flex:1;position:relative;z-index:1;}
+.promo b{display:block;font-family:'Rajdhani',system-ui,sans-serif;font-weight:700;font-size:1.12rem;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.promo p{font-size:.76rem;opacity:.8;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.promo span{position:relative;z-index:1;flex:0 0 auto;height:38px;display:flex;align-items:center;padding:0 14px;border-radius:12px;background:linear-gradient(135deg,#FF6B00,#FF8C38);font-weight:800;font-size:.84rem;box-shadow:0 4px 10px rgba(255,107,0,.4);}
+.promo:active{transform:scale(.985);}
+.sh{flex:0 0 auto;display:flex;align-items:center;gap:8px;font-family:'Rajdhani',system-ui,sans-serif;font-weight:700;font-size:1.12rem;line-height:1;margin-top:2px;}
+.sh::before{content:"";width:4px;height:18px;border-radius:4px;background:var(--saffron);}
+.grid{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:repeat(3,minmax(0,1fr));gap:10px;}
+.xc{position:relative;display:flex;flex-direction:column;align-items:flex-start;min-height:0;overflow:hidden;border-radius:18px;padding:12px 12px 10px;color:#fff;
+  background:linear-gradient(140deg,var(--c) 10%,var(--c2) 100%);box-shadow:0 6px 14px var(--s);transition:transform .08s;}
+.xc::before{content:"";position:absolute;top:-30%;right:-25%;width:75%;height:130%;background:linear-gradient(115deg,rgba(255,255,255,.2),rgba(255,255,255,0) 60%);transform:rotate(16deg);pointer-events:none;}
+.xc:active{transform:scale(.965);}
+.xc h2{position:relative;font-family:'Baloo 2',system-ui,sans-serif;font-weight:800;font-size:clamp(1.12rem,3vh,1.4rem);line-height:1.05;text-shadow:0 1px 2px rgba(0,0,0,.12);}
+.xc small{position:relative;display:block;margin-top:3px;font-size:.72rem;font-weight:600;line-height:1.25;opacity:.95;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
+.xc em{position:relative;font-style:normal;margin-top:7px;font-size:.66rem;font-weight:800;letter-spacing:.2px;background:rgba(255,255,255,.24);border-radius:100px;padding:3px 9px;white-space:nowrap;}
+.xc .wm{position:absolute;right:10px;bottom:10px;width:clamp(34px,6.4vh,48px);height:clamp(34px,6.4vh,48px);border-radius:14px;background:rgba(255,255,255,.22);display:flex;align-items:center;justify-content:center;font-size:clamp(1.05rem,3.1vh,1.5rem);}
+.quick{flex:0 0 auto;display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
+.q{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;height:62px;border-radius:14px;background:#fff;border:1px solid var(--line);box-shadow:0 2px 6px rgba(15,23,42,.04);font-size:.66rem;font-weight:700;color:#334155;text-align:center;line-height:1.1;}
+.q i{font-style:normal;font-size:1.25rem;line-height:1;}
+.q:active{background:#FFF7F0;transform:scale(.96);}
+@media(max-height:700px){.xc em{display:none;}}
+@media(max-height:640px){.promo p{display:none;} .promo{padding:9px 12px;} .q{height:54px;} #v-home{gap:8px;} .grid{gap:8px;}}
+@media(max-height:560px){.promo{display:none;} .xc .wm{display:none;}}
+@media(max-height:470px){.quick{display:none;}}
+@media(max-width:340px){.xc{padding:10px 10px 8px;} .xc small{font-size:.66rem;}}
+@media(min-width:600px){.view{padding-left:max(14px,calc(50vw - 290px));padding-right:max(14px,calc(50vw - 290px));}}
+
+/* ---------- course + list screens ---------- */
+.hero{flex:0 0 auto;border-radius:18px;padding:14px;background:linear-gradient(140deg,var(--c),var(--c2));color:#fff;box-shadow:0 6px 18px var(--s);}
+.hero h1{font-family:'Baloo 2',system-ui,sans-serif;font-weight:800;font-size:1.5rem;line-height:1.05;}
+.hero p{font-size:.8rem;opacity:.92;margin-top:3px;}
+.facts{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;}
+.facts span{background:rgba(255,255,255,.18);border-radius:8px;padding:3px 8px;font-size:.72rem;font-weight:700;}
+.two{flex:0 0 auto;display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px;}
+.big{display:flex;flex-direction:column;gap:3px;border-radius:16px;padding:13px 12px;background:#fff;border:1.5px solid var(--line);min-height:104px;}
+.big:active{transform:scale(.97);}
+.big i{font-style:normal;font-size:1.4rem;}
+.big b{font-family:'Rajdhani',system-ui,sans-serif;font-weight:700;font-size:1.08rem;line-height:1.15;}
+.big small{font-size:.74rem;color:var(--dim);line-height:1.3;}
+.big .tag{align-self:flex-start;margin-top:auto;font-size:.68rem;font-weight:800;border-radius:100px;padding:2px 8px;background:#E8F7EF;color:#047857;}
+.sec{font-family:'Rajdhani',system-ui,sans-serif;font-weight:700;font-size:.82rem;letter-spacing:.6px;text-transform:uppercase;color:var(--dim);margin:16px 2px 7px;}
+.rows{flex:0 0 auto;background:#fff;border:1px solid var(--line);border-radius:16px;overflow:hidden;}
+.row{display:flex;align-items:center;gap:12px;min-height:56px;padding:8px 12px;border-bottom:1px solid var(--line);}
+.row:last-child{border-bottom:0;}
+.row:active{background:#FFF7F0;}
+.row i{flex:0 0 36px;height:36px;border-radius:11px;background:#FFF1E6;display:flex;align-items:center;justify-content:center;font-style:normal;font-size:1.05rem;}
+.row div{min-width:0;flex:1;}
+.row b{display:block;font-size:.92rem;font-weight:700;line-height:1.2;}
+.row small{display:block;font-size:.74rem;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.row svg{flex:0 0 auto;color:#CBD5E1;}
+.chips{display:flex;flex-wrap:wrap;gap:8px;}
+.chip{height:40px;display:inline-flex;align-items:center;padding:0 14px;border-radius:12px;background:#fff;border:1.5px solid var(--line);font-weight:700;font-size:.84rem;}
+.chip:active{border-color:var(--saffron);background:#FFF7F0;}
+.card-me{background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px;display:flex;align-items:center;gap:12px;}
+.card-me .av{width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#FF6B00,#FF9A3D);color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Baloo 2',system-ui,sans-serif;font-weight:800;font-size:1.3rem;}
+.card-me b{display:block;font-size:1rem;}
+.card-me small{color:var(--dim);font-size:.78rem;}
+.btn{display:flex;align-items:center;justify-content:center;height:48px;border-radius:14px;background:linear-gradient(135deg,#FF6B00,#FF8C38);color:#fff;font-weight:800;font-size:.95rem;margin-top:12px;}
+.btn:active{transform:scale(.98);}
+
+/* ---------- bottom tabs ---------- */
+.tabs{flex:0 0 auto;display:grid;grid-template-columns:repeat(5,1fr);height:calc(var(--tab) + var(--sab));padding-bottom:var(--sab);background:#fff;border-top:1px solid var(--line);}
+.tabs a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:.66rem;font-weight:700;color:#94A3B8;}
+.tabs a svg{width:23px;height:23px;}
+.tabs a{position:relative;}
+.tabs a.on{color:var(--saffron);}
+.tabs a.on::before{content:"";position:absolute;top:0;left:50%;width:26px;height:3px;margin-left:-13px;border-radius:0 0 4px 4px;background:var(--saffron);}
+.tabs a.on svg{fill:rgba(255,107,0,.14);}
+.tabs a:active{transform:scale(.94);}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <header class="top" id="top">
+    <button class="back" id="back" aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+    <div class="logo"><i>⚡</i><span>Tricky<b>SSC</b></span></div>
+    <div class="ttl" id="ttl"></div>
+    <a class="me" id="me" href="#me">Login</a>
+  </header>
+
+  <main class="views">
+    <!-- HOME -->
+    <section class="view on" id="v-home">
+      <a class="promo" href="#mocks"><div><b id="hi">Free mock tests</b><p>Hindi &amp; English · real exam screen</p></div><span>Start now</span></a>
+      <div class="sh">Choose your exam</div>
+      <div class="grid" id="grid"></div>
+      <div class="quick">
+        <a class="q" href="#mocks"><i>🎯</i>Mock tests</a>
+        <a class="q" href="#pyq"><i>📄</i>PYQ papers</a>
+        <a class="q" href="#chapters"><i>📚</i>Chapter tests</a>
+        <a class="q" href="/current-affairs.html"><i>📰</i>Current affairs</a>
+      </div>
+    </section>
+    <section class="view" id="v-course"></section>
+    <section class="view" id="v-mocks"></section>
+    <section class="view" id="v-pyq"></section>
+    <section class="view" id="v-chapters"></section>
+    <section class="view" id="v-me"></section>
+  </main>
+
+  <nav class="tabs" id="tabs">
+    <a href="#home" data-t="home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>Home</a>
+    <a href="#mocks" data-t="mocks"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg>Mocks</a>
+    <a href="#pyq" data-t="pyq"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6v18h12V7z"/><path d="M14 3v4h4"/><path d="M9 13h6M9 17h6"/></svg>PYQs</a>
+    <a href="#chapters" data-t="chapters"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h7v14H4zM13 5h7v14h-7z"/></svg>Chapters</a>
+    <a href="#me" data-t="me"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>Me</a>
+  </nav>
+</div>
+
+<script>
+(function(){
+  'use strict';
+  try{ sessionStorage.setItem('tssc_app','1'); }catch(e){}   // tells /tssc-app.js this tab is the app
+
+  /* ---------- the exams (edit here when a series changes) ---------- */
+  var E = {
+    cgl:{ g1:'#EA580C', g2:'#FDA047', name:'SSC CGL', sub:'Graduate level', ic:'🎯', c:'#FF6B00', c2:'#FF9A3D', t:'#FFE9D6', b:'#FFD3B0', d:'#C2410C', s:'rgba(255,107,0,.28)',
+      key:'ssc-cgl', mocks:'100 mocks', free:'Mock 1–4 free', facts:['Tier I · 100 Qs','60 min','200 marks','−0.50'],
+      mock:'/ssc-cgl-mock-test.html', pyq:'/ssc-cgl-pyq.html',
+      more:[['🏆','Tier II mock tests','Full Tier II papers','/ssc-cgl-tier-2-mock-test.html'],['ℹ️','SSC CGL 2026 exam info','Dates, pattern, posts','/ssc-cgl-2026.html']],
+      subj:[['Maths','/ssc-cgl-quant-mock-test.html'],['Reasoning','/ssc-cgl-reasoning-mock-test.html'],['English','/ssc-cgl-english-mock-test.html'],['GK','/ssc-cgl-gk-mock-test.html']] },
+    chsl:{ g1:'#0369A1', g2:'#38BDF8', name:'SSC CHSL', sub:'10+2 level', ic:'📋', c:'#0EA5E9', c2:'#38BDF8', t:'#DDF3FD', b:'#BAE6FD', d:'#0369A1', s:'rgba(14,165,233,.28)',
+      key:'ssc-chsl', mocks:'80 mocks', free:'Mock 1–2 free', facts:['Tier I · 100 Qs','60 min','200 marks','−0.50'],
+      mock:'/ssc-chsl-mock-test.html', pyq:'/ssc-chsl-pyq.html',
+      more:[['🏆','Tier II mock tests','Full Tier II papers','/ssc-chsl-tier-2-mock-test.html'],['ℹ️','SSC CHSL 2026 exam info','Dates, pattern, posts','/ssc-chsl-2026.html']],
+      subj:[['Maths','/ssc-chsl-quant-mock-test.html'],['Reasoning','/ssc-chsl-reasoning-mock-test.html'],['English','/ssc-chsl-english-mock-test.html'],['GK','/ssc-chsl-gk-mock-test.html']] },
+    mts:{ g1:'#047857', g2:'#34D399', name:'SSC MTS', sub:'10th level', ic:'📝', c:'#10B981', c2:'#34D399', t:'#DBF7EC', b:'#A7F3D0', d:'#047857', s:'rgba(16,185,129,.28)',
+      key:'ssc-mts', mocks:'60 mocks', free:'Mock 1–2 free', facts:['90 Qs','90 min','270 marks','2 sessions'],
+      mock:'/ssc-mts-mock-test.html', pyq:'/ssc-mts.html#mts-pyq-page',
+      more:[['ℹ️','SSC MTS 2027 exam info','Dates, pattern, syllabus','/ssc-mts-2027.html']],
+      subj:[['Maths','/ssc-mts-maths-mock-test.html'],['Reasoning','/ssc-mts-reasoning-mock-test.html'],['English','/ssc-mts-english-mock-test.html'],['GK','/ssc-mts-gk-mock-test.html']] },
+    gd:{ g1:'#B91C1C', g2:'#F87171', name:'SSC GD', sub:'Constable', ic:'🛡️', c:'#EF4444', c2:'#F87171', t:'#FDE4E4', b:'#FECACA', d:'#B91C1C', s:'rgba(239,68,68,.28)',
+      key:'ssc-gd', mocks:'60 mocks', free:'Mock 1–2 free', facts:['80 Qs','60 min','160 marks','−0.25'],
+      mock:'/ssc-gd-mock-test.html', pyq:'/ssc-gd-pyq.html',
+      more:[['ℹ️','SSC GD 2027 exam info','Dates, vacancy, PET/PST','/ssc-gd-2027.html']],
+      subj:[['Maths','/ssc-gd-maths-mock-test.html'],['Reasoning','/ssc-gd-reasoning-mock-test.html'],['English','/ssc-gd-english-mock-test.html'],['GK','/ssc-gd-gk-mock-test.html']] },
+    ntpc:{ g1:'#1E3FAE', g2:'#60A5FA', name:'RRB NTPC', sub:'Railway · Graduate', ic:'🚆', c:'#1D4ED8', c2:'#3B82F6', t:'#DCE7FD', b:'#BFDBFE', d:'#1E40AF', s:'rgba(29,78,216,.28)',
+      key:'ssc-rrb-ntpc', mocks:'60 mocks', free:'Mock 1–3 free', facts:['CBT-1 · 100 Qs','90 min','100 marks','−1/3'],
+      mock:'/rrb-ntpc-mock-test.html', pyq:'/rrb-ntpc-pyq.html',
+      more:[],
+      subj:[['Maths','/rrb-ntpc-maths-mock-test.html'],['Reasoning','/rrb-ntpc-reasoning-mock-test.html'],['GK','/rrb-ntpc-gk-mock-test.html']] }
+  };
+  var ORDER = ['cgl','chsl','mts','gd','ntpc'];
+  var OTHER = [['👮','SSC CPO','Central Police · Sub-Inspector','/ssc-cpo.html'],['✍️','SSC JHT','Junior Hindi Translator','/ssc-jht.html'],['⚙️','SSC JE','Junior Engineer','/ssc-je.html']];
+  var CHEV = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>';
+  var PAPERS = {};   // exam key -> papers count, from /pyq-chapters/index.json
+
+  function $(id){ return document.getElementById(id); }
+  function esc(s){ return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+  function row(r){ return '<a class="row" href="'+r[3]+'"><i>'+r[0]+'</i><div><b>'+esc(r[1])+'</b><small>'+esc(r[2])+'</small></div>'+CHEV+'</a>'; }
+  function papersText(k){ var n=PAPERS[E[k].key]; return n ? n+' PYQ papers' : 'PYQ papers'; }
+  function papersShort(k){ var n=PAPERS[E[k].key]; return n ? n+' papers' : 'PYQs'; }
+
+  /* ---------- home ---------- */
+  function renderHome(){
+    var h='';
+    ORDER.forEach(function(k){ var x=E[k];
+      h+='<a class="xc" href="#c/'+k+'" style="--c:'+x.g1+';--c2:'+x.g2+';--s:'+x.s+'">'
+        +'<h2>'+x.name+'</h2><small>'+x.mocks+' · <span data-p="'+k+'">'+papersShort(k)+'</span></small><em>'+x.free+'</em><span class="wm">'+x.ic+'</span></a>';
+    });
+    h+='<a class="xc" href="#c/more" style="--c:#4338CA;--c2:#818CF8;--s:rgba(79,70,229,.3)">'
+      +'<h2>More exams</h2><small>CPO · JHT · JE</small><em>Papers &amp; exam info</em><span class="wm">➕</span></a>';
+    $('grid').innerHTML=h;
+  }
+
+  /* ---------- one exam ---------- */
+  function renderCourse(k){
+    var v=$('v-course'), h='';
+    if(k==='more'){
+      h='<div class="hero" style="--c:#6366F1;--c2:#818CF8;--s:rgba(99,102,241,.28)"><h1>More SSC exams</h1><p>Previous year papers and exam details</p></div>'
+       +'<div class="sec">Exams</div><div class="rows">'+OTHER.map(row).join('')+'</div>';
+      v.innerHTML=h; return 'More exams';
+    }
+    var x=E[k]; if(!x) return null;
+    h+='<div class="hero" style="--c:'+x.c+';--c2:'+x.c2+';--s:'+x.s+'"><h1>'+x.ic+' '+x.name+'</h1><p>'+x.sub+' · Hindi &amp; English</p>'
+      +'<div class="facts">'+x.facts.map(function(f){return '<span>'+f+'</span>';}).join('')+'</div></div>';
+    h+='<div class="two">'
+      +'<a class="big" href="'+x.mock+'"><i>🎯</i><b>Mock tests</b><small>'+x.mocks+' · real exam screen</small><span class="tag">'+x.free+'</span></a>'
+      +'<a class="big" href="'+x.pyq+'"><i>📄</i><b>Previous year papers</b><small>'+papersText(k)+' · shift-wise</small><span class="tag">Free</span></a>'
+      +'</div>';
+    h+='<div class="sec">Practice</div><div class="rows">'
+      +row(['📚','Chapter-wise tests','New questions · 2 levels · free','/ssc-cgl-chapterwise.html'])
+      +row(['🗂️','Chapter-wise PYQs','Real exam questions sorted by chapter','/ssc-pyq-chapterwise.html'])
+      +x.more.map(row).join('')+'</div>';
+    h+='<div class="sec">Subject-wise mocks</div><div class="chips">'+x.subj.map(function(s){return '<a class="chip" href="'+s[1]+'">'+s[0]+'</a>';}).join('')+'</div>';
+    v.innerHTML=h; v.scrollTop=0; return x.name;
+  }
+
+  /* ---------- tab screens ---------- */
+  function renderMocks(){
+    var h='<div class="sec" style="margin-top:2px">Full mock test series</div><div class="rows">';
+    ORDER.forEach(function(k){ var x=E[k]; h+=row([x.ic,x.name+' mock tests',x.mocks+' · '+x.free,x.mock]); });
+    h+='</div><div class="sec">Tier II</div><div class="rows">'
+      +row(['🏆','SSC CGL Tier II mocks','Full Tier II papers','/ssc-cgl-tier-2-mock-test.html'])
+      +row(['🏆','SSC CHSL Tier II mocks','Full Tier II papers','/ssc-chsl-tier-2-mock-test.html'])+'</div>';
+    $('v-mocks').innerHTML=h;
+  }
+  function renderPyq(){
+    var h='<div class="sec" style="margin-top:2px">Previous year papers · all free</div><div class="rows">';
+    ORDER.forEach(function(k){ var x=E[k]; h+=row([x.ic,x.name+' papers',papersText(k)+' · shift-wise',x.pyq]); });
+    h+='</div><div class="sec">By chapter</div><div class="rows">'+row(['🗂️','Chapter-wise PYQs','Every real question sorted into its chapter','/ssc-pyq-chapterwise.html'])+'</div>';
+    $('v-pyq').innerHTML=h;
+  }
+  function renderChapters(){
+    $('v-chapters').innerHTML='<div class="two" style="margin-top:0">'
+      +'<a class="big" href="/ssc-cgl-chapterwise.html"><i>📚</i><b>Chapter tests</b><small>New questions, Level 1 and Level 2</small><span class="tag">Free</span></a>'
+      +'<a class="big" href="/ssc-pyq-chapterwise.html"><i>🗂️</i><b>Chapter PYQs</b><small>Real exam questions by chapter</small><span class="tag">Free</span></a></div>'
+      +'<div class="sec">Pick a subject</div><div class="rows">'
+      +row(['📐','Maths','Chapter-wise tests','/ssc-cgl-quant-chapter-wise-test.html'])
+      +row(['🧠','Reasoning','Chapter-wise tests','/ssc-cgl-reasoning-chapter-wise-test.html'])
+      +row(['📖','English','Chapter-wise tests','/ssc-cgl-english-chapter-wise-test.html'])
+      +row(['🌍','General Knowledge','Chapter-wise tests','/ssc-cgl-gk-chapter-wise-test.html'])+'</div>';
+  }
+  function user(){ try{ var u=JSON.parse(localStorage.getItem('tssc_user')||'null'); return (u && (u.uid||u.name)) ? u : null; }catch(e){ return null; } }
+  function first(u){ var n=String((u&&u.name)||'').trim(); return (n && n!=='Student') ? n.split(/\s+/)[0] : ''; }
+  function renderMe(){
+    var u=user(), h;
+    if(u){ var n=first(u)||'Student';
+      h='<div class="card-me"><div class="av">'+esc(n.charAt(0).toUpperCase())+'</div><div><b>'+esc((u.name&&u.name!=='Student')?u.name:'Student')+'</b><small>Signed in</small></div></div>'
+       +'<div class="sec">My account</div><div class="rows">'
+       +row(['📊','My dashboard','Scores, ranks and attempted tests','/dashboard.html'])
+       +row(['🧾','My orders','Passes you have bought','/my-orders.html'])+'</div>';
+    } else {
+      h='<div class="card-me"><div class="av">👤</div><div><b>Not signed in</b><small>Sign in to save scores and unlock free mocks</small></div></div>'
+       +'<a class="btn" href="/login.html?next=/app.html">Login / Register</a>';
+    }
+    h+='<div class="sec">More</div><div class="rows">'
+      +row(['📰','Current affairs','Daily, for SSC and Railway exams','/current-affairs.html'])
+      +row(['📓','Study notes','Short notes and tricks','/study-notes.html'])
+      +row(['✈️','Telegram channel','Updates and doubts','https://t.me/trickyssc'])
+      +row(['✉️','Contact us','Help with payments or tests','/contact.html'])+'</div>'
+      +'<div class="sec">About</div><div class="rows">'
+      +row(['🔒','Privacy policy','','/privacy-policy.html'])
+      +row(['📜','Terms','','/terms.html'])
+      +row(['↩️','Refund policy','','/refund-policy.html'])+'</div>';
+    $('v-me').innerHTML=h;
+  }
+  function paintUser(){
+    var u=user(), me=$('me'), n=first(u);
+    if(u){ me.textContent='👤 '+(n||'Me'); me.classList.add('in'); $('hi').textContent = n ? 'Hi '+n+' 👋' : 'Welcome back 👋'; }
+    else { me.textContent='Login'; me.classList.remove('in'); $('hi').textContent='Free mock tests'; }
+  }
+
+  /* ---------- routing: #home, #c/<exam>, #mocks, #pyq, #chapters, #me ---------- */
+  var TITLES={mocks:'Mock tests',pyq:'Previous year papers',chapters:'Chapter-wise practice',me:'My account'};
+  function route(){
+    var h=(location.hash||'#home').slice(1), view='home', title='', tab='home';
+    if(h.indexOf('c/')===0){ title=renderCourse(h.slice(2)); if(title){ view='course'; tab='home'; } }
+    else if(TITLES[h]){ view=h; tab=h; title=TITLES[h]; if(h==='me') renderMe(); }
+    var vs=document.querySelectorAll('.view'); for(var i=0;i<vs.length;i++) vs[i].classList.toggle('on', vs[i].id==='v-'+view);
+    var ts=document.querySelectorAll('.tabs a'); for(var j=0;j<ts.length;j++) ts[j].classList.toggle('on', ts[j].getAttribute('data-t')===tab);
+    $('top').classList.toggle('has-back', view==='course');
+    $('ttl').textContent = view==='course' ? title : '';
+    paintUser();
+  }
+  $('back').addEventListener('click', function(){ if(history.length>1) history.back(); else location.hash='#home'; });
+  window.addEventListener('hashchange', route);
+  window.addEventListener('pageshow', function(){ paintUser(); });   // coming back from login
+
+  /* ---------- live PYQ paper counts (one small static file, cached for the session) ---------- */
+  function applyPapers(){
+    ORDER.forEach(function(k){ var els=document.querySelectorAll('[data-p="'+k+'"]'); for(var i=0;i<els.length;i++) els[i].textContent=papersShort(k); });
+    renderPyq();
+    if((location.hash||'').indexOf('#c/')===0) renderCourse(location.hash.slice(3));
+  }
+  function loadPapers(){
+    try{ var c=JSON.parse(sessionStorage.getItem('tssc_app_papers')||'null'); if(c){ PAPERS=c; applyPapers(); return; } }catch(e){}
+    fetch('/pyq-chapters/index.json').then(function(r){ if(!r.ok) throw 0; return r.json(); }).then(function(d){
+      var ex=d.exams||{}, o={}; Object.keys(ex).forEach(function(k){ if(ex[k] && ex[k].papers) o[k]=ex[k].papers; });
+      PAPERS=o; try{ sessionStorage.setItem('tssc_app_papers', JSON.stringify(o)); }catch(e){}
+      applyPapers();
+    }).catch(function(){});
+  }
+
+  renderHome(); renderMocks(); renderPyq(); renderChapters(); route();
+  if('requestIdleCallback' in window) requestIdleCallback(loadPapers); else setTimeout(loadPapers, 300);
+  if('serviceWorker' in navigator) window.addEventListener('load', function(){ navigator.serviceWorker.register('/sw.js').catch(function(){}); });
+})();
+</script>
+</body>
+</html>
