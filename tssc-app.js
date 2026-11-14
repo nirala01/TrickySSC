@@ -44,10 +44,14 @@
   if ((path === '/' || path === '/index.html') && !location.hash) { location.replace('/app.html'); return; }
   /* TSSC-APPPAGES-V1: these list pages have an app-only copy (app-<page>.html, built by
      build_app_pages.py). Inside the app, any link to the website page lands on the copy. */
-  if (/^(ssc-cgl-mock-test|ssc-cgl-tier-2-mock-test|ssc-chsl-mock-test|ssc-chsl-tier-2-mock-test|ssc-mts-mock-test|ssc-gd-mock-test|rrb-ntpc-mock-test|ssc-cgl-pyq|ssc-chsl-pyq|ssc-gd-pyq|rrb-ntpc-pyq|ssc-pyq-chapterwise|login)\.html$/.test(file)) {
+  var APP_COPY = ' login mock-list rrb-ntpc-gk-mock-test rrb-ntpc-gk-previous-year-questions rrb-ntpc-maths-mock-test rrb-ntpc-maths-previous-year-questions rrb-ntpc-mock-test rrb-ntpc-pyq rrb-ntpc-reasoning-mock-test rrb-ntpc-reasoning-previous-year-questions ssc-cgl-computer-mock-test ssc-cgl-english-mock-test ssc-cgl-english-previous-year-questions ssc-cgl-gk-mock-test ssc-cgl-gk-previous-year-questions ssc-cgl-mock-test ssc-cgl-pyq ssc-cgl-quant-mock-test ssc-cgl-quant-previous-year-questions ssc-cgl-reasoning-mock-test ssc-cgl-reasoning-previous-year-questions ssc-cgl-tier-2-english-mock-test ssc-cgl-tier-2-english-previous-year-questions ssc-cgl-tier-2-gk-mock-test ssc-cgl-tier-2-gk-previous-year-questions ssc-cgl-tier-2-mock-test ssc-cgl-tier-2-pyq ssc-cgl-tier-2-quant-mock-test ssc-cgl-tier-2-quant-previous-year-questions ssc-cgl-tier-2-reasoning-mock-test ssc-cgl-tier-2-reasoning-previous-year-questions ssc-chsl-english-mock-test ssc-chsl-english-previous-year-questions ssc-chsl-gk-mock-test ssc-chsl-gk-previous-year-questions ssc-chsl-mock-test ssc-chsl-pyq ssc-chsl-quant-mock-test ssc-chsl-quant-previous-year-questions ssc-chsl-reasoning-mock-test ssc-chsl-reasoning-previous-year-questions ssc-chsl-tier-2-computer-mock-test ssc-chsl-tier-2-computer-previous-year-questions ssc-chsl-tier-2-english-mock-test ssc-chsl-tier-2-english-previous-year-questions ssc-chsl-tier-2-gk-mock-test ssc-chsl-tier-2-gk-previous-year-questions ssc-chsl-tier-2-mock-test ssc-chsl-tier-2-quant-mock-test ssc-chsl-tier-2-quant-previous-year-questions ssc-chsl-tier-2-reasoning-mock-test ssc-chsl-tier-2-reasoning-previous-year-questions ssc-gd-english-mock-test ssc-gd-english-previous-year-questions ssc-gd-gk-mock-test ssc-gd-gk-previous-year-questions ssc-gd-maths-mock-test ssc-gd-maths-previous-year-questions ssc-gd-mock-test ssc-gd-pyq ssc-gd-reasoning-mock-test ssc-gd-reasoning-previous-year-questions ssc-mts-english-mock-test ssc-mts-gk-mock-test ssc-mts-maths-mock-test ssc-mts-mock-test ssc-mts-reasoning-mock-test ssc-pyq-chapterwise ';
+  if (/\.html$/.test(file) && APP_COPY.indexOf(' ' + file.slice(0, -5) + ' ') >= 0) {
     location.replace('/app-' + file + location.search + location.hash);
     return;
   }
+  /* the website's exam hub pages are replaced by the app's own course page */
+  var HUB = { 'ssc-cgl.html': 'cgl', 'ssc-chsl.html': 'chsl', 'ssc-mts.html': 'mts', 'ssc-gd.html': 'gd', 'rrb-ntpc.html': 'ntpc' };
+  if (HUB[file] && !location.hash) { location.replace('/app.html#c/' + HUB[file]); return; }
   /* test engines and admin tools: untouched */
   if (/^(test|mock-test|ai-test)[a-z0-9-]*\.html$/.test(file)) return;
   if (/^(admin|batch-uploader|uploader|upload_|question-|solution-|image-question|trickyssc-figure|figure-checker|content-admin|ca-admin|chapter-tag-admin|reports-admin|mock-inspector|quality-check|json-to|pdf-to|hindi-translator|en-diag|clipboard|loader|candidates)/.test(file)) return;
@@ -58,6 +62,7 @@
   var TAB = 58, BAR = 52;
   var root = document.documentElement;
   root.classList.add('tssc-app');
+  root.setAttribute('data-tsa-file', file.replace(/\.html$/, ''));
   if (!NO_TABS) root.classList.add('tssc-app-tabs');
 
   /* ---------- styles (added at once, so the website header never flashes) ---------- */
@@ -72,6 +77,46 @@
     'html.tssc-app .mock-list-block>.mock-explain,html.tssc-app section.seo-content,' +
     'html.tssc-app nav.topbar+div>div:first-child,html.tssc-app nav.topbar+div>div:nth-child(3)>p,' +
     'html.tssc-app #pane-t1~div[style^="margin-top:2"],html.tssc-app #pane-t1~div[style^="margin-top:1.8rem"]{display:none!important;}' +
+    /* TSSC-APPTRIM-V1: every page inside the app shows what you can tap, not what was written for
+       search visitors. Reading sections are removed; study sections become one-line rows (see sheets). */
+    'html.tssc-app body>header.hero,html.tssc-app .wrap>header.hero,' +
+    ['intro','marks','how','why','plan','compare','hindi','faq','more','weightage','syllabus','strategy','about','related','all-chapters','format','notes-cta','about-mocks']
+      .map(function (id) { return 'html.tssc-app section#' + id; }).join(',') + '{display:none!important;}' +
+    /* kept sections: no headings or introductions, the app bar already names the page */
+    'html.tssc-app section#subjects>h2,html.tssc-app section#subjects>p,html.tssc-app section#chapters>h2,html.tssc-app section#chapters>p,' +
+    'html.tssc-app section#tests>h2,html.tssc-app section#tests>p,html.tssc-app #chNote,html.tssc-app .types-card,html.tssc-app .subj-nav,html.tssc-app .ch-ex,' +
+    'html.tssc-app details.faq,html.tssc-app section.seo,html.tssc-app body>section.hero,html.tssc-app .feat-wrap+main .inside,html.tssc-app .feat-wrap+main .ctas,' +
+    'html.tssc-app .masthead,html.tssc-app .intro-block,html.tssc-app .exam-grid .soon,html.tssc-app .exam-grid~.info,' +
+    'html.tssc-app .sc.soon,html.tssc-app .sc-facts,html.tssc-app .sc-desc,html.tssc-app .sc-sub,html.tssc-app #subjects .tier-label{display:none!important;}' +
+    /* chapter-test home: one row per subject */
+    'html.tssc-app .sc-stat:nth-child(n+3),html.tssc-app body>.foot,html.tssc-app body>header.bar{display:none!important;}html.tssc-app .feat-wrap{margin-top:14px!important;}' +
+    'html.tssc-app .subj-grid{display:grid!important;grid-template-columns:1fr!important;gap:9px!important;margin:0!important;}' +
+    'html.tssc-app .sc{position:relative!important;display:flex!important;flex-direction:row!important;flex-wrap:wrap;align-items:center;gap:0 12px;padding:11px 12px!important;border:1px solid #E2E8F0!important;border-left:5px solid var(--c)!important;border-radius:14px!important;box-shadow:0 1px 6px rgba(0,0,0,.04)!important;transform:none!important;overflow:hidden;}' +
+    'html.tssc-app .sc::before,html.tssc-app .sc::after{display:none!important;}' +
+    'html.tssc-app .sc-top{display:contents!important;}' +
+    'html.tssc-app .sc-ic{width:42px!important;height:42px!important;border-radius:12px!important;font-size:21px!important;flex:0 0 42px;grid-row:span 2;align-self:center;margin:0!important;}' +
+    'html.tssc-app .sc-top>div:not(.sc-ic){flex:1 1 0;min-width:0;}' +
+    'html.tssc-app .sc-name{font-size:16px!important;line-height:1.2!important;margin:0 0 17px!important;}' +
+    'html.tssc-app .sc-live{position:absolute!important;left:71px;bottom:9px;display:block!important;padding:0!important;margin:0!important;background:none!important;border:0!important;white-space:nowrap;min-height:0!important;}' +
+    'html.tssc-app .sc-live::before,html.tssc-app .sc-live::after,html.tssc-app .sc-stat::before,html.tssc-app .sc-stat b::before{display:none!important;}' +
+    'html.tssc-app .sc-stat{display:inline!important;padding:0!important;margin:0!important;}' +
+    'html.tssc-app .sc-stat b,html.tssc-app .sc-stat span{display:inline!important;font-family:Hind,system-ui,sans-serif!important;font-size:12px!important;font-weight:500!important;letter-spacing:0!important;text-transform:none!important;color:#718096!important;line-height:1.2!important;}' +
+    'html.tssc-app .sc-stat b{font-weight:700!important;color:var(--c2)!important;}html.tssc-app .sc-stat span{margin-left:.22em;}' +
+    'html.tssc-app .sc-stat+.sc-stat::before{content:"\\00b7"!important;display:inline!important;color:#A0AEC0;margin:0 .3em;position:static!important;width:auto!important;height:auto!important;background:none!important;}' +
+    'html.tssc-app .sc-btn{flex:0 0 30px;width:30px;height:30px;padding:0!important;margin:0!important;border-radius:50%!important;background:var(--csoft)!important;color:var(--c2)!important;font-size:0!important;box-shadow:none!important;display:flex!important;align-items:center;justify-content:center;position:static!important;}' +
+    'html.tssc-app .sc-btn em{font-size:16px;font-style:normal;font-weight:700;transform:none!important;}' +
+    'html.tssc-app .sc-btn::after{content:"";position:absolute;inset:0;z-index:2;}' +
+    /* study sections on a chapter page: one-line rows that open in a bottom sheet */
+    '.tsa-rows{display:flex;flex-direction:column;gap:8px;margin:14px 0 4px;}' +
+    '.tsa-row{display:flex;align-items:center;gap:10px;width:100%;box-sizing:border-box;padding:13px 14px;border:1px solid #E2E8F0;border-radius:14px;background:#fff;font:700 15px/1.25 Rajdhani,system-ui,sans-serif;color:#1A202C;text-align:left;cursor:pointer;box-shadow:0 1px 6px rgba(0,0,0,.04);}' +
+    '.tsa-row span{flex:1;min-width:0;}.tsa-row svg{flex:0 0 18px;width:18px;height:18px;color:#94A3B8;}' +
+    '.tsa-sheet{position:fixed;inset:0;z-index:1200;display:none;align-items:flex-end;background:rgba(15,23,42,.5);}.tsa-sheet.on{display:flex;}' +
+    '.tsa-sheet-card{width:100%;max-height:88vh;box-sizing:border-box;display:flex;flex-direction:column;background:#fff;border-radius:18px 18px 0 0;padding-bottom:env(safe-area-inset-bottom,0px);}' +
+    '.tsa-sheet-h{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:14px 12px 10px 16px;border-bottom:1px solid #EDF0F5;font:700 17px/1.2 Rajdhani,system-ui,sans-serif;color:#1A202C;}' +
+    '.tsa-sheet-h b{flex:1;min-width:0;}.tsa-sheet-h button{flex:0 0 34px;width:34px;height:34px;border:0;border-radius:50%;background:#F1F5F9;font-size:15px;color:#475569;cursor:pointer;}' +
+    '.tsa-sheet-b{flex:1 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:6px 16px 18px;}' +
+    '.tsa-sheet-b>section{display:block!important;margin:0!important;padding:0!important;border:0!important;box-shadow:none!important;background:none!important;}.tsa-sheet-b>section>h2:first-child{display:none!important;}' +
+    'html.tsa-lock,html.tsa-lock body{overflow:hidden!important;}' +
     'html.tssc-app .wrap{padding-top:12px!important;}' +
     'html.tssc-app{-webkit-tap-highlight-color:transparent;}' +
     'html.tssc-app-tabs body{padding-bottom:calc(' + TAB + 'px + env(safe-area-inset-bottom,0px))!important;}' +
@@ -182,5 +227,38 @@
     }, true);
   }
 
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', build); else build();
+
+  /* TSSC-APPTRIM-V1: study sections of a chapter page become one-line rows; the section opens in a sheet */
+  var STUDY = [['topics', '📘', 'Concepts and formulas'], ['examples', '✏️', 'Solved examples'], ['tips', '💡', 'Tips and common mistakes']];
+  function trim() {
+    var body = document.body, tests = document.querySelector('main>section#tests');
+    if (tests && !document.querySelector('.tsa-rows')) {
+      var rows = document.createElement('div'); rows.className = 'tsa-rows';
+      STUDY.forEach(function (x) {
+        var sec = document.querySelector('main>section#' + x[0]); if (!sec) return;
+        var sheet = document.createElement('div'); sheet.className = 'tsa-sheet';
+        sheet.innerHTML = '<div class="tsa-sheet-card"><div class="tsa-sheet-h"><b></b><button type="button" aria-label="Close">✕</button></div><div class="tsa-sheet-b"></div></div>';
+        sheet.querySelector('b').textContent = x[2];
+        sheet.querySelector('.tsa-sheet-b').appendChild(sec);
+        var close = function () { sheet.classList.remove('on'); root.classList.remove('tsa-lock'); };
+        sheet.addEventListener('click', function (e) { if (e.target === sheet) close(); });
+        sheet.querySelector('button').addEventListener('click', close);
+        body.appendChild(sheet);
+        var b = document.createElement('button'); b.type = 'button'; b.className = 'tsa-row';
+        b.innerHTML = '<i style="font-style:normal"></i><span></span>' + svg('<path d="M9 6l6 6-6 6"/>');
+        b.firstChild.textContent = x[1]; b.querySelector('span').textContent = x[2];
+        b.addEventListener('click', function () { sheet.classList.add('on'); root.classList.add('tsa-lock'); sheet.querySelector('.tsa-sheet-b').scrollTop = 0; });
+        rows.appendChild(b);
+      });
+      if (rows.firstChild) tests.parentNode.insertBefore(rows, tests.nextSibling);
+    }
+    /* chapter rows: keep the count, drop the rest of the small print */
+    var metas = document.querySelectorAll('.ch-list .ch-meta');
+    for (var i = 0; i < metas.length; i++) {
+      var h = metas[i].innerHTML, k = h.indexOf(' · ');
+      if (k > 0 && /<b>\d/.test(h.slice(0, k))) metas[i].innerHTML = h.slice(0, k);
+    }
+  }
+  function start() { build(); try { trim(); } catch (e) {} }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
 })();

@@ -33,6 +33,61 @@ PAGES = {
     'ssc-mts-mock-test.html': 'mocks',
     'ssc-gd-mock-test.html': 'mocks',
     'rrb-ntpc-mock-test.html': 'mocks',
+    'rrb-ntpc-gk-mock-test.html': 'mocks',
+    'rrb-ntpc-maths-mock-test.html': 'mocks',
+    'rrb-ntpc-reasoning-mock-test.html': 'mocks',
+    'ssc-cgl-computer-mock-test.html': 'mocks',
+    'ssc-cgl-english-mock-test.html': 'mocks',
+    'ssc-cgl-gk-mock-test.html': 'mocks',
+    'ssc-cgl-quant-mock-test.html': 'mocks',
+    'ssc-cgl-reasoning-mock-test.html': 'mocks',
+    'ssc-cgl-tier-2-english-mock-test.html': 'mocks',
+    'ssc-cgl-tier-2-gk-mock-test.html': 'mocks',
+    'ssc-cgl-tier-2-quant-mock-test.html': 'mocks',
+    'ssc-cgl-tier-2-reasoning-mock-test.html': 'mocks',
+    'ssc-chsl-english-mock-test.html': 'mocks',
+    'ssc-chsl-gk-mock-test.html': 'mocks',
+    'ssc-chsl-quant-mock-test.html': 'mocks',
+    'ssc-chsl-reasoning-mock-test.html': 'mocks',
+    'ssc-chsl-tier-2-computer-mock-test.html': 'mocks',
+    'ssc-chsl-tier-2-english-mock-test.html': 'mocks',
+    'ssc-chsl-tier-2-gk-mock-test.html': 'mocks',
+    'ssc-chsl-tier-2-quant-mock-test.html': 'mocks',
+    'ssc-chsl-tier-2-reasoning-mock-test.html': 'mocks',
+    'ssc-gd-english-mock-test.html': 'mocks',
+    'ssc-gd-gk-mock-test.html': 'mocks',
+    'ssc-gd-maths-mock-test.html': 'mocks',
+    'ssc-gd-reasoning-mock-test.html': 'mocks',
+    'ssc-mts-english-mock-test.html': 'mocks',
+    'ssc-mts-gk-mock-test.html': 'mocks',
+    'ssc-mts-maths-mock-test.html': 'mocks',
+    'ssc-mts-reasoning-mock-test.html': 'mocks',
+    'mock-list.html': 'mocks',
+    'ssc-cgl-tier-2-pyq.html': 'pyq',
+    'rrb-ntpc-gk-previous-year-questions.html': 'pyq',
+    'rrb-ntpc-maths-previous-year-questions.html': 'pyq',
+    'rrb-ntpc-reasoning-previous-year-questions.html': 'pyq',
+    'ssc-cgl-english-previous-year-questions.html': 'pyq',
+    'ssc-cgl-gk-previous-year-questions.html': 'pyq',
+    'ssc-cgl-quant-previous-year-questions.html': 'pyq',
+    'ssc-cgl-reasoning-previous-year-questions.html': 'pyq',
+    'ssc-cgl-tier-2-english-previous-year-questions.html': 'pyq',
+    'ssc-cgl-tier-2-gk-previous-year-questions.html': 'pyq',
+    'ssc-cgl-tier-2-quant-previous-year-questions.html': 'pyq',
+    'ssc-cgl-tier-2-reasoning-previous-year-questions.html': 'pyq',
+    'ssc-chsl-english-previous-year-questions.html': 'pyq',
+    'ssc-chsl-gk-previous-year-questions.html': 'pyq',
+    'ssc-chsl-quant-previous-year-questions.html': 'pyq',
+    'ssc-chsl-reasoning-previous-year-questions.html': 'pyq',
+    'ssc-chsl-tier-2-computer-previous-year-questions.html': 'pyq',
+    'ssc-chsl-tier-2-english-previous-year-questions.html': 'pyq',
+    'ssc-chsl-tier-2-gk-previous-year-questions.html': 'pyq',
+    'ssc-chsl-tier-2-quant-previous-year-questions.html': 'pyq',
+    'ssc-chsl-tier-2-reasoning-previous-year-questions.html': 'pyq',
+    'ssc-gd-english-previous-year-questions.html': 'pyq',
+    'ssc-gd-gk-previous-year-questions.html': 'pyq',
+    'ssc-gd-maths-previous-year-questions.html': 'pyq',
+    'ssc-gd-reasoning-previous-year-questions.html': 'pyq',
     'ssc-cgl-pyq.html': 'pyq',
     'ssc-chsl-pyq.html': 'pyq',
     'ssc-gd-pyq.html': 'pyq',
@@ -298,6 +353,81 @@ def trim_chapters(doc, js, log):
     return doc
 
 
+def child_elements(doc, start):
+    """(start, end, tag, attrs) of each child element of the element that opens at start."""
+    m = TOKEN.match(doc, start)
+    pos, out = m.end(), []
+    while True:
+        m = TOKEN.search(doc, pos)
+        if not m:
+            return out
+        if m.group(3) is None:          # comment, script or style
+            pos = m.end()
+            continue
+        if m.group(2):                  # the parent's closing tag
+            return out
+        tag = m.group(3).lower()
+        if tag in VOID or m.group(4).rstrip().endswith('/'):
+            pos = m.end()
+            continue
+        end = element_end(doc, m.start())
+        if end is None:
+            return out
+        out.append((m.start(), end, tag, m.group(4)))
+        pos = end
+
+
+def keep_only_list(doc, js, log):
+    """Subject-wise PYQ page: keep the list of tests (and the one-line rows), cut the article around it."""
+    m = re.search(r'<div\b[^>]*\bid="pane-subj"[^>]*>', doc)
+    if not m:
+        return doc
+    parent = parent_div_start(doc, m.start())
+    if parent is None:
+        return doc
+    n = 0
+    for start, end, tag, attrs in reversed(child_elements(doc, parent)):
+        if 'id="pane-subj"' in attrs or 'tsa-row' in attrs:
+            continue
+        if safe_to_cut(doc[start:end], js):
+            doc = doc[:start] + doc[end:]
+        else:
+            t = TOKEN.match(doc, start)
+            doc = doc[:t.end() - 1] + ' data-tsa-hide>' + doc[t.end():]
+        n += 1
+    log.append('cut  %d blocks around the test list' % n)
+    return doc
+
+
+def cut_after_year_list(doc, js, log):
+    """Tier 2 papers page: everything after the last year block is article text."""
+    last = None
+    for m in re.finditer(r'<details\b[^>]*\bclass="(?:[^"]*\s)?yr-acc(?:\s[^"]*)?"[^>]*>', doc):
+        if not in_ranges(m.start(), raw_ranges(doc)):
+            last = m
+    if not last:
+        return doc
+    end = element_end(doc, last.start())
+    parent = None
+    depth_pos = last.start()
+    # the parent is the nearest enclosing div
+    parent = parent_div_start(doc, depth_pos)
+    if end is None or parent is None:
+        return doc
+    n = 0
+    for start, e, tag, attrs in reversed(child_elements(doc, parent)):
+        if start < end:
+            break
+        if safe_to_cut(doc[start:e], js):
+            doc = doc[:start] + doc[e:]
+        else:
+            t = TOKEN.match(doc, start)
+            doc = doc[:t.end() - 1] + ' data-tsa-hide>' + doc[t.end():]
+        n += 1
+    log.append('cut  %d article blocks after the papers' % n)
+    return doc
+
+
 def pass_summary(note):
     """Reads the numbers out of the website's own pass note, so the app line can never disagree with it."""
     text = htmllib.unescape(re.sub(r'<[^>]+>', ' ', note))
@@ -361,10 +491,12 @@ CHEVRON = ('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-wi
            'stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>')
 
 
-def collapse_to_sheets(doc, log):
+def collapse_to_sheets(doc, log, by_subject=False):
     sheets = []
     for entry in SHEETS:
         cls, label, title = entry[:3]
+        if by_subject and cls == 'subj-links':
+            label, title = '\U0001F9E9 Other subjects', 'Other subjects'
         if cls.startswith('#'):
             pat = re.compile(r'<div\b[^>]*\bid="%s"[^>]*>' % re.escape(cls[1:]))
         else:
@@ -617,10 +749,15 @@ def build(src_name, tab):
         doc = cut_by_class(doc, tag, cls, js, log)
     doc = cut_mock_heading(doc, js, log)
     doc = add_pass_summaries(doc, log)
+    by_subject = src_name.endswith('-previous-year-questions.html')
     if tab in ('mocks', 'pyq'):
-        doc = collapse_to_sheets(doc, log)
+        doc = collapse_to_sheets(doc, log, by_subject)
     if tab == 'pyq':
         doc = trim_pyq(doc, js, log)
+        if by_subject:
+            doc = keep_only_list(doc, js, log)
+        if src_name == 'ssc-cgl-tier-2-pyq.html':
+            doc = cut_after_year_list(doc, js, log)
     if tab == 'chapters':
         doc = trim_chapters(doc, js, log)
 

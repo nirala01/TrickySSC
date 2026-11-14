@@ -9,9 +9,9 @@
        error page
    Scripts, images, Firestore and payments are never intercepted or cached.
    Bump VERSION whenever app.html or offline.html must reach phones at once. */
-const VERSION = 'tssc-app-v6';
+const VERSION = 'tssc-app-v7';
 const SHELL = ['/app.html', '/offline.html', '/app-icon-192.png'];
-const APP_JS = '<script src="/tssc-app.js?v=4"></script>';
+const APP_JS = '<script src="/tssc-app.js?v=5"></script>';
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
