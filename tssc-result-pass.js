@@ -87,7 +87,13 @@
     '#tsscRP .rp-cb{display:flex;align-items:center;gap:10px;min-height:48px;border:1px solid #CBD5E1;border-radius:12px;padding:6px 12px;}' +
     '#tsscRP .rp-cb .rp-nm{font-size:17px;line-height:1.2;}' +
     '#tsscRP .rp-cb .rp-now{font-size:22px;}' +
-    '#tsscRP .rp-sgs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;}' +
+    '#tsscRP .rp-sgs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}' +
+    /* TSSC-NTPCMAIN-V1 (2026-11-14): RRB NTPC is a main row under the All Mocks Pass, not a tile */
+    '#tsscRP .rp-cb.rp-rail{flex:none;border:2px solid #1D4ED8;background:#EFF6FF;padding:8px 12px;}' +
+    '#tsscRP .rp-rail .rp-sv{background:#1D4ED8;}' +
+    '#tsscRP .rp-rail .rp-tag{background:#1D4ED8;}' +
+    '#tsscRP .rp-rail .rp-nm{color:#1E3A8A;}' +
+    '#tsscRP .rp-rail .rp-now{color:#1D4ED8;}' +
     '#tsscRP .rp-sg{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60px;border-radius:12px;' +
       'padding:6px 4px;text-align:center;}' +
     '#tsscRP .rp-sg b{font-weight:700;font-size:15px;}' +
@@ -133,6 +139,12 @@
         '<span class="rp-pr"><span class="rp-was">' + R + '245</span><span class="rp-now">' + R + '99</span>' +
           '<span class="rp-sv">SAVE ' + R + '146</span></span>' +
       '</a>' +
+      '<a class="rp-cb rp-rail" data-rp-grants="rrb-ntpc-mocks" href="' + H + 'rrb-ntpc-mock-test.html">' +
+        '<span class="rp-who"><span class="rp-tag">NEW \u00B7 RAILWAY</span>' +
+          '<span class="rp-nm">RRB NTPC 2026-27</span>' +
+          '<span class="rp-ct">60 CBT-1 mocks \u00B7 Graduate \u00B7 Mock 1\u20133 free</span></span>' +
+        '<span class="rp-pr"><span class="rp-now">' + R + '49</span><span class="rp-sv">1 YEAR</span></span>' +
+      '</a>' +
       '<div class="rp-lbl" data-rp-lbl="combo">COMBO OFFERS \u00B7 2 EXAMS</div>' +
       '<div class="rp-cbs" data-rp-group="combo">' +
         combo('ssc-cgl-mocks ssc-chsl-mocks', 'ssc-chsl-mock-test.html?combo=1', 'SSC CGL + SSC CHSL', '180 mocks \u00B7 100 CGL + 80 CHSL') +
@@ -145,7 +157,6 @@
         single('chsl', 'ssc-chsl-mocks', 'ssc-cgl-mocks', 'ssc-chsl-mock-test.html', 'SSC CHSL', '80 mocks') +
         single('gd', 'ssc-gd-mocks', 'ssc-chsl-mocks', 'ssc-gd-mock-test.html', 'SSC GD', '60 mocks') +
         single('mts', 'ssc-mts-mocks', '', 'ssc-mts-mock-test.html', 'SSC MTS', '60 mocks') +
-        single('ntpc', 'rrb-ntpc-mocks', '', 'rrb-ntpc-mock-test.html', 'RRB NTPC', '60 mocks') +
       '</div>' +
       '<p class="rp-band">Hindi and English \u00B7 Sectional timing</p>' +
     '</div>' +
