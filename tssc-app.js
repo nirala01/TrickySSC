@@ -52,8 +52,12 @@
   /* the website's exam hub pages are replaced by the app's own course page */
   var HUB = { 'ssc-cgl.html': 'cgl', 'ssc-chsl.html': 'chsl', 'ssc-mts.html': 'mts', 'ssc-gd.html': 'gd', 'rrb-ntpc.html': 'ntpc' };
   if (HUB[file] && !location.hash) { location.replace('/app.html#c/' + HUB[file]); return; }
-  /* test engines and admin tools: untouched */
-  if (/^(test|mock-test|ai-test)[a-z0-9-]*\.html$/.test(file)) return;
+  /* test screens: the engine is left alone; only the fit-to-screen helper is added (TSSC-QFIT-V1) */
+  if (/^(test|mock-test|chapterwise-test|pyq-chapter-test)[a-z0-9-]*\.html$/.test(file)) {
+    try { var qf = document.createElement('script'); qf.src = '/tssc-qfit.js?v=1'; (document.head || document.documentElement).appendChild(qf); } catch (e) {}
+    return;
+  }
+  if (/^ai-test[a-z0-9-]*\.html$/.test(file)) return;
   if (/^(admin|batch-uploader|uploader|upload_|question-|solution-|image-question|trickyssc-figure|figure-checker|content-admin|ca-admin|chapter-tag-admin|reports-admin|mock-inspector|quality-check|json-to|pdf-to|hindi-translator|en-diag|clipboard|loader|candidates)/.test(file)) return;
 
   /* pages where the bottom tabs would get in the way (a test is running, or login) */
