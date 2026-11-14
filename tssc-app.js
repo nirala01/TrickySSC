@@ -54,7 +54,7 @@
   if (HUB[file] && !location.hash) { location.replace('/app.html#c/' + HUB[file]); return; }
   /* test screens: the engine is left alone; only the fit-to-screen helper is added (TSSC-QFIT-V1) */
   if (/^(test|mock-test|chapterwise-test|pyq-chapter-test)[a-z0-9-]*\.html$/.test(file)) {
-    try { var qf = document.createElement('script'); qf.src = '/tssc-qfit.js?v=2'; (document.head || document.documentElement).appendChild(qf); } catch (e) {}
+    try { var qf = document.createElement('script'); qf.src = '/tssc-qfit.js?v=3'; (document.head || document.documentElement).appendChild(qf); } catch (e) {}
     return;
   }
   if (/^ai-test[a-z0-9-]*\.html$/.test(file)) return;

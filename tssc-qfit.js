@@ -174,6 +174,17 @@
     '#resultScreen.tsr-sum>.tsr-cta{display:flex;}' +
     '#resultScreen.tsr-sum.tsr-1>.tsr-cta{min-height:50px;font-size:18px;padding:8px 12px;}' +
     '#resultScreen.tsr-sum.tsr-2>.tsr-cta small{display:none;}' +
+    /* second screen: every section tab fits the width, nothing slides sideways */
+    '#resultScreen.tsr-sol{overflow-x:clip;}' +
+    '#resultScreen.tsr-sol .rv-tabs{top:50px!important;}' +
+    '#resultScreen.tsr-sol .rv-tabs{overflow:visible!important;gap:5px!important;flex-wrap:nowrap!important;}' +
+    '#resultScreen.tsr-sol .rv-tab{flex:1 1 0!important;min-width:0!important;padding:6px 3px!important;gap:3px!important;}' +
+    '#resultScreen.tsr-sol .rv-tab-name{white-space:normal!important;font-size:11.5px!important;line-height:1.15!important;text-align:center;overflow-wrap:anywhere;}' +
+    '#resultScreen.tsr-sol .rv-tab-mini{gap:4px!important;font-size:9.5px!important;flex-wrap:wrap;justify-content:center;}' +
+    '#resultScreen.tsr-sol .rv-tab-mini span{gap:2px!important;}' +
+    '#resultScreen.tsr-sol .rv-tab-mini span::before{width:6px!important;height:6px!important;}' +
+    /* one by one: the questions kept off-screen take no height, so the page ends where the open question ends */
+    '#resultScreen .rv-wrap[data-rvpm="page"] .rv-items>.review-item.rvp-off{height:0!important;min-height:0!important;padding:0!important;border:0!important;overflow:hidden!important;}' +
     /* second screen */
     '#resultScreen.tsr-sol>*{display:none!important;}' +
     '#resultScreen.tsr-sol>#review{display:block!important;}' +
