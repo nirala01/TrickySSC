@@ -74,7 +74,7 @@ class _DashboardTabState extends State<DashboardTab> {
 
   bool _canOpen(Map<String, dynamic> a) {
     final id = _id(a);
-    final ok = RegExp(r'_(tier1|cbt1)_mock\d+_(en|hi)$').hasMatch(id) || RegExp(r'^[a-z-]+_\d{4}_tier1_.*_(en|hi)$').hasMatch(id);
+    final ok = RegExp(r'_(tier1|tier2|cbt1)_mock\d+_(en|hi)$').hasMatch(id) || RegExp(r'^[a-z-]+_\d{4}_tier[12]_.*_(en|hi)$').hasMatch(id);
     return ok && (a['answers'] is List);
   }
 
@@ -163,12 +163,13 @@ class _DashboardTabState extends State<DashboardTab> {
       timeSec += _d(a['timeUsed']).toInt();
       c += _d(a['correct']).toInt();
       w += _d(a['wrong']).toInt();
+      final t2 = a['tier'] == 'tier2' || _id(a).contains('_tier2_');
       final ss = a['subjectStats'];
       if (ss is Map) {
         ss.forEach((k, v) {
           if (v is! Map) return;
           final name = canonSubject('$k');
-          if (!const {'English', 'Reasoning', 'Quant', 'Gen. Awareness'}.contains(name)) return;
+          if (!const {'English', 'Reasoning', 'Quant', 'Gen. Awareness'}.contains(name) && !(name == 'Computer' && t2)) return;
           final g = subs.putIfAbsent(name, () => _SubAgg());
           g.c += _d(v['correct']).toInt();
           g.w += _d(v['wrong']).toInt();

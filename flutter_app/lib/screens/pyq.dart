@@ -115,10 +115,6 @@ class _PyqTabState extends State<PyqTab> {
 
   Future<void> _start(PyqPaper p) async {
     final exam = widget.exam;
-    if (p.tier == 2) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Tier 2 papers are coming in the next build.')));
-      return;
-    }
     String lang = p.en.isNotEmpty ? 'en' : 'hi';
     String partD = lang;
     final both = p.en.isNotEmpty && p.hi.isNotEmpty;
@@ -352,7 +348,7 @@ class _PyqTabState extends State<PyqTab> {
                     if (paused) tag('PAUSED', const Color(0xFFB45309), const Color(0xFFFEF3C7)) else if (done) tag('DONE', const Color(0xFF1D4ED8), const Color(0xFFDBEAFE)),
                   ]),
                   const SizedBox(height: 1),
-                  Text([if (p.tier == 1) exam.meta else 'Tier 2 paper', langs].join(' · '), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13.5, color: Color(0xFF475569))),
+                  Text([if (p.tier == 1) exam.meta else 'Tier 2 · 135 min', langs].join(' · '), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13.5, color: Color(0xFF475569))),
                 ]),
               ),
               const SizedBox(width: 6),

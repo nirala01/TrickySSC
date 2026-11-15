@@ -70,7 +70,7 @@ class _TestFlowState extends State<TestFlow> {
         return;
       }
     }
-    final pr = resume ? _saved! : (Progress()..remaining = List.filled(p.units.length, p.rules.unitSeconds));
+    final pr = resume ? _saved! : (Progress()..remaining = [for (var i = 0; i < p.units.length; i++) p.unitSecs(i)]);
     if (!resume) await clearProgress(widget.user.uid, widget.mockId, p.partD);
     if (!mounted) return;
     await Navigator.of(context).push(MaterialPageRoute(
@@ -107,7 +107,7 @@ class _TestFlowState extends State<TestFlow> {
 
   Widget _instructions(Paper p) {
     final exam = widget.exam;
-    final mins = p.units.length * p.rules.unitSeconds ~/ 60;
+    final mins = p.totalSecs ~/ 60;
     Widget fact(String v, String l) => Expanded(
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 10),
@@ -163,7 +163,7 @@ class _TestFlowState extends State<TestFlow> {
                   padding: const EdgeInsets.only(bottom: 6),
                   child: Row(children: [
                     Expanded(child: Text(u.label, style: const TextStyle(fontWeight: FontWeight.w600))),
-                    Text('Q${u.from + 1}–${u.to + 1} · ${p.rules.unitSeconds ~/ 60} min', style: const TextStyle(color: Color(0xFF64748B))),
+                    Text('Q${u.from + 1}–${u.to + 1} · ${(u.seconds > 0 ? u.seconds : p.rules.unitSeconds) ~/ 60} min', style: const TextStyle(color: Color(0xFF64748B))),
                   ]),
                 ),
             ]),

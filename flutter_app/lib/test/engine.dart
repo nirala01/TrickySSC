@@ -32,6 +32,12 @@ const Map<String, String> subjectShort = {
   'अंग्रेजी भाषा': 'English',
   'सामान्य बुद्धि और तर्क शक्ति': 'Reasoning',
   'सामान्य बुद्धि': 'Reasoning',
+  'Computer Knowledge': 'Computer',
+  'Computer Knowledge Test': 'Computer',
+  'Computer': 'Computer',
+  'computer': 'Computer',
+  'कंप्यूटर ज्ञान': 'Computer',
+  'कंप्यूटर': 'Computer',
 };
 
 String canonSubject(String? raw) {
@@ -44,6 +50,7 @@ String canonSubject(String? raw) {
   if (RegExp(r'quant|aptitude|numerical|\bmath').hasMatch(low)) return 'Quant';
   if (RegExp(r'aware|general studies|\bg\.?k\.?\b|current affairs').hasMatch(low)) return 'Gen. Awareness';
   if (RegExp(r'reason|intelligence|mental ability').hasMatch(low)) return 'Reasoning';
+  if (low.contains('comput') || s.contains('कंप्यूटर')) return 'Computer';
   if (s.contains('अंग्रे')) return 'English';
   if (RegExp(r'मात्रात्मक|संख्यात्मक|गणित|अंकगण').hasMatch(s)) return 'Quant';
   if (RegExp(r'जागरूक|अध्ययन|सामान्य ज्ञान|करंट|समसामयिक').hasMatch(s)) return 'Gen. Awareness';
@@ -104,7 +111,8 @@ class Unit {
   final String label;
   final int from;
   final int to;
-  Unit(this.label, this.from, this.to);
+  final int seconds; // 0 = the exam's usual unit length
+  Unit(this.label, this.from, this.to, [this.seconds = 0]);
 }
 
 class Section {
@@ -119,17 +127,20 @@ class Rules {
   final bool mts;
   final bool ntpc;
   final bool gd;
+  final bool tier2; // CGL / CHSL Tier 2 (mock-test-tier2.html, test-tier2.html)
   Rules(this.mockId)
       : mts = mockId.startsWith('ssc-mts_'),
         ntpc = mockId.startsWith('rrb-ntpc_'),
-        gd = mockId.startsWith('ssc-gd_');
+        gd = mockId.startsWith('ssc-gd_'),
+        tier2 = mockId.contains('_tier2_');
 
-  double get pos => ntpc ? 1 : (mts ? 3 : 2);
-  double get negBase => ntpc ? 1 / 3 : (mts ? 1 : (gd ? 0.25 : 0.5));
+  double get pos => tier2 ? 3 : (ntpc ? 1 : (mts ? 3 : 2));
+  double get negBase => tier2 ? 1 : (ntpc ? 1 / 3 : (mts ? 1 : (gd ? 0.25 : 0.5)));
   double neg(Question q, int i) => !mts ? negBase : (q.qNumOr(i + 1) > 40 ? 1 : 0);
   int get unitSeconds => ntpc ? 90 * 60 : (mts ? 45 * 60 : 15 * 60);
 
   String markingLine() {
+    if (tier2) return '+3 for a correct answer · −1 for a wrong answer';
     if (mts) return '+3 for a correct answer · −1 in Session II only (no negative in Session I)';
     if (ntpc) return '+1 for a correct answer · −1/3 for a wrong answer';
     if (gd) return '+2 for a correct answer · −0.25 for a wrong answer';
@@ -137,6 +148,7 @@ class Rules {
   }
 
   String timingLine(int units) {
+    if (tier2) return 'Section I (Maths + Reasoning) 60 min, Section II (English + GA) 60 min, Section III (Computer) 15 min. Move freely inside the open section.';
     if (ntpc) return 'One paper on a single 90-minute clock.';
     if (mts) return 'Two sessions of 45 minutes each. Session I (Maths, Reasoning), then Session II (GA, English).';
     return '$units sections of 15 minutes each. When a section ends it is submitted and the next one opens.';
@@ -161,6 +173,9 @@ class Paper {
   final String title;
   final String partD; // GD only: 'en' / 'hi' / ''
   Paper(this.rules, this.questions, this.sections, this.units, this.title, this.partD);
+
+  int unitSecs(int i) => units[i].seconds > 0 ? units[i].seconds : rules.unitSeconds;
+  int get totalSecs => [for (var i = 0; i < units.length; i++) unitSecs(i)].fold(0, (a, b) => a + b);
 }
 
 /// Previous-year papers are keyed by paperId (ssc-cgl_2026_tier1_shift-1_2026-10-13_en), mocks by mockId.
@@ -219,7 +234,28 @@ Future<Paper> loadPaper(String mockId, String lang, {String? partD, String title
   if (sections.isEmpty) sections.add(Section('All Questions', 0, qs.length - 1));
 
   final units = <Unit>[];
-  if (rules.mts) {
+  if (rules.tier2) {
+    const phaseOf = {'Quant': 0, 'Reasoning': 0, 'English': 1, 'Gen. Awareness': 1, 'Computer': 2};
+    const meta = [('Section I', 60 * 60), ('Section II', 60 * 60), ('Section III', 15 * 60)];
+    int? curPhase;
+    for (final s in sections) {
+      final ph = phaseOf[canonSubject(s.label)] ?? curPhase ?? units.length;
+      if (curPhase != ph || units.isEmpty) {
+        final m = ph < meta.length ? meta[ph] : ('Section ${units.length + 1}', 60 * 60);
+        units.add(Unit(m.$1, s.from, s.to, m.$2));
+        curPhase = ph;
+      } else {
+        final last = units.removeLast();
+        units.add(Unit(last.label, last.from, s.to, last.seconds));
+      }
+    }
+    if (units.isEmpty) units.add(Unit('Full Test', 0, qs.length - 1, 135 * 60));
+    for (var k = 0; k < units.length; k++) {
+      final u = units[k];
+      final names = [for (final s in sections) if (s.from >= u.from && s.to <= u.to) s.label];
+      units[k] = Unit('${u.label} · ${names.join(' + ')}', u.from, u.to, u.seconds);
+    }
+  } else if (rules.mts) {
     for (var i = 0; i < sections.length; i++) {
       if (sections[i].label == 'Quant') sections[i] = Section('Maths', sections[i].from, sections[i].to);
     }
@@ -499,6 +535,7 @@ Future<void> saveResult(User u, Exam exam, Paper p, Progress pr, Result r) async
     'timeUsed': r.timeUsed,
     'analyticsV': 1,
     'partD': p.partD,
+    if (rules.tier2) 'tier': 'tier2',
     'timestamp': FieldValue.serverTimestamp(),
     'clientSubmittedAt': DateTime.now().toUtc().toIso8601String(),
   };

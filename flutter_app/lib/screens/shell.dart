@@ -80,16 +80,12 @@ class _AppShellState extends State<AppShell> {
         if (mounted) setState(() => _resume = r);
       });
 
-  bool _resuming(MockItem m) => m.tier == 1 && _resume.containsKey(mockBase(widget.exam, m));
+  bool _resuming(MockItem m) => _resume.containsKey(mockBase(widget.exam, m));
 
   Future<void> _startMock(MockItem m) async {
     final exam = widget.exam;
     if (!_open(m)) {
       _soon('Buying a pass');
-      return;
-    }
-    if (m.tier == 2) {
-      _soon('Tier 2 mocks');
       return;
     }
     String lang = m.en ? 'en' : 'hi';
@@ -656,7 +652,7 @@ class _MockRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final langs = [if (m.en) 'EN', if (m.hi) 'हिंदी'].join(', ');
-    final meta = [if (m.tier == 1) exam.meta else 'Tier 2 paper', if (langs.isNotEmpty) langs].join(' · ');
+    final meta = [if (m.tier == 1) exam.meta else 'Tier 2 · 135 min', if (langs.isNotEmpty) langs].join(' · ');
     return Material(
       color: Colors.white,
       borderRadius: BorderRadius.circular(14),
