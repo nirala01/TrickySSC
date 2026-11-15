@@ -7,6 +7,7 @@ import '../test/engine.dart';
 import 'dashboard.dart';
 import 'pyq.dart';
 import 'chapter_pyq.dart';
+import 'dash/pages.dart';
 import 'chapters.dart';
 import 'subject_mocks.dart';
 import 'current_affairs.dart';
@@ -774,40 +775,80 @@ class _MeTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final u = FirebaseAuth.instance.currentUser;
+    final prov = u == null || u.providerData.isEmpty ? '' : u.providerData.first.providerId;
+    final method = prov == 'google.com' ? 'Google' : (prov == 'phone' ? 'Phone OTP' : (prov == 'password' ? 'Email' : 'TrickySSC account'));
+    final joined = u?.metadata.creationTime;
+    const mo = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    Widget row(Widget icon, String title, String sub, VoidCallback onTap, {Color? color}) => Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Material(
+            color: Colors.transparent,
+            child: Ink(
+              decoration: softCard(radius: 18),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(18),
+                onTap: onTap,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+                  child: Row(children: [
+                    Container(width: 46, height: 46, alignment: Alignment.center, decoration: softWell(), child: icon),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(title, style: baloo(17, color: color ?? softInk)),
+                        if (sub.isNotEmpty) Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, color: softMuted, fontWeight: FontWeight.w600)),
+                      ]),
+                    ),
+                    Icon(Icons.chevron_right_rounded, color: color ?? exam.c1),
+                  ]),
+                ),
+              ),
+            ),
+          ),
+        );
     return ListView(
-      padding: const EdgeInsets.all(14),
+      padding: EdgeInsets.fromLTRB(14, 8, 14, 20 + MediaQuery.of(context).padding.bottom),
       children: [
         Container(
           padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
-          child: Row(children: [
-            CircleAvatar(
-              radius: 24,
-              backgroundColor: saffron,
-              child: Text(name.isEmpty ? 'S' : name[0].toUpperCase(), style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800)),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(name, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
-                const Text('Signed in', style: TextStyle(fontSize: 14, color: Color(0xFF64748B))),
-              ]),
-            ),
+          margin: const EdgeInsets.only(bottom: 12),
+          decoration: softCard(radius: 22, glow: exam.c1),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              CircleAvatar(
+                radius: 30,
+                backgroundColor: exam.c1,
+                backgroundImage: u?.photoURL != null ? NetworkImage(u!.photoURL!) : null,
+                child: u?.photoURL == null ? Text(name.isEmpty ? 'S' : name[0].toUpperCase(), style: baloo(26, color: Colors.white)) : null,
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: baloo(21)),
+                  Text(u?.email ?? u?.phoneNumber ?? '', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: softMuted, fontWeight: FontWeight.w600)),
+                ]),
+              ),
+            ]),
+            const SizedBox(height: 12),
+            Wrap(spacing: 8, runSpacing: 6, children: [
+              SoftTag('${prov == 'google.com' ? '🔵' : '📱'} Signed in with $method', const Color(0xFF1D4ED8), const Color(0xFFDBEAFE)),
+              if (joined != null) SoftTag('Member since ${mo[joined.month - 1]} ${joined.year}', const Color(0xFF475569), const Color(0xFFF1F5F9)),
+            ]),
           ]),
         ),
-        const SizedBox(height: 12),
-        Material(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          clipBehavior: Clip.antiAlias,
-          child: Column(children: [
-            ListTile(leading: Icon(Icons.insights, color: exam.c1), title: const Text('My dashboard'), subtitle: const Text('Scores, ranks and weak areas'), trailing: const Icon(Icons.chevron_right), onTap: onDashboard),
-            const Divider(height: 1),
-            ListTile(leading: const Text('🎓', style: TextStyle(fontSize: 20)), title: const Text('My exam'), subtitle: Text('${exam.name} · tap to change'), trailing: const Icon(Icons.chevron_right), onTap: onChangeExam),
-            const Divider(height: 1),
-            ListTile(leading: const Icon(Icons.logout), title: const Text('Sign out'), onTap: onSignOut),
-          ]),
-        ),
+        row(const Text('📈', style: TextStyle(fontSize: 22)), 'My dashboard', 'Scores, ranks, cut-off gap and weak areas', onDashboard),
+        row(Icon3D(exam.icon3d, size: 34), 'My exam', '${exam.name} · tap to change', onChangeExam),
+        if (u != null)
+          row(const Text('🧾', style: TextStyle(fontSize: 22)), 'My orders', 'Your plan, purchases and payment IDs',
+              () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => OrdersPage(x: DashCtx(u, exam, const [], '', 'GEN'))))),
+        if (u != null)
+          row(const Text('👤', style: TextStyle(fontSize: 22)), 'My profile', 'Name, phone and login method',
+              () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ProfilePage(x: DashCtx(u, exam, const [], '', 'GEN'))))),
+        row(const Text('✉️', style: TextStyle(fontSize: 22)), 'Help', 'Write to contact@trickyssc.com', () {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Write to contact@trickyssc.com — we reply within 24 hours.')));
+        }),
+        row(const Icon(Icons.logout_rounded, color: Color(0xFFDC2626)), 'Sign out', '', onSignOut, color: const Color(0xFFDC2626)),
       ],
     );
   }

@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'ui/soft.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'data.dart';
@@ -75,7 +76,7 @@ class AuthGate extends StatelessWidget {
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snap) {
         if (snap.connectionState == ConnectionState.waiting) {
-          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+          return const BrandSplash();
         }
         final user = snap.data;
         if (user == null) return const LoginScreen();
@@ -116,7 +117,7 @@ class _ExamGateState extends State<ExamGate> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_loaded) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    if (!_loaded) return const BrandSplash();
     final exam = _exam;
     if (exam == null) {
       final last = _last;
@@ -137,4 +138,34 @@ class _ExamGateState extends State<ExamGate> {
               _exam = null;
             }));
   }
+}
+
+/// Shown while the app starts: the same look as the Android splash, then the soft theme.
+class BrandSplash extends StatelessWidget {
+  const BrandSplash({super.key});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        decoration: softBg,
+        child: Scaffold(
+          backgroundColor: Colors.transparent,
+          body: Center(
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              Container(
+                decoration: BoxDecoration(shape: BoxShape.circle, boxShadow: [BoxShadow(color: const Color(0xFFFF6B00).withValues(alpha: .35), blurRadius: 30, offset: const Offset(0, 12))]),
+                child: Image.asset('assets/logo.png', width: 110, height: 110),
+              ),
+              const SizedBox(height: 18),
+              Text.rich(TextSpan(children: [
+                TextSpan(text: 'Tricky', style: baloo(34)),
+                TextSpan(text: 'SSC', style: baloo(34, color: const Color(0xFFFF6B00))),
+              ])),
+              const SizedBox(height: 2),
+              const Text('Mocks · PYQs · Chapter tests', style: TextStyle(color: softMuted, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 26),
+              const SizedBox(width: 26, height: 26, child: CircularProgressIndicator(strokeWidth: 3, color: Color(0xFFFF6B00))),
+            ]),
+          ),
+        ),
+      );
 }

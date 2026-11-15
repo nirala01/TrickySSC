@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../ui/soft.dart';
 import '../ui/nav.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 
@@ -120,40 +121,47 @@ class _ResultScreenState extends State<ResultScreen> {
     Widget stat(String v, String l, Color c) => Expanded(
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 10),
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+            decoration: softCard(radius: 16, glow: c),
             child: Column(children: [
-              Text(v, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: c)),
-              Text(l, style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+              Text(v, style: baloo(22, color: c)),
+              Text(l, style: const TextStyle(fontSize: 12.5, color: softMuted, fontWeight: FontWeight.w700)),
             ]),
           ),
         );
     void board() => Navigator.of(context).push(MaterialPageRoute(
           builder: (_) => LeaderboardScreen(exam: exam, base: lbBase(widget.paper.rules.mockId), title: widget.title, uid: widget.user.uid),
         ));
-    return examTheme(context, exam, Scaffold(
-      backgroundColor: const Color(0xFFEEF2FF),
-      appBar: AppBar(actions: const [HomeButton()], title: Text(widget.title, style: TextStyle(fontWeight: FontWeight.w800, color: exam.ink))),
-      body: ListView(padding: const EdgeInsets.all(14), children: [
+    return examTheme(context, exam, Container(decoration: softBg, child: Scaffold(
+      backgroundColor: Colors.transparent,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        scrolledUnderElevation: 0,
+        actions: const [HomeButton()],
+        title: Text(widget.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: baloo(20)),
+      ),
+      body: ListView(padding: EdgeInsets.fromLTRB(14, 8, 14, 16 + MediaQuery.of(context).padding.bottom), children: [
         Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            gradient: LinearGradient(colors: [exam.c1, exam.c2], begin: Alignment.topLeft, end: Alignment.bottomRight),
+            borderRadius: BorderRadius.circular(22),
+            gradient: LinearGradient(colors: [exam.c1, Color.lerp(exam.c1, exam.c2, .55)!], begin: Alignment.topLeft, end: Alignment.bottomRight),
+            boxShadow: [BoxShadow(color: exam.c1.withValues(alpha: .3), blurRadius: 18, offset: const Offset(0, 8))],
           ),
           child: Row(children: [
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Text('Your score', style: TextStyle(color: Colors.white, fontSize: 13)),
-                Text('${_n(r.marks)} / ${_n(r.maxMarks)}', style: const TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.w900)),
-                Text('${r.pct}% · ${_time(r.timeUsed)} used', style: const TextStyle(color: Colors.white, fontSize: 13)),
+                const Text('Your score', style: TextStyle(color: Color(0xEEFFFFFF), fontSize: 14, fontWeight: FontWeight.w700)),
+                Text('${_n(r.marks)} / ${_n(r.maxMarks)}', style: baloo(34, color: Colors.white)),
+                Text('${r.pct}% · ${_time(r.timeUsed)} used', style: const TextStyle(color: Color(0xEEFFFFFF), fontSize: 13.5, fontWeight: FontWeight.w600)),
               ]),
             ),
             if (r.rank != null)
               GestureDetector(onTap: board, child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
                 child: Column(children: [
-                  Text('#${r.rank}', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: exam.c1)),
+                  Text('#${r.rank}', style: baloo(26, color: exam.c1)),
                   Text(r.candidates == null ? 'Rank' : 'of ${r.candidates}', style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
                 ]),
               )),
@@ -171,21 +179,21 @@ class _ResultScreenState extends State<ResultScreen> {
         ]),
         const SizedBox(height: 10),
         Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
+          padding: const EdgeInsets.all(16),
+          decoration: softCard(radius: 20),
           child: Column(children: [
-            const Row(children: [
-              Expanded(child: Text('Subject', style: TextStyle(fontWeight: FontWeight.w800))),
-              SizedBox(width: 40, child: Text('✓', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF16A34A)))),
-              SizedBox(width: 40, child: Text('✕', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w800, color: Color(0xFFDC2626)))),
-              SizedBox(width: 56, child: Text('Marks', textAlign: TextAlign.right, style: TextStyle(fontWeight: FontWeight.w800))),
+            Row(children: [
+              Expanded(child: Text('Subject-wise', style: baloo(17))),
+              const SizedBox(width: 40, child: Text('✓', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF16A34A)))),
+              const SizedBox(width: 40, child: Text('✕', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w800, color: Color(0xFFDC2626)))),
+              const SizedBox(width: 56, child: Text('Marks', textAlign: TextAlign.right, style: TextStyle(fontWeight: FontWeight.w800))),
             ]),
             const Divider(),
             for (final e in r.subjects.entries)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 4),
                 child: Row(children: [
-                  Expanded(child: Text(e.key)),
+                  Expanded(child: Text(e.key, style: const TextStyle(fontWeight: FontWeight.w700, color: softInk))),
                   SizedBox(width: 40, child: Text('${e.value.correct}', textAlign: TextAlign.center)),
                   SizedBox(width: 40, child: Text('${e.value.wrong}', textAlign: TextAlign.center)),
                   SizedBox(width: 56, child: Text(_n(e.value.marks), textAlign: TextAlign.right, style: const TextStyle(fontWeight: FontWeight.w700))),
@@ -265,10 +273,13 @@ class _ResultScreenState extends State<ResultScreen> {
                         builder: (c) => examTheme(
                           c,
                           exam,
-                          Scaffold(
-                            backgroundColor: const Color(0xFFEEF2FF),
-                            appBar: AppBar(actions: const [HomeButton()], title: Text('My dashboard', style: TextStyle(fontWeight: FontWeight.w800, color: exam.ink))),
-                            body: DashboardTab(user: widget.user, exam: exam, version: 0, onMocks: () => Navigator.of(c).pop()),
+                          Container(
+                            decoration: softBg,
+                            child: Scaffold(
+                              backgroundColor: Colors.transparent,
+                              appBar: AppBar(backgroundColor: Colors.transparent, surfaceTintColor: Colors.transparent, actions: const [HomeButton()], title: Text('My dashboard', style: baloo(21))),
+                              body: DashboardTab(user: widget.user, exam: exam, version: 0, onMocks: () => Navigator.of(c).pop()),
+                            ),
                           ),
                         ),
                       )),
@@ -285,7 +296,7 @@ class _ResultScreenState extends State<ResultScreen> {
           child: const Text('Back to mocks', style: TextStyle(fontWeight: FontWeight.w800)),
         ),
       ]),
-    ));
+    )));
   }
 }
 

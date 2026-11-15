@@ -3,13 +3,16 @@ import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import '../ui/nav.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data.dart';
 import '../test/engine.dart';
 import '../test/test_screen.dart';
+import '../ui/icons3d.dart';
+import '../ui/soft.dart';
+import '../ui/soft_list.dart';
+import 'dash/ui.dart';
 
 class ChSubject {
   final String key; // the website's subject key (quant, reasoning, english, gk, computer, finance)
@@ -109,6 +112,8 @@ Future<Map<String, int>> _loadCounts(List<ChChapter> chs, String subjectKey) asy
 
 // ======================================================================= subjects
 
+const _icon3d = {'quant': 'pencil', 'reasoning': 'puzzle', 'english': 'book', 'gk': 'news', 'computer': 'clip', 'finance': 'paper'};
+
 class ChapterSubjectsScreen extends StatelessWidget {
   final User user;
   final Exam exam;
@@ -120,72 +125,48 @@ class ChapterSubjectsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final list = subjectsFor(exam);
-    return examTheme(
-      context,
-      exam,
-      Scaffold(
-        backgroundColor: const Color(0xFFEEF2FF),
-        appBar: AppBar(actions: const [HomeButton()], title: Text('Chapter tests', style: TextStyle(fontWeight: FontWeight.w800, color: exam.ink))),
-        body: ListView(padding: const EdgeInsets.all(12), children: [
-          Container(
-            padding: const EdgeInsets.all(14),
-            margin: const EdgeInsets.only(bottom: 10),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(18),
-              gradient: const LinearGradient(colors: [Color(0xFF047857), Color(0xFF34D399)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-            ),
-            child: const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('Practise chapter by chapter', style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w800)),
-              SizedBox(height: 2),
-              Text('25-question tests · Level 1 (exam level) and Level 2 (above exam level) · Hindi & English', style: TextStyle(color: Color(0xEEFFFFFF), fontSize: 13.5)),
-            ]),
-          ),
-          for (var i = 0; i < list.length; i += 2)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(children: [
-                Expanded(child: _tile(context, list[i])),
-                const SizedBox(width: 8),
-                Expanded(child: i + 1 < list.length ? _tile(context, list[i + 1]) : const SizedBox()),
-              ]),
-            ),
-        ]),
+    return DashPage(exam: exam, title: 'Chapter tests', children: [
+      SoftSummary(
+        icon: 'book',
+        title: 'Practise chapter by chapter',
+        progress: 1,
+        sub: '25-question tests · Level 1 (exam level) and Level 2 (above exam level) · Hindi & English',
+        accent: exam.c1,
       ),
-    );
-  }
-
-  Widget _tile(BuildContext context, ChSubject s) => SizedBox(
-        height: 130,
-        child: Material(
-          color: Colors.transparent,
-          borderRadius: BorderRadius.circular(18),
-          child: Ink(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(18),
-              gradient: LinearGradient(colors: [s.c1, Color.lerp(s.c1, s.c2, 0.6)!], begin: Alignment.topLeft, end: Alignment.bottomRight),
-            ),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(18),
-              onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                builder: (_) => SubjectChaptersScreen(user: user, exam: exam, subject: s, paid: paid, attempted: attempted, onReturn: onReturn),
-              )),
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(color: const Color(0x33FFFFFF), borderRadius: BorderRadius.circular(12)),
-                    child: Icon(s.icon, color: Colors.white, size: 26),
-                  ),
-                  const Spacer(),
-                  Text(s.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 16.5, fontWeight: FontWeight.w900, height: 1.15)),
-                ]),
+      const SizedBox(height: 12),
+      for (final s in list)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Material(
+            color: Colors.transparent,
+            child: Ink(
+              decoration: softCard(radius: 20),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(20),
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => SubjectChaptersScreen(user: user, exam: exam, subject: s, paid: paid, attempted: attempted, onReturn: onReturn),
+                )),
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Row(children: [
+                    Container(width: 54, height: 54, alignment: Alignment.center, decoration: softWell(), child: Icon3D(_icon3d[s.key] ?? 'book', size: 40)),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(s.name, style: baloo(18)),
+                        const SizedBox(height: 3),
+                        const SoftTag.free(),
+                      ]),
+                    ),
+                    Icon(Icons.chevron_right_rounded, color: exam.c1),
+                  ]),
+                ),
               ),
             ),
           ),
         ),
-      );
+    ]);
+  }
 }
 
 // ======================================================================= chapters of a subject
@@ -234,83 +215,53 @@ class _SubjectChaptersScreenState extends State<SubjectChaptersScreen> {
     final n = _n ?? const <String, int>{};
     final live = chs == null ? <ChChapter>[] : chs.where((c) => (n[c.id] ?? 0) > 0).toList();
     final soon = chs == null || _n == null ? <ChChapter>[] : chs.where((c) => (n[c.id] ?? 0) == 0).toList();
-    return examTheme(
-      context,
-      exam,
-      Scaffold(
-        backgroundColor: const Color(0xFFEEF2FF),
-        appBar: AppBar(actions: const [HomeButton()], title: Text(s.name, style: TextStyle(fontWeight: FontWeight.w800, color: exam.ink))),
-        body: _failed
-            ? Center(
-                child: Column(mainAxisSize: MainAxisSize.min, children: [
-                  const Text('Could not load the chapters. Check your internet.'),
-                  TextButton(onPressed: _load, child: const Text('Try again')),
-                ]),
-              )
-            : chs == null
-                ? const Center(child: CircularProgressIndicator())
-                : ListView(padding: EdgeInsets.fromLTRB(12, 10, 12, 16 + MediaQuery.of(context).padding.bottom), children: [
-                    if (_n == null)
-                      const Padding(padding: EdgeInsets.only(bottom: 10), child: LinearProgressIndicator()),
-                    for (final c in (_n == null ? chs : live)) _row(c, n[c.id]),
-                    if (soon.isNotEmpty) ...[
-                      const Padding(
-                        padding: EdgeInsets.fromLTRB(4, 12, 4, 6),
-                        child: Text('Coming soon', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Color(0xFF64748B))),
-                      ),
-                      for (final c in soon) _row(c, 0),
-                    ],
-                  ]),
-      ),
-    );
+    return DashPage(exam: exam, title: s.name, onRefresh: _load, children: [
+      if (_failed)
+        Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(children: [
+            const Text('Could not load the chapters. Check your internet.'),
+            TextButton(onPressed: _load, child: const Text('Try again')),
+          ]),
+        )
+      else if (chs == null)
+        const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator()))
+      else ...[
+        if (_n == null) const Padding(padding: EdgeInsets.only(bottom: 10), child: LinearProgressIndicator()),
+        for (final c in (_n == null ? chs : live)) _row(c, n[c.id]),
+        if (soon.isNotEmpty) ...[
+          const Padding(padding: EdgeInsets.fromLTRB(4, 8, 4, 8), child: Text('Coming soon', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: softMuted))),
+          for (final c in soon) _row(c, 0),
+        ],
+      ],
+    ]);
   }
 
   Widget _row(ChChapter c, int? tests) {
-    final s = widget.subject;
+    final exam = widget.exam, s = widget.subject;
     final soon = tests == 0;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Material(
-        color: soon ? const Color(0xFFF8FAFC) : Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(14),
-          onTap: soon
-              ? null
-              : () => Navigator.of(context).push(MaterialPageRoute(
-                    builder: (_) => ChapterTestsScreen(user: widget.user, exam: widget.exam, subject: s, chapter: c, paid: widget.paid, attempted: widget.attempted, onReturn: widget.onReturn),
-                  )),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-            child: Row(children: [
-              Container(
-                width: 42,
-                height: 42,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(color: Color.lerp(Colors.white, s.c2, soon ? 0.2 : 0.45), borderRadius: BorderRadius.circular(12)),
-                child: c.icon.isNotEmpty ? Text(c.icon, style: const TextStyle(fontSize: 20)) : Icon(s.icon, color: s.c1),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(c.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700, color: soon ? const Color(0xFF94A3B8) : null)),
-              ),
-              const SizedBox(width: 8),
-              if (tests == null)
-                const SizedBox()
-              else if (soon)
-                const Text('Soon', style: TextStyle(fontSize: 13, color: Color(0xFF94A3B8), fontWeight: FontWeight.w700))
-              else
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                  decoration: BoxDecoration(color: Color.lerp(Colors.white, s.c2, 0.4), borderRadius: BorderRadius.circular(8)),
-                  child: Text('$tests test${tests == 1 ? '' : 's'}', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: s.c1)),
-                ),
-              if (!soon) Icon(Icons.chevron_right, color: s.c1),
-            ]),
-          ),
-        ),
-      ),
+    final done = tests == null || tests == 0 ? 0 : _attemptedIn(c.id);
+    return SoftRow(
+      badge: c.icon.isNotEmpty ? c.icon : '${c.name.isEmpty ? '?' : c.name[0]}',
+      title: c.name,
+      tags: [
+        if (!soon) const SoftTag.free(),
+        if (tests != null && !soon) SoftTag('$tests test${tests == 1 ? '' : 's'}', exam.c1, Color.lerp(Colors.white, exam.c1, .12)!),
+        if (done > 0) SoftTag.done(text: '✓ $done DONE'),
+      ],
+      action: soon ? null : 'Open',
+      accent: exam.c1,
+      onTap: soon
+          ? () {}
+          : () => Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => ChapterTestsScreen(user: widget.user, exam: exam, subject: s, chapter: c, paid: widget.paid, attempted: widget.attempted, onReturn: widget.onReturn),
+              )),
     );
+  }
+
+  int _attemptedIn(String chId) {
+    final k = 'cw_${chId.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '')}_L';
+    return widget.attempted.where((a) => a.startsWith(k)).length;
   }
 }
 
@@ -421,78 +372,81 @@ class _ChapterTestsScreenState extends State<ChapterTestsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final exam = widget.exam, s = widget.subject, ch = widget.chapter;
+    final exam = widget.exam, ch = widget.chapter;
     final by = _by;
-    const levels = [(1, 'SSC CGL Level', Color(0xFF00A86B)), (2, 'Above SSC CGL Level', Color(0xFFEF4444))];
-    return examTheme(
-      context,
-      exam,
-      Scaffold(
-        backgroundColor: const Color(0xFFEEF2FF),
-        appBar: AppBar(actions: const [HomeButton()], title: Text(ch.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontWeight: FontWeight.w800, color: exam.ink))),
-        body: _failed
-            ? Center(
-                child: Column(mainAxisSize: MainAxisSize.min, children: [
-                  const Text('Could not load the tests. Check your internet.'),
-                  TextButton(onPressed: _load, child: const Text('Try again')),
-                ]),
-              )
-            : by == null
-                ? const Center(child: CircularProgressIndicator())
-                : ListView(padding: EdgeInsets.fromLTRB(12, 10, 12, 16 + MediaQuery.of(context).padding.bottom), children: [
-                    if (by.isEmpty) const Padding(padding: EdgeInsets.all(30), child: Center(child: Text('No tests in this chapter yet.'))),
-                    for (final lv in levels)
-                      if (by[lv.$1] != null) ...[
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(2, 8, 2, 8),
-                          child: Row(children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                              decoration: BoxDecoration(color: lv.$3, borderRadius: BorderRadius.circular(8)),
-                              child: Text('Level ${lv.$1}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13)),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(child: Text(lv.$2, style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w800))),
-                            Text('${by[lv.$1]!.length} tests', style: const TextStyle(fontSize: 13, color: Color(0xFF64748B))),
-                          ]),
+    const levels = [(1, 'SSC CGL level'), (2, 'Above SSC CGL level')];
+    final total = by == null ? 0 : by.values.fold<int>(0, (t, m) => t + m.length);
+    var done = 0;
+    if (by != null) {
+      by.forEach((lv, m) {
+        for (final tn in m.keys) {
+          if (_attempted.contains(cwLbKey(ch.id, lv, tn))) done++;
+        }
+      });
+    }
+    return DashPage(exam: exam, title: ch.name, onRefresh: _load, children: [
+      if (_failed)
+        Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(children: [
+            const Text('Could not load the tests. Check your internet.'),
+            TextButton(onPressed: _load, child: const Text('Try again')),
+          ]),
+        )
+      else if (by == null)
+        const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator()))
+      else ...[
+        SoftSummary(icon: 'book', title: '$done of $total done', progress: total == 0 ? 0 : done / total, sub: '25 questions each · 15 min or untimed · FREE', accent: exam.c1),
+        const SizedBox(height: 6),
+        if (by.isEmpty) const Padding(padding: EdgeInsets.all(30), child: Center(child: Text('No tests in this chapter yet.'))),
+        for (final lv in levels)
+          if (by[lv.$1] != null) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(4, 12, 4, 8),
+              child: Row(children: [
+                SoftTag('LEVEL ${lv.$1}', Colors.white, lv.$1 == 1 ? const Color(0xFF059669) : const Color(0xFFDC2626)),
+                const SizedBox(width: 8),
+                Expanded(child: Text(lv.$2, style: baloo(17))),
+                Text('${by[lv.$1]!.length} tests', style: const TextStyle(fontSize: 13, color: softMuted, fontWeight: FontWeight.w700)),
+              ]),
+            ),
+            GridView.count(
+              crossAxisCount: 3,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              mainAxisSpacing: 10,
+              crossAxisSpacing: 10,
+              childAspectRatio: 1.05,
+              children: [
+                for (final tn in (by[lv.$1]!.keys.toList()..sort()))
+                  Builder(builder: (_) {
+                    final langs = by[lv.$1]![tn]!;
+                    final isDone = _attempted.contains(cwLbKey(ch.id, lv.$1, tn));
+                    return Material(
+                      color: Colors.transparent,
+                      child: Ink(
+                        decoration: softCard(radius: 18, glow: isDone ? const Color(0xFF2563EB) : exam.c1),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(18),
+                          onTap: () => _open(lv.$1, tn, langs),
+                          child: Padding(
+                            padding: const EdgeInsets.all(8),
+                            child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                              Text('Test $tn', style: baloo(19, color: exam.c1)),
+                              const SizedBox(height: 4),
+                              isDone ? const SoftTag.done() : const SoftTag.free(),
+                              const SizedBox(height: 4),
+                              Text(langs.length > 1 ? 'EN · हिंदी' : (langs.contains('hi') ? 'हिंदी' : 'English'), style: const TextStyle(fontSize: 12, color: softMuted, fontWeight: FontWeight.w700)),
+                            ]),
+                          ),
                         ),
-                        GridView.count(
-                          crossAxisCount: 3,
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          mainAxisSpacing: 8,
-                          crossAxisSpacing: 8,
-                          childAspectRatio: 1.15,
-                          children: [
-                            for (final tn in (by[lv.$1]!.keys.toList()..sort()))
-                              Builder(builder: (_) {
-                                final langs = by[lv.$1]![tn]!;
-                                final done = _attempted.contains(cwLbKey(ch.id, lv.$1, tn));
-                                return Material(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(14),
-                                  child: InkWell(
-                                    borderRadius: BorderRadius.circular(14),
-                                    onTap: () => _open(lv.$1, tn, langs),
-                                    child: Container(
-                                      decoration: BoxDecoration(borderRadius: BorderRadius.circular(14), border: Border.all(color: done ? s.c1 : const Color(0xFFE2E8F0), width: done ? 1.6 : 1)),
-                                      padding: const EdgeInsets.all(8),
-                                      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                                        Text('Test $tn', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: s.c1)),
-                                        const SizedBox(height: 2),
-                                        Text(done ? '✓ Done' : 'FREE · 25 Qs', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: done ? const Color(0xFF1D4ED8) : const Color(0xFF047857))),
-                                        Text(langs.length > 1 ? 'EN · हिंदी' : (langs.contains('hi') ? 'हिंदी' : 'English'), style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8))),
-                                      ]),
-                                    ),
-                                  ),
-                                );
-                              }),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                      ],
-                  ]),
-      ),
-    );
+                      ),
+                    );
+                  }),
+              ],
+            ),
+          ],
+      ],
+    ]);
   }
 }

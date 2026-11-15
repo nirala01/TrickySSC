@@ -44,12 +44,43 @@ else:
 assert n >= 1, "minSdk line not found in app build file"
 assert PACKAGE in g, "package name is not " + PACKAGE
 
-# 2c. launcher icons (same ones as the first app wrapper)
+# 2c. launcher icons (same ones as the first app wrapper) + the adaptive icon for Android 8+
+res_src, res = repo / "android/app/src/main/res", dst / "app/src/main/res"
 for d in ("mdpi", "hdpi", "xhdpi", "xxhdpi", "xxxhdpi"):
-    src = repo / f"android/app/src/main/res/mipmap-{d}/ic_launcher.png"
-    out = dst / f"app/src/main/res/mipmap-{d}/ic_launcher.png"
-    if src.exists() and out.parent.exists():
-        shutil.copyfile(src, out)
+    for name in ("ic_launcher.png", "ic_launcher_foreground.png"):
+        src = res_src / f"mipmap-{d}/{name}"
+        out = res / f"mipmap-{d}/{name}"
+        if src.exists() and out.parent.exists():
+            shutil.copyfile(src, out)
+if (res_src / "mipmap-anydpi-v26/ic_launcher.xml").exists() and (res / "mipmap-xxxhdpi/ic_launcher_foreground.png").exists():
+    (res / "mipmap-anydpi-v26").mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(res_src / "mipmap-anydpi-v26/ic_launcher.xml", res / "mipmap-anydpi-v26/ic_launcher.xml")
+    (res / "values/ic_launcher_colors.xml").write_text(
+        '<?xml version="1.0" encoding="utf-8"?>\n<resources>\n    <color name="ic_launcher_background">#FF6B00</color>\n</resources>\n', encoding="utf-8")
+
+# 2c'. splash: the app's soft background with the logo in the middle (Android 12+ uses its own splash API)
+SPLASH_BG = "#EEF2FF"
+splash = f'''<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item><color android:color="{SPLASH_BG}" /></item>
+    <item><bitmap android:gravity="center" android:src="@mipmap/ic_launcher" /></item>
+</layer-list>
+'''
+for d in ("drawable", "drawable-v21"):
+    if (res / d).exists():
+        (res / d / "launch_background.xml").write_text(splash, encoding="utf-8")
+(res / "values-v31").mkdir(parents=True, exist_ok=True)
+(res / "values-v31/styles.xml").write_text(f'''<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="LaunchTheme" parent="@android:style/Theme.Light.NoTitleBar">
+        <item name="android:windowBackground">@drawable/launch_background</item>
+        <item name="android:windowSplashScreenBackground">{SPLASH_BG}</item>
+    </style>
+    <style name="NormalTheme" parent="@android:style/Theme.Light.NoTitleBar">
+        <item name="android:windowBackground">?android:colorBackground</item>
+    </style>
+</resources>
+''', encoding="utf-8")
 
 # 2d. skip the release "lint vital" check: it crashes inside a plugin (google_sign_in_android)
 #     and only checks code style, not whether the app works.

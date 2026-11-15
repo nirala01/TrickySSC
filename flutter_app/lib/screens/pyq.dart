@@ -277,7 +277,15 @@ class _PyqTabState extends State<PyqTab> {
     }
     final all = _all;
     if (all == null) return const Center(child: CircularProgressIndicator());
-    if (all.isEmpty) return _empty(Icons.description_outlined, '${exam.name} previous year papers', 'No papers yet. Pull down to refresh.');
+    if (all.isEmpty) {
+      return RefreshIndicator(
+        onRefresh: () => _load(force: true),
+        child: ListView(physics: const AlwaysScrollableScrollPhysics(), children: [
+          const SizedBox(height: 120),
+          _empty(Icons.description_outlined, '${exam.name} previous year papers', 'No papers yet. Pull down to refresh.'),
+        ]),
+      );
+    }
     final hasT2 = all.any((p) => p.tier == 2);
     final tierList = all.where((p) => p.tier == _tier).toList();
     final years = <String>{for (final p in tierList) p.year}.where((y) => y.isNotEmpty).toList()..sort((a, b) => b.compareTo(a));

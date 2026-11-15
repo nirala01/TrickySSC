@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../ui/soft.dart';
 import 'package:flutter/services.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
@@ -131,20 +132,26 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
+    return Container(decoration: softBg, child: Scaffold(
+      backgroundColor: Colors.transparent,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(22, 36, 22, 22),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              RichText(
-                text: const TextSpan(
-                  style: TextStyle(fontSize: 34, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
-                  children: [TextSpan(text: 'Tricky'), TextSpan(text: 'SSC', style: TextStyle(color: saffron))],
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 14),
+                  decoration: BoxDecoration(shape: BoxShape.circle, boxShadow: [BoxShadow(color: const Color(0xFFFF6B00).withValues(alpha: .3), blurRadius: 22, offset: const Offset(0, 8))]),
+                  child: Image.asset('assets/logo.png', width: 72, height: 72),
                 ),
               ),
+              Text.rich(TextSpan(children: [
+                TextSpan(text: 'Tricky', style: baloo(38)),
+                TextSpan(text: 'SSC', style: baloo(38, color: saffron)),
+              ])),
               const SizedBox(height: 6),
               const Text('Mock tests and previous year papers for SSC and Railway exams.',
                   style: TextStyle(fontSize: 15, color: Color(0xFF475569), height: 1.35)),
@@ -159,6 +166,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   maxLength: 10,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   decoration: const InputDecoration(
+                    filled: true,
+                    fillColor: Colors.white,
                     prefixText: '+91  ',
                     hintText: '10-digit mobile number',
                     counterText: '',
@@ -228,6 +237,6 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
       ),
-    );
+    ));
   }
 }
