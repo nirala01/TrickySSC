@@ -17,21 +17,40 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   int _tab = 0;
+  int _tier = 1;
   String _name = 'Student';
   Set<String> _owned = <String>{};
-  late Future<List<MockItem>> _mocks;
+  Set<String> _attempted = <String>{};
+  List<MockItem>? _mocks;
+  bool _mocksFailed = false;
+  int? _price;
 
   bool get _hasPass => _owned.contains(widget.exam.pass);
 
   @override
   void initState() {
     super.initState();
-    _mocks = loadMocks(widget.exam);
+    _loadMocks();
     loadName(widget.user.uid, widget.user.displayName).then((n) {
       if (mounted) setState(() => _name = n);
     });
     loadOwned(widget.user.uid).then((o) {
       if (mounted) setState(() => _owned = o);
+    });
+    loadAttempted(widget.user.uid).then((a) {
+      if (mounted) setState(() => _attempted = a);
+    });
+    loadPrice(widget.exam).then((p) {
+      if (mounted) setState(() => _price = p);
+    });
+  }
+
+  void _loadMocks() {
+    setState(() => _mocksFailed = false);
+    loadMocks(widget.exam).then((list) {
+      if (mounted) setState(() => _mocks = list);
+    }).catchError((_) {
+      if (mounted) setState(() => _mocksFailed = true);
     });
   }
 
@@ -48,13 +67,19 @@ class _AppShellState extends State<AppShell> {
     await FirebaseAuth.instance.signOut();
   }
 
+  bool _open(MockItem m) => _hasPass || m.n <= widget.exam.free;
+
   @override
   Widget build(BuildContext context) {
     final exam = widget.exam;
     final first = _name.split(' ').first;
+    final tint = Color.lerp(Colors.white, exam.c2, 0.10)!;
+    final mocks = _mocks ?? const <MockItem>[];
     return Scaffold(
+      backgroundColor: tint,
       appBar: AppBar(
         titleSpacing: 14,
+        toolbarHeight: 52,
         title: InkWell(
           borderRadius: BorderRadius.circular(20),
           onTap: widget.onChangeExam,
@@ -78,13 +103,39 @@ class _AppShellState extends State<AppShell> {
       body: IndexedStack(
         index: _tab,
         children: [
-          _HomeTab(exam: exam, hasPass: _hasPass, onMocks: () => setState(() => _tab = 1), onSoon: _soon),
-          _MocksTab(exam: exam, future: _mocks, hasPass: _hasPass, onSoon: _soon, onRetry: () => setState(() => _mocks = loadMocks(exam))),
+          _HomeTab(
+            exam: exam,
+            hasPass: _hasPass,
+            price: _price,
+            mocks: mocks,
+            loaded: _mocks != null,
+            attempted: _attempted,
+            isOpen: _open,
+            onMocks: () => setState(() => _tab = 1),
+            onSoon: _soon,
+          ),
+          _MocksTab(
+            exam: exam,
+            mocks: _mocks,
+            failed: _mocksFailed,
+            hasPass: _hasPass,
+            price: _price,
+            tier: _tier,
+            attempted: _attempted,
+            isOpen: _open,
+            onTier: (t) => setState(() => _tier = t),
+            onSoon: _soon,
+            onRetry: _loadMocks,
+          ),
           const _Placeholder(icon: Icons.description_outlined, title: 'Previous year papers', text: 'Coming in the next build.'),
           _MeTab(name: _name, exam: exam, onChangeExam: widget.onChangeExam, onSignOut: _signOut),
         ],
       ),
       bottomNavigationBar: NavigationBar(
+        height: 64,
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        indicatorColor: Color.lerp(Colors.white, exam.c2, 0.35),
         selectedIndex: _tab,
         onDestinationSelected: (i) => setState(() => _tab = i),
         destinations: const [
@@ -98,67 +149,158 @@ class _AppShellState extends State<AppShell> {
   }
 }
 
-class _HomeTab extends StatelessWidget {
+/// The pass banner: price and Unlock for non-owners, "Pass active" for owners.
+class _PassCard extends StatelessWidget {
   final Exam exam;
   final bool hasPass;
-  final VoidCallback onMocks;
-  final void Function(String) onSoon;
-  const _HomeTab({required this.exam, required this.hasPass, required this.onMocks, required this.onSoon});
+  final int? price;
+  final String title;
+  final String sub;
+  final VoidCallback onTap;
+  const _PassCard({required this.exam, required this.hasPass, required this.price, required this.title, required this.sub, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(18),
-              gradient: LinearGradient(colors: [exam.c1, exam.c2], begin: Alignment.topLeft, end: Alignment.bottomRight),
-            ),
+    return Material(
+      color: Colors.transparent,
+      child: Ink(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          gradient: LinearGradient(colors: [exam.c1, exam.c2], begin: Alignment.topLeft, end: Alignment.bottomRight),
+        ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             child: Row(children: [
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('${exam.name} Mock Pass', style: const TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w800)),
-                  const SizedBox(height: 3),
-                  Text('${exam.mocks} · Mock 1–${exam.free} free · Hindi & English', style: const TextStyle(color: Colors.white, fontSize: 12.5)),
+                  Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 2),
+                  Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 12.5)),
                 ]),
               ),
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
-                child: Text(hasPass ? '✓ Active' : 'View pass', style: TextStyle(color: exam.c1, fontWeight: FontWeight.w800)),
+                child: Text(hasPass ? '✓ Active' : (price == null ? 'Unlock' : 'Unlock ₹$price'), style: TextStyle(color: exam.c1, fontWeight: FontWeight.w800)),
               ),
             ]),
           ),
-          const SizedBox(height: 14),
-          const Text('START PRACTISING', style: TextStyle(fontSize: 12.5, letterSpacing: .8, fontWeight: FontWeight.w800, color: Color(0xFF64748B))),
+        ),
+      ),
+    );
+  }
+}
+
+class _HomeTab extends StatelessWidget {
+  final Exam exam;
+  final bool hasPass;
+  final int? price;
+  final List<MockItem> mocks;
+  final bool loaded;
+  final Set<String> attempted;
+  final bool Function(MockItem) isOpen;
+  final VoidCallback onMocks;
+  final void Function(String) onSoon;
+  const _HomeTab({
+    required this.exam,
+    required this.hasPass,
+    required this.price,
+    required this.mocks,
+    required this.loaded,
+    required this.attempted,
+    required this.isOpen,
+    required this.onMocks,
+    required this.onSoon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final live = mocks.length;
+    final open = mocks.where(isOpen).length;
+    final done = mocks.where((m) => isAttempted(attempted, exam, m)).length;
+    MockItem? next;
+    for (final m in mocks) {
+      if (isOpen(m) && !isAttempted(attempted, exam, m)) {
+        next = m;
+        break;
+      }
+    }
+    String num(int v) => loaded ? '$v' : '–';
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _PassCard(
+            exam: exam,
+            hasPass: hasPass,
+            price: price,
+            title: '${exam.name} Mock Pass',
+            sub: '${exam.mocks} · Hindi & English · valid 1 year',
+            onTap: () => hasPass ? onMocks() : onSoon('Buying a pass'),
+          ),
+          const SizedBox(height: 8),
+          Row(children: [
+            _Stat('Mocks live', num(live), exam),
+            const SizedBox(width: 8),
+            _Stat(hasPass ? 'Unlocked' : 'Free for you', num(open), exam),
+            const SizedBox(width: 8),
+            _Stat('Attempted', num(done), exam),
+          ]),
+          const SizedBox(height: 8),
+          Material(
+            color: const Color(0xFFD1FAE5),
+            borderRadius: BorderRadius.circular(14),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(14),
+              onTap: next == null ? onMocks : () => onSoon('The test screen'),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                child: Row(children: [
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(
+                        next == null
+                            ? 'See all mocks'
+                            : 'Start ${next.tier == 2 ? 'Tier 2 ' : ''}Mock ${next.n}${next.n <= exam.free && !hasPass ? ' · free' : ''}',
+                        style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w800, color: Color(0xFF064E3B)),
+                      ),
+                      Text(next != null && next.tier == 1 ? exam.meta : 'Full-length papers with solutions', style: const TextStyle(fontSize: 12, color: Color(0xFF047857))),
+                    ]),
+                  ),
+                  const CircleAvatar(radius: 17, backgroundColor: Color(0xFF059669), child: Icon(Icons.play_arrow, color: Colors.white, size: 22)),
+                ]),
+              ),
+            ),
+          ),
           const SizedBox(height: 8),
           Expanded(
             child: Column(children: [
               Expanded(
                 child: Row(children: [
-                  _Tile('🎯', 'Mock tests', exam.mocks, const Color(0xFFFFE9D6), onMocks),
-                  const SizedBox(width: 10),
-                  _Tile('📄', 'Previous year papers', 'Free', const Color(0xFFDBEAFE), () => onSoon('Previous year papers')),
+                  _Tile(Icons.track_changes, 'Mock tests', exam.mocks, const Color(0xFFFFE9D6), const Color(0xFFC2410C), onMocks),
+                  const SizedBox(width: 8),
+                  _Tile(Icons.description, 'Year papers', 'Free', const Color(0xFFDBEAFE), const Color(0xFF1D4ED8), () => onSoon('Previous year papers')),
                 ]),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
               Expanded(
                 child: Row(children: [
-                  _Tile('📚', 'Chapter tests', 'New questions · 2 levels', const Color(0xFFD1FAE5), () => onSoon('Chapter tests')),
-                  const SizedBox(width: 10),
-                  _Tile('🗂️', 'Chapter PYQs', 'Real questions by chapter', const Color(0xFFEDE9FE), () => onSoon('Chapter PYQs')),
+                  _Tile(Icons.menu_book, 'Chapter tests', '2 levels', const Color(0xFFD1FAE5), const Color(0xFF047857), () => onSoon('Chapter tests')),
+                  const SizedBox(width: 8),
+                  _Tile(Icons.folder_copy, 'Chapter PYQs', 'By chapter', const Color(0xFFEDE9FE), const Color(0xFF6D28D9), () => onSoon('Chapter PYQs')),
                 ]),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
               Expanded(
                 child: Row(children: [
-                  _Tile('🧩', 'Subject-wise mocks', 'Sectional', const Color(0xFFFCE7F3), () => onSoon('Subject-wise mocks')),
-                  const SizedBox(width: 10),
-                  _Tile('📰', 'Current affairs', 'Daily', const Color(0xFFCFFAFE), () => onSoon('Current affairs')),
+                  _Tile(Icons.extension, 'Subject mocks', 'Sectional', const Color(0xFFFCE7F3), const Color(0xFFBE185D), () => onSoon('Subject-wise mocks')),
+                  const SizedBox(width: 8),
+                  _Tile(Icons.newspaper, 'Current affairs', 'Daily', const Color(0xFFCFFAFE), const Color(0xFF0E7490), () => onSoon('Current affairs')),
                 ]),
               ),
             ]),
@@ -169,37 +311,62 @@ class _HomeTab extends StatelessWidget {
   }
 }
 
+class _Stat extends StatelessWidget {
+  final String label;
+  final String value;
+  final Exam exam;
+  const _Stat(this.label, this.value, this.exam);
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: exam.c1, height: 1.1)),
+          Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B))),
+        ]),
+      ),
+    );
+  }
+}
+
 class _Tile extends StatelessWidget {
-  final String icon;
+  final IconData icon;
   final String title;
   final String sub;
   final Color tint;
+  final Color ink;
   final VoidCallback onTap;
-  const _Tile(this.icon, this.title, this.sub, this.tint, this.onTap);
+  const _Tile(this.icon, this.title, this.sub, this.tint, this.ink, this.onTap);
 
   @override
   Widget build(BuildContext context) {
     return Expanded(
       child: Material(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        color: tint,
+        borderRadius: BorderRadius.circular(16),
         child: InkWell(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(16),
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(children: [
               Container(
-                width: 42,
-                height: 42,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(color: tint, borderRadius: BorderRadius.circular(13)),
-                child: Text(icon, style: const TextStyle(fontSize: 20)),
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+                child: Icon(icon, color: ink, size: 22),
               ),
-              const Spacer(),
-              Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, height: 1.15)),
-              const SizedBox(height: 3),
-              Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w800, height: 1.15, color: Color(0xFF0F172A))),
+                  const SizedBox(height: 2),
+                  Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: ink, fontWeight: FontWeight.w600)),
+                ]),
+              ),
             ]),
           ),
         ),
@@ -210,71 +377,160 @@ class _Tile extends StatelessWidget {
 
 class _MocksTab extends StatelessWidget {
   final Exam exam;
-  final Future<List<MockItem>> future;
+  final List<MockItem>? mocks;
+  final bool failed;
   final bool hasPass;
+  final int? price;
+  final int tier;
+  final Set<String> attempted;
+  final bool Function(MockItem) isOpen;
+  final void Function(int) onTier;
   final void Function(String) onSoon;
   final VoidCallback onRetry;
-  const _MocksTab({required this.exam, required this.future, required this.hasPass, required this.onSoon, required this.onRetry});
+  const _MocksTab({
+    required this.exam,
+    required this.mocks,
+    required this.failed,
+    required this.hasPass,
+    required this.price,
+    required this.tier,
+    required this.attempted,
+    required this.isOpen,
+    required this.onTier,
+    required this.onSoon,
+    required this.onRetry,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<MockItem>>(
-      future: future,
-      builder: (context, snap) {
-        if (snap.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
-        if (snap.hasError) {
-          return _Placeholder(icon: Icons.wifi_off, title: 'Could not load the mocks', text: 'Check your internet and try again.', action: 'Retry', onAction: onRetry);
-        }
-        final list = snap.data ?? const <MockItem>[];
-        if (list.isEmpty) return const _Placeholder(icon: Icons.hourglass_empty, title: 'Releasing soon', text: 'Mocks for this exam are on the way.');
-        return ListView.separated(
-          padding: const EdgeInsets.fromLTRB(14, 12, 14, 16),
-          itemCount: list.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 8),
-          itemBuilder: (context, i) {
-            final m = list[i];
-            final free = m.n <= exam.free;
-            final open = free || hasPass;
-            return Material(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(16),
-                onTap: () => onSoon(open ? 'The test screen' : 'Buying a pass'),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                  child: Row(children: [
-                    Container(
-                      width: 44,
-                      height: 44,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(13),
-                        gradient: LinearGradient(colors: [exam.c1, exam.c2]),
-                      ),
-                      child: Text('${m.n}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 16)),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text('${exam.name} Mock ${m.n}', style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700)),
-                        const SizedBox(height: 2),
-                        Text([if (m.en) 'English', if (m.hi) 'हिंदी'].join(' · '), style: const TextStyle(fontSize: 12.5, color: Color(0xFF64748B))),
-                      ]),
-                    ),
-                    if (free)
-                      const _Tag('FREE', Color(0xFF047857), Color(0xFFD1FAE5))
-                    else if (!hasPass)
-                      const Icon(Icons.lock_outline, color: Color(0xFF94A3B8)),
-                    const SizedBox(width: 6),
-                    const Icon(Icons.chevron_right, color: Color(0xFFCBD5E1)),
-                  ]),
-                ),
+    if (failed) {
+      return _Placeholder(icon: Icons.wifi_off, title: 'Could not load the mocks', text: 'Check your internet and try again.', action: 'Retry', onAction: onRetry);
+    }
+    final all = mocks;
+    if (all == null) return const Center(child: CircularProgressIndicator());
+    final list = all.where((m) => m.tier == tier).toList();
+    final open = list.where(isOpen).length;
+    final rows = <Widget>[];
+    var offered = hasPass;
+    for (final m in list) {
+      if (!offered && !isOpen(m)) {
+        offered = true;
+        rows.add(_PassCard(
+          exam: exam,
+          hasPass: false,
+          price: price,
+          title: 'Unlock all ${exam.mocks}',
+          sub: 'One payment · valid 1 year',
+          onTap: () => onSoon('Buying a pass'),
+        ));
+      }
+      rows.add(_MockRow(exam: exam, m: m, open: isOpen(m), free: !hasPass && m.n <= exam.free, done: isAttempted(attempted, exam, m), onSoon: onSoon));
+    }
+    return Column(children: [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 2),
+        child: Row(children: [
+          if (exam.tier2) ...[
+            _Chip('Tier 1', tier == 1, exam, () => onTier(1)),
+            const SizedBox(width: 8),
+            _Chip('Tier 2', tier == 2, exam, () => onTier(2)),
+          ] else
+            Text('${list.length} mocks live', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
+          const Spacer(),
+          Text(hasPass ? 'All ${list.length} unlocked' : '$open free · ${list.length - open} locked', style: const TextStyle(fontSize: 12.5, color: Color(0xFF475569), fontWeight: FontWeight.w600)),
+        ]),
+      ),
+      Expanded(
+        child: list.isEmpty
+            ? const _Placeholder(icon: Icons.hourglass_empty, title: 'Releasing soon', text: 'These mocks are on the way.')
+            : ListView.separated(
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 14),
+                itemCount: rows.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 7),
+                itemBuilder: (_, i) => rows[i],
               ),
-            );
-          },
-        );
-      },
+      ),
+    ]);
+  }
+}
+
+class _Chip extends StatelessWidget {
+  final String text;
+  final bool on;
+  final Exam exam;
+  final VoidCallback onTap;
+  const _Chip(this.text, this.on, this.exam, this.onTap);
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: on ? exam.c1 : Colors.white,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Text(text, style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: on ? Colors.white : const Color(0xFF334155))),
+        ),
+      ),
+    );
+  }
+}
+
+class _MockRow extends StatelessWidget {
+  final Exam exam;
+  final MockItem m;
+  final bool open;
+  final bool free;
+  final bool done;
+  final void Function(String) onSoon;
+  const _MockRow({required this.exam, required this.m, required this.open, required this.free, required this.done, required this.onSoon});
+
+  @override
+  Widget build(BuildContext context) {
+    final langs = [if (m.en) 'EN', if (m.hi) 'हिंदी'].join(', ');
+    final meta = [if (m.tier == 1) exam.meta else 'Tier 2 paper', if (langs.isNotEmpty) langs].join(' · ');
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: () => onSoon(open ? 'The test screen' : 'Buying a pass'),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+          child: Row(children: [
+            Container(
+              width: 40,
+              height: 40,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), color: Color.lerp(Colors.white, exam.c2, open ? 0.30 : 0.14)),
+              child: Text('${m.n}', style: TextStyle(color: exam.c1, fontWeight: FontWeight.w800, fontSize: 15)),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  Text('Mock ${m.n}', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+                  if (free) ...[const SizedBox(width: 6), const _Tag('FREE', Color(0xFF047857), Color(0xFFD1FAE5))],
+                  if (done) ...[const SizedBox(width: 6), const _Tag('DONE', Color(0xFF1D4ED8), Color(0xFFDBEAFE))],
+                ]),
+                const SizedBox(height: 1),
+                Text(meta, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+              ]),
+            ),
+            const SizedBox(width: 6),
+            if (open)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                decoration: BoxDecoration(borderRadius: BorderRadius.circular(10), gradient: LinearGradient(colors: [exam.c1, exam.c2])),
+                child: Text(done ? 'Retake' : 'Start', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13)),
+              )
+            else
+              const Icon(Icons.lock_outline, color: Color(0xFF94A3B8), size: 22),
+          ]),
+        ),
+      ),
     );
   }
 }

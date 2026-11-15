@@ -16,15 +16,17 @@ class Exam {
   final int free; // mocks 1..free are free
   final Color c1;
   final Color c2;
-  const Exam(this.k, this.id, this.name, this.sub, this.icon, this.pass, this.mocks, this.free, this.c1, this.c2);
+  final String meta; // questions and time of a Tier 1 paper
+  final bool tier2;
+  const Exam(this.k, this.id, this.name, this.sub, this.icon, this.pass, this.mocks, this.free, this.c1, this.c2, this.meta, this.tier2);
 }
 
 const List<Exam> exams = [
-  Exam('cgl', 'ssc-cgl', 'SSC CGL', 'Graduate level', '🎯', 'ssc-cgl-mocks', '100 mocks', 4, Color(0xFFEA580C), Color(0xFFFDA047)),
-  Exam('chsl', 'ssc-chsl', 'SSC CHSL', '10+2 level', '📋', 'ssc-chsl-mocks', '80 mocks', 2, Color(0xFF0369A1), Color(0xFF38BDF8)),
-  Exam('mts', 'ssc-mts', 'SSC MTS', '10th level', '📝', 'ssc-mts-mocks', '60 mocks', 2, Color(0xFF047857), Color(0xFF34D399)),
-  Exam('gd', 'ssc-gd', 'SSC GD', 'Constable', '🛡️', 'ssc-gd-mocks', '60 mocks', 2, Color(0xFFB91C1C), Color(0xFFF87171)),
-  Exam('ntpc', 'rrb-ntpc', 'RRB NTPC', 'Railway · Graduate', '🚆', 'rrb-ntpc-mocks', '60 mocks', 3, Color(0xFF1E3FAE), Color(0xFF60A5FA)),
+  Exam('cgl', 'ssc-cgl', 'SSC CGL', 'Graduate level', '🎯', 'ssc-cgl-mocks', '100 mocks', 4, Color(0xFFEA580C), Color(0xFFFDA047), '100 Qs · 60 min', true),
+  Exam('chsl', 'ssc-chsl', 'SSC CHSL', '10+2 level', '📋', 'ssc-chsl-mocks', '80 mocks', 2, Color(0xFF0369A1), Color(0xFF38BDF8), '100 Qs · 60 min', true),
+  Exam('mts', 'ssc-mts', 'SSC MTS', '10th level', '📝', 'ssc-mts-mocks', '60 mocks', 2, Color(0xFF047857), Color(0xFF34D399), '90 Qs · 90 min', false),
+  Exam('gd', 'ssc-gd', 'SSC GD', 'Constable', '🛡️', 'ssc-gd-mocks', '60 mocks', 2, Color(0xFFB91C1C), Color(0xFFF87171), '80 Qs · 60 min', false),
+  Exam('ntpc', 'rrb-ntpc', 'RRB NTPC', 'Railway · Graduate', '🚆', 'rrb-ntpc-mocks', '60 mocks', 3, Color(0xFF1E3FAE), Color(0xFF60A5FA), '100 Qs · 90 min', false),
 ];
 
 Exam? examByKey(String? k) {
@@ -76,28 +78,80 @@ Future<String> loadName(String uid, String? fallback) async {
 
 class MockItem {
   final int n;
+  final int tier;
   bool en = false;
   bool hi = false;
-  MockItem(this.n);
+  MockItem(this.n, this.tier);
 }
 
+/// Every published mock of the exam, Tier 1 first, in mock order.
 Future<List<MockItem>> loadMocks(Exam exam) async {
   final snap = await FirebaseFirestore.instance.collection('mock_tests').where('exam', isEqualTo: exam.id).get();
   final map = <int, MockItem>{};
   for (final doc in snap.docs) {
     final m = doc.data();
     if (m['isPublished'] != true) continue;
-    if (m['tier'] == 'tier2') continue;
+    final tier = m['tier'] == 'tier2' ? 2 : 1;
+    if (tier == 2 && !exam.tier2) continue;
     final raw = m['seriesNum'] ?? m['mockNum'];
     final n = raw is num ? raw.toInt() : int.tryParse('$raw');
     if (n == null) continue;
-    final item = map.putIfAbsent(n, () => MockItem(n));
+    final item = map.putIfAbsent(tier * 10000 + n, () => MockItem(n, tier));
     if ((m['lang'] ?? m['language']) == 'hi') {
       item.hi = true;
     } else {
       item.en = true;
     }
   }
-  final list = map.values.toList()..sort((a, b) => a.n.compareTo(b.n));
-  return list;
+  final keys = map.keys.toList()..sort();
+  return [for (final k in keys) map[k]!];
+}
+
+/// Ids of the tests this account has attempted (same ids the website uses).
+Future<Set<String>> loadAttempted(String uid) async {
+  final out = <String>{};
+  try {
+    final snap = await FirebaseFirestore.instance.collection('attempts').where('uid', isEqualTo: uid).get();
+    for (final doc in snap.docs) {
+      final a = doc.data();
+      for (final key in const ['paperId', 'mockId']) {
+        final v = a[key];
+        if (v is String && v.isNotEmpty) out.add(v);
+      }
+    }
+  } catch (_) {}
+  return out;
+}
+
+bool isAttempted(Set<String> ids, Exam exam, MockItem m) {
+  final base = '${exam.id}_tier${m.tier}_mock${m.n}';
+  for (final id in ids) {
+    if (id == base || id.startsWith('${base}_')) return true;
+  }
+  return false;
+}
+
+/// Lowest live price of a pass for this exam, from config/pricing. Null when it cannot be read.
+Future<int?> loadPrice(Exam exam) async {
+  try {
+    final snap = await FirebaseFirestore.instance.collection('config').doc('pricing').get();
+    final products = (snap.data() ?? const {})['products'];
+    if (products is! List) return null;
+    int? best;
+    for (final p in products) {
+      if (p is! Map) continue;
+      if (p['live'] == false) continue;
+      final id = '${p['id'] ?? ''}';
+      if (id.startsWith('p-upgrade-')) continue;
+      final grants = p['grants'];
+      if (grants is! List || !grants.contains(exam.pass)) continue;
+      final raw = p['price'];
+      final price = raw is num ? raw.toInt() : int.tryParse('$raw');
+      if (price == null || price <= 0) continue;
+      if (best == null || price < best) best = price;
+    }
+    return best;
+  } catch (_) {
+    return null;
+  }
 }
