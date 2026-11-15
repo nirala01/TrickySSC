@@ -7,6 +7,8 @@ import '../test/engine.dart';
 import '../test/test_screen.dart';
 import '../ui/soft.dart';
 import '../ui/soft_list.dart';
+import 'dash/logic.dart' show shortDate, n1, marksOf, maxOf;
+import 'dash/pages.dart' show showDoneSheet;
 
 /// Subject-wise mocks: one subject section of each Tier 1 mock (website: mock-test-subject.html).
 class SubjectMocksScreen extends StatefulWidget {
@@ -27,6 +29,25 @@ class SubjectMocksScreen extends StatefulWidget {
 class _SubjectMocksScreenState extends State<SubjectMocksScreen> {
   late String _subject = _subjects.first.$1;
   late Set<String> _attempted = widget.attempted;
+  Map<String, Map<String, dynamic>> _last = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLast();
+  }
+
+  Future<void> _loadLast() async {
+    try {
+      final list = await loadAttempts(widget.user.uid);
+      final m = <String, Map<String, dynamic>>{};
+      for (final a in list) {
+        final id = '${a['mockId'] ?? ''}';
+        if (id.contains('__')) m.putIfAbsent(id.replaceAll(RegExp(r'_(en|hi)__'), '__'), () => a);
+      }
+      if (mounted) setState(() => _last = m);
+    } catch (_) {}
+  }
 
   List<(String, String, IconData, Color)> get _subjects {
     final e = widget.exam;
@@ -97,6 +118,7 @@ class _SubjectMocksScreenState extends State<SubjectMocksScreen> {
     widget.onReturn();
     final a = await loadAttempted(widget.user.uid);
     if (mounted) setState(() => _attempted = a);
+    _loadLast();
   }
 
   String _label() => _subjects.firstWhere((s) => s.$1 == _subject).$2;
@@ -140,18 +162,24 @@ class _SubjectMocksScreenState extends State<SubjectMocksScreen> {
   Widget _row(MockItem m, Color c) {
     final exam = widget.exam;
     final open = _open(m), done = _done(m), free = m.n <= exam.free;
-    return SoftRow(
-      badge: '${m.n}',
-      title: 'Mock ${m.n} · ${_label()}',
-      tags: [
-        if (free) const SoftTag.free(),
-        if (!free && widget.hasPass) const SoftTag.premium(),
-        if (done) const SoftTag.done(),
+    final a = _last['${mockBase(exam, m)}__$_subject'];
+    final state = !open ? RowState.locked : (done ? RowState.done : RowState.todo);
+    final mins = subjectMockMinutes('${exam.id}_', _subject);
+    final langs = [if (m.en) 'EN', if (m.hi) 'हिंदी'].join(', ');
+    final title = 'Mock ${m.n.toString().padLeft(2, '0')} · ${_label()}';
+    return TestRow(
+      tags: [if (free) const SoftTag.free() else const SoftTag.premium()],
+      title: title,
+      sub: 'From full Mock ${m.n}${langs.isNotEmpty ? ' · $langs' : ''}',
+      meta: [
+        if (state == RowState.done && a != null) (Icons.calendar_today_outlined, shortDate(attemptMs(a))) else (Icons.help_outline_rounded, 'Sectional'),
+        (Icons.schedule_rounded, '$mins min'),
       ],
-      meta: [if (m.en) 'EN', if (m.hi) 'हिंदी'].join(', '),
-      action: open ? (done ? 'Retake' : 'Start') : null,
+      state: state,
+      score: state == RowState.done && a != null ? '${n1(marksOf(a))} / ${n1(maxOf(a))}' : null,
       accent: exam.c1,
-      onTap: () => _start(m),
+      onTap: () => state == RowState.done ? showDoneSheet(context, user: widget.user, exam: exam, a: a, title: '${exam.name} $title', onRetake: () => _start(m)) : _start(m),
     );
   }
+
 }
