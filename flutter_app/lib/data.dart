@@ -123,8 +123,11 @@ Future<Set<String>> loadAttempted(String uid) async {
   return out;
 }
 
+/// The mock id the website uses: ssc-cgl_tier1_mock5_en, rrb-ntpc_cbt1_mock5_hi …
+String mockBase(Exam exam, MockItem m) => '${exam.id}_${exam.k == 'ntpc' ? 'cbt1' : 'tier${m.tier}'}_mock${m.n}';
+
 bool isAttempted(Set<String> ids, Exam exam, MockItem m) {
-  final base = '${exam.id}_tier${m.tier}_mock${m.n}';
+  final base = mockBase(exam, m);
   for (final id in ids) {
     if (id == base || id.startsWith('${base}_')) return true;
   }

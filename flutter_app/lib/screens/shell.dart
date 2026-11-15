@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import '../data.dart';
+import '../test/test_screen.dart';
 
 /// The app after sign-in: Home, Mocks, PYQs and Me. Tabs stay loaded, so switching is instant.
 class AppShell extends StatefulWidget {
@@ -69,6 +70,101 @@ class _AppShellState extends State<AppShell> {
 
   bool _open(MockItem m) => _hasPass || m.n <= widget.exam.free;
 
+  Future<void> _startMock(MockItem m) async {
+    final exam = widget.exam;
+    if (!_open(m)) {
+      _soon('Buying a pass');
+      return;
+    }
+    if (m.tier == 2) {
+      _soon('Tier 2 mocks');
+      return;
+    }
+    String lang = m.en ? 'en' : 'hi';
+    String partD = lang;
+    final both = m.en && m.hi;
+    if (both || exam.k == 'gd') {
+      final picked = await showModalBottomSheet<List<String>>(
+        context: context,
+        backgroundColor: Colors.white,
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+        builder: (c) {
+          var l = lang, d = partD;
+          return StatefulBuilder(builder: (c, set) {
+            Widget opt(String label, bool on, VoidCallback tap) => Expanded(
+                  child: Material(
+                    color: on ? Color.lerp(Colors.white, exam.c2, 0.3) : const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(12),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: tap,
+                      child: Container(
+                        height: 48,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), border: Border.all(color: on ? exam.c1 : Colors.transparent, width: 2)),
+                        child: Text(label, style: TextStyle(fontWeight: FontWeight.w800, color: on ? exam.c1 : const Color(0xFF334155))),
+                      ),
+                    ),
+                  ),
+                );
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+                child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  Text('${exam.name} Mock ${m.n}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 12),
+                  if (both) ...[
+                    const Text('Paper language', style: TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF475569))),
+                    const SizedBox(height: 6),
+                    Row(children: [
+                      opt('English', l == 'en', () => set(() { if (d == l) d = 'en'; l = 'en'; })),
+                      const SizedBox(width: 8),
+                      opt('हिंदी', l == 'hi', () => set(() { if (d == l) d = 'hi'; l = 'hi'; })),
+                    ]),
+                    const SizedBox(height: 12),
+                  ],
+                  if (exam.k == 'gd' && both) ...[
+                    const Text('Part D (Q61–80)', style: TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF475569))),
+                    const SizedBox(height: 6),
+                    Row(children: [
+                      opt('English', d == 'en', () => set(() => d = 'en')),
+                      const SizedBox(width: 8),
+                      opt('Hindi', d == 'hi', () => set(() => d = 'hi')),
+                    ]),
+                    const SizedBox(height: 12),
+                  ],
+                  FilledButton(
+                    onPressed: () => Navigator.pop(c, [l, d]),
+                    style: FilledButton.styleFrom(backgroundColor: exam.c1, minimumSize: const Size.fromHeight(50), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+                    child: const Text('Continue', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+                  ),
+                ]),
+              ),
+            );
+          });
+        },
+      );
+      if (picked == null || !mounted) return;
+      lang = picked[0];
+      partD = picked[1];
+    }
+    final mockId = '${mockBase(exam, m)}_$lang';
+    await Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => TestFlow(
+        user: widget.user,
+        exam: exam,
+        mockId: mockId,
+        lang: lang,
+        partD: exam.k == 'gd' ? partD : null,
+        paid: _owned.isNotEmpty,
+        title: '${exam.name} Mock ${m.n}',
+      ),
+    ));
+    loadAttempted(widget.user.uid).then((a) {
+      if (mounted) setState(() => _attempted = a);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final exam = widget.exam;
@@ -112,6 +208,7 @@ class _AppShellState extends State<AppShell> {
             attempted: _attempted,
             isOpen: _open,
             onMocks: () => setState(() => _tab = 1),
+            onStart: _startMock,
             onSoon: _soon,
           ),
           _MocksTab(
@@ -124,6 +221,7 @@ class _AppShellState extends State<AppShell> {
             attempted: _attempted,
             isOpen: _open,
             onTier: (t) => setState(() => _tier = t),
+            onStart: _startMock,
             onSoon: _soon,
             onRetry: _loadMocks,
           ),
@@ -204,6 +302,7 @@ class _HomeTab extends StatelessWidget {
   final Set<String> attempted;
   final bool Function(MockItem) isOpen;
   final VoidCallback onMocks;
+  final void Function(MockItem) onStart;
   final void Function(String) onSoon;
   const _HomeTab({
     required this.exam,
@@ -214,6 +313,7 @@ class _HomeTab extends StatelessWidget {
     required this.attempted,
     required this.isOpen,
     required this.onMocks,
+    required this.onStart,
     required this.onSoon,
   });
 
@@ -257,7 +357,7 @@ class _HomeTab extends StatelessWidget {
             borderRadius: BorderRadius.circular(14),
             child: InkWell(
               borderRadius: BorderRadius.circular(14),
-              onTap: next == null ? onMocks : () => onSoon('The test screen'),
+              onTap: next == null ? onMocks : () => onStart(next!),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 child: Row(children: [
@@ -385,6 +485,7 @@ class _MocksTab extends StatelessWidget {
   final Set<String> attempted;
   final bool Function(MockItem) isOpen;
   final void Function(int) onTier;
+  final void Function(MockItem) onStart;
   final void Function(String) onSoon;
   final VoidCallback onRetry;
   const _MocksTab({
@@ -397,6 +498,7 @@ class _MocksTab extends StatelessWidget {
     required this.attempted,
     required this.isOpen,
     required this.onTier,
+    required this.onStart,
     required this.onSoon,
     required this.onRetry,
   });
@@ -424,7 +526,7 @@ class _MocksTab extends StatelessWidget {
           onTap: () => onSoon('Buying a pass'),
         ));
       }
-      rows.add(_MockRow(exam: exam, m: m, open: isOpen(m), free: !hasPass && m.n <= exam.free, done: isAttempted(attempted, exam, m), onSoon: onSoon));
+      rows.add(_MockRow(exam: exam, m: m, open: isOpen(m), free: !hasPass && m.n <= exam.free, done: isAttempted(attempted, exam, m), onStart: onStart));
     }
     return Column(children: [
       Padding(
@@ -484,8 +586,8 @@ class _MockRow extends StatelessWidget {
   final bool open;
   final bool free;
   final bool done;
-  final void Function(String) onSoon;
-  const _MockRow({required this.exam, required this.m, required this.open, required this.free, required this.done, required this.onSoon});
+  final void Function(MockItem) onStart;
+  const _MockRow({required this.exam, required this.m, required this.open, required this.free, required this.done, required this.onStart});
 
   @override
   Widget build(BuildContext context) {
@@ -496,7 +598,7 @@ class _MockRow extends StatelessWidget {
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
-        onTap: () => onSoon(open ? 'The test screen' : 'Buying a pass'),
+        onTap: () => onStart(m),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
           child: Row(children: [
