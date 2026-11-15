@@ -40,7 +40,7 @@ String _unesc(String s) => s.replaceAll('&amp;', '&').replaceAll('&quot;', '"').
 List<PyqPaper> _parse(String html) {
   final out = <PyqPaper>[];
   final seen = <String>{};
-  for (final m in RegExp(r'<button[^>]*class="pyq-attempt-btn"[^>]*>').allMatches(html)) {
+  for (final m in RegExp(r'<(?:button|a)\b[^>]*data-pid-en="[^>]*>').allMatches(html)) {
     final tag = m.group(0)!;
     String attr(String n) => _unesc(RegExp('$n="([^"]*)"').firstMatch(tag)?.group(1) ?? '');
     final en = attr('data-pid-en'), hi = attr('data-pid-hi'), title = attr('data-title'), url = attr('data-en');
