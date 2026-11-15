@@ -290,6 +290,7 @@ class _PyqTabState extends State<PyqTab> {
       badge: p.year.length == 4 ? "'${p.year.substring(2)}" : p.year,
       title: p.shift,
       tags: [
+        const SoftTag.free(),
         if (paused) const SoftTag.paused() else if (done) const SoftTag.done(),
       ],
       meta: [if (p.tier == 1) exam.meta else 'Tier 2 · 135 min', langs].join(' · '),

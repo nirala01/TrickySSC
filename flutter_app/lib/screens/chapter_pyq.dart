@@ -357,7 +357,7 @@ class _TestsScreenState extends State<_TestsScreen> {
                         return SoftRow(
                           badge: '${s.$1}',
                           title: 'Test ${s.$1}',
-                          tags: [if (isDone) const SoftTag.done()],
+                          tags: [const SoftTag.free(), if (isDone) const SoftTag.done()],
                           meta: '${s.$2.length} Qs · ${first == last ? first : '$first → $last'}',
                           action: isDone ? 'Retake' : 'Start',
                           accent: exam.c1,

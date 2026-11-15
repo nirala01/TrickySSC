@@ -209,9 +209,14 @@ class _AppShellState extends State<AppShell> {
     final first = _name.split(' ').first;
     final mocks = _mocks ?? const <MockItem>[];
     return PopScope(
-      canPop: _tab == 0,
+      canPop: false,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) setState(() => _tab = 0);
+        if (didPop) return;
+        if (_tab == 0) {
+          widget.onChangeExam();
+        } else {
+          setState(() => _tab = 0);
+        }
       },
       child: examTheme(context, exam, Container(decoration: softBg, child: Scaffold(
       backgroundColor: Colors.transparent,
@@ -220,8 +225,12 @@ class _AppShellState extends State<AppShell> {
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 0,
         automaticallyImplyLeading: false,
-        leading: _tab == 0 ? null : IconButton(tooltip: 'Back', icon: const Icon(Icons.arrow_back_rounded), onPressed: () => setState(() => _tab = 0)),
-        titleSpacing: _tab == 0 ? 14 : 0,
+        leading: IconButton(
+          tooltip: _tab == 0 ? 'Change exam' : 'Back',
+          icon: const Icon(Icons.arrow_back_rounded),
+          onPressed: () => _tab == 0 ? widget.onChangeExam() : setState(() => _tab = 0),
+        ),
+        titleSpacing: 0,
         toolbarHeight: 58,
         title: InkWell(
           borderRadius: BorderRadius.circular(20),
@@ -500,25 +509,27 @@ class _HomeTab extends StatelessWidget {
             child: Column(children: [
               Expanded(
                 child: Row(children: [
-                  _Tile('target', 'Mock tests', exam.mocks, exam.c1, onMocks),
+                  _Tile('target', 'Mock tests', exam.mocks, exam.c1, onMocks, tag: hasPass ? const SoftTag.premium() : SoftTag('${exam.free} FREE', const Color(0xFF047857), const Color(0xFFD1FAE5))),
                   const SizedBox(width: 8),
-                  _Tile('paper', 'Previous year papers', 'Free', exam.c1, onPyq),
+                  exam.k == 'mts'
+                      ? _Tile('paper', 'Previous year papers', 'Coming soon', exam.c1, onPyq)
+                      : _Tile('paper', 'Previous year papers', 'Real exam papers', exam.c1, onPyq, tag: const SoftTag.free()),
                 ]),
               ),
               const SizedBox(height: 8),
               Expanded(
                 child: Row(children: [
-                  _Tile('book', 'Chapter tests', '2 levels', exam.c1, onChapters),
+                  _Tile('book', 'Chapter tests', '2 levels', exam.c1, onChapters, tag: const SoftTag.free()),
                   const SizedBox(width: 8),
-                  _Tile('folder', 'Chapter PYQs', 'Real questions', exam.c1, onChapterPyq),
+                  _Tile('folder', 'Chapter PYQs', 'Real questions', exam.c1, onChapterPyq, tag: const SoftTag.free()),
                 ]),
               ),
               const SizedBox(height: 8),
               Expanded(
                 child: Row(children: [
-                  _Tile('puzzle', 'Subject mocks', 'Sectional', exam.c1, onSubjects),
+                  _Tile('puzzle', 'Subject mocks', 'Sectional', exam.c1, onSubjects, tag: hasPass ? const SoftTag.premium() : SoftTag('${exam.free} FREE', const Color(0xFF047857), const Color(0xFFD1FAE5))),
                   const SizedBox(width: 8),
-                  _Tile('news', 'Current affairs', 'Daily', exam.c1, onCa),
+                  _Tile('news', 'Current affairs', 'Daily', exam.c1, onCa, tag: const SoftTag.free()),
                 ]),
               ),
             ]),
@@ -557,7 +568,8 @@ class _Tile extends StatelessWidget {
   final String sub;
   final Color accent;
   final VoidCallback onTap;
-  const _Tile(this.icon, this.title, this.sub, this.accent, this.onTap);
+  final Widget? tag;
+  const _Tile(this.icon, this.title, this.sub, this.accent, this.onTap, {this.tag});
 
   @override
   Widget build(BuildContext context) {
@@ -572,7 +584,11 @@ class _Tile extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Container(width: 56, height: 56, alignment: Alignment.center, decoration: softWell(), child: Icon3D(icon, size: 42)),
+                Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Container(width: 56, height: 56, alignment: Alignment.center, decoration: softWell(), child: Icon3D(icon, size: 42)),
+                  const Spacer(),
+                  if (tag != null) tag!,
+                ]),
                 const Spacer(),
                 Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: baloo(18)),
                 const SizedBox(height: 2),

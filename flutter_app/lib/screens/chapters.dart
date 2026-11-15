@@ -480,7 +480,7 @@ class _ChapterTestsScreenState extends State<ChapterTestsScreen> {
                                       child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                                         Text('Test $tn', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: s.c1)),
                                         const SizedBox(height: 2),
-                                        Text(done ? '✓ Done' : '25 Qs', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: done ? const Color(0xFF16A34A) : const Color(0xFF64748B))),
+                                        Text(done ? '✓ Done' : 'FREE · 25 Qs', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: done ? const Color(0xFF1D4ED8) : const Color(0xFF047857))),
                                         Text(langs.length > 1 ? 'EN · हिंदी' : (langs.contains('hi') ? 'हिंदी' : 'English'), style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8))),
                                       ]),
                                     ),

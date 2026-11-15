@@ -95,7 +95,7 @@ class ExamGate extends StatefulWidget {
 
 class _ExamGateState extends State<ExamGate> {
   bool _loaded = false;
-  Exam? _exam;
+  Exam? _exam, _last;
 
   @override
   void initState() {
@@ -118,7 +118,23 @@ class _ExamGateState extends State<ExamGate> {
   Widget build(BuildContext context) {
     if (!_loaded) return const Scaffold(body: Center(child: CircularProgressIndicator()));
     final exam = _exam;
-    if (exam == null) return ChooseExamScreen(onPick: _pick);
-    return AppShell(key: ValueKey(exam.k), user: widget.user, exam: exam, onChangeExam: () => setState(() => _exam = null));
+    if (exam == null) {
+      final last = _last;
+      return PopScope(
+        canPop: last == null,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop && last != null) setState(() => _exam = last);
+        },
+        child: ChooseExamScreen(onPick: _pick),
+      );
+    }
+    return AppShell(
+        key: ValueKey(exam.k),
+        user: widget.user,
+        exam: exam,
+        onChangeExam: () => setState(() {
+              _last = exam;
+              _exam = null;
+            }));
   }
 }
