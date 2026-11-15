@@ -149,7 +149,7 @@ class Rules {
 
   String timingLine(int units) {
     if (mockId.contains('__')) return 'One subject section of the mock on its own clock. Submit when you are done or when time runs out.';
-    if (mockId.startsWith('cw_')) return 'One chapter test of 25 questions. Choose a 15-minute clock or untimed practice below.';
+    if (mockId.startsWith('cw_') || mockId.startsWith('cwp_')) return 'One chapter test of 25 questions. Choose a 15-minute clock or untimed practice below.';
     if (tier2) return 'Section I (Maths + Reasoning) 60 min, Section II (English + GA) 60 min, Section III (Computer) 15 min. Move freely inside the open section.';
     if (ntpc) return 'One paper on a single 90-minute clock.';
     if (mts) return 'Two sessions of 45 minutes each. Session I (Maths, Reasoning), then Session II (GA, English).';
@@ -186,9 +186,48 @@ class ChapterInfo {
   final String chapterId, chapterName, subject, lang;
   final int level, testNum;
   final Map<int, Question> en; // English questions by qNum, for "View in English"
-  ChapterInfo(this.chapterId, this.chapterName, this.subject, this.level, this.testNum, this.lang, this.en);
-  String get lbKey => cwLbKey(chapterId, level, testNum);
-  String get lbName => '$chapterName · Level $level · Test $testNum';
+  final bool pyq; // chapter-wise PYQ test (website: pyq-chapter-test.html)
+  ChapterInfo(this.chapterId, this.chapterName, this.subject, this.level, this.testNum, this.lang, this.en, {this.pyq = false});
+  String get _key => chapterId.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '');
+  String get lbKey => pyq ? 'cwp_ssc_all_${_key}_T$testNum' : cwLbKey(chapterId, level, testNum);
+  String get lbName => pyq ? '$chapterName · SSC PYQ · Test $testNum' : '$chapterName · Level $level · Test $testNum';
+}
+
+/// One question of a chapter-wise PYQ test: its EN / HI document ids and the paper it came from.
+class PyqRef {
+  final String en, hi, paper;
+  final int q;
+  PyqRef(this.en, this.hi, this.paper, this.q);
+}
+
+Future<Paper> loadChapterPyqTest({required String chapterId, required String chapterName, required String subject, required int testNum, required List<PyqRef> refs, required String lang}) async {
+  final col = FirebaseFirestore.instance.collection('questions');
+  Future<Map<String, dynamic>?> get(String id) async {
+    if (id.isEmpty) return null;
+    try {
+      final d = await col.doc(id).get();
+      return d.exists ? {'id': d.id, ...d.data()!} : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  final enDocs = await Future.wait([for (final r in refs) get(r.en)]);
+  final hiDocs = lang == 'hi' ? await Future.wait([for (final r in refs) get(r.hi)]) : List<Map<String, dynamic>?>.filled(refs.length, null);
+  Question make(Map<String, dynamic> d, int k) => Question({...d, 'qNum': k + 1, '_src': refs[k].paper, '_srcQ': refs[k].q});
+  final en = <Question>[], hi = <Question>[];
+  for (var k = 0; k < refs.length; k++) {
+    if (enDocs[k] != null) en.add(make(enDocs[k]!, k));
+    if (hiDocs[k] != null) hi.add(make(hiDocs[k]!, k));
+  }
+  final useLang = lang == 'hi' && hi.isNotEmpty ? 'hi' : 'en';
+  final qs = useLang == 'hi' ? hi : en;
+  if (qs.isEmpty) throw 'This test could not be loaded just now.';
+  final info = ChapterInfo(chapterId, chapterName, subject, 1, testNum, useLang, {for (final q in en) q.qNumOr(0): q}, pyq: true);
+  final rules = Rules('${info.lbKey}_$useLang');
+  final p = Paper(rules, qs, [Section(chapterName, 0, qs.length - 1)], [Unit(chapterName, 0, qs.length - 1, 15 * 60)], '$chapterName · PYQ Test $testNum', '');
+  p.chapter = info;
+  return p;
 }
 
 String cwLbKey(String chapterId, int level, int testNum) => 'cw_${chapterId.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '')}_L${level}_T$testNum';
@@ -595,14 +634,18 @@ Future<void> saveResult(User u, Exam exam, Paper p, Progress pr, Result r) async
   final year = pyq ? (RegExp(r'^[a-z-]+_(\d{4})_').firstMatch(mockId)?.group(1) ?? '') : '';
   final ch = p.chapter;
   final attemptId = ch != null
-      ? 'cw_${u.uid}_${ch.chapterId.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '')}_L${ch.level}_T${ch.testNum}_${ch.lang}'
+      ? (ch.pyq
+          ? 'cwp_${u.uid}_ssc_all_${ch.chapterId.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '')}_T${ch.testNum}_${ch.lang}'
+          : 'cw_${u.uid}_${ch.chapterId.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '')}_L${ch.level}_T${ch.testNum}_${ch.lang}')
       : '${u.uid}_${exam.id}_${year.isEmpty ? 'na' : year}_${DateTime.now().millisecondsSinceEpoch}';
   final payload = ch != null
       ? <String, dynamic>{
           'uid': u.uid,
-          'type': 'chapterwise',
-          'exam': 'ssc-cgl',
-          'examName': ch.chapterName,
+          'type': ch.pyq ? 'pyq-chapter' : 'chapterwise',
+          if (ch.pyq) 'src': 'pyq',
+          if (ch.pyq) 'tier': 'all',
+          'exam': ch.pyq ? 'ssc' : 'ssc-cgl',
+          'examName': ch.pyq ? '${ch.chapterName} (PYQ)' : ch.chapterName,
           'subject': ch.subject,
           'chapter': ch.chapterId,
           'chapterId': ch.chapterId,
@@ -697,7 +740,7 @@ Future<void> saveResult(User u, Exam exam, Paper p, Progress pr, Result r) async
           'uid': u.uid,
           'name': name,
           'paperId': base,
-          'paperName': label,
+          'paperName': ch != null ? ch.lbName : label,
           'marks': r.marks,
           'maxMarks': r.maxMarks,
           'accuracy': r.pct,

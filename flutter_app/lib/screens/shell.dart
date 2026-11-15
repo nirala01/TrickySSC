@@ -6,6 +6,7 @@ import '../data.dart';
 import '../test/engine.dart';
 import 'dashboard.dart';
 import 'pyq.dart';
+import 'chapter_pyq.dart';
 import 'chapters.dart';
 import 'subject_mocks.dart';
 import 'current_affairs.dart';
@@ -274,6 +275,9 @@ class _AppShellState extends State<AppShell> {
               ),
             )),
             onCa: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => CurrentAffairsScreen(exam: exam))),
+            onChapterPyq: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => ChapterPyqScreen(user: widget.user, exam: exam, paid: _owned.isNotEmpty, attempted: _attempted, onReturn: _afterTest),
+            )),
             onChapters: () => Navigator.of(context).push(MaterialPageRoute(
               builder: (_) => ChapterSubjectsScreen(user: widget.user, exam: exam, paid: _owned.isNotEmpty, attempted: _attempted, onReturn: _afterTest),
             )),
@@ -386,6 +390,7 @@ class _HomeTab extends StatelessWidget {
   final VoidCallback onDashboard;
   final VoidCallback onPyq;
   final VoidCallback onChapters;
+  final VoidCallback onChapterPyq;
   final VoidCallback onSubjects;
   final VoidCallback onCa;
   final void Function(MockItem) onStart;
@@ -403,6 +408,7 @@ class _HomeTab extends StatelessWidget {
     required this.onDashboard,
     required this.onPyq,
     required this.onChapters,
+    required this.onChapterPyq,
     required this.onSubjects,
     required this.onCa,
     required this.onStart,
@@ -504,7 +510,7 @@ class _HomeTab extends StatelessWidget {
                 child: Row(children: [
                   _Tile('book', 'Chapter tests', '2 levels', exam.c1, onChapters),
                   const SizedBox(width: 8),
-                  _Tile('folder', 'Chapter PYQs', 'By chapter', exam.c1, () => onSoon('Chapter PYQs')),
+                  _Tile('folder', 'Chapter PYQs', 'Real questions', exam.c1, onChapterPyq),
                 ]),
               ),
               const SizedBox(height: 8),

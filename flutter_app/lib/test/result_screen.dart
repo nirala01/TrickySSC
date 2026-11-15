@@ -482,6 +482,12 @@ class _SolutionsScreenState extends State<SolutionsScreen> {
               ),
             );
           }),
+        if ('${q.raw['_src'] ?? ''}'.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text('📌 Asked in ${q.raw['_src']}${q.raw['_srcQ'] != null ? ' · Q${q.raw['_srcQ']}' : ''}',
+                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: widget.exam.c1)),
+          ),
         const SizedBox(height: 6),
         Rich(questionHtml(q.text), size: 15.5),
         if (q.imageUrl.isNotEmpty) Figure(q.imageUrl),

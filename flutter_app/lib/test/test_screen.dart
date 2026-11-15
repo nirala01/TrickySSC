@@ -662,6 +662,12 @@ class _TestScreenState extends State<TestScreen> with WidgetsBindingObserver {
                               const SizedBox(width: 5),
                               _pill(neg == 0 ? '0' : '−${neg == 1 / 3 ? '1/3' : _n(neg)}', const Color(0xFFB91C1C), const Color(0xFFFEE2E2)),
                             ]),
+                            if ('${q.raw['_src'] ?? ''}'.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 6),
+                                child: Text('📌 Asked in ${q.raw['_src']}${q.raw['_srcQ'] != null ? ' · Q${q.raw['_srcQ']}' : ''}',
+                                    style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: widget.exam.c1)),
+                              ),
                             const SizedBox(height: 8),
                             Rich(questionHtml(shown.text), size: 16.5, weight: FontWeight.w600),
                             if (shown.imageUrl.isNotEmpty) Figure(shown.imageUrl),
