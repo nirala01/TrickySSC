@@ -274,7 +274,10 @@ class _TestScreenState extends State<TestScreen> with WidgetsBindingObserver {
     _qStart = now;
   }
 
-  void _persist() => saveProgress(widget.user.uid, p.rules.mockId, p.partD, pr);
+  void _persist() {
+    if (_submitting) return;
+    saveProgress(widget.user.uid, p.rules.mockId, p.partD, pr);
+  }
 
   void _go(int i) {
     if (i < unit.from || i > unit.to) return;

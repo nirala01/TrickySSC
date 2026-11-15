@@ -115,7 +115,7 @@ class Rich extends StatelessWidget {
   final double size;
   final Color color;
   final FontWeight weight;
-  const Rich(this.html, {super.key, this.size = 16, this.color = const Color(0xFF0F172A), this.weight = FontWeight.w500});
+  const Rich(this.html, {super.key, this.size = 16, this.color = const Color(0xFF1E293B), this.weight = FontWeight.w500});
 
   @override
   Widget build(BuildContext context) {

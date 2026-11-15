@@ -4,6 +4,7 @@ import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 
 import '../data.dart';
 import 'engine.dart';
+import 'leaderboard.dart';
 import 'render.dart';
 
 class ResultScreen extends StatefulWidget {
@@ -74,9 +75,12 @@ class _ResultScreenState extends State<ResultScreen> {
             ]),
           ),
         );
-    return Scaffold(
+    void board() => Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => LeaderboardScreen(exam: exam, base: lbBase(widget.paper.rules.mockId), title: widget.title, uid: widget.user.uid),
+        ));
+    return examTheme(context, exam, Scaffold(
       backgroundColor: Color.lerp(Colors.white, exam.c2, 0.10),
-      appBar: AppBar(title: Text(widget.title, style: const TextStyle(fontWeight: FontWeight.w800))),
+      appBar: AppBar(title: Text(widget.title, style: TextStyle(fontWeight: FontWeight.w800, color: exam.ink))),
       body: ListView(padding: const EdgeInsets.all(14), children: [
         Container(
           padding: const EdgeInsets.all(16),
@@ -93,14 +97,14 @@ class _ResultScreenState extends State<ResultScreen> {
               ]),
             ),
             if (r.rank != null)
-              Container(
+              GestureDetector(onTap: board, child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
                 child: Column(children: [
                   Text('#${r.rank}', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: exam.c1)),
                   Text(r.candidates == null ? 'Rank' : 'of ${r.candidates}', style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
                 ]),
-              ),
+              )),
           ]),
         ),
         const SizedBox(height: 10),
@@ -160,13 +164,20 @@ class _ResultScreenState extends State<ResultScreen> {
           label: const Text('View solutions', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
         ),
         const SizedBox(height: 8),
+        FilledButton.tonalIcon(
+          onPressed: _saving || _failed ? null : board,
+          style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+          icon: const Icon(Icons.emoji_events_outlined),
+          label: const Text('Leaderboard', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+        ),
+        const SizedBox(height: 8),
         OutlinedButton(
           onPressed: _saving ? null : () => Navigator.of(context).pop(true),
           style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(50), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
           child: const Text('Back to mocks', style: TextStyle(fontWeight: FontWeight.w800)),
         ),
       ]),
-    );
+    ));
   }
 }
 
@@ -346,10 +357,10 @@ class _SolutionsScreenState extends State<SolutionsScreen> {
             labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
           ),
         );
-    return Scaffold(
+    return examTheme(context, exam, Scaffold(
       backgroundColor: Color.lerp(Colors.white, exam.c2, 0.08),
       appBar: AppBar(
-        title: const Text('Solutions', style: TextStyle(fontWeight: FontWeight.w800)),
+        title: Text('Solutions', style: TextStyle(fontWeight: FontWeight.w800, color: exam.ink)),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 10),
@@ -442,6 +453,38 @@ class _SolutionsScreenState extends State<SolutionsScreen> {
             ),
           ),
       ]),
-    );
+    ));
+  }
+}
+
+
+/// Open the solutions of a saved attempt (from the dashboard).
+Future<void> openAttemptSolutions(BuildContext context, Exam exam, Map<String, dynamic> a) async {
+  final mockId = '${a['mockId'] ?? ''}';
+  final lang = mockId.endsWith('_hi') ? 'hi' : 'en';
+  final pd = '${a['partD'] ?? ''}';
+  final nav = Navigator.of(context);
+  final msg = ScaffoldMessenger.of(context);
+  showDialog(context: context, barrierDismissible: false, builder: (_) => const Center(child: CircularProgressIndicator()));
+  try {
+    final p = await loadPaper(mockId, lang, partD: pd.isEmpty ? null : pd);
+    final pr = Progress();
+    final byQ = <String, Map>{};
+    for (final x in (a['answers'] as List? ?? const [])) {
+      if (x is Map) byQ['${x['q']}'] = x;
+    }
+    for (var i = 0; i < p.questions.length; i++) {
+      final x = byQ['${p.questions[i].qNumOr(i + 1)}'];
+      if (x == null) continue;
+      final ans = '${x['a'] ?? ''}';
+      if (ans.isNotEmpty) pr.answers[i] = ans;
+      final t = (x['t'] as num? ?? 0).toInt();
+      if (t > 0) pr.qMs[i] = t * 1000;
+    }
+    nav.pop();
+    nav.push(MaterialPageRoute(builder: (_) => SolutionsScreen(exam: exam, paper: p, progress: pr)));
+  } catch (_) {
+    nav.pop();
+    msg.showSnackBar(const SnackBar(content: Text('Could not open the solutions. Check your internet and try again.')));
   }
 }

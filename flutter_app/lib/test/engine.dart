@@ -521,7 +521,7 @@ Future<void> saveResult(User u, Exam exam, Paper p, Progress pr, Result r) async
     }
   } catch (_) {}
 
-  final base = mockId.replaceFirst(RegExp(r'([_-])(hi|en|hindi|english)$', caseSensitive: false), '');
+  final base = lbBase(mockId);
 
   // leaderboard: best score only
   try {
@@ -589,6 +589,8 @@ Future<void> saveResult(User u, Exam exam, Paper p, Progress pr, Result r) async
     r.candidates = all.count;
   } catch (_) {}
 }
+
+String lbBase(String mockId) => mockId.replaceFirst(RegExp(r'([_-])(hi|en|hindi|english)$', caseSensitive: false), '');
 
 extension on String {
   String characters40() => length <= 40 ? this : substring(0, 40);

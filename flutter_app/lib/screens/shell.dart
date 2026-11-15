@@ -4,6 +4,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 
 import '../data.dart';
 import '../test/engine.dart';
+import 'dashboard.dart';
 import '../test/test_screen.dart';
 
 /// The app after sign-in: Home, Mocks, PYQs and Me. Tabs stay loaded, so switching is instant.
@@ -24,6 +25,7 @@ class _AppShellState extends State<AppShell> {
   Set<String> _owned = <String>{};
   Set<String> _attempted = <String>{};
   Map<String, List<String>> _resume = {};
+  int _version = 0;
   List<MockItem>? _mocks;
   bool _mocksFailed = false;
   int? _price;
@@ -177,6 +179,7 @@ class _AppShellState extends State<AppShell> {
       if (mounted) setState(() => _attempted = a);
     });
     _loadResume();
+    if (mounted) setState(() => _version++);
   }
 
   @override
@@ -185,7 +188,7 @@ class _AppShellState extends State<AppShell> {
     final first = _name.split(' ').first;
     final tint = Color.lerp(Colors.white, exam.c2, 0.10)!;
     final mocks = _mocks ?? const <MockItem>[];
-    return Scaffold(
+    return examTheme(context, exam, Scaffold(
       backgroundColor: tint,
       appBar: AppBar(
         titleSpacing: 14,
@@ -198,8 +201,8 @@ class _AppShellState extends State<AppShell> {
             child: Row(mainAxisSize: MainAxisSize.min, children: [
               Text(exam.icon, style: const TextStyle(fontSize: 20)),
               const SizedBox(width: 8),
-              Text(exam.name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-              const Icon(Icons.expand_more, size: 22),
+              Text(exam.name, style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800, color: exam.ink)),
+              Icon(Icons.expand_more, size: 22, color: exam.ink),
             ]),
           ),
         ),
@@ -241,6 +244,7 @@ class _AppShellState extends State<AppShell> {
             onSoon: _soon,
             onRetry: _loadMocks,
           ),
+          DashboardTab(user: widget.user, exam: exam, version: _version, onMocks: () => setState(() => _tab = 1)),
           const _Placeholder(icon: Icons.description_outlined, title: 'Previous year papers', text: 'Coming in the next build.'),
           _MeTab(name: _name, exam: exam, onChangeExam: widget.onChangeExam, onSignOut: _signOut),
         ],
@@ -255,11 +259,12 @@ class _AppShellState extends State<AppShell> {
         destinations: const [
           NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Home'),
           NavigationDestination(icon: Icon(Icons.track_changes_outlined), selectedIcon: Icon(Icons.track_changes), label: 'Mocks'),
+          NavigationDestination(icon: Icon(Icons.insights_outlined), selectedIcon: Icon(Icons.insights), label: 'Dashboard'),
           NavigationDestination(icon: Icon(Icons.description_outlined), selectedIcon: Icon(Icons.description), label: 'PYQs'),
           NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: 'Me'),
         ],
       ),
-    );
+    ));
   }
 }
 
@@ -487,7 +492,7 @@ class _Tile extends StatelessWidget {
                 child: Icon(icon, color: ink, size: 28),
               ),
               const Spacer(),
-              Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800, height: 1.15, color: Color(0xFF0F172A))),
+              Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800, height: 1.15, color: Color.lerp(ink, const Color(0xFF0F172A), 0.35))),
               const SizedBox(height: 3),
               Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 15, color: ink, fontWeight: FontWeight.w700)),
             ]),

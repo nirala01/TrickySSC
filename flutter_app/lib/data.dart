@@ -18,6 +18,8 @@ class Exam {
   final Color c2;
   final String meta; // questions and time of a Tier 1 paper
   final bool tier2;
+  /// Deep text colour for this exam (headings, labels).
+  Color get ink => Color.lerp(c1, const Color(0xFF0F172A), 0.45)!;
   const Exam(this.k, this.id, this.name, this.sub, this.icon, this.pass, this.mocks, this.free, this.c1, this.c2, this.meta, this.tier2);
 }
 
@@ -157,4 +159,28 @@ Future<int?> loadPrice(Exam exam) async {
   } catch (_) {
     return null;
   }
+}
+
+
+/// Text in this exam's deep colour instead of plain black.
+Widget examTheme(BuildContext context, Exam exam, Widget child) {
+  final t = Theme.of(context);
+  return Theme(data: t.copyWith(textTheme: t.textTheme.apply(bodyColor: exam.ink, displayColor: exam.ink)), child: child);
+}
+
+/// Every attempt of this user (website and app), newest first; each map has 'id'.
+Future<List<Map<String, dynamic>>> loadAttempts(String uid) async {
+  final snap = await FirebaseFirestore.instance.collection('attempts').where('uid', isEqualTo: uid).get();
+  final out = [for (final d in snap.docs) {...d.data(), 'id': d.id}];
+  out.sort((a, b) => attemptMs(b).compareTo(attemptMs(a)));
+  return out;
+}
+
+int attemptMs(Map<String, dynamic> a) {
+  final t = a['timestamp'];
+  if (t is Timestamp) return t.millisecondsSinceEpoch;
+  final c = DateTime.tryParse('${a['clientSubmittedAt'] ?? ''}');
+  if (c != null) return c.millisecondsSinceEpoch;
+  final m = RegExp(r'_(\d{12,})$').firstMatch('${a['id'] ?? ''}');
+  return m == null ? 0 : int.parse(m.group(1)!);
 }
