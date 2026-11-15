@@ -131,6 +131,7 @@ String mockBase(Exam exam, MockItem m) => '${exam.id}_${exam.k == 'ntpc' ? 'cbt1
 bool isAttempted(Set<String> ids, Exam exam, MockItem m) {
   final base = mockBase(exam, m);
   for (final id in ids) {
+    if (id.contains('__')) continue; // subject mocks never mark the full mock as done
     if (id == base || id.startsWith('${base}_')) return true;
   }
   return false;

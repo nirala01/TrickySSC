@@ -7,6 +7,8 @@ import '../test/engine.dart';
 import 'dashboard.dart';
 import 'pyq.dart';
 import 'chapters.dart';
+import 'subject_mocks.dart';
+import 'current_affairs.dart';
 import '../test/test_screen.dart';
 
 /// The app after sign-in: Home, Mocks, PYQs and Me. Tabs stay loaded, so switching is instant.
@@ -230,6 +232,19 @@ class _AppShellState extends State<AppShell> {
             onMocks: () => setState(() => _tab = 1),
             onDashboard: () => setState(() => _tab = 2),
             onPyq: () => setState(() => _tab = 3),
+            onSubjects: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => SubjectMocksScreen(
+                user: widget.user,
+                exam: exam,
+                mocks: _mocks ?? const [],
+                hasPass: _hasPass,
+                paid: _owned.isNotEmpty,
+                attempted: _attempted,
+                onReturn: _afterTest,
+                onBuy: () => _soon('Buying a pass'),
+              ),
+            )),
+            onCa: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => CurrentAffairsScreen(exam: exam))),
             onChapters: () => Navigator.of(context).push(MaterialPageRoute(
               builder: (_) => ChapterSubjectsScreen(user: widget.user, exam: exam, paid: _owned.isNotEmpty, attempted: _attempted, onReturn: _afterTest),
             )),
@@ -341,6 +356,8 @@ class _HomeTab extends StatelessWidget {
   final VoidCallback onDashboard;
   final VoidCallback onPyq;
   final VoidCallback onChapters;
+  final VoidCallback onSubjects;
+  final VoidCallback onCa;
   final void Function(MockItem) onStart;
   final void Function(String) onSoon;
   const _HomeTab({
@@ -356,6 +373,8 @@ class _HomeTab extends StatelessWidget {
     required this.onDashboard,
     required this.onPyq,
     required this.onChapters,
+    required this.onSubjects,
+    required this.onCa,
     required this.onStart,
     required this.onSoon,
   });
@@ -456,9 +475,9 @@ class _HomeTab extends StatelessWidget {
               const SizedBox(height: 8),
               Expanded(
                 child: Row(children: [
-                  _Tile(Icons.extension, 'Subject mocks', 'Sectional', const Color(0xFFFCE7F3), const Color(0xFFBE185D), () => onSoon('Subject-wise mocks')),
+                  _Tile(Icons.extension, 'Subject mocks', 'Sectional', const Color(0xFFFCE7F3), const Color(0xFFBE185D), onSubjects),
                   const SizedBox(width: 8),
-                  _Tile(Icons.newspaper, 'Current affairs', 'Daily', const Color(0xFFCFFAFE), const Color(0xFF0E7490), () => onSoon('Current affairs')),
+                  _Tile(Icons.newspaper, 'Current affairs', 'Daily', const Color(0xFFCFFAFE), const Color(0xFF0E7490), onCa),
                 ]),
               ),
             ]),

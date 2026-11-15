@@ -148,6 +148,7 @@ class Rules {
   }
 
   String timingLine(int units) {
+    if (mockId.contains('__')) return 'One subject section of the mock on its own clock. Submit when you are done or when time runs out.';
     if (mockId.startsWith('cw_')) return 'One chapter test of 25 questions. Choose a 15-minute clock or untimed practice below.';
     if (tier2) return 'Section I (Maths + Reasoning) 60 min, Section II (English + GA) 60 min, Section III (Computer) 15 min. Move freely inside the open section.';
     if (ntpc) return 'One paper on a single 90-minute clock.';
@@ -234,10 +235,46 @@ String twinId(String mockId, String lang) =>
 
 /// Loads a mock and builds its sections and timed units.
 /// [partD] (GD only): take Q61-80 from the other-language paper when it differs from [lang].
-Future<Paper> loadPaper(String mockId, String lang, {String? partD, String title = ''}) async {
-  final rules = Rules(mockId);
+/// Subject mocks (website: mock-test-subject.html): one subject's band of a Tier 1 mock.
+const subjectMockShort = {'quant': 'Quant', 'reasoning': 'Reasoning', 'gk': 'Gen. Awareness', 'english': 'English'};
+
+List<int> _subjectBand(String mockId, String subject) {
+  Map<String, List<int>> b = {'quant': [51, 75], 'reasoning': [1, 25], 'gk': [26, 50], 'english': [76, 100]};
+  if (mockId.startsWith('ssc-chsl_')) b = {'english': [1, 25], 'reasoning': [26, 50], 'quant': [51, 75], 'gk': [76, 100]};
+  if (mockId.startsWith('ssc-gd_')) b = {'reasoning': [1, 20], 'gk': [21, 40], 'quant': [41, 60], 'english': [61, 80]};
+  if (mockId.startsWith('ssc-mts_')) b = {'quant': [1, 20], 'reasoning': [21, 40], 'gk': [41, 65], 'english': [66, 90]};
+  if (mockId.startsWith('rrb-ntpc_')) return [0, 0];
+  return b[subject] ?? [0, 0];
+}
+
+int subjectMockMinutes(String mockId, String subject) {
+  if (mockId.startsWith('ssc-mts_')) return const {'quant': 25, 'reasoning': 20, 'gk': 20, 'english': 25}[subject] ?? 15;
+  if (mockId.startsWith('rrb-ntpc_')) return const {'quant': 27, 'reasoning': 27, 'gk': 36}[subject] ?? 15;
+  return 15;
+}
+
+Future<Paper> loadPaper(String mockId, String lang, {String? partD, String title = '', String? subject}) async {
+  final rules = Rules(subject == null ? mockId : '${mockId}__$subject');
   var qs = await _fetch(mockId);
   if (qs.isEmpty) throw 'This paper has no questions yet.';
+  if (subject != null) {
+    final short = subjectMockShort[subject]!;
+    var picked = qs.where((q) => canonSubject(q.subjectRaw) == short || (rules.gd && subject == 'english' && RegExp(r'hindi|हिंदी|हिन्दी', caseSensitive: false).hasMatch(q.subjectRaw))).toList();
+    if (picked.length < 5) {
+      final band = _subjectBand(mockId, subject);
+      picked = qs.where((q) => q.qNum >= band[0] && q.qNum <= band[1]).toList();
+    }
+    if (picked.isEmpty) throw 'This mock has no ${short == 'Quant' ? 'Maths' : short} questions yet.';
+    if (title.isEmpty) {
+      try {
+        final meta = await FirebaseFirestore.instance.collection('mock_tests').doc(mockId).get();
+        title = _str((meta.data() ?? const {})['title']);
+      } catch (_) {}
+    }
+    final label = rules.mts && short == 'Quant' ? 'Maths' : short;
+    return Paper(rules, picked, [Section(label, 0, picked.length - 1)], [Unit('$label section', 0, picked.length - 1, subjectMockMinutes(mockId, subject) * 60)],
+        title.isEmpty ? '' : '$title · ${short == 'Gen. Awareness' ? 'Gen. Awareness' : short}', '');
+  }
   var pd = '';
   if (rules.gd) {
     pd = lang;
@@ -324,7 +361,7 @@ Future<Paper> loadPaper(String mockId, String lang, {String? partD, String title
 Future<Map<int, Question>> loadEnglishTwin(String mockId) async {
   final out = <int, Question>{};
   try {
-    for (final q in await _fetch(twinId(mockId, 'en'))) {
+    for (final q in await _fetch(twinId(mockId.replaceFirst(RegExp(r'__[a-z]+$'), ''), 'en'))) {
       out[q.qNum] = q;
     }
   } catch (_) {}
@@ -609,6 +646,9 @@ Future<void> saveResult(User u, Exam exam, Paper p, Progress pr, Result r) async
     'analyticsV': 1,
     'partD': p.partD,
     if (rules.tier2) 'tier': 'tier2',
+    if (mockId.contains('__')) 'baseMockId': mockId.substring(0, mockId.indexOf('__')),
+    if (mockId.contains('__')) 'subjectKey': mockId.substring(mockId.indexOf('__') + 2),
+    if (mockId.contains('__')) 'testKind': 'mock-subject',
     'timestamp': FieldValue.serverTimestamp(),
     'clientSubmittedAt': DateTime.now().toUtc().toIso8601String(),
   };
@@ -706,7 +746,7 @@ Future<void> saveResult(User u, Exam exam, Paper p, Progress pr, Result r) async
   } catch (_) {}
 }
 
-String lbBase(String mockId) => mockId.replaceFirst(RegExp(r'([_-])(hi|en|hindi|english)$', caseSensitive: false), '');
+String lbBase(String mockId) => mockId.replaceFirstMapped(RegExp(r'([_-])(hi|en|hindi|english)(__[a-z]+)?$', caseSensitive: false), (m) => m[3] ?? '');
 
 extension on String {
   String characters40() => length <= 40 ? this : substring(0, 40);
