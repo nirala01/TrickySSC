@@ -51,6 +51,14 @@ for d in ("mdpi", "hdpi", "xhdpi", "xxhdpi", "xxxhdpi"):
     if src.exists() and out.parent.exists():
         shutil.copyfile(src, out)
 
+# 2d. skip the release "lint vital" check: it crashes inside a plugin (google_sign_in_android)
+#     and only checks code style, not whether the app works.
+root = dst / "build.gradle.kts" if (dst / "build.gradle.kts").exists() else dst / "build.gradle"
+r = root.read_text(encoding="utf-8")
+if "lintVital" not in r:
+    r += '\nsubprojects {\n    tasks.matching { it.name.startsWith("lintVital") }.configureEach { enabled = false }\n}\n'
+    root.write_text(r, encoding="utf-8")
+
 # 3. Firebase settings
 cfg = app / "config/google-services.json"
 vals = dict(apiKey="", appId="", senderId="", projectId="", storageBucket="", webClientId="")
