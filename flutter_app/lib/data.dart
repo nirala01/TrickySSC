@@ -32,6 +32,13 @@ const List<Exam> exams = [
   Exam('ntpc', 'rrb-ntpc', 'RRB NTPC', 'Railway · Graduate', '🚆', 'rrb-ntpc-mocks', '60 mocks', 3, Color(0xFF1E3FAE), Color(0xFF60A5FA), '100 Qs · 90 min', false),
 ];
 
+Exam? examById(String id) {
+  for (final e in exams) {
+    if (e.id == id) return e;
+  }
+  return null;
+}
+
 Exam? examByKey(String? k) {
   for (final e in exams) {
     if (e.k == k) return e;

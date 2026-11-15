@@ -1,10 +1,13 @@
+// Dashboard hub — the website dashboard's sections as a list; each opens its own page (lib/screens/dash/pages.dart).
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../data.dart';
-import '../test/engine.dart';
-import '../test/leaderboard.dart';
-import '../test/result_screen.dart';
+import '../ui/soft.dart';
+import '../ui/soft_list.dart';
+import 'dash/logic.dart';
+import 'dash/pages.dart';
+import 'dash/ui.dart';
 
 class DashboardTab extends StatefulWidget {
   final User user;
@@ -17,17 +20,24 @@ class DashboardTab extends StatefulWidget {
   State<DashboardTab> createState() => _DashboardTabState();
 }
 
-class _SubAgg {
-  int c = 0, w = 0, k = 0;
-}
-
 class _DashboardTabState extends State<DashboardTab> {
-  List<Map<String, dynamic>>? _all;
+  List<Att>? _all;
   bool _failed = false;
+  String _scope = '';
+  String _cat = 'GEN';
+  LbInfo? _lb;
+  String _lbFor = '';
+  List<(String, int, bool)>? _plans;
 
   @override
   void initState() {
     super.initState();
+    loadCat().then((c) {
+      if (mounted) setState(() => _cat = c);
+    });
+    loadPlans(widget.user.uid).then((p) {
+      if (mounted) setState(() => _plans = p);
+    });
     _load();
   }
 
@@ -41,81 +51,68 @@ class _DashboardTabState extends State<DashboardTab> {
     setState(() => _failed = false);
     try {
       final a = await loadAttempts(widget.user.uid);
-      if (mounted) setState(() => _all = a);
+      final mine = a.where((x) => x['exam'] == widget.exam.id || isChapter(x)).toList();
+      if (!mounted) return;
+      setState(() {
+        _all = mine;
+        if (_scope.isEmpty || !mine.any((x) => scopeOf(x) == _scope)) _scope = mine.isEmpty ? '' : scopeOf(mine.first);
+      });
+      _rank();
     } catch (_) {
       if (mounted) setState(() => _failed = true);
     }
   }
 
-  String _n(num v) => v == v.roundToDouble() ? '${v.round()}' : v.toStringAsFixed(1);
-  double _d(dynamic v) => v is num ? v.toDouble() : double.tryParse('$v') ?? 0;
-
-  String _date(int ms) {
-    if (ms == 0) return '';
-    final d = DateTime.fromMillisecondsSinceEpoch(ms);
-    const m = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    final h = d.hour % 12 == 0 ? 12 : d.hour % 12;
-    return '${d.day} ${m[d.month - 1]} · $h:${d.minute.toString().padLeft(2, '0')} ${d.hour < 12 ? 'am' : 'pm'}';
+  void _rank() {
+    final sc = (_all ?? const <Att>[]).where((a) => scopeOf(a) == _scope).toList();
+    if (sc.isEmpty) return;
+    final k = lbKeyOf(sc.first);
+    if (k.isEmpty || k == _lbFor) return;
+    _lbFor = k;
+    _lb = null;
+    fetchRank(k, widget.user.uid).then((v) {
+      if (mounted && _lbFor == k) setState(() => _lb = v);
+    });
   }
 
-  String _id(Map<String, dynamic> a) => '${a['mockId'] ?? ''}'.isNotEmpty ? '${a['mockId']}' : ('${a['paperId'] ?? ''}'.isNotEmpty ? '${a['paperId']}' : '${a['lbKey'] ?? ''}');
+  DashCtx get _ctx => DashCtx(widget.user, widget.exam, _all!, _scope, _cat);
 
-  String _title(Map<String, dynamic> a) {
-    final id = '${a['mockId'] ?? ''}';
-    final m = RegExp(r'_(tier\d|cbt\d)_mock(\d+)_(en|hi)$').firstMatch(id);
-    if (m != null) {
-      final t2 = m.group(1) == 'tier2' ? 'Tier 2 ' : '';
-      return '${widget.exam.name} ${t2}Mock ${m.group(2)}${m.group(3) == 'hi' ? ' · हिंदी' : ''}';
+  Future<void> _open(Widget Function(DashCtx) page) async {
+    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => page(_ctx)));
+    final c = await loadCat();
+    if (mounted && c != _cat) setState(() => _cat = c);
+  }
+
+  void _pickScope() {
+    final all = _all!;
+    final seen = <String, int>{};
+    final first = <String, Att>{};
+    for (final a in all) {
+      final k = scopeOf(a);
+      seen[k] = (seen[k] ?? 0) + 1;
+      first.putIfAbsent(k, () => a);
     }
-    final n = '${a['examName'] ?? ''}'.trim();
-    final hi = _id(a).endsWith('_hi') ? ' · हिंदी' : '';
-    return n.isEmpty ? 'Test' : '$n$hi';
-  }
-
-  bool _canOpen(Map<String, dynamic> a) {
-    final id = _id(a);
-    final ok = RegExp(r'_(tier1|tier2|cbt1)_mock\d+_(en|hi)$').hasMatch(id) || RegExp(r'^[a-z-]+_\d{4}_tier[12]_.*_(en|hi)$').hasMatch(id);
-    return ok && (a['answers'] is List);
-  }
-
-  void _actions(Map<String, dynamic> a) {
-    final exam = widget.exam;
-    final id = _id(a);
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.white,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (c) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
-          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Text(_title(a), style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: exam.ink)),
-            Text('${_n(_d(a['marks']))} marks · ${_n(_d(a['percentage']))}% · ${_date(attemptMs(a))}', style: const TextStyle(color: Color(0xFF64748B))),
-            const SizedBox(height: 14),
-            if (_canOpen(a))
-              FilledButton.icon(
-                onPressed: () {
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: MediaQuery.of(c).size.height * .7),
+          child: ListView(shrinkWrap: true, padding: const EdgeInsets.fromLTRB(8, 14, 8, 8), children: [
+            Padding(padding: const EdgeInsets.fromLTRB(12, 0, 12, 8), child: Text('Analyse which tests?', style: baloo(19))),
+            for (final k in seen.keys)
+              ListTile(
+                title: Text(scopeLabel(k, first[k]!), style: TextStyle(fontWeight: FontWeight.w800, color: k == _scope ? widget.exam.c1 : softInk)),
+                subtitle: Text('${seen[k]} test${seen[k] == 1 ? '' : 's'} · last ${shortDate(tsOf(first[k]!))}'),
+                trailing: k == _scope ? Icon(Icons.check_circle, color: widget.exam.c1) : null,
+                onTap: () {
                   Navigator.pop(c);
-                  openAttemptSolutions(context, exam, a);
+                  setState(() => _scope = k);
+                  _rank();
                 },
-                style: FilledButton.styleFrom(backgroundColor: exam.c1, minimumSize: const Size.fromHeight(50), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
-                icon: const Icon(Icons.menu_book),
-                label: const Text('View solutions', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
               ),
-            if (id.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              FilledButton.tonalIcon(
-                onPressed: () {
-                  Navigator.pop(c);
-                  Navigator.of(context).push(MaterialPageRoute(
-                    builder: (_) => LeaderboardScreen(exam: exam, base: lbBase(id), title: _title(a).replaceAll(' · हिंदी', ''), uid: widget.user.uid),
-                  ));
-                },
-                style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
-                icon: const Icon(Icons.emoji_events_outlined),
-                label: const Text('Leaderboard', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
-              ),
-            ],
           ]),
         ),
       ),
@@ -135,201 +132,201 @@ class _DashboardTabState extends State<DashboardTab> {
     }
     final all = _all;
     if (all == null) return const Center(child: CircularProgressIndicator());
-    final mine = all.where((a) => a['exam'] == exam.id).toList();
+    final first = (widget.user.displayName ?? 'Student').split(' ').first;
 
-    if (mine.isEmpty) {
+    if (all.isEmpty) {
       return RefreshIndicator(
         onRefresh: _load,
         child: ListView(padding: const EdgeInsets.all(28), children: [
           const SizedBox(height: 60),
           Icon(Icons.insights, size: 56, color: exam.c1),
           const SizedBox(height: 10),
-          Text('No ${exam.name} tests yet', textAlign: TextAlign.center, style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800, color: exam.ink)),
+          Text('No ${exam.name} tests yet', textAlign: TextAlign.center, style: baloo(21)),
           const SizedBox(height: 6),
-          const Text('Take a mock and your scores, ranks and weak areas will show here.', textAlign: TextAlign.center, style: TextStyle(fontSize: 15, color: Color(0xFF64748B))),
+          const Text('Attempt any test — PYQ, mock, subject-wise or chapter — to see your rank, cut-off gap and weak areas here.',
+              textAlign: TextAlign.center, style: TextStyle(fontSize: 15, color: softMuted, fontWeight: FontWeight.w600)),
           const SizedBox(height: 16),
           Center(child: FilledButton(onPressed: widget.onMocks, style: FilledButton.styleFrom(backgroundColor: exam.c1), child: const Text('Go to mocks'))),
         ]),
       );
     }
 
-    // numbers
-    var sumPct = 0.0, best = double.negativeInfinity, timeSec = 0, c = 0, w = 0;
-    final subs = <String, _SubAgg>{};
-    for (final a in mine) {
-      sumPct += _d(a['percentage']);
-      final mk = _d(a['marks']);
-      if (mk > best) best = mk;
-      timeSec += _d(a['timeUsed']).toInt();
-      c += _d(a['correct']).toInt();
-      w += _d(a['wrong']).toInt();
-      final t2 = a['tier'] == 'tier2' || _id(a).contains('_tier2_');
-      final ss = a['subjectStats'];
-      if (ss is Map) {
-        ss.forEach((k, v) {
-          if (v is! Map) return;
-          final name = canonSubject('$k');
-          if (!const {'English', 'Reasoning', 'Quant', 'Gen. Awareness'}.contains(name) && !(name == 'Computer' && t2)) return;
-          final g = subs.putIfAbsent(name, () => _SubAgg());
-          g.c += _d(v['correct']).toInt();
-          g.w += _d(v['wrong']).toInt();
-          g.k += _d(v['skip']).toInt();
-        });
-      }
+    final x = _ctx;
+    final sc = x.sc;
+    final a = sc.first;
+    final full = all.where((t) => isFullPaper(t) && s(t['exam']) == exam.id).toList();
+    final fullMarks = full.map(marksOf).toList();
+    final avg = fullMarks.isEmpty ? null : fullMarks.fold(0.0, (t, v) => t + v) / fullMarks.length;
+    final best = fullMarks.isEmpty ? null : fullMarks.reduce((p, q) => p > q ? p : q);
+    final maxLabel = full.isEmpty ? '' : '/${n1(maxOf(full.first))}';
+    final week = all.where((t) => tsOf(t) >= DateTime.now().millisecondsSinceEpoch - 7 * 86400000).length;
+    final streak = streakDays(all);
+    final dots = last7(all);
+    final scM = sc.map(marksOf).toList();
+    final scAvg = scM.fold(0.0, (t, v) => t + v) / scM.length;
+    final delta = marksOf(a) - scAvg;
+    final ct = cutoffTests(full);
+    String? goal;
+    if (ct.isNotEmpty) {
+      final c = cutoffs[examTier(ct.first)]!;
+      final l5 = ct.take(5).toList();
+      final av = l5.fold(0.0, (t, v) => t + meritMarks(v)) / l5.length;
+      goal = '🎯 ${(av / c.cut[_cat]! * 100).round().clamp(0, 100)}% of the way to last year\'s $_cat cut-off';
     }
-    final avg = sumPct / mine.length;
-    final acc = c + w == 0 ? 0 : (c * 100 / (c + w)).round();
-    final trend = mine.take(10).toList().reversed.toList();
-    final subList = subs.entries.where((e) => e.value.c + e.value.w > 0).toList()
-      ..sort((a, b) => (a.value.c / (a.value.c + a.value.w)).compareTo(b.value.c / (b.value.c + b.value.w)));
-    final hrs = timeSec ~/ 3600, mins = (timeSec % 3600) ~/ 60;
+    final live = (_plans ?? const []).where((p) => p.$3).toList();
 
-    Widget card({required Widget child, EdgeInsets pad = const EdgeInsets.all(14)}) => Container(
-          margin: const EdgeInsets.only(bottom: 10),
-          padding: pad,
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
-          child: child,
-        );
-    Widget head(String t) => Padding(padding: const EdgeInsets.only(bottom: 10), child: Text(t, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: exam.ink)));
-    Widget mini(String v, String l) => Expanded(
+    // teasers
+    final lb = _lb;
+    final hasLb = lbKeyOf(a).isNotEmpty;
+    final rankT = !hasLb ? 'No leaderboard for this test type' : (lb == null ? 'Loading…' : (lb.ok ? '#${lb.rank} of ${lb.total} · ${n1(lb.pctile)} percentile' : 'Not ranked yet'));
+    final scCut = cutoffTests(sc);
+    String? cutT;
+    if (scCut.isNotEmpty) {
+      final g = meritMarks(scCut.first) - cutoffs[examTier(scCut.first)]!.cut[_cat]!;
+      cutT = g >= 0 ? 'Cleared $_cat by +${n1(g)}' : '${n1(-g)} marks short of $_cat';
+    }
+    final L = lostOf(a);
+    final chScope = isChapter(a);
+    final weakN = chapterStats(sc).where((c) => c.name != 'Untagged' && c.n >= 3 && c.acc < .7).length;
+    final ans = answersOf(a).where((q) => dnum(q['t']) > 0).toList();
+    final tAvg = ans.isEmpty ? null : ans.fold(0.0, (t, q) => t + dnum(q['t'])) / ans.length;
+    final topT = !hasLb ? 'No leaderboard for this test type' : (lb == null ? 'Loading…' : (lb.ok ? 'Topper ${n1(lb.top)} · you ${n1(lb.my)}' : 'Not ranked yet'));
+
+    Widget stat(String v, String l, String d, {Widget? extra}) => Expanded(
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+            padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+            decoration: softCard(radius: 18),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(v, style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800, color: exam.c1, height: 1.1)),
-              Text(l, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, color: Color(0xFF475569), fontWeight: FontWeight.w600)),
+              Text(v, style: baloo(26, color: exam.c1)),
+              Text(l, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13.5, color: softInk, fontWeight: FontWeight.w800)),
+              const SizedBox(height: 2),
+              extra ?? Text(d, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: softMuted, fontWeight: FontWeight.w600)),
             ]),
           ),
         );
 
-    return RefreshIndicator(
-      onRefresh: _load,
-      child: ListView(padding: const EdgeInsets.fromLTRB(12, 12, 12, 16), children: [
-        Container(
-          margin: const EdgeInsets.only(bottom: 10),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            gradient: LinearGradient(colors: [exam.c1, exam.c2], begin: Alignment.topLeft, end: Alignment.bottomRight),
-          ),
-          child: Row(children: [
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('My ${exam.name} progress', style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600)),
-                const SizedBox(height: 2),
-                Text('${mine.length} test${mine.length == 1 ? '' : 's'} taken', style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w900)),
-                Text('${all.length} across all exams', style: const TextStyle(color: Colors.white, fontSize: 13.5)),
-              ]),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
-              child: Column(children: [
-                Text(_n(best), style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: exam.c1)),
-                const Text('Best marks', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
-              ]),
-            ),
-          ]),
-        ),
-        Row(children: [
-          mini('${_n(avg)}%', 'Avg score'),
-          const SizedBox(width: 8),
-          mini('$acc%', 'Accuracy'),
-          const SizedBox(width: 8),
-          mini(hrs > 0 ? '${hrs}h ${mins}m' : '${mins}m', 'Time spent'),
-        ]),
-        const SizedBox(height: 10),
-        if (trend.length >= 2)
-          card(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              head('Score trend · last ${trend.length}'),
-              SizedBox(
-                height: 130,
-                child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                  for (final a in trend)
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 3),
-                        child: Column(mainAxisAlignment: MainAxisAlignment.end, children: [
-                          Text(_n(_d(a['percentage']).clamp(0, 100)), style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: exam.ink)),
-                          const SizedBox(height: 2),
-                          Container(
-                            height: 6 + 100 * (_d(a['percentage']).clamp(0, 100) / 100),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(6),
-                              gradient: LinearGradient(colors: [exam.c2, exam.c1], begin: Alignment.topCenter, end: Alignment.bottomCenter),
-                            ),
-                          ),
-                        ]),
-                      ),
-                    ),
-                ]),
-              ),
-              const SizedBox(height: 4),
-              const Text('Score % of each test, oldest to newest', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
-            ]),
-          ),
-        if (subList.isNotEmpty)
-          card(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              head('Subject accuracy'),
-              for (final e in subList) ...[
-                Builder(builder: (_) {
-                  final g = e.value;
-                  final p = g.c / (g.c + g.w);
-                  final col = p >= 0.75 ? const Color(0xFF16A34A) : (p >= 0.5 ? const Color(0xFFD97706) : const Color(0xFFDC2626));
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Row(children: [
-                        Expanded(child: Text(e.key, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700))),
-                        Text('${(p * 100).round()}%', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: col)),
-                        Text('  ${g.c}✓ ${g.w}✕', style: const TextStyle(fontSize: 12.5, color: Color(0xFF64748B))),
-                      ]),
-                      const SizedBox(height: 4),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(6),
-                        child: LinearProgressIndicator(value: p, minHeight: 8, color: col, backgroundColor: const Color(0xFFF1F5F9)),
-                      ),
-                    ]),
-                  );
-                }),
-              ],
-              if (subList.length > 1)
-                Text('Weakest: ${subList.first.key} — practise it first.', style: const TextStyle(fontSize: 13, color: Color(0xFF64748B))),
-            ]),
-          ),
-        card(
-          pad: const EdgeInsets.fromLTRB(14, 14, 14, 4),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            head('Recent tests'),
-            for (final a in mine.take(30))
-              InkWell(
-                onTap: () => _actions(a),
+    Widget section(String emoji, String title, String teaser, Widget Function(DashCtx) page, {Color? tc}) => Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Material(
+            color: Colors.transparent,
+            child: Ink(
+              decoration: softCard(radius: 18),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(18),
+                onTap: () => _open(page),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 9),
+                  padding: const EdgeInsets.fromLTRB(12, 11, 8, 11),
                   child: Row(children: [
-                    Container(
-                      width: 46,
-                      height: 46,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(color: Color.lerp(Colors.white, exam.c2, 0.25), borderRadius: BorderRadius.circular(12)),
-                      child: Text('${_n(_d(a['percentage']))}%', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: exam.ink)),
-                    ),
-                    const SizedBox(width: 10),
+                    Container(width: 48, height: 48, alignment: Alignment.center, decoration: softWell(), child: Text(emoji, style: const TextStyle(fontSize: 24))),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(_title(a), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700)),
-                        Text('${_n(_d(a['marks']))} marks · ${_d(a['correct']).toInt()}✓ ${_d(a['wrong']).toInt()}✕ · ${_date(attemptMs(a))}',
-                            maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, color: Color(0xFF64748B))),
+                        Text(title, style: baloo(17.5)),
+                        Text(teaser, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13.5, color: tc ?? exam.c1, fontWeight: FontWeight.w800)),
                       ]),
                     ),
-                    const Icon(Icons.chevron_right, color: Color(0xFF94A3B8)),
+                    Icon(Icons.chevron_right_rounded, color: exam.c1),
                   ]),
                 ),
               ),
+            ),
+          ),
+        );
+
+    Widget head(String t) => Padding(padding: const EdgeInsets.fromLTRB(4, 8, 4, 8), child: Text(t, style: baloo(19)));
+
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView(padding: EdgeInsets.fromLTRB(14, 8, 14, 20 + MediaQuery.of(context).padding.bottom), children: [
+        // welcome
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(22),
+            gradient: LinearGradient(colors: [exam.c1, Color.lerp(exam.c1, exam.c2, .55)!], begin: Alignment.topLeft, end: Alignment.bottomRight),
+            boxShadow: [BoxShadow(color: exam.c1.withValues(alpha: .3), blurRadius: 18, offset: const Offset(0, 8))],
+          ),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Expanded(child: Text('Welcome back, $first! 👋', style: baloo(21, color: Colors.white))),
+              if (_plans != null) live.isNotEmpty ? const SoftTag('⭐ PREMIUM', Color(0xFF92400E), Color(0xFFFEF3C7)) : const SoftTag('FREE PLAN', Color(0xFF475569), Colors.white),
+            ]),
+            if (live.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(live.map((p) => '${planName(p.$1).replaceAll(' Mock Test Series', ' mocks')} till ${shortDate(p.$2)}').join(' · '), style: const TextStyle(color: Color(0xEEFFFFFF), fontSize: 12.5, fontWeight: FontWeight.w600)),
+              ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+              child: Row(children: [
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('Last test · ${testName(a)}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5, color: softMuted, fontWeight: FontWeight.w700)),
+                    Text(sc.length > 1 ? '${delta >= 0 ? '▲' : '▼'} ${n1(delta.abs())} vs your average in these tests' : 'your first test of this kind',
+                        style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: delta >= 0 ? cGood : cBad)),
+                  ]),
+                ),
+                Text(n1(marksOf(a)), style: baloo(28, color: exam.c1)),
+                Text('/${n1(maxOf(a))}', style: const TextStyle(color: softMuted, fontWeight: FontWeight.w800)),
+              ]),
+            ),
+            if (goal != null) Padding(padding: const EdgeInsets.only(top: 8), child: Text(goal, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13.5))),
           ]),
         ),
+        const SizedBox(height: 12),
+        Row(children: [
+          stat('${all.length}', 'Tests taken', week > 0 ? '+$week this week' : 'none this week'),
+          const SizedBox(width: 10),
+          stat(avg == null ? '—' : n1(avg), 'Avg marks $maxLabel', '${full.length} full test${full.length == 1 ? '' : 's'}'),
+        ]),
+        const SizedBox(height: 10),
+        Row(children: [
+          stat(best == null ? '—' : n1(best), 'Best marks $maxLabel', exam.name),
+          const SizedBox(width: 10),
+          stat('$streak', 'Day streak', '',
+              extra: Row(children: [
+                for (final on in dots)
+                  Container(margin: const EdgeInsets.only(right: 4, top: 3), width: 12, height: 12, decoration: BoxDecoration(shape: BoxShape.circle, color: on ? const Color(0xFFF59E0B) : const Color(0xFFE2E8F0))),
+              ])),
+        ]),
+        const SizedBox(height: 12),
+        section('📊', 'My recent attempts', '${all.length} tests · tap any for solutions, rank or review', (c) => AttemptsPage(x: c)),
+        head('📈 Performance analysis'),
+        Material(
+          color: Colors.transparent,
+          child: Ink(
+            decoration: BoxDecoration(color: Color.lerp(Colors.white, exam.c2, .18), borderRadius: BorderRadius.circular(16)),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(16),
+              onTap: _pickScope,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
+                child: Row(children: [
+                  const Text('Showing  ', style: TextStyle(color: softMuted, fontWeight: FontWeight.w700)),
+                  Expanded(child: Text('${scopeLabel(_scope, a)} (${sc.length})', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontWeight: FontWeight.w800, color: exam.ink))),
+                  Icon(Icons.expand_more_rounded, color: exam.c1),
+                ]),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        section('🏆', 'Latest test rank', rankT, (c) => RankPage(x: c)),
+        if (cutT != null) section('🎯', 'Cut-off gap', cutT, (c) => CutoffPage(x: c), tc: cutT.startsWith('Cleared') ? cGood : cBad),
+        section('📉', 'Where you lost marks', '−${n1(maxOf(a) - marksOf(a))} marks · ~${n1(L.recover)} recoverable', (c) => LostPage(x: c)),
+        section('🧠', 'Question selection', '${(L.acc * 100).round()}% accuracy on ${L.attempted} attempted', (c) => SelectionPage(x: c)),
+        section('📚', chScope ? 'Test-wise accuracy' : 'Chapter-wise accuracy',
+            chScope ? '${sc.length} attempt${sc.length == 1 ? '' : 's'} of this chapter' : (weakN > 0 ? '$weakN weak chapter${weakN == 1 ? '' : 's'} found' : 'Your weak and strong chapters'), (c) => ChaptersPage(x: c)),
+        section('💪', chScope ? 'Chapter readiness' : 'Exam readiness', '${readiness(sc)} / 100 · last ${sc.length < 5 ? sc.length : 5} tests', (c) => ReadinessPage(x: c)),
+        section('🥇', 'Compare with topper', topT, (c) => TopperPage(x: c)),
+        section('⏱️', 'Time analysis', tAvg == null ? 'Time per question and slowest questions' : '${tAvg.round()} s per question on average', (c) => TimePage(x: c)),
+        section('🔍', 'Question by question', '% got it right and your time vs others', (c) => QuestionsPage(x: c)),
+        section('🖼️', 'Report card', 'Share an image of your progress', (c) => ReportCardPage(x: c, name: widget.user.displayName ?? 'Student')),
+        head('👤 Account'),
+        section('👤', 'My profile', widget.user.email ?? widget.user.phoneNumber ?? 'Name, phone, login method', (c) => ProfilePage(x: c)),
+        section('🧾', 'My orders', _plans == null ? 'Purchases and access validity' : (live.isNotEmpty ? 'Premium active' : 'Free plan · purchases and payment IDs'), (c) => OrdersPage(x: c)),
       ]),
     );
   }
