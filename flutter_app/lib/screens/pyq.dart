@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -53,6 +54,58 @@ List<PyqPaper> _parse(String html) {
   return out;
 }
 
+const _months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+/// SSC MTS has no static PYQ list page: the website (ssc-mts.html) lists the papers from Firestore.
+/// Here: the `papers` cards the batch uploader writes, plus Q1 of each paper in `questions` as a fallback.
+Future<List<PyqPaper>> _loadFirestore(String examId, String label) async {
+  final db = FirebaseFirestore.instance;
+  final rows = <Map<String, dynamic>>[];
+  try {
+    final a = await db.collection('papers').where('exam', isEqualTo: examId).get();
+    rows.addAll(a.docs.map((d) => {'paperId': d.id, ...d.data()}));
+  } catch (_) {}
+  for (final q in [1, '1']) {
+    try {
+      final b = await db.collection('questions').where('exam', isEqualTo: examId).where('qNum', isEqualTo: q).get();
+      rows.addAll(b.docs.map((d) => d.data()));
+    } catch (_) {}
+  }
+  String str(dynamic v) => v == null ? '' : '$v'.trim();
+  final map = <String, Map<String, String>>{};
+  for (final r in rows) {
+    if (str(r['type']).toLowerCase() == 'mock' || str(r['mockId']).isNotEmpty) continue;
+    final pid = str(r['paperId']);
+    if (pid.isEmpty) continue;
+    final hi = RegExp(r'^(hi|hindi)$', caseSensitive: false).hasMatch(str(r['language'])) || pid.endsWith('_hi');
+    final key = [str(r['year']), str(r['shift']), str(r['heldOn']), str(r['tier'])].join('|');
+    final m = map.putIfAbsent(key, () => {'year': str(r['year']), 'shift': str(r['shift']), 'heldOn': str(r['heldOn']), 'en': '', 'hi': ''});
+    if (hi) {
+      m['hi'] = m['hi']!.isEmpty ? pid : m['hi']!;
+    } else {
+      m['en'] = m['en']!.isEmpty ? pid : m['en']!;
+    }
+  }
+  String date(String d) {
+    final p = d.split('-');
+    if (p.length != 3) return d;
+    final mo = int.tryParse(p[1]) ?? 0;
+    return mo >= 1 && mo <= 12 ? '${int.tryParse(p[2]) ?? p[2]} ${_months[mo - 1]} ${p[0]}' : d;
+  }
+
+  final list = map.values.toList()
+    ..sort((a, b) {
+      final y = (int.tryParse(b['year']!) ?? 0).compareTo(int.tryParse(a['year']!) ?? 0);
+      if (y != 0) return y;
+      final h = b['heldOn']!.compareTo(a['heldOn']!);
+      return h != 0 ? h : a['shift']!.compareTo(b['shift']!);
+    });
+  return [
+    for (final m in list)
+      PyqPaper(m['en']!, m['hi']!, '$label ${m['year']} · ${m['shift']!.isEmpty ? 'Full Paper' : m['shift']} · ${date(m['heldOn']!)}', 1),
+  ];
+}
+
 Future<List<PyqPaper>> loadPyqs(Exam exam, {bool force = false}) async {
   final prefs = await SharedPreferences.getInstance();
   final key = 'tssc_pyq_${exam.k}';
@@ -66,6 +119,7 @@ Future<List<PyqPaper>> loadPyqs(Exam exam, {bool force = false}) async {
     } catch (_) {}
   }
   final list = <PyqPaper>[];
+  if (exam.k == 'mts') list.addAll(await _loadFirestore('ssc-mts', 'SSC MTS'));
   for (final page in _pages[exam.k] ?? const <String>[]) {
     final r = await http.get(Uri.parse('https://trickyssc.com/$page'));
     if (r.statusCode == 200) list.addAll(_parse(utf8.decode(r.bodyBytes)));
@@ -210,7 +264,7 @@ class _PyqTabState extends State<PyqTab> {
   @override
   Widget build(BuildContext context) {
     final exam = widget.exam;
-    if ((_pagesFor(exam)).isEmpty) {
+    if (_pagesFor(exam).isEmpty && exam.k != 'mts') {
       return _empty(Icons.description_outlined, '${exam.name} previous year papers', 'Coming soon. Meanwhile, practise with the full mocks.');
     }
     if (_failed) {
@@ -223,6 +277,7 @@ class _PyqTabState extends State<PyqTab> {
     }
     final all = _all;
     if (all == null) return const Center(child: CircularProgressIndicator());
+    if (all.isEmpty) return _empty(Icons.description_outlined, '${exam.name} previous year papers', 'No papers yet. Pull down to refresh.');
     final hasT2 = all.any((p) => p.tier == 2);
     final tierList = all.where((p) => p.tier == _tier).toList();
     final years = <String>{for (final p in tierList) p.year}.where((y) => y.isNotEmpty).toList()..sort((a, b) => b.compareTo(a));

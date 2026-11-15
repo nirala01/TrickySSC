@@ -511,9 +511,7 @@ class _HomeTab extends StatelessWidget {
                 child: Row(children: [
                   _Tile('target', 'Mock tests', exam.mocks, exam.c1, onMocks, tag: hasPass ? const SoftTag.premium() : SoftTag('${exam.free} FREE', const Color(0xFF047857), const Color(0xFFD1FAE5))),
                   const SizedBox(width: 8),
-                  exam.k == 'mts'
-                      ? _Tile('paper', 'Previous year papers', 'Coming soon', exam.c1, onPyq)
-                      : _Tile('paper', 'Previous year papers', 'Real exam papers', exam.c1, onPyq, tag: const SoftTag.free()),
+                  _Tile('paper', 'Previous year papers', 'Real exam papers', exam.c1, onPyq, tag: const SoftTag.free()),
                 ]),
               ),
               const SizedBox(height: 8),
