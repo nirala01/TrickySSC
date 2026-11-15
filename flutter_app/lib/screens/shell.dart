@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import '../data.dart';
+import '../test/engine.dart';
 import '../test/test_screen.dart';
 
 /// The app after sign-in: Home, Mocks, PYQs and Me. Tabs stay loaded, so switching is instant.
@@ -22,6 +23,7 @@ class _AppShellState extends State<AppShell> {
   String _name = 'Student';
   Set<String> _owned = <String>{};
   Set<String> _attempted = <String>{};
+  Map<String, List<String>> _resume = {};
   List<MockItem>? _mocks;
   bool _mocksFailed = false;
   int? _price;
@@ -41,6 +43,7 @@ class _AppShellState extends State<AppShell> {
     loadAttempted(widget.user.uid).then((a) {
       if (mounted) setState(() => _attempted = a);
     });
+    _loadResume();
     loadPrice(widget.exam).then((p) {
       if (mounted) setState(() => _price = p);
     });
@@ -70,6 +73,12 @@ class _AppShellState extends State<AppShell> {
 
   bool _open(MockItem m) => _hasPass || m.n <= widget.exam.free;
 
+  void _loadResume() => loadInProgress(widget.user.uid).then((r) {
+        if (mounted) setState(() => _resume = r);
+      });
+
+  bool _resuming(MockItem m) => m.tier == 1 && _resume.containsKey(mockBase(widget.exam, m));
+
   Future<void> _startMock(MockItem m) async {
     final exam = widget.exam;
     if (!_open(m)) {
@@ -83,7 +92,11 @@ class _AppShellState extends State<AppShell> {
     String lang = m.en ? 'en' : 'hi';
     String partD = lang;
     final both = m.en && m.hi;
-    if (both || exam.k == 'gd') {
+    final saved = _resume[mockBase(exam, m)];
+    if (saved != null) {
+      lang = saved[0];
+      partD = saved[1].isEmpty ? lang : saved[1];
+    } else if (both || exam.k == 'gd') {
       final picked = await showModalBottomSheet<List<String>>(
         context: context,
         backgroundColor: Colors.white,
@@ -163,6 +176,7 @@ class _AppShellState extends State<AppShell> {
     loadAttempted(widget.user.uid).then((a) {
       if (mounted) setState(() => _attempted = a);
     });
+    _loadResume();
   }
 
   @override
@@ -207,6 +221,7 @@ class _AppShellState extends State<AppShell> {
             loaded: _mocks != null,
             attempted: _attempted,
             isOpen: _open,
+            resuming: _resuming,
             onMocks: () => setState(() => _tab = 1),
             onStart: _startMock,
             onSoon: _soon,
@@ -220,6 +235,7 @@ class _AppShellState extends State<AppShell> {
             tier: _tier,
             attempted: _attempted,
             isOpen: _open,
+            resuming: _resuming,
             onTier: (t) => setState(() => _tier = t),
             onStart: _startMock,
             onSoon: _soon,
@@ -301,6 +317,7 @@ class _HomeTab extends StatelessWidget {
   final bool loaded;
   final Set<String> attempted;
   final bool Function(MockItem) isOpen;
+  final bool Function(MockItem) resuming;
   final VoidCallback onMocks;
   final void Function(MockItem) onStart;
   final void Function(String) onSoon;
@@ -312,6 +329,7 @@ class _HomeTab extends StatelessWidget {
     required this.loaded,
     required this.attempted,
     required this.isOpen,
+    required this.resuming,
     required this.onMocks,
     required this.onStart,
     required this.onSoon,
@@ -324,11 +342,20 @@ class _HomeTab extends StatelessWidget {
     final done = mocks.where((m) => isAttempted(attempted, exam, m)).length;
     MockItem? next;
     for (final m in mocks) {
-      if (isOpen(m) && !isAttempted(attempted, exam, m)) {
+      if (isOpen(m) && resuming(m)) {
         next = m;
         break;
       }
     }
+    if (next == null) {
+      for (final m in mocks) {
+        if (isOpen(m) && !isAttempted(attempted, exam, m)) {
+          next = m;
+          break;
+        }
+      }
+    }
+    final resumeNext = next != null && resuming(next);
     String num(int v) => loaded ? '$v' : '–';
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
@@ -366,7 +393,7 @@ class _HomeTab extends StatelessWidget {
                       Text(
                         next == null
                             ? 'See all mocks'
-                            : 'Start ${next.tier == 2 ? 'Tier 2 ' : ''}Mock ${next.n}${next.n <= exam.free && !hasPass ? ' · free' : ''}',
+                            : resumeNext ? 'Resume Mock ${next.n}' : 'Start ${next.tier == 2 ? 'Tier 2 ' : ''}Mock ${next.n}${next.n <= exam.free && !hasPass ? ' · free' : ''}',
                         style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w800, color: Color(0xFF064E3B)),
                       ),
                       Text(next != null && next.tier == 1 ? exam.meta : 'Full-length papers with solutions', style: const TextStyle(fontSize: 12, color: Color(0xFF047857))),
@@ -484,6 +511,7 @@ class _MocksTab extends StatelessWidget {
   final int tier;
   final Set<String> attempted;
   final bool Function(MockItem) isOpen;
+  final bool Function(MockItem) resuming;
   final void Function(int) onTier;
   final void Function(MockItem) onStart;
   final void Function(String) onSoon;
@@ -497,6 +525,7 @@ class _MocksTab extends StatelessWidget {
     required this.tier,
     required this.attempted,
     required this.isOpen,
+    required this.resuming,
     required this.onTier,
     required this.onStart,
     required this.onSoon,
@@ -526,7 +555,7 @@ class _MocksTab extends StatelessWidget {
           onTap: () => onSoon('Buying a pass'),
         ));
       }
-      rows.add(_MockRow(exam: exam, m: m, open: isOpen(m), free: !hasPass && m.n <= exam.free, done: isAttempted(attempted, exam, m), onStart: onStart));
+      rows.add(_MockRow(exam: exam, m: m, open: isOpen(m), free: !hasPass && m.n <= exam.free, done: isAttempted(attempted, exam, m), resume: resuming(m), onStart: onStart));
     }
     return Column(children: [
       Padding(
@@ -586,8 +615,9 @@ class _MockRow extends StatelessWidget {
   final bool open;
   final bool free;
   final bool done;
+  final bool resume;
   final void Function(MockItem) onStart;
-  const _MockRow({required this.exam, required this.m, required this.open, required this.free, required this.done, required this.onStart});
+  const _MockRow({required this.exam, required this.m, required this.open, required this.free, required this.done, required this.resume, required this.onStart});
 
   @override
   Widget build(BuildContext context) {
@@ -615,7 +645,8 @@ class _MockRow extends StatelessWidget {
                 Row(children: [
                   Text('Mock ${m.n}', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
                   if (free) ...[const SizedBox(width: 6), const _Tag('FREE', Color(0xFF047857), Color(0xFFD1FAE5))],
-                  if (done) ...[const SizedBox(width: 6), const _Tag('DONE', Color(0xFF1D4ED8), Color(0xFFDBEAFE))],
+                  if (resume) ...[const SizedBox(width: 6), const _Tag('PAUSED', Color(0xFFB45309), Color(0xFFFEF3C7))]
+                  else if (done) ...[const SizedBox(width: 6), const _Tag('DONE', Color(0xFF1D4ED8), Color(0xFFDBEAFE))],
                 ]),
                 const SizedBox(height: 1),
                 Text(meta, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
@@ -625,8 +656,11 @@ class _MockRow extends StatelessWidget {
             if (open)
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                decoration: BoxDecoration(borderRadius: BorderRadius.circular(10), gradient: LinearGradient(colors: [exam.c1, exam.c2])),
-                child: Text(done ? 'Retake' : 'Start', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13)),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(10),
+                  gradient: LinearGradient(colors: resume ? const [Color(0xFFD97706), Color(0xFFFBBF24)] : [exam.c1, exam.c2]),
+                ),
+                child: Text(resume ? 'Resume' : (done ? 'Retake' : 'Start'), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13)),
               )
             else
               const Icon(Icons.lock_outline, color: Color(0xFF94A3B8), size: 22),

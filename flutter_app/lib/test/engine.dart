@@ -309,6 +309,35 @@ Future<void> saveProgress(String uid, String mockId, String partD, Progress p) a
   } catch (_) {}
 }
 
+/// Unfinished tests on this phone: base id (no language) → [lang, partD].
+Future<Map<String, List<String>>> loadInProgress(String uid) async {
+  final out = <String, List<String>>{};
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final pre = 'tssc_prog_${uid}_';
+    final now = DateTime.now().millisecondsSinceEpoch;
+    for (final k in prefs.getKeys()) {
+      if (!k.startsWith(pre)) continue;
+      try {
+        final j = jsonDecode(prefs.getString(k) ?? '') as Map<String, dynamic>;
+        final at = (j['at'] as num? ?? 0).toInt();
+        if (now - at > 3 * 24 * 3600 * 1000) {
+          await prefs.remove(k);
+          continue;
+        }
+        final rest = k.substring(pre.length);
+        final cut = rest.lastIndexOf('_');
+        final mockId = rest.substring(0, cut), partD = rest.substring(cut + 1);
+        final lc = mockId.lastIndexOf('_');
+        final lang = mockId.substring(lc + 1);
+        if (lang != 'en' && lang != 'hi') continue;
+        out[mockId.substring(0, lc)] = [lang, partD];
+      } catch (_) {}
+    }
+  } catch (_) {}
+  return out;
+}
+
 Future<void> clearProgress(String uid, String mockId, String partD) async {
   try {
     await (await SharedPreferences.getInstance()).remove(_progressKey(uid, mockId, partD));
