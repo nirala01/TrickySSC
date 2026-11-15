@@ -116,7 +116,7 @@ Future<Set<String>> loadAttempted(String uid) async {
     final snap = await FirebaseFirestore.instance.collection('attempts').where('uid', isEqualTo: uid).get();
     for (final doc in snap.docs) {
       final a = doc.data();
-      for (final key in const ['paperId', 'mockId']) {
+      for (final key in const ['paperId', 'mockId', 'lbKey']) {
         final v = a[key];
         if (v is String && v.isNotEmpty) out.add(v);
       }

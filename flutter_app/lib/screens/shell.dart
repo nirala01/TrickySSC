@@ -6,6 +6,7 @@ import '../data.dart';
 import '../test/engine.dart';
 import 'dashboard.dart';
 import 'pyq.dart';
+import 'chapters.dart';
 import '../test/test_screen.dart';
 
 /// The app after sign-in: Home, Mocks, PYQs and Me. Tabs stay loaded, so switching is instant.
@@ -229,6 +230,9 @@ class _AppShellState extends State<AppShell> {
             onMocks: () => setState(() => _tab = 1),
             onDashboard: () => setState(() => _tab = 2),
             onPyq: () => setState(() => _tab = 3),
+            onChapters: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => ChapterSubjectsScreen(user: widget.user, exam: exam, paid: _owned.isNotEmpty, attempted: _attempted, onReturn: _afterTest),
+            )),
             onStart: _startMock,
             onSoon: _soon,
           ),
@@ -336,6 +340,7 @@ class _HomeTab extends StatelessWidget {
   final VoidCallback onMocks;
   final VoidCallback onDashboard;
   final VoidCallback onPyq;
+  final VoidCallback onChapters;
   final void Function(MockItem) onStart;
   final void Function(String) onSoon;
   const _HomeTab({
@@ -350,6 +355,7 @@ class _HomeTab extends StatelessWidget {
     required this.onMocks,
     required this.onDashboard,
     required this.onPyq,
+    required this.onChapters,
     required this.onStart,
     required this.onSoon,
   });
@@ -442,7 +448,7 @@ class _HomeTab extends StatelessWidget {
               const SizedBox(height: 8),
               Expanded(
                 child: Row(children: [
-                  _Tile(Icons.menu_book, 'Chapter tests', '2 levels', const Color(0xFFD1FAE5), const Color(0xFF047857), () => onSoon('Chapter tests')),
+                  _Tile(Icons.menu_book, 'Chapter tests', '2 levels', const Color(0xFFD1FAE5), const Color(0xFF047857), onChapters),
                   const SizedBox(width: 8),
                   _Tile(Icons.folder_copy, 'Chapter PYQs', 'By chapter', const Color(0xFFEDE9FE), const Color(0xFF6D28D9), () => onSoon('Chapter PYQs')),
                 ]),

@@ -18,7 +18,8 @@ class TestFlow extends StatefulWidget {
   final String? partD;
   final bool paid;
   final String title;
-  const TestFlow({super.key, required this.user, required this.exam, required this.mockId, required this.lang, this.partD, required this.paid, required this.title});
+  final Future<Paper> Function()? loader; // chapter tests load their own paper
+  const TestFlow({super.key, required this.user, required this.exam, required this.mockId, required this.lang, this.partD, required this.paid, required this.title, this.loader});
 
   @override
   State<TestFlow> createState() => _TestFlowState();
@@ -29,6 +30,7 @@ class _TestFlowState extends State<TestFlow> {
   Progress? _saved;
   String? _error;
   bool _starting = false;
+  bool _timed = true;
 
   @override
   void initState() {
@@ -39,7 +41,7 @@ class _TestFlowState extends State<TestFlow> {
   Future<void> _load() async {
     setState(() => _error = null);
     try {
-      final p = await loadPaper(widget.mockId, widget.lang, partD: widget.partD, title: isPyqId(widget.mockId) ? widget.title : '');
+      final p = widget.loader != null ? await widget.loader!() : await loadPaper(widget.mockId, widget.lang, partD: widget.partD, title: isPyqId(widget.mockId) ? widget.title : '');
       final s = await loadProgress(widget.user.uid, widget.mockId, p.partD);
       if (!mounted) return;
       setState(() {
@@ -47,7 +49,7 @@ class _TestFlowState extends State<TestFlow> {
         _saved = (s != null && s.remaining.length == p.units.length) ? s : null;
       });
     } catch (e) {
-      if (mounted) setState(() => _error = e is String ? e : 'Could not load this mock. Check your internet and try again.');
+      if (mounted) setState(() => _error = e is String ? e : 'Could not load this test. Check your internet and try again.');
     }
   }
 
@@ -70,7 +72,11 @@ class _TestFlowState extends State<TestFlow> {
         return;
       }
     }
-    final pr = resume ? _saved! : (Progress()..remaining = [for (var i = 0; i < p.units.length; i++) p.unitSecs(i)]);
+    final pr = resume
+        ? _saved!
+        : (Progress()
+          ..remaining = [for (var i = 0; i < p.units.length; i++) p.unitSecs(i)]
+          ..untimed = p.chapter != null && !_timed);
     if (!resume) await clearProgress(widget.user.uid, widget.mockId, p.partD);
     if (!mounted) return;
     await Navigator.of(context).push(MaterialPageRoute(
@@ -100,7 +106,7 @@ class _TestFlowState extends State<TestFlow> {
               ),
             )
           : p == null
-              ? const Center(child: Column(mainAxisSize: MainAxisSize.min, children: [CircularProgressIndicator(), SizedBox(height: 12), Text('Loading the mock…')]))
+              ? const Center(child: Column(mainAxisSize: MainAxisSize.min, children: [CircularProgressIndicator(), SizedBox(height: 12), Text('Loading the test…')]))
               : _instructions(p),
     );
   }
@@ -151,6 +157,31 @@ class _TestFlowState extends State<TestFlow> {
               if (p.rules.gd && p.partD.isNotEmpty) line(Icons.translate, 'Part D (Q61–80) is in ${p.partD == 'hi' ? 'Hindi' : 'English'}.'),
             ]),
           ),
+          if (p.chapter != null && _saved == null) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
+              child: Row(children: [
+                for (final t in const [(true, 'Timed · 15 min'), (false, 'Untimed practice')])
+                  Expanded(
+                    child: Material(
+                      color: _timed == t.$1 ? exam.c1 : Colors.transparent,
+                      borderRadius: BorderRadius.circular(10),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(10),
+                        onTap: () => setState(() => _timed = t.$1),
+                        child: Container(
+                          height: 44,
+                          alignment: Alignment.center,
+                          child: Text(t.$2, style: TextStyle(fontWeight: FontWeight.w800, color: _timed == t.$1 ? Colors.white : const Color(0xFF334155))),
+                        ),
+                      ),
+                    ),
+                  ),
+              ]),
+            ),
+          ],
           const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.all(14),
@@ -263,6 +294,10 @@ class _TestScreenState extends State<TestScreen> with WidgetsBindingObserver {
     _qStart = DateTime.now();
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (_paused || _submitting) return;
+      if (pr.untimed) {
+        if (++_tick % 10 == 0) _persist();
+        return;
+      }
       setState(() => pr.remaining[pr.unit] = (pr.remaining[pr.unit] - 1).clamp(0, 1 << 30));
       if (++_tick % 10 == 0) _persist();
       if (pr.remaining[pr.unit] <= 0) _unitTimeUp();
@@ -418,7 +453,7 @@ class _TestScreenState extends State<TestScreen> with WidgetsBindingObserver {
     }
     if (_en == null) {
       setState(() => _enLoading = true);
-      _en = await loadEnglishTwin(p.rules.mockId);
+      _en = p.chapter != null ? p.chapter!.en : await loadEnglishTwin(p.rules.mockId);
       if (!mounted) return;
       setState(() => _enLoading = false);
     }
@@ -533,7 +568,7 @@ class _TestScreenState extends State<TestScreen> with WidgetsBindingObserver {
     final shown = _showEn ? (_en?[q.qNumOr(pr.current + 1)] ?? q) : q;
     final left = pr.remaining[pr.unit];
     final neg = p.rules.neg(q, pr.current);
-    final low = left <= 60;
+    final low = !pr.untimed && left <= 60;
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) async {
@@ -556,7 +591,7 @@ class _TestScreenState extends State<TestScreen> with WidgetsBindingObserver {
               child: Row(children: [
                 Icon(Icons.timer_outlined, size: 18, color: low ? const Color(0xFFDC2626) : const Color(0xFF334155)),
                 const SizedBox(width: 4),
-                Text(_clock(left), style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, fontFeatures: const [FontFeature.tabularFigures()], color: low ? const Color(0xFFDC2626) : const Color(0xFF0F172A))),
+                Text(pr.untimed ? 'Untimed' : _clock(left), style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, fontFeatures: const [FontFeature.tabularFigures()], color: low ? const Color(0xFFDC2626) : const Color(0xFF0F172A))),
               ]),
             ),
             IconButton(onPressed: _togglePause, icon: Icon(_paused ? Icons.play_arrow : Icons.pause), tooltip: _paused ? 'Resume' : 'Pause'),
@@ -569,7 +604,7 @@ class _TestScreenState extends State<TestScreen> with WidgetsBindingObserver {
                   Icon(Icons.pause_circle_outline, size: 64, color: exam.c1),
                   const SizedBox(height: 10),
                   const Text('Test paused', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
-                  Text('${_clock(left)} left in ${unit.label}', style: const TextStyle(color: Color(0xFF64748B))),
+                  Text(pr.untimed ? 'Untimed practice' : '${_clock(left)} left in ${unit.label}', style: const TextStyle(color: Color(0xFF64748B))),
                   const SizedBox(height: 14),
                   FilledButton.icon(onPressed: _togglePause, style: FilledButton.styleFrom(backgroundColor: exam.c1), icon: const Icon(Icons.play_arrow), label: const Text('Resume')),
                 ]),

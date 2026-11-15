@@ -58,7 +58,7 @@ class _DashboardTabState extends State<DashboardTab> {
     return '${d.day} ${m[d.month - 1]} · $h:${d.minute.toString().padLeft(2, '0')} ${d.hour < 12 ? 'am' : 'pm'}';
   }
 
-  String _id(Map<String, dynamic> a) => '${a['mockId'] ?? ''}'.isNotEmpty ? '${a['mockId']}' : '${a['paperId'] ?? ''}';
+  String _id(Map<String, dynamic> a) => '${a['mockId'] ?? ''}'.isNotEmpty ? '${a['mockId']}' : ('${a['paperId'] ?? ''}'.isNotEmpty ? '${a['paperId']}' : '${a['lbKey'] ?? ''}');
 
   String _title(Map<String, dynamic> a) {
     final id = '${a['mockId'] ?? ''}';

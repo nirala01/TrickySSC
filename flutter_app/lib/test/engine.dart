@@ -148,6 +148,7 @@ class Rules {
   }
 
   String timingLine(int units) {
+    if (mockId.startsWith('cw_')) return 'One chapter test of 25 questions. Choose a 15-minute clock or untimed practice below.';
     if (tier2) return 'Section I (Maths + Reasoning) 60 min, Section II (English + GA) 60 min, Section III (Computer) 15 min. Move freely inside the open section.';
     if (ntpc) return 'One paper on a single 90-minute clock.';
     if (mts) return 'Two sessions of 45 minutes each. Session I (Maths, Reasoning), then Session II (GA, English).';
@@ -172,10 +173,47 @@ class Paper {
   final List<Unit> units;
   final String title;
   final String partD; // GD only: 'en' / 'hi' / ''
+  ChapterInfo? chapter; // set for chapter tests
   Paper(this.rules, this.questions, this.sections, this.units, this.title, this.partD);
 
   int unitSecs(int i) => units[i].seconds > 0 ? units[i].seconds : rules.unitSeconds;
   int get totalSecs => [for (var i = 0; i < units.length; i++) unitSecs(i)].fold(0, (a, b) => a + b);
+}
+
+/// A chapter test (website: chapterwise-test.html): 25 questions, +2 / −0.5, 15 minutes or untimed.
+class ChapterInfo {
+  final String chapterId, chapterName, subject, lang;
+  final int level, testNum;
+  final Map<int, Question> en; // English questions by qNum, for "View in English"
+  ChapterInfo(this.chapterId, this.chapterName, this.subject, this.level, this.testNum, this.lang, this.en);
+  String get lbKey => cwLbKey(chapterId, level, testNum);
+  String get lbName => '$chapterName · Level $level · Test $testNum';
+}
+
+String cwLbKey(String chapterId, int level, int testNum) => 'cw_${chapterId.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '')}_L${level}_T$testNum';
+
+Future<Paper> loadChapterTest({required String chapterId, required String chapterName, required String subject, required int level, required int testNum, required String lang}) async {
+  final col = FirebaseFirestore.instance.collection('questions');
+  var snap = await col.where('chapterId', isEqualTo: chapterId).where('level', isEqualTo: level).where('testNum', isEqualTo: testNum).get();
+  if (snap.docs.isEmpty) {
+    snap = await col.where('chapterId', isEqualTo: chapterId).where('level', isEqualTo: '$level').where('testNum', isEqualTo: '$testNum').get();
+  }
+  final en = <Question>[], hi = <Question>[];
+  for (final d in snap.docs) {
+    final m = d.data();
+    if (m['type'] != 'chapterwise' || m['exam'] != 'ssc-cgl') continue;
+    ((m['language'] ?? m['lang']) == 'hi' ? hi : en).add(Question({'id': d.id, ...m}));
+  }
+  en.sort((a, b) => a.qNum.compareTo(b.qNum));
+  hi.sort((a, b) => a.qNum.compareTo(b.qNum));
+  final useLang = (lang == 'hi' && hi.isNotEmpty) || en.isEmpty ? 'hi' : 'en';
+  final qs = useLang == 'hi' ? hi : en;
+  if (qs.isEmpty) throw 'This test has no questions yet.';
+  final id = '${cwLbKey(chapterId, level, testNum)}_$useLang';
+  final rules = Rules(id);
+  final p = Paper(rules, qs, [Section(chapterName, 0, qs.length - 1)], [Unit(chapterName, 0, qs.length - 1, 15 * 60)], '$chapterName · Level $level · Test $testNum', '');
+  p.chapter = ChapterInfo(chapterId, chapterName, subject, level, testNum, useLang, {for (final q in en) q.qNumOr(0): q});
+  return p;
 }
 
 /// Previous-year papers are keyed by paperId (ssc-cgl_2026_tier1_shift-1_2026-10-13_en), mocks by mockId.
@@ -303,6 +341,7 @@ class Progress {
   int unit = 0;
   int current = 0;
   List<int> remaining = [];
+  bool untimed = false; // chapter tests can be taken without a clock
 
   Map<String, dynamic> toJson() => {
         'a': answers.map((k, v) => MapEntry('$k', v)),
@@ -312,6 +351,7 @@ class Progress {
         'u': unit,
         'c': current,
         'r': remaining,
+        'ut': untimed,
         'at': DateTime.now().millisecondsSinceEpoch,
       };
 
@@ -324,6 +364,7 @@ class Progress {
     p.unit = (j['u'] as num? ?? 0).toInt();
     p.current = (j['c'] as num? ?? 0).toInt();
     p.remaining = [for (final x in (j['r'] as List? ?? [])) (x as num).toInt()];
+    p.untimed = j['ut'] == true;
     return p;
   }
 }
@@ -515,8 +556,40 @@ Future<void> saveResult(User u, Exam exam, Paper p, Progress pr, Result r) async
   final subjectMarks = r.subjects.map((k, v) => MapEntry(k, _r1(v.marks)));
   final pyq = isPyqId(mockId);
   final year = pyq ? (RegExp(r'^[a-z-]+_(\d{4})_').firstMatch(mockId)?.group(1) ?? '') : '';
-  final attemptId = '${u.uid}_${exam.id}_${year.isEmpty ? 'na' : year}_${DateTime.now().millisecondsSinceEpoch}';
-  final payload = <String, dynamic>{
+  final ch = p.chapter;
+  final attemptId = ch != null
+      ? 'cw_${u.uid}_${ch.chapterId.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '')}_L${ch.level}_T${ch.testNum}_${ch.lang}'
+      : '${u.uid}_${exam.id}_${year.isEmpty ? 'na' : year}_${DateTime.now().millisecondsSinceEpoch}';
+  final payload = ch != null
+      ? <String, dynamic>{
+          'uid': u.uid,
+          'type': 'chapterwise',
+          'exam': 'ssc-cgl',
+          'examName': ch.chapterName,
+          'subject': ch.subject,
+          'chapter': ch.chapterId,
+          'chapterId': ch.chapterId,
+          'chapterName': ch.chapterName,
+          'level': ch.level,
+          'testNum': ch.testNum,
+          'language': ch.lang,
+          'correct': r.correct,
+          'wrong': r.wrong,
+          'skip': r.skip,
+          'total': r.total,
+          'marks': r.marks,
+          'percentage': r.pct,
+          'name': u.displayName ?? '',
+          'email': u.email ?? '',
+          'phone': u.phoneNumber ?? '',
+          'answers': log,
+          'timeUsed': r.timeUsed,
+          'analyticsV': 1,
+          'lbKey': ch.lbKey,
+          'timestamp': FieldValue.serverTimestamp(),
+          'clientSubmittedAt': DateTime.now().toUtc().toIso8601String(),
+        }
+      : <String, dynamic>{
     'uid': u.uid,
     'exam': exam.id,
     'year': year,
@@ -539,12 +612,12 @@ Future<void> saveResult(User u, Exam exam, Paper p, Progress pr, Result r) async
     'timestamp': FieldValue.serverTimestamp(),
     'clientSubmittedAt': DateTime.now().toUtc().toIso8601String(),
   };
-  await db.collection('attempts').doc(attemptId).set(payload, SetOptions(merge: true));
+  await db.collection('attempts').doc(attemptId).set(payload, SetOptions(merge: ch == null));
   r.attemptId = attemptId;
   r.saved = true;
 
-  // user totals (same arithmetic as the website)
-  try {
+  // user totals (same arithmetic as the website; chapter tests do not count here)
+  if (ch == null) try {
     final ref = db.collection('users').doc(u.uid);
     final snap = await ref.get();
     final d = snap.data() ?? const {};
@@ -588,7 +661,7 @@ Future<void> saveResult(User u, Exam exam, Paper p, Progress pr, Result r) async
           'marks': r.marks,
           'maxMarks': r.maxMarks,
           'accuracy': r.pct,
-          'subjectMarks': subjectMarks,
+          'subjectMarks': ch != null ? <String, dynamic>{} : subjectMarks,
           'timeUsed': r.timeUsed,
           'submittedAt': FieldValue.serverTimestamp(),
         });
