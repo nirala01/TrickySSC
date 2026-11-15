@@ -330,6 +330,10 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;}
   function myExam(){ var k=''; try{ k=localStorage.getItem(EXAM_KEY)||''; }catch(e){} return E[k] ? k : ''; }
   function setExam(k){ try{ localStorage.setItem(EXAM_KEY,k); }catch(e){} }
   /* passes this phone already knows about (the mock page caches them for the session) */
+  function entMap(){
+    var u=user(); if(!u||!u.uid) return {};
+    try{ var o=JSON.parse(sessionStorage.getItem('tssc_ent_v2_'+u.uid)||'null'); return (o&&o.m)||{}; }catch(e){ return {}; }
+  }
   function owns(k){
     var u=user(); if(!u||!u.uid) return false;
     try{ var o=JSON.parse(sessionStorage.getItem('tssc_ent_v2_'+u.uid)||'null'); var m=(o&&o.m)||{};
@@ -394,6 +398,10 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;}
       if(PASS.k!==k) return;                       // the student moved on
       var seen={}, list=[];
       P.productsGranting(cat,x.pass).concat(P.productsGranting(cat,'all-mocks')).forEach(function(p){ if(!seen[p.id]){ seen[p.id]=1; list.push(p); } });
+      /* a combo that includes a series this student already owns is not offered (the All Mocks Pass stays) */
+      var held=entMap();
+      list=list.filter(function(p){ var g=p.grants||[]; if(g.indexOf('all-mocks')!==-1) return true;
+        for(var i=0;i<g.length;i++){ if(held[g[i]]===true) return false; } return true; });
       list.sort(function(a,b){ return a.price-b.price; });
       PASS.plans=list;
       if(!list.length){ $('plans').innerHTML='<p class="note">Plans are not available right now. Open the mock list to see the current offer.</p>'; return; }
