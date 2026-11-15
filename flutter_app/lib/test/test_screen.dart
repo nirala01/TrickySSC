@@ -627,7 +627,10 @@ class _TestScreenState extends State<TestScreen> with WidgetsBindingObserver {
                       Rich(questionHtml(shown.text), size: 16.5),
                       if (shown.imageUrl.isNotEmpty) Figure(shown.imageUrl),
                       const SizedBox(height: 8),
-                      for (final k in q.keys) _option(k, shown),
+                      if (_imageOnly(shown))
+                        _optionGrid(shown)
+                      else
+                        for (final k in q.keys) _option(k, shown),
                     ],
                   ),
                 ),
@@ -666,11 +669,60 @@ class _TestScreenState extends State<TestScreen> with WidgetsBindingObserver {
 
   String _n(double v) => v == v.roundToDouble() ? '${v.round()}' : v.toStringAsFixed(2).replaceFirst(RegExp(r'0+$'), '');
 
+  String _img(String k, Question shown) => shown.optionImage(k).isNotEmpty ? shown.optionImage(k) : q.optionImage(k);
+
+  bool _imageOnly(Question shown) => q.keys.every((k) => stripFigRef(shown.option(k)).isEmpty && _img(k, shown).isNotEmpty);
+
+  Widget _optionGrid(Question shown) {
+    final exam = widget.exam;
+    final keys = q.keys;
+    Widget tile(String k) {
+      final sel = pr.answers[pr.current] == k;
+      return Expanded(
+        child: Material(
+          color: sel ? Color.lerp(Colors.white, exam.c2, 0.22) : Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(14),
+            onTap: () => _pick(k),
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(6, 6, 6, 4),
+              decoration: BoxDecoration(borderRadius: BorderRadius.circular(14), border: Border.all(color: sel ? exam.c1 : const Color(0xFFE2E8F0), width: sel ? 2 : 1)),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Container(
+                  width: 26,
+                  height: 26,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(shape: BoxShape.circle, color: sel ? exam.c1 : const Color(0xFFF1F5F9)),
+                  child: Text(k, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: sel ? Colors.white : const Color(0xFF334155))),
+                ),
+                SizedBox(height: 124, child: Center(child: Figure(_img(k, shown), maxHeight: 112, tapZoom: false))),
+              ]),
+            ),
+          ),
+        ),
+      );
+    }
+
+    final rows = <Widget>[];
+    for (var i = 0; i < keys.length; i += 2) {
+      rows.add(Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          tile(keys[i]),
+          const SizedBox(width: 8),
+          if (i + 1 < keys.length) tile(keys[i + 1]) else const Expanded(child: SizedBox()),
+        ]),
+      ));
+    }
+    return Column(children: rows);
+  }
+
   Widget _option(String k, Question shown) {
     final sel = pr.answers[pr.current] == k;
     final exam = widget.exam;
     final txt = stripFigRef(shown.option(k));
-    final img = shown.optionImage(k).isNotEmpty ? shown.optionImage(k) : q.optionImage(k);
+    final img = _img(k, shown);
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Material(
@@ -696,7 +748,7 @@ class _TestScreenState extends State<TestScreen> with WidgetsBindingObserver {
                   padding: const EdgeInsets.only(top: 4),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     if (txt.isNotEmpty) Rich(contentHtml(txt), size: 15.5),
-                    if (img.isNotEmpty) Figure(img, maxHeight: txt.isEmpty ? 170 : 100),
+                    if (img.isNotEmpty) Figure(img, maxHeight: txt.isEmpty ? 130 : 100, tapZoom: false),
                   ]),
                 ),
               ),

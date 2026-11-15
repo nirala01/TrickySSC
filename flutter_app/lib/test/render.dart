@@ -153,40 +153,124 @@ class Rich extends StatelessWidget {
 class Figure extends StatefulWidget {
   final String url;
   final double maxHeight;
-  const Figure(this.url, {super.key, this.maxHeight = 260});
+  final bool tapZoom;
+  const Figure(this.url, {super.key, this.maxHeight = 320, this.tapZoom = true});
 
   @override
   State<Figure> createState() => _FigureState();
 }
 
+void openFigure(BuildContext context, String url) {
+  Navigator.of(context).push(PageRouteBuilder(
+    opaque: false,
+    barrierColor: Colors.black,
+    pageBuilder: (c, _, __) => _FigureViewer(figureUrl(url)),
+  ));
+}
+
+class _FigureViewer extends StatelessWidget {
+  final String src;
+  const _FigureViewer(this.src);
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        backgroundColor: Colors.black,
+        body: SafeArea(
+          child: Stack(children: [
+            Positioned.fill(
+              child: InteractiveViewer(
+                minScale: 1,
+                maxScale: 6,
+                child: Center(
+                  child: Container(
+                    color: Colors.white,
+                    child: Image.network(src, fit: BoxFit.contain, width: double.infinity),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 8,
+              right: 8,
+              child: IconButton.filled(
+                style: IconButton.styleFrom(backgroundColor: Colors.white24),
+                onPressed: () => Navigator.of(context).pop(),
+                icon: const Icon(Icons.close, color: Colors.white),
+              ),
+            ),
+            const Positioned(
+              bottom: 12,
+              left: 0,
+              right: 0,
+              child: Text('Pinch to zoom', textAlign: TextAlign.center, style: TextStyle(color: Colors.white70, fontSize: 12)),
+            ),
+          ]),
+        ),
+      );
+}
+
 class _FigureState extends State<Figure> {
   int _try = 0;
+
+  Widget _loader() => Container(
+        height: 90,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(10)),
+        child: const Row(mainAxisSize: MainAxisSize.min, children: [
+          SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2.5)),
+          SizedBox(width: 10),
+          Text('Loading figure…', style: TextStyle(color: Color(0xFF64748B), fontSize: 13)),
+        ]),
+      );
 
   @override
   Widget build(BuildContext context) {
     final u = figureUrl(widget.url);
     final src = _try == 0 ? u : '$u${u.contains('?') ? '&' : '?'}_r=$_try';
+    bool ok = false;
+    final img = Image.network(
+      src,
+      key: ValueKey(src),
+      fit: BoxFit.contain,
+      frameBuilder: (c, child, frame, sync) {
+        if (sync || frame != null) {
+          ok = true;
+          return child;
+        }
+        return _loader();
+      },
+      loadingBuilder: (c, child, p) => p == null ? child : _loader(),
+      errorBuilder: (c, e, s) => InkWell(
+        onTap: () => setState(() => _try++),
+        child: Container(
+          height: 64,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(10)),
+          child: const Text('Figure could not load · Tap to retry', style: TextStyle(color: Color(0xFF475569), fontSize: 13)),
+        ),
+      ),
+    );
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: ConstrainedBox(
         constraints: BoxConstraints(maxHeight: widget.maxHeight),
-        child: Image.network(
-          src,
-          key: ValueKey(src),
-          fit: BoxFit.contain,
-          loadingBuilder: (c, child, p) => p == null
-              ? child
-              : const SizedBox(height: 80, child: Center(child: SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5)))),
-          errorBuilder: (c, e, s) => InkWell(
-            onTap: () => setState(() => _try++),
-            child: Container(
-              height: 64,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(10)),
-              child: const Text('Figure could not load · Tap to retry', style: TextStyle(color: Color(0xFF475569), fontSize: 13)),
+        child: Stack(alignment: Alignment.center, children: [
+          GestureDetector(
+            onTap: widget.tapZoom ? () { if (ok) openFigure(context, widget.url); } : null,
+            child: img,
+          ),
+          Positioned(
+            right: 0,
+            top: 0,
+            child: GestureDetector(
+              onTap: () => openFigure(context, widget.url),
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(color: const Color(0xCCFFFFFF), borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFFE2E8F0))),
+                child: const Icon(Icons.zoom_out_map, size: 16, color: Color(0xFF475569)),
+              ),
             ),
           ),
-        ),
+        ]),
       ),
     );
   }

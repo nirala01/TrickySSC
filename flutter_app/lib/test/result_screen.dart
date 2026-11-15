@@ -184,57 +184,192 @@ class SolutionsScreen extends StatefulWidget {
 class _SolutionsScreenState extends State<SolutionsScreen> {
   int _i = 0;
   String _filter = 'all';
+  bool _scrollMode = true;
+  final _keys = <int, GlobalKey>{};
+  final _strip = ScrollController();
 
-  List<int> get _list {
-    final p = widget.paper, pr = widget.progress;
-    return [
-      for (var i = 0; i < p.questions.length; i++)
-        if (_filter == 'all' ||
-            (_filter == 'wrong' && pr.answers[i] != null && pr.answers[i] != p.questions[i].correct) ||
-            (_filter == 'skip' && pr.answers[i] == null) ||
-            (_filter == 'right' && pr.answers[i] == p.questions[i].correct))
-          i
-    ];
-  }
+  Paper get p => widget.paper;
+  Progress get pr => widget.progress;
+
+  List<int> get _list => [
+        for (var i = 0; i < p.questions.length; i++)
+          if (_filter == 'all' || _status(i) == _filter) i
+      ];
 
   String _status(int i) {
-    final a = widget.progress.answers[i];
+    final a = pr.answers[i];
     if (a == null) return 'skip';
-    return a == widget.paper.questions[i].correct ? 'right' : 'wrong';
+    return a == p.questions[i].correct ? 'right' : 'wrong';
   }
 
+  int _count(String f) => f == 'all' ? p.questions.length : [for (var i = 0; i < p.questions.length; i++) if (_status(i) == f) i].length;
+
   static const _col = {'right': Color(0xFF16A34A), 'wrong': Color(0xFFDC2626), 'skip': Color(0xFF94A3B8)};
+  static const _label = {'right': 'Correct', 'wrong': 'Wrong', 'skip': 'Not answered'};
+
+  String _section(int i) {
+    for (final s in p.sections) {
+      if (i >= s.from && i <= s.to) return s.label;
+    }
+    return '';
+  }
+
+  void _jump(int i) {
+    setState(() => _i = i);
+    if (_scrollMode) {
+      final ctx = _keys[i]?.currentContext;
+      if (ctx != null) Scrollable.ensureVisible(ctx, duration: const Duration(milliseconds: 300), alignment: 0.02);
+    }
+  }
+
+  Widget _panel(String title, IconData icon, Color c, String html, [String img = '']) => Container(
+        margin: const EdgeInsets.only(top: 8),
+        padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+        decoration: BoxDecoration(
+          color: Color.lerp(Colors.white, c, 0.06),
+          borderRadius: BorderRadius.circular(10),
+          border: Border(left: BorderSide(color: c, width: 3)),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [Icon(icon, size: 16, color: c), const SizedBox(width: 5), Text(title, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: c))]),
+          const SizedBox(height: 4),
+          if (html.isNotEmpty) Rich(contentHtml(html), size: 14.5),
+          if (img.isNotEmpty) Figure(img),
+        ]),
+      );
+
+  Color _optBg(String k, Question q, String? a) => k == q.correct ? const Color(0xFFDCFCE7) : (k == a ? const Color(0xFFFEE2E2) : Colors.white);
+  Color _optBorder(String k, Question q, String? a) => k == q.correct ? const Color(0xFF16A34A) : (k == a ? const Color(0xFFDC2626) : const Color(0xFFE2E8F0));
+
+  Widget _mark(String k, Question q, String? a) => k == q.correct
+      ? const Icon(Icons.check_circle, color: Color(0xFF16A34A), size: 18)
+      : (k == a ? const Icon(Icons.cancel, color: Color(0xFFDC2626), size: 18) : const SizedBox(width: 18));
+
+  Widget _options(Question q, String? a) {
+    final imageOnly = q.keys.every((k) => stripFigRef(q.option(k)).isEmpty && q.optionImage(k).isNotEmpty);
+    if (imageOnly) {
+      Widget tile(String k) => Expanded(
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(6, 6, 6, 4),
+              decoration: BoxDecoration(color: _optBg(k, q, a), borderRadius: BorderRadius.circular(10), border: Border.all(color: _optBorder(k, q, a), width: k == q.correct || k == a ? 1.6 : 1)),
+              child: Column(children: [
+                Row(children: [Text(k, style: const TextStyle(fontWeight: FontWeight.w800)), const Spacer(), _mark(k, q, a)]),
+                SizedBox(height: 104, child: Center(child: Figure(q.optionImage(k), maxHeight: 96))),
+              ]),
+            ),
+          );
+      return Column(children: [
+        for (var i = 0; i < q.keys.length; i += 2)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              tile(q.keys[i]),
+              const SizedBox(width: 6),
+              if (i + 1 < q.keys.length) tile(q.keys[i + 1]) else const Expanded(child: SizedBox()),
+            ]),
+          ),
+      ]);
+    }
+    return Column(children: [
+      for (final k in q.keys)
+        Container(
+          margin: const EdgeInsets.only(bottom: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          decoration: BoxDecoration(color: _optBg(k, q, a), borderRadius: BorderRadius.circular(10), border: Border.all(color: _optBorder(k, q, a), width: k == q.correct || k == a ? 1.6 : 1)),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            SizedBox(width: 22, child: Text(k, style: const TextStyle(fontWeight: FontWeight.w800))),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                if (stripFigRef(q.option(k)).isNotEmpty) Rich(contentHtml(stripFigRef(q.option(k))), size: 14.5),
+                if (q.optionImage(k).isNotEmpty) Figure(q.optionImage(k), maxHeight: 100),
+              ]),
+            ),
+            _mark(k, q, a),
+          ]),
+        ),
+    ]);
+  }
+
+  Widget _card(int i) {
+    final q = p.questions[i];
+    final a = pr.answers[i];
+    final st = _status(i);
+    final secs = (pr.qMs[i] ?? 0) ~/ 1000;
+    return Container(
+      key: _scrollMode ? (_keys[i] ??= GlobalKey()) : null,
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border(left: BorderSide(color: _col[st]!, width: 4)),
+        boxShadow: const [BoxShadow(color: Color(0x0F000000), blurRadius: 6, offset: Offset(0, 2))],
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Text('Q${i + 1}', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900)),
+          const SizedBox(width: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+            decoration: BoxDecoration(color: _col[st], borderRadius: BorderRadius.circular(6)),
+            child: Text(_label[st]!, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w800)),
+          ),
+          const SizedBox(width: 6),
+          Expanded(child: Text(_section(i), overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)))),
+          if (secs > 0) Text('⏱ ${secs ~/ 60}:${(secs % 60).toString().padLeft(2, '0')}', style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+        ]),
+        const SizedBox(height: 6),
+        Rich(questionHtml(q.text), size: 15.5),
+        if (q.imageUrl.isNotEmpty) Figure(q.imageUrl),
+        const SizedBox(height: 6),
+        _options(q, a),
+        if (q.explanation.isNotEmpty || q.solutionImage.isNotEmpty) _panel('Solution', Icons.lightbulb_outline, const Color(0xFF2563EB), q.explanation, q.solutionImage),
+        if (q.trick.isNotEmpty) _panel('Quick trick', Icons.bolt, const Color(0xFFD97706), q.trick),
+        if (q.concept.isNotEmpty) _panel('Concept', Icons.psychology_outlined, const Color(0xFF7C3AED), q.concept),
+      ]),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final exam = widget.exam;
     final list = _list;
     if (list.isNotEmpty && !list.contains(_i)) _i = list.first;
-    final q = widget.paper.questions[_i];
-    final a = widget.progress.answers[_i];
     final pos = list.indexOf(_i);
     Widget chip(String key, String label) => Padding(
-          padding: const EdgeInsets.only(right: 8),
-          child: ChoiceChip(label: Text(label), selected: _filter == key, onSelected: (_) => setState(() => _filter = key), visualDensity: VisualDensity.compact),
-        );
-    Widget panel(String title, IconData icon, Color c, String html, [String img = '']) => Container(
-          margin: const EdgeInsets.only(top: 10),
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(color: Color.lerp(Colors.white, c, 0.08), borderRadius: BorderRadius.circular(12), border: Border.all(color: Color.lerp(Colors.white, c, 0.35)!)),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [Icon(icon, size: 18, color: c), const SizedBox(width: 6), Text(title, style: TextStyle(fontWeight: FontWeight.w800, color: c))]),
-            const SizedBox(height: 6),
-            if (html.isNotEmpty) Rich(contentHtml(html), size: 15),
-            if (img.isNotEmpty) Figure(img),
-          ]),
+          padding: const EdgeInsets.only(right: 6),
+          child: ChoiceChip(
+            label: Text('$label ${_count(key)}'),
+            selected: _filter == key,
+            onSelected: (_) => setState(() => _filter = key),
+            visualDensity: VisualDensity.compact,
+            labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+          ),
         );
     return Scaffold(
       backgroundColor: Color.lerp(Colors.white, exam.c2, 0.08),
-      appBar: AppBar(title: const Text('Solutions', style: TextStyle(fontWeight: FontWeight.w800))),
+      appBar: AppBar(
+        title: const Text('Solutions', style: TextStyle(fontWeight: FontWeight.w800)),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 10),
+            child: SegmentedButton<bool>(
+              showSelectedIcon: false,
+              style: const ButtonStyle(visualDensity: VisualDensity.compact),
+              segments: const [
+                ButtonSegment(value: true, icon: Icon(Icons.view_agenda_outlined, size: 18), label: Text('Scroll')),
+                ButtonSegment(value: false, icon: Icon(Icons.crop_square, size: 18), label: Text('One')),
+              ],
+              selected: {_scrollMode},
+              onSelectionChanged: (v) => setState(() => _scrollMode = v.first),
+            ),
+          ),
+        ],
+      ),
       body: Column(children: [
         SizedBox(
-          height: 46,
-          child: ListView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.fromLTRB(10, 6, 10, 2), children: [
+          height: 44,
+          child: ListView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.fromLTRB(10, 4, 10, 2), children: [
             chip('all', 'All'),
             chip('wrong', 'Wrong'),
             chip('skip', 'Skipped'),
@@ -242,23 +377,24 @@ class _SolutionsScreenState extends State<SolutionsScreen> {
           ]),
         ),
         SizedBox(
-          height: 48,
+          height: 42,
           child: ListView.builder(
+            controller: _strip,
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             itemCount: list.length,
             itemBuilder: (_, k) {
               final i = list[k];
               return Padding(
-                padding: const EdgeInsets.only(right: 6),
+                padding: const EdgeInsets.only(right: 5),
                 child: InkWell(
-                  onTap: () => setState(() => _i = i),
-                  borderRadius: BorderRadius.circular(10),
+                  onTap: () => _jump(i),
+                  borderRadius: BorderRadius.circular(8),
                   child: Container(
-                    width: 40,
+                    width: 36,
                     alignment: Alignment.center,
-                    decoration: BoxDecoration(color: _col[_status(i)], borderRadius: BorderRadius.circular(10), border: i == _i ? Border.all(color: const Color(0xFF0F172A), width: 2.5) : null),
-                    child: Text('${i + 1}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
+                    decoration: BoxDecoration(color: _col[_status(i)], borderRadius: BorderRadius.circular(8), border: i == _i ? Border.all(color: const Color(0xFF0F172A), width: 2.5) : null),
+                    child: Text('${i + 1}', style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w800)),
                   ),
                 ),
               );
@@ -268,69 +404,40 @@ class _SolutionsScreenState extends State<SolutionsScreen> {
         Expanded(
           child: list.isEmpty
               ? const Center(child: Text('No questions here.'))
-              : ListView(padding: const EdgeInsets.fromLTRB(14, 6, 14, 14), children: [
-                  Row(children: [
-                    Text('Q ${_i + 1}', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(color: _col[_status(_i)], borderRadius: BorderRadius.circular(8)),
-                      child: Text({'right': 'Correct', 'wrong': 'Wrong', 'skip': 'Not answered'}[_status(_i)]!, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w800)),
-                    ),
-                  ]),
-                  const SizedBox(height: 8),
-                  Rich(questionHtml(q.text), size: 16),
-                  if (q.imageUrl.isNotEmpty) Figure(q.imageUrl),
-                  const SizedBox(height: 8),
-                  for (final k in q.keys)
-                    Container(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: k == q.correct ? const Color(0xFFDCFCE7) : (k == a ? const Color(0xFFFEE2E2) : Colors.white),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: k == q.correct ? const Color(0xFF16A34A) : (k == a ? const Color(0xFFDC2626) : const Color(0xFFE2E8F0))),
-                      ),
-                      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text('$k  ', style: const TextStyle(fontWeight: FontWeight.w800)),
-                        Expanded(
-                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            if (stripFigRef(q.option(k)).isNotEmpty) Rich(contentHtml(stripFigRef(q.option(k))), size: 15),
-                            if (q.optionImage(k).isNotEmpty) Figure(q.optionImage(k), maxHeight: 100),
-                          ]),
-                        ),
-                        if (k == q.correct) const Icon(Icons.check_circle, color: Color(0xFF16A34A), size: 20),
-                        if (k == a && k != q.correct) const Icon(Icons.cancel, color: Color(0xFFDC2626), size: 20),
-                      ]),
-                    ),
-                  if (q.explanation.isNotEmpty || q.solutionImage.isNotEmpty) panel('Step-by-step solution', Icons.lightbulb_outline, const Color(0xFF2563EB), q.explanation, q.solutionImage),
-                  if (q.trick.isNotEmpty) panel('Quick trick', Icons.bolt, const Color(0xFFD97706), q.trick),
-                  if (q.concept.isNotEmpty) panel('Concept', Icons.psychology_outlined, const Color(0xFF7C3AED), q.concept),
-                ]),
+              : _scrollMode
+                  ? SingleChildScrollView(
+                      key: ValueKey('scroll_$_filter'),
+                      padding: const EdgeInsets.fromLTRB(10, 4, 10, 16),
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [for (final i in list) _card(i)]),
+                    )
+                  : ListView(key: ValueKey('one_$_i'), padding: const EdgeInsets.fromLTRB(10, 4, 10, 10), children: [_card(_i)]),
         ),
-        SafeArea(
-          top: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(10, 6, 10, 8),
-            child: Row(children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: pos > 0 ? () => setState(() => _i = list[pos - 1]) : null,
-                  style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(46)),
-                  child: const Text('Previous'),
+        if (!_scrollMode && list.isNotEmpty)
+          SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(10, 4, 10, 8),
+              child: Row(children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: pos > 0 ? () => setState(() => _i = list[pos - 1]) : null,
+                    style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(46), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                    icon: const Icon(Icons.chevron_left),
+                    label: const Text('Previous', style: TextStyle(fontWeight: FontWeight.w800)),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: FilledButton(
-                  onPressed: pos >= 0 && pos < list.length - 1 ? () => setState(() => _i = list[pos + 1]) : null,
-                  style: FilledButton.styleFrom(backgroundColor: exam.c1, minimumSize: const Size.fromHeight(46)),
-                  child: const Text('Next'),
+                Padding(padding: const EdgeInsets.symmetric(horizontal: 10), child: Text('${pos + 1}/${list.length}', style: const TextStyle(fontWeight: FontWeight.w800))),
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: pos >= 0 && pos < list.length - 1 ? () => setState(() => _i = list[pos + 1]) : null,
+                    style: FilledButton.styleFrom(backgroundColor: exam.c1, minimumSize: const Size.fromHeight(46), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                    icon: const Icon(Icons.chevron_right),
+                    label: const Text('Next', style: TextStyle(fontWeight: FontWeight.w800)),
+                  ),
                 ),
-              ),
-            ]),
+              ]),
+            ),
           ),
-        ),
       ]),
     );
   }
