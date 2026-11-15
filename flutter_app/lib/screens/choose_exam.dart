@@ -17,7 +17,14 @@ class ChooseExamScreen extends StatelessWidget {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
             children: [
-              Text('TrickySSC', style: baloo(21, color: softIndigo)),
+              Row(children: [
+                Container(
+                  decoration: BoxDecoration(shape: BoxShape.circle, boxShadow: [BoxShadow(color: const Color(0xFFFF6B00).withValues(alpha: .3), blurRadius: 14, offset: const Offset(0, 5))]),
+                  child: Image.asset('assets/logo.png', width: 40, height: 40),
+                ),
+                const SizedBox(width: 10),
+                Text.rich(TextSpan(children: [TextSpan(text: 'Tricky', style: baloo(24)), TextSpan(text: 'SSC', style: baloo(24, color: const Color(0xFFFF6B00)))])),
+              ]),
               const SizedBox(height: 14),
               Text('Choose your exam', style: baloo(34)),
               const SizedBox(height: 4),
@@ -65,7 +72,7 @@ class _ExamCard extends StatelessWidget {
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(exam.name, style: baloo(21)),
                   const SizedBox(height: 2),
-                  Text('${exam.sub} · ${exam.mocks}', style: const TextStyle(color: softMuted, fontSize: 14.5, fontWeight: FontWeight.w600)),
+                  Text(exam.sub, style: const TextStyle(color: softMuted, fontSize: 14.5, fontWeight: FontWeight.w600)),
                 ]),
               ),
               Icon(Icons.chevron_right, color: exam.c1, size: 26),

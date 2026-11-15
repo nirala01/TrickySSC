@@ -174,3 +174,139 @@ class SoftRow extends StatelessWidget {
     );
   }
 }
+
+enum RowState { done, progress, todo, locked }
+
+/// Test list row (Mock tests, PYQs): icon · tags, title, sub line, meta line · status pill over an action button.
+class TestRow extends StatelessWidget {
+  final List<Widget> tags;
+  final String title;
+  final String sub;
+  final List<(IconData, String)> meta;
+  final RowState state;
+  final String? score;
+  final Color accent;
+  final VoidCallback onTap;
+  const TestRow({super.key, this.tags = const [], required this.title, this.sub = '', this.meta = const [], required this.state, this.score, required this.accent, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final (fg, bg, icon, label) = switch (state) {
+      RowState.done => (const Color(0xFF047857), const Color(0xFFD1FAE5), Icons.check_circle_rounded, 'Completed'),
+      RowState.progress => (const Color(0xFF1D4ED8), const Color(0xFFDBEAFE), Icons.play_circle_fill_rounded, 'In Progress'),
+      RowState.todo => (const Color(0xFFB91C1C), const Color(0xFFFEE2E2), Icons.cancel_rounded, 'Not Attempted'),
+      RowState.locked => (const Color(0xFF64748B), const Color(0xFFF1F5F9), Icons.lock_outline_rounded, 'Locked'),
+    };
+    Widget button() {
+      const ts = TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5);
+      final chev = Icon(Icons.chevron_right_rounded, size: 17, color: state == RowState.done ? accent : Colors.white);
+      switch (state) {
+        case RowState.done:
+          return Container(
+            height: 36,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: accent, width: 2)),
+            child: FittedBox(fit: BoxFit.scaleDown, child: Row(mainAxisSize: MainAxisSize.min, children: [Text('View Result', style: ts.copyWith(color: accent)), chev])),
+          );
+        case RowState.locked:
+          return Container(
+            height: 36,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(12)),
+            child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Icon(Icons.lock_outline_rounded, size: 15, color: Color(0xFF64748B)),
+              SizedBox(width: 4),
+              Text('Unlock', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5, color: Color(0xFF64748B))),
+            ]),
+          );
+        default:
+          final prog = state == RowState.progress;
+          final g = prog ? const [Color(0xFFFBBF24), Color(0xFFD97706)] : [Color.lerp(accent, Colors.white, .3)!, accent];
+          return Container(
+            height: 36,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              gradient: LinearGradient(colors: g, begin: Alignment.topCenter, end: Alignment.bottomCenter),
+              boxShadow: [BoxShadow(color: g.last.withValues(alpha: .28), blurRadius: 10, offset: const Offset(0, 4))],
+            ),
+            child: FittedBox(fit: BoxFit.scaleDown, child: Row(mainAxisSize: MainAxisSize.min, children: [Text(prog ? 'Resume Test' : 'Start Test', style: ts.copyWith(color: Colors.white)), chev])),
+          );
+      }
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Material(
+        color: Colors.transparent,
+        child: Ink(
+          decoration: softCard(radius: 20),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(20),
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 11, 12, 11),
+              child: IntrinsicHeight(
+                child: Row(children: [
+                  Container(
+                    width: 46,
+                    height: 46,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(15),
+                      gradient: const LinearGradient(colors: [Color(0xFFF5F3FF), Color(0xFFEDE9FE)], begin: Alignment.topCenter, end: Alignment.bottomCenter),
+                    ),
+                    child: const Icon(Icons.assignment_outlined, color: Color(0xFF7C3AED), size: 26),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
+                      if (tags.isNotEmpty) Padding(padding: const EdgeInsets.only(bottom: 3), child: Wrap(spacing: 4, runSpacing: 3, children: tags)),
+                      Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: baloo(16.5)),
+                      if (sub.isNotEmpty) Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5, color: softMuted, fontWeight: FontWeight.w700)),
+                      if (meta.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Row(children: [
+                            for (var i = 0; i < meta.length; i++) ...[
+                              if (i > 0) const Padding(padding: EdgeInsets.symmetric(horizontal: 6), child: Text('|', style: TextStyle(color: Color(0xFFCBD5E1)))),
+                              Icon(meta[i].$1, size: 15, color: softMuted),
+                              const SizedBox(width: 3),
+                              Flexible(child: Text(meta[i].$2, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5, color: Color(0xFF475569), fontWeight: FontWeight.w700))),
+                            ],
+                          ]),
+                        ),
+                    ]),
+                  ),
+                  const VerticalDivider(width: 16, thickness: 1, color: Color(0xFFEEF2FF)),
+                  SizedBox(
+                    width: 108,
+                    child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                      Center(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Container(
+                            padding: const EdgeInsets.fromLTRB(5, 3, 8, 3),
+                            decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(999)),
+                            child: Row(mainAxisSize: MainAxisSize.min, children: [
+                              Icon(icon, size: 15, color: fg),
+                              const SizedBox(width: 3),
+                              Text(label, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: fg)),
+                            ]),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 7),
+                      button(),
+                      if (score != null) Padding(padding: const EdgeInsets.only(top: 4), child: Text('Score $score', textAlign: TextAlign.center, style: const TextStyle(fontSize: 11.5, color: softMuted, fontWeight: FontWeight.w800))),
+                    ]),
+                  ),
+                ]),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

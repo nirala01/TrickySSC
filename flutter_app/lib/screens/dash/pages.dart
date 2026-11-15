@@ -89,6 +89,78 @@ void attemptActions(BuildContext context, DashCtx x, Att a) {
   );
 }
 
+/// "View Result" on a finished mock / PYQ: score, solutions, leaderboard, question-by-question, retake.
+void showDoneSheet(BuildContext context, {required User user, required Exam exam, required Att? a, required String title, required VoidCallback onRetake}) {
+  showModalBottomSheet(
+    context: context,
+    backgroundColor: Colors.white,
+    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+    builder: (c) {
+      final x = a == null ? null : DashCtx(user, exam, [a], scopeOf(a), 'GEN');
+      final key = a == null ? '' : lbKeyOf(a);
+      ButtonStyle tonal() => FilledButton.styleFrom(minimumSize: const Size.fromHeight(50), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)));
+      return SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Text(title, style: baloo(19)),
+            if (a != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text('${n1(marksOf(a))} / ${n1(maxOf(a))} marks · ✓${inum(a['correct'])} ✕${inum(a['wrong'])} · ${shortDate(tsOf(a))}', style: const TextStyle(color: softMuted, fontWeight: FontWeight.w700)),
+              ),
+            const SizedBox(height: 14),
+            if (a != null && canOpenSolutions(a))
+              FilledButton.icon(
+                onPressed: () {
+                  Navigator.pop(c);
+                  openAttemptSolutions(context, exam, a);
+                },
+                style: FilledButton.styleFrom(backgroundColor: exam.c1, minimumSize: const Size.fromHeight(50), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+                icon: const Icon(Icons.menu_book),
+                label: const Text('View solutions', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+              ),
+            if (key.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              FilledButton.tonalIcon(
+                onPressed: () {
+                  Navigator.pop(c);
+                  Navigator.of(context).push(MaterialPageRoute(builder: (_) => LeaderboardScreen(exam: exam, base: key, title: title, uid: user.uid)));
+                },
+                style: tonal(),
+                icon: const Icon(Icons.emoji_events_outlined),
+                label: const Text('Leaderboard', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+              ),
+            ],
+            if (x != null && answersOf(a!).isNotEmpty) ...[
+              const SizedBox(height: 8),
+              FilledButton.tonalIcon(
+                onPressed: () {
+                  Navigator.pop(c);
+                  Navigator.of(context).push(MaterialPageRoute(builder: (_) => QuestionsPage(x: x, only: a)));
+                },
+                style: tonal(),
+                icon: const Icon(Icons.fact_check_outlined),
+                label: const Text('Question by question', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+              ),
+            ],
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: () {
+                Navigator.pop(c);
+                onRetake();
+              },
+              style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(50), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+              icon: const Icon(Icons.replay_rounded),
+              label: const Text('Retake test', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+            ),
+          ]),
+        ),
+      );
+    },
+  );
+}
+
 // ====================================================================== 1. recent attempts
 
 class AttemptsPage extends StatefulWidget {

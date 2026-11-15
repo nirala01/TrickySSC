@@ -10,6 +10,8 @@ import '../data.dart';
 import '../test/engine.dart';
 import '../test/test_screen.dart';
 import '../ui/soft_list.dart';
+import 'dash/logic.dart' show shortDate, n1, marksOf, maxOf;
+import 'dash/pages.dart' show showDoneSheet;
 
 /// One previous-year paper, read from the website's own PYQ list page.
 class PyqPaper {
@@ -135,9 +137,10 @@ class PyqTab extends StatefulWidget {
   final Exam exam;
   final Set<String> attempted;
   final Map<String, List<String>> resume;
+  final Map<String, Map<String, dynamic>> last;
   final bool paid;
   final VoidCallback onReturn; // refresh DONE / Resume after a test
-  const PyqTab({super.key, required this.user, required this.exam, required this.attempted, required this.resume, required this.paid, required this.onReturn});
+  const PyqTab({super.key, required this.user, required this.exam, required this.attempted, required this.resume, this.last = const {}, required this.paid, required this.onReturn});
 
   @override
   State<PyqTab> createState() => _PyqTabState();
@@ -349,18 +352,26 @@ class _PyqTabState extends State<PyqTab> {
     final exam = widget.exam;
     final done = _done(p), paused = _paused(p);
     final langs = [if (p.en.isNotEmpty) 'EN', if (p.hi.isNotEmpty) 'हिंदी'].join(', ');
-    return SoftRow(
-      badge: p.year.length == 4 ? "'${p.year.substring(2)}" : p.year,
-      title: p.shift,
-      tags: [
-        const SoftTag.free(),
-        if (paused) const SoftTag.paused() else if (done) const SoftTag.done(),
+    final parts = p.title.split('·').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+    String shortMonths(String t) => t.replaceAllMapped(RegExp(r'\b(January|February|March|April|May|June|July|August|September|October|November|December)\b'), (m) => m[1]!.substring(0, 3) == 'Sep' ? 'Sept' : m[1]!.substring(0, 3));
+    final title = parts.isEmpty ? p.year : parts.first.replaceFirst(RegExp(r'^SSC\s+'), '');
+    final sub = shortMonths(parts.length > 1 ? parts.sublist(1).reversed.join(' · ') : p.shift);
+    final a = widget.last[p.base];
+    final state = paused ? RowState.progress : (done ? RowState.done : RowState.todo);
+    final em = exam.meta.split(' · ');
+    return TestRow(
+      tags: const [SoftTag('ORIGINAL PYQ', Color(0xFF1D4ED8), Color(0xFFDBEAFE)), SoftTag.free()],
+      title: title,
+      sub: '$sub${langs.isNotEmpty ? ' · $langs' : ''}',
+      meta: [
+        if (state == RowState.done && a != null) (Icons.calendar_today_outlined, shortDate(attemptMs(a))) else (Icons.help_outline_rounded, p.tier == 1 ? em.first : 'Tier 2'),
+        (Icons.schedule_rounded, p.tier == 1 && em.length > 1 ? em[1] : '135 min'),
       ],
-      meta: [if (p.tier == 1) exam.meta else 'Tier 2 · 135 min', langs].join(' · '),
-      action: paused ? 'Resume' : (done ? 'Retake' : 'Start'),
-      resume: paused,
+      state: state,
+      score: state == RowState.done && a != null ? '${n1(marksOf(a))} / ${n1(maxOf(a))}' : null,
       accent: exam.c1,
-      onTap: () => _start(p),
+      onTap: () => state == RowState.done ? showDoneSheet(context, user: widget.user, exam: exam, a: a, title: p.title, onRetake: () => _start(p)) : _start(p),
     );
   }
+
 }

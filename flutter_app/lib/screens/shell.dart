@@ -7,6 +7,7 @@ import '../test/engine.dart';
 import 'dashboard.dart';
 import 'pyq.dart';
 import 'chapter_pyq.dart';
+import 'dash/logic.dart';
 import 'dash/pages.dart';
 import 'chapters.dart';
 import 'subject_mocks.dart';
@@ -34,6 +35,7 @@ class _AppShellState extends State<AppShell> {
   String _name = 'Student';
   Set<String> _owned = <String>{};
   Set<String> _attempted = <String>{};
+  Map<String, Map<String, dynamic>> _last = {};
   Map<String, List<String>> _resume = {};
   int _version = 0;
   List<MockItem>? _mocks;
@@ -64,9 +66,7 @@ class _AppShellState extends State<AppShell> {
     loadOwned(widget.user.uid).then((o) {
       if (mounted) setState(() => _owned = o);
     });
-    loadAttempted(widget.user.uid).then((a) {
-      if (mounted) setState(() => _attempted = a);
-    });
+    _loadAtt();
     _loadResume();
     loadPrice(widget.exam).then((p) {
       if (mounted) setState(() => _price = p);
@@ -93,6 +93,24 @@ class _AppShellState extends State<AppShell> {
       await GoogleSignIn().signOut();
     } catch (_) {}
     await FirebaseAuth.instance.signOut();
+  }
+
+  void _loadAtt() => loadAttemptInfo(widget.user.uid).then((r) {
+        if (mounted) {
+          setState(() {
+            _attempted = r.$1;
+            _last = r.$2;
+          });
+        }
+      });
+
+  void _mockTap(MockItem m) {
+    final exam = widget.exam;
+    if (_open(m) && !_resuming(m) && isAttempted(_attempted, exam, m)) {
+      showDoneSheet(context, user: widget.user, exam: exam, a: _last[mockBase(exam, m)], title: '${exam.name} ${m.tier == 2 ? 'Tier 2 ' : ''}Mock ${m.n}', onRetake: () => _startMock(m));
+    } else {
+      _startMock(m);
+    }
   }
 
   bool _open(MockItem m) => _hasPass || m.n <= widget.exam.free;
@@ -197,9 +215,7 @@ class _AppShellState extends State<AppShell> {
   }
 
   void _afterTest() {
-    loadAttempted(widget.user.uid).then((a) {
-      if (mounted) setState(() => _attempted = a);
-    });
+    _loadAtt();
     _loadResume();
     if (mounted) setState(() => _version++);
   }
@@ -305,7 +321,8 @@ class _AppShellState extends State<AppShell> {
             isOpen: _open,
             resuming: _resuming,
             onTier: (t) => setState(() => _tier = t),
-            onStart: _startMock,
+            onStart: _mockTap,
+            last: _last,
             onSoon: _soon,
             onRetry: _loadMocks,
           ),
@@ -315,6 +332,7 @@ class _AppShellState extends State<AppShell> {
             exam: exam,
             attempted: _attempted,
             resume: _resume,
+            last: _last,
             paid: _owned.isNotEmpty,
             onReturn: _afterTest,
           ),
@@ -615,7 +633,9 @@ class _MocksTab extends StatelessWidget {
   final void Function(MockItem) onStart;
   final void Function(String) onSoon;
   final VoidCallback onRetry;
+  final Map<String, Map<String, dynamic>> last;
   const _MocksTab({
+    required this.last,
     required this.exam,
     required this.mocks,
     required this.failed,
@@ -657,7 +677,7 @@ class _MocksTab extends StatelessWidget {
           ),
         ));
       }
-      rows.add(_MockRow(exam: exam, m: m, open: isOpen(m), free: m.n <= exam.free, premium: hasPass && m.n > exam.free, done: isAttempted(attempted, exam, m), resume: resuming(m), onStart: onStart));
+      rows.add(_MockRow(exam: exam, m: m, open: isOpen(m), free: m.n <= exam.free, premium: hasPass && m.n > exam.free, done: isAttempted(attempted, exam, m), resume: resuming(m), last: last[mockBase(exam, m)], onStart: onStart));
     }
     final doneN = list.where((m) => isAttempted(attempted, exam, m)).length;
     final head = <Widget>[
@@ -724,25 +744,30 @@ class _MockRow extends StatelessWidget {
   final bool premium;
   final bool done;
   final bool resume;
+  final Map<String, dynamic>? last;
   final void Function(MockItem) onStart;
-  const _MockRow({required this.exam, required this.m, required this.open, required this.free, required this.premium, required this.done, required this.resume, required this.onStart});
+  const _MockRow({required this.exam, required this.m, required this.open, required this.free, required this.premium, required this.done, required this.resume, required this.last, required this.onStart});
 
   @override
   Widget build(BuildContext context) {
     final langs = [if (m.en) 'EN', if (m.hi) 'हिंदी'].join(', ');
-    final meta = [if (m.tier == 1) exam.meta else 'Tier 2 · 135 min', if (langs.isNotEmpty) langs].join(' · ');
-    final tags = <Widget>[
-      if (free) const SoftTag.free(),
-      if (premium) const SoftTag.premium(),
-      if (resume) const SoftTag.paused() else if (done) const SoftTag.done(),
+    final parts = exam.meta.split(' · ');
+    final state = !open ? RowState.locked : (resume ? RowState.progress : (done ? RowState.done : RowState.todo));
+    final a = last;
+    final meta = <(IconData, String)>[
+      if (state == RowState.done && a != null) (Icons.calendar_today_outlined, shortDate(attemptMs(a))) else if (m.tier == 1 && parts.isNotEmpty) (Icons.help_outline_rounded, parts.first) else (Icons.help_outline_rounded, 'Tier 2'),
+      (Icons.schedule_rounded, m.tier == 1 && parts.length > 1 ? parts[1] : '135 min'),
     ];
-    return SoftRow(
-      badge: '${m.n}',
-      title: '${m.tier == 2 ? 'Tier 2 ' : ''}Mock ${m.n}',
-      tags: tags,
-      meta: tags.isEmpty || !open ? meta : '',
-      action: open ? (resume ? 'Resume' : (done ? 'Retake' : 'Start')) : null,
-      resume: resume,
+    return TestRow(
+      tags: [
+        if (free) const SoftTag.free(),
+        if (!free) const SoftTag.premium(),
+      ],
+      title: '${exam.name.replaceFirst('SSC ', '')} ${m.tier == 2 ? 'Tier 2 ' : ''}Mock ${m.n.toString().padLeft(2, '0')}',
+      sub: 'Mixed (All Subjects)${langs.isNotEmpty ? ' · $langs' : ''}',
+      meta: meta,
+      state: state,
+      score: state == RowState.done && a != null ? '${n1(marksOf(a))} / ${n1(maxOf(a))}' : null,
       accent: exam.c1,
       onTap: () => onStart(m),
     );

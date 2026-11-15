@@ -133,6 +133,25 @@ Future<Set<String>> loadAttempted(String uid) async {
   return out;
 }
 
+/// Attempted ids (as [loadAttempted]) plus the latest attempt of each mock / PYQ, keyed by its id without the language.
+Future<(Set<String>, Map<String, Map<String, dynamic>>)> loadAttemptInfo(String uid) async {
+  final ids = <String>{};
+  final last = <String, Map<String, dynamic>>{};
+  try {
+    final list = await loadAttempts(uid);
+    for (final a in list) {
+      for (final key in const ['paperId', 'mockId', 'lbKey']) {
+        final v = a[key];
+        if (v is String && v.isNotEmpty) ids.add(v);
+      }
+      final id = '${a['mockId'] ?? ''}'.isNotEmpty ? '${a['mockId']}' : '${a['paperId'] ?? ''}';
+      if (id.isEmpty || id.contains('__')) continue;
+      last.putIfAbsent(id.replaceAll(RegExp(r'_(en|hi)$'), ''), () => a);
+    }
+  } catch (_) {}
+  return (ids, last);
+}
+
 /// The mock id the website uses: ssc-cgl_tier1_mock5_en, rrb-ntpc_cbt1_mock5_hi …
 String mockBase(Exam exam, MockItem m) => '${exam.id}_${exam.k == 'ntpc' ? 'cbt1' : 'tier${m.tier}'}_mock${m.n}';
 
