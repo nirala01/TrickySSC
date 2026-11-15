@@ -164,7 +164,7 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;}
 .card-me small{color:var(--dim);font-size:.78rem;}
 
 /* ---------- PASS PAGE: details scroll, the Buy bar stays ---------- */
-#v-pass{padding:0;overflow:hidden;}
+#v-pass,#v-pay{padding:0;overflow:hidden;}
 .pscroll{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 14px 18px;}
 @media(min-width:600px){.pscroll{padding-left:max(14px,calc(50vw - 290px));padding-right:max(14px,calc(50vw - 290px));}}
 .gets{list-style:none;background:#fff;border:1px solid var(--line);border-radius:16px;padding:6px 14px;}
@@ -212,6 +212,21 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;}
 .buybar a{flex:0 0 auto;height:48px;display:flex;align-items:center;padding:0 26px;border-radius:14px;background:linear-gradient(135deg,#FF6B00,#FF8C38);color:#fff;font-weight:800;font-size:1rem;box-shadow:0 4px 12px rgba(255,107,0,.35);}
 .buybar a.own{background:linear-gradient(135deg,#059669,#34D399);box-shadow:0 4px 12px rgba(5,150,105,.3);}
 .buybar a:active{transform:scale(.97);}
+/* ---------- CHECKOUT: order summary, how to pay, Pay bar (TSSC-APPPAY-V1) ---------- */
+.osum{flex:0 0 auto;background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px;}
+.osum b{display:block;font-size:1rem;line-height:1.25;}
+.osum small{display:block;font-size:.78rem;color:var(--dim);margin-top:3px;}
+.osum .tot{display:flex;align-items:baseline;justify-content:space-between;margin-top:12px;padding-top:12px;border-top:1px dashed var(--line);font-weight:700;}
+.osum .tot span:last-child{font-family:'Rajdhani',system-ui,sans-serif;font-size:1.6rem;line-height:1;}
+.osum .tot s{font-size:.9rem;color:#94A3B8;font-weight:600;margin-right:6px;}
+.paym{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:#fff;border:2px solid var(--line);border-radius:16px;padding:12px 14px;margin-bottom:10px;}
+.paym i{flex:0 0 36px;height:36px;border-radius:11px;background:#FFF1E6;display:flex;align-items:center;justify-content:center;font-style:normal;font-size:1.05rem;}
+.paym div{flex:1;min-width:0;}
+.paym b{display:block;font-size:.95rem;line-height:1.25;}
+.paym small{display:block;font-size:.76rem;color:var(--dim);line-height:1.35;margin-top:2px;}
+.paym .dot{flex:0 0 20px;height:20px;border-radius:50%;border:2px solid #CBD5E1;}
+.paym.on{border-color:var(--saffron);background:#FFF9F4;}
+.paym.on .dot{border:6px solid var(--saffron);}
 
 /* ---------- bottom tabs ---------- */
 .tabs{flex:0 0 auto;display:grid;grid-template-columns:repeat(5,1fr);height:calc(var(--tab) + var(--sab));padding-bottom:var(--sab);background:#fff;border-top:1px solid var(--line);}
@@ -242,6 +257,7 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;}
     </section>
     <section class="view" id="v-home"></section>
     <section class="view" id="v-pass"></section>
+    <section class="view" id="v-pay"></section>
     <section class="view" id="v-course"></section>
     <section class="view" id="v-mocks"></section>
     <section class="view" id="v-pyq"></section>
@@ -406,9 +422,59 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;}
     $('bbPrice').innerHTML='₹'+p.price+(p.mrp&&p.mrp>p.price?'<s>₹'+p.mrp+'</s>':'');
     $('bbLabel').textContent=(p.label||'Mock Pass')+' · '+years(p.durationDays);
     var go=$('bbGo'); go.className=''; go.textContent='Buy Now';
-    /* the exam's mock page runs the checkout; ?pass=all is its own switch for the All Mocks Pass */
-    go.href = x.mock + (all ? '?pass=all' : '?buy='+encodeURIComponent(p.id));
+    /* Buy Now opens the in-app checkout (#pay); the payment itself still runs on the exam's mock page */
+    go.href = '#pay/'+PASS.k+'/'+encodeURIComponent(p.id);
   }
+  /* ---------- checkout: summary, how to pay, Pay bar ----------
+     Razorpay = the website's own checkout on the exam's mock page (unchanged).
+     Google Play shows only inside the Play Store app, and only once GPLAY.on is true
+     (the separate Google Play Worker must be live first). */
+  var GPLAY={on:false};
+  var PAY={k:'',plan:null,m:'razorpay',tok:''};
+  function gplayReady(){ return GPLAY.on && ('getDigitalGoodsService' in window); }
+  function renderPay(k,pid){
+    var x=E[k]; if(!x) return null;
+    var tok=k+'/'+pid; PAY={k:k,plan:null,m:'razorpay',tok:tok};
+    $('v-pay').innerHTML='<div class="pscroll"><p class="note">Loading…</p></div>';
+    loadPricing(function(P,cat){
+      if(PAY.tok!==tok) return;
+      var p=null; P.productsGranting(cat,x.pass).concat(P.productsGranting(cat,'all-mocks')).forEach(function(q){ if(q.id===pid) p=q; });
+      if(!p){ location.replace('#p/'+k); return; }
+      PAY.plan=p; paintPay();
+    }, function(){
+      if(PAY.tok===tok) $('v-pay').innerHTML='<div class="pscroll"><p class="note">Could not load this plan. Check your internet and go back.</p></div>';
+    });
+    return 'Checkout';
+  }
+  function paintPay(){
+    var x=E[PAY.k], p=PAY.plan; if(!x||!p) return;
+    var two=gplayReady(); if(!two) PAY.m='razorpay';
+    var meths='';
+    if(two){
+      meths='<div class="sec">Pay with</div>'
+        +'<button class="paym'+(PAY.m==='razorpay'?' on':'')+'" data-m="razorpay"><span class="dot"></span><i>📲</i><div><b>UPI, cards, netbanking</b><small>Secure payment by Razorpay</small></div></button>'
+        +'<button class="paym'+(PAY.m==='gplay'?' on':'')+'" data-m="gplay"><span class="dot"></span><i>▶️</i><div><b>Google Play</b><small>Use your Google Play payment method</small></div></button>';
+    } else {
+      meths='<p class="note">You pay with UPI, cards or netbanking. Payments are handled securely by Razorpay.</p>';
+    }
+    $('v-pay').innerHTML='<div class="pscroll">'
+      +'<div class="sec" style="margin-top:2px">Your order</div>'
+      +'<div class="osum"><b>'+esc(x.name+' · '+(p.label||'Mock Pass'))+'</b><small>Valid '+years(p.durationDays)+' · one payment, no auto-renewal</small>'
+      +'<div class="tot"><span>Total</span><span>'+(p.mrp&&p.mrp>p.price?'<s>₹'+p.mrp+'</s>':'')+'₹'+p.price+'</span></div></div>'
+      +meths+'</div>'
+      +'<div class="buybar"><div><b>₹'+p.price+'</b><small>'+esc(p.label||'Mock Pass')+' · '+years(p.durationDays)+'</small></div><a id="payGo" href="#">Pay ₹'+p.price+'</a></div>';
+    var all=(p.grants||[]).indexOf('all-mocks')!==-1;
+    $('payGo').href = x.mock + (all ? '?pass=all' : '?buy='+encodeURIComponent(p.id));   // Razorpay: the existing checkout
+  }
+  $('v-pay').addEventListener('click', function(e){
+    var m=e.target.closest ? e.target.closest('[data-m]') : null;
+    if(m){ PAY.m=m.getAttribute('data-m'); paintPay(); return; }
+    var g=e.target.closest ? e.target.closest('#payGo') : null;
+    if(g && PAY.m==='gplay'){
+      e.preventDefault();
+      if(typeof window.TSSC_GPLAY_BUY==='function') window.TSSC_GPLAY_BUY(PAY.plan);
+    }
+  });
   function paintOwned(k){
     var x=E[k];
     $('bbPrice').textContent='✓ Pass active'; $('bbLabel').textContent='Every '+x.name+' mock is unlocked on this account';
@@ -559,7 +625,8 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;}
       +'<div class="sec">About</div><div class="rows">'
       +row(['🔒','Privacy policy','','/privacy-policy.html'])
       +row(['📜','Terms','','/terms.html'])
-      +row(['↩️','Refund policy','','/refund-policy.html'])+'</div>';
+      +row(['↩️','Refund policy','','/refund-policy.html'])
+      +row(['🗑️','Delete my account','How to remove your data','/delete-account.html'])+'</div>';
   }
 
   /* ---------- routing: #choose, #home, #p/<exam>, #c/<exam>, #mocks, #pyq, #chapters, #me ---------- */
@@ -568,6 +635,7 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;}
     if(!user()) return;                                  // being sent to sign in
     var h=(location.hash||'#home').slice(1), view='home', title='', tab='home', back=false, k=myExam();
     if(h.indexOf('p/')===0){ title=renderPass(h.slice(2)); if(title){ view='pass'; back=true; } }
+    else if(h.indexOf('pay/')===0){ var pp=h.slice(4).split('/'); title=renderPay(pp[0], decodeURIComponent(pp[1]||'')); if(title){ view='pay'; back=true; tab='home'; } }
     else if(h.indexOf('c/')===0){ title=renderCourse(h.slice(2)); if(title){ view='course'; back=true; } }
     else if(TITLES[h]){ view=h; tab=h; title=TITLES[h]; if(h==='me') renderMe(); if(h==='mocks') renderMocks(); if(h==='pyq') renderPyq(); }
     else if(h==='help'){ renderHelp(); view='help'; title='Need help?'; back=true; tab='me'; }

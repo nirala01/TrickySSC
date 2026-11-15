@@ -1,0 +1,50 @@
+plugins {
+    id 'com.android.application'
+}
+
+// Version comes from the GitHub Action (run number), so every upload to Play is higher than the last.
+def appVersionCode = (project.findProperty('versionCode') ?: '1').toInteger()
+def appVersionName = project.findProperty('versionName') ?: '1.0.0'
+
+android {
+    namespace 'com.trickyssc.app'
+    compileSdk 36
+
+    defaultConfig {
+        applicationId 'com.trickyssc.app'
+        minSdk 23
+        targetSdk 36
+        versionCode appVersionCode
+        versionName appVersionName
+    }
+
+    // Release signing: only when the GitHub Action has the keystore secrets.
+    def ksFile = System.getenv('TSSC_KEYSTORE_FILE')
+    signingConfigs {
+        if (ksFile) {
+            release {
+                storeFile file(ksFile)
+                storePassword System.getenv('TSSC_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('TSSC_KEY_ALIAS')
+                keyPassword System.getenv('TSSC_KEY_PASSWORD')
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            if (ksFile) { signingConfig signingConfigs.release }
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.5.0'
+    implementation 'androidx.browser:browser:1.8.0'
+}
