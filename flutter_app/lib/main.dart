@@ -37,8 +37,8 @@ class TrickyApp extends StatelessWidget {
         useMaterial3: true,
         textTheme: GoogleFonts.nunitoTextTheme(),
         colorScheme: ColorScheme.fromSeed(seedColor: saffron, primary: saffron),
-        scaffoldBackgroundColor: const Color(0xFFFFF7F0),
-        appBarTheme: const AppBarTheme(backgroundColor: Colors.white, surfaceTintColor: Colors.white, elevation: 0),
+        scaffoldBackgroundColor: const Color(0xFFEEF2FF),
+        appBarTheme: const AppBarTheme(backgroundColor: Color(0xFFEEF2FF), surfaceTintColor: Color(0xFFEEF2FF), elevation: 0, scrolledUnderElevation: 0),
       ),
       home: FbConfig.ready ? const AuthGate() : const _SetupMissing(),
     );

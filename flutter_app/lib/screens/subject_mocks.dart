@@ -1,9 +1,12 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../ui/nav.dart';
 
 import '../data.dart';
 import '../test/engine.dart';
 import '../test/test_screen.dart';
+import '../ui/soft.dart';
+import '../ui/soft_list.dart';
 
 /// Subject-wise mocks: one subject section of each Tier 1 mock (website: mock-test-subject.html).
 class SubjectMocksScreen extends StatefulWidget {
@@ -109,51 +112,21 @@ class _SubjectMocksScreenState extends State<SubjectMocksScreen> {
       context,
       exam,
       Scaffold(
-        backgroundColor: Color.lerp(Colors.white, exam.c2, 0.10),
-        appBar: AppBar(title: Text('Subject mocks', style: TextStyle(fontWeight: FontWeight.w800, color: exam.ink))),
+        backgroundColor: softBgTop,
+        appBar: AppBar(backgroundColor: softBgTop, surfaceTintColor: softBgTop, actions: const [HomeButton()], title: Text('Subject mocks', style: TextStyle(fontWeight: FontWeight.w800, color: exam.ink))),
         body: ListView(padding: EdgeInsets.fromLTRB(12, 10, 12, 16 + MediaQuery.of(context).padding.bottom), children: [
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(18),
-              gradient: LinearGradient(colors: [subj.$4, Color.lerp(subj.$4, Colors.white, 0.42)!], begin: Alignment.topLeft, end: Alignment.bottomRight),
-            ),
-            child: Row(children: [
-              Container(
-                width: 46,
-                height: 46,
-                decoration: BoxDecoration(color: const Color(0x33FFFFFF), borderRadius: BorderRadius.circular(12)),
-                child: Icon(subj.$3, color: Colors.white, size: 26),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('${subj.$2} sectional mocks', style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w800)),
-                  Text('The ${subj.$2} section of each full mock · $mins min · $done done', style: const TextStyle(color: Color(0xEEFFFFFF), fontSize: 13.5)),
-                ]),
-              ),
-            ]),
+          SoftSummary(
+            icon: 'puzzle',
+            title: '${subj.$2} · $done of ${mocks.length} done',
+            progress: mocks.isEmpty ? 0 : done / mocks.length,
+            sub: 'The ${subj.$2} section of each mock · $mins min',
+            accent: exam.c1,
           ),
           const SizedBox(height: 10),
           SizedBox(
-            height: 42,
+            height: 46,
             child: ListView(scrollDirection: Axis.horizontal, children: [
-              for (final s in _subjects)
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: Material(
-                    color: _subject == s.$1 ? s.$4 : Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(20),
-                      onTap: () => setState(() => _subject = s.$1),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
-                        child: Text(s.$2, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: _subject == s.$1 ? Colors.white : const Color(0xFF334155))),
-                      ),
-                    ),
-                  ),
-                ),
+              for (final s in _subjects) SoftChip(s.$2, _subject == s.$1, exam.c1, () => setState(() => _subject = s.$1)),
             ]),
           ),
           const SizedBox(height: 10),
@@ -167,57 +140,18 @@ class _SubjectMocksScreenState extends State<SubjectMocksScreen> {
   Widget _row(MockItem m, Color c) {
     final exam = widget.exam;
     final open = _open(m), done = _done(m), free = m.n <= exam.free;
-    Widget tag(String t, Color fg, Color bg) => Container(
-          margin: const EdgeInsets.only(left: 6),
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-          decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(6)),
-          child: Text(t, style: TextStyle(color: fg, fontSize: 12, fontWeight: FontWeight.w800)),
-        );
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Material(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(14),
-          onTap: () => _start(m),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-            child: Row(children: [
-              Container(
-                width: 40,
-                height: 40,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), color: Color.lerp(Colors.white, c, open ? 0.2 : 0.08)),
-                child: Text('${m.n}', style: TextStyle(color: c, fontWeight: FontWeight.w800, fontSize: 15)),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Wrap(crossAxisAlignment: WrapCrossAlignment.center, runSpacing: 2, children: [
-                    Text('Mock ${m.n} · ${_label()}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
-                    if (free) tag('FREE', const Color(0xFF047857), const Color(0xFFD1FAE5)),
-                    if (!free && widget.hasPass) tag('PREMIUM', const Color(0xFF92400E), const Color(0xFFFEF3C7)),
-                    if (done) tag('DONE', const Color(0xFF1D4ED8), const Color(0xFFDBEAFE)),
-                  ]),
-                  Text([if (m.en) 'EN', if (m.hi) 'हिंदी'].join(', '), style: const TextStyle(fontSize: 13.5, color: Color(0xFF475569))),
-                ]),
-              ),
-              const SizedBox(width: 6),
-              if (open)
-                Container(
-                  width: 88,
-                  height: 36,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(borderRadius: BorderRadius.circular(10), gradient: LinearGradient(colors: [exam.c1, exam.c2])),
-                  child: Text(done ? 'Retake' : 'Start', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 15)),
-                )
-              else
-                const SizedBox(width: 88, height: 36, child: Icon(Icons.lock_outline, color: Color(0xFF94A3B8), size: 22)),
-            ]),
-          ),
-        ),
-      ),
+    return SoftRow(
+      badge: '${m.n}',
+      title: 'Mock ${m.n} · ${_label()}',
+      tags: [
+        if (free) const SoftTag.free(),
+        if (!free && widget.hasPass) const SoftTag.premium(),
+        if (done) const SoftTag.done(),
+      ],
+      meta: [if (m.en) 'EN', if (m.hi) 'हिंदी'].join(', '),
+      action: open ? (done ? 'Retake' : 'Start') : null,
+      accent: exam.c1,
+      onTap: () => _start(m),
     );
   }
 }

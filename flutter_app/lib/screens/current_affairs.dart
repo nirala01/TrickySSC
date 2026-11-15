@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import '../ui/nav.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:http/http.dart' as http;
 
@@ -65,8 +66,8 @@ class _CurrentAffairsScreenState extends State<CurrentAffairsScreen> {
       context,
       exam,
       Scaffold(
-        backgroundColor: Color.lerp(Colors.white, exam.c2, 0.10),
-        appBar: AppBar(title: Text('Current affairs', style: TextStyle(fontWeight: FontWeight.w800, color: exam.ink))),
+        backgroundColor: const Color(0xFFEEF2FF),
+        appBar: AppBar(actions: const [HomeButton()], title: Text('Current affairs', style: TextStyle(fontWeight: FontWeight.w800, color: exam.ink))),
         body: _failed
             ? Center(
                 child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -247,8 +248,8 @@ class _CaDayScreenState extends State<CaDayScreen> {
       context,
       exam,
       Scaffold(
-        backgroundColor: Color.lerp(Colors.white, exam.c2, 0.08),
-        appBar: AppBar(title: Text('${d.day} ${_months[d.month - 1]} ${d.year}', style: TextStyle(fontWeight: FontWeight.w800, color: exam.ink))),
+        backgroundColor: const Color(0xFFEEF2FF),
+        appBar: AppBar(actions: const [HomeButton()], title: Text('${d.day} ${_months[d.month - 1]} ${d.year}', style: TextStyle(fontWeight: FontWeight.w800, color: exam.ink))),
         body: _failed
             ? Center(
                 child: Column(mainAxisSize: MainAxisSize.min, children: [

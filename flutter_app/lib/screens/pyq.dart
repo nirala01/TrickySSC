@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../data.dart';
 import '../test/engine.dart';
 import '../test/test_screen.dart';
+import '../ui/soft_list.dart';
 
 /// One previous-year paper, read from the website's own PYQ list page.
 class PyqPaper {
@@ -229,53 +230,22 @@ class _PyqTabState extends State<PyqTab> {
     final list = tierList.where((p) => _year.isEmpty || p.year == _year).toList();
     final done = tierList.where(_done).length;
 
-    Widget chip(String label, bool on, VoidCallback tap) => Padding(
-          padding: const EdgeInsets.only(right: 8),
-          child: Material(
-            color: on ? exam.c1 : Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(20),
-              onTap: tap,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Text(label, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: on ? Colors.white : const Color(0xFF334155))),
-              ),
-            ),
-          ),
-        );
+    Widget chip(String label, bool on, VoidCallback tap) => SoftChip(label, on, exam.c1, tap);
 
     return RefreshIndicator(
       onRefresh: () => _load(force: true),
-      child: ListView(padding: EdgeInsets.fromLTRB(12, 10, 12, 16 + MediaQuery.of(context).padding.bottom), children: [
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            gradient: const LinearGradient(colors: [Color(0xFF1D4ED8), Color(0xFF60A5FA)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-          ),
-          child: Row(children: [
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('${exam.name} previous year papers', style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w800)),
-                const SizedBox(height: 2),
-                Text('${tierList.length} papers · real exam shifts · Hindi & English', style: const TextStyle(color: Color(0xEEFFFFFF), fontSize: 13.5)),
-              ]),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
-              child: Column(children: [
-                Text('$done', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Color(0xFF1D4ED8))),
-                const Text('Done', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
-              ]),
-            ),
-          ]),
+      child: ListView(padding: EdgeInsets.fromLTRB(16, 8, 16, 16 + MediaQuery.of(context).padding.bottom), children: [
+        SoftSummary(
+          icon: 'paper',
+          title: '$done of ${tierList.length} done',
+          progress: tierList.isEmpty ? 0 : done / tierList.length,
+          sub: 'Real exam shifts · Hindi & English',
+          accent: exam.c1,
         ),
         const SizedBox(height: 10),
         if (hasT2)
           SizedBox(
-            height: 40,
+            height: 46,
             child: ListView(scrollDirection: Axis.horizontal, children: [
               chip('Tier 1', _tier == 1, () => setState(() => _tier = 1)),
               chip('Tier 2', _tier == 2, () => setState(() => _tier = 2)),
@@ -284,7 +254,7 @@ class _PyqTabState extends State<PyqTab> {
         if (hasT2) const SizedBox(height: 8),
         if (years.length > 1)
           SizedBox(
-            height: 40,
+            height: 46,
             child: ListView(scrollDirection: Axis.horizontal, children: [
               chip('All years', _year.isEmpty, () => setState(() => _year = '')),
               for (final y in years) chip(y, _year == y, () => setState(() => _year = y)),
@@ -316,56 +286,17 @@ class _PyqTabState extends State<PyqTab> {
     final exam = widget.exam;
     final done = _done(p), paused = _paused(p);
     final langs = [if (p.en.isNotEmpty) 'EN', if (p.hi.isNotEmpty) 'हिंदी'].join(', ');
-    Widget tag(String t, Color fg, Color bg) => Container(
-          margin: const EdgeInsets.only(left: 6),
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-          decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(6)),
-          child: Text(t, style: TextStyle(color: fg, fontSize: 12, fontWeight: FontWeight.w800)),
-        );
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Material(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(14),
-          onTap: () => _start(p),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-            child: Row(children: [
-              Container(
-                width: 50,
-                height: 44,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), color: const Color(0xFFDBEAFE)),
-                child: Text(p.year, style: const TextStyle(color: Color(0xFF1D4ED8), fontWeight: FontWeight.w900, fontSize: 14)),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Row(children: [
-                    Flexible(child: Text(p.shift, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800))),
-                    if (paused) tag('PAUSED', const Color(0xFFB45309), const Color(0xFFFEF3C7)) else if (done) tag('DONE', const Color(0xFF1D4ED8), const Color(0xFFDBEAFE)),
-                  ]),
-                  const SizedBox(height: 1),
-                  Text([if (p.tier == 1) exam.meta else 'Tier 2 · 135 min', langs].join(' · '), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13.5, color: Color(0xFF475569))),
-                ]),
-              ),
-              const SizedBox(width: 6),
-              Container(
-                width: 88,
-                height: 36,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(10),
-                  gradient: LinearGradient(colors: paused ? const [Color(0xFFD97706), Color(0xFFFBBF24)] : [exam.c1, exam.c2]),
-                ),
-                child: Text(paused ? 'Resume' : (done ? 'Retake' : 'Start'), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 15)),
-              ),
-            ]),
-          ),
-        ),
-      ),
+    return SoftRow(
+      badge: p.year.length == 4 ? "'${p.year.substring(2)}" : p.year,
+      title: p.shift,
+      tags: [
+        if (paused) const SoftTag.paused() else if (done) const SoftTag.done(),
+      ],
+      meta: [if (p.tier == 1) exam.meta else 'Tier 2 · 135 min', langs].join(' · '),
+      action: paused ? 'Resume' : (done ? 'Retake' : 'Start'),
+      resume: paused,
+      accent: exam.c1,
+      onTap: () => _start(p),
     );
   }
 }

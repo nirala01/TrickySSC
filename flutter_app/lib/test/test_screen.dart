@@ -2,11 +2,13 @@ import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../ui/nav.dart';
 
 import '../data.dart';
 import 'engine.dart';
 import 'render.dart';
 import 'report.dart';
+import '../ui/soft.dart';
 import 'result_screen.dart';
 
 /// Loads a mock, shows the instructions, runs the test, then opens the result.
@@ -90,8 +92,8 @@ class _TestFlowState extends State<TestFlow> {
     final exam = widget.exam;
     final p = _paper;
     return Scaffold(
-      backgroundColor: Color.lerp(Colors.white, exam.c2, 0.10),
-      appBar: AppBar(title: Text(widget.title, style: const TextStyle(fontWeight: FontWeight.w800))),
+      backgroundColor: const Color(0xFFEEF2FF),
+      appBar: AppBar(actions: const [HomeButton()], title: Text(widget.title, style: const TextStyle(fontWeight: FontWeight.w800))),
       body: _error != null
           ? Center(
               child: Padding(
@@ -575,135 +577,256 @@ class _TestScreenState extends State<TestScreen> with WidgetsBindingObserver {
         if (didPop) return;
         if (await _confirmLeave() && context.mounted) Navigator.of(context).pop();
       },
-      child: Scaffold(
-        backgroundColor: Color.lerp(Colors.white, exam.c2, 0.08),
-        appBar: AppBar(
-          titleSpacing: 0,
-          toolbarHeight: 54,
-          title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(widget.title, style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w800)),
-            Text(unit.label, style: TextStyle(fontSize: 12, color: exam.c1, fontWeight: FontWeight.w700)),
-          ]),
-          actions: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(color: low ? const Color(0xFFFEE2E2) : const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(10)),
-              child: Row(children: [
-                Icon(Icons.timer_outlined, size: 18, color: low ? const Color(0xFFDC2626) : const Color(0xFF334155)),
-                const SizedBox(width: 4),
-                Text(pr.untimed ? 'Untimed' : _clock(left), style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, fontFeatures: const [FontFeature.tabularFigures()], color: low ? const Color(0xFFDC2626) : const Color(0xFF0F172A))),
-              ]),
-            ),
-            IconButton(onPressed: _togglePause, icon: Icon(_paused ? Icons.play_arrow : Icons.pause), tooltip: _paused ? 'Resume' : 'Pause'),
-            IconButton(onPressed: _openPalette, icon: const Icon(Icons.grid_view_rounded), tooltip: 'Question palette'),
-          ],
-        ),
-        body: _paused
-            ? Center(
-                child: Column(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(Icons.pause_circle_outline, size: 64, color: exam.c1),
-                  const SizedBox(height: 10),
-                  const Text('Test paused', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
-                  Text(pr.untimed ? 'Untimed practice' : '${_clock(left)} left in ${unit.label}', style: const TextStyle(color: Color(0xFF64748B))),
-                  const SizedBox(height: 14),
-                  FilledButton.icon(onPressed: _togglePause, style: FilledButton.styleFrom(backgroundColor: exam.c1), icon: const Icon(Icons.play_arrow), label: const Text('Resume')),
+      child: Container(
+        decoration: softBg,
+        child: Scaffold(
+          backgroundColor: Colors.transparent,
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            surfaceTintColor: Colors.transparent,
+            scrolledUnderElevation: 0,
+            automaticallyImplyLeading: false,
+            toolbarHeight: 66,
+            titleSpacing: 12,
+            title: Row(children: [
+              _sbtn(Icons.chevron_left_rounded, () => Navigator.of(context).maybePop(), 'Leave'),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(widget.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: baloo(17.5)),
+                  Text(_subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12.5, color: exam.c1, fontWeight: FontWeight.w800)),
                 ]),
-              )
-            : Column(children: [
-                if (secs.length > 1)
-                  SizedBox(
-                    height: 44,
+              ),
+            ]),
+            actions: [
+              Container(
+                height: 40,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                decoration: softCard(radius: 14).copyWith(color: low ? const Color(0xFFFEE2E2) : Colors.white),
+                child: Row(children: [
+                  Icon(Icons.timer_outlined, size: 18, color: low ? const Color(0xFFDC2626) : exam.c1),
+                  const SizedBox(width: 4),
+                  Text(pr.untimed ? 'Untimed' : _clock(left),
+                      style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15, fontFeatures: const [FontFeature.tabularFigures()], color: low ? const Color(0xFFDC2626) : softInk)),
+                ]),
+              ),
+              const SizedBox(width: 6),
+              _sbtn(_paused ? Icons.play_arrow_rounded : Icons.pause_rounded, _togglePause, _paused ? 'Resume' : 'Pause'),
+              const SizedBox(width: 6),
+              _sbtn(Icons.home_rounded, () async {
+                if (await _confirmLeave() && context.mounted) goHome(context);
+              }, 'Home'),
+              const SizedBox(width: 12),
+            ],
+          ),
+          body: _paused
+              ? Center(
+                  child: Container(
+                    margin: const EdgeInsets.all(24),
+                    padding: const EdgeInsets.all(24),
+                    decoration: softCard(radius: 24),
+                    child: Column(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(Icons.pause_circle_filled_rounded, size: 64, color: exam.c1),
+                      const SizedBox(height: 10),
+                      Text('Test paused', style: baloo(22)),
+                      Text(pr.untimed ? 'Untimed practice' : '${_clock(left)} left in ${unit.label}', style: const TextStyle(color: softMuted, fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 14),
+                      FilledButton.icon(onPressed: _togglePause, style: FilledButton.styleFrom(backgroundColor: exam.c1, minimumSize: const Size(160, 48)), icon: const Icon(Icons.play_arrow_rounded), label: const Text('Resume', style: TextStyle(fontWeight: FontWeight.w800))),
+                    ]),
+                  ),
+                )
+              : Column(children: [
+                  if (p.sections.length > 1) _sectionStrip(),
+                  Expanded(
                     child: ListView(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.fromLTRB(10, 6, 10, 2),
+                      controller: _scroll,
+                      padding: const EdgeInsets.fromLTRB(14, 10, 14, 16),
                       children: [
-                        for (final s in secs)
-                          Padding(
-                            padding: const EdgeInsets.only(right: 8),
-                            child: ChoiceChip(
-                              label: Text(s.label),
-                              selected: pr.current >= s.from && pr.current <= s.to,
-                              onSelected: (_) => _go(s.from),
-                              selectedColor: Color.lerp(Colors.white, exam.c2, 0.4),
-                              visualDensity: VisualDensity.compact,
-                            ),
-                          ),
+                        Container(
+                          padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+                          decoration: softCard(radius: 24, glow: exam.c1),
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                            Row(children: [
+                              Text('Q ${pr.current + 1}', style: baloo(21)),
+                              Text('  / ${p.questions.length}', style: const TextStyle(color: Color(0xFF8B8FB3), fontWeight: FontWeight.w800)),
+                              const Spacer(),
+                              if (widget.lang == 'hi')
+                                TextButton(
+                                  onPressed: _enLoading ? null : _toggleEnglish,
+                                  style: TextButton.styleFrom(visualDensity: VisualDensity.compact, foregroundColor: exam.c1),
+                                  child: _enLoading
+                                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                                      : Text(_showEn ? 'हिंदी' : 'English', style: const TextStyle(fontWeight: FontWeight.w800)),
+                                ),
+                              _pill('+${_n(p.rules.pos)}', const Color(0xFF047857), const Color(0xFFD1FAE5)),
+                              const SizedBox(width: 5),
+                              _pill(neg == 0 ? '0' : '−${neg == 1 / 3 ? '1/3' : _n(neg)}', const Color(0xFFB91C1C), const Color(0xFFFEE2E2)),
+                            ]),
+                            const SizedBox(height: 8),
+                            Rich(questionHtml(shown.text), size: 16.5, weight: FontWeight.w600),
+                            if (shown.imageUrl.isNotEmpty) Figure(shown.imageUrl),
+                            const SizedBox(height: 12),
+                            if (_imageOnly(shown))
+                              _optionGrid(shown)
+                            else
+                              for (final k in q.keys) _option(k, shown),
+                            Row(children: [
+                              if (pr.answers[pr.current] != null)
+                                TextButton.icon(
+                                  onPressed: _clear,
+                                  style: TextButton.styleFrom(foregroundColor: softMuted, visualDensity: VisualDensity.compact),
+                                  icon: const Icon(Icons.backspace_outlined, size: 16),
+                                  label: const Text('Clear', style: TextStyle(fontWeight: FontWeight.w700)),
+                                ),
+                              Expanded(child: ReportLink('Report a problem', () => showReport(context, exam: widget.exam, paper: p, index: pr.current, target: 'question'))),
+                            ]),
+                          ]),
+                        ),
                       ],
                     ),
                   ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 8, 10, 4),
-                  child: Row(children: [
-                    Text('Q ${pr.current + 1}', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
-                    Text(' / ${p.questions.length}', style: const TextStyle(color: Color(0xFF64748B))),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                      decoration: BoxDecoration(color: const Color(0xFFD1FAE5), borderRadius: BorderRadius.circular(8)),
-                      child: Text('+${_n(p.rules.pos)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF047857))),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                      boxShadow: [BoxShadow(color: const Color(0xFF6366F1).withValues(alpha: .10), blurRadius: 24, offset: const Offset(0, -8))],
                     ),
-                    const SizedBox(width: 4),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                      decoration: BoxDecoration(color: const Color(0xFFFEE2E2), borderRadius: BorderRadius.circular(8)),
-                      child: Text(neg == 0 ? '0' : '−${neg == 1 / 3 ? '1/3' : _n(neg)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFFB91C1C))),
-                    ),
-                    const Spacer(),
-                    if (widget.lang == 'hi')
-                      TextButton(
-                        onPressed: _enLoading ? null : _toggleEnglish,
-                        child: _enLoading
-                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                            : Text(_showEn ? 'हिंदी में देखें' : 'View in English', style: const TextStyle(fontWeight: FontWeight.w700)),
+                    child: SafeArea(
+                      top: false,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+                        child: Row(children: [
+                          _square(Icons.chevron_left_rounded, pr.current > unit.from ? () => _go(pr.current - 1) : null, 'Previous'),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            flex: 5,
+                            child: OutlinedButton(
+                              onPressed: _markNext,
+                              style: OutlinedButton.styleFrom(
+                                minimumSize: const Size.fromHeight(48),
+                                foregroundColor: _markedC,
+                                side: const BorderSide(color: Color(0xFFA78BFA), width: 2),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                              ),
+                              child: Text(pr.marked.contains(pr.current) ? 'Unmark' : 'Mark & next', maxLines: 1, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5)),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          _square(Icons.grid_view_rounded, _openPalette, 'Question palette'),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            flex: 6,
+                            child: Material(
+                              color: Colors.transparent,
+                              child: Ink(
+                                height: 48,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(15),
+                                  gradient: LinearGradient(colors: [Color.lerp(exam.c1, Colors.white, .25)!, exam.c1], begin: Alignment.topCenter, end: Alignment.bottomCenter),
+                                  boxShadow: [BoxShadow(color: exam.c1.withValues(alpha: .30), blurRadius: 14, offset: const Offset(0, 6))],
+                                ),
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(15),
+                                  onTap: _next,
+                                  child: Center(
+                                    child: Text(pr.current < unit.to ? 'Save & next' : (_lastUnit ? 'Submit' : 'Review'),
+                                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 15)),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ]),
                       ),
+                    ),
+                  ),
+                ]),
+        ),
+      ),
+    );
+  }
+
+  String get _subtitle {
+    String sec = unit.label;
+    for (final s in p.sections) {
+      if (pr.current >= s.from && pr.current <= s.to) sec = s.label;
+    }
+    if (p.units.length > 1) {
+      final w = _unitWord;
+      sec += ' · ${w[0].toUpperCase()}${w.substring(1)} ${pr.unit + 1} of ${p.units.length}';
+    }
+    return sec;
+  }
+
+  Widget _sbtn(IconData icon, VoidCallback? onTap, String tip) => Tooltip(
+        message: tip,
+        child: Material(
+          color: Colors.transparent,
+          child: Ink(
+            decoration: softCard(radius: 14),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(14),
+              onTap: onTap,
+              child: SizedBox(width: 40, height: 40, child: Icon(icon, color: widget.exam.c1, size: 24)),
+            ),
+          ),
+        ),
+      );
+
+  Widget _square(IconData icon, VoidCallback? onTap, String tip) => Tooltip(
+        message: tip,
+        child: Material(
+          color: Color.lerp(Colors.white, widget.exam.c1, onTap == null ? .05 : .12),
+          borderRadius: BorderRadius.circular(15),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(15),
+            onTap: onTap,
+            child: SizedBox(width: 48, height: 48, child: Icon(icon, color: onTap == null ? const Color(0xFFCBD5E1) : widget.exam.c1, size: 24)),
+          ),
+        ),
+      );
+
+  Widget _pill(String t, Color fg, Color bg) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(999)),
+        child: Text(t, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w900, color: fg)),
+      );
+
+  Widget _sectionStrip() {
+    final c1 = widget.exam.c1;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 2, 14, 0),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        for (var i = 0; i < p.sections.length; i++)
+          Builder(builder: (_) {
+            final s = p.sections[i];
+            final on = pr.current >= s.from && pr.current <= s.to;
+            final inUnit = s.from >= unit.from && s.to <= unit.to;
+            final done = s.to < unit.from;
+            final bar = on ? null : (done ? Color.lerp(Colors.white, c1, .45) : (inUnit ? Color.lerp(Colors.white, c1, .28) : Color.lerp(Colors.white, c1, .10)));
+            return Expanded(
+              child: GestureDetector(
+                onTap: inUnit && !on ? () => _go(s.from) : null,
+                child: Padding(
+                  padding: EdgeInsets.only(right: i == p.sections.length - 1 ? 0 : 6),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Container(
+                      height: 6,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(6),
+                        color: bar,
+                        gradient: on ? LinearGradient(colors: [Color.lerp(c1, Colors.white, .3)!, c1]) : null,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(s.label, maxLines: 1, overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: on ? c1 : (inUnit ? softMuted : const Color(0xFFA5A8C8)))),
                   ]),
                 ),
-                Expanded(
-                  child: ListView(
-                    controller: _scroll,
-                    padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
-                    children: [
-                      Rich(questionHtml(shown.text), size: 16.5),
-                      if (shown.imageUrl.isNotEmpty) Figure(shown.imageUrl),
-                      const SizedBox(height: 8),
-                      if (_imageOnly(shown))
-                        _optionGrid(shown)
-                      else
-                        for (final k in q.keys) _option(k, shown),
-                      ReportLink('Report a problem with this question', () => showReport(context, exam: widget.exam, paper: p, index: pr.current, target: 'question')),
-                    ],
-                  ),
-                ),
-                SafeArea(
-                  top: false,
-                  child: Container(
-                    padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
-                    color: Colors.white,
-                    child: Row(children: [
-                      IconButton.filledTonal(onPressed: pr.current > unit.from ? () => _go(pr.current - 1) : null, icon: const Icon(Icons.chevron_left), tooltip: 'Previous'),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: _markNext,
-                          style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(46), foregroundColor: _markedC, side: const BorderSide(color: _markedC), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                          child: Text(pr.marked.contains(pr.current) ? 'Unmark' : 'Mark & next', style: const TextStyle(fontWeight: FontWeight.w800)),
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      TextButton(onPressed: pr.answers[pr.current] == null ? null : _clear, child: const Text('Clear')),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: FilledButton(
-                          onPressed: _next,
-                          style: FilledButton.styleFrom(backgroundColor: exam.c1, minimumSize: const Size.fromHeight(46), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                          child: Text(pr.current < unit.to ? 'Save & next' : (_lastUnit ? 'Review & submit' : 'Review'), style: const TextStyle(fontWeight: FontWeight.w800)),
-                        ),
-                      ),
-                    ]),
-                  ),
-                ),
-              ]),
-      ),
+              ),
+            );
+          }),
+      ]),
     );
   }
 
@@ -720,22 +843,16 @@ class _TestScreenState extends State<TestScreen> with WidgetsBindingObserver {
       final sel = pr.answers[pr.current] == k;
       return Expanded(
         child: Material(
-          color: sel ? Color.lerp(Colors.white, exam.c2, 0.22) : Colors.white,
-          borderRadius: BorderRadius.circular(14),
+          color: sel ? Color.lerp(Colors.white, exam.c1, 0.10) : const Color(0xFFF8FAFF),
+          borderRadius: BorderRadius.circular(18),
           child: InkWell(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(18),
             onTap: () => _pick(k),
             child: Container(
-              padding: const EdgeInsets.fromLTRB(6, 6, 6, 4),
-              decoration: BoxDecoration(borderRadius: BorderRadius.circular(14), border: Border.all(color: sel ? exam.c1 : const Color(0xFFE2E8F0), width: sel ? 2 : 1)),
+              padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
+              decoration: BoxDecoration(borderRadius: BorderRadius.circular(18), border: Border.all(color: sel ? exam.c1 : Colors.transparent, width: 2)),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Container(
-                  width: 26,
-                  height: 26,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(shape: BoxShape.circle, color: sel ? exam.c1 : const Color(0xFFF1F5F9)),
-                  child: Text(k, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: sel ? Colors.white : const Color(0xFF334155))),
-                ),
+                _letter(k, sel),
                 SizedBox(height: 124, child: Center(child: Figure(_img(k, shown), maxHeight: 112, tapZoom: false))),
               ]),
             ),
@@ -760,42 +877,58 @@ class _TestScreenState extends State<TestScreen> with WidgetsBindingObserver {
 
   Widget _option(String k, Question shown) {
     final sel = pr.answers[pr.current] == k;
-    final exam = widget.exam;
+    final c1 = widget.exam.c1;
     final txt = stripFigRef(shown.option(k));
     final img = _img(k, shown);
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.only(bottom: 10),
       child: Material(
-        color: sel ? Color.lerp(Colors.white, exam.c2, 0.22) : Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(14),
-          onTap: () => _pick(k),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(borderRadius: BorderRadius.circular(14), border: Border.all(color: sel ? exam.c1 : const Color(0xFFE2E8F0), width: sel ? 2 : 1)),
-            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Container(
-                width: 30,
-                height: 30,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(shape: BoxShape.circle, color: sel ? exam.c1 : const Color(0xFFF1F5F9)),
-                child: Text(k, style: TextStyle(fontWeight: FontWeight.w800, color: sel ? Colors.white : const Color(0xFF334155))),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    if (txt.isNotEmpty) Rich(contentHtml(txt), size: 15.5),
-                    if (img.isNotEmpty) Figure(img, maxHeight: txt.isEmpty ? 130 : 100, tapZoom: false),
-                  ]),
+        color: Colors.transparent,
+        child: Ink(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            color: sel ? null : const Color(0xFFF8FAFF),
+            gradient: sel ? LinearGradient(colors: [Color.lerp(Colors.white, c1, .06)!, Color.lerp(Colors.white, c1, .14)!], begin: Alignment.topCenter, end: Alignment.bottomCenter) : null,
+            border: Border.all(color: sel ? c1 : Colors.transparent, width: 2),
+          ),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(18),
+            onTap: () => _pick(k),
+            child: Padding(
+              padding: const EdgeInsets.all(11),
+              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                _letter(k, sel),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 5),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      if (txt.isNotEmpty) Rich(contentHtml(txt), size: 16, weight: FontWeight.w600),
+                      if (img.isNotEmpty) Figure(img, maxHeight: txt.isEmpty ? 130 : 100, tapZoom: false),
+                    ]),
+                  ),
                 ),
-              ),
-            ]),
+              ]),
+            ),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _letter(String k, bool sel) {
+    final c1 = widget.exam.c1;
+    return Container(
+      width: 34,
+      height: 34,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        color: sel ? null : Colors.white,
+        gradient: sel ? LinearGradient(colors: [Color.lerp(c1, Colors.white, .25)!, c1], begin: Alignment.topCenter, end: Alignment.bottomCenter) : null,
+        boxShadow: [BoxShadow(color: (sel ? c1 : const Color(0xFF6366F1)).withValues(alpha: sel ? .35 : .12), blurRadius: sel ? 10 : 6, offset: const Offset(0, 3))],
+      ),
+      child: Text(k, style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: sel ? Colors.white : c1)),
     );
   }
 }

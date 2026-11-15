@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../ui/nav.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 
 import '../data.dart';
@@ -130,8 +131,8 @@ class _ResultScreenState extends State<ResultScreen> {
           builder: (_) => LeaderboardScreen(exam: exam, base: lbBase(widget.paper.rules.mockId), title: widget.title, uid: widget.user.uid),
         ));
     return examTheme(context, exam, Scaffold(
-      backgroundColor: Color.lerp(Colors.white, exam.c2, 0.10),
-      appBar: AppBar(title: Text(widget.title, style: TextStyle(fontWeight: FontWeight.w800, color: exam.ink))),
+      backgroundColor: const Color(0xFFEEF2FF),
+      appBar: AppBar(actions: const [HomeButton()], title: Text(widget.title, style: TextStyle(fontWeight: FontWeight.w800, color: exam.ink))),
       body: ListView(padding: const EdgeInsets.all(14), children: [
         Container(
           padding: const EdgeInsets.all(16),
@@ -265,8 +266,8 @@ class _ResultScreenState extends State<ResultScreen> {
                           c,
                           exam,
                           Scaffold(
-                            backgroundColor: Color.lerp(Colors.white, exam.c2, 0.10),
-                            appBar: AppBar(title: Text('My dashboard', style: TextStyle(fontWeight: FontWeight.w800, color: exam.ink))),
+                            backgroundColor: const Color(0xFFEEF2FF),
+                            appBar: AppBar(actions: const [HomeButton()], title: Text('My dashboard', style: TextStyle(fontWeight: FontWeight.w800, color: exam.ink))),
                             body: DashboardTab(user: widget.user, exam: exam, version: 0, onMocks: () => Navigator.of(c).pop()),
                           ),
                         ),
@@ -511,12 +512,13 @@ class _SolutionsScreenState extends State<SolutionsScreen> {
           ),
         );
     return examTheme(context, exam, Scaffold(
-      backgroundColor: Color.lerp(Colors.white, exam.c2, 0.08),
+      backgroundColor: const Color(0xFFEEF2FF),
       appBar: AppBar(
+        titleSpacing: 0,
         title: Text('Solutions', style: TextStyle(fontWeight: FontWeight.w800, color: exam.ink)),
         actions: [
           Padding(
-            padding: const EdgeInsets.only(right: 10),
+            padding: const EdgeInsets.only(right: 0),
             child: SegmentedButton<bool>(
               showSelectedIcon: false,
               style: const ButtonStyle(visualDensity: VisualDensity.compact),
@@ -528,6 +530,7 @@ class _SolutionsScreenState extends State<SolutionsScreen> {
               onSelectionChanged: (v) => setState(() => _scrollMode = v.first),
             ),
           ),
+          const HomeButton(),
         ],
       ),
       body: Column(children: [

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../ui/nav.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -123,8 +124,8 @@ class ChapterSubjectsScreen extends StatelessWidget {
       context,
       exam,
       Scaffold(
-        backgroundColor: Color.lerp(Colors.white, exam.c2, 0.10),
-        appBar: AppBar(title: Text('Chapter tests', style: TextStyle(fontWeight: FontWeight.w800, color: exam.ink))),
+        backgroundColor: const Color(0xFFEEF2FF),
+        appBar: AppBar(actions: const [HomeButton()], title: Text('Chapter tests', style: TextStyle(fontWeight: FontWeight.w800, color: exam.ink))),
         body: ListView(padding: const EdgeInsets.all(12), children: [
           Container(
             padding: const EdgeInsets.all(14),
@@ -237,8 +238,8 @@ class _SubjectChaptersScreenState extends State<SubjectChaptersScreen> {
       context,
       exam,
       Scaffold(
-        backgroundColor: Color.lerp(Colors.white, exam.c2, 0.10),
-        appBar: AppBar(title: Text(s.name, style: TextStyle(fontWeight: FontWeight.w800, color: exam.ink))),
+        backgroundColor: const Color(0xFFEEF2FF),
+        appBar: AppBar(actions: const [HomeButton()], title: Text(s.name, style: TextStyle(fontWeight: FontWeight.w800, color: exam.ink))),
         body: _failed
             ? Center(
                 child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -427,8 +428,8 @@ class _ChapterTestsScreenState extends State<ChapterTestsScreen> {
       context,
       exam,
       Scaffold(
-        backgroundColor: Color.lerp(Colors.white, exam.c2, 0.10),
-        appBar: AppBar(title: Text(ch.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontWeight: FontWeight.w800, color: exam.ink))),
+        backgroundColor: const Color(0xFFEEF2FF),
+        appBar: AppBar(actions: const [HomeButton()], title: Text(ch.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontWeight: FontWeight.w800, color: exam.ink))),
         body: _failed
             ? Center(
                 child: Column(mainAxisSize: MainAxisSize.min, children: [

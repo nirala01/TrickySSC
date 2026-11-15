@@ -11,6 +11,8 @@ import 'subject_mocks.dart';
 import 'current_affairs.dart';
 import '../ui/icons3d.dart';
 import '../ui/soft.dart';
+import '../ui/soft_list.dart';
+import '../ui/nav.dart';
 import '../test/test_screen.dart';
 
 /// The app after sign-in: Home, Mocks, PYQs and Me. Tabs stay loaded, so switching is instant.
@@ -39,8 +41,20 @@ class _AppShellState extends State<AppShell> {
   bool get _hasPass => _owned.contains(widget.exam.pass);
 
   @override
+  void _toHome() {
+    if (mounted && _tab != 0) setState(() => _tab = 0);
+  }
+
+  @override
+  void dispose() {
+    homeRequest.removeListener(_toHome);
+    super.dispose();
+  }
+
+  @override
   void initState() {
     super.initState();
+    homeRequest.addListener(_toHome);
     _loadMocks();
     loadName(widget.user.uid, widget.user.displayName).then((n) {
       if (mounted) setState(() => _name = n);
@@ -193,13 +207,20 @@ class _AppShellState extends State<AppShell> {
     final exam = widget.exam;
     final first = _name.split(' ').first;
     final mocks = _mocks ?? const <MockItem>[];
-    return examTheme(context, exam, Container(decoration: softBg, child: Scaffold(
+    return PopScope(
+      canPop: _tab == 0,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) setState(() => _tab = 0);
+      },
+      child: examTheme(context, exam, Container(decoration: softBg, child: Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 0,
-        titleSpacing: 14,
+        automaticallyImplyLeading: false,
+        leading: _tab == 0 ? null : IconButton(tooltip: 'Back', icon: const Icon(Icons.arrow_back_rounded), onPressed: () => setState(() => _tab = 0)),
+        titleSpacing: _tab == 0 ? 14 : 0,
         toolbarHeight: 58,
         title: InkWell(
           borderRadius: BorderRadius.circular(20),
@@ -216,10 +237,13 @@ class _AppShellState extends State<AppShell> {
           ),
         ),
         actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 14),
-            child: Center(child: Text('Hi, $first', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: exam.c1))),
-          ),
+          if (_tab == 0)
+            Padding(
+              padding: const EdgeInsets.only(right: 14),
+              child: Center(child: Text('Hi, $first', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: exam.c1))),
+            )
+          else
+            IconButton(tooltip: 'Home', icon: const Icon(Icons.home_rounded), onPressed: () => setState(() => _tab = 0)),
         ],
       ),
       body: IndexedStack(
@@ -298,7 +322,7 @@ class _AppShellState extends State<AppShell> {
           NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: 'Me'),
         ],
       ),
-    )));
+    ))));
   }
 }
 
@@ -600,42 +624,50 @@ class _MocksTab extends StatelessWidget {
     for (final m in list) {
       if (!offered && !isOpen(m)) {
         offered = true;
-        rows.add(_PassCard(
-          exam: exam,
-          hasPass: false,
-          price: price,
-          title: 'Unlock all ${exam.mocks}',
-          sub: 'One payment · valid 1 year',
-          onTap: () => onSoon('Buying a pass'),
+        rows.add(Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: _PassCard(
+            exam: exam,
+            hasPass: false,
+            price: price,
+            title: 'Unlock all ${exam.mocks}',
+            sub: 'One payment · valid 1 year',
+            onTap: () => onSoon('Buying a pass'),
+          ),
         ));
       }
       rows.add(_MockRow(exam: exam, m: m, open: isOpen(m), free: m.n <= exam.free, premium: hasPass && m.n > exam.free, done: isAttempted(attempted, exam, m), resume: resuming(m), onStart: onStart));
     }
-    return Column(children: [
-      Padding(
-        padding: const EdgeInsets.fromLTRB(12, 10, 12, 2),
-        child: Row(children: [
-          if (exam.tier2) ...[
-            _Chip('Tier 1', tier == 1, exam, () => onTier(1)),
-            const SizedBox(width: 8),
-            _Chip('Tier 2', tier == 2, exam, () => onTier(2)),
-          ] else
-            Text('${list.length} mocks live', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
-          const Spacer(),
-          Text(hasPass ? 'All ${list.length} unlocked' : '$open free · ${list.length - open} locked', style: const TextStyle(fontSize: 14, color: Color(0xFF475569), fontWeight: FontWeight.w600)),
-        ]),
+    final doneN = list.where((m) => isAttempted(attempted, exam, m)).length;
+    final head = <Widget>[
+      SoftSummary(
+        icon: exam.icon3d,
+        title: '$doneN of ${list.length} done',
+        progress: list.isEmpty ? 0 : doneN / list.length,
+        sub: hasPass ? 'All ${list.length} unlocked · Hindi & English' : '$open free · ${list.length - open} locked',
+        accent: exam.c1,
       ),
-      Expanded(
-        child: list.isEmpty
-            ? const _Placeholder(icon: Icons.hourglass_empty, title: 'Releasing soon', text: 'These mocks are on the way.')
-            : ListView.separated(
-                padding: const EdgeInsets.fromLTRB(12, 8, 12, 14),
-                itemCount: rows.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 7),
-                itemBuilder: (_, i) => rows[i],
-              ),
-      ),
-    ]);
+      const SizedBox(height: 12),
+      if (exam.tier2)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Row(children: [
+            SoftChip('Tier 1', tier == 1, exam.c1, () => onTier(1)),
+            SoftChip('Tier 2', tier == 2, exam.c1, () => onTier(2)),
+          ]),
+        ),
+    ];
+    if (list.isEmpty) {
+      return ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 14), children: [
+        ...head,
+        const SizedBox(height: 260, child: _Placeholder(icon: Icons.hourglass_empty, title: 'Releasing soon', text: 'These mocks are on the way.')),
+      ]);
+    }
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 14),
+      itemCount: head.length + rows.length,
+      itemBuilder: (_, i) => i < head.length ? head[i] : rows[i - head.length],
+    );
   }
 }
 
@@ -678,53 +710,20 @@ class _MockRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final langs = [if (m.en) 'EN', if (m.hi) 'हिंदी'].join(', ');
     final meta = [if (m.tier == 1) exam.meta else 'Tier 2 · 135 min', if (langs.isNotEmpty) langs].join(' · ');
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: () => onStart(m),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-          child: Row(children: [
-            Container(
-              width: 40,
-              height: 40,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), color: Color.lerp(Colors.white, exam.c2, open ? 0.30 : 0.14)),
-              child: Text('${m.n}', style: TextStyle(color: exam.c1, fontWeight: FontWeight.w800, fontSize: 15)),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Wrap(crossAxisAlignment: WrapCrossAlignment.center, runSpacing: 2, children: [
-                  Text('Mock ${m.n}', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
-                  if (free) ...[const SizedBox(width: 6), const _Tag('FREE', Color(0xFF047857), Color(0xFFD1FAE5))],
-                  if (premium) ...[const SizedBox(width: 6), const _Tag('PREMIUM', Color(0xFF92400E), Color(0xFFFEF3C7))],
-                  if (resume) ...[const SizedBox(width: 6), const _Tag('PAUSED', Color(0xFFB45309), Color(0xFFFEF3C7))]
-                  else if (done) ...[const SizedBox(width: 6), const _Tag('DONE', Color(0xFF1D4ED8), Color(0xFFDBEAFE))],
-                ]),
-                const SizedBox(height: 1),
-                Text(meta, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13.5, color: Color(0xFF475569))),
-              ]),
-            ),
-            const SizedBox(width: 6),
-            if (open)
-              Container(
-                width: 88,
-                height: 36,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(10),
-                  gradient: LinearGradient(colors: resume ? const [Color(0xFFD97706), Color(0xFFFBBF24)] : [exam.c1, exam.c2]),
-                ),
-                child: Text(resume ? 'Resume' : (done ? 'Retake' : 'Start'), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 15)),
-              )
-            else
-              const SizedBox(width: 88, height: 36, child: Icon(Icons.lock_outline, color: Color(0xFF94A3B8), size: 22)),
-          ]),
-        ),
-      ),
+    final tags = <Widget>[
+      if (free) const SoftTag.free(),
+      if (premium) const SoftTag.premium(),
+      if (resume) const SoftTag.paused() else if (done) const SoftTag.done(),
+    ];
+    return SoftRow(
+      badge: '${m.n}',
+      title: '${m.tier == 2 ? 'Tier 2 ' : ''}Mock ${m.n}',
+      tags: tags,
+      meta: tags.isEmpty || !open ? meta : '',
+      action: open ? (resume ? 'Resume' : (done ? 'Retake' : 'Start')) : null,
+      resume: resume,
+      accent: exam.c1,
+      onTap: () => onStart(m),
     );
   }
 }
