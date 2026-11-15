@@ -66,7 +66,7 @@ jobs:
         run: |
           echo "$KS" | base64 -d > "$RUNNER_TEMP/upload.jks"
           export TSSC_KEYSTORE_FILE="$RUNNER_TEMP/upload.jks"
-          gradle --no-daemon bundleRelease -PversionCode=${{ github.run_number }} -PversionName=1.0.${{ github.run_number }}
+          gradle --no-daemon bundleRelease assembleRelease -PversionCode=${{ github.run_number }} -PversionName=1.0.${{ github.run_number }}
           rm -f "$RUNNER_TEMP/upload.jks"
 
       - uses: actions/upload-artifact@v4
@@ -79,3 +79,10 @@ jobs:
         with:
           name: trickyssc-release-aab
           path: android/app/build/outputs/bundle/release/*.aab
+
+      # Same signing key as the AAB, but installable directly on a phone for testing.
+      - uses: actions/upload-artifact@v4
+        if: steps.sign.outputs.have == 'true'
+        with:
+          name: trickyssc-release-apk
+          path: android/app/build/outputs/apk/release/*.apk
