@@ -643,14 +643,14 @@ class _SolutionsScreenState extends State<SolutionsScreen> {
 
 /// Open the solutions of a saved attempt (from the dashboard).
 Future<void> openAttemptSolutions(BuildContext context, Exam exam, Map<String, dynamic> a) async {
-  final mockId = '${a['mockId'] ?? ''}';
+  final mockId = '${a['mockId'] ?? ''}'.isNotEmpty ? '${a['mockId']}' : '${a['paperId'] ?? ''}';
   final lang = mockId.endsWith('_hi') ? 'hi' : 'en';
   final pd = '${a['partD'] ?? ''}';
   final nav = Navigator.of(context);
   final msg = ScaffoldMessenger.of(context);
   showDialog(context: context, barrierDismissible: false, builder: (_) => const Center(child: CircularProgressIndicator()));
   try {
-    final p = await loadPaper(mockId, lang, partD: pd.isEmpty ? null : pd);
+    final p = await loadPaper(mockId, lang, partD: pd.isEmpty ? null : pd, title: '${a['examName'] ?? ''}');
     final pr = Progress();
     final byQ = <String, Map>{};
     for (final x in (a['answers'] as List? ?? const [])) {

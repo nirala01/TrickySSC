@@ -5,6 +5,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import '../data.dart';
 import '../test/engine.dart';
 import 'dashboard.dart';
+import 'pyq.dart';
 import '../test/test_screen.dart';
 
 /// The app after sign-in: Home, Mocks, PYQs and Me. Tabs stay loaded, so switching is instant.
@@ -175,6 +176,10 @@ class _AppShellState extends State<AppShell> {
         title: '${exam.name} Mock ${m.n}',
       ),
     ));
+    _afterTest();
+  }
+
+  void _afterTest() {
     loadAttempted(widget.user.uid).then((a) {
       if (mounted) setState(() => _attempted = a);
     });
@@ -227,6 +232,7 @@ class _AppShellState extends State<AppShell> {
             resuming: _resuming,
             onMocks: () => setState(() => _tab = 1),
             onDashboard: () => setState(() => _tab = 2),
+            onPyq: () => setState(() => _tab = 3),
             onStart: _startMock,
             onSoon: _soon,
           ),
@@ -246,7 +252,14 @@ class _AppShellState extends State<AppShell> {
             onRetry: _loadMocks,
           ),
           DashboardTab(user: widget.user, exam: exam, version: _version, onMocks: () => setState(() => _tab = 1)),
-          const _Placeholder(icon: Icons.description_outlined, title: 'Previous year papers', text: 'Coming in the next build.'),
+          PyqTab(
+            user: widget.user,
+            exam: exam,
+            attempted: _attempted,
+            resume: _resume,
+            paid: _owned.isNotEmpty,
+            onReturn: _afterTest,
+          ),
           _MeTab(name: _name, exam: exam, onChangeExam: widget.onChangeExam, onSignOut: _signOut, onDashboard: () => setState(() => _tab = 2)),
         ],
       ),
@@ -326,6 +339,7 @@ class _HomeTab extends StatelessWidget {
   final bool Function(MockItem) resuming;
   final VoidCallback onMocks;
   final VoidCallback onDashboard;
+  final VoidCallback onPyq;
   final void Function(MockItem) onStart;
   final void Function(String) onSoon;
   const _HomeTab({
@@ -339,6 +353,7 @@ class _HomeTab extends StatelessWidget {
     required this.resuming,
     required this.onMocks,
     required this.onDashboard,
+    required this.onPyq,
     required this.onStart,
     required this.onSoon,
   });
@@ -425,7 +440,7 @@ class _HomeTab extends StatelessWidget {
                 child: Row(children: [
                   _Tile(Icons.track_changes, 'Mock tests', exam.mocks, const Color(0xFFFFE9D6), const Color(0xFFC2410C), onMocks),
                   const SizedBox(width: 8),
-                  _Tile(Icons.description, 'Year papers', 'Free', const Color(0xFFDBEAFE), const Color(0xFF1D4ED8), () => onSoon('Previous year papers')),
+                  _Tile(Icons.description, 'Previous year papers', 'Free', const Color(0xFFDBEAFE), const Color(0xFF1D4ED8), onPyq),
                 ]),
               ),
               const SizedBox(height: 8),

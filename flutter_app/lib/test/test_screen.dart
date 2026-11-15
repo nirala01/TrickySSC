@@ -39,7 +39,7 @@ class _TestFlowState extends State<TestFlow> {
   Future<void> _load() async {
     setState(() => _error = null);
     try {
-      final p = await loadPaper(widget.mockId, widget.lang, partD: widget.partD);
+      final p = await loadPaper(widget.mockId, widget.lang, partD: widget.partD, title: isPyqId(widget.mockId) ? widget.title : '');
       final s = await loadProgress(widget.user.uid, widget.mockId, p.partD);
       if (!mounted) return;
       setState(() {

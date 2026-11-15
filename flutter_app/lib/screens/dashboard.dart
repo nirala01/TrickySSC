@@ -58,6 +58,8 @@ class _DashboardTabState extends State<DashboardTab> {
     return '${d.day} ${m[d.month - 1]} · $h:${d.minute.toString().padLeft(2, '0')} ${d.hour < 12 ? 'am' : 'pm'}';
   }
 
+  String _id(Map<String, dynamic> a) => '${a['mockId'] ?? ''}'.isNotEmpty ? '${a['mockId']}' : '${a['paperId'] ?? ''}';
+
   String _title(Map<String, dynamic> a) {
     final id = '${a['mockId'] ?? ''}';
     final m = RegExp(r'_(tier\d|cbt\d)_mock(\d+)_(en|hi)$').firstMatch(id);
@@ -66,17 +68,19 @@ class _DashboardTabState extends State<DashboardTab> {
       return '${widget.exam.name} ${t2}Mock ${m.group(2)}${m.group(3) == 'hi' ? ' · हिंदी' : ''}';
     }
     final n = '${a['examName'] ?? ''}'.trim();
-    return n.isEmpty ? 'Test' : n;
+    final hi = _id(a).endsWith('_hi') ? ' · हिंदी' : '';
+    return n.isEmpty ? 'Test' : '$n$hi';
   }
 
   bool _canOpen(Map<String, dynamic> a) {
-    final id = '${a['mockId'] ?? ''}';
-    return RegExp(r'_(tier1|cbt1)_mock\d+_(en|hi)$').hasMatch(id) && (a['answers'] is List);
+    final id = _id(a);
+    final ok = RegExp(r'_(tier1|cbt1)_mock\d+_(en|hi)$').hasMatch(id) || RegExp(r'^[a-z-]+_\d{4}_tier1_.*_(en|hi)$').hasMatch(id);
+    return ok && (a['answers'] is List);
   }
 
   void _actions(Map<String, dynamic> a) {
     final exam = widget.exam;
-    final id = '${a['mockId'] ?? ''}';
+    final id = _id(a);
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.white,

@@ -163,8 +163,11 @@ class Paper {
   Paper(this.rules, this.questions, this.sections, this.units, this.title, this.partD);
 }
 
+/// Previous-year papers are keyed by paperId (ssc-cgl_2026_tier1_shift-1_2026-10-13_en), mocks by mockId.
+bool isPyqId(String id) => !RegExp(r'_mock\d+_').hasMatch(id);
+
 Future<List<Question>> _fetch(String mockId) async {
-  final snap = await FirebaseFirestore.instance.collection('questions').where('mockId', isEqualTo: mockId).get();
+  final snap = await FirebaseFirestore.instance.collection('questions').where(isPyqId(mockId) ? 'paperId' : 'mockId', isEqualTo: mockId).get();
   final list = [for (final d in snap.docs) Question({'id': d.id, ...d.data()})];
   list.sort((a, b) => a.qNum.compareTo(b.qNum));
   return list;
@@ -178,10 +181,10 @@ String twinId(String mockId, String lang) =>
 
 /// Loads a mock and builds its sections and timed units.
 /// [partD] (GD only): take Q61-80 from the other-language paper when it differs from [lang].
-Future<Paper> loadPaper(String mockId, String lang, {String? partD}) async {
+Future<Paper> loadPaper(String mockId, String lang, {String? partD, String title = ''}) async {
   final rules = Rules(mockId);
   var qs = await _fetch(mockId);
-  if (qs.isEmpty) throw 'This mock has no questions yet.';
+  if (qs.isEmpty) throw 'This paper has no questions yet.';
   var pd = '';
   if (rules.gd) {
     pd = lang;
@@ -195,11 +198,12 @@ Future<Paper> loadPaper(String mockId, String lang, {String? partD}) async {
       } catch (_) {}
     }
   }
-  var title = '';
-  try {
-    final meta = await FirebaseFirestore.instance.collection('mock_tests').doc(mockId).get();
-    title = _str((meta.data() ?? const {})['title']);
-  } catch (_) {}
+  if (title.isEmpty && !isPyqId(mockId)) {
+    try {
+      final meta = await FirebaseFirestore.instance.collection('mock_tests').doc(mockId).get();
+      title = _str((meta.data() ?? const {})['title']);
+    } catch (_) {}
+  }
 
   // sections: consecutive questions of one subject
   final sections = <Section>[];
@@ -473,14 +477,16 @@ Future<void> saveResult(User u, Exam exam, Paper p, Progress pr, Result r) async
   }
   final subjectStats = r.subjects.map((k, v) => MapEntry(k, {'correct': v.correct, 'wrong': v.wrong, 'skip': v.skip}));
   final subjectMarks = r.subjects.map((k, v) => MapEntry(k, _r1(v.marks)));
-  final attemptId = '${u.uid}_${exam.id}_na_${DateTime.now().millisecondsSinceEpoch}';
+  final pyq = isPyqId(mockId);
+  final year = pyq ? (RegExp(r'^[a-z-]+_(\d{4})_').firstMatch(mockId)?.group(1) ?? '') : '';
+  final attemptId = '${u.uid}_${exam.id}_${year.isEmpty ? 'na' : year}_${DateTime.now().millisecondsSinceEpoch}';
   final payload = <String, dynamic>{
     'uid': u.uid,
     'exam': exam.id,
-    'year': '',
+    'year': year,
     'examName': label,
-    'paperId': '',
-    'mockId': mockId,
+    'paperId': pyq ? mockId : '',
+    'mockId': pyq ? '' : mockId,
     'total': r.total,
     'correct': r.correct,
     'wrong': r.wrong,
