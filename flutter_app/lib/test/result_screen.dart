@@ -84,9 +84,8 @@ class _ResultScreenState extends State<ResultScreen> {
     final pct = r.rank != null && (r.candidates ?? 0) > 1 ? ((r.candidates! - r.rank!) * 100 / (r.candidates! - 1)).round() : null;
     TextStyle hs(Color c) => TextStyle(fontWeight: FontWeight.w800, color: c, fontSize: 14);
     return Container(
-      margin: const EdgeInsets.only(top: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text('You vs Topper', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: exam.ink)),
         if (pct != null) Text('You did better than $pct% of students', style: const TextStyle(fontSize: 13.5, color: Color(0xFF475569))),
@@ -192,7 +191,37 @@ class _ResultScreenState extends State<ResultScreen> {
               ),
           ]),
         ),
-        if (_cmp != null) _vsTopper(exam),
+        if (_cmp != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 10),
+            child: Material(
+              color: const Color(0xFFFEF3C7),
+              borderRadius: BorderRadius.circular(14),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(14),
+                onTap: () => showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
+                  builder: (c) => SafeArea(
+                    child: Padding(
+                      padding: const EdgeInsets.all(10),
+                      child: SingleChildScrollView(child: examTheme(c, exam, _vsTopper(exam))),
+                    ),
+                  ),
+                ),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  child: Row(children: [
+                    Text('👑', style: TextStyle(fontSize: 20)),
+                    SizedBox(width: 10),
+                    Expanded(child: Text('You vs Topper', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF92400E)))),
+                    Icon(Icons.chevron_right, color: Color(0xFF92400E)),
+                  ]),
+                ),
+              ),
+            ),
+          ),
         const SizedBox(height: 10),
         if (_saving)
           const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
