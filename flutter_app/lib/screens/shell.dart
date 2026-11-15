@@ -9,6 +9,8 @@ import 'pyq.dart';
 import 'chapters.dart';
 import 'subject_mocks.dart';
 import 'current_affairs.dart';
+import '../ui/icons3d.dart';
+import '../ui/soft.dart';
 import '../test/test_screen.dart';
 
 /// The app after sign-in: Home, Mocks, PYQs and Me. Tabs stay loaded, so switching is instant.
@@ -190,30 +192,33 @@ class _AppShellState extends State<AppShell> {
   Widget build(BuildContext context) {
     final exam = widget.exam;
     final first = _name.split(' ').first;
-    final tint = Color.lerp(Colors.white, exam.c2, 0.10)!;
     final mocks = _mocks ?? const <MockItem>[];
-    return examTheme(context, exam, Scaffold(
-      backgroundColor: tint,
+    return examTheme(context, exam, Container(decoration: softBg, child: Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        scrolledUnderElevation: 0,
         titleSpacing: 14,
-        toolbarHeight: 52,
+        toolbarHeight: 58,
         title: InkWell(
           borderRadius: BorderRadius.circular(20),
           onTap: widget.onChangeExam,
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
             child: Row(mainAxisSize: MainAxisSize.min, children: [
-              Text(exam.icon, style: const TextStyle(fontSize: 20)),
+              Icon3D(exam.icon3d, size: 32),
               const SizedBox(width: 8),
-              Text(exam.name, style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800, color: exam.ink)),
-              Icon(Icons.expand_more, size: 22, color: exam.ink),
+              Text(exam.name, style: baloo(24)),
+              const SizedBox(width: 2),
+              Icon(Icons.expand_more, size: 24, color: exam.c1),
             ]),
           ),
         ),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 14),
-            child: Center(child: Text('Hi, $first', style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF047857)))),
+            child: Center(child: Text('Hi, $first', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: exam.c1))),
           ),
         ],
       ),
@@ -282,7 +287,7 @@ class _AppShellState extends State<AppShell> {
         height: 64,
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.white,
-        indicatorColor: Color.lerp(Colors.white, exam.c2, 0.35),
+        indicatorColor: Color.lerp(Colors.white, exam.c1, 0.16),
         selectedIndex: _tab,
         onDestinationSelected: (i) => setState(() => _tab = i),
         destinations: const [
@@ -293,7 +298,7 @@ class _AppShellState extends State<AppShell> {
           NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: 'Me'),
         ],
       ),
-    ));
+    )));
   }
 }
 
@@ -313,27 +318,28 @@ class _PassCard extends StatelessWidget {
       color: Colors.transparent,
       child: Ink(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          gradient: LinearGradient(colors: [exam.c1, exam.c2], begin: Alignment.topLeft, end: Alignment.bottomRight),
+          borderRadius: BorderRadius.circular(24),
+          gradient: LinearGradient(colors: [Color.lerp(exam.c1, Colors.white, 0.22)!, exam.c1], begin: Alignment.topLeft, end: Alignment.bottomRight),
+          boxShadow: [BoxShadow(color: exam.c1.withValues(alpha: .28), blurRadius: 22, offset: const Offset(0, 10))],
         ),
         child: InkWell(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(24),
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
             child: Row(children: [
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w800)),
+                  Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: baloo(20, color: Colors.white)),
                   const SizedBox(height: 2),
-                  Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 14.5)),
+                  Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Color(0xEEFFFFFF), fontSize: 14, fontWeight: FontWeight.w600)),
                 ]),
               ),
               const SizedBox(width: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
-                child: Text(hasPass ? '✓ Active' : (price == null ? 'Unlock' : 'Unlock ₹$price'), style: TextStyle(color: exam.c1, fontWeight: FontWeight.w800)),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
+                child: Text(hasPass ? '✓ Active' : (price == null ? 'Unlock' : 'Unlock ₹$price'), style: TextStyle(color: exam.c1, fontWeight: FontWeight.w900, fontSize: 14.5)),
               ),
             ]),
           ),
@@ -425,33 +431,38 @@ class _HomeTab extends StatelessWidget {
           const SizedBox(height: 8),
           Material(
             color: Colors.transparent,
-            borderRadius: BorderRadius.circular(16),
             child: Ink(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                gradient: const LinearGradient(colors: [Color(0xFF047857), Color(0xFF34D399)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-              ),
+              decoration: softCard(radius: 20, glow: exam.c1),
               child: InkWell(
-              borderRadius: BorderRadius.circular(16),
-              onTap: next == null ? onMocks : () => onStart(next!),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                child: Row(children: [
-                  Expanded(
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(
-                        next == null
-                            ? 'See all mocks'
-                            : resumeNext ? 'Resume Mock ${next.n}' : 'Start ${next.tier == 2 ? 'Tier 2 ' : ''}Mock ${next.n}${next.n <= exam.free ? ' · free' : ''}',
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white),
+                borderRadius: BorderRadius.circular(20),
+                onTap: next == null ? onMocks : () => onStart(next!),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+                  child: Row(children: [
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(
+                          next == null
+                              ? 'See all mocks'
+                              : resumeNext ? 'Resume Mock ${next.n}' : 'Start ${next.tier == 2 ? 'Tier 2 ' : ''}Mock ${next.n}${next.n <= exam.free ? ' · free' : ''}',
+                          style: baloo(19),
+                        ),
+                        Text(next != null && next.tier == 1 ? exam.meta : 'Full-length papers with solutions', style: const TextStyle(fontSize: 14, color: softMuted, fontWeight: FontWeight.w600)),
+                      ]),
+                    ),
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: const LinearGradient(colors: [Color(0xFF34D399), Color(0xFF059669)], begin: Alignment.topCenter, end: Alignment.bottomCenter),
+                        boxShadow: [BoxShadow(color: const Color(0xFF059669).withValues(alpha: .35), blurRadius: 12, offset: const Offset(0, 5))],
                       ),
-                      Text(next != null && next.tier == 1 ? exam.meta : 'Full-length papers with solutions', style: const TextStyle(fontSize: 14, color: Color(0xEEFFFFFF))),
-                    ]),
-                  ),
-                  const CircleAvatar(radius: 18, backgroundColor: Colors.white, child: Icon(Icons.play_arrow, color: Color(0xFF047857), size: 24)),
-                ]),
+                      child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 28),
+                    ),
+                  ]),
+                ),
               ),
-            ),
             ),
           ),
           const SizedBox(height: 8),
@@ -459,25 +470,25 @@ class _HomeTab extends StatelessWidget {
             child: Column(children: [
               Expanded(
                 child: Row(children: [
-                  _Tile(Icons.track_changes, 'Mock tests', exam.mocks, const Color(0xFFFFE9D6), const Color(0xFFC2410C), onMocks),
+                  _Tile('target', 'Mock tests', exam.mocks, exam.c1, onMocks),
                   const SizedBox(width: 8),
-                  _Tile(Icons.description, 'Previous year papers', 'Free', const Color(0xFFDBEAFE), const Color(0xFF1D4ED8), onPyq),
+                  _Tile('paper', 'Previous year papers', 'Free', exam.c1, onPyq),
                 ]),
               ),
               const SizedBox(height: 8),
               Expanded(
                 child: Row(children: [
-                  _Tile(Icons.menu_book, 'Chapter tests', '2 levels', const Color(0xFFD1FAE5), const Color(0xFF047857), onChapters),
+                  _Tile('book', 'Chapter tests', '2 levels', exam.c1, onChapters),
                   const SizedBox(width: 8),
-                  _Tile(Icons.folder_copy, 'Chapter PYQs', 'By chapter', const Color(0xFFEDE9FE), const Color(0xFF6D28D9), () => onSoon('Chapter PYQs')),
+                  _Tile('folder', 'Chapter PYQs', 'By chapter', exam.c1, () => onSoon('Chapter PYQs')),
                 ]),
               ),
               const SizedBox(height: 8),
               Expanded(
                 child: Row(children: [
-                  _Tile(Icons.extension, 'Subject mocks', 'Sectional', const Color(0xFFFCE7F3), const Color(0xFFBE185D), onSubjects),
+                  _Tile('puzzle', 'Subject mocks', 'Sectional', exam.c1, onSubjects),
                   const SizedBox(width: 8),
-                  _Tile(Icons.newspaper, 'Current affairs', 'Daily', const Color(0xFFCFFAFE), const Color(0xFF0E7490), onCa),
+                  _Tile('news', 'Current affairs', 'Daily', exam.c1, onCa),
                 ]),
               ),
             ]),
@@ -499,11 +510,11 @@ class _Stat extends StatelessWidget {
   Widget build(BuildContext context) {
     return Expanded(
       child: GestureDetector(onTap: onTap, child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+        decoration: softCard(radius: 18),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(value, style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800, color: exam.c1, height: 1.1)),
-          Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13.5, color: Color(0xFF475569), fontWeight: FontWeight.w600)),
+          Text(value, style: baloo(25, color: exam.c1)),
+          Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13.5, color: softMuted, fontWeight: FontWeight.w700)),
         ]),
       )),
     );
@@ -511,42 +522,31 @@ class _Stat extends StatelessWidget {
 }
 
 class _Tile extends StatelessWidget {
-  final IconData icon;
+  final String icon;
   final String title;
   final String sub;
-  final Color tint;
-  final Color ink;
+  final Color accent;
   final VoidCallback onTap;
-  const _Tile(this.icon, this.title, this.sub, this.tint, this.ink, this.onTap);
+  const _Tile(this.icon, this.title, this.sub, this.accent, this.onTap);
 
   @override
   Widget build(BuildContext context) {
-    final a = Color.lerp(ink, Colors.white, 0.08)!, b = Color.lerp(ink, Colors.white, 0.42)!;
     return Expanded(
       child: Material(
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(18),
         child: Ink(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            gradient: LinearGradient(colors: [a, b], begin: Alignment.topLeft, end: Alignment.bottomRight),
-          ),
+          decoration: softCard(radius: 22),
           child: InkWell(
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(22),
             onTap: onTap,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
+              padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Container(
-                  width: 50,
-                  height: 50,
-                  decoration: BoxDecoration(color: const Color(0x33FFFFFF), borderRadius: BorderRadius.circular(14)),
-                  child: Icon(icon, color: Colors.white, size: 28),
-                ),
+                Container(width: 56, height: 56, alignment: Alignment.center, decoration: softWell(), child: Icon3D(icon, size: 42)),
                 const Spacer(),
-                Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, height: 1.15, color: Colors.white)),
-                const SizedBox(height: 3),
-                Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 15, color: Color(0xEEFFFFFF), fontWeight: FontWeight.w600)),
+                Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: baloo(18)),
+                const SizedBox(height: 2),
+                Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 14, color: accent, fontWeight: FontWeight.w800)),
               ]),
             ),
           ),

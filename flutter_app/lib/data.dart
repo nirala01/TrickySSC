@@ -18,6 +18,7 @@ class Exam {
   final Color c2;
   final String meta; // questions and time of a Tier 1 paper
   final bool tier2;
+  String get icon3d => const {'cgl': 'target', 'chsl': 'clip', 'mts': 'pencil', 'gd': 'shield', 'ntpc': 'train'}[k] ?? 'book';
   /// Deep text colour for this exam (headings, labels).
   Color get ink => Color.lerp(c1, const Color(0xFF0F172A), 0.45)!;
   const Exam(this.k, this.id, this.name, this.sub, this.icon, this.pass, this.mocks, this.free, this.c1, this.c2, this.meta, this.tier2);
