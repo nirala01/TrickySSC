@@ -655,7 +655,9 @@ class _MockRow extends StatelessWidget {
             const SizedBox(width: 6),
             if (open)
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                width: 88,
+                height: 36,
+                alignment: Alignment.center,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(10),
                   gradient: LinearGradient(colors: resume ? const [Color(0xFFD97706), Color(0xFFFBBF24)] : [exam.c1, exam.c2]),
@@ -663,7 +665,7 @@ class _MockRow extends StatelessWidget {
                 child: Text(resume ? 'Resume' : (done ? 'Retake' : 'Start'), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13)),
               )
             else
-              const Icon(Icons.lock_outline, color: Color(0xFF94A3B8), size: 22),
+              const SizedBox(width: 88, height: 36, child: Icon(Icons.lock_outline, color: Color(0xFF94A3B8), size: 22)),
           ]),
         ),
       ),
