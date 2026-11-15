@@ -4,7 +4,9 @@ import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 
 import '../data.dart';
 import 'engine.dart';
+import 'compare.dart';
 import 'leaderboard.dart';
+import 'report.dart';
 import 'render.dart';
 
 class ResultScreen extends StatefulWidget {
@@ -23,6 +25,11 @@ class ResultScreen extends StatefulWidget {
 class _ResultScreenState extends State<ResultScreen> {
   bool _saving = true;
   bool _failed = false;
+  Compare? _cmp;
+
+  void _loadCompare() => Compare.load(widget.paper, widget.progress).then((c) {
+        if (mounted && c != null) setState(() => _cmp = c);
+      });
 
   Result get r => widget.result;
 
@@ -47,6 +54,7 @@ class _ResultScreenState extends State<ResultScreen> {
       if (first) await countDailyTest(widget.user);
       await clearProgress(widget.user.uid, widget.paper.rules.mockId, widget.paper.partD);
       if (mounted) setState(() => _saving = false);
+      _loadCompare();
     } catch (_) {
       if (mounted) {
         setState(() {
@@ -58,6 +66,49 @@ class _ResultScreenState extends State<ResultScreen> {
   }
 
   String _n(double v) => v == v.roundToDouble() ? '${v.round()}' : v.toStringAsFixed(1);
+
+  Widget _vsTopper(Exam exam) {
+    final t = _cmp!.topperTotals();
+    final lb = _cmp!.lbTop ?? const {};
+    final tTime = (lb['timeUsed'] as num? ?? 0).toInt();
+    final sm = lb['subjectMarks'] is Map ? lb['subjectMarks'] as Map : const {};
+    final rows = <List<String>>[
+      ['Marks', _n(r.marks), _n(t.$1)],
+      ['✓ Correct', '${r.correct}', '${t.$2}'],
+      ['✕ Wrong', '${r.wrong}', '${t.$3}'],
+      ['– Skipped', '${r.skip}', '${t.$4}'],
+      if (tTime > 0) ['⏱ Time', _time(r.timeUsed), _time(tTime)],
+      for (final e in r.subjects.entries)
+        if (sm[e.key] is num) [e.key, _n(e.value.marks), _n((sm[e.key] as num).toDouble())],
+    ];
+    final pct = r.rank != null && (r.candidates ?? 0) > 1 ? ((r.candidates! - r.rank!) * 100 / (r.candidates! - 1)).round() : null;
+    TextStyle hs(Color c) => TextStyle(fontWeight: FontWeight.w800, color: c, fontSize: 14);
+    return Container(
+      margin: const EdgeInsets.only(top: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('You vs Topper', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: exam.ink)),
+        if (pct != null) Text('You did better than $pct% of students', style: const TextStyle(fontSize: 13.5, color: Color(0xFF475569))),
+        const SizedBox(height: 8),
+        Row(children: [
+          const Expanded(child: SizedBox()),
+          SizedBox(width: 76, child: Text('🙋 You', textAlign: TextAlign.center, style: hs(exam.c1))),
+          SizedBox(width: 86, child: Text('👑 Topper', textAlign: TextAlign.center, style: hs(const Color(0xFFB45309)))),
+        ]),
+        const Divider(),
+        for (final row in rows)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(children: [
+              Expanded(child: Text(row[0], style: const TextStyle(fontSize: 14.5))),
+              SizedBox(width: 76, child: Text(row[1], textAlign: TextAlign.center, style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700))),
+              SizedBox(width: 86, child: Text(row[2], textAlign: TextAlign.center, style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700, color: Color(0xFFB45309)))),
+            ]),
+          ),
+      ]),
+    );
+  }
   String _time(int s) => s >= 3600 ? '${s ~/ 3600}h ${(s % 3600) ~/ 60}m' : '${s ~/ 60}m ${s % 60}s';
 
   @override
@@ -141,6 +192,7 @@ class _ResultScreenState extends State<ResultScreen> {
               ),
           ]),
         ),
+        if (_cmp != null) _vsTopper(exam),
         const SizedBox(height: 10),
         if (_saving)
           const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
@@ -197,6 +249,16 @@ class _SolutionsScreenState extends State<SolutionsScreen> {
   int _i = 0;
   String _filter = 'all';
   bool _scrollMode = true;
+  int _sec = -1; // section filter, -1 = all
+  Compare? _cmp;
+
+  @override
+  void initState() {
+    super.initState();
+    Compare.load(widget.paper, widget.progress).then((c) {
+      if (mounted && c != null) setState(() => _cmp = c);
+    });
+  }
   final _items = ItemScrollController();
   final _strip = ScrollController();
 
@@ -205,7 +267,7 @@ class _SolutionsScreenState extends State<SolutionsScreen> {
 
   List<int> get _list => [
         for (var i = 0; i < p.questions.length; i++)
-          if (_filter == 'all' || _status(i) == _filter) i
+          if ((_filter == 'all' || _status(i) == _filter) && (_sec < 0 || (i >= p.sections[_sec].from && i <= p.sections[_sec].to))) i
       ];
 
   String _status(int i) {
@@ -329,6 +391,7 @@ class _SolutionsScreenState extends State<SolutionsScreen> {
           Expanded(child: Text(_section(i), overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)))),
           if (secs > 0) Text('⏱ ${secs ~/ 60}:${(secs % 60).toString().padLeft(2, '0')}', style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
         ]),
+        if (_cmp != null) CompareStrip(_cmp!.row(i)),
         const SizedBox(height: 6),
         Rich(questionHtml(q.text), size: 15.5),
         if (q.imageUrl.isNotEmpty) Figure(q.imageUrl),
@@ -337,6 +400,7 @@ class _SolutionsScreenState extends State<SolutionsScreen> {
         if (q.explanation.isNotEmpty || q.solutionImage.isNotEmpty) _panel('Solution', Icons.lightbulb_outline, const Color(0xFF2563EB), q.explanation, q.solutionImage),
         if (q.trick.isNotEmpty) _panel('Quick trick', Icons.bolt, const Color(0xFFD97706), q.trick),
         if (q.concept.isNotEmpty) _panel('Concept', Icons.psychology_outlined, const Color(0xFF7C3AED), q.concept),
+        ReportLink('Report a problem in the solution', () => showReport(context, exam: widget.exam, paper: p, index: i, target: 'solution')),
       ]),
     );
   }
@@ -387,6 +451,36 @@ class _SolutionsScreenState extends State<SolutionsScreen> {
             chip('right', 'Correct'),
           ]),
         ),
+        if (p.sections.length > 1)
+          SizedBox(
+            height: 40,
+            child: ListView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.fromLTRB(10, 2, 10, 2), children: [
+              for (var s = -1; s < p.sections.length; s++)
+                Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: ChoiceChip(
+                    label: Text(s < 0 ? 'All sections' : p.sections[s].label),
+                    selected: _sec == s,
+                    onSelected: (_) => setState(() => _sec = s),
+                    visualDensity: VisualDensity.compact,
+                    selectedColor: Color.lerp(Colors.white, exam.c2, 0.35),
+                    labelStyle: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: exam.ink),
+                  ),
+                ),
+            ]),
+          ),
+        if (_cmp != null)
+          Builder(builder: (_) {
+            final t = _cmp!.topperTotals();
+            String n(double v) => v == v.roundToDouble() ? '${v.round()}' : '$v';
+            return Container(
+              margin: const EdgeInsets.fromLTRB(10, 2, 10, 2),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(color: const Color(0xFFFEF3C7), borderRadius: BorderRadius.circular(10)),
+              child: Text('👑 Topper: ${n(t.$1)} marks · ✓ ${t.$2} · ✕ ${t.$3} · – ${t.$4}',
+                  style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: Color(0xFF92400E))),
+            );
+          }),
         SizedBox(
           height: 42,
           child: ListView.builder(

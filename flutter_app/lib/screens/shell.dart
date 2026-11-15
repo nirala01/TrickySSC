@@ -226,6 +226,7 @@ class _AppShellState extends State<AppShell> {
             isOpen: _open,
             resuming: _resuming,
             onMocks: () => setState(() => _tab = 1),
+            onDashboard: () => setState(() => _tab = 2),
             onStart: _startMock,
             onSoon: _soon,
           ),
@@ -246,7 +247,7 @@ class _AppShellState extends State<AppShell> {
           ),
           DashboardTab(user: widget.user, exam: exam, version: _version, onMocks: () => setState(() => _tab = 1)),
           const _Placeholder(icon: Icons.description_outlined, title: 'Previous year papers', text: 'Coming in the next build.'),
-          _MeTab(name: _name, exam: exam, onChangeExam: widget.onChangeExam, onSignOut: _signOut),
+          _MeTab(name: _name, exam: exam, onChangeExam: widget.onChangeExam, onSignOut: _signOut, onDashboard: () => setState(() => _tab = 2)),
         ],
       ),
       bottomNavigationBar: NavigationBar(
@@ -324,6 +325,7 @@ class _HomeTab extends StatelessWidget {
   final bool Function(MockItem) isOpen;
   final bool Function(MockItem) resuming;
   final VoidCallback onMocks;
+  final VoidCallback onDashboard;
   final void Function(MockItem) onStart;
   final void Function(String) onSoon;
   const _HomeTab({
@@ -336,6 +338,7 @@ class _HomeTab extends StatelessWidget {
     required this.isOpen,
     required this.resuming,
     required this.onMocks,
+    required this.onDashboard,
     required this.onStart,
     required this.onSoon,
   });
@@ -381,7 +384,7 @@ class _HomeTab extends StatelessWidget {
             const SizedBox(width: 8),
             _Stat(hasPass ? 'Unlocked' : 'Free for you', num(open), exam),
             const SizedBox(width: 8),
-            _Stat('Attempted', num(done), exam),
+            _Stat('Attempted ›', num(done), exam, onTap: onDashboard),
           ]),
           const SizedBox(height: 8),
           Material(
@@ -447,19 +450,20 @@ class _Stat extends StatelessWidget {
   final String label;
   final String value;
   final Exam exam;
-  const _Stat(this.label, this.value, this.exam);
+  final VoidCallback? onTap;
+  const _Stat(this.label, this.value, this.exam, {this.onTap});
 
   @override
   Widget build(BuildContext context) {
     return Expanded(
-      child: Container(
+      child: GestureDetector(onTap: onTap, child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(value, style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800, color: exam.c1, height: 1.1)),
           Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13.5, color: Color(0xFF475569), fontWeight: FontWeight.w600)),
         ]),
-      ),
+      )),
     );
   }
 }
@@ -695,7 +699,8 @@ class _MeTab extends StatelessWidget {
   final Exam exam;
   final VoidCallback onChangeExam;
   final VoidCallback onSignOut;
-  const _MeTab({required this.name, required this.exam, required this.onChangeExam, required this.onSignOut});
+  final VoidCallback onDashboard;
+  const _MeTab({required this.name, required this.exam, required this.onChangeExam, required this.onSignOut, required this.onDashboard});
 
   @override
   Widget build(BuildContext context) {
@@ -726,6 +731,8 @@ class _MeTab extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           clipBehavior: Clip.antiAlias,
           child: Column(children: [
+            ListTile(leading: Icon(Icons.insights, color: exam.c1), title: const Text('My dashboard'), subtitle: const Text('Scores, ranks and weak areas'), trailing: const Icon(Icons.chevron_right), onTap: onDashboard),
+            const Divider(height: 1),
             ListTile(leading: const Text('🎓', style: TextStyle(fontSize: 20)), title: const Text('My exam'), subtitle: Text('${exam.name} · tap to change'), trailing: const Icon(Icons.chevron_right), onTap: onChangeExam),
             const Divider(height: 1),
             ListTile(leading: const Icon(Icons.logout), title: const Text('Sign out'), onTap: onSignOut),

@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../data.dart';
 import 'engine.dart';
 import 'render.dart';
+import 'report.dart';
 import 'result_screen.dart';
 
 /// Loads a mock, shows the instructions, runs the test, then opens the result.
@@ -634,6 +635,7 @@ class _TestScreenState extends State<TestScreen> with WidgetsBindingObserver {
                         _optionGrid(shown)
                       else
                         for (final k in q.keys) _option(k, shown),
+                      ReportLink('Report a problem with this question', () => showReport(context, exam: widget.exam, paper: p, index: pr.current, target: 'question')),
                     ],
                   ),
                 ),
