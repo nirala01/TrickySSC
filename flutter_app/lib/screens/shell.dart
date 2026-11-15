@@ -421,7 +421,7 @@ class _HomeTab extends StatelessWidget {
                       Text(
                         next == null
                             ? 'See all mocks'
-                            : resumeNext ? 'Resume Mock ${next.n}' : 'Start ${next.tier == 2 ? 'Tier 2 ' : ''}Mock ${next.n}${next.n <= exam.free && !hasPass ? ' · free' : ''}',
+                            : resumeNext ? 'Resume Mock ${next.n}' : 'Start ${next.tier == 2 ? 'Tier 2 ' : ''}Mock ${next.n}${next.n <= exam.free ? ' · free' : ''}',
                         style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white),
                       ),
                       Text(next != null && next.tier == 1 ? exam.meta : 'Full-length papers with solutions', style: const TextStyle(fontSize: 14, color: Color(0xEEFFFFFF))),
@@ -588,7 +588,7 @@ class _MocksTab extends StatelessWidget {
           onTap: () => onSoon('Buying a pass'),
         ));
       }
-      rows.add(_MockRow(exam: exam, m: m, open: isOpen(m), free: !hasPass && m.n <= exam.free, done: isAttempted(attempted, exam, m), resume: resuming(m), onStart: onStart));
+      rows.add(_MockRow(exam: exam, m: m, open: isOpen(m), free: m.n <= exam.free, premium: hasPass && m.n > exam.free, done: isAttempted(attempted, exam, m), resume: resuming(m), onStart: onStart));
     }
     return Column(children: [
       Padding(
@@ -647,10 +647,11 @@ class _MockRow extends StatelessWidget {
   final MockItem m;
   final bool open;
   final bool free;
+  final bool premium;
   final bool done;
   final bool resume;
   final void Function(MockItem) onStart;
-  const _MockRow({required this.exam, required this.m, required this.open, required this.free, required this.done, required this.resume, required this.onStart});
+  const _MockRow({required this.exam, required this.m, required this.open, required this.free, required this.premium, required this.done, required this.resume, required this.onStart});
 
   @override
   Widget build(BuildContext context) {
@@ -675,9 +676,10 @@ class _MockRow extends StatelessWidget {
             const SizedBox(width: 10),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Row(children: [
+                Wrap(crossAxisAlignment: WrapCrossAlignment.center, runSpacing: 2, children: [
                   Text('Mock ${m.n}', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
                   if (free) ...[const SizedBox(width: 6), const _Tag('FREE', Color(0xFF047857), Color(0xFFD1FAE5))],
+                  if (premium) ...[const SizedBox(width: 6), const _Tag('PREMIUM', Color(0xFF92400E), Color(0xFFFEF3C7))],
                   if (resume) ...[const SizedBox(width: 6), const _Tag('PAUSED', Color(0xFFB45309), Color(0xFFFEF3C7))]
                   else if (done) ...[const SizedBox(width: 6), const _Tag('DONE', Color(0xFF1D4ED8), Color(0xFFDBEAFE))],
                 ]),

@@ -167,7 +167,9 @@ class _DashboardTabState extends State<DashboardTab> {
       if (ss is Map) {
         ss.forEach((k, v) {
           if (v is! Map) return;
-          final g = subs.putIfAbsent('$k', () => _SubAgg());
+          final name = canonSubject('$k');
+          if (!const {'English', 'Reasoning', 'Quant', 'Gen. Awareness'}.contains(name)) return;
+          final g = subs.putIfAbsent(name, () => _SubAgg());
           g.c += _d(v['correct']).toInt();
           g.w += _d(v['wrong']).toInt();
           g.k += _d(v['skip']).toInt();
