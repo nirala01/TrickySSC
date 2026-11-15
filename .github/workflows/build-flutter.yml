@@ -1,0 +1,74 @@
+# .github/workflows/build-flutter.yml
+#
+# Builds the new TrickySSC Android app written in Flutter (flutter_app/).
+# The android/ project folder is generated fresh by Flutter on every run, then
+# tool/ci_prepare.py sets the app name, icons and Firebase settings.
+# The APK is signed with the same upload key as before (the ANDROID_* secrets),
+# so Google sign-in and, later, Google Play accept it.
+# Download it from the run's page, under "Artifacts": trickyssc-flutter-apk.
+
+name: Build Flutter app
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'flutter_app/**'
+      - '.github/workflows/build-flutter.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Flutter version
+        run: flutter --version
+
+      - name: Generate the Android project
+        run: |
+          flutter create --org com.trickyssc --project-name app --platforms android "$RUNNER_TEMP/gen"
+          python3 flutter_app/tool/ci_prepare.py "$RUNNER_TEMP/gen" flutter_app "$GITHUB_WORKSPACE"
+
+      - name: Build
+        working-directory: flutter_app
+        run: |
+          flutter pub get
+          flutter build apk --release --build-number=${{ github.run_number }} --build-name=2.0.${{ github.run_number }}
+
+      - name: Sign with the upload key
+        env:
+          KS: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "${KS:-}" ]; then echo "::error::Signing secrets are missing."; exit 1; fi
+          echo "$KS" | base64 -d > "$RUNNER_TEMP/upload.jks"
+          BT="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
+          mkdir -p out
+          "$BT/apksigner" sign --ks "$RUNNER_TEMP/upload.jks" --ks-key-alias "$KEY_ALIAS" \
+            --ks-pass env:KS_PASS --key-pass env:KEY_PASS \
+            --out out/trickyssc-flutter.apk flutter_app/build/app/outputs/flutter-apk/app-release.apk
+          rm -f "$RUNNER_TEMP/upload.jks"
+          "$BT/apksigner" verify --print-certs out/trickyssc-flutter.apk | grep -i "SHA-256"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: trickyssc-flutter-apk
+          path: out/trickyssc-flutter.apk
