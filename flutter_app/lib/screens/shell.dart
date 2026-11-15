@@ -292,7 +292,7 @@ class _PassCard extends StatelessWidget {
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w800)),
                   const SizedBox(height: 2),
-                  Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 12.5)),
+                  Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 14.5)),
                 ]),
               ),
               const SizedBox(width: 8),
@@ -394,9 +394,9 @@ class _HomeTab extends StatelessWidget {
                         next == null
                             ? 'See all mocks'
                             : resumeNext ? 'Resume Mock ${next.n}' : 'Start ${next.tier == 2 ? 'Tier 2 ' : ''}Mock ${next.n}${next.n <= exam.free && !hasPass ? ' · free' : ''}',
-                        style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w800, color: Color(0xFF064E3B)),
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF064E3B)),
                       ),
-                      Text(next != null && next.tier == 1 ? exam.meta : 'Full-length papers with solutions', style: const TextStyle(fontSize: 12, color: Color(0xFF047857))),
+                      Text(next != null && next.tier == 1 ? exam.meta : 'Full-length papers with solutions', style: const TextStyle(fontSize: 14, color: Color(0xFF047857))),
                     ]),
                   ),
                   const CircleAvatar(radius: 17, backgroundColor: Color(0xFF059669), child: Icon(Icons.play_arrow, color: Colors.white, size: 22)),
@@ -451,8 +451,8 @@ class _Stat extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: exam.c1, height: 1.1)),
-          Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B))),
+          Text(value, style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800, color: exam.c1, height: 1.1)),
+          Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13.5, color: Color(0xFF475569), fontWeight: FontWeight.w600)),
         ]),
       ),
     );
@@ -478,22 +478,18 @@ class _Tile extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Row(children: [
+            padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
-                child: Icon(icon, color: ink, size: 22),
+                width: 50,
+                height: 50,
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
+                child: Icon(icon, color: ink, size: 28),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w800, height: 1.15, color: Color(0xFF0F172A))),
-                  const SizedBox(height: 2),
-                  Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: ink, fontWeight: FontWeight.w600)),
-                ]),
-              ),
+              const Spacer(),
+              Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800, height: 1.15, color: Color(0xFF0F172A))),
+              const SizedBox(height: 3),
+              Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 15, color: ink, fontWeight: FontWeight.w700)),
             ]),
           ),
         ),
@@ -566,9 +562,9 @@ class _MocksTab extends StatelessWidget {
             const SizedBox(width: 8),
             _Chip('Tier 2', tier == 2, exam, () => onTier(2)),
           ] else
-            Text('${list.length} mocks live', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
+            Text('${list.length} mocks live', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
           const Spacer(),
-          Text(hasPass ? 'All ${list.length} unlocked' : '$open free · ${list.length - open} locked', style: const TextStyle(fontSize: 12.5, color: Color(0xFF475569), fontWeight: FontWeight.w600)),
+          Text(hasPass ? 'All ${list.length} unlocked' : '$open free · ${list.length - open} locked', style: const TextStyle(fontSize: 14, color: Color(0xFF475569), fontWeight: FontWeight.w600)),
         ]),
       ),
       Expanded(
@@ -602,7 +598,7 @@ class _Chip extends StatelessWidget {
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Text(text, style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: on ? Colors.white : const Color(0xFF334155))),
+          child: Text(text, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: on ? Colors.white : const Color(0xFF334155))),
         ),
       ),
     );
@@ -643,13 +639,13 @@ class _MockRow extends StatelessWidget {
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Row(children: [
-                  Text('Mock ${m.n}', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+                  Text('Mock ${m.n}', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
                   if (free) ...[const SizedBox(width: 6), const _Tag('FREE', Color(0xFF047857), Color(0xFFD1FAE5))],
                   if (resume) ...[const SizedBox(width: 6), const _Tag('PAUSED', Color(0xFFB45309), Color(0xFFFEF3C7))]
                   else if (done) ...[const SizedBox(width: 6), const _Tag('DONE', Color(0xFF1D4ED8), Color(0xFFDBEAFE))],
                 ]),
                 const SizedBox(height: 1),
-                Text(meta, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                Text(meta, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13.5, color: Color(0xFF475569))),
               ]),
             ),
             const SizedBox(width: 6),
@@ -662,7 +658,7 @@ class _MockRow extends StatelessWidget {
                   borderRadius: BorderRadius.circular(10),
                   gradient: LinearGradient(colors: resume ? const [Color(0xFFD97706), Color(0xFFFBBF24)] : [exam.c1, exam.c2]),
                 ),
-                child: Text(resume ? 'Resume' : (done ? 'Retake' : 'Start'), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13)),
+                child: Text(resume ? 'Resume' : (done ? 'Retake' : 'Start'), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 15)),
               )
             else
               const SizedBox(width: 88, height: 36, child: Icon(Icons.lock_outline, color: Color(0xFF94A3B8), size: 22)),
@@ -684,7 +680,7 @@ class _Tag extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(8)),
-      child: Text(text, style: TextStyle(color: fg, fontSize: 11, fontWeight: FontWeight.w800)),
+      child: Text(text, style: TextStyle(color: fg, fontSize: 12, fontWeight: FontWeight.w800)),
     );
   }
 }
@@ -714,7 +710,7 @@ class _MeTab extends StatelessWidget {
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(name, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
-                const Text('Signed in', style: TextStyle(fontSize: 12.5, color: Color(0xFF64748B))),
+                const Text('Signed in', style: TextStyle(fontSize: 14, color: Color(0xFF64748B))),
               ]),
             ),
           ]),
