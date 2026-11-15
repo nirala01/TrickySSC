@@ -388,10 +388,15 @@ class _HomeTab extends StatelessWidget {
           ]),
           const SizedBox(height: 8),
           Material(
-            color: const Color(0xFFD1FAE5),
-            borderRadius: BorderRadius.circular(14),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(14),
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(16),
+            child: Ink(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                gradient: const LinearGradient(colors: [Color(0xFF047857), Color(0xFF34D399)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+              ),
+              child: InkWell(
+              borderRadius: BorderRadius.circular(16),
               onTap: next == null ? onMocks : () => onStart(next!),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -402,14 +407,15 @@ class _HomeTab extends StatelessWidget {
                         next == null
                             ? 'See all mocks'
                             : resumeNext ? 'Resume Mock ${next.n}' : 'Start ${next.tier == 2 ? 'Tier 2 ' : ''}Mock ${next.n}${next.n <= exam.free && !hasPass ? ' · free' : ''}',
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF064E3B)),
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white),
                       ),
-                      Text(next != null && next.tier == 1 ? exam.meta : 'Full-length papers with solutions', style: const TextStyle(fontSize: 14, color: Color(0xFF047857))),
+                      Text(next != null && next.tier == 1 ? exam.meta : 'Full-length papers with solutions', style: const TextStyle(fontSize: 14, color: Color(0xEEFFFFFF))),
                     ]),
                   ),
-                  const CircleAvatar(radius: 17, backgroundColor: Color(0xFF059669), child: Icon(Icons.play_arrow, color: Colors.white, size: 22)),
+                  const CircleAvatar(radius: 18, backgroundColor: Colors.white, child: Icon(Icons.play_arrow, color: Color(0xFF047857), size: 24)),
                 ]),
               ),
+            ),
             ),
           ),
           const SizedBox(height: 8),
@@ -479,27 +485,34 @@ class _Tile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final a = Color.lerp(ink, Colors.white, 0.08)!, b = Color.lerp(ink, Colors.white, 0.42)!;
     return Expanded(
       child: Material(
-        color: tint,
-        borderRadius: BorderRadius.circular(16),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Container(
-                width: 50,
-                height: 50,
-                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
-                child: Icon(icon, color: ink, size: 28),
-              ),
-              const Spacer(),
-              Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800, height: 1.15, color: Color.lerp(ink, const Color(0xFF0F172A), 0.35))),
-              const SizedBox(height: 3),
-              Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 15, color: ink, fontWeight: FontWeight.w700)),
-            ]),
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(18),
+        child: Ink(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            gradient: LinearGradient(colors: [a, b], begin: Alignment.topLeft, end: Alignment.bottomRight),
+          ),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(18),
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(color: const Color(0x33FFFFFF), borderRadius: BorderRadius.circular(14)),
+                  child: Icon(icon, color: Colors.white, size: 28),
+                ),
+                const Spacer(),
+                Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, height: 1.15, color: Colors.white)),
+                const SizedBox(height: 3),
+                Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 15, color: Color(0xEEFFFFFF), fontWeight: FontWeight.w600)),
+              ]),
+            ),
           ),
         ),
       ),
