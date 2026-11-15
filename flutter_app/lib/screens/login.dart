@@ -44,7 +44,7 @@ class _LoginScreenState extends State<LoginScreen> {
     http.Response res;
     try {
       res = await http
-          .post(Uri.parse(otpApi + path), headers: const {'Content-Type': 'application/json'}, body: jsonEncode(body))
+          .post(Uri.parse(otpApi + path), headers: const {'Content-Type': 'application/json', 'Origin': 'https://trickyssc.com', 'Referer': 'https://trickyssc.com/app-login.html'}, body: jsonEncode(body))
           .timeout(const Duration(seconds: 20));
     } catch (_) {
       throw 'Could not reach the OTP service. Check your internet and try again.';
