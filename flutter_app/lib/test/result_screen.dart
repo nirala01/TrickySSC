@@ -4,6 +4,7 @@ import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 
 import '../data.dart';
 import 'engine.dart';
+import '../screens/dashboard.dart';
 import 'compare.dart';
 import 'leaderboard.dart';
 import 'report.dart';
@@ -245,12 +246,37 @@ class _ResultScreenState extends State<ResultScreen> {
           label: const Text('View solutions', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
         ),
         const SizedBox(height: 8),
-        FilledButton.tonalIcon(
-          onPressed: _saving || _failed ? null : board,
-          style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
-          icon: const Icon(Icons.emoji_events_outlined),
-          label: const Text('Leaderboard', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
-        ),
+        Row(children: [
+          Expanded(
+            child: FilledButton.tonalIcon(
+              onPressed: _saving || _failed ? null : board,
+              style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+              icon: const Icon(Icons.emoji_events_outlined),
+              label: const Text('Leaderboard', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: FilledButton.tonalIcon(
+              onPressed: _saving
+                  ? null
+                  : () => Navigator.of(context).push(MaterialPageRoute(
+                        builder: (c) => examTheme(
+                          c,
+                          exam,
+                          Scaffold(
+                            backgroundColor: Color.lerp(Colors.white, exam.c2, 0.10),
+                            appBar: AppBar(title: Text('My dashboard', style: TextStyle(fontWeight: FontWeight.w800, color: exam.ink))),
+                            body: DashboardTab(user: widget.user, exam: exam, version: 0, onMocks: () => Navigator.of(c).pop()),
+                          ),
+                        ),
+                      )),
+              style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+              icon: const Icon(Icons.insights),
+              label: const Text('Dashboard', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+            ),
+          ),
+        ]),
         const SizedBox(height: 8),
         OutlinedButton(
           onPressed: _saving ? null : () => Navigator.of(context).pop(true),
@@ -420,7 +446,41 @@ class _SolutionsScreenState extends State<SolutionsScreen> {
           Expanded(child: Text(_section(i), overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)))),
           if (secs > 0) Text('⏱ ${secs ~/ 60}:${(secs % 60).toString().padLeft(2, '0')}', style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
         ]),
-        if (_cmp != null) CompareStrip(_cmp!.row(i)),
+        if (_cmp != null)
+          Builder(builder: (_) {
+            final row = _cmp!.row(i);
+            return Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Material(
+                color: const Color(0xFFFEF3C7),
+                borderRadius: BorderRadius.circular(10),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(10),
+                  onTap: () => showModalBottomSheet(
+                    context: context,
+                    backgroundColor: Colors.transparent,
+                    builder: (c) => SafeArea(
+                      child: Container(
+                        margin: const EdgeInsets.all(10),
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18)),
+                        child: examTheme(c, widget.exam, CompareStrip(row)),
+                      ),
+                    ),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                    child: Row(children: [
+                      const Text('👑 You vs Topper', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: Color(0xFF92400E))),
+                      const Spacer(),
+                      Text('${row.pc}% got it right', style: const TextStyle(fontSize: 12.5, color: Color(0xFF92400E))),
+                      const Icon(Icons.chevron_right, size: 18, color: Color(0xFF92400E)),
+                    ]),
+                  ),
+                ),
+              ),
+            );
+          }),
         const SizedBox(height: 6),
         Rich(questionHtml(q.text), size: 15.5),
         if (q.imageUrl.isNotEmpty) Figure(q.imageUrl),
