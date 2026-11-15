@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 
 import '../data.dart';
 import 'engine.dart';
@@ -185,7 +186,7 @@ class _SolutionsScreenState extends State<SolutionsScreen> {
   int _i = 0;
   String _filter = 'all';
   bool _scrollMode = true;
-  final _keys = <int, GlobalKey>{};
+  final _items = ItemScrollController();
   final _strip = ScrollController();
 
   Paper get p => widget.paper;
@@ -217,8 +218,8 @@ class _SolutionsScreenState extends State<SolutionsScreen> {
   void _jump(int i) {
     setState(() => _i = i);
     if (_scrollMode) {
-      final ctx = _keys[i]?.currentContext;
-      if (ctx != null) Scrollable.ensureVisible(ctx, duration: const Duration(milliseconds: 300), alignment: 0.02);
+      final k = _list.indexOf(i);
+      if (k >= 0 && _items.isAttached) _items.jumpTo(index: k);
     }
   }
 
@@ -296,7 +297,6 @@ class _SolutionsScreenState extends State<SolutionsScreen> {
     final st = _status(i);
     final secs = (pr.qMs[i] ?? 0) ~/ 1000;
     return Container(
-      key: _scrollMode ? (_keys[i] ??= GlobalKey()) : null,
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
       decoration: BoxDecoration(
@@ -405,10 +405,13 @@ class _SolutionsScreenState extends State<SolutionsScreen> {
           child: list.isEmpty
               ? const Center(child: Text('No questions here.'))
               : _scrollMode
-                  ? SingleChildScrollView(
+                  ? ScrollablePositionedList.builder(
                       key: ValueKey('scroll_$_filter'),
-                      padding: const EdgeInsets.fromLTRB(10, 4, 10, 16),
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [for (final i in list) _card(i)]),
+                      itemScrollController: _items,
+                      padding: EdgeInsets.fromLTRB(10, 4, 10, 16 + MediaQuery.of(context).padding.bottom),
+                      itemCount: list.length,
+                      minCacheExtent: 600,
+                      itemBuilder: (_, k) => _card(list[k]),
                     )
                   : ListView(key: ValueKey('one_$_i'), padding: const EdgeInsets.fromLTRB(10, 4, 10, 10), children: [_card(_i)]),
         ),
