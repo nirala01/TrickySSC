@@ -24,11 +24,9 @@ bool isTier2(Att a) => a['tier'] == 'tier2' || RegExp(r'tier2|tier-2|tier_2', ca
 
 ({double pos, double neg}) posneg(Att a) {
   final e = s(a['exam']);
-  if (e == 'ssc-mts') return (pos: 3.0, neg: 1.0);
-  if (e == 'rrb-ntpc') return (pos: 1.0, neg: 1 / 3);
-  if (e == 'ssc-gd') return (pos: 2.0, neg: 0.25);
-  if (isTier2(a)) return (pos: 3.0, neg: 1.0);
-  return (pos: 2.0, neg: 0.5);
+  final x = examById(e);
+  if (isTier2(a) && (x?.tier2 ?? true)) return (pos: 3.0, neg: 1.0);
+  return x == null ? (pos: 2.0, neg: 0.5) : (pos: x.pos, neg: x.neg);
 }
 
 double maxOf(Att a) {
@@ -170,7 +168,7 @@ String scopeLabel(String key, Att a) {
     return '$n · ${p.length > 2 && p[2] == 'pyq-chapter' ? 'Chapter PYQs' : 'Chapter tests'}';
   }
   final ex = examById(p[1])?.name ?? p[1];
-  final tier = (p[1] == 'ssc-cgl' || p[1] == 'ssc-chsl') ? (p[2] == 'tier2' ? ' Tier II' : ' Tier I') : '';
+  final tier = (examById(p[1])?.tier2 ?? false) ? (p[2] == 'tier2' ? ' Tier II' : ' Tier I') : '';
   if (p[0] == 'subj') return '$ex$tier · ${_subjName(p[3])} tests';
   return '$ex$tier · Full tests';
 }

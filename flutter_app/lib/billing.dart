@@ -41,14 +41,14 @@ class UpgradeQuote {
   }
 }
 
-/// Play product id of a combo: combo_cgl_chsl (exams in app order). Null if [passes] is not 2-4 exams.
+/// Play product id of a combo: combo_cgl_chsl (exams in app order). Null if [passes] is not 2 or more exams (but not all of them).
 String? comboProduct(Iterable<String> passes) {
   final ks = [for (final e in exams) if (passes.contains(e.pass)) e.k];
-  return ks.length >= 2 && ks.length <= 4 && ks.length == passes.length ? 'combo_${ks.join('_')}' : null;
+  return ks.length >= 2 && ks.length < exams.length && ks.length == passes.length ? 'combo_${ks.join('_')}' : null;
 }
 
 /// Play product id of an exam's pass: ssc-cgl-mocks -> pass_ssc_cgl.
-String productFor(Exam e) => 'pass_${e.pass.replaceAll('-mocks', '').replaceAll('-', '_')}';
+String productFor(Exam e) => e.play.isNotEmpty ? e.play : 'pass_${e.pass.replaceAll('-mocks', '').replaceAll('-', '_')}';
 
 class Billing {
   Billing._();
@@ -82,7 +82,14 @@ class Billing {
     }, SetOptions(merge: true)).catchError((_) {});
   }
 
-  String _keyOf(String productId) => productId.startsWith('combo_') || productId.startsWith('upgrade_') ? productId : productId == allMocksProduct ? 'all-mocks' : '${productId.replaceFirst('pass_', '').replaceAll('_', '-')}-mocks';
+  String _keyOf(String productId) {
+    for (final e in exams) {
+      if (productFor(e) == productId) return e.pass;
+    }
+    return _keyOfId(productId);
+  }
+
+  String _keyOfId(String productId) => productId.startsWith('combo_') || productId.startsWith('upgrade_') ? productId : productId == allMocksProduct ? 'all-mocks' : '${productId.replaceFirst('pass_', '').replaceAll('_', '-')}-mocks';
 
   void start() {
     _sub ??= _iap.purchaseStream.listen(_onPurchases, onError: (_) {});

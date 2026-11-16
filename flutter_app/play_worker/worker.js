@@ -14,6 +14,7 @@
 
 const PACKAGE = 'com.trickyssc.app';
 const VALID_DAYS = 365;
+// Built-in courses; catalog.json (below) adds the ones released later.
 const PRODUCTS = {
   pass_ssc_cgl: { key: 'ssc-cgl-mocks', label: 'SSC CGL Mock Test Series' },
   pass_ssc_chsl: { key: 'ssc-chsl-mocks', label: 'SSC CHSL Mock Test Series' },
@@ -35,14 +36,40 @@ function productOf(id) {
   const m = /^combo_([a-z_]+)$/.exec(String(id || ''));
   if (!m) return null;
   const parts = m[1].split('_');
-  if (parts.length < 2 || parts.length > 4 || new Set(parts).size !== parts.length || parts.some((x) => !SHORT[x])) return null;
+  if (parts.length < 2 || parts.length >= Object.keys(SHORT).length || new Set(parts).size !== parts.length || parts.some((x) => !SHORT[x])) return null;
   const keys = parts.map((x) => SHORT[x][0]);
   return { keys, key: keys.join('+'), label: parts.map((x) => SHORT[x][1]).join(' + ') + ' Mock Tests (Combo)', combo: true };
 }
 // The matching product in admin-pricing (config/pricing): p-<key> for a single pass or the All Mocks Pass,
 // for a combo the live product whose mock keys are exactly these. Its grants, label and id are used,
 // so the app unlocks exactly what the website does (e.g. the CGL pass also opens ssc-cgl-dashboard).
-const MOCK_KEYS = ['all-mocks', ...Object.values(SHORT).map((v) => v[0])];
+let MOCK_KEYS = ['all-mocks', ...Object.values(SHORT).map((v) => v[0])];
+// The course list the app also reads (flutter_app/catalog.json in the repo). A course added there can be
+// bought in the app without changing this Worker. Read at most once every 5 minutes; if it cannot be read,
+// the built-in courses above are used.
+const CATALOG_URLS = ['https://trickyssc.com/flutter_app/catalog.json', 'https://raw.githubusercontent.com/nirala01/TrickySSC/main/flutter_app/catalog.json'];
+let catalogAt = 0;
+async function loadCatalog() {
+  if (Date.now() - catalogAt < 300000) return;
+  for (const u of CATALOG_URLS) {
+    try {
+      const r = await fetch(u + '?t=' + Math.floor(Date.now() / 300000));
+      if (!r.ok) continue;
+      const j = await r.json();
+      if (!j || !Array.isArray(j.exams)) continue;
+      for (const e of j.exams) {
+        if (!e || e.live === false || !/^[a-z0-9]+$/.test(e.k || '') || !/^[a-z0-9-]+$/.test(e.pass || '') || e.pass === 'all-mocks') continue;
+        const play = e.play || 'pass_' + e.pass.replace('-mocks', '').replace(/-/g, '_');
+        if (UPGRADES[play] || play === 'pass_all_mocks' || !/^[a-z0-9_]+$/.test(play)) continue;
+        PRODUCTS[play] = { key: e.pass, label: e.passName || (e.name || e.pass) + ' Mock Test Series' };
+        SHORT[e.k] = [e.pass, e.name || e.pass];
+      }
+      MOCK_KEYS = ['all-mocks', ...Object.values(SHORT).map((v) => v[0])];
+      catalogAt = Date.now();
+      return;
+    } catch (e) {}
+  }
+}
 async function websiteProduct(pid, tok, product) {
   try {
     const d = await fsGet(pid, tok, 'config/pricing');
@@ -206,6 +233,7 @@ export default {
       const sa = JSON.parse(env.GOOGLE_SA_JSON);
       const pid = sa.project_id;
       const b = await req.json();
+      await loadCatalog();
       if (url.pathname !== '/verify') {
         const who = await verifyIdToken(b.idToken, pid);
         if (!who) return json({ ok: false, error: 'sign-in' }, 401);

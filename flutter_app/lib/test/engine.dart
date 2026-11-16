@@ -124,41 +124,45 @@ class Section {
 
 class Rules {
   final String mockId;
-  final bool mts;
-  final bool ntpc;
-  final bool gd;
+  final Exam? ex; // the exam of this paper (null: chapter tests)
+  final bool mts; // two sessions (SSC MTS)
+  final bool ntpc; // one clock for the whole paper (RRB NTPC)
+  final bool gd; // Part D in English or Hindi (SSC GD)
   final bool tier2; // CGL / CHSL Tier 2 (mock-test-tier2.html, test-tier2.html)
-  Rules(this.mockId)
-      : mts = mockId.startsWith('ssc-mts_'),
-        ntpc = mockId.startsWith('rrb-ntpc_'),
-        gd = mockId.startsWith('ssc-gd_'),
+  Rules(String mockId) : this._(mockId, examOfPaper(mockId));
+  Rules._(this.mockId, this.ex)
+      : mts = ex?.timing == 'sessions',
+        ntpc = ex?.timing == 'single',
+        gd = ex?.partD ?? false,
         tier2 = mockId.contains('_tier2_');
 
-  double get pos => tier2 ? 3 : (ntpc ? 1 : (mts ? 3 : 2));
-  double get negBase => tier2 ? 1 : (ntpc ? 1 / 3 : (mts ? 1 : (gd ? 0.25 : 0.5)));
-  double neg(Question q, int i) => !mts ? negBase : (q.qNumOr(i + 1) > 40 ? 1 : 0);
-  int get unitSeconds => ntpc ? 90 * 60 : (mts ? 45 * 60 : 15 * 60);
+  static String _n(double v) => v == v.roundToDouble() ? '${v.round()}' : ((v * 3 - 1).abs() < 1e-9 ? '1/3' : v.toStringAsFixed(2));
+
+  double get pos => tier2 ? 3 : (ex?.pos ?? 2);
+  double get negBase => tier2 ? 1 : (ex?.neg ?? 0.5);
+  double neg(Question q, int i) => !(ex?.negS2 ?? false) ? negBase : (q.qNumOr(i + 1) > ex!.split ? negBase : 0);
+  int get unitSeconds => (ex?.unitMin ?? 15) * 60;
 
   String markingLine() {
     if (tier2) return '+3 for a correct answer · −1 for a wrong answer';
-    if (mts) return '+3 for a correct answer · −1 in Session II only (no negative in Session I)';
-    if (ntpc) return '+1 for a correct answer · −1/3 for a wrong answer';
-    if (gd) return '+2 for a correct answer · −0.25 for a wrong answer';
-    return '+2 for a correct answer · −0.50 for a wrong answer';
+    if (ex?.negS2 ?? false) return '+${_n(pos)} for a correct answer · −${_n(negBase)} in Session II only (no negative in Session I)';
+    return '+${_n(pos)} for a correct answer · −${_n(negBase)} for a wrong answer';
   }
 
   String timingLine(int units) {
     if (mockId.contains('__')) return 'One subject section of the mock on its own clock. Submit when you are done or when time runs out.';
     if (mockId.startsWith('cw_') || mockId.startsWith('cwp_')) return 'One chapter test of 25 questions. Choose a 15-minute clock or untimed practice below.';
     if (tier2) return 'Section I (Maths + Reasoning) 60 min, Section II (English + GA) 60 min, Section III (Computer) 15 min. Move freely inside the open section.';
-    if (ntpc) return 'One paper on a single 90-minute clock.';
-    if (mts) return 'Two sessions of 45 minutes each. Session I (Maths, Reasoning), then Session II (GA, English).';
-    return '$units sections of 15 minutes each. When a section ends it is submitted and the next one opens.';
+    final note = (ex?.timingNote ?? '').isEmpty ? '' : ' ${ex!.timingNote}';
+    final min = ex?.unitMin ?? 15;
+    if (ntpc) return 'One paper on a single $min-minute clock.$note';
+    if (mts) return 'Two sessions of $min minutes each.$note';
+    return '$units sections of $min minutes each. When a section ends it is submitted and the next one opens.$note';
   }
 
   /// The subject key used for subject-wise stats, as the website computes it.
   String statKey(Question q) {
-    if (mts || ntpc) {
+    if (ex?.canonStats ?? false) {
       final c = canonSubject(q.subjectRaw);
       return c.isEmpty ? 'General' : c;
     }
@@ -277,20 +281,9 @@ String twinId(String mockId, String lang) =>
 /// Subject mocks (website: mock-test-subject.html): one subject's band of a Tier 1 mock.
 const subjectMockShort = {'quant': 'Quant', 'reasoning': 'Reasoning', 'gk': 'Gen. Awareness', 'english': 'English'};
 
-List<int> _subjectBand(String mockId, String subject) {
-  Map<String, List<int>> b = {'quant': [51, 75], 'reasoning': [1, 25], 'gk': [26, 50], 'english': [76, 100]};
-  if (mockId.startsWith('ssc-chsl_')) b = {'english': [1, 25], 'reasoning': [26, 50], 'quant': [51, 75], 'gk': [76, 100]};
-  if (mockId.startsWith('ssc-gd_')) b = {'reasoning': [1, 20], 'gk': [21, 40], 'quant': [41, 60], 'english': [61, 80]};
-  if (mockId.startsWith('ssc-mts_')) b = {'quant': [1, 20], 'reasoning': [21, 40], 'gk': [41, 65], 'english': [66, 90]};
-  if (mockId.startsWith('rrb-ntpc_')) return [0, 0];
-  return b[subject] ?? [0, 0];
-}
+List<int> _subjectBand(String mockId, String subject) => examOfPaper(mockId)?.bands[subject] ?? const [0, 0];
 
-int subjectMockMinutes(String mockId, String subject) {
-  if (mockId.startsWith('ssc-mts_')) return const {'quant': 25, 'reasoning': 20, 'gk': 20, 'english': 25}[subject] ?? 15;
-  if (mockId.startsWith('rrb-ntpc_')) return const {'quant': 27, 'reasoning': 27, 'gk': 36}[subject] ?? 15;
-  return 15;
-}
+int subjectMockMinutes(String mockId, String subject) => examOfPaper(mockId)?.subjMin[subject] ?? 15;
 
 Future<Paper> loadPaper(String mockId, String lang, {String? partD, String title = '', String? subject}) async {
   final rules = Rules(subject == null ? mockId : '${mockId}__$subject');
@@ -373,21 +366,22 @@ Future<Paper> loadPaper(String mockId, String lang, {String? partD, String title
     for (var i = 0; i < sections.length; i++) {
       if (sections[i].label == 'Quant') sections[i] = Section('Maths', sections[i].from, sections[i].to);
     }
+    final split = rules.ex!.split > 0 ? rules.ex!.split : qs.length ~/ 2;
     var cut = -1;
     for (var i = 0; i < qs.length; i++) {
-      if (qs[i].qNumOr(i + 1) > 40) {
+      if (qs[i].qNumOr(i + 1) > split) {
         cut = i;
         break;
       }
     }
-    if (cut < 0) cut = qs.length < 40 ? qs.length : 40;
+    if (cut < 0) cut = qs.length < split ? qs.length : split;
     if (cut > 0) units.add(Unit('Session I', 0, cut - 1));
     if (cut < qs.length) units.add(Unit('Session II', cut, qs.length - 1));
   } else if (rules.ntpc) {
     sections
       ..clear()
       ..add(Section('All Questions', 0, qs.length - 1));
-    units.add(Unit('RRB NTPC Paper', 0, qs.length - 1));
+    units.add(Unit('${rules.ex!.name} Paper', 0, qs.length - 1));
   } else {
     for (final s in sections) {
       units.add(Unit(s.label, s.from, s.to));
@@ -597,14 +591,7 @@ Result scorePaper(Paper p, Progress pr) {
   return Result(correct, wrong, skip, p.questions.length, marks, maxMarks, pct, subj, used);
 }
 
-String _examName(String id) => const {
-      'ssc-cgl': 'SSC CGL',
-      'ssc-chsl': 'SSC CHSL',
-      'ssc-mts': 'SSC MTS',
-      'rrb-ntpc': 'RRB NTPC',
-      'ssc-gd': 'SSC GD',
-    }[id] ??
-    id.toUpperCase().replaceAll('-', ' ');
+String _examName(String id) => examById(id)?.name ?? id.toUpperCase().replaceAll('-', ' ');
 
 /// Saves the attempt, the user's totals, the leaderboard row and the per-question tallies,
 /// the same documents the website writes.

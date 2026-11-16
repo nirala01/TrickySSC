@@ -176,7 +176,7 @@ class _AppShellState extends State<AppShell> {
     if (saved != null) {
       lang = saved[0];
       partD = saved[1].isEmpty ? lang : saved[1];
-    } else if (both || exam.k == 'gd') {
+    } else if (both || exam.partD) {
       final picked = await showModalBottomSheet<List<String>>(
         context: context,
         backgroundColor: Colors.white,
@@ -216,7 +216,7 @@ class _AppShellState extends State<AppShell> {
                     ]),
                     const SizedBox(height: 12),
                   ],
-                  if (exam.k == 'gd' && both) ...[
+                  if (exam.partD && both) ...[
                     const Text('Part D (Q61–80)', style: TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF475569))),
                     const SizedBox(height: 6),
                     Row(children: [
@@ -248,7 +248,7 @@ class _AppShellState extends State<AppShell> {
         exam: exam,
         mockId: mockId,
         lang: lang,
-        partD: exam.k == 'gd' ? partD : null,
+        partD: exam.partD ? partD : null,
         paid: _owned.isNotEmpty,
         title: '${exam.name} Mock ${m.n}',
       ),

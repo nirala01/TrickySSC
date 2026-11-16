@@ -1165,14 +1165,13 @@ class _ProfilePageState extends State<ProfilePage> {
 
 // ====================================================================== 13. orders
 
-const _planNames = {
-  'ssc-cgl-mocks': 'SSC CGL Mock Test Series',
-  'ssc-chsl-mocks': 'SSC CHSL Mock Test Series',
-  'ssc-gd-mocks': 'SSC GD Constable Mock Test Series',
-  'ssc-mts-mocks': 'SSC MTS Mock Test Series',
-  'rrb-ntpc-mocks': 'RRB NTPC Mock Test Series',
-};
-String planName(String k) => _planNames[k.replaceFirst(RegExp(r'^p-'), '')] ?? k.replaceFirst(RegExp(r'^p-'), '').replaceAll('-', ' ');
+String planName(String k) {
+  final key = k.replaceFirst(RegExp(r'^p-'), '');
+  for (final e in exams) {
+    if (e.pass == key) return e.passName.isNotEmpty ? e.passName : '${e.name} Mock Test Series';
+  }
+  return key.replaceAll('-', ' ');
+}
 
 int _ms(dynamic v) {
   if (v is Timestamp) return v.millisecondsSinceEpoch;

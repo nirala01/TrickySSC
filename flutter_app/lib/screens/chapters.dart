@@ -34,7 +34,7 @@ const _subjects = [
 
 List<ChSubject> subjectsFor(Exam e) => [
       for (final s in _subjects)
-        if ((s.key != 'computer' || e.k == 'cgl' || e.k == 'chsl') && (s.key != 'finance' || e.k == 'cgl')) s
+        if ((s.key != 'computer' && s.key != 'finance') || e.chExtra.contains(s.key)) s
     ];
 
 class ChChapter {

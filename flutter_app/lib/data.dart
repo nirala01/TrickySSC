@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 const String otpApi = 'https://trickyssc-otp.nirala01.workers.dev';
@@ -21,19 +22,251 @@ class Exam {
   final Color c2;
   final String meta; // questions and time of a Tier 1 paper
   final bool tier2;
-  String get icon3d => const {'cgl': 'target', 'chsl': 'clip', 'mts': 'pencil', 'gd': 'shield', 'ntpc': 'train'}[k] ?? 'book';
+  // ---- how this exam's papers work (all of it can come from catalog.json, so a new course needs no app update)
+  final String icon3dName;
+  final String tierTag; // middle part of the mock id; '' = tier1 / tier2, NTPC = cbt1
+  final double pos; // marks for a correct answer (Tier 1)
+  final double neg; // marks cut for a wrong answer (Tier 1)
+  final String timing; // sections (one clock per subject) | sessions (two halves) | single (one clock)
+  final int unitMin; // minutes of one section / session / the whole paper
+  final int split; // sessions: Session II starts after this question number
+  final bool negS2; // sessions: negative marking in Session II only
+  final String timingNote; // extra words after the timing line
+  final bool maths; // the Quant section is called Maths
+  final bool partD; // Part D (Q61-80) can be taken in English or Hindi
+  final bool canonStats; // subject stats by canonical subject name
+  final List<String> subjects; // subject mocks offered
+  final Map<String, List<int>> bands; // subject -> question range in the full mock (fallback)
+  final Map<String, int> subjMin; // subject mock minutes (default 15)
+  final List<String> pyqPages; // app PYQ list pages on trickyssc.com
+  final bool pyqFs; // PYQ list comes from Firestore
+  final List<String> chExtra; // extra chapter-test subjects: computer, finance
+  final String passName; // name of the pass in My orders
+  final String play; // Play product id of the pass ('' = made from the pass key)
+  String get icon3d => icon3dName.isNotEmpty ? icon3dName : (const {'cgl': 'target', 'chsl': 'clip', 'mts': 'pencil', 'gd': 'shield', 'ntpc': 'train'}[k] ?? 'book');
+  /// Short name: CGL, CHSL, NTPC.
+  String get short => name.replaceFirst('SSC ', '').replaceFirst('RRB ', '');
   /// Deep text colour for this exam (headings, labels).
   Color get ink => Color.lerp(c1, const Color(0xFF0F172A), 0.45)!;
-  const Exam(this.k, this.id, this.name, this.sub, this.icon, this.pass, this.mocks, this.free, this.c1, this.c2, this.meta, this.tier2);
+  const Exam(this.k, this.id, this.name, this.sub, this.icon, this.pass, this.mocks, this.free, this.c1, this.c2, this.meta, this.tier2,
+      {this.icon3dName = '',
+      this.tierTag = '',
+      this.pos = 2,
+      this.neg = 0.5,
+      this.timing = 'sections',
+      this.unitMin = 15,
+      this.split = 0,
+      this.negS2 = false,
+      this.timingNote = '',
+      this.maths = false,
+      this.partD = false,
+      this.canonStats = false,
+      this.subjects = const ['quant', 'reasoning', 'gk', 'english'],
+      this.bands = const {},
+      this.subjMin = const {},
+      this.pyqPages = const [],
+      this.pyqFs = false,
+      this.chExtra = const [],
+      this.passName = '',
+      this.play = ''});
+
+  /// One exam of catalog.json. Anything the file leaves out comes from [base] (the same exam built into this app) or the usual default.
+  static Exam? fromJson(Map j, Exam? base) {
+    String str(String key, String d) => j[key] == null ? d : '${j[key]}';
+    bool flag(String key, bool d) => j[key] is bool ? j[key] as bool : d;
+    int whole(String key, int d) => j[key] is num ? (j[key] as num).toInt() : d;
+    double dec(String key, double d) => j[key] is num ? (j[key] as num).toDouble() : d;
+    Color col(String key, Color d) {
+      final v = int.tryParse('${j[key] ?? ''}'.replaceFirst('#', ''), radix: 16);
+      return v == null ? d : Color(0xFF000000 | v);
+    }
+
+    List<String> strs(String key, List<String> d) => j[key] is List ? [for (final x in j[key] as List) '$x'] : d;
+    final k = str('k', ''), id = str('id', ''), pass = str('pass', '');
+    if (k.isEmpty || id.isEmpty || pass.isEmpty) return null;
+    final b = base;
+    var bands = b?.bands ?? const <String, List<int>>{};
+    if (j['bands'] is Map) {
+      bands = {
+        for (final e in (j['bands'] as Map).entries)
+          if (e.value is List && (e.value as List).length == 2) '${e.key}': [for (final x in e.value as List) x is num ? x.toInt() : 0]
+      };
+    }
+    var subjMin = b?.subjMin ?? const <String, int>{};
+    if (j['subjMin'] is Map) subjMin = {for (final e in (j['subjMin'] as Map).entries) if (e.value is num) '${e.key}': (e.value as num).toInt()};
+    return Exam(
+      k,
+      id,
+      str('name', b?.name ?? id.toUpperCase().replaceAll('-', ' ')),
+      str('sub', b?.sub ?? ''),
+      str('icon', b?.icon ?? '📘'),
+      pass,
+      str('mocks', b?.mocks ?? 'Mocks'),
+      whole('free', b?.free ?? 2),
+      col('c1', b?.c1 ?? const Color(0xFF4F46E5)),
+      col('c2', b?.c2 ?? const Color(0xFFA5B4FC)),
+      str('meta', b?.meta ?? ''),
+      flag('tier2', b?.tier2 ?? false),
+      icon3dName: str('icon3d', b?.icon3dName ?? ''),
+      tierTag: str('tierTag', b?.tierTag ?? ''),
+      pos: dec('pos', b?.pos ?? 2),
+      neg: dec('neg', b?.neg ?? 0.5),
+      timing: str('timing', b?.timing ?? 'sections'),
+      unitMin: whole('unitMin', b?.unitMin ?? 15),
+      split: whole('split', b?.split ?? 0),
+      negS2: flag('negS2', b?.negS2 ?? false),
+      timingNote: str('timingNote', b?.timingNote ?? ''),
+      maths: flag('maths', b?.maths ?? false),
+      partD: flag('partD', b?.partD ?? false),
+      canonStats: flag('canonStats', b?.canonStats ?? true),
+      subjects: strs('subjects', b?.subjects ?? const ['quant', 'reasoning', 'gk', 'english']),
+      bands: bands,
+      subjMin: subjMin,
+      pyqPages: strs('pyqPages', b?.pyqPages ?? const []),
+      pyqFs: flag('pyqFs', b?.pyqFs ?? false),
+      chExtra: strs('chExtra', b?.chExtra ?? const []),
+      passName: str('passName', b?.passName ?? ''),
+      play: str('play', b?.play ?? ''),
+    );
+  }
 }
 
-const List<Exam> exams = [
-  Exam('cgl', 'ssc-cgl', 'SSC CGL', 'Graduate level', '🎯', 'ssc-cgl-mocks', '100 mocks', 4, Color(0xFFEA580C), Color(0xFFFDA047), '100 Qs · 60 min', true),
-  Exam('chsl', 'ssc-chsl', 'SSC CHSL', '10+2 level', '📋', 'ssc-chsl-mocks', '80 mocks', 2, Color(0xFF0369A1), Color(0xFF38BDF8), '100 Qs · 60 min', true),
-  Exam('mts', 'ssc-mts', 'SSC MTS', '10th level', '📝', 'ssc-mts-mocks', '60 mocks', 2, Color(0xFF047857), Color(0xFF34D399), '90 Qs · 90 min', false),
-  Exam('gd', 'ssc-gd', 'SSC GD', 'Constable', '🛡️', 'ssc-gd-mocks', '60 mocks', 2, Color(0xFF0F766E), Color(0xFF2DD4BF), '80 Qs · 60 min', false),
-  Exam('ntpc', 'rrb-ntpc', 'RRB NTPC', 'Railway · Graduate', '🚆', 'rrb-ntpc-mocks', '60 mocks', 3, Color(0xFF1E3FAE), Color(0xFF60A5FA), '100 Qs · 90 min', false),
+/// The exams built into this build. [exams] starts as this list and is replaced by catalog.json (see [Catalog]).
+const List<Exam> _builtIn = [
+  Exam('cgl', 'ssc-cgl', 'SSC CGL', 'Graduate level', '🎯', 'ssc-cgl-mocks', '100 mocks', 4, Color(0xFFEA580C), Color(0xFFFDA047), '100 Qs · 60 min', true,
+      bands: {'reasoning': [1, 25], 'gk': [26, 50], 'quant': [51, 75], 'english': [76, 100]},
+      pyqPages: ['app-ssc-cgl-pyq.html', 'app-ssc-cgl-tier-2-pyq.html'],
+      chExtra: ['computer', 'finance'],
+      passName: 'SSC CGL Mock Test Series'),
+  Exam('chsl', 'ssc-chsl', 'SSC CHSL', '10+2 level', '📋', 'ssc-chsl-mocks', '80 mocks', 2, Color(0xFF0369A1), Color(0xFF38BDF8), '100 Qs · 60 min', true,
+      bands: {'english': [1, 25], 'reasoning': [26, 50], 'quant': [51, 75], 'gk': [76, 100]},
+      pyqPages: ['app-ssc-chsl-pyq.html'],
+      chExtra: ['computer'],
+      passName: 'SSC CHSL Mock Test Series'),
+  Exam('mts', 'ssc-mts', 'SSC MTS', '10th level', '📝', 'ssc-mts-mocks', '60 mocks', 2, Color(0xFF047857), Color(0xFF34D399), '90 Qs · 90 min', false,
+      pos: 3,
+      neg: 1,
+      timing: 'sessions',
+      unitMin: 45,
+      split: 40,
+      negS2: true,
+      timingNote: 'Session I (Maths, Reasoning), then Session II (GA, English).',
+      maths: true,
+      canonStats: true,
+      bands: {'quant': [1, 20], 'reasoning': [21, 40], 'gk': [41, 65], 'english': [66, 90]},
+      subjMin: {'quant': 25, 'reasoning': 20, 'gk': 20, 'english': 25},
+      pyqFs: true,
+      passName: 'SSC MTS Mock Test Series'),
+  Exam('gd', 'ssc-gd', 'SSC GD', 'Constable', '🛡️', 'ssc-gd-mocks', '60 mocks', 2, Color(0xFF0F766E), Color(0xFF2DD4BF), '80 Qs · 60 min', false,
+      neg: 0.25,
+      maths: true,
+      partD: true,
+      bands: {'reasoning': [1, 20], 'gk': [21, 40], 'quant': [41, 60], 'english': [61, 80]},
+      pyqPages: ['app-ssc-gd-pyq.html'],
+      passName: 'SSC GD Constable Mock Test Series'),
+  Exam('ntpc', 'rrb-ntpc', 'RRB NTPC', 'Railway · Graduate', '🚆', 'rrb-ntpc-mocks', '60 mocks', 3, Color(0xFF1E3FAE), Color(0xFF60A5FA), '100 Qs · 90 min', false,
+      tierTag: 'cbt1',
+      pos: 1,
+      neg: 1 / 3,
+      timing: 'single',
+      unitMin: 90,
+      maths: true,
+      canonStats: true,
+      subjects: ['quant', 'reasoning', 'gk'],
+      subjMin: {'quant': 27, 'reasoning': 27, 'gk': 36},
+      pyqPages: ['app-rrb-ntpc-pyq.html'],
+      passName: 'RRB NTPC Mock Test Series'),
 ];
+
+/// Every course the app offers, in display order. Read from catalog.json at start, so a course added
+/// on the website shows up without an app update.
+List<Exam> exams = List.of(_builtIn);
+
+/// Goes up each time [exams] is replaced, so open screens can rebuild.
+final ValueNotifier<int> catalogVersion = ValueNotifier(0);
+
+/// catalog.json (flutter_app/catalog.json in the repo) is the list of courses. The app reads the copy bundled
+/// into the build, then the copy saved on the phone, then the live one; the newest ("v") wins.
+class Catalog {
+  static const _urls = [
+    'https://trickyssc.com/flutter_app/catalog.json',
+    'https://raw.githubusercontent.com/nirala01/TrickySSC/main/flutter_app/catalog.json',
+  ];
+  static const _key = 'tssc_catalog';
+  static const _app = String.fromEnvironment('APP_VERSION');
+  static int _v = -1;
+
+  /// True when this build is older than [min] ("2.0.50"); an unknown build number is never too old.
+  static bool _tooOld(String min) {
+    List<int> parts(String s) => [for (final x in s.split('.')) int.tryParse(x.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0];
+    if (min.isEmpty || _app.isEmpty) return false;
+    final a = parts(_app), b = parts(min);
+    for (var i = 0; i < b.length; i++) {
+      final x = i < a.length ? a[i] : 0;
+      if (x != b[i]) return x < b[i];
+    }
+    return false;
+  }
+
+  static bool _apply(String body) {
+    try {
+      final j = jsonDecode(body);
+      if (j is! Map || j['exams'] is! List) return false;
+      final v = j['v'] is num ? (j['v'] as num).toInt() : 0;
+      if (v < _v) return false;
+      final list = <Exam>[];
+      for (final x in j['exams'] as List) {
+        if (x is! Map || x['live'] == false || _tooOld('${x['minApp'] ?? ''}')) continue;
+        Exam? base;
+        for (final b in _builtIn) {
+          if (b.k == x['k']) base = b;
+        }
+        final e = Exam.fromJson(x, base);
+        if (e != null && !list.any((o) => o.k == e.k || o.pass == e.pass)) list.add(e);
+      }
+      if (list.isEmpty) return false;
+      _v = v;
+      exams = list;
+      catalogVersion.value++;
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Before the first screen: the bundled copy and the copy saved on the phone (no network). The live copy follows.
+  static Future<void> init() async {
+    try {
+      _apply(await rootBundle.loadString('catalog.json'));
+    } catch (_) {}
+    try {
+      final saved = (await SharedPreferences.getInstance()).getString(_key);
+      if (saved != null) _apply(saved);
+    } catch (_) {}
+    refresh();
+  }
+
+  static Future<void> refresh() async {
+    for (final u in _urls) {
+      try {
+        final r = await http.get(Uri.parse('$u?t=${DateTime.now().millisecondsSinceEpoch ~/ 300000}')).timeout(const Duration(seconds: 8));
+        if (r.statusCode != 200) continue;
+        final body = utf8.decode(r.bodyBytes);
+        if (!_apply(body)) continue;
+        (await SharedPreferences.getInstance()).setString(_key, body);
+        return;
+      } catch (_) {}
+    }
+  }
+}
+
+/// The exam a mock / paper id belongs to (ssc-cgl_tier1_mock5_en -> SSC CGL).
+Exam? examOfPaper(String id) {
+  for (final e in exams) {
+    if (id.startsWith('${e.id}_')) return e;
+  }
+  return null;
+}
 
 Exam? examById(String id) {
   for (final e in exams) {
@@ -161,7 +394,7 @@ Future<(Set<String>, Map<String, Map<String, dynamic>>)> loadAttemptInfo(String 
 }
 
 /// The mock id the website uses: ssc-cgl_tier1_mock5_en, rrb-ntpc_cbt1_mock5_hi …
-String mockBase(Exam exam, MockItem m) => '${exam.id}_${exam.k == 'ntpc' ? 'cbt1' : 'tier${m.tier}'}_mock${m.n}';
+String mockBase(Exam exam, MockItem m) => '${exam.id}_${exam.tierTag.isNotEmpty ? exam.tierTag : 'tier${m.tier}'}_mock${m.n}';
 
 bool isAttempted(Set<String> ids, Exam exam, MockItem m) {
   final base = mockBase(exam, m);

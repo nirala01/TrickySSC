@@ -31,14 +31,6 @@ class PyqPaper {
   factory PyqPaper.fromJson(Map j) => PyqPaper('${j['en'] ?? ''}', '${j['hi'] ?? ''}', '${j['t'] ?? ''}', (j['tier'] as num? ?? 1).toInt());
 }
 
-const _pages = {
-  'cgl': ['app-ssc-cgl-pyq.html', 'app-ssc-cgl-tier-2-pyq.html'],
-  'chsl': ['app-ssc-chsl-pyq.html'],
-  'gd': ['app-ssc-gd-pyq.html'],
-  'ntpc': ['app-rrb-ntpc-pyq.html'],
-  'mts': <String>[],
-};
-
 String _unesc(String s) => s.replaceAll('&amp;', '&').replaceAll('&quot;', '"').replaceAll('&#39;', "'").replaceAll('&middot;', '·');
 
 List<PyqPaper> _parse(String html) {
@@ -121,8 +113,8 @@ Future<List<PyqPaper>> loadPyqs(Exam exam, {bool force = false}) async {
     } catch (_) {}
   }
   final list = <PyqPaper>[];
-  if (exam.k == 'mts') list.addAll(await _loadFirestore('ssc-mts', 'SSC MTS'));
-  for (final page in _pages[exam.k] ?? const <String>[]) {
+  if (exam.pyqFs) list.addAll(await _loadFirestore(exam.id, exam.name));
+  for (final page in exam.pyqPages) {
     final r = await http.get(Uri.parse('https://trickyssc.com/$page'));
     if (r.statusCode == 200) list.addAll(_parse(utf8.decode(r.bodyBytes)));
   }
@@ -223,7 +215,7 @@ class _PyqTabState extends State<PyqTab> {
                           l = 'hi';
                         })),
                   ]),
-                  if (exam.k == 'gd') ...[
+                  if (exam.partD) ...[
                     const SizedBox(height: 12),
                     const Text('Part D (Q61–80)', style: TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF475569))),
                     const SizedBox(height: 6),
@@ -256,7 +248,7 @@ class _PyqTabState extends State<PyqTab> {
         exam: exam,
         mockId: id,
         lang: lang,
-        partD: exam.k == 'gd' ? partD : null,
+        partD: exam.partD ? partD : null,
         paid: widget.paid,
         title: p.title,
       ),
@@ -267,7 +259,7 @@ class _PyqTabState extends State<PyqTab> {
   @override
   Widget build(BuildContext context) {
     final exam = widget.exam;
-    if (_pagesFor(exam).isEmpty && exam.k != 'mts') {
+    if (exam.pyqPages.isEmpty && !exam.pyqFs) {
       return _empty(Icons.description_outlined, '${exam.name} previous year papers', 'Coming soon. Meanwhile, practise with the full mocks.');
     }
     if (_failed) {
@@ -333,7 +325,6 @@ class _PyqTabState extends State<PyqTab> {
     );
   }
 
-  List<String> _pagesFor(Exam e) => _pages[e.k] ?? const [];
 
   Widget _empty(IconData icon, String title, String text) => Center(
         child: Padding(

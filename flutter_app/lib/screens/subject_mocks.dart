@@ -51,12 +51,13 @@ class _SubjectMocksScreenState extends State<SubjectMocksScreen> {
 
   List<(String, String, IconData, Color)> get _subjects {
     final e = widget.exam;
-    return [
-      ('quant', e.k == 'mts' || e.k == 'gd' || e.k == 'ntpc' ? 'Maths' : 'Quant', Icons.calculate, const Color(0xFFEA580C)),
+    final all = [
+      ('quant', e.maths ? 'Maths' : 'Quant', Icons.calculate, const Color(0xFFEA580C)),
       ('reasoning', 'Reasoning', Icons.psychology, const Color(0xFF7C3AED)),
       ('gk', 'Gen. Awareness', Icons.public, const Color(0xFF047857)),
-      if (e.k != 'ntpc') ('english', e.k == 'gd' ? 'English / Hindi' : 'English', Icons.menu_book, const Color(0xFF0369A1)),
+      ('english', e.partD ? 'English / Hindi' : 'English', Icons.menu_book, const Color(0xFF0369A1)),
     ];
+    return [for (final s in all) if (e.subjects.contains(s.$1)) s];
   }
 
   bool _open(MockItem m) => widget.hasPass || m.n <= widget.exam.free;

@@ -24,6 +24,7 @@ Future<void> main() async {
       ),
     );
   }
+  await Catalog.init();
   runApp(const TrickyApp());
 }
 
@@ -127,7 +128,7 @@ class _ExamGateState extends State<ExamGate> {
         onPopInvokedWithResult: (didPop, _) {
           if (!didPop && last != null) setState(() => _exam = last);
         },
-        child: ChooseExamScreen(onPick: _pick),
+        child: ValueListenableBuilder<int>(valueListenable: catalogVersion, builder: (_, __, ___) => ChooseExamScreen(onPick: _pick)),
       );
     }
     return AppShell(
