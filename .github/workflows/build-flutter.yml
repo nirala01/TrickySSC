@@ -5,7 +5,8 @@
 # tool/ci_prepare.py sets the app name, icons and Firebase settings.
 # The APK is signed with the same upload key as before (the ANDROID_* secrets),
 # so Google sign-in and, later, Google Play accept it.
-# Download it from the run's page, under "Artifacts": trickyssc-flutter-apk.
+# Download it from the run's page, under "Artifacts": trickyssc-flutter-apk (install on a phone)
+# and trickyssc-flutter-aab (upload to Google Play Console).
 
 name: Build Flutter app
 
@@ -49,6 +50,7 @@ jobs:
         run: |
           flutter pub get
           flutter build apk --release --build-number=${{ github.run_number }} --build-name=2.0.${{ github.run_number }}
+          flutter build appbundle --release --build-number=${{ github.run_number }} --build-name=2.0.${{ github.run_number }}
 
       - name: Sign with the upload key
         env:
@@ -65,10 +67,20 @@ jobs:
           "$BT/apksigner" sign --ks "$RUNNER_TEMP/upload.jks" --ks-key-alias "$KEY_ALIAS" \
             --ks-pass env:KS_PASS --key-pass env:KEY_PASS \
             --out out/trickyssc-flutter.apk flutter_app/build/app/outputs/flutter-apk/app-release.apk
+          # Play upload bundle (.aab), signed with the same upload key
+          jarsigner -sigalg SHA256withRSA -digestalg SHA-256 -keystore "$RUNNER_TEMP/upload.jks" \
+            -storepass:env KS_PASS -keypass:env KEY_PASS \
+            -signedjar out/trickyssc-flutter.aab flutter_app/build/app/outputs/bundle/release/app-release.aab "$KEY_ALIAS"
           rm -f "$RUNNER_TEMP/upload.jks"
           "$BT/apksigner" verify --print-certs out/trickyssc-flutter.apk | grep -i "SHA-256"
+          jarsigner -verify out/trickyssc-flutter.aab | tail -1
 
       - uses: actions/upload-artifact@v4
         with:
           name: trickyssc-flutter-apk
           path: out/trickyssc-flutter.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: trickyssc-flutter-aab
+          path: out/trickyssc-flutter.aab
