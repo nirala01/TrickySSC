@@ -59,6 +59,7 @@ font-family:'Rajdhani',sans-serif;letter-spacing:.02em;white-space:nowrap;}
 .p-manual{background:#EDE9FE;color:#5B21B6;}
 .p-stage{background:#F1F5F9;color:#475569;}
 .p-fail{background:#FEE2E2;color:#B91C1C;}   /* TSSC-INTENT-V2 */
+.p-app{background:#DCFCE7;color:#166534;}     /* TSSC-PLAYPAY-V1 */
 /* TSSC-FOLLOWUP-V1 */
 .fu{display:flex;gap:.3rem;flex-wrap:wrap;margin-top:.35rem;}
 .act.wa{border-color:#BBF7D0;color:#15803D;} .act.wa:hover{border-color:#22C55E;color:#166534;}
@@ -390,6 +391,7 @@ async function load(force) {
         status: p.status || 'created',
         mode: p.mode || 'live',
         paymentId: p.paymentId || '',
+        gateway: p.gateway || 'razorpay',                    /* TSSC-PLAYPAY-V1: google-play = bought in the Android app */
         /* Login method: a Google account carries an email on the payment doc;
            a mobile-OTP account has none, so the mobile is the only identifier. */
         loginMethod: (p.email && String(p.email).trim()) ? 'google' : 'phone',
@@ -587,7 +589,8 @@ function render() {
     <div class="stat"><div class="k">Active access</div><div class="v">${active.length}</div></div>
     <div class="stat orange"><div class="k">Started, not paid</div><div class="v">${abandoned.length}</div></div>
     <div class="stat orange"><div class="k">Students who never paid</div><div class="v">${unpaidPeople.size}</div></div>
-    <div class="stat"><div class="k">Test payments</div><div class="v">${paid.length - live.length}</div></div>`;
+    <div class="stat"><div class="k">Test payments</div><div class="v">${paid.length - live.length}</div></div>
+    <div class="stat green"><div class="k">Paid in app (Play)</div><div class="v">${live.filter(r => r.gateway === 'google-play').length}</div></div>`;
 
   $('empty').hidden = rows.length > 0;
   if (!rows.length) {
@@ -624,7 +627,7 @@ function render() {
         <div class="login-id mono">${esc(r.loginId) || '—'}</div>
       </td>
       <td data-l="Place">${esc(r.place) || '—'}</td>
-      <td data-l="Course">${esc(r.productLabel) || '—'}</td>
+      <td data-l="Course">${esc(r.productLabel) || '—'}${r.gateway === 'google-play' ? ' <span class="pill p-app" title="Bought in the Android app (Google Play)">📲 App</span>' : ''}</td>
       <td data-l="Amount" class="mono">₹${r.amount}</td>
       <td data-l="Status">
         <span class="pill p-${r.status === 'paid' ? 'paid' : 'created'}">${esc(r.status)}</span>
@@ -687,11 +690,13 @@ function renderIntents() {
      opened) and `failed` (+ failedAt / lastError) so a stuck buyer's row
      says WHERE the try died, not just that it did. */
   const label = { opened: 'Opened the popup', details: 'Filled in details',
-                  razorpay: 'Razorpay opened', paid: 'Paid', failed: 'Failed' };
+                  razorpay: 'Razorpay opened', paid: 'Paid', failed: 'Failed',
+                  'google-play': 'Google Play opened (app)' };   /* TSSC-PLAYPAY-V1 */
   const whereLabel = { order: 'order call failed', razorpay: 'payment failed in Razorpay',
                        dismissed: 'closed the Razorpay window',
                        form: 'form not accepted', warning: 'backed out at the notice',
-                       prefill: 'profile read stalled' };   /* TSSC-HANG-V1 */
+                       prefill: 'profile read stalled',   /* TSSC-HANG-V1 */
+                       'google-play': 'payment failed in Google Play (app)', verify: 'paid in app, pass not opened' };
   const stageCell = i => {
     const pill = `<span class="pill ${i.stage === 'failed' ? 'p-fail' : 'p-stage'}">${esc(label[i.stage] || i.stage)}</span>`;
     if (i.stage !== 'failed' && !i.lastError) return pill;

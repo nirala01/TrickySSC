@@ -368,6 +368,8 @@ body{font-family:'Noto Sans',sans-serif;background:var(--bg);color:var(--text);m
     </select>
     <select class="filter-select" id="filterActivity" onchange="filterTable()">
       <option value="">All Candidates</option>
+      <option value="app">📲 Using the app</option>
+      <option value="web">🌐 Website only</option>
       <option value="active">Attempted Tests</option>
       <option value="inactive">No Tests Yet</option>
     </select>
@@ -1023,7 +1025,7 @@ function renderTable(users) {
         <input type="checkbox" class="row-check" data-uid="${u.id}" onchange="updateDeleteBtn()" style="cursor:pointer;width:16px;height:16px;accent-color:var(--orange);">
       </div>
       <div onclick="showDetail('${u.id}')" style="cursor:pointer;">
-        <div class="user-name">${name}</div>
+        <div class="user-name">${name}${u.appUser?` <span class="badge" title="Android app ${esc(u.appVersion||'')}${u.lastAppOpen?.toDate?' · last opened '+u.lastAppOpen.toDate().toLocaleDateString('en-IN',{day:'numeric',month:'short',timeZone:IST_TZ}):''}" style="font-size:.62rem;padding:.1rem .4rem;background:#dcfce7;color:#166534;border:1px solid #86efac">📲 App</span>`:''}</div>
         ${email?`<div class="user-email">${email}</div>`:''}
       </div>
       <div class="phone-tag">${phone}</div>
@@ -1035,7 +1037,7 @@ function renderTable(users) {
     </div>`;
   }).join('');
 
-  document.getElementById('countLabel').textContent = `Showing ${users.length} of ${allUsers.length} candidates`;
+  document.getElementById('countLabel').textContent = `Showing ${users.length} of ${allUsers.length} candidates · ${allUsers.filter(x=>x.appUser).length} on the app`;
 }
 
 window.filterTable = () => {
@@ -1051,7 +1053,7 @@ window.filterTable = () => {
     const matchSearch = !search || name.includes(search) || phone.includes(search) || email.includes(search);
     const loginType = u.loginMethod==='google'||u.email ? 'google' : 'mobile';
     const matchLogin = !loginFilter || loginType===loginFilter;
-    const matchAct = !actFilter || (actFilter==='active'?(u.liveTests>0):(u.liveTests===0));
+    const matchAct = !actFilter || (actFilter==='app'?!!u.appUser:actFilter==='web'?!u.appUser:actFilter==='active'?(u.liveTests>0):(u.liveTests===0));   /* TSSC-APPUSER-V1 */
     return matchSearch && matchLogin && matchAct;
   });
 

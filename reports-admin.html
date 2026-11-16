@@ -31,6 +31,7 @@
   .pill.b{background:#E0E7FF;color:#3730A3;}
   .pill.pyq{background:#DBEAFE;color:#1D4ED8;}
   .pill.mock{background:#DCFCE7;color:#15803D;}
+  .pill.app{background:#FEF3C7;color:#92400E;}
   .pill.qn{background:#E0F2FE;color:#0369A1;}
   .pill.sol{background:#FEF3C7;color:#B45309;}
   .stars{color:#F59E0B;letter-spacing:1px;}
@@ -262,7 +263,8 @@ const auth = getAuth(app);
 const $ = id => document.getElementById(id);
 const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const fmtTime = ts => { try{ const d=ts?.toDate?ts.toDate():(ts?new Date(ts):null); return d?d.toLocaleString():''; }catch(_){ return ''; } };
-const srcPill = r => { const s=String(r.source||'mock').toLowerCase(); return s==='pyq' ? '<span class="pill pyq">PYQ</span>' : '<span class="pill mock">Mock</span>'; };
+const appPill = r => r && r.platform==='app' ? ` <span class="pill app" title="Sent from the Android app${r.appVersion?' '+esc(r.appVersion):''}">📲 App</span>` : '';   /* TSSC-APPREPORT-V1 */
+const srcPill = r => { const s=String(r.source||'mock').toLowerCase(); return (s==='pyq' ? '<span class="pill pyq">PYQ</span>' : s==='chapterwise' ? '<span class="pill mock">Chapter</span>' : '<span class="pill mock">Mock</span>') + appPill(r); };
 // Reports carry target:'question' (raised on the test screen) or target:'solution'
 // (raised under the solution in the review screen). Legacy docs have no target.
 const tgtOf   = r => String(r.target||'question').toLowerCase()==='solution' ? 'solution' : 'question';
@@ -439,7 +441,8 @@ window.renderReports = function(){
      <div class="kpi"><div class="v">${new Set(REPORTS.map(r=>r.mockId+'|'+r.qNum)).size}</div><div class="l">Distinct questions</div></div>
      <div class="kpi"><div class="v">${REPORTS.filter(r=>tgtOf(r)==='question').length}</div><div class="l">On the question</div></div>
      <div class="kpi"><div class="v">${REPORTS.filter(r=>tgtOf(r)==='solution').length}</div><div class="l">On the solution</div></div>
-     <div class="kpi"><div class="v">${new Set(REPORTS.map(r=>r.mockId)).size}</div><div class="l">Tests affected</div></div>`;
+     <div class="kpi"><div class="v">${new Set(REPORTS.map(r=>r.mockId)).size}</div><div class="l">Tests affected</div></div>
+     <div class="kpi"><div class="v">${REPORTS.filter(r=>r.platform==='app').length}</div><div class="l">From the app</div></div>`;
 
   // Aggregate by test + question
   const agg = {};
@@ -492,7 +495,8 @@ window.renderRatings = function(){
     `<div class="kpi"><div class="v">${RATINGS.length}</div><div class="l">Total ratings</div></div>
      <div class="kpi"><div class="v">${overall.toFixed(2)}</div><div class="l">Avg stars (all)</div></div>
      <div class="kpi"><div class="v">${new Set(RATINGS.map(r=>r.uid||whoOf(r))).size}</div><div class="l">Candidates</div></div>
-     <div class="kpi"><div class="v">${new Set(RATINGS.map(r=>r.mockId)).size}</div><div class="l">Tests rated</div></div>`;
+     <div class="kpi"><div class="v">${new Set(RATINGS.map(r=>r.mockId)).size}</div><div class="l">Tests rated</div></div>
+     <div class="kpi"><div class="v">${(()=>{ const a=RATINGS.filter(r=>r.platform==='app'); const st=a.map(r=>Number(r.stars)||0).filter(Boolean); return `${a.length}${st.length?' · '+(st.reduce((x,y)=>x+y,0)/st.length).toFixed(2)+'★':''}`; })()}</div><div class="l">Ratings from the app</div></div>`;
 
   const DIFFS = ["Same as CGL","Easy","Difficult","Very Difficult"];
   const COLORS = {"Same as CGL":"#6366F1","Easy":"#22C55E","Difficult":"#F59E0B","Very Difficult":"#EF4444"};
@@ -525,7 +529,7 @@ window.renderRatings = function(){
 
       const people = v.list.slice().sort((a,b)=>(Number(b.stars)||0)-(Number(a.stars)||0) || tsMs(b)-tsMs(a))
         .map(r=>`<tr>
-          <td class="who2">${nameHtml(r, whoOf(r))}${contactBox(r, false)}</td>
+          <td class="who2">${nameHtml(r, whoOf(r))}${appPill(r)}${contactBox(r, false)}</td>
           <td style="white-space:nowrap"><span class="stars">${starStr(r.stars)}</span> ${esc(Number(r.stars)||0)}</td>
           <td>${esc(r.difficulty||'—')}</td>
           <td class="muted">${esc(fmtTime(r.createdAt))}</td>
@@ -2179,7 +2183,7 @@ window.downloadCsv = function(which){
     name='question_reports.csv';
     rows=[['when','source','part','mockId','qNum','position','subject','reason','note','name','uid','testName','mobile','email']];
     REPORTS.slice().sort((a,b)=>tsMs(b)-tsMs(a)).forEach(r=>{ const c = contactOf(r) || {};   /* TSSC-REPORTCONTACT-V2 */
-      rows.push([fmtTime(r.createdAt),r.source||'mock',tgtOf(r),r.mockId,r.qNum,r.position,r.subject,r.reason,r.note,r.name,r.uid,r.testName,c.phone||'',c.email||'']); });
+      rows.push([fmtTime(r.createdAt),(r.source||'mock')+(r.platform==='app'?' (app)':''),tgtOf(r),r.mockId,r.qNum,r.position,r.subject,r.reason,r.note,r.name,r.uid,r.testName,c.phone||'',c.email||'']); });
   } else {
     name='mock_ratings.csv';
     rows=[['when','mockId','testName','candidate','stars','difficulty','uid','mobile','email']];
