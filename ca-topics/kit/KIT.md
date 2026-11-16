@@ -43,8 +43,8 @@ The app (flutter_app) and the website both read these files, so they stay in syn
 - Short points, one fact per point, key names and numbers in `<b>`.
 - Anything special (scheme, project, mission, important organisation, award, summit, exercise) gets a box:
   `<div class="slip"><b>Name</b>: what it is, who runs it, when started, HQ / key facts.</div>`
-- Allowed tags only: h3, h4, p, ul, li, b, table, tr, th, td, div class="slip". No inline styles, no images, no links.
-- Typical size: 8 to 20 points per section per month, depending on the PDF.
+- Allowed tags only: h4, ul, li, b, div class="slip". No inline styles, no images, no links.
+- Every heading (h4) has exactly 4 to 5 points: split long groups, merge or fill short ones. No tables – write rankings, lists and dates as points.
 
 ## 4. Question rules and the bank CSV
 - 10 to 15 questions per section per month (so 100 to 150 per section over ten months). Economic Survey and Budget: 50 each.
