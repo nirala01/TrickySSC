@@ -1,5 +1,7 @@
 // "Plans" tab: what is free, what each pass gives, prices (Google Play price when Play lists it,
 // otherwise the website price from config/pricing) and a Buy button for each pass.
+import 'dart:ui' show ImageFilter;
+
 import 'package:flutter/material.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 
@@ -109,15 +111,20 @@ class _PlansTabState extends State<PlansTab> {
               style: TextStyle(fontSize: 13.5, color: softMuted, fontWeight: FontWeight.w600, height: 1.35)),
           const SizedBox(height: 14),
           if (mine.isNotEmpty) _yours(mine),
-          // paid students see one offer only: the upgrade to Full Access (plan doc)
-          if (mine.isNotEmpty && !_all) _upgrade()
-          else if (!_all) ...[
+          if (mine.isNotEmpty && !_all) ...[
+            // paid students: every pass is listed for information (their own blurred), the only
+            // thing they can buy is the upgrade to Full Access, last (plan doc)
+            _allPass(),
+            for (final k in _combos) _comboPass(k),
+            for (final e in exams) owned.contains(e.pass) ? _ownedPass(_examPass(e)) : _examPass(e),
+            _upgrade(),
+          ] else if (!_all) ...[
             _allPass(),
             for (final k in _combos) _comboPass(k),
             for (final e in others) _examPass(e),
           ],
           if (mine.isEmpty) _free(),
-          _compare(),
+          if (mine.isEmpty) _compare(),
           const SizedBox(height: 12),
           const Text(
             'Payments are handled by Google Play. A pass bought here also works on trickyssc.com with the same login, and a pass bought on the website works here.',
@@ -154,6 +161,33 @@ class _PlansTabState extends State<PlansTab> {
         ]),
       );
 
+  bool get _paid => widget.owned.isNotEmpty;
+
+  /// A pass the student already has: blurred, with a label on top.
+  Widget _ownedPass(Widget card) => Stack(children: [
+        ImageFiltered(imageFilter: ImageFilter.blur(sigmaX: 3.2, sigmaY: 3.2), child: Opacity(opacity: .75, child: IgnorePointer(child: card))),
+        Positioned.fill(
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF065F46),
+                  borderRadius: BorderRadius.circular(999),
+                  boxShadow: const [BoxShadow(color: Color(0x33000000), blurRadius: 12, offset: Offset(0, 4))],
+                ),
+                child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.verified_rounded, color: Colors.white, size: 18),
+                  SizedBox(width: 6),
+                  Text('You already own this pass', style: TextStyle(color: Colors.white, fontSize: 14.5, fontWeight: FontWeight.w900)),
+                ]),
+              ),
+            ),
+          ),
+        ),
+      ]);
+
   Widget _upgrade() {
     final q = _q;
     if (q == null || !q.offer) {
@@ -186,7 +220,7 @@ class _PlansTabState extends State<PlansTab> {
         FilledButton(
           onPressed: () => Billing.I.upgrade(q),
           style: FilledButton.styleFrom(backgroundColor: const Color(0xFFD97706), minimumSize: const Size.fromHeight(50), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
-          child: Text(q.price == 0 ? 'Unlock Full Access free' : 'Get Full Access, pay $price more', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
+          child: Text(q.price == 0 ? 'Upgrade to Full Access FREE' : 'Upgrade to Full Access @ $price', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
         ),
         if (q.price == 0)
           const Padding(
@@ -283,7 +317,7 @@ class _PlansTabState extends State<PlansTab> {
         'Valid ${(c?.days ?? 365) >= 365 ? '1 year' : '${c!.days} days'} from purchase',
         if (c != null && c.blurb.isNotEmpty) c.blurb,
       ],
-      onBuy: () => Billing.I.buy(allMocksProduct, 'all-mocks'),
+      onBuy: _paid ? null : () => Billing.I.buy(allMocksProduct, 'all-mocks'),
     );
   }
 
@@ -315,7 +349,7 @@ class _PlansTabState extends State<PlansTab> {
         'Up to $paidLimit tests a day · valid ${(c.days ?? 365) >= 365 ? '1 year' : '${c.days} days'}',
         if (c.blurb.isNotEmpty) c.blurb,
       ],
-      onBuy: () => Billing.I.buy(k, k),
+      onBuy: _paid ? null : () => Billing.I.buy(k, k),
     );
   }
 
@@ -336,7 +370,7 @@ class _PlansTabState extends State<PlansTab> {
         'Up to $paidLimit tests a day · valid ${(c?.days ?? 365) >= 365 ? '1 year' : '${c!.days} days'}',
         if (c != null && c.blurb.isNotEmpty) c.blurb,
       ],
-      onBuy: () => Billing.I.buy(productFor(e), e.pass),
+      onBuy: _paid ? null : () => Billing.I.buy(productFor(e), e.pass),
     );
   }
 

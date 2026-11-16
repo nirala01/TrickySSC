@@ -76,8 +76,10 @@ class _AppShellState extends State<AppShell> {
     loadName(widget.user.uid, widget.user.displayName).then((n) {
       if (mounted) setState(() => _name = n);
     });
-    loadOwned(widget.user.uid).then((o) {
-      if (mounted) setState(() => _owned = o);
+    loadOwnedOrNull(widget.user.uid).then((o) {
+      if (!mounted) return;
+      setState(() => _owned = o ?? <String>{});
+      if (o != null) _welcome(o);
     });
     _loadAtt();
     _loadResume();
@@ -93,6 +95,23 @@ class _AppShellState extends State<AppShell> {
     }).catchError((_) {
       if (mounted) setState(() => _mocksFailed = true);
     });
+  }
+
+  static String? _welcomed; // once per app open, per student
+
+  /// On entering the app: a student with no pass sees Full Access (with a link to every other pass);
+  /// a paid student sees only their upgrade; full access sees nothing.
+  Future<void> _welcome(Set<String> owned) async {
+    if (_welcomed == widget.user.uid) return;
+    _welcomed = widget.user.uid;
+    if (owned.isEmpty) {
+      await Billing.I.showFullAccessPopup(context, onExplore: () {
+        if (mounted) setState(() => _tab = 1);
+      });
+    } else if (!exams.every((e) => owned.contains(e.pass))) {
+      final q = await Billing.I.quote();
+      if (mounted && q != null && q.offer) await Billing.I.showUpgradeSheet(context, widget.exam, q);
+    }
   }
 
   void _buy() => Billing.I.showBuySheet(context, widget.exam);

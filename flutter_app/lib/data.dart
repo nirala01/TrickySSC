@@ -64,7 +64,8 @@ bool _active(dynamic g) {
 }
 
 /// The mock series this account owns (entitlement keys). Empty when nothing is owned or it cannot be read.
-Future<Set<String>> loadOwned(String uid) async {
+/// Null when the entitlements could not be read (offline), so nothing is assumed about the student.
+Future<Set<String>?> loadOwnedOrNull(String uid) async {
   final out = <String>{};
   try {
     final snap = await FirebaseFirestore.instance.collection('entitlements').doc(uid).get();
@@ -75,9 +76,13 @@ Future<Set<String>> loadOwned(String uid) async {
     for (final e in exams) {
       if (all || _active(m[e.pass])) out.add(e.pass);
     }
-  } catch (_) {}
+  } catch (_) {
+    return null;
+  }
   return out;
 }
+
+Future<Set<String>> loadOwned(String uid) async => (await loadOwnedOrNull(uid)) ?? <String>{};
 
 Future<String> loadName(String uid, String? fallback) async {
   try {

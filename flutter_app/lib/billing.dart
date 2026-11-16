@@ -243,6 +243,77 @@ class Billing {
     }
   }
 
+  /// Welcome popup for a student with no pass: Full Access first, then a link to every other pass.
+  Future<void> showFullAccessPopup(BuildContext context, {required VoidCallback onExplore}) async {
+    int? cat, mrp;
+    for (final p in await pricingProducts()) {
+      if (p is Map && p['id'] == 'p-all-mocks' && p['live'] != false) {
+        cat = p['price'] is num ? (p['price'] as num).toInt() : null;
+        mrp = p['mrp'] is num ? (p['mrp'] as num).toInt() : null;
+      }
+    }
+    final play = await playProducts();
+    if (!context.mounted) return;
+    final price = play[allMocksProduct]?.price ?? (cat == null ? null : '₹$cat');
+    Widget point(String t) => Padding(
+          padding: const EdgeInsets.only(bottom: 5),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Icon(Icons.check_circle_rounded, size: 18, color: Color(0xFFD97706)),
+            const SizedBox(width: 7),
+            Expanded(child: Text(t, style: const TextStyle(fontSize: 14, color: softInk, fontWeight: FontWeight.w600, height: 1.3))),
+          ]),
+        );
+    await showDialog<void>(
+      context: context,
+      builder: (c) => Dialog(
+        backgroundColor: Colors.white,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 22, vertical: 24),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(18, 8, 18, 14),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Align(alignment: Alignment.centerRight, child: IconButton(onPressed: () => Navigator.pop(c), icon: const Icon(Icons.close, color: softMuted))),
+            const Text('👑', textAlign: TextAlign.center, style: TextStyle(fontSize: 38)),
+            Text('Full Access', textAlign: TextAlign.center, style: baloo(26)),
+            if (price != null)
+              Row(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
+                Text(price, style: baloo(34, color: const Color(0xFFD97706))),
+                if (mrp != null && cat != null && mrp > cat)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 8, bottom: 9),
+                    child: Text('₹$mrp', style: const TextStyle(fontSize: 15, color: softMuted, decoration: TextDecoration.lineThrough, fontWeight: FontWeight.w700)),
+                  ),
+                const Padding(padding: EdgeInsets.only(left: 6, bottom: 9), child: Text('for 1 year', style: TextStyle(fontSize: 13.5, color: softMuted, fontWeight: FontWeight.w700))),
+              ]),
+            const SizedBox(height: 10),
+            point('Every mock of ${exams.map((e) => e.name.replaceFirst('SSC ', '').replaceFirst('RRB ', '')).join(', ')}'),
+            point('Tier I and Tier II, plus subject-wise mocks'),
+            point('New mock series added during the year are included'),
+            point('Hindi & English, solutions and all-India rank'),
+            point('Works on the app and trickyssc.com with the same login'),
+            const SizedBox(height: 10),
+            FilledButton(
+              onPressed: () {
+                Navigator.pop(c);
+                buy(allMocksProduct, 'all-mocks');
+              },
+              style: FilledButton.styleFrom(backgroundColor: const Color(0xFFD97706), minimumSize: const Size.fromHeight(52), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+              child: Text(price == null ? 'Get Full Access' : 'Get Full Access for $price', style: const TextStyle(fontSize: 16.5, fontWeight: FontWeight.w900)),
+            ),
+            const SizedBox(height: 4),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(c);
+                onExplore();
+              },
+              child: const Text('Explore other passes →', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+            ),
+          ]),
+        ),
+      ),
+    );
+  }
+
   /// Upgrade sheet for students who already paid: one offer only (plan doc).
   Future<void> showUpgradeSheet(BuildContext context, Exam exam, UpgradeQuote q) async {
     final play = q.product == null ? <String, ProductDetails>{} : await playProducts({q.product!});
