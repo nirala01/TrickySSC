@@ -423,7 +423,6 @@ class _HomeTab extends StatelessWidget {
   final VoidCallback onSubjects;
   final VoidCallback onCa;
   final void Function(MockItem) onStart;
-  final void Function(MockItem) onRetake;
   final void Function(String) onSoon;
   const _HomeTab({
     required this.exam,
