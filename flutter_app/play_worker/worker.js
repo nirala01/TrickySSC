@@ -145,11 +145,18 @@ export default {
 
       // 4. order row for "My orders", mark done, consume (lets the student renew next year)
       const amount = Number(b.amount);
+      // buyer details for admin-premium.html (the website's checkout writes them from the form)
+      const uf = ((await fsGet(pid, tok, `users/${uid}`)) || {}).fields || {};
+      const us = k => (uf[k] || {}).stringValue || '';
       await fsPatch(pid, tok, `payments/play_${hash}`, {
+        name: str(us('name')), email: str(us('email')), mobile: str(us('phone') || us('mobile')), place: str(us('place') || us('city')),
+        grantedKeys: { arrayValue: { values: [str(product.key)] } }, expiresAt: ts(expMs),
+        mode: str(g.purchaseType === 0 ? 'test' : 'live'), platform: str('app'),
         uid: str(uid), status: str('paid'), gateway: str('google-play'), productId: str(b.productId), courseId: str(product.key), productLabel: str(product.label),
         amount: isFinite(amount) && amount > 0 && amount < 100000 ? { doubleValue: amount } : str(''),
         paymentId: str(g.orderId || ''), orderId: str(g.orderId || ''), paidAt: ts(Number(g.purchaseTimeMillis) || Date.now()), createdAt: ts(Date.now()),
-      }, ['uid', 'status', 'gateway', 'productId', 'courseId', 'productLabel', 'amount', 'paymentId', 'orderId', 'paidAt', 'createdAt']);
+      }, ['uid', 'status', 'gateway', 'productId', 'courseId', 'productLabel', 'amount', 'paymentId', 'orderId', 'paidAt', 'createdAt',
+          'name', 'email', 'mobile', 'place', 'grantedKeys', 'expiresAt', 'mode', 'platform']);
       await fsPatch(pid, tok, recPath, { status: str('granted') }, ['status']);
       await fetch(api + ':consume', { method: 'POST', headers: { authorization: 'Bearer ' + tok } }).catch(() => {});
       return json({ ok: true, key: product.key, expiresAt: expMs });

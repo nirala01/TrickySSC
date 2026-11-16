@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+
+import '../profile.dart';
 import '../ui/soft.dart';
 import 'package:flutter/services.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -97,6 +99,7 @@ class _LoginScreenState extends State<LoginScreen> {
     });
     try {
       final v = await _call('/verify', {'phone': phone, 'otp': code});
+      await rememberLoginPhone('+91$phone');
       final token = v['token'];
       if (token is! String || token.isEmpty) throw 'Could not sign in. Please try again.';
       await FirebaseAuth.instance.signInWithCustomToken(token);

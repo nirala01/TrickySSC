@@ -3,12 +3,14 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:in_app_purchase/in_app_purchase.dart';
 
 import 'data.dart';
+import 'profile.dart';
 import 'ui/soft.dart';
 
 const String playApi = 'https://trickyssc-play.nirala01.workers.dev';
@@ -31,6 +33,26 @@ class Billing {
   /// Shows a short message to the student.
   void Function(String)? onMessage;
 
+  /// Same breadcrumb as the website checkout (checkoutIntents/{uid}), so a student who opened the
+  /// app's buy sheet but did not pay shows on admin-premium.html under "Started, not paid".
+  void recordIntent(String stage, String courseId, [Map<String, dynamic> extra = const {}]) {
+    final u = FirebaseAuth.instance.currentUser;
+    if (u == null) return;
+    FirebaseFirestore.instance.collection('checkoutIntents').doc(u.uid).set({
+      'uid': u.uid,
+      'email': u.email ?? '',
+      'stage': stage,
+      'courseId': courseId,
+      'page': 'android-app',
+      'build': 'app-$appVersion',
+      'clicks': FieldValue.increment(1),
+      'lastAt': FieldValue.serverTimestamp(),
+      ...extra,
+    }, SetOptions(merge: true)).catchError((_) {});
+  }
+
+  String _keyOf(String productId) => productId == allMocksProduct ? 'all-mocks' : '${productId.replaceFirst('pass_', '').replaceAll('_', '-')}-mocks';
+
   void start() {
     _sub ??= _iap.purchaseStream.listen(_onPurchases, onError: (_) {});
     // purchases paid for but not yet opened (app closed mid-way, slow payment)
@@ -47,13 +69,19 @@ class Billing {
       }
       if (p.status == PurchaseStatus.error) {
         onMessage?.call('Payment did not go through. You have not been charged.');
+        recordIntent('failed', _keyOf(p.productID), {'failedAt': 'google-play', 'lastError': p.error?.message ?? 'error'});
+      }
+      if (p.status == PurchaseStatus.canceled) {
+        recordIntent('failed', _keyOf(p.productID), {'failedAt': 'dismissed', 'lastError': 'closed Google Play'});
       }
       if (p.status == PurchaseStatus.purchased || p.status == PurchaseStatus.restored) {
         final ok = await _verify(p);
         if (ok) {
+          if (p.status == PurchaseStatus.purchased) recordIntent('paid', _keyOf(p.productID), {'failedAt': '', 'lastError': ''});
           onGranted?.call();
           onMessage?.call('Pass unlocked. All the best!');
         } else {
+          recordIntent('failed', _keyOf(p.productID), {'failedAt': 'verify', 'lastError': 'paid on Google Play, pass not opened yet'});
           onMessage?.call('Payment received, but the pass could not be opened yet. It will open automatically; if not, write to contact@trickyssc.com.');
         }
       }
@@ -115,6 +143,7 @@ class Billing {
     }
 
     final one = find(productFor(exam)), all = find(allMocksProduct);
+    recordIntent('opened', exam.pass);
     await showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.white,
@@ -131,6 +160,7 @@ class Billing {
                     borderRadius: BorderRadius.circular(18),
                     onTap: () async {
                       Navigator.pop(c);
+                      recordIntent('google-play', _keyOf(d.id));
                       try {
                         await _iap.buyConsumable(purchaseParam: PurchaseParam(productDetails: d, applicationUserName: u.uid), autoConsume: false);
                       } catch (_) {

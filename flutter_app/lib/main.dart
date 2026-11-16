@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'data.dart';
 import 'firebase_options.dart';
+import 'profile.dart';
 import 'screens/choose_exam.dart';
 import 'screens/login.dart';
 import 'screens/shell.dart';
@@ -80,7 +81,7 @@ class AuthGate extends StatelessWidget {
         }
         final user = snap.data;
         if (user == null) return const LoginScreen();
-        return ExamGate(user: user);
+        return ProfileGate(key: ValueKey(user.uid), user: user, child: ExamGate(user: user));
       },
     );
   }

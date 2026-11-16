@@ -247,6 +247,7 @@ class _ResultScreenState extends State<ResultScreen> {
         else
           Text(attempted == 0 ? 'No question was answered, so this result is not saved.' : '✓ Result saved to your dashboard',
               textAlign: TextAlign.center, style: TextStyle(color: attempted == 0 ? const Color(0xFF64748B) : const Color(0xFF16A34A), fontWeight: FontWeight.w700)),
+        if (!_saving && !_failed && attempted > 0) RateCard(exam: exam, paper: widget.paper, title: widget.title),
         const SizedBox(height: 12),
         FilledButton.icon(
           onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => SolutionsScreen(exam: exam, paper: widget.paper, progress: widget.progress))),
