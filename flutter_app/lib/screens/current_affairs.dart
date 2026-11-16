@@ -45,10 +45,24 @@ Map<String, String>? _caStyles(dynamic e) {
 
 // ======================================================================= hub: daily + topic-wise
 //
-// Topic-wise current affairs come from the database:
-//   config/ca_topics      {period: 'Jan 2026 to Oct 2026', topics: [{id, name}]}   (optional; the list below is used without it)
-//   ca_notes              one document per part: {topic: <topic id>, order: 1, title: 'January 2026', html: '...'}
-//   questions             the topic's tests, uploaded as chapter tests with chapterId = <topic id>
+// Topic-wise current affairs:
+//   trickyssc.com/ca-topics/index.json        {period: 'Jan 2026 to Oct 2026', topics: [{id, name}]}   (optional; the list below is used without it)
+//   trickyssc.com/ca-topics/<topic id>.json   {parts: [{title: 'January 2026', html: '...'}]}   the notes; the website landing page reads the same file
+//   questions (Firestore)                     the topic's tests, uploaded as chapter tests with chapterId = <topic id>
+// Fallbacks kept for notes typed into admin-ca-notes.html: config/ca_topics and the ca_notes collection.
+
+const _topicBase = 'https://trickyssc.com/ca-topics/';
+
+Future<Map<String, dynamic>?> _topicJson(String name) async {
+  try {
+    final r = await http.get(Uri.parse('$_topicBase$name.json?t=${DateTime.now().millisecondsSinceEpoch ~/ 600000}')).timeout(const Duration(seconds: 12));
+    if (r.statusCode != 200) return null;
+    final j = jsonDecode(utf8.decode(r.bodyBytes));
+    return j is Map<String, dynamic> ? j : null;
+  } catch (_) {
+    return null;
+  }
+}
 
 class CaTopic {
   final String id, name;
@@ -127,20 +141,22 @@ class _CurrentAffairsScreenState extends State<CurrentAffairsScreen> {
   }
 
   Future<void> _loadTopics() async {
-    try {
-      final s = await FirebaseFirestore.instance.collection('config').doc('ca_topics').get().timeout(const Duration(seconds: 8));
-      final m = s.data();
-      if (m == null || !mounted) return;
-      final list = <CaTopic>[];
-      for (final t in (m['topics'] as List? ?? const [])) {
-        if (t is Map && '${t['id'] ?? ''}'.isNotEmpty) list.add(CaTopic('${t['id']}', '${t['name'] ?? t['id']}'));
-      }
-      final p = '${m['period'] ?? ''}';
-      setState(() {
-        if (list.isNotEmpty) _topics = list;
-        if (p.isNotEmpty) _period = p;
-      });
-    } catch (_) {}
+    Map<String, dynamic>? m = await _topicJson('index');
+    if (m == null) {
+      try {
+        m = (await FirebaseFirestore.instance.collection('config').doc('ca_topics').get().timeout(const Duration(seconds: 8))).data();
+      } catch (_) {}
+    }
+    if (m == null || !mounted) return;
+    final list = <CaTopic>[];
+    for (final t in (m['topics'] as List? ?? const [])) {
+      if (t is Map && '${t['id'] ?? ''}'.isNotEmpty) list.add(CaTopic('${t['id']}', '${t['name'] ?? t['id']}'));
+    }
+    final p = '${m['period'] ?? ''}';
+    setState(() {
+      if (list.isNotEmpty) _topics = list;
+      if (p.isNotEmpty) _period = p;
+    });
   }
 
   void _daily() => Navigator.of(context).push(MaterialPageRoute(builder: (_) => CaDailyScreen(exam: widget.exam)));
@@ -316,8 +332,20 @@ class _CaTopicNotesScreenState extends State<CaTopicNotesScreen> {
   Future<void> _load() async {
     setState(() => _failed = false);
     try {
-      final snap = await FirebaseFirestore.instance.collection('ca_notes').where('topic', isEqualTo: widget.topic.id).get();
-      final docs = [for (final d in snap.docs) d.data()]..sort((a, b) => ((a['order'] as num?) ?? 0).compareTo((b['order'] as num?) ?? 0));
+      final j = await _topicJson(widget.topic.id);
+      final fromSite = <(String, String)>[];
+      for (final x in (j?['parts'] as List? ?? const [])) {
+        if (x is Map && '${x['html'] ?? ''}'.isNotEmpty) fromSite.add(('${x['title'] ?? ''}', '${x['html']}'));
+      }
+      if (fromSite.isNotEmpty) {
+        if (mounted) setState(() => _parts = fromSite);
+        return;
+      }
+      var docs = <Map<String, dynamic>>[];
+      try {
+        final snap = await FirebaseFirestore.instance.collection('ca_notes').where('topic', isEqualTo: widget.topic.id).get();
+        docs = [for (final d in snap.docs) d.data()]..sort((a, b) => ((a['order'] as num?) ?? 0).compareTo((b['order'] as num?) ?? 0));
+      } catch (_) {}
       if (mounted) setState(() => _parts = [for (final m in docs) ('${m['title'] ?? ''}', '${m['html'] ?? ''}')]);
     } catch (_) {
       if (mounted) setState(() => _failed = true);
