@@ -24,7 +24,12 @@ const PRODUCTS = {
 };
 // Combos: Play product id combo_<exam>_<exam>[...] in this order, e.g. combo_ssc_cgl is not used; combo_cgl_chsl = CGL + CHSL.
 const SHORT = { cgl: ['ssc-cgl-mocks', 'SSC CGL'], chsl: ['ssc-chsl-mocks', 'SSC CHSL'], mts: ['ssc-mts-mocks', 'SSC MTS'], gd: ['ssc-gd-mocks', 'SSC GD'], ntpc: ['rrb-ntpc-mocks', 'RRB NTPC'] };
+// Upgrade to Full Access for students who already paid (plan doc): two fixed Play products.
+const UPGRADES = { upgrade_full_49: 49, upgrade_full_20: 20 };
+// Keys the app never grants (Dashboard Pro is retired; every gate also accepts ssc-cgl-mocks).
+const DROP = ['ssc-cgl-dashboard'];
 function productOf(id) {
+  if (UPGRADES[id]) return { keys: [], key: 'upgrade-full', label: 'Upgrade to Full Access (All Mocks Pass)', upgrade: true, price: UPGRADES[id] };
   const one = PRODUCTS[id];
   if (one) return { keys: [one.key], key: one.key, label: one.label };
   const m = /^combo_([a-z_]+)$/.exec(String(id || ''));
@@ -132,16 +137,96 @@ async function fsPatch(pid, tok, path, fields, mask, extra = '') {
   return r.status;
 }
 
+// ---- Upgrade to Full Access: price from the student's paid orders (plan doc)
+//   paid ₹49 -> pays ₹49 · paid ₹70-97 (combo, or pass + ₹29 add-on) -> ₹20 · paid ₹98+ -> free · full access -> nothing
+const activeExp = (ent, key) => {
+  const m = ((((((ent || {}).fields || {}).modules || {}).mapValue || {}).fields || {})[key] || {}).mapValue;
+  const e = m && (m.fields.active || {}).booleanValue === true ? Date.parse((m.fields.expiresAt || {}).timestampValue) : 0;
+  return e > Date.now() ? e : 0;
+};
+async function paidTotal(pid, tok, uid) {
+  const r = await fetch(`${fsBase(pid)}:runQuery`, {
+    method: 'POST', headers: { authorization: 'Bearer ' + tok, 'content-type': 'application/json' },
+    body: JSON.stringify({ structuredQuery: { from: [{ collectionId: 'payments' }], where: { fieldFilter: { field: { fieldPath: 'uid' }, op: 'EQUAL', value: { stringValue: uid } } } } }),
+  });
+  if (r.status !== 200) return 0;
+  let total = 0;
+  for (const row of await r.json()) {
+    const f = ((row || {}).document || {}).fields;
+    if (!f || (f.status || {}).stringValue !== 'paid' || (f.mode || {}).stringValue === 'test') continue;
+    const a = f.amount || {};
+    const n = Number(a.integerValue ?? a.doubleValue ?? a.stringValue ?? 0);
+    if (isFinite(n) && n > 0 && n < 100000) total += n;
+  }
+  return total;
+}
+async function upgradeKeys(pid, tok) {
+  const w = await websiteProduct(pid, tok, { key: 'all-mocks', keys: ['all-mocks'] });
+  const k = ((w && w.grants) || []).filter((x) => x !== 'all-mocks' && !DROP.includes(x));
+  return k.length ? k : Object.values(SHORT).map((v) => v[0]);
+}
+async function quote(pid, tok, uid) {
+  const ent = await fsGet(pid, tok, `entitlements/${uid}`);
+  const f = (ent || {}).fields || {};
+  const allAcc = (((f.allAccess || {}).mapValue || {}).fields || {});
+  const fullFlag = (allAcc.active || {}).booleanValue === true && Date.parse((allAcc.expiresAt || {}).timestampValue || 0) > Date.now();
+  const exams = Object.values(SHORT).map((v) => v[0]);
+  const owned = {};
+  for (const k of exams) { const e = activeExp(ent, k); if (e) owned[k] = e; }
+  const full = fullFlag || activeExp(ent, 'all-mocks') > 0 || exams.every((k) => owned[k]);
+  const paid = Object.keys(owned).length > 0;
+  const total = paid ? await paidTotal(pid, tok, uid) : 0;
+  const price = full || !paid ? null : total >= 98 ? 0 : total >= 70 ? 20 : 49;
+  return { ok: true, paid, full, total, price, product: price === 49 ? 'upgrade_full_49' : price === 20 ? 'upgrade_full_20' : null, owned };
+}
+// Validity rule: a course already running keeps its expiry; every newly opened course gets a year from today.
+async function grantUpgrade(pid, tok, uid, orderId) {
+  const ent = await fsGet(pid, tok, `entitlements/${uid}`);
+  const keys = await upgradeKeys(pid, tok);
+  const year = Date.now() + VALID_DAYS * 86400000;
+  const fields = {}, mask = ['updatedAt'], added = [];
+  for (const k of keys) {
+    if (activeExp(ent, k)) continue;
+    fields[k] = { mapValue: { fields: { active: { booleanValue: true }, expiresAt: ts(year), source: str('upgrade-full'), orderId: str(orderId) } } };
+    mask.push('modules.`' + k + '`');
+    added.push(k);
+  }
+  if (!added.length) return { st: 200, added, year };
+  const st = await fsPatch(pid, tok, `entitlements/${uid}`, { modules: { mapValue: { fields } }, updatedAt: ts(Date.now()) }, mask);
+  return { st, added, year };
+}
+
 export default {
   async fetch(req, env) {
     const url = new URL(req.url);
     if (req.method === 'GET') return json({ ok: true, service: 'trickyssc-play' });
-    if (req.method !== 'POST' || url.pathname !== '/verify') return json({ ok: false, error: 'not-found' }, 404);
+    if (req.method !== 'POST' || !['/verify', '/quote', '/upgrade-free'].includes(url.pathname)) return json({ ok: false, error: 'not-found' }, 404);
     try {
       if (!env.GOOGLE_SA_JSON) return json({ ok: false, error: 'not-configured' }, 500);
       const sa = JSON.parse(env.GOOGLE_SA_JSON);
       const pid = sa.project_id;
       const b = await req.json();
+      if (url.pathname !== '/verify') {
+        const who = await verifyIdToken(b.idToken, pid);
+        if (!who) return json({ ok: false, error: 'sign-in' }, 401);
+        const t = await accessToken(sa);
+        const q = await quote(pid, t, who);
+        if (url.pathname === '/quote') return json(q);
+        // /upgrade-free: paid ₹98 or more -> full access without paying again
+        if (q.full) return json({ ok: true, already: true });
+        if (q.price !== 0) return json({ ok: false, error: 'not-eligible' }, 409);
+        const g = await grantUpgrade(pid, t, who, 'free_' + who);
+        if (g.st !== 200) return json({ ok: false, error: 'grant-failed' }, 500);
+        const uf = ((await fsGet(pid, t, `users/${who}`)) || {}).fields || {};
+        const us = (k) => (uf[k] || {}).stringValue || '';
+        await fsPatch(pid, t, `payments/free_upgrade_${who}`, {
+          uid: str(who), status: str('paid'), gateway: str('free-upgrade'), productId: str('upgrade_full_free'), courseId: str('p-upgrade-all-free'),
+          productLabel: str('Free upgrade to Full Access'), amount: { doubleValue: 0 }, mode: str('live'), platform: str('app'),
+          name: str(us('name')), email: str(us('email')), mobile: str(us('phone') || us('mobile')),
+          grantedKeys: { arrayValue: { values: g.added.map(str) } }, expiresAt: ts(g.year), paidAt: ts(Date.now()), createdAt: ts(Date.now()),
+        }, ['uid', 'status', 'gateway', 'productId', 'courseId', 'productLabel', 'amount', 'mode', 'platform', 'name', 'email', 'mobile', 'grantedKeys', 'expiresAt', 'paidAt', 'createdAt']);
+        return json({ ok: true, added: g.added });
+      }
       const product = productOf(b.productId);
       const purchaseToken = String(b.purchaseToken || '');
       if (!product || purchaseToken.length < 20) return json({ ok: false, error: 'bad-request' }, 400);
@@ -150,8 +235,17 @@ export default {
 
       // 1. is the purchase real and paid?
       const tok = await accessToken(sa);
-      const web = await websiteProduct(pid, tok, product);
-      const keys = [...new Set([...product.keys, ...((web && web.grants) || [])])];
+      let web = null, keys;
+      if (product.upgrade) {
+        const q = await quote(pid, tok, uid);
+        // not acknowledged -> Google refunds it automatically within 3 days
+        if (q.full) return json({ ok: false, error: 'already-full' }, 409);
+        if (!q.paid || q.price === null || product.price < q.price) return json({ ok: false, error: 'not-eligible', price: q.price }, 409);
+        keys = await upgradeKeys(pid, tok);
+      } else {
+        web = await websiteProduct(pid, tok, product);
+        keys = [...new Set([...product.keys, ...((web && web.grants) || [])])].filter((k) => !DROP.includes(k));
+      }
       const api = `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${PACKAGE}/purchases/products/${b.productId}/tokens/${encodeURIComponent(purchaseToken)}`;
       const gr = await fetch(api, { headers: { authorization: 'Bearer ' + tok } });
       if (gr.status !== 200) return json({ ok: false, error: 'not-found-at-google', status: gr.status }, 402);
@@ -173,7 +267,8 @@ export default {
       } else {
         const ent = await fsGet(pid, tok, `entitlements/${uid}`);
         expMs = 0;
-        for (const k of keys) expMs = Math.max(expMs, expiryFor(ent, k));
+        if (product.upgrade) expMs = Date.now() + VALID_DAYS * 86400000;
+        else for (const k of keys) expMs = Math.max(expMs, expiryFor(ent, k));
         const st = await fsPatch(pid, tok, recPath, {
           uid: str(uid), productId: str(b.productId), key: str(product.key), orderId: str(g.orderId || ''), status: str('pending'),
           expiresAt: ts(expMs), createdAt: ts(Date.now()),
@@ -185,7 +280,8 @@ export default {
       const entNow = await fsGet(pid, tok, `entitlements/${uid}`);
       const fields = {}, mask = ['updatedAt'];
       for (const k of keys) {
-        const e = keys.length === 1 ? expMs : expiryFor(entNow, k, true);
+        if (product.upgrade && activeExp(entNow, k) && !(((((((entNow || {}).fields || {}).modules || {}).mapValue || {}).fields || {})[k] || {}).mapValue || { fields: {} }).fields.orderId?.stringValue === (g.orderId || '')) continue;   // validity rule: a running course keeps its expiry
+        const e = product.upgrade ? expMs : keys.length === 1 ? expMs : expiryFor(entNow, k, true);
         fields[k] = { mapValue: { fields: { active: { booleanValue: true }, expiresAt: ts(e), source: str('google-play'), orderId: str(g.orderId || '') } } };
         mask.push('modules.`' + k + '`');
       }

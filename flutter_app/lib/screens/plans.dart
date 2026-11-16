@@ -27,6 +27,7 @@ class PlansTab extends StatefulWidget {
 class _PlansTabState extends State<PlansTab> {
   Map<String, _Cat> _cat = {}; // entitlement key ('all-mocks' or an exam pass) -> website product
   Map<String, ProductDetails> _play = {};
+  UpgradeQuote? _q;
   bool _loaded = false;
 
   @override
@@ -59,14 +60,25 @@ class _PlansTabState extends State<PlansTab> {
         }
       }
     } catch (_) {}
-    final play = await Billing.I.playProducts({for (final k in cat.keys) if (k.startsWith('combo_')) k});
+    final res = await Future.wait([
+      Billing.I.playProducts({for (final k in cat.keys) if (k.startsWith('combo_')) k}),
+      widget.owned.isEmpty ? Future<UpgradeQuote?>.value(null) : Billing.I.quote(),
+    ]);
+    final play = res[0] as Map<String, ProductDetails>;
     if (mounted) {
       setState(() {
         _cat = cat;
         _play = play;
+        _q = res[1] as UpgradeQuote?;
         _loaded = true;
       });
     }
+  }
+
+  @override
+  void didUpdateWidget(covariant PlansTab old) {
+    super.didUpdateWidget(old);
+    if (old.owned.length != widget.owned.length || !old.owned.containsAll(widget.owned)) _load();
   }
 
   bool get _all => exams.every((e) => widget.owned.contains(e.pass));
@@ -97,10 +109,14 @@ class _PlansTabState extends State<PlansTab> {
               style: TextStyle(fontSize: 13.5, color: softMuted, fontWeight: FontWeight.w600, height: 1.35)),
           const SizedBox(height: 14),
           if (mine.isNotEmpty) _yours(mine),
-          if (!_all) _allPass(),
-          for (final k in _combos) _comboPass(k),
-          for (final e in others) _examPass(e),
-          _free(),
+          // paid students see one offer only: the upgrade to Full Access (plan doc)
+          if (mine.isNotEmpty && !_all) _upgrade()
+          else if (!_all) ...[
+            _allPass(),
+            for (final k in _combos) _comboPass(k),
+            for (final e in others) _examPass(e),
+          ],
+          if (mine.isEmpty) _free(),
           _compare(),
           const SizedBox(height: 12),
           const Text(
@@ -137,6 +153,49 @@ class _PlansTabState extends State<PlansTab> {
           Text('Up to $paidLimit tests a day on your account.', style: const TextStyle(fontSize: 12.5, color: Color(0xFF047857), fontWeight: FontWeight.w600)),
         ]),
       );
+
+  Widget _upgrade() {
+    final q = _q;
+    if (q == null || !q.offer) {
+      return _card(
+        c1: const Color(0xFFD97706),
+        leading: '👑',
+        title: 'Get Full Access',
+        sub: _loaded ? 'Your upgrade price could not be loaded.' : 'Loading your upgrade price…',
+        points: const ['Every exam: all mocks and subject mocks', 'Pull down to try again'],
+      );
+    }
+    final price = q.price == 0 ? 'Free' : (_play[q.product]?.price ?? '₹${q.price}');
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+      decoration: softCard(radius: 20, glow: const Color(0xFFD97706)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        const Text('👑', textAlign: TextAlign.center, style: TextStyle(fontSize: 34)),
+        Text('Get Full Access', textAlign: TextAlign.center, style: baloo(23)),
+        const SizedBox(height: 4),
+        Text('Every exam: ${exams.map((e) => e.name.replaceFirst('SSC ', '').replaceFirst('RRB ', '')).join(', ')} · all mocks and subject mocks',
+            textAlign: TextAlign.center, style: const TextStyle(fontSize: 13.5, color: softMuted, fontWeight: FontWeight.w600)),
+        const SizedBox(height: 10),
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(color: const Color(0xFFFFFBEB), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFFDE68A))),
+          child: Text(q.validity, style: const TextStyle(fontSize: 13, color: Color(0xFF92400E), fontWeight: FontWeight.w700, height: 1.35)),
+        ),
+        const SizedBox(height: 12),
+        FilledButton(
+          onPressed: () => Billing.I.upgrade(q),
+          style: FilledButton.styleFrom(backgroundColor: const Color(0xFFD97706), minimumSize: const Size.fromHeight(50), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+          child: Text(q.price == 0 ? 'Unlock Full Access free' : 'Get Full Access, pay $price more', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
+        ),
+        if (q.price == 0)
+          const Padding(
+            padding: EdgeInsets.only(top: 6),
+            child: Text('You have already paid ₹98 or more, so this one is on us.', textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: softMuted)),
+          ),
+      ]),
+    );
+  }
 
   Widget _card({
     required Color c1,

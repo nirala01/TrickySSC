@@ -15,6 +15,31 @@ import 'ui/soft.dart';
 
 const String playApi = 'https://trickyssc-play.nirala01.workers.dev';
 const String allMocksProduct = 'pass_all_mocks';
+const List<String> upgradeProducts = ['upgrade_full_49', 'upgrade_full_20'];
+
+/// The student's upgrade offer, worked out by the trickyssc-play Worker from their paid orders.
+class UpgradeQuote {
+  final bool paid, full;
+  final int? price; // 49, 20, 0 (free) or null (free user / already full access)
+  final String? product;
+  final Map<String, int> owned; // exam pass key -> expiry (ms)
+  const UpgradeQuote({required this.paid, required this.full, this.price, this.product, this.owned = const {}});
+  bool get offer => paid && !full && price != null;
+
+  /// "Your SSC CGL pass stays valid till 21 Oct 2027. All other courses: 1 year from today."
+  String get validity {
+    const mon = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    final parts = <String>[];
+    for (final e in exams) {
+      final ms = owned[e.pass];
+      if (ms == null) continue;
+      final d = DateTime.fromMillisecondsSinceEpoch(ms);
+      parts.add('${e.name} pass stays valid till ${d.day} ${mon[d.month - 1]} ${d.year}');
+    }
+    if (parts.isEmpty) return 'All courses: 1 year from today.';
+    return 'Your ${parts.join(', ')}. All other courses: 1 year from today.';
+  }
+}
 
 /// Play product id of a combo: combo_cgl_chsl (exams in app order). Null if [passes] is not 2-4 exams.
 String? comboProduct(Iterable<String> passes) {
@@ -57,7 +82,7 @@ class Billing {
     }, SetOptions(merge: true)).catchError((_) {});
   }
 
-  String _keyOf(String productId) => productId.startsWith('combo_') ? productId : productId == allMocksProduct ? 'all-mocks' : '${productId.replaceFirst('pass_', '').replaceAll('_', '-')}-mocks';
+  String _keyOf(String productId) => productId.startsWith('combo_') || productId.startsWith('upgrade_') ? productId : productId == allMocksProduct ? 'all-mocks' : '${productId.replaceFirst('pass_', '').replaceAll('_', '-')}-mocks';
 
   void start() {
     _sub ??= _iap.purchaseStream.listen(_onPurchases, onError: (_) {});
@@ -87,8 +112,10 @@ class Billing {
           onGranted?.call();
           onMessage?.call('Pass unlocked. All the best!');
         } else {
-          recordIntent('failed', _keyOf(p.productID), {'failedAt': 'verify', 'lastError': 'paid on Google Play, pass not opened yet'});
-          onMessage?.call('Payment received, but the pass could not be opened yet. It will open automatically; if not, write to contact@trickyssc.com.');
+          recordIntent('failed', _keyOf(p.productID), {'failedAt': 'verify', 'lastError': _lastError.isEmpty ? 'paid on Google Play, pass not opened yet' : _lastError});
+          onMessage?.call(_lastError == 'already-full' || _lastError == 'not-eligible'
+              ? 'This upgrade does not match your account, so it was not used. Google Play refunds it automatically within 3 days.'
+              : 'Payment received, but the pass could not be opened yet. It will open automatically; if not, write to contact@trickyssc.com.');
         }
       }
       if (p.pendingCompletePurchase && p.status != PurchaseStatus.purchased && p.status != PurchaseStatus.restored) {
@@ -99,7 +126,10 @@ class Billing {
     }
   }
 
+  String _lastError = '';
+
   Future<bool> _verify(PurchaseDetails p) async {
+    _lastError = '';
     try {
       final u = FirebaseAuth.instance.currentUser;
       if (u == null) return false;
@@ -120,6 +150,7 @@ class Billing {
         } catch (_) {}
         return true;
       }
+      if (j is Map) _lastError = '${j['error'] ?? ''}';
     } catch (_) {}
     return false;
   }
@@ -129,13 +160,65 @@ class Billing {
     final out = <String, ProductDetails>{};
     try {
       if (!await _iap.isAvailable()) return out;
-      final res = await _iap.queryProductDetails({for (final e in exams) productFor(e), allMocksProduct, ...extra});
+      final res = await _iap.queryProductDetails({for (final e in exams) productFor(e), allMocksProduct, ...upgradeProducts, ...extra});
       for (final d in res.productDetails) {
         out[d.id] = d;
         _prices[d.id] = d.rawPrice;
       }
     } catch (_) {}
     return out;
+  }
+
+  /// Null when the Worker cannot be reached.
+  Future<UpgradeQuote?> quote() async {
+    final u = FirebaseAuth.instance.currentUser;
+    if (u == null) return null;
+    try {
+      final r = await http
+          .post(Uri.parse('$playApi/quote'), headers: {'content-type': 'application/json'}, body: jsonEncode({'idToken': await u.getIdToken()}))
+          .timeout(const Duration(seconds: 15));
+      final j = jsonDecode(r.body);
+      if (r.statusCode != 200 || j is! Map || j['ok'] != true) return null;
+      final o = j['owned'];
+      return UpgradeQuote(
+        paid: j['paid'] == true,
+        full: j['full'] == true,
+        price: j['price'] is num ? (j['price'] as num).toInt() : null,
+        product: j['product'] is String ? j['product'] as String : null,
+        owned: {if (o is Map) for (final e in o.entries) if (e.value is num) '${e.key}': (e.value as num).toInt()},
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Paid ₹98 or more already: full access without paying again.
+  Future<bool> upgradeFree() async {
+    final u = FirebaseAuth.instance.currentUser;
+    if (u == null) return false;
+    try {
+      final r = await http
+          .post(Uri.parse('$playApi/upgrade-free'), headers: {'content-type': 'application/json'}, body: jsonEncode({'idToken': await u.getIdToken()}))
+          .timeout(const Duration(seconds: 25));
+      final j = jsonDecode(r.body);
+      if (r.statusCode == 200 && j is Map && j['ok'] == true) {
+        recordIntent('paid', 'upgrade_full_free', {'failedAt': '', 'lastError': ''});
+        onGranted?.call();
+        onMessage?.call('You have been upgraded to Full Access, free. All the best!');
+        return true;
+      }
+    } catch (_) {}
+    onMessage?.call('Could not upgrade right now. Please try again.');
+    return false;
+  }
+
+  /// Paid students: their one offer.
+  Future<void> upgrade(UpgradeQuote q) async {
+    if (q.price == 0) {
+      await upgradeFree();
+    } else if (q.product != null) {
+      await buy(q.product!, q.product!);
+    }
   }
 
   /// Opens Google Play for one pass (from the Plans tab).
@@ -160,16 +243,69 @@ class Billing {
     }
   }
 
+  /// Upgrade sheet for students who already paid: one offer only (plan doc).
+  Future<void> showUpgradeSheet(BuildContext context, Exam exam, UpgradeQuote q) async {
+    final play = q.product == null ? <String, ProductDetails>{} : await playProducts({q.product!});
+    if (!context.mounted) return;
+    final price = q.price == 0 ? 'Free' : (play[q.product]?.price ?? '₹${q.price}');
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(22))),
+      builder: (c) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            const Text('👑', textAlign: TextAlign.center, style: TextStyle(fontSize: 34)),
+            Text('Get Full Access', textAlign: TextAlign.center, style: baloo(23)),
+            const SizedBox(height: 4),
+            Text('Every exam: ${exams.map((e) => e.name.replaceFirst('SSC ', '').replaceFirst('RRB ', '')).join(', ')} · all mocks and subject mocks',
+                textAlign: TextAlign.center, style: const TextStyle(fontSize: 13.5, color: softMuted, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(color: const Color(0xFFFFFBEB), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFFDE68A))),
+              child: Text(q.validity, style: const TextStyle(fontSize: 13, color: Color(0xFF92400E), fontWeight: FontWeight.w700, height: 1.35)),
+            ),
+            const SizedBox(height: 12),
+            FilledButton(
+              onPressed: () {
+                Navigator.pop(c);
+                upgrade(q);
+              },
+              style: FilledButton.styleFrom(backgroundColor: const Color(0xFFD97706), minimumSize: const Size.fromHeight(52), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+              child: Text(q.price == 0 ? 'Unlock Full Access free' : 'Get Full Access, pay $price more', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
+            ),
+            const SizedBox(height: 6),
+            Text(q.price == 0 ? 'You have already paid ₹98 or more, so this one is on us.' : 'Payment is handled by Google Play.',
+                textAlign: TextAlign.center, style: const TextStyle(fontSize: 12, color: softMuted)),
+          ]),
+        ),
+      ),
+    );
+  }
+
   /// Opens the "choose a pass" sheet for this exam.
   Future<void> showBuySheet(BuildContext context, Exam exam) async {
     final u = FirebaseAuth.instance.currentUser;
     if (u == null) return;
+    final q = await quote();
+    if (!context.mounted) return;
+    if (q != null && q.offer) return showUpgradeSheet(context, exam, q);
+    // combos that include this exam, from admin-pricing
+    final combos = <String, String>{}; // play id -> label
+    for (final p in await pricingProducts()) {
+      if (p is! Map || p['live'] == false || '${p['id'] ?? ''}'.startsWith('p-upgrade-')) continue;
+      final g = p['grants'] is List ? (p['grants'] as List).map((e) => '$e').where((k) => exams.any((e) => e.pass == k)).toList() : <String>[];
+      final id = g.contains(exam.pass) && g.length < exams.length ? comboProduct(g) : null;
+      if (id != null) combos[id] = '${p['label'] ?? ''}'.replaceAll(' Mock Tests (Combo)', ' Combo');
+    }
     List<ProductDetails> products = [];
     var available = false;
     try {
       available = await _iap.isAvailable();
       if (available) {
-        final res = await _iap.queryProductDetails({productFor(exam), allMocksProduct});
+        final res = await _iap.queryProductDetails({productFor(exam), allMocksProduct, ...combos.keys});
         products = res.productDetails;
         for (final d in products) {
           _prices[d.id] = d.rawPrice;
@@ -242,9 +378,11 @@ class Billing {
               Text('Unlock ${exam.name} mocks', style: baloo(21)),
               const Text('One payment · valid 1 year · Hindi & English · works on the website too', style: TextStyle(fontSize: 13.5, color: softMuted, fontWeight: FontWeight.w600)),
               const SizedBox(height: 14),
+              if (all != null) option(all, 'Full Access · All Mocks Pass', 'Every exam: CGL, CHSL, MTS, GD, NTPC', best: true),
+              for (final e in combos.entries)
+                if (find(e.key) != null) option(find(e.key)!, e.value.isEmpty ? 'Combo' : e.value, 'Two mock series in one pass'),
               if (one != null) option(one, '${exam.name} Mock Pass', 'All ${exam.mocks} + subject mocks'),
-              if (all != null) option(all, 'All Mocks Pass', 'Every exam: CGL, CHSL, MTS, GD, NTPC', best: true),
-              if (one == null && all == null)
+              if (one == null && all == null && combos.keys.every((k) => find(k) == null))
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   child: Text(

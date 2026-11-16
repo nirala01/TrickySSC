@@ -302,7 +302,7 @@ class _AppShellState extends State<AppShell> {
           _HomeTab(
             exam: exam,
             hasPass: _hasPass,
-            price: _price,
+            price: _owned.isNotEmpty ? null : _price, // paid students see only the Full Access upgrade
             mocks: mocks,
             loaded: _mocks != null,
             attempted: _attempted,
@@ -339,7 +339,7 @@ class _AppShellState extends State<AppShell> {
             mocks: _mocks,
             failed: _mocksFailed,
             hasPass: _hasPass,
-            price: _price,
+            price: _owned.isNotEmpty ? null : _price, // paid students see only the Full Access upgrade
             tier: _tier,
             attempted: _attempted,
             isOpen: _open,
