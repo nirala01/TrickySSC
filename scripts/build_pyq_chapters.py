@@ -53,6 +53,8 @@ EXAMS = {
     "ssc-gd":   {"name": "SSC GD",   "tiered": False, "hub": "ssc-gd-pyq.html",   "mock": "ssc-gd-mock-test.html",   "cw": ""},
     "ssc-mts":  {"name": "SSC MTS",  "tiered": False, "hub": "ssc-mts-pyq.html",  "mock": "",                        "cw": ""},
     "ssc-cpo":  {"name": "SSC CPO",  "tiered": True,  "hub": "ssc-cpo-pyq.html",  "mock": "",                        "cw": ""},
+    # TSSC-NTPC-PYQ-V1 (2026-11-13): RRB NTPC papers join the same chapter pages, labelled "RRB NTPC <year> · <date> · <shift>"
+    "rrb-ntpc": {"name": "RRB NTPC", "tiered": False, "hub": "rrb-ntpc-pyq.html", "mock": "rrb-ntpc-mock-test.html", "cw": ""},
 }
 EXAM_ORDER = list(EXAMS)
 def exam_meta(exam):
@@ -140,7 +142,8 @@ def norm_shift(v):
 
 def norm_exam(v):
     v = str(v or "").strip().lower().replace("_", "-").replace(" ", "-")
-    return v if v.startswith("ssc-") else ("ssc-" + v if v else "")
+    if v in ("ntpc", "rrb-ntpc", "rrbntpc"): return "rrb-ntpc"          # TSSC-NTPC-PYQ-V1: not an SSC exam — never prefix it
+    return v if v.startswith(("ssc-", "rrb-")) else ("ssc-" + v if v else "")
 
 def pretty_date(held):
     try:
@@ -568,7 +571,7 @@ document.addEventListener('click',function(e){
 </script>
 """
 
-NAV_EXAMS = [("ssc-cgl", "SSC CGL"), ("ssc-chsl", "SSC CHSL"), ("ssc-gd", "SSC GD")]
+NAV_EXAMS = [("ssc-cgl", "SSC CGL"), ("ssc-chsl", "SSC CHSL"), ("ssc-gd", "SSC GD"), ("rrb-ntpc", "RRB NTPC")]
 def nav():
     return f"""<nav class="nav"><div class="nav-inner">
   <a class="logo" href="/index.html">Tricky<span>SSC</span></a>
@@ -576,7 +579,7 @@ def nav():
   <div class="nav-links" id="navLinks">
     <a href="/index.html">Home</a>
     <a href="/{HUB}" class="on">Chapter-wise PYQ<span class="nav-new">NEW</span></a>
-    {''.join(f'<a href="/{EXAMS[e]["hub"]}">{n.replace("SSC ", "")} PYQ</a>' for e, n in NAV_EXAMS)}
+    {''.join(f'<a href="/{EXAMS[e]["hub"]}">{n.replace("SSC ", "").replace("RRB ", "")} PYQ</a>' for e, n in NAV_EXAMS)}
     <a href="/ssc-cgl-chapterwise.html">Chapter Tests</a>
     <a href="/ssc-cgl-mock-test.html">Mock Tests</a>
   </div>

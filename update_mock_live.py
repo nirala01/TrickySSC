@@ -35,7 +35,7 @@ import argparse, json, os, re, sys, urllib.request
 PROJECT = "trickyssc-17bb3"
 API_KEY = "AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA"   # public web key, same as the pages use
 COLLECTION = "mock_tests"
-NAME_RE = re.compile(r"(ssc-[a-z]+)_(tier[12])_mock(\d+)", re.I)
+NAME_RE = re.compile(r"(ssc-[a-z]+|rrb-ntpc)_(tier[12]|cbt1)_mock(\d+)", re.I)   # TSSC-NTPC-MOCKLIVE-V1: NTPC ids are rrb-ntpc_cbt1_mockN
 
 # (exam, tier) -> pages that carry that series' cards
 SERIES = {
@@ -50,6 +50,9 @@ SERIES = {
     # TSSC-MTS-MOCK-V1: the MTS series is one paper (two sessions) stored as tier1, like GD
     ("ssc-mts", "tier1"):  ["ssc-mts-mock-test.html", "ssc-mts-maths-mock-test.html", "ssc-mts-reasoning-mock-test.html",
                             "ssc-mts-gk-mock-test.html", "ssc-mts-english-mock-test.html"],
+    # TSSC-NTPC-MOCKLIVE-V1: NTPC CBT-1 is one paper stored as tier1/cbt1; its cards are data-mock="rrb-ntpc_cbt1_mockN"
+    ("rrb-ntpc", "tier1"): ["rrb-ntpc-mock-test.html", "rrb-ntpc-maths-mock-test.html", "rrb-ntpc-reasoning-mock-test.html",
+                            "rrb-ntpc-gk-mock-test.html"],
 }
 # pages that show the "N Live" status bar for an exam's tiers
 BAR_PAGES = {
@@ -59,6 +62,8 @@ BAR_PAGES = {
                  "ssc-gd-maths-mock-test.html", "ssc-gd-english-mock-test.html"],
     "ssc-mts":  ["ssc-mts-mock-test.html", "ssc-mts-maths-mock-test.html", "ssc-mts-reasoning-mock-test.html",
                  "ssc-mts-gk-mock-test.html", "ssc-mts-english-mock-test.html"],
+    "rrb-ntpc": ["rrb-ntpc-mock-test.html", "rrb-ntpc-maths-mock-test.html", "rrb-ntpc-reasoning-mock-test.html",
+                 "rrb-ntpc-gk-mock-test.html"],
 }
 ALL_PAGES = sorted({p for v in SERIES.values() for p in v})
 
@@ -77,7 +82,7 @@ PAID_TAG = ('\n  <div class="mc-lock mc-paid-tag">'
             '\n  <button class="mc-locktag" type="button" '
             'aria-label="Premium mock — unlock to attempt">'
             '<i>&#128274;</i>Unlock</button>')
-FREE_UPTO = {"ssc-cgl": 4, "ssc-chsl": 2, "ssc-gd": 2, "ssc-mts": 2}   # TSSC-MTS-MOCK-V1: MTS Mock 1-2 free   # TSSC-GDFREE-V1: GD Mock 1-2 free (all free till 7 Nov 2026, then the Rs 49 pass)
+FREE_UPTO = {"ssc-cgl": 4, "ssc-chsl": 2, "ssc-gd": 2, "ssc-mts": 2, "rrb-ntpc": 3}   # TSSC-NTPC-MOCKLIVE-V1: NTPC Mock 1-3 free   # TSSC-MTS-MOCK-V1: MTS Mock 1-2 free   # TSSC-GDFREE-V1: GD Mock 1-2 free (all free till 7 Nov 2026, then the Rs 49 pass)
 
 
 # ----------------------------------------------------------------- Firestore
@@ -132,10 +137,13 @@ def fetch_published():
 
 
 # --------------------------------------------------------------------- pages
+CARD_TIER = {"rrb-ntpc": "cbt1"}   # TSSC-NTPC-MOCKLIVE-V1: the tier word used in an exam's card ids
+
+
 def flip_cards(s, exam, tier, nums):
     """Turn locked cards of this series into live ones where published."""
     flipped = []
-    prefix = "%s_%s_mock" % (exam, tier)
+    prefix = "%s_%s_mock" % (exam, CARD_TIER.get(exam, tier))
 
     def repl(m):
         attrs = m.group("attrs")
