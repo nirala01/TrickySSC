@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta name="robots" content="noindex,nofollow">
+<title>Topic-wise Current Affairs — TrickySSC Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F2F7;color:#1E293B;padding:1.2rem;}
+.wrap{max-width:980px;margin:0 auto;}
+h1{font-family:'Rajdhani',sans-serif;font-size:1.6rem;font-weight:800;}
+.sub{font-size:.85rem;color:#64748B;margin-top:.15rem;}
+.top{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-bottom:1rem;}
+.who{font-size:.8rem;color:#475569;}
+button{font-family:'Rajdhani',sans-serif;font-weight:700;cursor:pointer;border:none;border-radius:9px;}
+.btn{background:#fff;border:1px solid #E2E8F0;color:#475569;padding:.55rem 1rem;font-size:.85rem;}
+.btn:hover{border-color:#94A3B8;}
+.btn-p{background:linear-gradient(135deg,#FF6B00,#FF8C38);color:#fff;padding:.6rem 1.3rem;font-size:.92rem;}
+.btn-d{background:#FEF2F2;border:1px solid #FECACA;color:#B91C1C;padding:.4rem .7rem;font-size:.78rem;}
+.btn-s{background:#EFF6FF;border:1px solid #BFDBFE;color:#1D4ED8;padding:.4rem .7rem;font-size:.78rem;}
+.card{background:#fff;border:1px solid #E8ECF2;border-radius:14px;padding:1rem 1.15rem;margin-bottom:1rem;}
+.card h2{font-family:'Rajdhani',sans-serif;font-size:1.08rem;font-weight:800;margin-bottom:.15rem;}
+.card .hint{font-size:.78rem;color:#64748B;line-height:1.6;margin-bottom:.85rem;}
+table{width:100%;border-collapse:collapse;font-size:.84rem;}
+th{text-align:left;font-size:.7rem;text-transform:uppercase;letter-spacing:.04em;color:#94A3B8;padding:.4rem .45rem;border-bottom:1px solid #E2E8F0;white-space:nowrap;}
+td{padding:.4rem .45rem;border-bottom:1px solid #F1F5F9;vertical-align:middle;}
+input,select,textarea{width:100%;border:1px solid #E2E8F0;border-radius:7px;padding:.45rem .55rem;font-size:.85rem;font-family:'Plus Jakarta Sans',sans-serif;background:#fff;color:#1E293B;outline:none;}
+textarea{min-height:260px;line-height:1.5;resize:vertical;}
+label{display:block;font-size:.72rem;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:.04em;margin:.6rem 0 .25rem;}
+.row{display:flex;gap:.7rem;flex-wrap:wrap;}
+.row>div{flex:1;min-width:140px;}
+.msg{font-size:.82rem;padding:.55rem .8rem;border-radius:9px;margin-bottom:1rem;}
+.msg:empty{display:none;}
+.ok{background:#ECFDF5;color:#047857;}.err{background:#FEF2F2;color:#B91C1C;}.warn{background:#FFFBEB;color:#92400E;}
+.prev{border:1px dashed #CBD5E1;border-radius:10px;padding:.8rem 1rem;font-size:.92rem;line-height:1.55;margin-top:.6rem;background:#FAFBFF;}
+.prev h3{color:#0E7490;font-size:1rem;margin:.6rem 0 .25rem;}.prev ul,.prev ol{padding-left:1.2rem;}.prev li{margin-bottom:.25rem;}.prev p{margin-bottom:.45rem;}
+.prev table{margin:.4rem 0;}.prev td,.prev th{border:1px solid #E2E8F0;padding:.3rem .45rem;}
+.gate{max-width:380px;margin:18vh auto;text-align:center;}
+.acts{display:flex;gap:.4rem;justify-content:flex-end;}
+code{background:#F1F5F9;padding:.05rem .3rem;border-radius:4px;font-size:.78rem;}
+</style>
+</head>
+<body>
+
+<div class="card gate" id="gate">
+  <h1>Topic-wise Current Affairs</h1>
+  <p class="sub" style="margin-bottom:1rem;">Admin sign-in</p>
+  <div class="msg" id="gateMsg"></div>
+  <button class="btn-p" id="signin">Sign in with Google</button>
+</div>
+
+<div class="wrap" id="app" hidden>
+  <div class="top">
+    <div>
+      <h1>Topic-wise Current Affairs</h1>
+      <div class="sub">Notes behind the app's "Read here" buttons. Tests are uploaded as chapter tests with the topic id as chapterId.</div>
+    </div>
+    <div><span class="who" id="who"></span> <button class="btn" id="signout">Sign out</button></div>
+  </div>
+  <div class="msg" id="msg"></div>
+
+  <div class="card">
+    <h2>Topics and period</h2>
+    <p class="hint">The cards the app shows, in this order. Saved to <code>config/ca_topics</code>; the app picks it up without an update.
+      <b>Do not change a topic id once notes or tests are uploaded under it.</b> For a topic's tests, use its id as the <code>chapterId</code>.</p>
+    <label>Period shown in the app</label>
+    <input id="period" placeholder="Jan 2026 to Oct 2026">
+    <table style="margin-top:.7rem;"><thead><tr><th style="width:36px;">#</th><th style="width:240px;">Topic id (= chapterId)</th><th>Name</th><th style="width:150px;"></th></tr></thead><tbody id="topics"></tbody></table>
+    <div style="margin-top:.7rem;display:flex;gap:.6rem;flex-wrap:wrap;">
+      <button class="btn" id="addTopic">+ Add topic</button>
+      <button class="btn-p" id="saveTopics">Save topics</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Notes</h2>
+    <p class="hint">One topic can have many parts (for example one per month). Parts show in the app in "Order". Paste plain text or HTML.
+      In plain text: a line starting with <code>#</code> becomes a heading, lines starting with <code>-</code> become bullets, other lines become paragraphs.</p>
+    <label>Topic</label>
+    <select id="topicSel"></select>
+    <table style="margin-top:.7rem;"><thead><tr><th style="width:70px;">Order</th><th>Title</th><th style="width:90px;">Size</th><th style="width:150px;"></th></tr></thead><tbody id="parts"></tbody></table>
+
+    <h2 style="margin-top:1.1rem;" id="edTitle">Add a part</h2>
+    <div class="row">
+      <div style="flex:0 0 110px;"><label>Order</label><input id="pOrder" type="number" min="1" value="1"></div>
+      <div><label>Title (e.g. January 2026)</label><input id="pTitle"></div>
+    </div>
+    <label>Content</label>
+    <textarea id="pBody" placeholder="Paste the notes here"></textarea>
+    <div style="margin-top:.7rem;display:flex;gap:.6rem;flex-wrap:wrap;">
+      <button class="btn" id="pPreview">Preview</button>
+      <button class="btn-p" id="pSave">Save part</button>
+      <button class="btn" id="pNew">Clear / new part</button>
+    </div>
+    <div class="prev" id="prev" hidden></div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut }
+  from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, query, where, getDocs, serverTimestamp }
+  from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+const app = initializeApp({
+  apiKey:"AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",
+  authDomain:"trickyssc-17bb3.firebaseapp.com",
+  projectId:"trickyssc-17bb3",
+  storageBucket:"trickyssc-17bb3.firebasestorage.app",
+  messagingSenderId:"450627057220",
+  appId:"1:450627057220:web:366267bf437d94f20c6e11"
+});
+const auth = getAuth(app);
+const db   = getFirestore(app);
+
+// Mirrors isAdmin() in firestore.rules. Convenience only — the rules stop a non-admin write.
+const ADMINS = ['nirala01@gmail.com','ashish@trickyssc.com'];
+const isAdmin = e => !!e && (ADMINS.includes(e) || /@trickyssc\.com$/.test(e));
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const say = (t, cls) => { const m = $('msg'); m.textContent = t; m.className = 'msg ' + (cls||'ok'); window.scrollTo({top:0,behavior:'smooth'}); };
+
+// The same list the app has built in (flutter_app/lib/screens/current_affairs.dart).
+const DEFAULT_PERIOD = 'Jan 2026 to Oct 2026';
+const DEFAULT_TOPICS = [
+  ['ca26.international','International'], ['ca26.national','National'], ['ca26.economic','Economic'],
+  ['ca26.science-tech','Science and Technology'], ['ca26.sports','Sports Affairs'], ['ca26.awards','Awards and Honours'],
+  ['ca26.conferences','Conferences, Meetings, Fairs, Festivals and Exhibitions'], ['ca26.appointments','Election and Appointments'],
+  ['ca26.military','Campaigns, Operations and Military Exercises'], ['ca26.important-days','Important Days'],
+  ['ca26.economic-survey','Economic Survey'], ['ca26.budget','Budget 2026'],
+].map(([id,name]) => ({id,name}));
+
+let TOPICS = [], PARTS = [], EDIT = null; // EDIT = doc id being edited
+
+/* ------------------------------------------------------------------ auth */
+$('signin').onclick = async () => {
+  try { await signInWithPopup(auth, new GoogleAuthProvider()); }
+  catch (e) { const g=$('gateMsg'); g.className='msg err'; g.textContent = e.message; }
+};
+$('signout').onclick = () => signOut(auth);
+
+onAuthStateChanged(auth, async user => {
+  if (!user) { $('gate').hidden = false; $('app').hidden = true; return; }
+  if (!isAdmin(user.email)) {
+    const g = $('gateMsg'); g.className = 'msg err';
+    g.textContent = user.email + ' is not an admin account.';
+    await signOut(auth); return;
+  }
+  $('gate').hidden = true; $('app').hidden = false;
+  $('who').textContent = user.email;
+  await loadTopics();
+});
+
+/* ------------------------------------------------------------------ topics */
+async function loadTopics() {
+  let saved = false;
+  try {
+    const snap = await getDoc(doc(db, 'config', 'ca_topics'));
+    if (snap.exists()) {
+      const d = snap.data();
+      TOPICS = (d.topics || []).filter(t => t && t.id).map(t => ({id:String(t.id), name:String(t.name || t.id)}));
+      $('period').value = d.period || DEFAULT_PERIOD;
+      saved = TOPICS.length > 0;
+    }
+  } catch (e) { say('Could not read config/ca_topics: ' + e.message, 'err'); }
+  if (!saved) {
+    TOPICS = DEFAULT_TOPICS.map(t => ({...t}));
+    $('period').value = $('period').value || DEFAULT_PERIOD;
+    say('Showing the app\'s built-in topic list. It is not saved in the database yet — the app works without it; save only if you change something.', 'warn');
+  }
+  drawTopics(); drawSel(); await loadParts();
+}
+
+function drawTopics() {
+  $('topics').innerHTML = TOPICS.map((t,i) => `<tr>
+    <td>${i+1}</td>
+    <td><input data-i="${i}" data-f="id" value="${esc(t.id)}"></td>
+    <td><input data-i="${i}" data-f="name" value="${esc(t.name)}"></td>
+    <td><div class="acts"><button class="btn-s" data-up="${i}">↑</button><button class="btn-s" data-down="${i}">↓</button><button class="btn-d" data-del="${i}">Remove</button></div></td></tr>`).join('');
+}
+$('topics').oninput = e => { const i = e.target.dataset.i; if (i != null) TOPICS[+i][e.target.dataset.f] = e.target.value.trim(); };
+$('topics').onclick = e => {
+  const d = e.target.dataset; let i;
+  if (d.up != null && (i = +d.up) > 0) [TOPICS[i-1], TOPICS[i]] = [TOPICS[i], TOPICS[i-1]];
+  else if (d.down != null && (i = +d.down) < TOPICS.length-1) [TOPICS[i+1], TOPICS[i]] = [TOPICS[i], TOPICS[i+1]];
+  else if (d.del != null) { if (!confirm('Remove "' + TOPICS[+d.del].name + '" from the app? Its notes and tests stay in the database.')) return; TOPICS.splice(+d.del, 1); }
+  else return;
+  drawTopics(); drawSel();
+};
+$('addTopic').onclick = () => { TOPICS.push({id:'ca26.', name:''}); drawTopics(); };
+$('saveTopics').onclick = async () => {
+  const ids = TOPICS.map(t => t.id);
+  if (TOPICS.some(t => !/^[a-z0-9][a-z0-9.\-]*[a-z0-9]$/.test(t.id) || !t.name)) return say('Every topic needs a name and an id made of small letters, numbers, dots and hyphens (e.g. ca26.sports).', 'err');
+  if (new Set(ids).size !== ids.length) return say('Two topics have the same id.', 'err');
+  try {
+    await setDoc(doc(db, 'config', 'ca_topics'), { period: $('period').value.trim() || DEFAULT_PERIOD, topics: TOPICS, updatedAt: serverTimestamp() });
+    say('Topics saved. The app shows them the next time the Current affairs page opens.');
+    drawSel();
+  } catch (e) { say('Save failed: ' + e.message, 'err'); }
+};
+
+function drawSel() {
+  const cur = $('topicSel').value;
+  $('topicSel').innerHTML = TOPICS.map(t => `<option value="${esc(t.id)}">${esc(t.name)} — ${esc(t.id)}</option>`).join('');
+  if (TOPICS.some(t => t.id === cur)) $('topicSel').value = cur;
+}
+$('topicSel').onchange = () => { clearEditor(); loadParts(); };
+
+/* ------------------------------------------------------------------ notes */
+const partId = (topic, order) => topic.replace(/[^a-z0-9]+/gi, '-') + '_p' + String(order).padStart(3, '0');
+
+function toHtml(text) {
+  text = text.trim();
+  if (/<(p|ul|ol|li|h[1-6]|table|div|br|strong|b)\b/i.test(text)) return text;
+  const out = []; let list = false;
+  for (const raw of text.split(/\r?\n/)) {
+    const l = raw.trim();
+    const bullet = /^[-•*]\s+/.test(l);
+    if (list && !bullet) { out.push('</ul>'); list = false; }
+    if (!l) continue;
+    if (bullet) { if (!list) { out.push('<ul>'); list = true; } out.push('<li>' + esc(l.replace(/^[-•*]\s+/, '')) + '</li>'); }
+    else if (/^#+\s*/.test(l)) out.push('<h3>' + esc(l.replace(/^#+\s*/, '')) + '</h3>');
+    else out.push('<p>' + esc(l) + '</p>');
+  }
+  if (list) out.push('</ul>');
+  return out.join('\n');
+}
+
+async function loadParts() {
+  const topic = $('topicSel').value;
+  $('parts').innerHTML = '<tr><td colspan="4">Loading…</td></tr>';
+  try {
+    const snap = await getDocs(query(collection(db, 'ca_notes'), where('topic', '==', topic)));
+    PARTS = snap.docs.map(d => ({_id: d.id, ...d.data()})).sort((a,b) => (a.order||0) - (b.order||0));
+  } catch (e) { PARTS = []; $('parts').innerHTML = `<tr><td colspan="4" style="color:#B91C1C;">Could not read ca_notes: ${esc(e.message)}</td></tr>`; return; }
+  $('parts').innerHTML = PARTS.length ? PARTS.map((p,i) => `<tr>
+    <td>${esc(p.order)}</td><td>${esc(p.title || '(no title)')}</td><td>${Math.ceil((p.html||'').length/1024)} KB</td>
+    <td><div class="acts"><button class="btn-s" data-edit="${i}">Edit</button><button class="btn-d" data-del="${i}">Delete</button></div></td></tr>`).join('')
+    : '<tr><td colspan="4" style="color:#64748B;">No notes for this topic yet. The app shows "Notes for this topic are being added".</td></tr>';
+  if (!EDIT) $('pOrder').value = (PARTS.reduce((m,p) => Math.max(m, +p.order||0), 0)) + 1;
+}
+
+$('parts').onclick = async e => {
+  const d = e.target.dataset;
+  if (d.edit != null) {
+    const p = PARTS[+d.edit]; EDIT = p._id;
+    $('pOrder').value = p.order || 1; $('pTitle').value = p.title || ''; $('pBody').value = p.html || '';
+    $('edTitle').textContent = 'Edit part: ' + (p.title || p._id); $('prev').hidden = true;
+    $('pTitle').scrollIntoView({behavior:'smooth', block:'center'});
+  } else if (d.del != null) {
+    const p = PARTS[+d.del];
+    if (!confirm('Delete "' + (p.title || p._id) + '"? This cannot be undone.')) return;
+    try { await deleteDoc(doc(db, 'ca_notes', p._id)); if (EDIT === p._id) clearEditor(); say('Part deleted.'); await loadParts(); }
+    catch (err) { say('Delete failed: ' + err.message, 'err'); }
+  }
+};
+
+function clearEditor() { EDIT = null; $('pTitle').value = ''; $('pBody').value = ''; $('prev').hidden = true; $('edTitle').textContent = 'Add a part'; }
+$('pNew').onclick = () => { clearEditor(); loadParts(); };
+$('pPreview').onclick = () => { $('prev').innerHTML = toHtml($('pBody').value) || '<i>Nothing to preview.</i>'; $('prev').hidden = false; };
+
+$('pSave').onclick = async () => {
+  const topic = $('topicSel').value, order = parseInt($('pOrder').value, 10), title = $('pTitle').value.trim(), html = toHtml($('pBody').value);
+  if (!topic) return say('Pick a topic.', 'err');
+  if (!(order >= 1)) return say('Order must be 1 or more.', 'err');
+  if (!html) return say('The content is empty.', 'err');
+  if (new Blob([html]).size > 900000) return say('This part is too big for one document (limit about 900 KB). Split it into two parts.', 'err');
+  const id = partId(topic, order);
+  if (id !== EDIT && PARTS.some(p => p._id === id) && !confirm('Order ' + order + ' already exists for this topic. Replace it?')) return;
+  try {
+    await setDoc(doc(db, 'ca_notes', id), { topic, order, title, html, updatedAt: serverTimestamp() });
+    if (EDIT && EDIT !== id) await deleteDoc(doc(db, 'ca_notes', EDIT));
+    clearEditor(); say('Saved. It is live in the app now.'); await loadParts();
+  } catch (e) { say('Save failed: ' + e.message + ' — if this says "permissions", the ca_notes rule is not added in Firebase yet.', 'err'); }
+};
+</script>
+</body>
+</html>
