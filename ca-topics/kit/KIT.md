@@ -48,7 +48,7 @@ The app (flutter_app) and the website both read these files, so they stay in syn
 - 10 to 15 questions per section per month (so 100 to 150 per section over ten months). Economic Survey and Budget: 50 each.
 - Every question must be answerable from that month's notes of the same section. One clear correct option, four options, no "all / none of the above".
 - No questions on routine figures. No repeats: before writing, read the earlier `kit/bank/*.csv` files and do not repeat a fact already asked in that section.
-- Explanation: 2 to 3 short lines, the fact plus one extra exam fact.
+- Explanation: 4 to 5 short points as `<ul><li>...</li></ul>` (one fact per point). Point 1 states the answer with the key word in `<b>`; the rest add context from the notes plus one or two sure static exam facts. Escape & as &amp;.
 - Columns, exactly in this order:
   `text,option_A,option_B,option_C,option_D,correct,explanation,exam,type,subject,chapter,language,level,testNum,qNum,year,difficulty`
 - Fixed values: exam=ssc-cgl, type=chapterwise, subject=gk, language=en, level=1, chapter=<section id>, difficulty=easy|medium|hard.
