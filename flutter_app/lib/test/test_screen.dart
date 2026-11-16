@@ -662,6 +662,11 @@ class _TestScreenState extends State<TestScreen> with WidgetsBindingObserver {
                               const SizedBox(width: 5),
                               _pill(neg == 0 ? '0' : '−${neg == 1 / 3 ? '1/3' : _n(neg)}', const Color(0xFFB91C1C), const Color(0xFFFEE2E2)),
                             ]),
+                            if ('${q.raw['_month'] ?? ''}'.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 6),
+                                child: Text('🗓 ${q.raw['_month']}', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: widget.exam.c1)),
+                              ),
                             if ('${q.raw['_src'] ?? ''}'.isNotEmpty)
                               Padding(
                                 padding: const EdgeInsets.only(top: 6),

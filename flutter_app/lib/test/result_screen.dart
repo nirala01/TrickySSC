@@ -494,6 +494,11 @@ class _SolutionsScreenState extends State<SolutionsScreen> {
               ),
             );
           }),
+        if ('${q.raw['_month'] ?? ''}'.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text('🗓 ${q.raw['_month']}', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: widget.exam.c1)),
+          ),
         if ('${q.raw['_src'] ?? ''}'.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 6),

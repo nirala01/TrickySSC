@@ -4,8 +4,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../ui/nav.dart';
+import '../test/engine.dart';
+import '../test/test_screen.dart';
 import '../ui/soft.dart';
-import 'chapters.dart';
+import '../ui/soft_list.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:http/http.dart' as http;
 
@@ -46,9 +48,10 @@ Map<String, String>? _caStyles(dynamic e) {
 // ======================================================================= hub: daily + topic-wise
 //
 // Topic-wise current affairs:
-//   trickyssc.com/ca-topics/index.json        {period: 'Jan 2026 to Oct 2026', topics: [{id, name}]}   (optional; the list below is used without it)
+//   trickyssc.com/ca-topics/index.json        {months: ['2026-01', ... '2026-10'], period: '...', topics: [{id, name}]}   (optional; the list below is used without it)
+//                                             months = the rolling window: it sets the heading and which months' questions are asked
 //   trickyssc.com/ca-topics/<topic id>.json   {parts: [{title: 'January 2026', html: '...'}]}   the notes; the website landing page reads the same file
-//   questions (Firestore)                     the topic's tests, uploaded as chapter tests with chapterId = <topic id>
+//   questions (Firestore)                     the topic's questions: chapter-test rows with chapterId = <topic id> and year = YYYY-MM (see loadCaPool)
 // Fallbacks kept for notes typed into admin-ca-notes.html: config/ca_topics and the ca_notes collection.
 
 const _topicBase = 'https://trickyssc.com/ca-topics/';
@@ -71,18 +74,18 @@ class CaTopic {
 
 const _defaultPeriod = 'Jan 2026 to Oct 2026';
 const _defaultTopics = [
-  CaTopic('ca26.international', 'International'),
-  CaTopic('ca26.national', 'National'),
-  CaTopic('ca26.economic', 'Economic'),
-  CaTopic('ca26.science-tech', 'Science and Technology'),
-  CaTopic('ca26.sports', 'Sports Affairs'),
-  CaTopic('ca26.awards', 'Awards and Honours'),
-  CaTopic('ca26.conferences', 'Conferences, Meetings, Fairs, Festivals and Exhibitions'),
-  CaTopic('ca26.appointments', 'Election and Appointments'),
-  CaTopic('ca26.military', 'Campaigns, Operations and Military Exercises'),
-  CaTopic('ca26.important-days', 'Important Days'),
-  CaTopic('ca26.economic-survey', 'Economic Survey'),
-  CaTopic('ca26.budget', 'Budget 2026'),
+  CaTopic('ca.international', 'International'),
+  CaTopic('ca.national', 'National'),
+  CaTopic('ca.economic', 'Economic'),
+  CaTopic('ca.science-tech', 'Science and Technology'),
+  CaTopic('ca.sports', 'Sports Affairs'),
+  CaTopic('ca.awards', 'Awards and Honours'),
+  CaTopic('ca.conferences', 'Conferences, Meetings, Fairs, Festivals and Exhibitions'),
+  CaTopic('ca.appointments', 'Election and Appointments'),
+  CaTopic('ca.military', 'Campaigns, Operations and Military Exercises'),
+  CaTopic('ca.important-days', 'Important Days'),
+  CaTopic('ca.economic-survey', 'Economic Survey'),
+  CaTopic('ca.budget', 'Budget 2026'),
 ];
 
 const _topicColors = [Color(0xFF4F46E5), Color(0xFFEA580C), Color(0xFF047857), Color(0xFF7C3AED), Color(0xFF0369A1), Color(0xFFBE185D)];
@@ -104,8 +107,6 @@ IconData _topicIcon(CaTopic t) {
   return Icons.article;
 }
 
-const _gkSubject = ChSubject('gk', 'General Awareness', '', Icons.public, Color(0xFF047857), Color(0xFF6EE7B7));
-
 class CurrentAffairsScreen extends StatefulWidget {
   final User user;
   final Exam exam;
@@ -122,6 +123,7 @@ class _CurrentAffairsScreenState extends State<CurrentAffairsScreen> {
   (String, DateTime)? _latest;
   List<CaTopic> _topics = _defaultTopics;
   String _period = _defaultPeriod;
+  List<String> _window = const []; // months asked in the tests; empty = all
 
   @override
   void initState() {
@@ -152,10 +154,13 @@ class _CurrentAffairsScreenState extends State<CurrentAffairsScreen> {
     for (final t in (m['topics'] as List? ?? const [])) {
       if (t is Map && '${t['id'] ?? ''}'.isNotEmpty) list.add(CaTopic('${t['id']}', '${t['name'] ?? t['id']}'));
     }
-    final p = '${m['period'] ?? ''}';
+    final win = [for (final x in (m['months'] as List? ?? const [])) caMonthKey(x)].where((x) => x.isNotEmpty).toList()..sort();
+    var p = '${m['period'] ?? ''}';
+    if (p.isEmpty && win.isNotEmpty) p = '${caMonthLabel(win.first, short: true)} to ${caMonthLabel(win.last, short: true)}';
     setState(() {
       if (list.isNotEmpty) _topics = list;
       if (p.isNotEmpty) _period = p;
+      _window = win;
     });
   }
 
@@ -170,15 +175,7 @@ class _CurrentAffairsScreenState extends State<CurrentAffairsScreen> {
   void _read(CaTopic t) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => CaTopicNotesScreen(exam: widget.exam, topic: t, period: _period)));
 
   void _test(CaTopic t) => Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => ChapterTestsScreen(
-          user: widget.user,
-          exam: widget.exam,
-          subject: _gkSubject,
-          chapter: ChChapter(t.id, t.name, ''),
-          paid: widget.paid,
-          attempted: widget.attempted,
-          onReturn: widget.onReturn,
-        ),
+        builder: (_) => CaTopicTestsScreen(user: widget.user, exam: widget.exam, topic: t, period: _period, window: _window, paid: widget.paid, attempted: widget.attempted, onReturn: widget.onReturn),
       ));
 
   @override
@@ -303,6 +300,153 @@ class _CurrentAffairsScreenState extends State<CurrentAffairsScreen> {
           ),
         ]),
       ]),
+    );
+  }
+}
+
+// ======================================================================= one topic's tests
+
+class CaTopicTestsScreen extends StatefulWidget {
+  final User user;
+  final Exam exam;
+  final CaTopic topic;
+  final String period;
+  final List<String> window;
+  final bool paid;
+  final Set<String> attempted;
+  final VoidCallback onReturn;
+  const CaTopicTestsScreen({super.key, required this.user, required this.exam, required this.topic, required this.period, required this.window, required this.paid, required this.attempted, required this.onReturn});
+
+  @override
+  State<CaTopicTestsScreen> createState() => _CaTopicTestsScreenState();
+}
+
+class _CaTopicTestsScreenState extends State<CaTopicTestsScreen> {
+  CaPool? _pool;
+  bool _failed = false;
+  late Set<String> _attempted = widget.attempted;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => _failed = false);
+    try {
+      final p = await loadCaPool(widget.topic.id, widget.window);
+      if (mounted) setState(() => _pool = p);
+    } catch (_) {
+      if (mounted) setState(() => _failed = true);
+    }
+  }
+
+  Future<void> _open(CaTest t) async {
+    final exam = widget.exam, pool = _pool!;
+    var lang = t.en.isNotEmpty ? 'en' : 'hi';
+    if (t.en.isNotEmpty && t.hi.isNotEmpty) {
+      final picked = await showModalBottomSheet<String>(
+        context: context,
+        backgroundColor: Colors.white,
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+        builder: (c) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Text('${widget.topic.name} · Test ${t.num}', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: exam.ink)),
+              const SizedBox(height: 12),
+              Row(children: [
+                for (final l in const [('en', 'English'), ('hi', 'हिंदी')]) ...[
+                  if (l.$1 == 'hi') const SizedBox(width: 10),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: () => Navigator.pop(c, l.$1),
+                      style: FilledButton.styleFrom(backgroundColor: exam.c1, minimumSize: const Size.fromHeight(50)),
+                      child: Text(l.$2, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                    ),
+                  ),
+                ],
+              ]),
+            ]),
+          ),
+        ),
+      );
+      if (picked == null || !mounted) return;
+      lang = picked;
+    }
+    await Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => TestFlow(
+        user: widget.user,
+        exam: exam,
+        mockId: '${cwLbKey(pool.keyId, 1, t.num)}_$lang',
+        lang: lang,
+        paid: widget.paid,
+        title: '${widget.topic.name} · Test ${t.num}',
+        loader: () async => caTestPaper(pool, t, widget.topic.name, lang),
+      ),
+    ));
+    widget.onReturn();
+    final a = await loadAttempted(widget.user.uid);
+    if (mounted) setState(() => _attempted = a);
+  }
+
+  String _span(CaTest t) {
+    if (t.newest.isEmpty) return '';
+    final a = caMonthLabel(t.newest, short: true), b = caMonthLabel(t.oldest, short: true);
+    return a == b ? a : '$a to $b';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final exam = widget.exam, pool = _pool;
+    return examTheme(
+      context,
+      exam,
+      Scaffold(
+        appBar: AppBar(actions: const [HomeButton()], title: Text(widget.topic.name, style: TextStyle(fontWeight: FontWeight.w800, color: exam.ink))),
+        body: Container(
+          decoration: softBg,
+          child: _failed
+              ? Center(
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    const Text('Could not load the tests. Check your internet.'),
+                    TextButton(onPressed: _load, child: const Text('Try again')),
+                  ]),
+                )
+              : pool == null
+                  ? const Center(child: CircularProgressIndicator())
+                  : RefreshIndicator(
+                      onRefresh: _load,
+                      child: ListView(padding: EdgeInsets.fromLTRB(14, 10, 14, 18 + MediaQuery.of(context).padding.bottom), children: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(4, 0, 4, 12),
+                          child: Text('Current affairs tests · ${widget.period}\nNewest questions first · 25 questions · 15 min or untimed · FREE',
+                              style: const TextStyle(fontSize: 13.5, height: 1.45, color: softMuted, fontWeight: FontWeight.w700)),
+                        ),
+                        if (pool.tests.isEmpty)
+                          const Padding(
+                            padding: EdgeInsets.all(36),
+                            child: Center(child: Text('Tests for this topic are being added. Please check again soon.', textAlign: TextAlign.center, style: TextStyle(fontSize: 15, color: softMuted))),
+                          ),
+                        for (final t in pool.tests)
+                          Builder(builder: (_) {
+                            final done = _attempted.contains(cwLbKey(pool.keyId, 1, t.num));
+                            final span = _span(t);
+                            return SoftRow(
+                              badge: '${t.num}',
+                              title: 'Test ${t.num}',
+                              tags: [done ? const SoftTag.done() : const SoftTag.free()],
+                              meta: '${span.isEmpty ? '' : '$span · '}${t.count} Qs${t.hi.isNotEmpty && t.en.isNotEmpty ? ' · EN · हिंदी' : ''}',
+                              action: done ? 'Retake' : 'Start',
+                              accent: exam.c1,
+                              onTap: () => _open(t),
+                            );
+                          }),
+                      ]),
+                    ),
+        ),
+      ),
     );
   }
 }

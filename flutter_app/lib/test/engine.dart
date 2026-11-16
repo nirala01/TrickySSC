@@ -260,6 +260,91 @@ Future<Paper> loadChapterTest({required String chapterId, required String chapte
   return p;
 }
 
+// ---- topic-wise current affairs tests (a rolling window of months)
+//
+// The questions are ordinary chapter-test rows (type chapterwise, exam ssc-cgl) with chapterId = the topic id
+// and the month in the CSV's "year" column as YYYY-MM. The app keeps the months of the current window
+// (ca-topics/index.json "months"), orders the questions newest month first and cuts them into tests of 25.
+// So a month is dropped or added by changing the window: nothing is deleted from the database.
+
+const caMonthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+/// '2026-10', '2026-1', '202610' -> '2026-10'; anything else -> ''.
+String caMonthKey(dynamic v) {
+  final m = RegExp(r'^\s*(\d{4})\D?(\d{1,2})\s*$').firstMatch(_str(v));
+  if (m == null) return '';
+  final mo = int.parse(m[2]!);
+  return mo < 1 || mo > 12 ? '' : '${m[1]}-${mo.toString().padLeft(2, '0')}';
+}
+
+/// '2026-10' -> 'October 2026' (short: 'Oct 2026').
+String caMonthLabel(String key, {bool short = false}) {
+  if (key.length != 7) return '';
+  final n = caMonthNames[int.parse(key.substring(5)) - 1];
+  return '${short ? n.substring(0, 3) : n} ${key.substring(0, 4)}';
+}
+
+class CaTest {
+  final int num; // 1 = the newest questions
+  final List<Question> en, hi; // hi is empty, or has the same questions in the same order
+  final String newest, oldest; // month keys ('' = undated)
+  CaTest(this.num, this.en, this.hi, this.newest, this.oldest);
+  int get count => en.isNotEmpty ? en.length : hi.length;
+}
+
+class CaPool {
+  final String keyId; // topic id + the months covered: results reset cleanly when the window moves
+  final List<CaTest> tests;
+  CaPool(this.keyId, this.tests);
+}
+
+Future<CaPool> loadCaPool(String topicId, List<String> window) async {
+  final snap = await FirebaseFirestore.instance.collection('questions').where('chapterId', isEqualTo: topicId).get();
+  final keep = {for (final w in window) caMonthKey(w)}..remove('');
+  final en = <String, Question>{}, hi = <String, Question>{};
+  for (final d in snap.docs) {
+    final m = d.data();
+    if (m['type'] != 'chapterwise' || m['exam'] != 'ssc-cgl') continue;
+    final month = caMonthKey(m['year']);
+    if (month.isNotEmpty && keep.isNotEmpty && !keep.contains(month)) continue;
+    final q = Question({'id': d.id, ...m, '_mk': month});
+    // newest month first; undated questions (Budget, Economic Survey) keep their upload order
+    final inv = month.isEmpty ? '999999' : (999999 - int.parse(month.replaceAll('-', ''))).toString();
+    final key = '$inv|${_str(m['level']).padLeft(3, '0')}|${_str(m['testNum']).padLeft(4, '0')}|${q.qNum.toString().padLeft(4, '0')}';
+    ((m['language'] ?? m['lang']) == 'hi' ? hi : en)[key] = q;
+  }
+  final base = en.isNotEmpty ? en : hi;
+  final keys = base.keys.toList()..sort();
+  final tests = <CaTest>[];
+  var chunks = <List<String>>[for (var i = 0; i < keys.length; i += 25) keys.sublist(i, i + 25 > keys.length ? keys.length : i + 25)];
+  if (chunks.length > 1 && chunks.last.length < 8) {
+    final tail = chunks.removeLast();
+    chunks.last.addAll(tail);
+  }
+  for (var n = 0; n < chunks.length; n++) {
+    final c = chunks[n];
+    final e = en.isEmpty ? <Question>[] : [for (final k in c) en[k]!];
+    final h = c.every(hi.containsKey) ? [for (final k in c) hi[k]!] : <Question>[];
+    final months = [for (final k in c) '${base[k]!.raw['_mk']}'].where((x) => x.isNotEmpty).toList()..sort();
+    tests.add(CaTest(n + 1, e, h, months.isEmpty ? '' : months.last, months.isEmpty ? '' : months.first));
+  }
+  final all = [for (final q in base.values) '${q.raw['_mk']}'].where((x) => x.isNotEmpty).toList()..sort();
+  final tag = all.isEmpty ? '' : '.${all.first.replaceAll('-', '').substring(2)}${all.last.replaceAll('-', '').substring(2)}';
+  return CaPool('$topicId$tag', tests);
+}
+
+Paper caTestPaper(CaPool pool, CaTest t, String topicName, String lang) {
+  final useLang = (lang == 'hi' && t.hi.isNotEmpty) || t.en.isEmpty ? 'hi' : 'en';
+  Question make(Question q, int k) => Question({...q.raw, 'qNum': k + 1, '_month': caMonthLabel('${q.raw['_mk']}')});
+  final en = [for (var k = 0; k < t.en.length; k++) make(t.en[k], k)];
+  final hi = [for (var k = 0; k < t.hi.length; k++) make(t.hi[k], k)];
+  final qs = useLang == 'hi' ? hi : en;
+  final rules = Rules('${cwLbKey(pool.keyId, 1, t.num)}_$useLang');
+  final p = Paper(rules, qs, [Section(topicName, 0, qs.length - 1)], [Unit(topicName, 0, qs.length - 1, 15 * 60)], '$topicName · Test ${t.num}', '');
+  p.chapter = ChapterInfo(pool.keyId, topicName, 'gk', 1, t.num, useLang, {for (final q in en) q.qNumOr(0): q});
+  return p;
+}
+
 /// Previous-year papers are keyed by paperId (ssc-cgl_2026_tier1_shift-1_2026-10-13_en), mocks by mockId.
 bool isPyqId(String id) => !RegExp(r'_mock\d+_').hasMatch(id);
 
