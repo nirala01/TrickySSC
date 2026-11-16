@@ -11,6 +11,7 @@ import 'chapter_pyq.dart';
 import 'dash/logic.dart';
 import 'dash/pages.dart';
 import 'chapters.dart';
+import 'plans.dart';
 import 'subject_mocks.dart';
 import 'current_affairs.dart';
 import '../ui/icons3d.dart';
@@ -307,9 +308,9 @@ class _AppShellState extends State<AppShell> {
             attempted: _attempted,
             isOpen: _open,
             resuming: _resuming,
-            onMocks: () => setState(() => _tab = 1),
-            onDashboard: () => setState(() => _tab = 2),
-            onPyq: () => setState(() => _tab = 3),
+            onMocks: () => setState(() => _tab = 2),
+            onDashboard: () => setState(() => _tab = 3),
+            onPyq: () => setState(() => _tab = 4),
             onSubjects: () => Navigator.of(context).push(MaterialPageRoute(
               builder: (_) => SubjectMocksScreen(
                 user: widget.user,
@@ -332,6 +333,7 @@ class _AppShellState extends State<AppShell> {
             onStart: _startMock,
             onSoon: _soon,
           ),
+          PlansTab(exam: exam, owned: _owned),
           _MocksTab(
             exam: exam,
             mocks: _mocks,
@@ -349,7 +351,7 @@ class _AppShellState extends State<AppShell> {
             onSoon: _soon,
             onRetry: _loadMocks,
           ),
-          DashboardTab(user: widget.user, exam: exam, version: _version, onMocks: () => setState(() => _tab = 1)),
+          DashboardTab(user: widget.user, exam: exam, version: _version, onMocks: () => setState(() => _tab = 2)),
           PyqTab(
             user: widget.user,
             exam: exam,
@@ -359,7 +361,7 @@ class _AppShellState extends State<AppShell> {
             paid: _owned.isNotEmpty,
             onReturn: _afterTest,
           ),
-          _MeTab(name: _name, exam: exam, onChangeExam: widget.onChangeExam, onSignOut: _signOut, onDashboard: () => setState(() => _tab = 2)),
+          _MeTab(name: _name, exam: exam, onChangeExam: widget.onChangeExam, onSignOut: _signOut, onDashboard: () => setState(() => _tab = 3)),
         ],
       ),
       bottomNavigationBar: NavigationBar(
@@ -371,6 +373,7 @@ class _AppShellState extends State<AppShell> {
         onDestinationSelected: (i) => setState(() => _tab = i),
         destinations: const [
           NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Home'),
+          NavigationDestination(icon: Icon(Icons.workspace_premium_outlined), selectedIcon: Icon(Icons.workspace_premium), label: 'Plans'),
           NavigationDestination(icon: Icon(Icons.track_changes_outlined), selectedIcon: Icon(Icons.track_changes), label: 'Mocks'),
           NavigationDestination(icon: Icon(Icons.insights_outlined), selectedIcon: Icon(Icons.insights), label: 'Dashboard'),
           NavigationDestination(icon: Icon(Icons.description_outlined), selectedIcon: Icon(Icons.description), label: 'PYQs'),

@@ -118,6 +118,42 @@ class Billing {
     return false;
   }
 
+  /// All six passes as Google Play lists them (price in the buyer's currency). Empty when Play is unavailable.
+  Future<Map<String, ProductDetails>> playProducts() async {
+    final out = <String, ProductDetails>{};
+    try {
+      if (!await _iap.isAvailable()) return out;
+      final res = await _iap.queryProductDetails({for (final e in exams) productFor(e), allMocksProduct});
+      for (final d in res.productDetails) {
+        out[d.id] = d;
+        _prices[d.id] = d.rawPrice;
+      }
+    } catch (_) {}
+    return out;
+  }
+
+  /// Opens Google Play for one pass (from the Plans tab).
+  Future<void> buy(String productId, String courseId) async {
+    recordIntent('opened', courseId, {'via': 'plans'});
+    final d = (await playProducts())[productId];
+    if (d == null) {
+      onMessage?.call('This pass is not on sale in the app yet. Please try again after the next update.');
+      return;
+    }
+    await _launch(d);
+  }
+
+  Future<void> _launch(ProductDetails d) async {
+    final u = FirebaseAuth.instance.currentUser;
+    if (u == null) return;
+    recordIntent('google-play', _keyOf(d.id));
+    try {
+      await _iap.buyConsumable(purchaseParam: PurchaseParam(productDetails: d, applicationUserName: u.uid), autoConsume: false);
+    } catch (_) {
+      onMessage?.call('Could not open Google Play. Please try again.');
+    }
+  }
+
   /// Opens the "choose a pass" sheet for this exam.
   Future<void> showBuySheet(BuildContext context, Exam exam) async {
     final u = FirebaseAuth.instance.currentUser;
@@ -158,14 +194,9 @@ class Billing {
                   decoration: softCard(radius: 18, glow: best ? const Color(0xFFF59E0B) : exam.c1),
                   child: InkWell(
                     borderRadius: BorderRadius.circular(18),
-                    onTap: () async {
+                    onTap: () {
                       Navigator.pop(c);
-                      recordIntent('google-play', _keyOf(d.id));
-                      try {
-                        await _iap.buyConsumable(purchaseParam: PurchaseParam(productDetails: d, applicationUserName: u.uid), autoConsume: false);
-                      } catch (_) {
-                        onMessage?.call('Could not open Google Play. Please try again.');
-                      }
+                      _launch(d);
                     },
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
