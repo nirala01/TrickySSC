@@ -40,6 +40,35 @@ jobs:
       - name: Flutter version
         run: flutter --version
 
+      - name: Live prices from admin-pricing (config/pricing)
+        # Same public read the website does (tssc-pricing.js). Bundled as the app's fallback price list
+        # and printed here, so every build shows the plans that are live.
+        run: |
+          set +e
+          curl -sf "https://firestore.googleapis.com/v1/projects/trickyssc-17bb3/databases/(default)/documents/config/pricing?key=AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA" -o "$RUNNER_TEMP/pricing.json"
+          python3 - "$RUNNER_TEMP/pricing.json" flutter_app/assets/pricing.json <<'PY'
+          import json, sys
+          def d(v):
+              if not isinstance(v, dict): return None
+              for k in ('stringValue', 'booleanValue', 'timestampValue'):
+                  if k in v: return v[k]
+              if 'integerValue' in v: return int(v['integerValue'])
+              if 'doubleValue' in v: return float(v['doubleValue'])
+              if 'arrayValue' in v: return [d(x) for x in v['arrayValue'].get('values', [])]
+              if 'mapValue' in v: return {k: d(x) for k, x in v['mapValue'].get('fields', {}).items()}
+              return None
+          try:
+              cat = {k: d(v) for k, v in json.load(open(sys.argv[1])).get('fields', {}).items()}
+          except Exception as e:
+              print('::warning::Could not read config/pricing:', e); cat = {}
+          cat.pop('payApi', None)
+          json.dump(cat, open(sys.argv[2], 'w'), ensure_ascii=False, indent=1)
+          print('%-26s %-42s %6s %6s %5s %4s  %s' % ('id', 'label', 'price', 'mrp', 'days', 'live', 'grants'))
+          for p in sorted(cat.get('products', []), key=lambda p: p.get('order') or 0):
+              print('%-26s %-42s %6s %6s %5s %4s  %s' % (p.get('id'), (p.get('label') or '')[:42], p.get('price'), p.get('mrp') or '', p.get('durationDays') or 365, 'yes' if p.get('live', True) else 'no', ', '.join(p.get('grants') or [])))
+          PY
+          exit 0
+
       - name: Generate the Android project
         run: |
           flutter create --org com.trickyssc --project-name app --platforms android "$RUNNER_TEMP/gen"

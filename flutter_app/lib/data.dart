@@ -1,5 +1,8 @@
+import 'dart:convert';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:shared_preferences/shared_preferences.dart';
 
 const String otpApi = 'https://trickyssc-otp.nirala01.workers.dev';
@@ -164,12 +167,27 @@ bool isAttempted(Set<String> ids, Exam exam, MockItem m) {
   return false;
 }
 
+/// Products from admin-pricing (config/pricing). If Firestore cannot be read, the copy bundled
+/// into this build (assets/pricing.json, refreshed by every GitHub build) is used.
+Future<List<dynamic>> pricingProducts() async {
+  try {
+    final snap = await FirebaseFirestore.instance.collection('config').doc('pricing').get().timeout(const Duration(seconds: 8));
+    final p = (snap.data() ?? const {})['products'];
+    if (p is List && p.isNotEmpty) return p;
+  } catch (_) {}
+  try {
+    final j = jsonDecode(await rootBundle.loadString('assets/pricing.json'));
+    final p = j is Map ? j['products'] : null;
+    if (p is List) return p;
+  } catch (_) {}
+  return const [];
+}
+
 /// Lowest live price of a pass for this exam, from config/pricing. Null when it cannot be read.
 Future<int?> loadPrice(Exam exam) async {
   try {
-    final snap = await FirebaseFirestore.instance.collection('config').doc('pricing').get();
-    final products = (snap.data() ?? const {})['products'];
-    if (products is! List) return null;
+    final products = await pricingProducts();
+    if (products.isEmpty) return null;
     int? best;
     for (final p in products) {
       if (p is! Map) continue;

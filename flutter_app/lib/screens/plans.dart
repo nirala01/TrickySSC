@@ -1,6 +1,5 @@
 // "Plans" tab: what is free, what each pass gives, prices (Google Play price when Play lists it,
 // otherwise the website price from config/pricing) and a Buy button for each pass.
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 
@@ -39,9 +38,8 @@ class _PlansTabState extends State<PlansTab> {
   Future<void> _load() async {
     final cat = <String, _Cat>{};
     try {
-      final snap = await FirebaseFirestore.instance.collection('config').doc('pricing').get();
-      final products = (snap.data() ?? const {})['products'];
-      if (products is List) {
+      final products = await pricingProducts();
+      {
         int? n(dynamic v) => v is num ? v.toInt() : int.tryParse('${v ?? ''}');
         for (final p in products) {
           if (p is! Map || p['live'] == false) continue;
