@@ -40,7 +40,7 @@ class Exam {
   final Map<String, int> subjMin; // subject mock minutes (default 15)
   final List<String> pyqPages; // app PYQ list pages on trickyssc.com
   final bool pyqFs; // PYQ list comes from Firestore
-  final List<String> chExtra; // extra chapter-test subjects: computer, finance
+  final List<String> chExtra; // extra chapter-test subjects: computer, finance, statistics
   final String passName; // name of the pass in My orders
   final String play; // Play product id of the pass ('' = made from the pass key)
   String get icon3d => icon3dName.isNotEmpty ? icon3dName : (const {'cgl': 'target', 'chsl': 'clip', 'mts': 'pencil', 'gd': 'shield', 'ntpc': 'train'}[k] ?? 'book');
@@ -136,7 +136,7 @@ const List<Exam> _builtIn = [
   Exam('cgl', 'ssc-cgl', 'SSC CGL', 'Graduate level', '🎯', 'ssc-cgl-mocks', '100 mocks', 4, Color(0xFFEA580C), Color(0xFFFDA047), '100 Qs · 60 min', true,
       bands: {'reasoning': [1, 25], 'gk': [26, 50], 'quant': [51, 75], 'english': [76, 100]},
       pyqPages: ['app-ssc-cgl-pyq.html', 'app-ssc-cgl-tier-2-pyq.html'],
-      chExtra: ['computer', 'finance'],
+      chExtra: ['computer', 'finance', 'statistics'],
       passName: 'SSC CGL Mock Test Series'),
   Exam('chsl', 'ssc-chsl', 'SSC CHSL', '10+2 level', '📋', 'ssc-chsl-mocks', '80 mocks', 2, Color(0xFF0369A1), Color(0xFF38BDF8), '100 Qs · 60 min', true,
       bands: {'english': [1, 25], 'reasoning': [26, 50], 'quant': [51, 75], 'gk': [76, 100]},

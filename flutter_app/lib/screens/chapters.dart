@@ -30,11 +30,14 @@ const _subjects = [
   ChSubject('gk', 'General Awareness', 'ssc-cgl-gk-chapter-wise-test.html', Icons.public, Color(0xFF047857), Color(0xFF6EE7B7)),
   ChSubject('computer', 'Computer', 'ssc-cgl-computer-chapter-wise-test.html', Icons.computer, Color(0xFF334155), Color(0xFF94A3B8)),
   ChSubject('finance', 'Finance & Economics (AAO)', 'ssc-cgl-finance-economics-chapter-wise-test.html', Icons.account_balance, Color(0xFFBE185D), Color(0xFFF9A8D4)),
+  ChSubject('statistics', 'Statistics (JSO)', 'ssc-cgl-statistics-chapter-wise-test.html', Icons.bar_chart, Color(0xFF0E7490), Color(0xFF67E8F9)),
 ];
+
+const _extraSubjects = {'computer', 'finance', 'statistics'};
 
 List<ChSubject> subjectsFor(Exam e) => [
       for (final s in _subjects)
-        if ((s.key != 'computer' && s.key != 'finance') || e.chExtra.contains(s.key)) s
+        if (!_extraSubjects.contains(s.key) || e.chExtra.contains(s.key)) s
     ];
 
 class ChChapter {
@@ -42,7 +45,16 @@ class ChChapter {
   ChChapter(this.id, this.name, this.icon);
 }
 
-String _unesc(String s) => s.replaceAll('&amp;', '&').replaceAll('&quot;', '"').replaceAll('&#39;', "'").replaceAll('&nbsp;', ' ');
+/// HTML text -> plain text, including numeric entities (the chapter icons are written as &#128216; on the website).
+String _unesc(String s) => s
+    .replaceAllMapped(RegExp(r'&#(x[0-9a-fA-F]+|\d+);'), (m) {
+      final g = m[1]!;
+      final code = g.startsWith('x') ? int.tryParse(g.substring(1), radix: 16) : int.tryParse(g);
+      return code == null || code <= 0 || code > 0x10FFFF ? '' : String.fromCharCode(code);
+    })
+    .replaceAll('&amp;', '&')
+    .replaceAll('&quot;', '"')
+    .replaceAll('&nbsp;', ' ');
 
 Future<List<ChChapter>> _loadChapters(ChSubject s) async {
   final prefs = await SharedPreferences.getInstance();
@@ -50,7 +62,7 @@ Future<List<ChChapter>> _loadChapters(ChSubject s) async {
   try {
     final c = jsonDecode(prefs.getString(key) ?? '{}') as Map;
     if (DateTime.now().millisecondsSinceEpoch - ((c['at'] as num?) ?? 0) < 24 * 3600 * 1000 && c['l'] is List) {
-      return [for (final j in c['l'] as List) ChChapter('${j[0]}', '${j[1]}', '${j[2]}')];
+      return [for (final j in c['l'] as List) ChChapter('${j[0]}', '${j[1]}', _unesc('${j[2]}'))];
     }
   } catch (_) {}
   final r = await http.get(Uri.parse('https://trickyssc.com/${s.page}'));
@@ -64,7 +76,7 @@ Future<List<ChChapter>> _loadChapters(ChSubject s) async {
     final end = i + 1 < items.length ? items[i + 1].start : html.length;
     final block = html.substring(items[i].start, end);
     final name = _unesc(RegExp(r'class="ch-name">([^<]*)<').firstMatch(block)?.group(1)?.trim() ?? id);
-    final ico = RegExp(r'class="ch-ico"[^>]*>([^<]*)<').firstMatch(block)?.group(1)?.trim() ?? '';
+    final ico = _unesc(RegExp(r'class="ch-ico"[^>]*>([^<]*)<').firstMatch(block)?.group(1)?.trim() ?? '');
     if (seen.add(id)) out.add(ChChapter(id, name, ico));
   }
   if (out.isNotEmpty) {
@@ -112,7 +124,7 @@ Future<Map<String, int>> _loadCounts(List<ChChapter> chs, String subjectKey) asy
 
 // ======================================================================= subjects
 
-const _icon3d = {'quant': 'pencil', 'reasoning': 'puzzle', 'english': 'book', 'gk': 'news', 'computer': 'clip', 'finance': 'paper'};
+const _icon3d = {'quant': 'pencil', 'reasoning': 'puzzle', 'english': 'book', 'gk': 'news', 'computer': 'clip', 'finance': 'paper', 'statistics': 'folder'};
 
 class ChapterSubjectsScreen extends StatelessWidget {
   final User user;
