@@ -365,7 +365,7 @@ class _AppShellState extends State<AppShell> {
                 onBuy: () => _buy(),
               ),
             )),
-            onCa: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => CurrentAffairsScreen(exam: exam))),
+            onCa: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => CurrentAffairsScreen(user: widget.user, exam: exam, paid: _owned.isNotEmpty, attempted: _attempted, onReturn: _afterTest))),
             onChapterPyq: () => Navigator.of(context).push(MaterialPageRoute(
               builder: (_) => ChapterPyqScreen(user: widget.user, exam: exam, paid: _owned.isNotEmpty, attempted: _attempted, onReturn: _afterTest),
             )),
@@ -614,7 +614,7 @@ class _HomeTab extends StatelessWidget {
                 child: Row(children: [
                   _Tile('puzzle', 'Subject mocks', 'Sectional', exam.c1, onSubjects, tag: hasPass ? const SoftTag.premium() : SoftTag('${exam.free} FREE', const Color(0xFF047857), const Color(0xFFD1FAE5))),
                   const SizedBox(width: 8),
-                  _Tile('news', 'Current affairs', 'Daily', exam.c1, onCa, tag: const SoftTag.free()),
+                  _Tile('news', 'Current affairs', 'Daily · Topic-wise', exam.c1, onCa, tag: const SoftTag.free()),
                 ]),
               ),
             ]),

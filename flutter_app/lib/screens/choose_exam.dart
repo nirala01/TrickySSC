@@ -17,18 +17,7 @@ class ChooseExamScreen extends StatelessWidget {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
             children: [
-              Row(children: [
-                Container(
-                  decoration: BoxDecoration(shape: BoxShape.circle, boxShadow: [BoxShadow(color: const Color(0xFFFF6B00).withValues(alpha: .3), blurRadius: 14, offset: const Offset(0, 5))]),
-                  child: Image.asset('assets/logo.png', width: 40, height: 40),
-                ),
-                const SizedBox(width: 10),
-                Text.rich(TextSpan(children: [TextSpan(text: 'Tricky', style: baloo(24)), TextSpan(text: 'SSC', style: baloo(24, color: const Color(0xFFFF6B00)))])),
-              ]),
-              const SizedBox(height: 14),
-              Text('Choose your exam', style: baloo(34)),
-              const SizedBox(height: 4),
-              const Text('You can change this any time.', style: TextStyle(color: softMuted, fontSize: 15.5, fontWeight: FontWeight.w600)),
+              const _HeroCard(),
               const SizedBox(height: 18),
               for (final e in exams)
                 Padding(
@@ -39,6 +28,46 @@ class ChooseExamScreen extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _HeroCard extends StatelessWidget {
+  const _HeroCard();
+
+  @override
+  Widget build(BuildContext context) {
+    Widget bubble(double size, double alpha) => Container(width: size, height: size, decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withValues(alpha: alpha)));
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(26),
+        gradient: const LinearGradient(colors: [Color(0xFF1E1B4B), Color(0xFF4338CA), Color(0xFF6366F1)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+        boxShadow: [BoxShadow(color: const Color(0xFF4338CA).withValues(alpha: .35), blurRadius: 26, offset: const Offset(0, 12))],
+      ),
+      child: Stack(children: [
+        Positioned(right: -34, top: -40, child: bubble(140, .08)),
+        Positioned(right: 36, bottom: -50, child: bubble(110, .07)),
+        Positioned(left: -30, bottom: -36, child: bubble(90, .05)),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 22),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Container(
+                padding: const EdgeInsets.all(3),
+                decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white, boxShadow: [BoxShadow(color: const Color(0xFFFF6B00).withValues(alpha: .45), blurRadius: 14, offset: const Offset(0, 5))]),
+                child: Image.asset('assets/logo.png', width: 42, height: 42),
+              ),
+              const SizedBox(width: 10),
+              Text.rich(TextSpan(children: [TextSpan(text: 'Tricky', style: baloo(26, color: Colors.white)), TextSpan(text: 'SSC', style: baloo(26, color: const Color(0xFFFFA24D)))])),
+            ]),
+            const SizedBox(height: 16),
+            Text('Choose your exam', style: baloo(32, color: Colors.white)),
+            const SizedBox(height: 4),
+            const Text('You can change this any time.', style: TextStyle(color: Color(0xE6FFFFFF), fontSize: 15, fontWeight: FontWeight.w600)),
+          ]),
+        ),
+      ]),
     );
   }
 }

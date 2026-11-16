@@ -1,7 +1,11 @@
 import 'dart:convert';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../ui/nav.dart';
+import '../ui/soft.dart';
+import 'chapters.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:http/http.dart' as http;
 
@@ -17,17 +21,367 @@ DateTime? _dateOf(String file) {
   return DateTime(int.parse(m[3]!), int.parse(m[2]!), int.parse(m[1]!));
 }
 
-// ======================================================================= list
+Future<List<(String, DateTime)>> _loadDays() async {
+  final r = await http.get(Uri.parse('${_base}index.json?t=${DateTime.now().millisecondsSinceEpoch ~/ 600000}'));
+  if (r.statusCode != 200) throw 'http';
+  final j = jsonDecode(utf8.decode(r.bodyBytes));
+  final files = (j is List ? j : (j['files'] as List? ?? const [])).map((e) => '$e');
+  return [
+    for (final f in files)
+      if (_dateOf(f) != null) (f, _dateOf(f)!)
+  ]..sort((a, b) => b.$2.compareTo(a.$2));
+}
+
+Map<String, String>? _caStyles(dynamic e) {
+  if (e.localName == 'h2') return {'color': '#0F172A', 'font-size': '17px', 'margin': '12px 0 4px 0'};
+  if (e.localName == 'h3') return {'color': '#0E7490', 'font-size': '16px', 'margin': '10px 0 4px 0'};
+  if (e.localName == 'h4') return {'color': '#92400E', 'font-size': '15px', 'margin': '6px 0 4px 0'};
+  if (e.classes.contains('slip')) return {'background-color': '#FEF3C7', 'padding': '10px', 'margin': '10px 0 0 0', 'border-radius': '10px'};
+  if (e.localName == 'td' || e.localName == 'th') return {'padding': '5px', 'border': '1px solid #E2E8F0'};
+  if (e.localName == 'table') return {'border-collapse': 'collapse'};
+  if (e.localName == 'li') return {'margin': '0 0 4px 0'};
+  return null;
+}
+
+// ======================================================================= hub: daily + topic-wise
+//
+// Topic-wise current affairs come from the database:
+//   config/ca_topics      {period: 'Jan 2026 to Oct 2026', topics: [{id, name}]}   (optional; the list below is used without it)
+//   ca_notes              one document per part: {topic: <topic id>, order: 1, title: 'January 2026', html: '...'}
+//   questions             the topic's tests, uploaded as chapter tests with chapterId = <topic id>
+
+class CaTopic {
+  final String id, name;
+  const CaTopic(this.id, this.name);
+}
+
+const _defaultPeriod = 'Jan 2026 to Oct 2026';
+const _defaultTopics = [
+  CaTopic('ca26.international', 'International'),
+  CaTopic('ca26.national', 'National'),
+  CaTopic('ca26.economic', 'Economic'),
+  CaTopic('ca26.science-tech', 'Science and Technology'),
+  CaTopic('ca26.sports', 'Sports Affairs'),
+  CaTopic('ca26.awards', 'Awards and Honours'),
+  CaTopic('ca26.conferences', 'Conferences, Meetings, Fairs, Festivals and Exhibitions'),
+  CaTopic('ca26.appointments', 'Election and Appointments'),
+  CaTopic('ca26.military', 'Campaigns, Operations and Military Exercises'),
+  CaTopic('ca26.important-days', 'Important Days'),
+  CaTopic('ca26.economic-survey', 'Economic Survey'),
+  CaTopic('ca26.budget', 'Budget 2026'),
+];
+
+const _topicColors = [Color(0xFF4F46E5), Color(0xFFEA580C), Color(0xFF047857), Color(0xFF7C3AED), Color(0xFF0369A1), Color(0xFFBE185D)];
+
+IconData _topicIcon(CaTopic t) {
+  final k = '${t.id} ${t.name}'.toLowerCase();
+  if (k.contains('budget')) return Icons.account_balance_wallet;
+  if (k.contains('survey')) return Icons.insights;
+  if (k.contains('international')) return Icons.public;
+  if (k.contains('national')) return Icons.flag;
+  if (k.contains('econom')) return Icons.trending_up;
+  if (k.contains('science')) return Icons.science;
+  if (k.contains('sport')) return Icons.sports_cricket;
+  if (k.contains('award')) return Icons.emoji_events;
+  if (k.contains('conference')) return Icons.groups;
+  if (k.contains('appoint') || k.contains('election')) return Icons.how_to_vote;
+  if (k.contains('military') || k.contains('campaign')) return Icons.military_tech;
+  if (k.contains('days')) return Icons.event;
+  return Icons.article;
+}
+
+const _gkSubject = ChSubject('gk', 'General Awareness', '', Icons.public, Color(0xFF047857), Color(0xFF6EE7B7));
 
 class CurrentAffairsScreen extends StatefulWidget {
+  final User user;
   final Exam exam;
-  const CurrentAffairsScreen({super.key, required this.exam});
+  final bool paid;
+  final Set<String> attempted;
+  final VoidCallback onReturn;
+  const CurrentAffairsScreen({super.key, required this.user, required this.exam, required this.paid, required this.attempted, required this.onReturn});
 
   @override
   State<CurrentAffairsScreen> createState() => _CurrentAffairsScreenState();
 }
 
 class _CurrentAffairsScreenState extends State<CurrentAffairsScreen> {
+  (String, DateTime)? _latest;
+  List<CaTopic> _topics = _defaultTopics;
+  String _period = _defaultPeriod;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    await Future.wait([_loadLatest(), _loadTopics()]);
+  }
+
+  Future<void> _loadLatest() async {
+    try {
+      final days = await _loadDays();
+      if (mounted && days.isNotEmpty) setState(() => _latest = days.first);
+    } catch (_) {}
+  }
+
+  Future<void> _loadTopics() async {
+    try {
+      final s = await FirebaseFirestore.instance.collection('config').doc('ca_topics').get().timeout(const Duration(seconds: 8));
+      final m = s.data();
+      if (m == null || !mounted) return;
+      final list = <CaTopic>[];
+      for (final t in (m['topics'] as List? ?? const [])) {
+        if (t is Map && '${t['id'] ?? ''}'.isNotEmpty) list.add(CaTopic('${t['id']}', '${t['name'] ?? t['id']}'));
+      }
+      final p = '${m['period'] ?? ''}';
+      setState(() {
+        if (list.isNotEmpty) _topics = list;
+        if (p.isNotEmpty) _period = p;
+      });
+    } catch (_) {}
+  }
+
+  void _daily() => Navigator.of(context).push(MaterialPageRoute(builder: (_) => CaDailyScreen(exam: widget.exam)));
+
+  void _today() {
+    final d = _latest;
+    if (d == null) return _daily();
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => CaDayScreen(exam: widget.exam, file: d.$1, date: d.$2)));
+  }
+
+  void _read(CaTopic t) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => CaTopicNotesScreen(exam: widget.exam, topic: t, period: _period)));
+
+  void _test(CaTopic t) => Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => ChapterTestsScreen(
+          user: widget.user,
+          exam: widget.exam,
+          subject: _gkSubject,
+          chapter: ChChapter(t.id, t.name, ''),
+          paid: widget.paid,
+          attempted: widget.attempted,
+          onReturn: widget.onReturn,
+        ),
+      ));
+
+  @override
+  Widget build(BuildContext context) {
+    final exam = widget.exam;
+    return examTheme(
+      context,
+      exam,
+      Scaffold(
+        appBar: AppBar(actions: const [HomeButton()], title: Text('Current affairs', style: TextStyle(fontWeight: FontWeight.w800, color: exam.ink))),
+        body: Container(
+          decoration: softBg,
+          child: RefreshIndicator(
+            onRefresh: _load,
+            child: ListView(padding: EdgeInsets.fromLTRB(14, 10, 14, 18 + MediaQuery.of(context).padding.bottom), children: [
+              _dailyCard(),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(4, 20, 4, 2),
+                child: Text('Topic-wise current affairs', style: baloo(21)),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
+                child: Row(children: [
+                  const Icon(Icons.date_range, size: 16, color: softMuted),
+                  const SizedBox(width: 5),
+                  Text(_period, style: const TextStyle(fontSize: 14.5, color: softMuted, fontWeight: FontWeight.w700)),
+                ]),
+              ),
+              for (var i = 0; i < _topics.length; i++) _topicCard(i, _topics[i]),
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _dailyCard() {
+    final d = _latest;
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        gradient: const LinearGradient(colors: [Color(0xFF0E7490), Color(0xFF22D3EE)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+        boxShadow: [BoxShadow(color: const Color(0xFF0E7490).withValues(alpha: .28), blurRadius: 20, offset: const Offset(0, 9))],
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          const Icon(Icons.today, color: Colors.white, size: 20),
+          const SizedBox(width: 6),
+          Text('Daily current affairs', style: baloo(20, color: Colors.white)),
+        ]),
+        const SizedBox(height: 4),
+        Text(
+          d == null ? 'Exam-ready news + practice MCQs, every day' : 'Latest: ${d.$2.day} ${_months[d.$2.month - 1]} ${d.$2.year} · news + 8 MCQs',
+          style: const TextStyle(color: Color(0xF2FFFFFF), fontSize: 14, fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 12),
+        Row(children: [
+          Expanded(
+            child: FilledButton.icon(
+              onPressed: _today,
+              style: FilledButton.styleFrom(backgroundColor: Colors.white, foregroundColor: const Color(0xFF0E7490), minimumSize: const Size.fromHeight(44)),
+              icon: const Icon(Icons.menu_book, size: 18),
+              label: const Text('Read today', style: TextStyle(fontWeight: FontWeight.w800)),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: _daily,
+              style: OutlinedButton.styleFrom(foregroundColor: Colors.white, side: const BorderSide(color: Colors.white, width: 1.4), minimumSize: const Size.fromHeight(44)),
+              icon: const Icon(Icons.calendar_month, size: 18),
+              label: const Text('All days', style: TextStyle(fontWeight: FontWeight.w800)),
+            ),
+          ),
+        ]),
+      ]),
+    );
+  }
+
+  Widget _topicCard(int i, CaTopic t) {
+    final c = _topicColors[i % _topicColors.length];
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+      decoration: softCard(glow: c),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(color: c.withValues(alpha: .12), borderRadius: BorderRadius.circular(14)),
+            child: Icon(_topicIcon(t), color: c, size: 25),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(t.name, style: baloo(18, height: 1.2)),
+              const SizedBox(height: 2),
+              Text(_period, style: const TextStyle(fontSize: 13, color: softMuted, fontWeight: FontWeight.w600)),
+            ]),
+          ),
+        ]),
+        const SizedBox(height: 12),
+        Row(children: [
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: () => _read(t),
+              style: OutlinedButton.styleFrom(foregroundColor: c, side: BorderSide(color: c, width: 1.4), minimumSize: const Size.fromHeight(42)),
+              icon: const Icon(Icons.menu_book, size: 18),
+              label: const Text('Read here', style: TextStyle(fontWeight: FontWeight.w800)),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: FilledButton.icon(
+              onPressed: () => _test(t),
+              style: FilledButton.styleFrom(backgroundColor: c, foregroundColor: Colors.white, minimumSize: const Size.fromHeight(42)),
+              icon: const Icon(Icons.quiz, size: 18),
+              label: const Text('Attempt test', style: TextStyle(fontWeight: FontWeight.w800)),
+            ),
+          ),
+        ]),
+      ]),
+    );
+  }
+}
+
+// ======================================================================= one topic's notes
+
+class CaTopicNotesScreen extends StatefulWidget {
+  final Exam exam;
+  final CaTopic topic;
+  final String period;
+  const CaTopicNotesScreen({super.key, required this.exam, required this.topic, required this.period});
+
+  @override
+  State<CaTopicNotesScreen> createState() => _CaTopicNotesScreenState();
+}
+
+class _CaTopicNotesScreenState extends State<CaTopicNotesScreen> {
+  List<(String, String)>? _parts; // title, html
+  bool _failed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => _failed = false);
+    try {
+      final snap = await FirebaseFirestore.instance.collection('ca_notes').where('topic', isEqualTo: widget.topic.id).get();
+      final docs = [for (final d in snap.docs) d.data()]..sort((a, b) => ((a['order'] as num?) ?? 0).compareTo((b['order'] as num?) ?? 0));
+      if (mounted) setState(() => _parts = [for (final m in docs) ('${m['title'] ?? ''}', '${m['html'] ?? ''}')]);
+    } catch (_) {
+      if (mounted) setState(() => _failed = true);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final exam = widget.exam, parts = _parts;
+    return examTheme(
+      context,
+      exam,
+      Scaffold(
+        backgroundColor: const Color(0xFFEEF2FF),
+        appBar: AppBar(actions: const [HomeButton()], title: Text(widget.topic.name, style: TextStyle(fontWeight: FontWeight.w800, color: exam.ink))),
+        body: _failed
+            ? Center(
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  const Text('Could not load these notes. Check your internet.'),
+                  TextButton(onPressed: _load, child: const Text('Try again')),
+                ]),
+              )
+            : parts == null
+                ? const Center(child: CircularProgressIndicator())
+                : ListView(padding: EdgeInsets.fromLTRB(12, 10, 12, 16 + MediaQuery.of(context).padding.bottom), children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
+                      child: Text('Current affairs · ${widget.period}', style: const TextStyle(fontSize: 14, color: Color(0xFF475569), fontWeight: FontWeight.w700)),
+                    ),
+                    if (parts.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.all(36),
+                        child: Center(child: Text('Notes for this topic are being added. Please check again soon.', textAlign: TextAlign.center, style: TextStyle(fontSize: 15, color: Color(0xFF475569)))),
+                      ),
+                    for (final p in parts)
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 10),
+                        padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+                        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: const Border(left: BorderSide(color: Color(0xFF0E7490), width: 4))),
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          if (p.$1.isNotEmpty) ...[
+                            Text(p.$1, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: exam.ink, height: 1.25)),
+                            const SizedBox(height: 4),
+                          ],
+                          HtmlWidget(p.$2, textStyle: const TextStyle(fontSize: 15, height: 1.45, color: Color(0xFF1E293B)), customStylesBuilder: _caStyles),
+                        ]),
+                      ),
+                  ]),
+      ),
+    );
+  }
+}
+
+// ======================================================================= daily list
+
+class CaDailyScreen extends StatefulWidget {
+  final Exam exam;
+  const CaDailyScreen({super.key, required this.exam});
+
+  @override
+  State<CaDailyScreen> createState() => _CaDailyScreenState();
+}
+
+class _CaDailyScreenState extends State<CaDailyScreen> {
   List<(String, DateTime)>? _days;
   bool _failed = false;
 
@@ -40,14 +394,7 @@ class _CurrentAffairsScreenState extends State<CurrentAffairsScreen> {
   Future<void> _load() async {
     setState(() => _failed = false);
     try {
-      final r = await http.get(Uri.parse('${_base}index.json?t=${DateTime.now().millisecondsSinceEpoch ~/ 600000}'));
-      if (r.statusCode != 200) throw 'http';
-      final j = jsonDecode(utf8.decode(r.bodyBytes));
-      final files = (j is List ? j : (j['files'] as List? ?? const [])).map((e) => '$e');
-      final list = [
-        for (final f in files)
-          if (_dateOf(f) != null) (f, _dateOf(f)!)
-      ]..sort((a, b) => b.$2.compareTo(a.$2));
+      final list = await _loadDays();
       if (mounted) setState(() => _days = list);
     } catch (_) {
       if (mounted) setState(() => _failed = true);
@@ -67,7 +414,7 @@ class _CurrentAffairsScreenState extends State<CurrentAffairsScreen> {
       exam,
       Scaffold(
         backgroundColor: const Color(0xFFEEF2FF),
-        appBar: AppBar(actions: const [HomeButton()], title: Text('Current affairs', style: TextStyle(fontWeight: FontWeight.w800, color: exam.ink))),
+        appBar: AppBar(actions: const [HomeButton()], title: Text('Daily current affairs', style: TextStyle(fontWeight: FontWeight.w800, color: exam.ink))),
         body: _failed
             ? Center(
                 child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -321,15 +668,7 @@ class _CaDayScreenState extends State<CaDayScreen> {
           HtmlWidget(
             s.body,
             textStyle: const TextStyle(fontSize: 15, height: 1.45, color: Color(0xFF1E293B)),
-            customStylesBuilder: (e) {
-              if (e.localName == 'h3') return {'color': '#0E7490', 'font-size': '16px', 'margin': '10px 0 4px 0'};
-              if (e.localName == 'h4') return {'color': '#92400E', 'font-size': '15px', 'margin': '6px 0 4px 0'};
-              if (e.classes.contains('slip')) return {'background-color': '#FEF3C7', 'padding': '10px', 'margin': '10px 0 0 0', 'border-radius': '10px'};
-              if (e.localName == 'td') return {'padding': '5px', 'border': '1px solid #E2E8F0'};
-              if (e.localName == 'table') return {'border-collapse': 'collapse'};
-              if (e.localName == 'li') return {'margin': '0 0 4px 0'};
-              return null;
-            },
+            customStylesBuilder: _caStyles,
           ),
         ]),
       );
