@@ -149,13 +149,13 @@ class _AppShellState extends State<AppShell> {
   void _mockTap(MockItem m) {
     final exam = widget.exam;
     if (_open(m) && !_resuming(m) && isAttempted(_attempted, exam, m)) {
-      showDoneSheet(context, user: widget.user, exam: exam, a: _last[mockBase(exam, m)], title: '${exam.name} ${m.tier == 2 ? 'Tier 2 ' : ''}Mock ${m.n}', onRetake: () => _startMock(m));
+      showDoneSheet(context, user: widget.user, exam: exam, a: _last[mockBase(exam, m)], title: '${exam.name} ${tierWord(m.tier)}Mock ${m.n}', onRetake: () => _startMock(m));
     } else {
       _startMock(m);
     }
   }
 
-  bool _open(MockItem m) => _hasPass || m.n <= widget.exam.free;
+  bool _open(MockItem m) => _hasPass || m.n <= freeMocks(widget.exam, m);
 
   void _loadResume() => loadInProgress(widget.user.uid).then((r) {
         if (mounted) setState(() => _resume = r);
@@ -570,7 +570,7 @@ class _HomeTab extends StatelessWidget {
                         Text(
                           next == null
                               ? 'See all mocks'
-                              : resumeNext ? 'Resume Mock ${next.n}' : 'Start ${next.tier == 2 ? 'Tier 2 ' : ''}Mock ${next.n}${next.n <= exam.free ? ' · free' : ''}',
+                              : resumeNext ? 'Resume Mock ${next.n}' : 'Start ${tierWord(next.tier)}Mock ${next.n}${next.n <= freeMocks(exam, next) ? ' · free' : ''}',
                           style: baloo(19),
                         ),
                         Text(next != null && next.tier == 1 ? exam.meta : 'Full-length papers with solutions', style: const TextStyle(fontSize: 14, color: softMuted, fontWeight: FontWeight.w600)),
@@ -747,7 +747,7 @@ class _MocksTab extends StatelessWidget {
           ),
         ));
       }
-      rows.add(_MockRow(exam: exam, m: m, open: isOpen(m), free: m.n <= exam.free, premium: hasPass && m.n > exam.free, done: isAttempted(attempted, exam, m), resume: resuming(m), last: last[mockBase(exam, m)], onStart: onStart, onRetake: onRetake));
+      rows.add(_MockRow(exam: exam, m: m, open: isOpen(m), free: m.n <= freeMocks(exam, m), premium: hasPass && m.n > freeMocks(exam, m), done: isAttempted(attempted, exam, m), resume: resuming(m), last: last[mockBase(exam, m)], onStart: onStart, onRetake: onRetake));
     }
     final doneN = list.where((m) => isAttempted(attempted, exam, m)).length;
     final head = <Widget>[
@@ -763,8 +763,18 @@ class _MocksTab extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.only(bottom: 12),
           child: Row(children: [
-            SoftChip('Tier 1', tier == 1, exam.c1, () => onTier(1)),
-            SoftChip('Tier 2', tier == 2, exam.c1, () => onTier(2)),
+            Expanded(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                clipBehavior: Clip.none,
+                child: Row(children: [
+                  SoftChip('Tier 1', tier == 1, exam.c1, () => onTier(1)),
+                  SoftChip('Tier 2', tier == 2, exam.c1, () => onTier(2)),
+                  if (all.any((m) => m.tier == 3)) SoftChip('Statistics (JSO)', tier == 3, exam.c1, () => onTier(3)),
+                  if (all.any((m) => m.tier == 4)) SoftChip('Finance (AAO)', tier == 4, exam.c1, () => onTier(4)),
+                ]),
+              ),
+            ),
           ]),
         ),
     ];
@@ -826,16 +836,16 @@ class _MockRow extends StatelessWidget {
     final state = !open ? RowState.locked : (resume ? RowState.progress : (done ? RowState.done : RowState.todo));
     final a = last;
     final meta = <(IconData, String)>[
-      if (state == RowState.done && a != null) (Icons.calendar_today_outlined, shortDate(attemptMs(a))) else if (m.tier == 1 && parts.isNotEmpty) (Icons.help_outline_rounded, parts.first) else (Icons.help_outline_rounded, 'Tier 2'),
-      (Icons.schedule_rounded, m.tier == 1 && parts.length > 1 ? parts[1] : '135 min'),
+      if (state == RowState.done && a != null) (Icons.calendar_today_outlined, shortDate(attemptMs(a))) else if (m.tier == 1 && parts.isNotEmpty) (Icons.help_outline_rounded, parts.first) else (Icons.help_outline_rounded, m.tier >= 3 ? '100 Qs' : 'Tier 2'),
+      (Icons.schedule_rounded, m.tier == 1 && parts.length > 1 ? parts[1] : (m.tier >= 3 ? '120 min' : '135 min')),
     ];
     return TestRow(
       tags: [
         if (free) const SoftTag.free(),
         if (!free) const SoftTag.premium(),
       ],
-      title: '${exam.name.replaceFirst('SSC ', '')} ${m.tier == 2 ? 'Tier 2 ' : ''}Mock ${m.n.toString().padLeft(2, '0')}',
-      sub: 'Mixed (All Subjects)${langs.isNotEmpty ? ' · $langs' : ''}',
+      title: '${exam.name.replaceFirst('SSC ', '')} ${tierWord(m.tier)}Mock ${m.n.toString().padLeft(2, '0')}',
+      sub: '${m.tier == 3 ? 'Paper II · Statistics' : m.tier == 4 ? 'Paper III · Finance & Economics' : 'Mixed (All Subjects)'}${langs.isNotEmpty ? ' · $langs' : ''}',
       meta: meta,
       state: state,
       score: state == RowState.done && a != null ? '${n1(marksOf(a))} / ${n1(maxOf(a))}' : null,

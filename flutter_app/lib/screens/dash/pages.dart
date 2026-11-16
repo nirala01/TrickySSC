@@ -33,7 +33,7 @@ Future<void> saveCat(String c) async => (await SharedPreferences.getInstance()).
 
 bool canOpenSolutions(Att a) {
   final id = s(a['mockId']).isNotEmpty ? s(a['mockId']) : s(a['paperId']);
-  final ok = RegExp(r'_(tier1|tier2|cbt1)_mock\d+_(en|hi)$').hasMatch(id) || RegExp(r'^[a-z-]+_\d{4}_tier[12]_.*_(en|hi)$').hasMatch(id);
+  final ok = RegExp(r'_(tier1|tier2|cbt1|paper2|paper3)_mock\d+_(en|hi)$').hasMatch(id) || RegExp(r'^[a-z-]+_\d{4}_tier[12]_.*_(en|hi)$').hasMatch(id);
   return ok && a['answers'] is List;
 }
 

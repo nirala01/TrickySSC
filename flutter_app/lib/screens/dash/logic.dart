@@ -20,7 +20,8 @@ String n1(num v) {
 bool isChapter(Att a) => a['type'] == 'chapterwise' || a['type'] == 'pyq-chapter';
 bool isFullPaper(Att a) => !isChapter(a) && a['testKind'] != 'pyq-subject' && a['testKind'] != 'mock-subject';
 bool isMockAtt(Att a) => !isChapter(a) && (s(a['mockId']).isNotEmpty || a['type'] == 'mock' || s(a['paperId']).contains('_mock'));
-bool isTier2(Att a) => a['tier'] == 'tier2' || RegExp(r'tier2|tier-2|tier_2', caseSensitive: false).hasMatch(s(a['paperId']) + s(a['mockId']));
+bool isPaper23(Att a) => RegExp(r'_paper[23]_').hasMatch(s(a['paperId']) + s(a['mockId'])); // CGL Paper II / III: +2 / −0.5, not Tier 2 marking
+bool isTier2(Att a) => !isPaper23(a) && (a['tier'] == 'tier2' || RegExp(r'tier2|tier-2|tier_2', caseSensitive: false).hasMatch(s(a['paperId']) + s(a['mockId'])));
 
 ({double pos, double neg}) posneg(Att a) {
   final e = s(a['exam']);
@@ -71,11 +72,11 @@ String testName(Att a) {
     return a['type'] == 'pyq-chapter' ? '$n · PYQ Test $tn' : '$n · Level ${inum(a['level']) == 0 ? 1 : inum(a['level'])} · Test $tn';
   }
   final id = s(a['mockId']);
-  final m = RegExp(r'^([a-z-]+)_.*_(tier\d|cbt\d)_mock(\d+)_(en|hi)(?:__([a-z]+))?$').firstMatch(id);
+  final m = RegExp(r'^([a-z-]+)_.*_(tier\d|cbt\d|paper\d)_mock(\d+)_(en|hi)(?:__([a-z]+))?$').firstMatch(id);
   if (m != null) {
     final ex = examById(m.group(1)!)?.name ?? '';
     final sub = s(a['subjectKey']).isNotEmpty ? ' · ${_subjName(s(a['subjectKey']))}' : '';
-    return '$ex ${m.group(2) == 'tier2' ? 'Tier 2 ' : ''}Mock ${m.group(3)}$sub';
+    return '$ex ${const {'tier2': 'Tier 2 ', 'paper2': 'Statistics ', 'paper3': 'AAO '}[m.group(2)] ?? ''}Mock ${m.group(3)}$sub';
   }
   final n = s(a['examName']).replaceAll(RegExp(r'\s*—.*$'), '').trim();
   return n.isEmpty ? 'Test' : n;

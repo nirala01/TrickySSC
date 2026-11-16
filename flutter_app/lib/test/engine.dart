@@ -129,12 +129,14 @@ class Rules {
   final bool ntpc; // one clock for the whole paper (RRB NTPC)
   final bool gd; // Part D in English or Hindi (SSC GD)
   final bool tier2; // CGL / CHSL Tier 2 (mock-test-tier2.html, test-tier2.html)
+  final bool paper; // CGL Tier II Paper II (Statistics) / Paper III (Finance & Economics): 100 Qs, +2 / −0.5, one 2-hour clock
   Rules(String mockId) : this._(mockId, examOfPaper(mockId));
   Rules._(this.mockId, this.ex)
       : mts = ex?.timing == 'sessions',
         ntpc = ex?.timing == 'single',
         gd = ex?.partD ?? false,
-        tier2 = mockId.contains('_tier2_');
+        tier2 = mockId.contains('_tier2_'),
+        paper = mockId.contains('_paper2_') || mockId.contains('_paper3_');
 
   static String _n(double v) => v == v.roundToDouble() ? '${v.round()}' : ((v * 3 - 1).abs() < 1e-9 ? '1/3' : v.toStringAsFixed(2));
 
@@ -152,6 +154,7 @@ class Rules {
   String timingLine(int units) {
     if (mockId.contains('__')) return 'One subject section of the mock on its own clock. Submit when you are done or when time runs out.';
     if (mockId.startsWith('cw_') || mockId.startsWith('cwp_')) return 'One chapter test of 25 questions. Choose a 15-minute clock or untimed practice below.';
+    if (paper) return 'One paper on a single 2-hour clock. Move freely between the parts.';
     if (tier2) return 'Section I (Maths + Reasoning) 60 min, Section II (English + GA) 60 min, Section III (Computer) 15 min. Move freely inside the open section.';
     final note = (ex?.timingNote ?? '').isEmpty ? '' : ' ${ex!.timingNote}';
     final min = ex?.unitMin ?? 15;
@@ -447,6 +450,8 @@ Future<Paper> loadPaper(String mockId, String lang, {String? partD, String title
       final names = [for (final s in sections) if (s.from >= u.from && s.to <= u.to) s.label];
       units[k] = Unit('${u.label} · ${names.join(' + ')}', u.from, u.to, u.seconds);
     }
+  } else if (rules.paper) {
+    units.add(Unit('Full paper', 0, qs.length - 1, 120 * 60));
   } else if (rules.mts) {
     for (var i = 0; i < sections.length; i++) {
       if (sections[i].label == 'Quant') sections[i] = Section('Maths', sections[i].from, sections[i].to);
@@ -760,7 +765,7 @@ Future<void> saveResult(User u, Exam exam, Paper p, Progress pr, Result r) async
     'timeUsed': r.timeUsed,
     'analyticsV': 1,
     'partD': p.partD,
-    if (rules.tier2) 'tier': 'tier2',
+    if (rules.tier2 || rules.paper) 'tier': 'tier2', // the website files Paper II / III attempts under tier2 too
     if (mockId.contains('__')) 'baseMockId': mockId.substring(0, mockId.indexOf('__')),
     if (mockId.contains('__')) 'subjectKey': mockId.substring(mockId.indexOf('__') + 2),
     if (mockId.contains('__')) 'testKind': 'mock-subject',

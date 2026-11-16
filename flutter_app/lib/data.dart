@@ -335,15 +335,25 @@ class MockItem {
   MockItem(this.n, this.tier);
 }
 
-/// Every published mock of the exam, Tier 1 first, in mock order.
+/// Every published mock of the exam: Tier 1, Tier 2, then Paper II and Paper III, in mock order.
 Future<List<MockItem>> loadMocks(Exam exam) async {
   final snap = await FirebaseFirestore.instance.collection('mock_tests').where('exam', isEqualTo: exam.id).get();
   final map = <int, MockItem>{};
   for (final doc in snap.docs) {
     final m = doc.data();
     if (m['isPublished'] != true) continue;
-    final tier = m['tier'] == 'tier2' ? 2 : 1;
+    // CGL Tier II Paper II (Statistics, JSO) and Paper III (Finance & Economics, AAO): ssc-cgl_paper2_mock1_en …
+    final t = '${m['tier'] ?? ''}';
+    final tier = (t == 'paper2' || doc.id.contains('_paper2_'))
+        ? 3
+        : (t == 'paper3' || doc.id.contains('_paper3_'))
+            ? 4
+            : t == 'tier2'
+                ? 2
+                : 1;
     if (tier == 2 && !exam.tier2) continue;
+    if (tier == 3 && !exam.chExtra.contains('statistics')) continue;
+    if (tier == 4 && !exam.chExtra.contains('finance')) continue;
     final raw = m['seriesNum'] ?? m['mockNum'];
     final n = raw is num ? raw.toInt() : int.tryParse('$raw');
     if (n == null) continue;
@@ -394,7 +404,14 @@ Future<(Set<String>, Map<String, Map<String, dynamic>>)> loadAttemptInfo(String 
 }
 
 /// The mock id the website uses: ssc-cgl_tier1_mock5_en, rrb-ntpc_cbt1_mock5_hi …
-String mockBase(Exam exam, MockItem m) => '${exam.id}_${exam.tierTag.isNotEmpty ? exam.tierTag : 'tier${m.tier}'}_mock${m.n}';
+String mockBase(Exam exam, MockItem m) => '${exam.id}_${exam.tierTag.isNotEmpty ? exam.tierTag : tierName(m.tier)}_mock${m.n}';
+
+/// Mock tiers: 1 = Tier 1, 2 = Tier 2, 3 = Tier II Paper II (Statistics), 4 = Tier II Paper III (Finance & Economics).
+String tierName(int t) => const {2: 'tier2', 3: 'paper2', 4: 'paper3'}[t] ?? 'tier1';
+String tierWord(int t) => const {2: 'Tier 2 ', 3: 'Statistics ', 4: 'AAO '}[t] ?? '';
+
+/// Mocks 1..n of a list are free: the exam's number, and Mock 1 only for Paper II / Paper III (as on the website).
+int freeMocks(Exam e, MockItem m) => m.tier >= 3 ? 1 : e.free;
 
 bool isAttempted(Set<String> ids, Exam exam, MockItem m) {
   final base = mockBase(exam, m);
