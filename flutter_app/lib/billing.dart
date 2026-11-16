@@ -169,14 +169,58 @@ class Billing {
     return out;
   }
 
-  /// Null when the Worker cannot be reached.
+  /// Same rule as the Worker, worked out in the app from the student's own records. Used to show the
+  /// offer when the Worker cannot be reached; the Worker still checks everything before granting.
+  Future<UpgradeQuote?> _localQuote(String uid) async {
+    try {
+      final db = FirebaseFirestore.instance;
+      final ent = (await db.collection('entitlements').doc(uid).get()).data() ?? const <String, dynamic>{};
+      final now = DateTime.now().millisecondsSinceEpoch;
+      int exp(dynamic m) {
+        if (m is! Map || m['active'] != true) return 0;
+        final e = m['expiresAt'];
+        final ms = e is Timestamp ? e.millisecondsSinceEpoch : 0;
+        return ms > now ? ms : 0;
+      }
+
+      final mods = ent['modules'] is Map ? ent['modules'] as Map : const {};
+      final owned = <String, int>{};
+      for (final e in exams) {
+        final x = exp(mods[e.pass]);
+        if (x > 0) owned[e.pass] = x;
+      }
+      final full = exp(ent['allAccess']) > 0 || exp(mods['all-mocks']) > 0 || owned.length == exams.length;
+      final paid = owned.isNotEmpty;
+      num total = 0;
+      if (paid && !full) {
+        final sn = await db.collection('payments').where('uid', isEqualTo: uid).get();
+        for (final d in sn.docs) {
+          final p = d.data();
+          if (p['status'] != 'paid' || p['mode'] == 'test') continue;
+          final a = p['amount'];
+          final n = a is num ? a : num.tryParse('$a') ?? 0;
+          if (n > 0 && n < 100000) total += n;
+        }
+      }
+      final int? price = full || !paid ? null : (total >= 98 ? 0 : (total >= 70 ? 20 : 49));
+      return UpgradeQuote(paid: paid, full: full, price: price, product: price == 49 ? 'upgrade_full_49' : (price == 20 ? 'upgrade_full_20' : null), owned: owned);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// From the Worker; if it cannot be reached, worked out in the app.
   Future<UpgradeQuote?> quote() async {
     final u = FirebaseAuth.instance.currentUser;
     if (u == null) return null;
+    return (await _workerQuote(u)) ?? await _localQuote(u.uid);
+  }
+
+  Future<UpgradeQuote?> _workerQuote(User u) async {
     try {
       final r = await http
           .post(Uri.parse('$playApi/quote'), headers: {'content-type': 'application/json'}, body: jsonEncode({'idToken': await u.getIdToken()}))
-          .timeout(const Duration(seconds: 15));
+          .timeout(const Duration(seconds: 8));
       final j = jsonDecode(r.body);
       if (r.statusCode != 200 || j is! Map || j['ok'] != true) return null;
       final o = j['owned'];
@@ -208,7 +252,7 @@ class Billing {
         return true;
       }
     } catch (_) {}
-    onMessage?.call('Could not upgrade right now. Please try again.');
+    onMessage?.call('Could not upgrade right now. Please try again in a little while.');
     return false;
   }
 
@@ -345,7 +389,7 @@ class Billing {
                 upgrade(q);
               },
               style: FilledButton.styleFrom(backgroundColor: const Color(0xFFD97706), minimumSize: const Size.fromHeight(52), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
-              child: Text(q.price == 0 ? 'Unlock Full Access free' : 'Get Full Access, pay $price more', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
+              child: Text(q.price == 0 ? 'Upgrade to Full Access FREE' : 'Get Full Access, pay $price more', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
             ),
             const SizedBox(height: 6),
             Text(q.price == 0 ? 'You have already paid ₹98 or more, so this one is on us.' : 'Payment is handled by Google Play.',

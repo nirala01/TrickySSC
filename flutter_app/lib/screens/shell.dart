@@ -299,17 +299,40 @@ class _AppShellState extends State<AppShell> {
             child: Row(mainAxisSize: MainAxisSize.min, children: [
               Icon3D(exam.icon3d, size: 32),
               const SizedBox(width: 8),
-              Text(exam.name, style: baloo(24)),
+              Flexible(child: Text(exam.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: baloo(_tab == 0 ? 21 : 24))),
               const SizedBox(width: 2),
               Icon(Icons.expand_more, size: 24, color: exam.c1),
             ]),
           ),
         ),
         actions: [
+          if (_tab != 1)
+            Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: Center(
+                child: Tooltip(
+                  message: 'Plans',
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(14),
+                    onTap: () => setState(() => _tab = 1),
+                    child: Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(colors: [Color(0xFFFDE68A), Color(0xFFF59E0B)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                        borderRadius: BorderRadius.circular(14),
+                        boxShadow: const [BoxShadow(color: Color(0x40F59E0B), blurRadius: 10, offset: Offset(0, 4))],
+                      ),
+                      child: const Icon(Icons.workspace_premium, color: Colors.white, size: 22),
+                    ),
+                  ),
+                ),
+              ),
+            ),
           if (_tab == 0)
             Padding(
-              padding: const EdgeInsets.only(right: 14),
-              child: Center(child: Text('Hi, $first', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: exam.c1))),
+              padding: const EdgeInsets.only(right: 12),
+              child: Center(child: NameCard(name: first, color: exam.c1, onTap: () => setState(() => _tab = 5))),
             )
           else
             IconButton(tooltip: 'Home', icon: const Icon(Icons.home_rounded), onPressed: () => setState(() => _tab = 0)),
@@ -948,6 +971,44 @@ class _Placeholder extends StatelessWidget {
           const SizedBox(height: 4),
           Text(text, textAlign: TextAlign.center, style: const TextStyle(color: Color(0xFF64748B))),
           if (action != null) ...[const SizedBox(height: 14), FilledButton(onPressed: onAction, child: Text(action!))],
+        ]),
+      ),
+    );
+  }
+}
+
+/// The student's name in a small card (top bar and wherever the name is shown).
+class NameCard extends StatelessWidget {
+  final String name;
+  final Color color;
+  final VoidCallback? onTap;
+  const NameCard({super.key, required this.name, required this.color, this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final n = name.trim().isEmpty ? 'Student' : name.trim();
+    return InkWell(
+      borderRadius: BorderRadius.circular(999),
+      onTap: onTap,
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 118),
+        padding: const EdgeInsets.fromLTRB(4, 4, 11, 4),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: color.withValues(alpha: .25)),
+          boxShadow: [BoxShadow(color: color.withValues(alpha: .16), blurRadius: 10, offset: const Offset(0, 4))],
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+            width: 28,
+            height: 28,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(shape: BoxShape.circle, gradient: LinearGradient(colors: [Color.lerp(color, Colors.white, .3)!, color])),
+            child: Text(n[0].toUpperCase(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 14)),
+          ),
+          const SizedBox(width: 6),
+          Flexible(child: Text(n, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: color))),
         ]),
       ),
     );
