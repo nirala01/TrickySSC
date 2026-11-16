@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
+import '../billing.dart';
 import '../data.dart';
 import '../test/engine.dart';
 import 'dashboard.dart';
@@ -52,6 +53,9 @@ class _AppShellState extends State<AppShell> {
   @override
   void dispose() {
     homeRequest.removeListener(_toHome);
+    Billing.I
+      ..onMessage = null
+      ..onGranted = null;
     super.dispose();
   }
 
@@ -59,6 +63,14 @@ class _AppShellState extends State<AppShell> {
   void initState() {
     super.initState();
     homeRequest.addListener(_toHome);
+    Billing.I
+      ..onMessage = _say
+      ..onGranted = () {
+        loadOwned(widget.user.uid).then((o) {
+          if (mounted) setState(() => _owned = o);
+        });
+      }
+      ..start();
     _loadMocks();
     loadName(widget.user.uid, widget.user.displayName).then((n) {
       if (mounted) setState(() => _name = n);
@@ -82,7 +94,17 @@ class _AppShellState extends State<AppShell> {
     });
   }
 
+  void _buy() => Billing.I.showBuySheet(context, widget.exam);
+
+  void _say(String t) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(t), duration: const Duration(seconds: 4)));
+  }
+
   void _soon(String what) {
+    if (what == 'Buying a pass') return _buy();
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text('$what comes in the next build.'), duration: const Duration(seconds: 2)));
@@ -124,7 +146,7 @@ class _AppShellState extends State<AppShell> {
   Future<void> _startMock(MockItem m) async {
     final exam = widget.exam;
     if (!_open(m)) {
-      _soon('Buying a pass');
+      _buy();
       return;
     }
     String lang = m.en ? 'en' : 'hi';
@@ -297,7 +319,7 @@ class _AppShellState extends State<AppShell> {
                 paid: _owned.isNotEmpty,
                 attempted: _attempted,
                 onReturn: _afterTest,
-                onBuy: () => _soon('Buying a pass'),
+                onBuy: () => _buy(),
               ),
             )),
             onCa: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => CurrentAffairsScreen(exam: exam))),
