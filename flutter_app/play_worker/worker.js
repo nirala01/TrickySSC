@@ -34,15 +34,24 @@ function productOf(id) {
   const keys = parts.map((x) => SHORT[x][0]);
   return { keys, key: keys.join('+'), label: parts.map((x) => SHORT[x][1]).join(' + ') + ' Mock Tests (Combo)', combo: true };
 }
-// Website product id (config/pricing) that grants exactly these keys, so admin-premium and My orders name the combo the same way.
-async function websiteId(pid, tok, keys) {
+// The matching product in admin-pricing (config/pricing): p-<key> for a single pass or the All Mocks Pass,
+// for a combo the live product whose mock keys are exactly these. Its grants, label and id are used,
+// so the app unlocks exactly what the website does (e.g. the CGL pass also opens ssc-cgl-dashboard).
+const MOCK_KEYS = ['all-mocks', ...Object.values(SHORT).map((v) => v[0])];
+async function websiteProduct(pid, tok, product) {
   try {
     const d = await fsGet(pid, tok, 'config/pricing');
     const list = ((((d || {}).fields || {}).products || {}).arrayValue || {}).values || [];
     for (const v of list) {
       const f = (v.mapValue || {}).fields || {};
-      const g = (((f.grants || {}).arrayValue || {}).values || []).map((x) => x.stringValue);
-      if (g.length === keys.length && keys.every((k) => g.includes(k))) return { id: (f.id || {}).stringValue || '', label: (f.label || {}).stringValue || '' };
+      const id = (f.id || {}).stringValue || '';
+      if (id.startsWith('p-upgrade-')) continue;
+      const g = (((f.grants || {}).arrayValue || {}).values || []).map((x) => x.stringValue).filter(Boolean);
+      const mock = g.filter((k) => MOCK_KEYS.includes(k));
+      const hit = product.combo
+        ? mock.length === product.keys.length && product.keys.every((k) => mock.includes(k))
+        : id === 'p-' + product.key;
+      if (hit) return { id, label: (f.label || {}).stringValue || '', grants: g };
     }
   } catch (e) {}
   return null;
@@ -141,6 +150,8 @@ export default {
 
       // 1. is the purchase real and paid?
       const tok = await accessToken(sa);
+      const web = await websiteProduct(pid, tok, product);
+      const keys = [...new Set([...product.keys, ...((web && web.grants) || [])])];
       const api = `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${PACKAGE}/purchases/products/${b.productId}/tokens/${encodeURIComponent(purchaseToken)}`;
       const gr = await fetch(api, { headers: { authorization: 'Bearer ' + tok } });
       if (gr.status !== 200) return json({ ok: false, error: 'not-found-at-google', status: gr.status }, 402);
@@ -162,7 +173,7 @@ export default {
       } else {
         const ent = await fsGet(pid, tok, `entitlements/${uid}`);
         expMs = 0;
-        for (const k of product.keys) expMs = Math.max(expMs, expiryFor(ent, k));
+        for (const k of keys) expMs = Math.max(expMs, expiryFor(ent, k));
         const st = await fsPatch(pid, tok, recPath, {
           uid: str(uid), productId: str(b.productId), key: str(product.key), orderId: str(g.orderId || ''), status: str('pending'),
           expiresAt: ts(expMs), createdAt: ts(Date.now()),
@@ -173,14 +184,13 @@ export default {
       // 3. open the pass (each course of a combo: renewing early adds a year on top of its own expiry)
       const entNow = await fsGet(pid, tok, `entitlements/${uid}`);
       const fields = {}, mask = ['updatedAt'];
-      for (const k of product.keys) {
-        const e = product.keys.length === 1 ? expMs : expiryFor(entNow, k, true);
+      for (const k of keys) {
+        const e = keys.length === 1 ? expMs : expiryFor(entNow, k, true);
         fields[k] = { mapValue: { fields: { active: { booleanValue: true }, expiresAt: ts(e), source: str('google-play'), orderId: str(g.orderId || '') } } };
         mask.push('modules.`' + k + '`');
       }
       const st = await fsPatch(pid, tok, `entitlements/${uid}`, { modules: { mapValue: { fields } }, updatedAt: ts(Date.now()) }, mask);
       if (st !== 200) return json({ ok: false, error: 'grant-failed' }, 500);
-      const web = product.combo ? await websiteId(pid, tok, product.keys) : null;
 
       // 4. order row for "My orders", mark done, consume (lets the student renew next year)
       const amount = Number(b.amount);
@@ -189,7 +199,7 @@ export default {
       const us = k => (uf[k] || {}).stringValue || '';
       await fsPatch(pid, tok, `payments/play_${hash}`, {
         name: str(us('name')), email: str(us('email')), mobile: str(us('phone') || us('mobile')), place: str(us('place') || us('city')),
-        grantedKeys: { arrayValue: { values: product.keys.map(str) } }, expiresAt: ts(expMs),
+        grantedKeys: { arrayValue: { values: keys.map(str) } }, expiresAt: ts(expMs),
         mode: str(g.purchaseType === 0 ? 'test' : 'live'), platform: str('app'),
         uid: str(uid), status: str('paid'), gateway: str('google-play'), productId: str(b.productId), courseId: str(web && web.id ? web.id : product.key), productLabel: str(web && web.label ? web.label : product.label),
         amount: isFinite(amount) && amount > 0 && amount < 100000 ? { doubleValue: amount } : str(''),

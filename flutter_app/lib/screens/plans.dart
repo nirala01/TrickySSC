@@ -44,7 +44,10 @@ class _PlansTabState extends State<PlansTab> {
         for (final p in products) {
           if (p is! Map || p['live'] == false) continue;
           if ('${p['id'] ?? ''}'.startsWith('p-upgrade-')) continue;
-          final grants = p['grants'] is List ? (p['grants'] as List).map((e) => '$e').toList() : <String>[];
+          // only mock keys count (the CGL pass also grants ssc-cgl-dashboard)
+          final grants = p['grants'] is List
+              ? (p['grants'] as List).map((e) => '$e').where((g) => g == 'all-mocks' || exams.any((e) => e.pass == g)).toList()
+              : <String>[];
           final passes = exams.where((e) => grants.contains(e.pass)).length;
           final combo = passes >= 2 && passes == grants.length && passes < exams.length ? comboProduct(grants) : null;
           final key = grants.contains('all-mocks') || passes >= exams.length ? 'all-mocks' : (combo ?? (grants.length == 1 ? grants.first : null));
