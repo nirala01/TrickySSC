@@ -11,8 +11,9 @@ import '../ui/soft.dart';
 
 class _Cat {
   final int? price, mrp, days;
-  final String blurb;
-  const _Cat({this.price, this.mrp, this.days, this.blurb = ''});
+  final String blurb, label;
+  final List<String> grants;
+  const _Cat({this.price, this.mrp, this.days, this.blurb = '', this.label = '', this.grants = const []});
 }
 
 class PlansTab extends StatefulWidget {
@@ -47,16 +48,17 @@ class _PlansTabState extends State<PlansTab> {
           if ('${p['id'] ?? ''}'.startsWith('p-upgrade-')) continue;
           final grants = p['grants'] is List ? (p['grants'] as List).map((e) => '$e').toList() : <String>[];
           final passes = exams.where((e) => grants.contains(e.pass)).length;
-          final key = grants.contains('all-mocks') || passes >= exams.length ? 'all-mocks' : (grants.length == 1 ? grants.first : null);
+          final combo = passes >= 2 && passes == grants.length && passes < exams.length ? comboProduct(grants) : null;
+          final key = grants.contains('all-mocks') || passes >= exams.length ? 'all-mocks' : (combo ?? (grants.length == 1 ? grants.first : null));
           final price = n(p['price']);
           if (key == null || price == null || price <= 0) continue;
           final old = cat[key];
           if (old != null && (old.price ?? 1 << 30) <= price) continue;
-          cat[key] = _Cat(price: price, mrp: n(p['mrp']), days: n(p['durationDays']) ?? 365, blurb: '${p['blurb'] ?? ''}');
+          cat[key] = _Cat(price: price, mrp: n(p['mrp']), days: n(p['durationDays']) ?? 365, blurb: '${p['blurb'] ?? ''}', label: '${p['label'] ?? ''}', grants: grants);
         }
       }
     } catch (_) {}
-    final play = await Billing.I.playProducts();
+    final play = await Billing.I.playProducts({for (final k in cat.keys) if (k.startsWith('combo_')) k});
     if (mounted) {
       setState(() {
         _cat = cat;
@@ -95,6 +97,7 @@ class _PlansTabState extends State<PlansTab> {
           const SizedBox(height: 14),
           if (mine.isNotEmpty) _yours(mine),
           if (!_all) _allPass(),
+          for (final k in _combos) _comboPass(k),
           for (final e in others) _examPass(e),
           _free(),
           _compare(),
@@ -221,6 +224,38 @@ class _PlansTabState extends State<PlansTab> {
         if (c != null && c.blurb.isNotEmpty) c.blurb,
       ],
       onBuy: () => Billing.I.buy(allMocksProduct, 'all-mocks'),
+    );
+  }
+
+  /// Combos the student does not fully own yet, cheapest first.
+  List<String> get _combos {
+    final out = [
+      for (final k in _cat.keys)
+        if (k.startsWith('combo_') && !_cat[k]!.grants.every(widget.owned.contains)) k
+    ];
+    out.sort((a, b) => (_cat[a]!.price ?? 0).compareTo(_cat[b]!.price ?? 0));
+    return out;
+  }
+
+  Widget _comboPass(String k) {
+    final c = _cat[k]!;
+    final inc = exams.where((e) => c.grants.contains(e.pass)).toList();
+    return _card(
+      c1: const Color(0xFF7C3AED),
+      badge: 'COMBO',
+      leading: inc.map((e) => e.icon).join(),
+      title: c.label.isNotEmpty ? c.label : '${inc.map((e) => e.name).join(' + ')} Combo',
+      sub: '${inc.length} mock series in one pass',
+      price: _priceText(k, k),
+      mrp: c.mrp,
+      catPrice: c.price,
+      points: [
+        for (final e in inc) '${e.name}: ${_mockLine(e).replaceFirst('All ', 'all ')}',
+        'Subject-wise mocks of each',
+        'Up to $paidLimit tests a day · valid ${(c.days ?? 365) >= 365 ? '1 year' : '${c.days} days'}',
+        if (c.blurb.isNotEmpty) c.blurb,
+      ],
+      onBuy: () => Billing.I.buy(k, k),
     );
   }
 

@@ -16,6 +16,12 @@ import 'ui/soft.dart';
 const String playApi = 'https://trickyssc-play.nirala01.workers.dev';
 const String allMocksProduct = 'pass_all_mocks';
 
+/// Play product id of a combo: combo_cgl_chsl (exams in app order). Null if [passes] is not 2-4 exams.
+String? comboProduct(Iterable<String> passes) {
+  final ks = [for (final e in exams) if (passes.contains(e.pass)) e.k];
+  return ks.length >= 2 && ks.length <= 4 && ks.length == passes.length ? 'combo_${ks.join('_')}' : null;
+}
+
 /// Play product id of an exam's pass: ssc-cgl-mocks -> pass_ssc_cgl.
 String productFor(Exam e) => 'pass_${e.pass.replaceAll('-mocks', '').replaceAll('-', '_')}';
 
@@ -51,7 +57,7 @@ class Billing {
     }, SetOptions(merge: true)).catchError((_) {});
   }
 
-  String _keyOf(String productId) => productId == allMocksProduct ? 'all-mocks' : '${productId.replaceFirst('pass_', '').replaceAll('_', '-')}-mocks';
+  String _keyOf(String productId) => productId.startsWith('combo_') ? productId : productId == allMocksProduct ? 'all-mocks' : '${productId.replaceFirst('pass_', '').replaceAll('_', '-')}-mocks';
 
   void start() {
     _sub ??= _iap.purchaseStream.listen(_onPurchases, onError: (_) {});
@@ -119,11 +125,11 @@ class Billing {
   }
 
   /// All six passes as Google Play lists them (price in the buyer's currency). Empty when Play is unavailable.
-  Future<Map<String, ProductDetails>> playProducts() async {
+  Future<Map<String, ProductDetails>> playProducts([Set<String> extra = const {}]) async {
     final out = <String, ProductDetails>{};
     try {
       if (!await _iap.isAvailable()) return out;
-      final res = await _iap.queryProductDetails({for (final e in exams) productFor(e), allMocksProduct});
+      final res = await _iap.queryProductDetails({for (final e in exams) productFor(e), allMocksProduct, ...extra});
       for (final d in res.productDetails) {
         out[d.id] = d;
         _prices[d.id] = d.rawPrice;
@@ -135,7 +141,7 @@ class Billing {
   /// Opens Google Play for one pass (from the Plans tab).
   Future<void> buy(String productId, String courseId) async {
     recordIntent('opened', courseId, {'via': 'plans'});
-    final d = (await playProducts())[productId];
+    final d = (await playProducts({productId}))[productId];
     if (d == null) {
       onMessage?.call('This pass is not on sale in the app yet. Please try again after the next update.');
       return;
