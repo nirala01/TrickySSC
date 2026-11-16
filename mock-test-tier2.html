@@ -1440,13 +1440,32 @@ const SUBJECT_PHASE={
   'English Language':1,'English Language and Comprehension':1,'English':1,'english':1,'अंग्रेजी भाषा':1,
   'General Awareness':1,'gk':1,'Gen. Awareness':1,'सामान्य जागरूकता':1,
   'Computer Knowledge':2,'Computer':2,'computer':2,'Computer Knowledge Test':2,'कंप्यूटर ज्ञान':2,'कंप्यूटर':2,
+  /* TSSC-T2PAPER-V1 — Paper II (Statistics, JSO) and Paper III (Finance & Economics, AAO): one 2-hour section */
+  'Statistics':3,'Finance and Accounts':3,'Economics and Governance':3,'Finance & Accounts':3,'Economics & Governance':3,
 };
 const PHASE_META=[
   {name:'Section I',  dur:60*60},
   {name:'Section II', dur:60*60},
   {name:'Section III',dur:15*60},
+  {name:'Full paper',dur:120*60},   /* TSSC-T2PAPER-V1: Paper II / Paper III, 100 questions in 2 hours */
 ];
-const MARK_CORRECT=3, MARK_WRONG=1; // Tier 2 marking
+let MARK_CORRECT=3, MARK_WRONG=1; // Tier 2 Paper I marking; Paper II/III switch to +2 / -0.5 in tsscApplyPaperMode()
+const T2_PAPER_SUBJECTS={'Statistics':'Paper II — Statistics','Finance & Accounts':'Paper III — Finance & Economics','Economics & Governance':'Paper III — Finance & Economics'};  /* keys = canonSubject() labels */
+let T2_PAPER_MODE='';
+function tsscApplyPaperMode(){
+  const subs=[...new Set(questions.map(q=>canonSubject(q.subject||q.section||'')))];
+  if(!subs.length||!subs.every(x=>T2_PAPER_SUBJECTS[x])) return;
+  T2_PAPER_MODE=T2_PAPER_SUBJECTS[subs[0]];
+  MARK_CORRECT=2; MARK_WRONG=0.5;
+  const vals=document.querySelectorAll('.instr-mark-val');
+  if(vals[0]) vals[0].textContent='+2.00';
+  if(vals[1]) vals[1].innerHTML='&minus;0.50';
+  const note=document.querySelector('.instr-marking-note');
+  if(note) note.innerHTML='Total marks = (Correct &times; 2) &minus; (Wrong &times; 0.5) &nbsp;&bull;&nbsp; Maximum marks: <strong id="instrMaxMarks">'+(questions.length*2)+'</strong>';
+  const li=[...document.querySelectorAll('.instr-list li')].find(x=>/timed sections/.test(x.textContent));
+  if(li) li.innerHTML='This is <strong>'+T2_PAPER_MODE+'</strong> of SSC CGL Tier II: <strong>one section of '+questions.length+' questions in 2 hours</strong>'+
+    (subs.length>1?' (Part A: Finance &amp; Accounts, then Part B: Economics &amp; Governance — switch between them freely with the tabs at the top).':'.');
+}
 const SUBJECT_SHORT={
   'General Intelligence & Reasoning':'Reasoning',
   'General Intelligence and Reasoning':'Reasoning',
@@ -1457,6 +1476,7 @@ const SUBJECT_SHORT={
   'reasoning':'Reasoning','quant':'Quant','gk':'Gen. Awareness','english':'English',
   'Computer Knowledge':'Computer','Computer Knowledge Test':'Computer','Computer':'Computer','computer':'Computer',
   'कंप्यूटर ज्ञान':'Computer','कंप्यूटर':'Computer',
+  'Statistics':'Statistics','Finance and Accounts':'Finance & Accounts','Economics and Governance':'Economics & Governance',
   // Hindi subject names → English short labels
   'सामान्य बुद्धि एवं तर्कशक्ति':'Reasoning',
   'सामान्य जागरूकता':'Gen. Awareness',
@@ -1579,7 +1599,9 @@ const TG_MODULE      = TG_IS_CHSL ? 'ssc-chsl-mocks' : 'ssc-cgl-mocks';
 /* CHSL FREE PERIOD (Sep 2026): every CHSL mock is free while Tier 1 is being released.
    To switch the CHSL pass on, set TG_CHSL_FREE_ALL to false (Mock 1-2 stay free). */
 const TG_CHSL_FREE_ALL = false;   /* TSSC-CHSLPAY-V1 2026-10-05: CHSL pass ON, Mock 1-2 free */
-const TG_FREE_UP_TO  = TG_IS_CHSL ? (TG_CHSL_FREE_ALL ? 999 : 2) : 4;
+/* TSSC-T2PAPER-V1 — Paper II (Statistics) / Paper III (Finance) mocks: ssc-cgl_paper2_… / ssc-cgl_paper3_…, Mock 1 free, rest in the CGL pass */
+const TG_IS_PAPER    = /^ssc-cgl_paper[23]_/i.test(new URLSearchParams(location.search).get('mockId')||'');
+const TG_FREE_UP_TO  = TG_IS_CHSL ? (TG_CHSL_FREE_ALL ? 999 : 2) : (TG_IS_PAPER ? 1 : 4);
 const TG_ENFORCE_FROM= TG_IS_CHSL ? null : '2026-08-25T00:00:00+05:30';   // null = enforce now
 const TG_BUY_URL     = TG_IS_CHSL ? 'ssc-chsl-tier-2-mock-test.html' : 'ssc-cgl-mock-test.html';
 
@@ -2027,7 +2049,7 @@ async function loadTest(){
 
     // ── Build title ──
     const examNames={'ssc-cgl':'SSC CGL','ssc-chsl':'SSC CHSL','ssc-mts':'SSC MTS','ssc-cpo':'SSC CPO','ssc-gd':'SSC GD Constable','ssc-je':'SSC JE','ssc-jht':'SSC JHT'};
-    const tierLabels={'tier1':'Tier I','tier-1':'Tier I','tier2':'Tier II','tier-2':'Tier II'};
+    const tierLabels={'tier1':'Tier I','tier-1':'Tier I','tier2':'Tier II','tier-2':'Tier II','paper2':'Tier II Paper II','paper3':'Tier II Paper III'};
     const eName=mockMeta?.title||(examNames[exam]||(exam||'').toUpperCase().replace(/-/g,' '));
     const tLabel=tier?(tierLabels[tier.toLowerCase()]||tier):'';
     const lLabel=lang==='hi'?'🇮🇳 Hindi':lang==='en'?'🇬🇧 English':'';
@@ -2042,6 +2064,7 @@ async function loadTest(){
 
     // ── Prepare test, show instructions first ──
     currentQ=0;
+    tsscApplyPaperMode();   /* TSSC-T2PAPER-V1 */
     buildSections();buildTimedSections();buildSectionBar();buildGrid();
     document.getElementById('qNumTotal').textContent=questions.length;
     document.getElementById('qNumCurrent').textContent='1';

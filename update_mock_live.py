@@ -35,13 +35,16 @@ import argparse, json, os, re, sys, urllib.request
 PROJECT = "trickyssc-17bb3"
 API_KEY = "AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA"   # public web key, same as the pages use
 COLLECTION = "mock_tests"
-NAME_RE = re.compile(r"(ssc-[a-z]+|rrb-ntpc)_(tier[12]|cbt1)_mock(\d+)", re.I)   # TSSC-NTPC-MOCKLIVE-V1: NTPC ids are rrb-ntpc_cbt1_mockN
+NAME_RE = re.compile(r"(ssc-[a-z]+|rrb-ntpc)_(tier[12]|cbt1|paper[23])_mock(\d+)", re.I)   # TSSC-T2PAPER-V1: CGL Paper II / III ids are ssc-cgl_paper2_mockN / ssc-cgl_paper3_mockN   # TSSC-NTPC-MOCKLIVE-V1: NTPC ids are rrb-ntpc_cbt1_mockN
 
 # (exam, tier) -> pages that carry that series' cards
 SERIES = {
     ("ssc-cgl", "tier1"):  ["ssc-cgl-mock-test.html", "mock-list.html"],
     ("ssc-cgl", "tier2"):  ["ssc-cgl-mock-test.html", "mock-list.html",
                             "ssc-cgl-tier-2-mock-test.html"],
+    # TSSC-T2PAPER-V1: CGL Tier II Paper II (Statistics, JSO) and Paper III (Finance & Economics, AAO)
+    ("ssc-cgl", "paper2"): ["ssc-cgl-mock-test.html", "ssc-cgl-jso-statistics-mock-test.html"],
+    ("ssc-cgl", "paper3"): ["ssc-cgl-mock-test.html", "ssc-cgl-aao-mock-test.html"],
     ("ssc-chsl", "tier1"): ["ssc-chsl-mock-test.html"],
     ("ssc-chsl", "tier2"): ["ssc-chsl-tier-2-mock-test.html"],
     # TSSC-GD-MOCK-V1: the GD series is a single CBE stored as tier1; its subject pages carry the same cards
@@ -56,7 +59,8 @@ SERIES = {
 }
 # pages that show the "N Live" status bar for an exam's tiers
 BAR_PAGES = {
-    "ssc-cgl":  ["ssc-cgl-mock-test.html", "ssc-cgl-tier-2-mock-test.html"],
+    "ssc-cgl":  ["ssc-cgl-mock-test.html", "ssc-cgl-tier-2-mock-test.html",
+                 "ssc-cgl-jso-statistics-mock-test.html", "ssc-cgl-aao-mock-test.html"],
     "ssc-chsl": ["ssc-chsl-mock-test.html", "ssc-chsl-tier-2-mock-test.html"],
     "ssc-gd":   ["ssc-gd-mock-test.html", "ssc-gd-reasoning-mock-test.html", "ssc-gd-gk-mock-test.html",
                  "ssc-gd-maths-mock-test.html", "ssc-gd-english-mock-test.html"],
@@ -122,7 +126,7 @@ def fetch_published():
                 n = int(float(n))
             except (TypeError, ValueError):
                 continue
-            tier = "tier2" if tier == "tier2" else "tier1"
+            tier = tier if tier in ("tier2", "paper2", "paper3") else "tier1"   # TSSC-T2PAPER-V1
             out.setdefault((exam.lower(), tier), set()).add(n)
         token = data.get("nextPageToken")
         pages += 1
@@ -155,7 +159,8 @@ def flip_cards(s, exam, tier, nums):
             return m.group(0)
         body = LOCK.sub("", m.group("body"))
         if not BADGE.search(body):
-            body += FREE_TAG if n <= FREE_UPTO.get(exam, 0) else PAID_TAG
+            free_upto = 1 if tier.startswith("paper") else FREE_UPTO.get(exam, 0)   # TSSC-T2PAPER-V1: Mock 1 free
+            body += FREE_TAG if n <= free_upto else PAID_TAG
         flipped.append(n)
         return '<div class="mock-card live resolved"%s>%s\n</div>' % (attrs, body)
 
@@ -164,7 +169,7 @@ def flip_cards(s, exam, tier, nums):
 
 def set_bar(s, tier, count):
     """Static status bar -> '● N Live' (only ever upwards from 'soon')."""
-    bar_id = "barTier1" if tier == "tier1" else "barTier2"
+    bar_id = {"tier1": "barTier1", "tier2": "barTier2", "paper2": "barPaper2", "paper3": "barPaper3"}.get(tier, "barTier1")
     pat = re.compile(r'<span class="tb-status [a-z]+" id="%s">(?:<span class="tb-live-dot"></span>)?'
                      r'(?P<txt>[^<]*)</span>' % bar_id)
     m = pat.search(s)

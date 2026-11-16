@@ -28,6 +28,8 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 PAGES = {
     'ssc-cgl-mock-test.html': 'mocks',
     'ssc-cgl-tier-2-mock-test.html': 'mocks',
+    'ssc-cgl-jso-statistics-mock-test.html': 'mocks',   # TSSC-T2PAPER-V1
+    'ssc-cgl-aao-mock-test.html': 'mocks',
     'ssc-chsl-mock-test.html': 'mocks',
     'ssc-chsl-tier-2-mock-test.html': 'mocks',
     'ssc-mts-mock-test.html': 'mocks',

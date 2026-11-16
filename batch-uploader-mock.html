@@ -364,6 +364,9 @@ function metaFromPrefix(prefix) {
   if (exam) meta.exam = 'ssc-' + exam[1];
 
   if (/tier[-_]?(2|ii)\b/.test(p)) meta.tier = 'tier2';
+  /* TSSC-T2PAPER-V1 — CGL Tier II Paper II (Statistics) / Paper III (Finance & Economics) series */
+  if (/paper[-_]?(2|ii)\b/.test(p)) meta.tier = 'paper2';
+  if (/paper[-_]?(3|iii)\b/.test(p)) meta.tier = 'paper3';
 
   const yr = p.match(/(20\d{2})/);
   if (yr) meta.year = yr[1];
@@ -392,7 +395,7 @@ function buildMockId(m, lang) {
 
 function defaultTitle(m) {
   const examName = (m.exam || '').replace('ssc-', 'SSC ').toUpperCase();
-  const tierLbl  = m.tier === 'tier2' ? 'Tier II' : 'Tier I';
+  const tierLbl  = ({tier2: 'Tier II', paper2: 'Tier II Paper II (Statistics)', paper3: 'Tier II Paper III (Finance & Economics)'})[m.tier] || 'Tier I';
   return `${examName} ${tierLbl} — Mock Test ${m.mockNum}`;
 }
 
@@ -408,7 +411,8 @@ const SUBJECT_CANON = {
   'quant':'Quantitative Aptitude', 'maths':'Quantitative Aptitude', 'math':'Quantitative Aptitude',
   'english':'English Language', 'eng':'English Language'
 };
-const CANON_SET = new Set(['General Intelligence & Reasoning','General Awareness','Quantitative Aptitude','English Language']);
+const CANON_SET = new Set(['General Intelligence & Reasoning','General Awareness','Quantitative Aptitude','English Language',
+  'Statistics','Finance and Accounts','Economics and Governance']);   /* TSSC-T2PAPER-V1 */
 function canonSubject(s) {
   const k = (s || '').trim().toLowerCase();
   return SUBJECT_CANON[k] || s || '';
@@ -684,6 +688,8 @@ function renderManifest() {
       <td><select onchange="setMeta(${i},'tier',this.value)">
             <option value="tier1" ${p.meta.tier === 'tier1' ? 'selected' : ''}>tier1</option>
             <option value="tier2" ${p.meta.tier === 'tier2' ? 'selected' : ''}>tier2</option>
+            <option value="paper2" ${p.meta.tier === 'paper2' ? 'selected' : ''}>paper2</option>
+            <option value="paper3" ${p.meta.tier === 'paper3' ? 'selected' : ''}>paper3</option>
           </select></td>
       <td><input type="number" min="1" value="${p.meta.mockNum}" onchange="setMeta(${i},'mockNum',this.value)"></td>
       <td><input value="${p.meta.year}" onchange="setMeta(${i},'year',this.value)"></td>
@@ -1150,7 +1156,8 @@ window.runAll = async () => {
             seriesNum: parseInt(p.meta.mockNum), mockNum: parseInt(p.meta.mockNum),
             title: p.meta.title || defaultTitle(p.meta),
             totalQuestions: rows.length, subjectCounts: subCounts,
-            duration, totalMarks: Math.round(rows.length * perMark),
+            duration: /^paper/.test(p.meta.tier) ? 120 : duration,   /* TSSC-T2PAPER-V1: Paper II / III are 2-hour papers */
+            totalMarks: Math.round(rows.length * perMark),
             isPublished: publish, updatedAt: new Date()
           };
           if (p.meta.year) card.year = p.meta.year;
