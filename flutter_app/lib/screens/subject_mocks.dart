@@ -179,6 +179,7 @@ class _SubjectMocksScreenState extends State<SubjectMocksScreen> {
       score: state == RowState.done && a != null ? '${n1(marksOf(a))} / ${n1(maxOf(a))}' : null,
       accent: exam.c1,
       onTap: () => state == RowState.done ? showDoneSheet(context, user: widget.user, exam: exam, a: a, title: '${exam.name} $title', onRetake: () => _start(m)) : _start(m),
+      onAction: state == RowState.done ? () => _start(m) : null,
     );
   }
 

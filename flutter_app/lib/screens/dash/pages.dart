@@ -64,8 +64,10 @@ void attemptActions(BuildContext context, DashCtx x, Att a) {
           if (key.isNotEmpty) ...[
             const SizedBox(height: 8),
             FilledButton.tonalIcon(
-              onPressed: () {
+              onPressed: () async {
                 Navigator.pop(c);
+                await fetchRank(key, x.user.uid, from: a);
+                if (!context.mounted) return;
                 Navigator.of(context).push(MaterialPageRoute(builder: (_) => LeaderboardScreen(exam: exam, base: key, title: testName(a), uid: x.user.uid)));
               },
               style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
@@ -123,8 +125,10 @@ void showDoneSheet(BuildContext context, {required User user, required Exam exam
             if (key.isNotEmpty) ...[
               const SizedBox(height: 8),
               FilledButton.tonalIcon(
-                onPressed: () {
+                onPressed: () async {
                   Navigator.pop(c);
+                  if (a != null) await fetchRank(key, user.uid, from: a);
+                  if (!context.mounted) return;
                   Navigator.of(context).push(MaterialPageRoute(builder: (_) => LeaderboardScreen(exam: exam, base: key, title: title, uid: user.uid)));
                 },
                 style: tonal(),
@@ -273,7 +277,7 @@ class _AttemptsPageState extends State<AttemptsPage> {
                           ? null
                           : () async {
                               setState(() => _ranks[key] = null);
-                              final v = await fetchRank(key, x.user.uid);
+                              final v = await fetchRank(key, x.user.uid, from: a);
                               if (mounted) setState(() => _ranks[key] = v);
                             },
                       child: Padding(
@@ -312,7 +316,7 @@ class _RankPageState extends State<RankPage> {
   void initState() {
     super.initState();
     final a = widget.x.latest;
-    if (a != null && lbKeyOf(a).isNotEmpty) fetchRank(lbKeyOf(a), widget.x.user.uid).then((v) { if (mounted) setState(() => _v = v); });
+    if (a != null && lbKeyOf(a).isNotEmpty) fetchRank(lbKeyOf(a), widget.x.user.uid, from: a).then((v) { if (mounted) setState(() => _v = v); });
   }
 
   @override
@@ -714,7 +718,7 @@ class _TopperPageState extends State<TopperPage> {
   void initState() {
     super.initState();
     final a = widget.x.latest!;
-    if (lbKeyOf(a).isNotEmpty) fetchRank(lbKeyOf(a), widget.x.user.uid).then((v) { if (mounted) setState(() => _v = v); });
+    if (lbKeyOf(a).isNotEmpty) fetchRank(lbKeyOf(a), widget.x.user.uid, from: a).then((v) { if (mounted) setState(() => _v = v); });
   }
 
   @override
@@ -772,7 +776,7 @@ class _TimePageState extends State<TimePage> {
   void initState() {
     super.initState();
     final a = widget.x.latest!;
-    if (lbKeyOf(a).isNotEmpty) fetchRank(lbKeyOf(a), widget.x.user.uid).then((v) { if (mounted) setState(() => _v = v); });
+    if (lbKeyOf(a).isNotEmpty) fetchRank(lbKeyOf(a), widget.x.user.uid, from: a).then((v) { if (mounted) setState(() => _v = v); });
   }
 
   @override
@@ -1002,7 +1006,7 @@ class _ReportCardPageState extends State<ReportCardPage> {
   void initState() {
     super.initState();
     final a = widget.x.latest!;
-    if (lbKeyOf(a).isNotEmpty) fetchRank(lbKeyOf(a), widget.x.user.uid).then((v) { if (mounted) setState(() => _v = v); });
+    if (lbKeyOf(a).isNotEmpty) fetchRank(lbKeyOf(a), widget.x.user.uid, from: a).then((v) { if (mounted) setState(() => _v = v); });
   }
 
   Future<void> _share() async {

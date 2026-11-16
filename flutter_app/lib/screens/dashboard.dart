@@ -70,7 +70,7 @@ class _DashboardTabState extends State<DashboardTab> {
     if (k.isEmpty || k == _lbFor) return;
     _lbFor = k;
     _lb = null;
-    fetchRank(k, widget.user.uid).then((v) {
+    fetchRank(k, widget.user.uid, from: sc.first).then((v) {
       if (mounted && _lbFor == k) setState(() => _lb = v);
     });
   }

@@ -332,7 +332,34 @@ class LbInfo {
 
 final _lbMem = <String, LbInfo>{};
 
-Future<LbInfo> fetchRank(String key, String uid) async {
+/// Puts a finished attempt on the leaderboard when its row is missing (a submit whose leaderboard write failed).
+Future<bool> _restoreRow(String key, String uid, Att a) async {
+  try {
+    var name = '';
+    try {
+      final ud = (await FirebaseFirestore.instance.collection('users').doc(uid).get()).data() ?? {};
+      name = s(ud['name'] ?? ud['displayName']).trim();
+    } catch (_) {}
+    final c = inum(a['correct']), w = inum(a['wrong']);
+    await FirebaseFirestore.instance.collection('leaderboards').doc(key).collection('scores').doc(uid).set({
+      'uid': uid,
+      'name': name.isEmpty ? 'Student' : name,
+      'paperId': key,
+      'paperName': testName(a),
+      'marks': marksOf(a),
+      'maxMarks': maxOf(a),
+      'accuracy': c + w == 0 ? 0 : (c / (c + w) * 100).round(),
+      'subjectMarks': a['subjectMarks'] is Map && !isChapter(a) ? a['subjectMarks'] : <String, dynamic>{},
+      'timeUsed': inum(a['timeUsed']),
+      'submittedAt': FieldValue.serverTimestamp(),
+    });
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+Future<LbInfo> fetchRank(String key, String uid, {Att? from}) async {
   if (_lbMem[key] != null) return _lbMem[key]!;
   final prefs = await SharedPreferences.getInstance();
   try {
@@ -344,7 +371,10 @@ Future<LbInfo> fetchRank(String key, String uid) async {
     final res = await Future.wait([col.doc(uid).get(), col.orderBy('marks', descending: true).limit(300).get()]);
     final me = res[0] as DocumentSnapshot<Map<String, dynamic>>;
     final board = res[1] as QuerySnapshot<Map<String, dynamic>>;
-    if (!me.exists) return _lbMem[key] = LbInfo(none: true);
+    if (!me.exists) {
+      if (from != null && lbKeyOf(from) == key && await _restoreRow(key, uid, from)) return fetchRank(key, uid);
+      return LbInfo(none: true);
+    }
     final md = me.data()!;
     final my = dnum(md['marks']);
     final rows = [for (final d in board.docs) d.data()];

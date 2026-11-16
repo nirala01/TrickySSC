@@ -322,6 +322,7 @@ class _AppShellState extends State<AppShell> {
             resuming: _resuming,
             onTier: (t) => setState(() => _tier = t),
             onStart: _mockTap,
+            onRetake: _startMock,
             last: _last,
             onSoon: _soon,
             onRetry: _loadMocks,
@@ -422,6 +423,7 @@ class _HomeTab extends StatelessWidget {
   final VoidCallback onSubjects;
   final VoidCallback onCa;
   final void Function(MockItem) onStart;
+  final void Function(MockItem) onRetake;
   final void Function(String) onSoon;
   const _HomeTab({
     required this.exam,
@@ -631,11 +633,13 @@ class _MocksTab extends StatelessWidget {
   final bool Function(MockItem) resuming;
   final void Function(int) onTier;
   final void Function(MockItem) onStart;
+  final void Function(MockItem) onRetake;
   final void Function(String) onSoon;
   final VoidCallback onRetry;
   final Map<String, Map<String, dynamic>> last;
   const _MocksTab({
     required this.last,
+    required this.onRetake,
     required this.exam,
     required this.mocks,
     required this.failed,
@@ -677,7 +681,7 @@ class _MocksTab extends StatelessWidget {
           ),
         ));
       }
-      rows.add(_MockRow(exam: exam, m: m, open: isOpen(m), free: m.n <= exam.free, premium: hasPass && m.n > exam.free, done: isAttempted(attempted, exam, m), resume: resuming(m), last: last[mockBase(exam, m)], onStart: onStart));
+      rows.add(_MockRow(exam: exam, m: m, open: isOpen(m), free: m.n <= exam.free, premium: hasPass && m.n > exam.free, done: isAttempted(attempted, exam, m), resume: resuming(m), last: last[mockBase(exam, m)], onStart: onStart, onRetake: onRetake));
     }
     final doneN = list.where((m) => isAttempted(attempted, exam, m)).length;
     final head = <Widget>[
@@ -746,7 +750,8 @@ class _MockRow extends StatelessWidget {
   final bool resume;
   final Map<String, dynamic>? last;
   final void Function(MockItem) onStart;
-  const _MockRow({required this.exam, required this.m, required this.open, required this.free, required this.premium, required this.done, required this.resume, required this.last, required this.onStart});
+  final void Function(MockItem) onRetake;
+  const _MockRow({required this.onRetake, required this.exam, required this.m, required this.open, required this.free, required this.premium, required this.done, required this.resume, required this.last, required this.onStart});
 
   @override
   Widget build(BuildContext context) {
@@ -770,6 +775,7 @@ class _MockRow extends StatelessWidget {
       score: state == RowState.done && a != null ? '${n1(marksOf(a))} / ${n1(maxOf(a))}' : null,
       accent: exam.c1,
       onTap: () => onStart(m),
+      onAction: state == RowState.done ? () => onRetake(m) : null,
     );
   }
 }

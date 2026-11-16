@@ -371,6 +371,7 @@ class _PyqTabState extends State<PyqTab> {
       score: state == RowState.done && a != null ? '${n1(marksOf(a))} / ${n1(maxOf(a))}' : null,
       accent: exam.c1,
       onTap: () => state == RowState.done ? showDoneSheet(context, user: widget.user, exam: exam, a: a, title: p.title, onRetake: () => _start(p)) : _start(p),
+      onAction: state == RowState.done ? () => _start(p) : null,
     );
   }
 

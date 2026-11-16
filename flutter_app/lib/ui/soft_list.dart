@@ -187,7 +187,8 @@ class TestRow extends StatelessWidget {
   final String? score;
   final Color accent;
   final VoidCallback onTap;
-  const TestRow({super.key, this.tags = const [], required this.title, this.sub = '', this.meta = const [], required this.state, this.score, required this.accent, required this.onTap});
+  final VoidCallback? onAction; // the button; defaults to the row tap
+  const TestRow({super.key, this.tags = const [], required this.title, this.sub = '', this.meta = const [], required this.state, this.score, required this.accent, required this.onTap, this.onAction});
 
   @override
   Widget build(BuildContext context) {
@@ -206,7 +207,7 @@ class TestRow extends StatelessWidget {
             height: 36,
             alignment: Alignment.center,
             decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: accent, width: 2)),
-            child: FittedBox(fit: BoxFit.scaleDown, child: Row(mainAxisSize: MainAxisSize.min, children: [Text('View Result', style: ts.copyWith(color: accent)), chev])),
+            child: FittedBox(fit: BoxFit.scaleDown, child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.replay_rounded, size: 16, color: accent), const SizedBox(width: 3), Text('Re-attempt', style: ts.copyWith(color: accent))])),
           );
         case RowState.locked:
           return Container(
@@ -297,7 +298,7 @@ class TestRow extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 7),
-                      button(),
+                      onAction == null ? button() : GestureDetector(onTap: onAction, child: button()),
                       if (score != null) Padding(padding: const EdgeInsets.only(top: 4), child: Text('Score $score', textAlign: TextAlign.center, style: const TextStyle(fontSize: 11.5, color: softMuted, fontWeight: FontWeight.w800))),
                     ]),
                   ),
