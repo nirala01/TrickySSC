@@ -158,7 +158,26 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 6),
               const Text('Mock tests and previous year papers for SSC and Railway exams.',
                   style: TextStyle(fontSize: 15, color: Color(0xFF475569), height: 1.35)),
-              const SizedBox(height: 30),
+              const SizedBox(height: 18),
+              Container(
+                padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF7ED),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFFED7AA)),
+                ),
+                child: const Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Icon(Icons.info_outline, size: 18, color: Color(0xFFC2410C)),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Already a TrickySSC user? Sign in the same way you do on trickyssc.com (same mobile number or same Google account) to see all your passes and saved tests.',
+                      style: TextStyle(fontSize: 13, color: Color(0xFF7C2D12), height: 1.35, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ]),
+              ),
+              const SizedBox(height: 22),
               Text(_otpStep ? 'Enter the OTP' : 'Sign in with your mobile number',
                   style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
               const SizedBox(height: 12),
