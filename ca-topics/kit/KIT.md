@@ -37,7 +37,9 @@ The app (flutter_app) and the website both read these files, so they stay in syn
 
 ## 3. Notes rules
 - Only what SSC / Railway exams ask. Leave out routine figures (monthly GST collection, index values, daily prices and that type).
-- Write in your own words. Rephrase every heading. Jumble the order of items; never follow the PDF's order or wording.
+- The PDF is only a topic list. For every news item: write a fresh heading, then research it on the internet (WebSearch; official PIB/ministry pages first) and take the facts from there. Never copy or paraphrase the PDF's sentences. If the web and the PDF disagree, go with the web and fix any question that used the PDF fact.
+- Style: points as `<b>Keyword</b> – fact`, grouped under your own themes, in your own order.
+- Check before pushing: no point may share a 6-word run with the PDF text, except official names, themes and titles.
 - Short points, one fact per point, key names and numbers in `<b>`.
 - Anything special (scheme, project, mission, important organisation, award, summit, exercise) gets a box:
   `<div class="slip"><b>Name</b>: what it is, who runs it, when started, HQ / key facts.</div>`
@@ -65,7 +67,7 @@ Read it first in every chat, update it last. If the month in the prompt is alrea
 
 ### MONTH (one PDF, one month)
 1. Read state.json, index.json and the earlier bank files.
-2. For each section 1 to 10: write the notes part and the questions.
+2. For each section 1 to 10: list the news items, research each on the web, write the notes part, then the questions from those notes.
 3. Update each `<section id>.json` (add the part, keep newest first), `index.json` months, `kit/bank/<YYYY-MM>.csv`, `kit/state.json`.
 4. Check: JSON files parse; CSV has 17 columns in every row; qNum has no gaps or repeats; `correct` is A/B/C/D.
 5. Push `ca-topics/` (standing yes). Report a small table: section, points, questions. Do not paste the notes or the CSV in chat.
