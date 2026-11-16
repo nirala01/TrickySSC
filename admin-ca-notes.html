@@ -127,11 +127,11 @@ const say = (t, cls) => { const m = $('msg'); m.textContent = t; m.className = '
 // The same list the app has built in (flutter_app/lib/screens/current_affairs.dart).
 const DEFAULT_PERIOD = 'Jan 2026 to Oct 2026';
 const DEFAULT_TOPICS = [
-  ['ca26.international','International'], ['ca26.national','National'], ['ca26.economic','Economic'],
-  ['ca26.science-tech','Science and Technology'], ['ca26.sports','Sports Affairs'], ['ca26.awards','Awards and Honours'],
-  ['ca26.conferences','Conferences, Meetings, Fairs, Festivals and Exhibitions'], ['ca26.appointments','Election and Appointments'],
-  ['ca26.military','Campaigns, Operations and Military Exercises'], ['ca26.important-days','Important Days'],
-  ['ca26.economic-survey','Economic Survey'], ['ca26.budget','Budget 2026'],
+  ['ca.international','International'], ['ca.national','National'], ['ca.economic','Economic'],
+  ['ca.science-tech','Science and Technology'], ['ca.sports','Sports Affairs'], ['ca.awards','Awards and Honours'],
+  ['ca.conferences','Conferences, Meetings, Fairs, Festivals and Exhibitions'], ['ca.appointments','Election and Appointments'],
+  ['ca.military','Campaigns, Operations and Military Exercises'], ['ca.important-days','Important Days'],
+  ['ca.economic-survey','Economic Survey'], ['ca.budget','Budget 2026'],
 ].map(([id,name]) => ({id,name}));
 
 let TOPICS = [], PARTS = [], EDIT = null; // EDIT = doc id being edited
@@ -191,10 +191,10 @@ $('topics').onclick = e => {
   else return;
   drawTopics(); drawSel();
 };
-$('addTopic').onclick = () => { TOPICS.push({id:'ca26.', name:''}); drawTopics(); };
+$('addTopic').onclick = () => { TOPICS.push({id:'ca.', name:''}); drawTopics(); };
 $('saveTopics').onclick = async () => {
   const ids = TOPICS.map(t => t.id);
-  if (TOPICS.some(t => !/^[a-z0-9][a-z0-9.\-]*[a-z0-9]$/.test(t.id) || !t.name)) return say('Every topic needs a name and an id made of small letters, numbers, dots and hyphens (e.g. ca26.sports).', 'err');
+  if (TOPICS.some(t => !/^[a-z0-9][a-z0-9.\-]*[a-z0-9]$/.test(t.id) || !t.name)) return say('Every topic needs a name and an id made of small letters, numbers, dots and hyphens (e.g. ca.sports).', 'err');
   if (new Set(ids).size !== ids.length) return say('Two topics have the same id.', 'err');
   try {
     await setDoc(doc(db, 'config', 'ca_topics'), { period: $('period').value.trim() || DEFAULT_PERIOD, topics: TOPICS, updatedAt: serverTimestamp() });
