@@ -1,0 +1,94 @@
+# Puts finished mock tests on the site (TSSC-MOCKPUSH-V1).
+#
+# A mock chat pushes the four CSVs (and the figures docx) of each new mock to
+# mock-uploads/<exam>/<prefix>/. This workflow then checks them, copies the
+# figures to figs/ (https://trickyssc.com/figs/...), writes the questions and the
+# mock_tests cards to Firestore (published), flips the mock card to live on the
+# mock list page, records the upload in mock-uploads/uploaded.json and removes the
+# uploaded folder, so the CSVs are not left on the live site.
+# A mock already uploaded with the same files is skipped; a corrected mock
+# (same folder, changed files) is re-uploaded in place.
+#
+# Needs the secret FIREBASE_SERVICE_ACCOUNT (Firebase service-account JSON key).
+
+name: Upload mocks to Firebase
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'mock-uploads/**'
+      - '!mock-uploads/uploaded.json'
+  workflow_dispatch:
+    inputs:
+      only:
+        description: 'Only these mock folders (comma-separated, e.g. rrb-sm-2026-mock-01); blank = every changed mock'
+        required: false
+        default: ''
+      force:
+        description: 'Upload again even if the files have not changed'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: upload-mocks
+  cancel-in-progress: false
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install
+        run: pip install --quiet google-auth requests pillow
+
+      - name: Check the mock files and copy the figures
+        run: >
+          python scripts/upload_mocks.py prepare
+          --only "${{ github.event.inputs.only }}"
+          ${{ github.event.inputs.force == 'true' && '--force' || '' }}
+
+      - name: Publish the figures
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A figs
+          if git diff --cached --quiet; then echo "No new figures."; exit 0; fi
+          git commit -q -m "chore: figures for new mocks"
+          for i in 1 2 3; do
+            git pull --rebase --autostash -q origin main && git push -q && exit 0
+            sleep 10
+          done
+          echo "Push failed"; exit 1
+
+      - name: Wait until the figures are live on trickyssc.com
+        run: python scripts/upload_mocks.py wait --timeout 1200
+
+      - name: Write the questions and mock cards to Firestore
+        run: python scripts/upload_mocks.py write
+
+      - name: Show the new mocks as live on the mock pages
+        run: python update_mock_live.py
+
+      - name: Record the upload
+        run: |
+          git add -A mock-uploads
+          for f in rrb-station-master-mock-test.html ssc-mts-mock-test.html rrb-ntpc-mock-test.html; do [ -f "$f" ] && git add "$f"; done
+          if git diff --cached --quiet; then echo "Nothing to record."; exit 0; fi
+          git commit -q -m "chore: mocks uploaded to Firebase"
+          for i in 1 2 3; do
+            git pull --rebase --autostash -q origin main && git push -q && exit 0
+            sleep 10
+          done
+          echo "Push failed"; exit 1
