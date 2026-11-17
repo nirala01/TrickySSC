@@ -50,8 +50,9 @@ List<PyqPaper> _parse(String html) {
 
 const _months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
-/// SSC MTS has no static PYQ list page: the website (ssc-mts.html) lists the papers from Firestore.
-/// Here: the `papers` cards the batch uploader writes, plus Q1 of each paper in `questions` as a fallback.
+/// For an exam with no static PYQ list page (catalog `pyqFs`). SSC MTS used this until its list was
+/// baked into ssc-mts.html (Nov 2026); kept for a future exam whose page is not built yet.
+/// Reads the `papers` cards the batch uploader writes, plus Q1 of each paper in `questions` as a fallback.
 Future<List<PyqPaper>> _loadFirestore(String examId, String label) async {
   final db = FirebaseFirestore.instance;
   final rows = <Map<String, dynamic>>[];

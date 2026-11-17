@@ -155,7 +155,7 @@ const List<Exam> _builtIn = [
       canonStats: true,
       bands: {'quant': [1, 20], 'reasoning': [21, 40], 'gk': [41, 65], 'english': [66, 90]},
       subjMin: {'quant': 25, 'reasoning': 20, 'gk': 20, 'english': 25},
-      pyqFs: true,
+      pyqPages: ['ssc-mts.html'], // the list is baked into the page by build_mts_pyq_page.py
       passName: 'SSC MTS Mock Test Series'),
   Exam('gd', 'ssc-gd', 'SSC GD', 'Constable', '🛡️', 'ssc-gd-mocks', '60 mocks', 2, Color(0xFF0F766E), Color(0xFF2DD4BF), '80 Qs · 60 min', false,
       neg: 0.25,
