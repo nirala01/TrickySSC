@@ -105,7 +105,8 @@
       var id = 'p-upgrade-all-' + Math.min(n, 3), p = null;
       for (var i = 0; i < (cat.products || []).length; i++)
         if (cat.products[i].id === id && cat.products[i].live !== false) p = cat.products[i];
-      if (p && p.price > 0) show(n, p.price);
+      /* TSSC-PAID98-V1 — not for a student who has already paid Rs 98 or more */
+      if (p && p.price > 0) (function(cb){ function go(){ try{ window.tsscPaid98().then(function(y){ if(!y) cb(); }, cb); }catch(e){ cb(); } } if(window.tsscPaid98){ go(); return; } var s=document.createElement('script'); s.src='/tssc-paid98.js'; s.onload=go; s.onerror=cb; document.head.appendChild(s); })(function () { show(n, p.price); });
     }, function () {});
   }
 

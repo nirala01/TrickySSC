@@ -122,7 +122,10 @@
       var n = Math.max(1, Math.floor((room - 40) / 73));
       var box = document.createElement('div'); box.className = 'tsa-offers';
       box.innerHTML = '<h4>' + (held ? 'Upgrades for you' : 'Unlock full mock tests') + '</h4>' + list.slice(0, n).map(card).join('');
-      return box;
+      if (!held) return box;
+      /* TSSC-PAID98-V1 — no upgrade cards for a student who has already paid Rs 98 or more */
+      return loadScript('/tssc-paid98.js', function () { return !!window.tsscPaid98; }).then(function () { return window.tsscPaid98(); })
+        .then(function (y) { return y ? null : box; }, function () { return box; });
     }).catch(function () { return null; });
   }
   /* the "Pick your pass" popup, once per opening of the app */

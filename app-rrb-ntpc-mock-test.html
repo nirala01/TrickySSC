@@ -2965,9 +2965,16 @@ async function openBuy(card) {
      Holders of 3 or more series have no upgrade product, so nothing is sold to them here. */
   if (OWN && !OWN.all && OWN.keys.size) {
     const upOnly = tsscAllUpgrade(cat, OWN);
-    if (!upOnly) {
+    /* TSSC-PAID98-V1 — already paid Rs 98 or more in all: the upgrade is not sold here */
+    const paid98 = !upOnly ? false : await new Promise(res => {
+      const go = () => { try { window.tsscPaid98().then(res, () => res(false)); } catch (e) { res(false); } };
+      if (window.tsscPaid98) { go(); return; }
+      const s = document.createElement('script'); s.src = '/tssc-paid98.js'; s.onload = go; s.onerror = () => res(false);
+      document.head.appendChild(s);
+    });
+    if (!upOnly || paid98) {
       document.getElementById('mbpPrice').innerHTML =
-        '<span style="font-size:.85rem;color:#1E293B;">You already hold ' + OWN.keys.size + ' mock passes. ' +
+        '<span style="font-size:.85rem;color:#1E293B;">You already hold ' + OWN.keys.size + (OWN.keys.size === 1 ? ' mock pass. ' : ' mock passes. ') +
         'For the All Mocks Pass, write to <a href="mailto:contact@trickyssc.com">contact@trickyssc.com</a> and we will upgrade your account.</span>';
       return;
     }

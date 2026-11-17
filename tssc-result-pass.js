@@ -208,6 +208,7 @@
       }
     }
     if (!shown) return null;                                  // holds everything: nothing to offer
+    box._held = held;
     ['combo', 'single'].forEach(function (g) {
       var grp = box.querySelector('[data-rp-group="' + g + '"]'), lbl = box.querySelector('[data-rp-lbl="' + g + '"]');
       var any = false, els = grp.children, k;
@@ -240,6 +241,10 @@
 
   /* TSSC-APPOFFERS-V1: the same popup, opened directly by the app (tssc-app-offers.js) with the
      student's passes already read. Does not count as the once-a-day post-test showing. */
+  /* TSSC-PAID98-V1 — a pass holder who has already paid Rs 98 or more is not shown the popup */
+  var p98 = function(cb){ function go(){ try{ window.tsscPaid98().then(function(y){ if(!y) cb(); }, cb); }catch(e){ cb(); } } if(window.tsscPaid98){ go(); return; } var s=document.createElement('script'); s.src='/tssc-paid98.js'; s.onload=go; s.onerror=cb; document.head.appendChild(s); };
+  function openGated(box) { if (box._held > 0) p98(function () { if (!document.getElementById('tsscRP')) open(box); }); else open(box); }
+
   window.tsscPassPopup = function (m, o) {
     try {
       if (document.getElementById('tsscRP')) return false;
@@ -259,7 +264,7 @@
           vis[0].style.cssText = 'flex:0 1 62%;';
         }
       }
-      box._noMark = true; open(box); return true;
+      box._noMark = true; openGated(box); return true;
     } catch (e) { return false; }
   };
 
@@ -275,7 +280,7 @@
             if (s && m && m[s] === true) return;              // holds this mock's series: not a free test for them
           }
           var box = build(m);
-          if (box) open(box);
+          if (box) openGated(box);
         } catch (e) { try { console.warn('[result-pass]', e); } catch (_) {} }
       });
     } catch (e) {}

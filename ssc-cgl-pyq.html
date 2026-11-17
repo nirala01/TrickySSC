@@ -4506,7 +4506,10 @@ onAuthStateChanged(_auth, async user => {
     box.classList.remove('on');
     try{ sessionStorage.setItem(KEY,'1'); }catch(e){}
   }
-  setTimeout(function(){ box.classList.add('on'); }, DELAY);
+  /* TSSC-PAID98-V1 — a pass holder who has already paid Rs 98 or more is not shown this popup */
+  var p98=function(cb){ function go(){ try{ window.tsscPaid98().then(function(y){ if(!y) cb(); }, cb); }catch(e){ cb(); } } if(window.tsscPaid98){ go(); return; } var s=document.createElement('script'); s.src='/tssc-paid98.js'; s.onload=go; s.onerror=cb; document.head.appendChild(s); };
+  if(held>0) p98(function(){ setTimeout(function(){ box.classList.add('on'); }, DELAY); });
+  else setTimeout(function(){ box.classList.add('on'); }, DELAY);
   box.querySelector('.tsscMP-x').addEventListener('click',close);
   box.addEventListener('click',function(e){ if(e.target===box) close(); });
   document.addEventListener('keydown',function(e){ if(e.key==='Escape') close(); });
