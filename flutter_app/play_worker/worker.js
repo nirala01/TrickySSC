@@ -89,7 +89,9 @@ async function websiteProduct(pid, tok, product) {
   return null;
 }
 
-const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { 'content-type': 'application/json' } });
+// CORS: trickyssc.com calls /upgrade-free (the "Claim now" free Full Access button on the mock pages).
+const CORS = { 'access-control-allow-origin': '*', 'access-control-allow-methods': 'POST, GET, OPTIONS', 'access-control-allow-headers': 'content-type', 'access-control-max-age': '86400' };
+const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { 'content-type': 'application/json', ...CORS } });
 const b64u = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 const b64uText = (s) => b64u(new TextEncoder().encode(s));
 const fromB64u = (s) => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0));
@@ -226,6 +228,7 @@ async function grantUpgrade(pid, tok, uid, orderId) {
 export default {
   async fetch(req, env) {
     const url = new URL(req.url);
+    if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
     if (req.method === 'GET') return json({ ok: true, service: 'trickyssc-play' });
     if (req.method !== 'POST' || !['/verify', '/quote', '/upgrade-free'].includes(url.pathname)) return json({ ok: false, error: 'not-found' }, 404);
     try {
@@ -249,7 +252,7 @@ export default {
         const us = (k) => (uf[k] || {}).stringValue || '';
         await fsPatch(pid, t, `payments/free_upgrade_${who}`, {
           uid: str(who), status: str('paid'), gateway: str('free-upgrade'), productId: str('upgrade_full_free'), courseId: str('p-upgrade-all-free'),
-          productLabel: str('Free upgrade to Full Access'), amount: { doubleValue: 0 }, mode: str('live'), platform: str('app'),
+          productLabel: str('Free upgrade to Full Access'), amount: { doubleValue: 0 }, mode: str('live'), platform: str(b.platform === 'web' ? 'web' : 'app'),
           name: str(us('name')), email: str(us('email')), mobile: str(us('phone') || us('mobile')),
           grantedKeys: { arrayValue: { values: g.added.map(str) } }, expiresAt: ts(g.year), paidAt: ts(Date.now()), createdAt: ts(Date.now()),
         }, ['uid', 'status', 'gateway', 'productId', 'courseId', 'productLabel', 'amount', 'mode', 'platform', 'name', 'email', 'mobile', 'grantedKeys', 'expiresAt', 'paidAt', 'createdAt']);

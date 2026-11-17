@@ -62,3 +62,29 @@
     return _p;
   };
 })();
+
+/* TSSC-FREECLAIM-V1 (2026-11-17) — "You are eligible for free Full Access — Claim now".
+   Asks the trickyssc-play Worker (/upgrade-free, the same call the Android app makes). The Worker
+   checks the paid total itself and opens every course; nothing is granted from the browser.
+
+     window.tsscClaimFree(getIdToken)  ->  Promise<boolean>   true = full access is now on the account */
+(function () {
+  'use strict';
+  if (window.tsscClaimFree) return;
+  var API = 'https://trickyssc-play.nirala01.workers.dev';
+  window.tsscClaimFree = function (getIdToken) {
+    return Promise.resolve().then(getIdToken).then(function (idToken) {
+      return fetch(API + '/upgrade-free', { method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ idToken: idToken, platform: 'web' }) });
+    }).then(function (r) { return r.json(); }).then(function (j) {
+      if (!j || j.ok !== true) return false;
+      try {
+        localStorage.removeItem('tssc_ent_hint_v1');
+        for (var i = sessionStorage.length - 1; i >= 0; i--) {
+          var k = sessionStorage.key(i); if (k && k.indexOf('tssc_ent_v2_') === 0) sessionStorage.removeItem(k);
+        }
+      } catch (e) {}
+      return true;
+    }).catch(function () { return false; });
+  };
+})();

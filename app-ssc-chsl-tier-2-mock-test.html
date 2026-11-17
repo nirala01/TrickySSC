@@ -2460,14 +2460,33 @@ async function openBuy(card) {
      Holders of 3 or more series have no upgrade product, so nothing is sold to them here. */
   if (OWN && !OWN.all && OWN.keys.size) {
     const upOnly = tsscAllUpgrade(cat, OWN);
-    /* TSSC-PAID98-V1 — already paid Rs 98 or more in all: the upgrade is not sold here */
-    const paid98 = !upOnly ? false : await new Promise(res => {
+    /* TSSC-PAID98-V1 / TSSC-FREECLAIM-V1 — already paid Rs 98 or more in all: full access is theirs free, claimed here */
+    const paid98 = await new Promise(res => {
       const go = () => { try { window.tsscPaid98().then(res, () => res(false)); } catch (e) { res(false); } };
       if (window.tsscPaid98) { go(); return; }
       const s = document.createElement('script'); s.src = '/tssc-paid98.js'; s.onload = go; s.onerror = () => res(false);
       document.head.appendChild(s);
     });
-    if (!upOnly || paid98) {
+    if (paid98) {
+      document.getElementById('mbpSub').textContent = 'Free Full Access';
+      document.getElementById('mbpPerks').innerHTML = '<li>Every SSC CGL, CHSL, GD, MTS and RRB NTPC mock</li><li>Nothing to pay</li>';
+      document.getElementById('mbpNext').style.display = 'none';
+      const pr = document.getElementById('mbpPrice');
+      pr.innerHTML = '<span style="display:block;font-size:.95rem;font-weight:700;color:#166534;">\uD83C\uDF89 You are eligible for free Full Access</span>' +
+        '<button type="button" class="mbp-go" id="mbpClaim" style="margin-top:12px;">Claim now</button>' +
+        '<span id="mbpClaimMsg" style="display:block;margin-top:8px;font-size:.82rem;color:#B91C1C;"></span>';
+      pr.querySelector('#mbpClaim').addEventListener('click', async function () {
+        const btn = this, msg = pr.querySelector('#mbpClaimMsg');
+        btn.disabled = true; btn.textContent = 'Opening your courses\u2026'; msg.textContent = '';
+        let ok = false;
+        try { ok = await window.tsscClaimFree(() => _auth.currentUser.getIdToken()); } catch (e) {}
+        if (ok) { btn.textContent = '\u2713 Full Access is yours'; setTimeout(() => location.reload(), 900); return; }
+        btn.disabled = false; btn.textContent = 'Claim now';
+        msg.innerHTML = 'Could not complete it just now. Please try again, or write to <a href="mailto:contact@trickyssc.com">contact@trickyssc.com</a>.';
+      });
+      return;
+    }
+    if (!upOnly) {
       document.getElementById('mbpPrice').innerHTML =
         '<span style="font-size:.85rem;color:#1E293B;">You already hold ' + OWN.keys.size + (OWN.keys.size === 1 ? ' mock pass. ' : ' mock passes. ') +
         'For the All Mocks Pass, write to <a href="mailto:contact@trickyssc.com">contact@trickyssc.com</a> and we will upgrade your account.</span>';
@@ -2480,6 +2499,7 @@ async function openBuy(card) {
       '<span style="font-size:.85rem;color:#B91C1C;">Nothing is on sale for this yet.</span>';
     return;
   }
+  document.getElementById('mbpNext').style.display = '';   /* TSSC-FREECLAIM-V1 */
   ORDER = { courseId: lead.id };
 
   document.getElementById('mbpSub').textContent = lead.label;
