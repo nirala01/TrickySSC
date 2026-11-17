@@ -1,0 +1,17 @@
+name: Upload CA topic tests (one-off)
+on:
+  push:
+    branches: [tmp-upload-ca-tests]
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install --quiet google-auth requests
+      - run: python tmp_ca_upload/upload.py
