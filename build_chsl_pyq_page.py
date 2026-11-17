@@ -29,6 +29,7 @@ On Windows use the full interpreter path if the `py` Store alias is broken:
 
 import argparse
 import json
+import os
 import re
 import sys
 import urllib.request
@@ -59,16 +60,22 @@ RUNQUERY = (f"https://firestore.googleapis.com/v1/projects/{PROJECT}"
 
 
 # ── Fetch ─────────────────────────────────────────────────────────────────────
-def fetch_meta():
-    """Pull just the metadata fields of every question doc for this exam."""
+def fetch_meta(extra=None):
+    """Pull just the metadata fields of the question docs of this exam.
+    `extra` = (fieldPath, firestoreValue) narrows it to one more equality (question 1 only,
+    or one paper) — see load_docs()."""
+    where = {"fieldFilter": {
+        "field": {"fieldPath": "exam"},
+        "op": "EQUAL",
+        "value": {"stringValue": EXAM},
+    }}
+    if extra:
+        where = {"compositeFilter": {"op": "AND", "filters": [where, {"fieldFilter": {
+            "field": {"fieldPath": extra[0]}, "op": "EQUAL", "value": extra[1]}}]}}
     body = {
         "structuredQuery": {
             "from": [{"collectionId": "questions"}],
-            "where": {"fieldFilter": {
-                "field": {"fieldPath": "exam"},
-                "op": "EQUAL",
-                "value": {"stringValue": EXAM},
-            }},
+            "where": where,
             # `type` / `mockId` are fetched only so mock-test questions can be
             # dropped below (TSSC-PYQNOMOCK-V1).
             "select": {"fields": [{"fieldPath": f} for f in
@@ -115,6 +122,112 @@ def is_mock(d):
     return (d.get("type") or "").strip().lower() == "mock" or bool((d.get("mockId") or "").strip())
 
 
+# TSSC-CHSL-PYQ-CHEAP-V1 (2026-11-17) ───────────────────────────────────────────
+# A full run reads the metadata of EVERY ssc-chsl question (about 34,000 Firestore reads,
+# mocks included) only to count the questions of each paper. The counts are now kept in
+# pyq-cache/ssc-chsl.json and a normal run reads only question 1 of each paper (a few
+# hundred reads) to see which papers exist:
+#   * nothing new            -> the cached counts are used as they are
+#   * a new paper            -> only that paper's questions are read and added to the cache
+#   * a cached paper is gone, a new paper has no paperId, the cache is missing, or
+#     --full was passed      -> one full scan, and the cache is rewritten
+# If question 1 cannot find every cached paper right after a full scan, the cache is marked
+# not usable and every run stays a full scan (the old behaviour) — never a wrong list.
+CACHE = os.path.join("pyq-cache", "ssc-chsl.json")
+_KEYS = ("year", "shift", "tier", "heldOn", "language", "paperId")
+
+
+def _k(d):
+    return tuple(d.get(k, "") for k in _KEYS)
+
+
+def _group(docs):
+    n = defaultdict(int)
+    for d in docs:
+        n[_k(d)] += 1
+    return [dict(zip(_KEYS, k), n=c) for k, c in sorted(n.items())]
+
+
+def _fetch_q1():
+    out = []
+    for one in ({"integerValue": "1"}, {"stringValue": "1"}):
+        out += fetch_meta(("qNum", one))
+    return [d for d in out if not is_mock(d)]
+
+
+def _save_cache(groups, incremental, root):
+    path = os.path.join(root, CACHE)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8", newline="\n") as fh:
+        json.dump({"exam": EXAM, "incremental": incremental,
+                   "updated": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
+                   "groups": groups}, fh, ensure_ascii=False, indent=0)
+        fh.write("\n")
+
+
+def load_docs(root=".", force_full=False, dry_run=False):
+    """The PYQ question groups of this exam ({year, shift, tier, heldOn, language, paperId, n})."""
+    cache = None
+    try:
+        with open(os.path.join(root, CACHE), encoding="utf-8") as fh:
+            cache = json.load(fh)
+    except (OSError, ValueError):
+        pass
+    why = "--full was passed" if force_full else ""
+    if not why and not cache:
+        why = "no cache yet"
+    if not why and not cache.get("incremental"):
+        why = "the cache is marked not usable for cheap runs"
+    q1 = None
+    if not why:
+        try:
+            q1 = {_k(d) for d in _fetch_q1()}
+        except Exception as ex:
+            why = f"the question-1 lookup failed ({ex})"
+    if not why:
+        groups = cache["groups"]
+        have = {_k(g) for g in groups}
+        gone = have - q1
+        new = q1 - have
+        print(f"[build] cheap run: {len(q1)} question-1 rows read, {len(have)} cached groups, {len(new)} new, {len(gone)} gone")
+        if gone:
+            why = f"{len(gone)} cached paper(s) are no longer found"
+        elif any(not k[5] for k in new):
+            why = "a new paper has no paperId"
+        elif not new:
+            return groups
+        else:
+            for pid in sorted({k[5] for k in new}):
+                docs = [d for d in fetch_meta(("paperId", {"stringValue": pid})) if not is_mock(d)]
+                print(f"[build]   new paper {pid}: {len(docs)} questions read")
+                groups = [g for g in groups if g["paperId"] != pid] + _group(docs)
+            if not dry_run:
+                _save_cache(groups, True, root)
+            return groups
+    print(f"[build] full scan ({why})")
+    docs = fetch_meta()
+    total = len(docs)
+    docs = [d for d in docs if not is_mock(d)]          # TSSC-PYQNOMOCK-V1
+    print(f"[build] {total} question docs — {total - len(docs)} mock-test questions ignored, "
+          f"{len(docs)} PYQ questions kept")
+    groups = _group(docs)
+    incremental = False
+    try:
+        if q1 is None:
+            q1 = {_k(d) for d in _fetch_q1()}
+        missing = {_k(g) for g in groups} - q1
+        incremental = not missing
+        if missing:
+            print(f"[build] ! question 1 does not find {len(missing)} group(s), e.g. {sorted(missing)[:3]} "
+                  f"— runs stay full scans", file=sys.stderr)
+    except Exception as ex:
+        print(f"[build] ! question-1 check failed ({ex}) — runs stay full scans", file=sys.stderr)
+    if groups and not dry_run:
+        _save_cache(groups, incremental, root)
+        print(f"[build] cache written ({len(groups)} groups, cheap runs {'on' if incremental else 'off'})")
+    return groups
+
+
 # ── Shape the data (mirrors the in-page script) ───────────────────────────────
 def tier_key(t):
     v = (t or "").lower()
@@ -145,11 +258,11 @@ def build_papers(docs):
         if not p["tierRaw"] and d["tier"]:
             p["tierRaw"] = d["tier"]
         if norm_lang(d["language"]) == "hi":
-            p["hi"] += 1
+            p["hi"] += d.get("n", 1)
             if d["paperId"] and not p["pidHi"]:
                 p["pidHi"] = d["paperId"]
         else:
-            p["en"] += 1
+            p["en"] += d.get("n", 1)
             if d["paperId"] and not p["pidEn"]:
                 p["pidEn"] = d["paperId"]
     return [p for p in papers.values() if p["en"] or p["hi"]]
@@ -437,13 +550,9 @@ def set_text(html, el_id, text):
     return pat.sub(lambda m: m.group(1) + text + m.group(3), html, count=1)
 
 
-def build(page_path, sitemap_path=None, dry_run=False, subject_pages=True):
+def build(page_path, sitemap_path=None, dry_run=False, subject_pages=True, full=False):
     print(f"[build] querying Firestore for {EXAM} …")
-    docs = fetch_meta()
-    total = len(docs)
-    docs = [d for d in docs if not is_mock(d)]          # TSSC-PYQNOMOCK-V1
-    print(f"[build] {total} question docs — {total - len(docs)} mock-test questions ignored, "
-          f"{len(docs)} PYQ questions kept")
+    docs = load_docs(os.path.dirname(os.path.abspath(page_path)), full, dry_run)     # TSSC-CHSL-PYQ-CHEAP-V1
     papers = build_papers(docs)
     t1 = [p for p in papers if p["tier"] == "t1"]
     t2 = [p for p in papers if p["tier"] == "t2"]
@@ -511,6 +620,7 @@ if __name__ == "__main__":
     ap.add_argument("--page", default=PAGE, help="path to ssc-chsl-pyq.html")
     ap.add_argument("--sitemap", default=None, help="also write a sitemap XML here")
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--full", action="store_true", help="read every question again and rewrite pyq-cache/ssc-chsl.json")
     ap.add_argument("--no-subject-pages", action="store_true", help="skip the nine subject-wise PYQ pages")
     a = ap.parse_args()
-    sys.exit(build(a.page, a.sitemap, a.dry_run, not a.no_subject_pages))
+    sys.exit(build(a.page, a.sitemap, a.dry_run, not a.no_subject_pages, a.full))

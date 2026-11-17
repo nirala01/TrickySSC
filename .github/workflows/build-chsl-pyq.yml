@@ -10,6 +10,11 @@ on:
   schedule:
     - cron: '20 20 * * 6'      # once a week: Sunday 1:50 AM IST (press Run workflow after an upload)
   workflow_dispatch:            # lets you rebuild by hand right after an upload
+    inputs:
+      full:
+        description: 'Read every question again (only needed if questions were added to or removed from an old paper)'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -30,16 +35,18 @@ jobs:
 
       - name: Bake the paper list into ssc-chsl-pyq.html and the nine subject-wise PYQ pages
         run: |
+          # A normal run reads only question 1 of each paper and uses the counts kept in
+          # pyq-cache/ssc-chsl.json (see TSSC-CHSL-PYQ-CHEAP-V1 in the script).
           python build_chsl_pyq_page.py \
             --page ssc-chsl-pyq.html \
-            --sitemap sitemap-chsl-pyq.xml
+            --sitemap sitemap-chsl-pyq.xml ${{ inputs.full && '--full' || '' }}
 
       - name: Commit if anything changed
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           # add only files that exist, so this also works before the subject pages are uploaded
-          for f in ssc-chsl-pyq.html sitemap-chsl-pyq.xml \
+          for f in ssc-chsl-pyq.html sitemap-chsl-pyq.xml pyq-cache/ssc-chsl.json \
             ssc-chsl-english-previous-year-questions.html ssc-chsl-reasoning-previous-year-questions.html \
             ssc-chsl-quant-previous-year-questions.html ssc-chsl-gk-previous-year-questions.html \
             ssc-chsl-tier-2-quant-previous-year-questions.html ssc-chsl-tier-2-reasoning-previous-year-questions.html \
