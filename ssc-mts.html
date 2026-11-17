@@ -511,7 +511,8 @@ function tsscHideDrop(li){ var m=li.querySelector('.nav-drop-menu'); if(m)m.styl
   <section id="mts-pyq-page" hidden style="margin-top:1.8rem;scroll-margin-top:90px;">
     <h2 style="font-family:'Rajdhani',sans-serif;font-weight:800;font-size:1.3rem;color:#1A202C;margin:0 0 0.8rem;">SSC MTS Previous Year Papers</h2>
     <p style="color:#4A5568;line-height:1.75;margin:0 0 0.9rem;font-size:0.93rem;">Real SSC MTS shifts as online tests, with the answer key and solutions after you submit. Free.</p>
-    <div id="mts-pyq-list"></div>
+    <!-- TSSC-MTS-PYQ-STATIC-V1: build_mts_pyq_page.py bakes the paper rows between the two markers (the app reads them too) -->
+    <div id="mts-pyq-list"><!-- LIST:MTS:START --><!-- LIST:MTS:END --></div>
   </section>
 
   <!-- TSSC-MTS-PYQ-V2: language chooser popup for the PYQ rows -->
@@ -616,6 +617,7 @@ function tsscHideDrop(li){ var m=li.querySelector('.nav-drop-menu'); if(m)m.styl
 </div>
 
 
+<script>window.__MTS_PYQ_DOCS = null;/*MTSDOCS*/</script>
 <script>
 /* TSSC-MTS-PYQ-LIVE: the old ssc-mts.html listed MTS PYQ papers from Firestore `questions`
    (exam == 'ssc-mts'). Same public REST query here; the section and card switch on only
@@ -626,6 +628,9 @@ function tsscHideDrop(li){ var m=li.querySelector('.nav-drop-menu'); if(m)m.styl
   function esc(t){return String(t==null?'':t).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
   function fmt(d){var p=String(d||'').split('-');var m=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];return p.length===3&&m[+p[1]-1]?(+p[2])+' '+m[+p[1]-1]+' '+p[0]:(d||'');}
   function get(){
+    /* TSSC-MTS-PYQ-STATIC-V1: the list is baked into the page by the build — no Firestore read. The query below
+       stays only as the fallback for a page that has not been built yet. */
+    if(window.__MTS_PYQ_DOCS&&window.__MTS_PYQ_DOCS.length) return Promise.resolve(window.__MTS_PYQ_DOCS);
     try{var c=JSON.parse(sessionStorage.getItem(CK)||'null');if(c&&c.data&&c.data.length&&Date.now()-c.ts<6e5)return Promise.resolve(c.data);}catch(e){}
     var body={structuredQuery:{from:[{collectionId:'questions'}],where:{fieldFilter:{field:{fieldPath:'exam'},op:'EQUAL',value:{stringValue:EXAM}}},
       select:{fields:[{fieldPath:'year'},{fieldPath:'shift'},{fieldPath:'tier'},{fieldPath:'heldOn'},{fieldPath:'language'},{fieldPath:'type'},{fieldPath:'mockId'},{fieldPath:'paperId'}]}}};
@@ -654,8 +659,8 @@ function tsscHideDrop(li){ var m=li.querySelector('.nav-drop-menu'); if(m)m.styl
     docs.forEach(function(d){
       var k=[d.year,d.shift,d.heldOn,d.tier].join('|');
       var p=map[k]||(map[k]={year:d.year,shift:d.shift,heldOn:d.heldOn,tier:d.tier,en:0,hi:0,pidEn:'',pidHi:''});
-      if(isHi(d.language)){p.hi++; if(!p.pidHi&&d.paperId)p.pidHi=d.paperId;}
-      else{p.en++; if(!p.pidEn&&d.paperId)p.pidEn=d.paperId;}
+      if(isHi(d.language)){p.hi+=(d.n||1); if(!p.pidHi&&d.paperId)p.pidHi=d.paperId;}
+      else{p.en+=(d.n||1); if(!p.pidEn&&d.paperId)p.pidEn=d.paperId;}
     });
     var papers=Object.keys(map).map(function(k){return map[k];});
     if(!papers.length){ if(location.hash==='#mts-pyq-page'){var c=document.getElementById('mts-pyq-card');if(c)c.scrollIntoView();} return; }
@@ -678,7 +683,7 @@ function tsscHideDrop(li){ var m=li.querySelector('.nav-drop-menu'); if(m)m.styl
           +'<div><span class="pyq-shift">'+esc(shift)+'</span>'+(date?' <span class="pyq-date">&middot; '+esc(date)+'</span>':'')+'</div>'
           +'<div class="pyq-meta"><span>'+n+' Qs</span><span class="attempt-pill todo" data-pill="'+esc(pick)+'">&#9675; Not Attempted</span></div></div>'
           +'<a class="pyq-attempt-btn" href="'+esc(enUrl||hiUrl)+'" data-pick="'+esc(pick)+'"'
-          +(enUrl?' data-en="'+esc(enUrl)+'"'+(p.pidEn?' data-pid-en="'+esc(p.pidEn)+'"':''):'')
+          +(enUrl?' data-en="'+esc(enUrl)+'"'+(p.pidEn?' data-pid-'+'en="'+esc(p.pidEn)+'"':''):'')
           +(hiUrl?' data-hi="'+esc(hiUrl)+'"'+(p.pidHi?' data-pid-hi="'+esc(p.pidHi)+'"':''):'')
           +' data-title="'+esc(title)+'" onclick="return openLangChooser(this)">&#9654; Attempt Test</a></div>';
       });
