@@ -113,7 +113,7 @@ letter-spacing:.04em;color:#94A3B8;}}
     <div style="display:flex;align-items:center;gap:.6rem;">
       <span class="sub" id="who"></span>
       <button class="btn-p" id="grantBtn" style="padding:.55rem 1rem;font-size:.85rem;">+ Grant access</button>
-      <button class="btn" id="fuEdit">✎ Follow-up message</button>
+      <button class="btn" id="fuEdit">✎ Messages</button>
       <button class="btn" id="reload">↻ Refresh</button>
       <button class="btn" id="csv">Export CSV</button>
       <button class="btn" id="signout">Sign out</button>
@@ -163,7 +163,7 @@ letter-spacing:.04em;color:#94A3B8;}}
         <h1 style="font-size:1.15rem;">Reached checkout, no payment</h1>
         <div class="sub">Opened the unlock popup but never completed a purchase.
           Grant access here if they say they paid. <b>WhatsApp</b> / <b>Email</b> open a
-          ready-written follow-up message for that student.</div>
+          ready-written follow-up message for that student — edit it and press Send.</div>
       </div>
       <button class="btn" id="intentCsv">Export CSV</button>
     </div>
@@ -207,32 +207,30 @@ letter-spacing:.04em;color:#94A3B8;}}
   </div>
 </div>
 
-<!-- TSSC-FOLLOWUP-V1 — follow-up message editor -->
+<!-- TSSC-FOLLOWUP-V2 — message template editor -->
 <div class="dlg" id="fuDlg">
   <div class="dlg-card" style="max-width:580px;max-height:92vh;overflow:auto;">
-    <h2>Follow-up message</h2>
-    <div class="sub">Sent to students who opened the unlock popup but did not pay.
-      <span class="mono">{name}</span>, <span class="mono">{course}</span> and
-      <span class="mono">{link}</span> are filled in for each student. Saved in this browser.</div>
+    <h2>Messages</h2>
+    <div class="sub">The same text is used for WhatsApp and email (email adds the subject).
+      <span class="mono">{name}</span>, <span class="mono">{course}</span>, <span class="mono">{price}</span>,
+      <span class="mono">{link}</span> and <span class="mono">{valid}</span> are filled in for each student.
+      Saved in this browser.</div>
     <div class="fld">
-      <label for="fuWa">WhatsApp message</label>
-      <textarea id="fuWa" rows="6"></textarea>
+      <label for="fuKey">Template</label>
+      <select id="fuKey"></select>
     </div>
     <div class="fld">
       <label for="fuSub">Email subject</label>
       <input id="fuSub" type="text">
     </div>
     <div class="fld">
-      <label for="fuBody">Email message</label>
-      <textarea id="fuBody" rows="8"></textarea>
-    </div>
-    <div class="fld">
-      <label for="fuLink">Link used for {link}</label>
-      <input id="fuLink" type="text">
+      <label for="fuBody">Message</label>
+      <textarea id="fuBody" rows="12"></textarea>
     </div>
     <div class="fld">
       <label for="fuMode">Email button opens</label>
       <select id="fuMode">
+        <option value="direct">Send from this page — contact@trickyssc.com (one click Send)</option>
         <option value="hostinger">Hostinger webmail — contact@trickyssc.com (message copied, paste into New message)</option>
         <option value="mailto">Default mail app (address, subject, message pre-filled)</option>
         <option value="gmail">Gmail compose (address, subject, message pre-filled)</option>
@@ -243,13 +241,42 @@ letter-spacing:.04em;color:#94A3B8;}}
       <input id="fuBox" type="text">
     </div>
     <div class="dlg-row">
-      <button class="btn" id="fuReset">Reset to default</button>
+      <button class="btn" id="fuReset">Reset this template</button>
       <button class="btn" id="fuCancel">Cancel</button>
       <button class="btn-p" id="fuSave">Save</button>
     </div>
   </div>
 </div>
 <div id="fuPanel"></div>
+
+<!-- TSSC-MAILSEND-V1 — compose window: everything pre-filled, editable, Send -->
+<div class="dlg" id="fcDlg">
+  <div class="dlg-card" style="max-width:580px;max-height:92vh;overflow:auto;">
+    <h2 id="fcTitle">Send email</h2>
+    <div class="sub" id="fcSub"></div>
+    <div class="fld">
+      <label for="fcTpl">Template</label>
+      <select id="fcTpl"></select>
+    </div>
+    <div class="fld">
+      <label for="fcTo" id="fcToLbl">To</label>
+      <input id="fcTo" type="text">
+    </div>
+    <div class="fld" id="fcSubjFld">
+      <label for="fcSubj">Subject</label>
+      <input id="fcSubj" type="text">
+    </div>
+    <div class="fld">
+      <label for="fcText">Message</label>
+      <textarea id="fcText" rows="11"></textarea>
+    </div>
+    <div class="msg" id="fcMsg"></div>
+    <div class="dlg-row">
+      <button class="btn" id="fcCancel">Cancel</button>
+      <button class="btn-p" id="fcSend">Send</button>
+    </div>
+  </div>
+</div>
 
 <!-- prices + the payment server address live in Firestore config/pricing -->
 <script src="https://trickyssc.com/tssc-pricing.js"></script>
@@ -638,7 +665,8 @@ function render() {
       <td data-l="Purchased">${fmt(r.paidAt || r.createdAt)}</td>
       <td data-l="Actions">${actionCell(r.uid, r.courseId, r.courseActive)}${
         (r.status !== 'paid' && !r.courseActive && !(r.uid && paidUidCourse.has(r.uid + '|' + r.courseId)))
-          ? followCell('row', r.orderId, r) : ''}</td>   <!-- TSSC-FOLLOWUP-V1 -->
+          ? followCell('row', r.orderId, r)
+          : (r.status === 'paid' && (r.courseActive || fuHeld(r.uid).all)) ? followCell('row', r.orderId, r, 'welcome') : ''}</td>   <!-- TSSC-FOLLOWUP-V2 -->
     </tr>`;
   }).join('');
 
@@ -721,7 +749,7 @@ function renderIntents() {
     <td data-l="Tries" class="mono">${i.clicks}</td>
     <td data-l="Last seen">${fmt(i.lastAt)}</td>
     <td data-l="Actions">${actionCell(i.uid, i.courseId)}${
-      (i.stage !== 'paid' && !ownsAnything(i.uid)) ? followCell('intent', i.uid, i) : ''}</td>
+      (i.stage !== 'paid' && fuWants(i)) ? followCell('intent', i.uid, i) : ''}</td>   <!-- TSSC-FOLLOWUP-V2 -->
   </tr>`).join('');
 }
 
@@ -887,35 +915,153 @@ document.addEventListener('click', async e => {
   }
 });
 
-/* =========================================== TSSC-FOLLOWUP-V1 (2026-11-13)
-   One-click follow-up for students who opened the unlock popup / started an
-   order and did not pay. Nothing is sent from this page and nothing is written
-   to Firestore: the WhatsApp button opens WhatsApp Web on that student's chat
-   with the message already typed (you press Enter), and the Email button opens
-   your mail with the message ready. The message text, and a tick for who has
-   already been messaged, live in this browser's localStorage only. */
-const FU_TPL_KEY = 'tssc_followup_tpl', FU_SENT_KEY = 'tssc_followup_sent';
-const FU_DEFAULT = {
-  wa: 'Hi {name}, this is Ashish from TrickySSC.\n\n' +
-      'I saw you started unlocking {course} but the payment did not complete. ' +
-      'Did you face any problem while paying?\n\n' +
-      'Reply here and I will help you right away. You can also complete it any time here: {link}',
-  sub: 'Need help completing your TrickySSC purchase?',
-  body: 'Hi {name},\n\n' +
-        'This is Ashish from TrickySSC. I saw you started unlocking {course} but the payment did not complete.\n\n' +
-        'Did you face any problem while paying? Just reply to this email and I will help you right away.\n\n' +
-        'You can also complete it any time here: {link}\n\n' +
-        'Regards,\nAshish\nTrickySSC\ncontact@trickyssc.com',
-  link: 'https://trickyssc.com/',
-  mode: 'hostinger',
-  box: 'https://mail.hostinger.com/0/mailboxes/INBOX'   /* the contact@trickyssc.com mailbox */
-};
+/* =========================================== TSSC-FOLLOWUP-V2 (2026-11-17)
+   Messages to candidates, straight from this page. Every WhatsApp / Email
+   button opens a compose window with the number or address, the subject and
+   the message already filled in for THAT student and THAT pass — all editable
+   — and a Send button (TSSC-MAILSEND-V1):
+     Email     sent from this page through the trickyssc-mail Worker
+               (Hostinger SMTP, contact@trickyssc.com), or opened in webmail /
+               Gmail / the mail app if that is picked in the editor.
+     WhatsApp  opens WhatsApp Web on the student's chat with the message typed
+               (you press Enter) — WhatsApp allows nothing more from a page.
+   Ten templates, the same text for WhatsApp and email (email adds a subject):
+     cgl chsl gd mts ntpc all upgrade   opened the unlock popup, did not pay
+     order                              order created, payment not completed
+     welcome  welcomeAll                already purchased
+   Nothing is written to Firestore. Edited wording and the tick for who has
+   been messaged live in this browser's localStorage only. */
+const FU_TPL_KEY = 'tssc_followup_tpl_v2', FU_SENT_KEY = 'tssc_followup_sent';
 const FU_FROM = 'contact@trickyssc.com';
 const HOSTINGER_INBOX = 'https://mail.hostinger.com/0/mailboxes/INBOX';
+const MAIL_API = 'https://trickyssc-mail.nirala01.workers.dev';
+const SITE = 'https://trickyssc.com/';
+const SERIES = ['ssc-cgl-mocks', 'ssc-chsl-mocks', 'ssc-gd-mocks', 'ssc-mts-mocks', 'rrb-ntpc-mocks'];
+
+const FU_OPEN = 'Greetings from Team TrickySSC. ';
+const FU_HELP = 'Any doubt or payment problem? Just reply, we will help you right away.';
+const FU_SIGN = 'Team TrickySSC';
+const FU_PS_ALL = 'P.S. The All Mocks Pass opens all 5 series for Rs 99.';
+const fuSingle = (seriesName, bullets, push, ps) =>
+  'Hi {name},\n\n' + FU_OPEN + 'We saw you opened the ' + seriesName + ' but did not finish unlocking it.\n\n' +
+  bullets + '\n- One payment of Rs {price} for a full year. Not per test.\n\n' + push + '\n\n' +
+  'Unlock here: {link}\n\n' + FU_HELP + '\n\n' + FU_SIGN + '\n\n' + ps;
+const FU_WELCOME_TIPS =
+  'How to get the most from it:\n';
+const FU_WELCOME_END =
+  'Start here: {link}\n\n' +
+  'For doubts and updates, join our Telegram channel: https://t.me/trickyssc\n\n' +
+  'If anything does not open or you need help, just reply to this message.\n\n' +
+  'All the best for your exam.\n' + FU_SIGN;
+
+/* key -> { label (editor / picker), series key, page, sub, body } */
+const FU_TEMPLATES = {
+  cgl: { label: '1. SSC CGL — did not pay', key: 'ssc-cgl-mocks', page: 'ssc-cgl-mock-test.html',
+    sub: '{name}, your SSC CGL mocks are one step away',
+    body: fuSingle('SSC CGL Mock Test Series',
+      'Here is what you are leaving on the table:\n' +
+      '- 100 full-length mocks: 50 Tier I + 50 Tier II, with real sectional timing\n' +
+      '- English and Hindi, with detailed solutions and shortcut tricks\n' +
+      '- Section-wise analysis after every attempt, unlimited reattempts',
+      'If you liked the 4 free mocks, the other 96 are the same quality. CGL is won on speed, and speed only comes from timed practice.',
+      'P.S. Preparing for CHSL, GD, MTS or NTPC too? The All Mocks Pass opens all 5 series for Rs 99.') },
+  chsl: { label: '2. SSC CHSL — did not pay', key: 'ssc-chsl-mocks', page: 'ssc-chsl-mock-test.html',
+    sub: '{name}, 80 CHSL mocks are waiting for you',
+    body: fuSingle('SSC CHSL Mock Test Series',
+      'What the pass gives you:\n' +
+      '- 80 full-length mocks covering Tier I and Tier II\n' +
+      '- English and Hindi, with detailed solutions\n' +
+      '- Section-wise analysis after every attempt',
+      'You have seen the 2 free mocks. The remaining 78 are what turn a borderline score into a safe one.',
+      'P.S. The All Mocks Pass opens CGL, CHSL, GD, MTS and NTPC together for Rs 99.') },
+  gd: { label: '3. SSC GD — did not pay', key: 'ssc-gd-mocks', page: 'ssc-gd-mock-test.html',
+    sub: '{name}, finish unlocking your SSC GD mocks',
+    body: fuSingle('SSC GD Constable Mock Test Series',
+      'What the pass gives you:\n' +
+      '- 60 full-length mocks on the latest SSC GD pattern\n' +
+      '- English and Hindi, with detailed solutions\n' +
+      '- Your score and weak areas after every attempt',
+      'In GD, a few marks decide the merit list. 58 more mocks after the 2 free ones is the cheapest way to find those marks.',
+      FU_PS_ALL) },
+  mts: { label: '4. SSC MTS — did not pay', key: 'ssc-mts-mocks', page: 'ssc-mts-mock-test.html',
+    sub: '{name}, your SSC MTS mocks are one step away',
+    body: fuSingle('SSC MTS Mock Test Series',
+      'What the pass gives you:\n' +
+      '- 60 full-length mocks in the real two-session format\n' +
+      '- English and Hindi, with detailed solutions\n' +
+      '- Your score and weak areas after every attempt',
+      'Session II has negative marking, and most students lose marks there. Practising in the real format is how you stop that.',
+      FU_PS_ALL) },
+  ntpc: { label: '5. RRB NTPC — did not pay', key: 'rrb-ntpc-mocks', page: 'rrb-ntpc-mock-test.html',
+    sub: '{name}, 60 RRB NTPC mocks are waiting for you',
+    body: fuSingle('RRB NTPC Mock Test Series',
+      'What the pass gives you:\n' +
+      '- 60 full-length CBT-1 mocks\n' +
+      '- English and Hindi, with detailed solutions\n' +
+      '- Your score and weak areas after every attempt',
+      'NTPC has lakhs of applicants for every post. The ones who clear it have already sat the paper many times at home.',
+      FU_PS_ALL) },
+  all: { label: '6. All Mocks Pass — did not pay', key: 'all-mocks', page: 'ssc-cgl-mock-test.html?pass=all',
+    sub: '{name}, 360 mocks for Rs 99',
+    body: 'Hi {name},\n\n' + FU_OPEN + 'We saw you opened the All Mocks Pass but did not finish unlocking it.\n\n' +
+      'One pass, everything:\n' +
+      '- SSC CGL (100), CHSL (80), GD (60), MTS (60) and RRB NTPC (60): 360 full-length mocks\n' +
+      '- English and Hindi, with detailed solutions\n' +
+      '- One payment of Rs 99 for a full year\n\n' +
+      'That is about 27 paise a mock. The syllabus of these exams overlaps heavily, so every mock you take helps in all of them, and you never pay again for another exam.\n\n' +
+      'Unlock here: {link}\n\n' + FU_HELP + '\n\n' + FU_SIGN },
+  upgrade: { label: '7. Upgrade — already holds a pass', key: 'all-mocks', page: 'ssc-cgl-mock-test.html?pass=all',
+    sub: '{name}, upgrade to all 5 mock series for Rs {price}',
+    body: 'Hi {name},\n\n' + FU_OPEN + 'You already hold a TrickySSC mock pass, and we saw you looked at the All Mocks Pass upgrade.\n\n' +
+      'Because you have already paid, you only pay the difference: Rs {price}.\n\n' +
+      '- Opens every series: SSC CGL, CHSL, GD, MTS and RRB NTPC\n' +
+      '- Your current pass stays exactly as it is\n' +
+      '- The other series open for 1 year from the day you upgrade\n\n' +
+      'Upgrade here: {link}\n\n' +
+      'Any doubt? Just reply, we will help you right away.\n\n' + FU_SIGN },
+  order: { label: '8. Order created — payment not completed', key: '', page: '',
+    sub: '{name}, your {course} is one step away',
+    body: 'Hi {name},\n\n' + FU_OPEN + 'You chose {course} and reached the payment step, so you already know it is the right pass for you. Only the last step is left.\n\n' +
+      'What opens the moment you pay Rs {price}:\n' +
+      '- Every full-length mock in the series, on the latest pattern\n' +
+      '- English and Hindi, with detailed solutions\n' +
+      '- Your score and weak areas after every attempt\n' +
+      '- A full year of access with one payment. Not per test.\n\n' +
+      'Every week without timed practice is a week your competitors are using. Students who start mocks early walk into the exam hall having already seen the paper many times.\n\n' +
+      'Finish in under a minute here: {link}\n\n' +
+      'If money was deducted, reply with a screenshot and we will activate your pass right away.\n\n' + FU_SIGN },
+  welcome: { label: '9. Welcome — single pass buyer', key: '', page: '',
+    sub: 'Welcome to TrickySSC, {name}. Your {course} is active',
+    body: 'Hi {name},\n\n' +
+      'Welcome to TrickySSC, and thank you for your purchase. Your {course} is now active and valid till {valid}.\n\n' +
+      FU_WELCOME_TIPS +
+      '- Start with Mock 1 today, in exam conditions, with the timer on\n' +
+      '- After every mock, go through the solutions of the questions you got wrong or skipped\n' +
+      '- Reattempt a mock after a few days and compare your score\n\n' +
+      FU_WELCOME_END + '\n\n' +
+      'P.S. Preparing for other exams too? As a pass holder you can upgrade to the All Mocks Pass by paying only the difference.' },
+  welcomeAll: { label: '10. Welcome — All Mocks Pass buyer', key: 'all-mocks', page: '',
+    sub: 'Welcome to TrickySSC, {name}. All 5 mock series are open for you',
+    body: 'Hi {name},\n\n' +
+      'Welcome to TrickySSC, and thank you for your purchase. Your All Mocks Pass is now active and valid till {valid}.\n\n' +
+      'Everything is open for you: SSC CGL, CHSL, GD, MTS and RRB NTPC, 360 full-length mocks in all.\n\n' +
+      FU_WELCOME_TIPS +
+      '- Pick your main exam and start with Mock 1 today, with the timer on\n' +
+      '- After every mock, go through the solutions of the questions you got wrong or skipped\n' +
+      '- Use the other exams\' mocks as extra practice, since the syllabus overlaps\n\n' +
+      FU_WELCOME_END }
+};
+const FU_KEYS = Object.keys(FU_TEMPLATES);
+
 const fuLoad = (k, d) => { try { return Object.assign({}, d, JSON.parse(localStorage.getItem(k) || '{}')); } catch (e) { return Object.assign({}, d); } };
 const fuStore = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
-let FU_TPL = fuLoad(FU_TPL_KEY, FU_DEFAULT);
+/* settings: { mode, box, edits: { key: {sub, body} } } — only templates that
+   were actually edited are stored, so a later change to the built-in wording
+   still reaches every template nobody touched. */
+let FU_SET = fuLoad(FU_TPL_KEY, { mode: 'direct', box: HOSTINGER_INBOX, edits: {} });
+if (!FU_SET.edits || typeof FU_SET.edits !== 'object') FU_SET.edits = {};
 let FU_SENT = fuLoad(FU_SENT_KEY, {});
+const fuTpl = key => Object.assign({}, FU_TEMPLATES[key], FU_SET.edits[key] || {});
 
 /* 10-digit Indian mobile -> 91XXXXXXXXXX; anything that is not clearly a
    mobile number gets no WhatsApp button rather than a wrong chat. */
@@ -927,28 +1073,129 @@ function waNumber(m) {
   return '';
 }
 const fuPerson = rec => rec.uid || waNumber(rec.mobile) || rec.email || '';
+
+/* First name for "Hi {name}": skips roll numbers and single initials
+   ("23501455 SALONI SAINI" -> Saloni, "M Janani" -> Janani); "Student" when
+   there is no usable name or only the site's placeholder. */
+function fuName(rec) {
+  const words = String(rec.profileName || rec.name || '').trim().split(/\s+/)
+    .map(w => w.replace(/^[^\p{L}\p{M}]+|[^\p{L}\p{M}]+$/gu, '')).filter(Boolean);
+  const w = words.find(x => x.length > 1) || words[0] || '';
+  if (!w || /^student$/i.test(w)) return 'Student';
+  return (w === w.toUpperCase() || w === w.toLowerCase())
+    ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : w;
+}
+
+/* ---- what a student holds right now (entitlements) ---- */
+const fuLive = g => { if (!g || g.active !== true) return false; const t = ts(g.expiresAt); return !t || t > Date.now(); };
+function fuHeld(uid) {                 /* live mock series keys, plus all:true for the full pass */
+  const d = ENTS[uid] || {}, mods = d.modules || {};
+  const keys = SERIES.filter(k => fuLive(mods[k]));
+  return { keys, all: fuLive(d.allAccess) || fuLive(mods['all-mocks']) || keys.length === SERIES.length };
+}
+
+/* ---- the price list, for {price} ---- */
+let FU_CAT = null;
+(async () => { try { FU_CAT = await window.TSSC_PRICING.load(); } catch (e) { FU_CAT = null; } })();
+const fuProducts = () => ((FU_CAT && FU_CAT.products) || []).filter(p => p.live !== false);
+const fuProduct = id => ((FU_CAT && FU_CAT.products) || []).find(p => p.id === id) || null;
+const fuIsUpgrade = id => /^p-upgrade-/.test(String(id || ''));
+function fuPriceOf(key) {              /* cheapest live, non-upgrade product that grants this key */
+  const ps = fuProducts().filter(p => !fuIsUpgrade(p.id) && (p.grants || []).includes(key));
+  return ps.length ? Math.min(...ps.map(p => p.price)) : null;
+}
+
+/* Which template fits this record. kind: 'follow' (did not pay) | 'welcome'. */
+function fuPick(rec, kind) {
+  const cid = String(rec.courseId || '');
+  const prod = fuProduct(cid);
+  const grants = (prod && prod.grants) ||
+                 ((rec.courseKeys && rec.courseKeys.length) ? rec.courseKeys : [cid.replace(/^p-/, '')]);
+  const isAll = fuIsUpgrade(cid) || /all-mocks/.test(cid) || grants.includes('all-mocks') ||
+                SERIES.every(k => grants.includes(k));
+  if (kind === 'welcome') return (isAll || fuHeld(rec.uid).all) ? 'welcomeAll' : 'welcome';
+  if (rec.orderId) return 'order';                       /* a row of the purchases table */
+  const held = fuHeld(rec.uid);
+  if (held.keys.length && !held.all) return 'upgrade';   /* already holds a pass */
+  if (isAll || grants.filter(k => SERIES.includes(k)).length > 1) return 'all';
+  const hit = FU_KEYS.find(k => FU_TEMPLATES[k].key && grants.includes(FU_TEMPLATES[k].key) && k !== 'all');
+  return hit || 'all';
+}
+/* The mock page of the exam a record is about (used by "order" and "welcome"). */
+function fuExamPage(rec) {
+  const cid = String(rec.courseId || '');
+  if (fuIsUpgrade(cid) || /all-mocks|combo/.test(cid)) return '';
+  if (/ntpc/.test(cid)) return 'rrb-ntpc-mock-test.html';
+  if (/mts/.test(cid))  return 'ssc-mts-mock-test.html';
+  if (/gd/.test(cid))   return 'ssc-gd-mock-test.html';
+  if (/chsl/.test(cid)) return 'ssc-chsl-mock-test.html';
+  if (/cgl/.test(cid))  return 'ssc-cgl-mock-test.html';
+  return '';
+}
 function fuCourse(rec) {
   if (rec.productLabel && rec.productLabel !== rec.courseId) return rec.productLabel;
-  const hit = PRODUCTS.find(c => c.id === rec.courseId);
-  return (hit && hit.label) || 'the TrickySSC mock test series';
+  const cid = String(rec.courseId || '');
+  const hit = fuProduct(cid) || fuProducts().find(p => !fuIsUpgrade(p.id) && (p.grants || []).length === 1 && p.grants[0] === cid) ||
+              PRODUCTS.find(c => c.id === cid);
+  return (hit && hit.label) || KEYLABELS[cid] || 'TrickySSC mock test series';
 }
-function fuFill(t, rec) {
-  const first = String(rec.profileName || rec.name || '').trim().split(/\s+/)[0] || '';
-  const name = (!first || /^student$/i.test(first)) ? 'there' : first.charAt(0).toUpperCase() + first.slice(1);
-  return String(t || '').replace(/\{name\}/g, name).replace(/\{course\}/g, fuCourse(rec))
-                        .replace(/\{link\}/g, FU_TPL.link || FU_DEFAULT.link);
+/* Values for the placeholders of one template + one record. price is null
+   when the price list has no answer — the compose window then says so. */
+function fuVars(key, rec) {
+  const t = FU_TEMPLATES[key];
+  let price = null, link = SITE + (t.page || '');
+  if (key === 'order') {
+    price = rec.amount || (fuProduct(rec.courseId) || {}).price || null;
+    link = SITE + (fuExamPage(rec) || (/combo/.test(String(rec.courseId)) ? '' : 'ssc-cgl-mock-test.html?pass=all'));
+  } else if (key === 'upgrade') {
+    const n = fuHeld(rec.uid).keys.length || 1;
+    price = (fuProduct('p-upgrade-all-' + n) || {}).price || null;
+  } else if (key === 'welcome' || key === 'welcomeAll') {
+    link = SITE + (key === 'welcome' ? fuExamPage(rec) : '');
+  } else {
+    price = fuPriceOf(t.key);
+  }
+  return { name: fuName(rec), course: fuCourse(rec), price, link,
+           valid: rec.expiresAt ? fmt(rec.expiresAt) : '' };
 }
-function followCell(src, key, rec) {
+function fuFill(text, v) {
+  let s = String(text || '');
+  if (!v.valid) s = s.replace(/\s+and valid till \{valid\}/g, '').replace(/\s+valid till \{valid\}/g, '');
+  return s.replace(/\{name\}/g, v.name).replace(/\{course\}/g, v.course)
+          .replace(/\{price\}/g, v.price == null ? '___' : String(v.price))
+          .replace(/\{link\}/g, v.link).replace(/\{valid\}/g, v.valid);
+}
+
+/* Unpaid-list rows get buttons unless the student already holds the full
+   pass or the very series they opened; a holder of another series gets the
+   upgrade message. */
+function fuWants(i) {
+  const h = fuHeld(i.uid);
+  return !h.all && !h.keys.includes(String(i.courseId || '').replace(/^p-/, ''));
+}
+/* Buttons for one row. kind 'follow' -> WhatsApp / Email, 'welcome' -> the
+   same two with a Welcome label and their own ticks. */
+function followCell(src, key, rec, kind) {
+  kind = kind || 'follow';
   const ph = waNumber(rec.mobile), em = String(rec.email || '').trim();
   if (!ph && !em) return '<div class="em" style="margin-top:.35rem">no mobile or email</div>';
   const sent = FU_SENT[fuPerson(rec)] || {};
   const day = t => new Date(t).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: IST });
-  const b = (kind, cls, label) => {
-    const t = sent[kind];
-    return `<button class="act ${cls}${t ? ' done' : ''}" data-fu="${kind}" data-src="${src}" data-key="${esc(key)}"` +
-           ` title="${t ? 'Opened on ' + day(t) + ' — click to open again' : ''}">${t ? '✓ ' : ''}${label}${t ? ' · ' + day(t) : ''}</button>`;
+  const w = kind === 'welcome';
+  const b = (ch, cls, label) => {
+    const t = sent[(w ? 'w' : '') + ch];
+    return `<button class="act ${cls}${t ? ' done' : ''}" data-fu="${ch}" data-kind="${kind}" data-src="${src}" data-key="${esc(key)}"` +
+           ` title="${t ? 'Sent on ' + day(t) + ' — click to open again' : ''}">${t ? '✓ ' : ''}${label}${t ? ' · ' + day(t) : ''}</button>`;
   };
-  return '<div class="fu">' + (ph ? b('wa', 'wa', 'WhatsApp') : '') + (em ? b('ml', 'ml', 'Email') : '') + '</div>';
+  return '<div class="fu">' + (ph ? b('wa', 'wa', w ? 'Welcome · WhatsApp' : 'WhatsApp') : '') +
+                              (em ? b('ml', 'ml', w ? 'Welcome · Email' : 'Email') : '') + '</div>';
+}
+function fuMark(rec, kind, ch) {
+  const who = fuPerson(rec);
+  if (!who) return;
+  FU_SENT[who] = Object.assign({}, FU_SENT[who], { [(kind === 'welcome' ? 'w' : '') + ch]: Date.now() });
+  fuStore(FU_SENT_KEY, FU_SENT);
+  render();
 }
 async function fuCopy(text) {
   try { await navigator.clipboard.writeText(text); return true; }
@@ -961,7 +1208,48 @@ async function fuCopy(text) {
     } catch (e2) { return false; }
   }
 }
-let FU_LAST = null;
+
+/* ---- compose window ---- */
+const fcDlg = $('fcDlg');
+let FC = null;                       /* { ch, kind, rec } while the window is open */
+let FU_LAST = null;                  /* last Hostinger-webmail message, for the copy buttons */
+const fcSay = (t, cls) => { const m = $('fcMsg'); m.innerHTML = t; m.className = 'msg' + (t ? ' ' + (cls || 'ok') : ''); };
+$('fcTpl').innerHTML = FU_KEYS.map(k => `<option value="${k}">${esc(FU_TEMPLATES[k].label)}</option>`).join('');
+
+function fcFillFrom(key) {
+  if (!FC) return;
+  const t = fuTpl(key), v = fuVars(key, FC.rec);
+  $('fcSubj').value = fuFill(t.sub, v);
+  $('fcText').value = fuFill(t.body, v);
+  fcSay(v.price == null && /\{price\}/.test(t.sub + t.body)
+    ? 'Price for this pass was not found in the price list — replace <b>___</b> with the amount before sending.' : '', 'warn');
+}
+function fcOpen(ch, kind, rec) {
+  FC = { ch, kind, rec };
+  const wa = ch === 'wa';
+  $('fcTitle').textContent = (kind === 'welcome' ? 'Welcome message — ' : 'Follow-up — ') + (wa ? 'WhatsApp' : 'Email');
+  const mailHow = { direct: 'Sent from <b>' + FU_FROM + '</b> as soon as you press Send.',
+                    hostinger: 'Send copies the message and opens Hostinger webmail.',
+                    gmail: 'Send opens Gmail compose with everything filled in.',
+                    mailto: 'Send opens your mail app with everything filled in.' };
+  $('fcSub').innerHTML = (wa
+    ? 'Send opens WhatsApp Web on this student\'s chat with the message typed. Press <b>Enter</b> there to send.'
+    : (mailHow[FU_SET.mode] || mailHow.direct)) + ' Edit anything first if you like.';
+  $('fcToLbl').textContent = wa ? 'WhatsApp number' : 'To';
+  $('fcTo').value = wa ? ('+' + waNumber(rec.mobile)) : String(rec.email || '').trim();
+  $('fcSubjFld').style.display = wa ? 'none' : '';
+  const key = fuPick(rec, kind);
+  $('fcTpl').value = key;
+  fcFillFrom(key);
+  $('fcSend').disabled = false;
+  $('fcSend').textContent = wa ? 'Open in WhatsApp' : 'Send email';
+  fcDlg.classList.add('on');
+  setTimeout(() => $('fcText').focus(), 50);
+}
+const fcClose = () => { fcDlg.classList.remove('on'); FC = null; };
+$('fcCancel').onclick = fcClose;
+$('fcTpl').onchange = () => fcFillFrom($('fcTpl').value);
+
 document.addEventListener('click', async e => {
   const c = e.target.closest?.('[data-fucopy]');
   if (c && FU_LAST) {
@@ -974,64 +1262,115 @@ document.addEventListener('click', async e => {
 
   const btn = e.target.closest?.('[data-fu]');
   if (!btn) return;
-  const kind = btn.getAttribute('data-fu'), key = btn.getAttribute('data-key');
+  const key = btn.getAttribute('data-key');
   const rec = btn.getAttribute('data-src') === 'row'
     ? ROWS.find(r => r.orderId === key) : INTENTS.find(i => i.uid === key);
-  if (!rec) return;
-
-  if (kind === 'wa') {
-    /* one named tab, reused — WhatsApp Web only works in one tab at a time */
-    window.open('https://web.whatsapp.com/send?phone=' + waNumber(rec.mobile) +
-                '&text=' + encodeURIComponent(fuFill(FU_TPL.wa, rec)), 'tssc_wa');
-  } else {
-    const to = String(rec.email || '').trim();
-    const sub = fuFill(FU_TPL.sub, rec), body = fuFill(FU_TPL.body, rec);
-    if (FU_TPL.mode === 'mailto') {
-      location.href = 'mailto:' + encodeURIComponent(to) + '?subject=' + encodeURIComponent(sub) +
-                      '&body=' + encodeURIComponent(body);
-    } else if (FU_TPL.mode === 'gmail') {
-      window.open('https://mail.google.com/mail/?view=cm&fs=1&to=' + encodeURIComponent(to) +
-                  '&su=' + encodeURIComponent(sub) + '&body=' + encodeURIComponent(body), 'tssc_mail');
-    } else {
-      /* Hostinger webmail has no link that opens a pre-filled draft, so the
-         message goes to the clipboard and the mailbox opens; the address and
-         subject stay one click away in the corner panel. */
-      FU_LAST = { to, sub, body };
-      const ok = await fuCopy(body);
-      $('fuPanel').innerHTML =
-        `<b>${ok ? 'Message copied' : 'Could not copy automatically'} — Hostinger webmail opened</b>` +
-        `New message → paste. To: <span class="mono">${esc(to)}</span>` +
-        `<div class="em" style="margin-top:.3rem">Send from <b style="display:inline">${FU_FROM}</b> — check the mailbox shown at the top right of webmail.</div>` +
-        `<div class="fu"><button class="act ml" data-fucopy="to">Copy address</button>` +
-        `<button class="act ml" data-fucopy="sub">Copy subject</button>` +
-        `<button class="act ml" data-fucopy="body">Copy message</button>` +
-        `<button class="act" data-fuclose="1">Close</button></div>`;
-      $('fuPanel').classList.add('on');
-      window.open(/^https:\/\/mail\.hostinger\.com\//.test(FU_TPL.box || '') ? FU_TPL.box : HOSTINGER_INBOX, 'tssc_mail');
-    }
-  }
-  const who = fuPerson(rec);
-  if (who) {
-    FU_SENT[who] = Object.assign({}, FU_SENT[who], { [kind]: Date.now() });
-    fuStore(FU_SENT_KEY, FU_SENT);
-    render();
-  }
+  if (rec) fcOpen(btn.getAttribute('data-fu'), btn.getAttribute('data-kind') || 'follow', rec);
 });
 
-/* ---- message editor ---- */
+$('fcSend').onclick = async () => {
+  if (!FC) return;
+  const { ch, kind, rec } = FC;
+  const text = $('fcText').value.trim();
+  if (!text) { fcSay('Message is empty.', 'err'); return; }
+  if (/___/.test(text + (ch === 'wa' ? '' : $('fcSubj').value))) { fcSay('Replace <b>___</b> with the price first.', 'err'); return; }
+
+  if (ch === 'wa') {
+    const num = waNumber($('fcTo').value);
+    if (!num) { fcSay('That does not look like a 10-digit Indian mobile number.', 'err'); return; }
+    /* one named tab, reused — WhatsApp Web only works in one tab at a time */
+    window.open('https://web.whatsapp.com/send?phone=' + num + '&text=' + encodeURIComponent(text), 'tssc_wa');
+    fuMark(rec, kind, 'wa');
+    fcClose();
+    say('WhatsApp opened for ' + esc(rec.name || num) + ' — press Enter there to send.', 'ok');
+    return;
+  }
+
+  const to = $('fcTo').value.trim(), sub = $('fcSubj').value.trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) { fcSay('Check the email address.', 'err'); return; }
+  if (!sub) { fcSay('Subject is empty.', 'err'); return; }
+
+  if (FU_SET.mode === 'mailto') {
+    location.href = 'mailto:' + encodeURIComponent(to) + '?subject=' + encodeURIComponent(sub) + '&body=' + encodeURIComponent(text);
+  } else if (FU_SET.mode === 'gmail') {
+    window.open('https://mail.google.com/mail/?view=cm&fs=1&to=' + encodeURIComponent(to) +
+                '&su=' + encodeURIComponent(sub) + '&body=' + encodeURIComponent(text), 'tssc_mail');
+  } else if (FU_SET.mode === 'hostinger') {
+    /* Hostinger webmail has no link that opens a pre-filled draft, so the
+       message goes to the clipboard and the mailbox opens; the address and
+       subject stay one click away in the corner panel. */
+    FU_LAST = { to, sub, body: text };
+    const ok = await fuCopy(text);
+    $('fuPanel').innerHTML =
+      `<b>${ok ? 'Message copied' : 'Could not copy automatically'} — Hostinger webmail opened</b>` +
+      `New message → paste. To: <span class="mono">${esc(to)}</span>` +
+      `<div class="em" style="margin-top:.3rem">Send from <b style="display:inline">${FU_FROM}</b> — check the mailbox shown at the top right of webmail.</div>` +
+      `<div class="fu"><button class="act ml" data-fucopy="to">Copy address</button>` +
+      `<button class="act ml" data-fucopy="sub">Copy subject</button>` +
+      `<button class="act ml" data-fucopy="body">Copy message</button>` +
+      `<button class="act" data-fuclose="1">Close</button></div>`;
+    $('fuPanel').classList.add('on');
+    window.open(/^https:\/\/mail\.hostinger\.com\//.test(FU_SET.box || '') ? FU_SET.box : HOSTINGER_INBOX, 'tssc_mail');
+  } else {
+    const user = auth.currentUser;
+    if (!user) { fcSay('Session expired — sign in again.', 'err'); return; }
+    const btn = $('fcSend');
+    btn.disabled = true; btn.textContent = 'Sending…'; fcSay('');
+    try {
+      const res = await fetch(MAIL_API + '/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken: await user.getIdToken(), to, subject: sub, text })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) throw new Error(data.error || ('Request failed (' + res.status + ')'));
+    } catch (err) {
+      btn.disabled = false; btn.textContent = 'Send email';
+      fcSay('Could not send: ' + esc(err.message || err) +
+            '<br>Your text is still here — try again, or switch "Email button opens" in ✎ Messages.', 'err');
+      return;
+    }
+    fuMark(rec, kind, 'ml');
+    fcClose();
+    say('Email sent to ' + esc(to) + ' from ' + FU_FROM + '.', 'ok');
+    return;
+  }
+  fuMark(rec, kind, 'ml');
+  fcClose();
+};
+
+/* ---- template editor (✎ Messages) ---- */
 const fuDlg = $('fuDlg');
-const fuShow = t => { $('fuWa').value = t.wa; $('fuSub').value = t.sub; $('fuBody').value = t.body;
-                      $('fuLink').value = t.link; $('fuMode').value = t.mode; $('fuBox').value = t.box; };
-$('fuEdit').onclick = () => { fuShow(FU_TPL); fuDlg.classList.add('on'); };
+let FU_DRAFT = {};                   /* edits made in the open editor, by template key */
+$('fuKey').innerHTML = FU_KEYS.map(k => `<option value="${k}">${esc(FU_TEMPLATES[k].label)}</option>`).join('');
+let fuShown = FU_KEYS[0];
+const fuKeep = () => { FU_DRAFT[fuShown] = { sub: $('fuSub').value, body: $('fuBody').value }; };
+const fuShow = key => {
+  fuShown = key; $('fuKey').value = key;
+  const t = Object.assign({}, FU_TEMPLATES[key], FU_DRAFT[key] || {});
+  $('fuSub').value = t.sub; $('fuBody').value = t.body;
+};
+$('fuEdit').onclick = () => {
+  FU_DRAFT = JSON.parse(JSON.stringify(FU_SET.edits));
+  $('fuMode').value = FU_SET.mode; $('fuBox').value = FU_SET.box;
+  fuShow(fuShown); fuDlg.classList.add('on');
+};
+$('fuKey').onchange = () => { fuKeep(); fuShow($('fuKey').value); };
 $('fuCancel').onclick = () => fuDlg.classList.remove('on');
-$('fuReset').onclick = () => fuShow(FU_DEFAULT);
+$('fuReset').onclick = () => { delete FU_DRAFT[fuShown]; fuShow(fuShown); };
 $('fuSave').onclick = () => {
-  FU_TPL = { wa: $('fuWa').value.trim() || FU_DEFAULT.wa, sub: $('fuSub').value.trim() || FU_DEFAULT.sub,
-             body: $('fuBody').value.trim() || FU_DEFAULT.body, link: $('fuLink').value.trim() || FU_DEFAULT.link,
-             mode: $('fuMode').value || 'hostinger', box: $('fuBox').value.trim() || FU_DEFAULT.box };
-  fuStore(FU_TPL_KEY, FU_TPL);
+  fuKeep();
+  const edits = {};
+  FU_KEYS.forEach(k => {
+    const d = FU_DRAFT[k], t = FU_TEMPLATES[k];
+    if (!d) return;
+    const sub = String(d.sub || '').trim() || t.sub, body = String(d.body || '').trim() || t.body;
+    if (sub !== t.sub || body !== t.body) edits[k] = { sub, body };
+  });
+  FU_SET = { mode: $('fuMode').value || 'direct', box: $('fuBox').value.trim() || HOSTINGER_INBOX, edits };
+  fuStore(FU_TPL_KEY, FU_SET);
   fuDlg.classList.remove('on');
-  say('Follow-up message saved.', 'ok');
+  say('Messages saved.', 'ok');
 };
 
 /* ---- intents csv ---- */
