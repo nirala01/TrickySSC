@@ -1212,7 +1212,7 @@
           <div class="instr-legend">
             <div class="instr-legend-item"><div class="instr-dot" style="background:#fff;border:1.5px solid #CBD5E1;"></div><span><strong>Not Visited</strong> — not opened yet.</span></div>
             <div class="instr-legend-item"><div class="instr-dot" style="background:#22C55E;"></div><span><strong>Answered</strong> — you picked an option.</span></div>
-            <div class="instr-legend-item"><div class="instr-dot" style="background:#FEF9C3;border:1.5px solid #EAB308;"></div><span><strong>Skipped</strong> — visited but not answered.</span></div>
+            <div class="instr-legend-item"><div class="instr-dot" style="background:#FEF9C3;border:1.5px solid #EAB308;"></div><span><strong>Not Answered</strong> — visited but not answered.</span></div>
             <div class="instr-legend-item"><div class="instr-dot" style="background:#EEF2FF;border:1.5px solid #6366F1;"></div><span><strong>Marked for Review</strong> — flagged to revisit.</span></div>
           </div>
           <div class="instr-section-title">&#127775; Marking Scheme</div>
@@ -1298,7 +1298,7 @@
           </div>
           <div class="nav-btns">
             <button class="btn btn-prev" id="prevBtn" onclick="prevQ()">&larr; Prev</button>
-            <button class="btn btn-next" id="nextBtn" onclick="nextQ()">Next &rarr;</button>
+            <button class="btn btn-next" id="nextBtn" onclick="nextQ()">Save &amp; Next &rarr;</button>
             <div class="skip-btn-row">
               <button class="btn btn-clear" onclick="clearResponse()" id="clearBtn">&times; Clear</button>
               <button class="btn btn-mark" onclick="markForReview()" id="markBtn">&#128278; Mark</button>
@@ -1936,6 +1936,9 @@ window.launch=async(timed)=>{
   if(useLang==='hi' && enSet.length){
     enSet.forEach(q=>{ const n=parseInt(q.qNum)||0; if(n) enQMap[n]=q; });
     enMapLoaded=true;
+  } else if(useLang==='en' && (S.cur.hi||[]).length){   /* TSSC-EXAMUI-V1: Hindi view on English tests */
+    S.cur.hi.forEach(q=>{ const n=parseInt(q.qNum)||0; if(n) enQMap[n]=q; });
+    enMapLoaded=true;
   }
 
   questions=src.map(q=>({...q}));
@@ -2546,14 +2549,15 @@ function renderQ(){_qtTick();
   const isHindiTest=(CW.lang==='hi');
   // Offer the toggle on Q1-75 for Hindi tests even before the English map is
   // fetched — the map loads lazily on first tap.
-  const hasEnglish=isHindiTest && !!(enQMap&&enQMap[qNum]);
+  const hasEnglish=(isHindiTest||(TSSC_EN2HI()&&tsscHiOk(qNum))) && !!(enQMap&&enQMap[qNum]);
   if(enBtn){
     if(hasEnglish){
       enBtn.style.display='flex';
       const isOn=!!showEnglishQ[currentQ];
       const eq=isOn?enQMap[qNum]:null;
       enBtn.classList.toggle('active',isOn);
-      enBtn.textContent=isOn?'✕ Hide English':'🇬🇧 View in English';
+      enBtn.textContent=TSSC_EN2HI()?(isOn?'✕ हिंदी छिपाएँ':'🇮🇳 हिंदी में देखें'):(isOn?'✕ Hide English':'🇬🇧 View in English');
+      { const _pl=document.querySelector('#enViewPanel .en-panel-label'); if(_pl&&TSSC_EN2HI()) _pl.textContent='🇮🇳 हिंदी संस्करण'; }
       if(isOn && eq && enPanel){
         document.getElementById('enQText').innerHTML=formatQText(eq.text||eq.question||'');
         mathDress(document.getElementById('enQText'));
@@ -2602,12 +2606,62 @@ function renderQ(){_qtTick();
   updateProgress();
 }
 
-window.selectOpt=o=>{answers[currentQ]=o;renderQ();};
+window.selectOpt=o=>{ if(answers[currentQ]===o) delete answers[currentQ]; else answers[currentQ]=o; renderQ(); };   /* TSSC-EXAMUI-V1: tap again to unselect */
 window.clearResponse=()=>{ if(answers[currentQ]!==undefined){ delete answers[currentQ]; } renderQ(); };
 window.nextQ=()=>{const ts=sections[curTS];const lim=ts?ts.to:questions.length-1;if(currentQ<lim){currentQ++;renderQ();}};
 window.prevQ=()=>{const ts=sections[curTS];const lo=ts?ts.from:0;if(currentQ>lo){currentQ--;renderQ();}};
 window.goQ=i=>{if(!inActiveTS(i))return;currentQ=i;renderQ();};
 window.markForReview=()=>{markedForReview[currentQ]=!markedForReview[currentQ];renderQ();};
+
+/* TSSC-EXAMUI-V1 (2026-11-17) — exam-style controls: Save & Next, tap again to unselect,
+   silent section change, status palette with counts, and Hindi view on English tests. */
+function TSSC_EN2HI(){ try{ if(typeof CW!=='undefined'&&CW&&CW.lang) return CW.lang!=='hi'; }catch(_){} return new URLSearchParams(location.search).get('lang')!=='hi'; }
+function tsscHiOk(n){ let ok=true; try{ ok=(typeof CW!=='undefined')||!!enFetchParams; }catch(_){} return ok && !(enMapLoaded && !enQMap[n]); }
+function tsscToast(msg){
+  try{
+    let t=document.getElementById('tsscToast');
+    if(!t){ t=document.createElement('div'); t.id='tsscToast';
+      t.style.cssText='position:fixed;left:50%;top:70px;transform:translateX(-50%);z-index:99999;max-width:88vw;background:#0F172A;color:#fff;font-size:13.5px;font-weight:600;line-height:1.4;padding:10px 16px;border-radius:10px;box-shadow:0 6px 20px rgba(15,23,42,.25);text-align:center;transition:opacity .3s;pointer-events:none;';
+      document.body.appendChild(t); }
+    t.textContent=msg; t.style.opacity='1'; t.style.display='block';
+    clearTimeout(t._h); t._h=setTimeout(()=>{ t.style.opacity='0'; setTimeout(()=>{ t.style.display='none'; },320); },4000);
+  }catch(_){}
+}
+const tsscSeen=new WeakSet();
+function tsscPal(){
+  if(!questions||!questions.length) return;
+  if(questions[currentQ]) tsscSeen.add(questions[currentQ]);
+  const st=i=>{ const a=answers[i]!==undefined, m=!!markedForReview[i];
+    return m?(a?'am':'mk'):(a?'an':(tsscSeen.has(questions[i])?'na':'nv')); };
+  const c={an:0,na:0,nv:0,mk:0,am:0};
+  questions.forEach((_,i)=>{ const s=st(i); c[s]++;
+    const d=document.getElementById('dot'+i); if(d) d.classList.toggle('skipped',s==='na'&&i!==currentQ); });
+  document.querySelectorAll('#drawerGrid .dot').forEach(d=>{ const i=parseInt(d.textContent,10)-1;
+    if(i>=0) d.classList.toggle('skipped',st(i)==='na'&&i!==currentQ); });
+  const row=(dot,label,n)=>'<div class="legend-item"><div class="legend-dot" style="'+dot+'"></div>'+label+(n===null?'':'<b style="margin-left:auto;color:#0F172A;">'+n+'</b>')+'</div>';
+  const lg=row('background:#22C55E;','Answered',c.an)
+    +row('background:#FEF9C3;border:1.5px solid #EAB308;','Not Answered',c.na)
+    +row('background:#fff;border:1.5px solid #E2E8F0;','Not Visited',c.nv)
+    +row('background:#EEF2FF;border:1.5px solid #6366F1;','Marked for Review',c.mk)
+    +'<div class="legend-item"><div class="legend-dot" style="background:#EEF2FF;border:1.5px solid #6366F1;position:relative;"><span style="position:absolute;top:1px;right:1px;width:5px;height:5px;border-radius:50%;background:#22C55E;"></span></div>Answered &amp; Marked<b style="margin-left:auto;color:#0F172A;">'+c.am+'</b></div>'
+    +row('background:#FFF3E8;border:2px solid #FF6B00;','Current',null);
+  let sum='';
+  if(sections&&sections.length>1){
+    const r=(l,a,t,b)=>'<div style="display:flex;justify-content:space-between;gap:8px;padding:3px 0;'+(b?'border-top:1px solid #E2E8F0;margin-top:3px;font-weight:700;color:#0F172A;':'')+'"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+l+'</span><span style="flex:none;">'+a+' / '+t+'</span></div>';
+    let tot=0;
+    sum='<div style="font-weight:700;color:#0F172A;margin-bottom:2px;">Attempted</div>'
+      +sections.map(s=>{ let a=0; for(let i=s.from;i<=s.to;i++) if(answers[i]!==undefined) a++; tot+=a; return r(s.label||s.name||'Section',a,s.to-s.from+1,false); }).join('')
+      +r('Total',tot,questions.length,true);
+  }
+  document.querySelectorAll('.legend').forEach(el=>{
+    el.innerHTML=lg;
+    let b=el.nextElementSibling;
+    if(!b||!b.classList.contains('tssc-secsum')){ b=document.createElement('div'); b.className='tssc-secsum';
+      b.style.cssText='font-size:11.5px;color:#64748B;font-weight:500;margin:0 0 14px;padding:8px 10px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;';
+      el.parentNode.insertBefore(b,el.nextSibling); }
+    b.style.display=sum?'':'none'; b.innerHTML=sum;
+  });
+}
 
 let _reportReason='', _reportQIdx=0;
 window.openReport=function(idx){
@@ -2737,7 +2791,7 @@ window.toggleSolLang=function(btn){
   body.innerHTML=renderContent(raw)+(img?img.outerHTML:'');
   body.setAttribute('data-lang',to);
   try{ mathDress(body); }catch(e){}
-  btn.textContent=(to==='en')?'हिंदी में देखें':'View in English';
+  btn.textContent=((to==='en')!==TSSC_EN2HI())?'हिंदी में देखें':'View in English';
 };
 
 window.toggleEnglishView=async()=>{
@@ -2749,6 +2803,10 @@ window.toggleEnglishView=async()=>{
     if(btn) btn.textContent='⏳ Loading…';
     await ensureEnglishMap();
   }
+  if(TSSC_EN2HI()){ const _n=parseInt((questions[currentQ]||{}).qNum)||0;
+    if(enFetchError||!enMapLoaded||!enQMap[_n]){
+      tsscToast((enFetchError||!enMapLoaded)?"Couldn't load the Hindi version. Check your connection and try again.":(Object.keys(enQMap).length?'Hindi version is not available for this question.':'Hindi version is not available for this test.'));
+      renderQ(); return; } }
   showEnglishQ[currentQ]=true;
   renderQ();
 };
@@ -2845,6 +2903,7 @@ function updateGrid(){
 }
 
 function updateProgress(){
+  try{ tsscPal(); }catch(_){}   /* TSSC-EXAMUI-V1 */
   const answered=Object.keys(answers).length;
   const total=questions.length;
   document.getElementById('progressText').textContent=`${answered} / ${total}`;
@@ -2877,10 +2936,10 @@ function buildReviewItem(q,i){
   // stash both languages on the element via encoded data-attrs (safe for HTML attr)
   const _enc=s=>encodeURIComponent(s||'');
   const solToggleBtn=_hasEnSol
-    ?`<button class="sol-lang-btn" onclick="toggleSolLang(this)">View in English</button>`:'';
+    ?`<button class="sol-lang-btn" onclick="toggleSolLang(this)">${TSSC_EN2HI()?'हिंदी में देखें':'View in English'}</button>`:'';
   const solHtml=(q.explanation||solImg)?`<div class="sol-panel sol-sol"><div class="sol-head"><span class="sol-ic">💡</span>Step-by-Step Solution${solToggleBtn}</div><div class="sol-body" data-hi="${_enc(q.explanation||'')}" data-en="${_enc(_enExp)}" data-lang="hi">${renderContent(q.explanation||'')}${solImg?`<img src="${solImg}" onerror="this.style.display='none'" alt="Solution">`:''}</div></div>`:'';
   const trickToggleBtn=(_hasEnSol&&_enTrk)
-    ?`<button class="sol-lang-btn" onclick="toggleSolLang(this)">View in English</button>`:'';
+    ?`<button class="sol-lang-btn" onclick="toggleSolLang(this)">${TSSC_EN2HI()?'हिंदी में देखें':'View in English'}</button>`:'';
   const trickHtml=q.trick?`<div class="sol-panel sol-trick"><div class="sol-head"><span class="sol-ic">⚡</span>Quick Trick${trickToggleBtn}</div><div class="sol-body" data-hi="${_enc(q.trick)}" data-en="${_enc(_enTrk)}" data-lang="hi">${renderContent(q.trick)}</div></div>`:'';
   const conceptHtml=q.concept?`<div class="sol-panel sol-concept"><div class="sol-head"><span class="sol-ic">🧠</span>Concept</div><div class="sol-body">${renderContent(q.concept)}</div></div>`:'';
   const verdictHtml=`<div class="verdict ${status}"><span class="v-ic">${vIcon}</span><span>${vText}</span></div>`;

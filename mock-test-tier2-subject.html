@@ -1026,7 +1026,7 @@ window.imgFail = function (el) {
         <div class="instr-legend">
           <div class="instr-legend-item"><div class="instr-dot" style="background:#fff;border:1.5px solid #CBD5E1;"></div><span><strong>Not Visited</strong> — You have not visited the question yet.</span></div>
           <div class="instr-legend-item"><div class="instr-dot" style="background:#22C55E;"></div><span><strong>Answered</strong> — You have answered the question.</span></div>
-          <div class="instr-legend-item"><div class="instr-dot" style="background:#FEF9C3;border:1.5px solid #EAB308;"></div><span><strong>Skipped</strong> — You have visited but not answered the question.</span></div>
+          <div class="instr-legend-item"><div class="instr-dot" style="background:#FEF9C3;border:1.5px solid #EAB308;"></div><span><strong>Not Answered</strong> — You have visited but not answered the question.</span></div>
           <div class="instr-legend-item"><div class="instr-dot" style="background:#EEF2FF;border:1.5px solid #6366F1;"></div><span><strong>Marked for Review</strong> — You have marked the question for review.</span></div>
         </div>
 
@@ -1160,7 +1160,7 @@ window.imgFail = function (el) {
         <!-- Nav buttons -->
         <div class="nav-btns">
           <button class="btn btn-prev" id="prevBtn" onclick="prevQ()">← Prev</button>
-          <button class="btn btn-next" id="nextBtn" onclick="nextQ()">Next →</button>
+          <button class="btn btn-next" id="nextBtn" onclick="nextQ()">Save &amp; Next →</button>
           <div class="skip-btn-row">
             <button class="btn btn-clear" onclick="clearResponse()" id="clearBtn">✕ Clear</button>
             <button class="btn btn-mark" onclick="markForReview()" id="markBtn">🔖 Mark</button>
@@ -2060,7 +2060,7 @@ async function loadTest(){
     // competes for bandwidth on mobile). Stash params and fetch only the
     // first time the user taps "View in English".
     enQMap={};showEnglishQ={};enMapLoaded=false;enMapLoading=false;enFetchParams=null;
-    if(lang==='hi'){
+    if((lang==='hi'||TSSC_EN2HI())){
       const q0=questions.find(q=>q.exam||q.year||q.heldOn||q.paperId||q.mockId)||questions[0]||{};
       enFetchParams={
         exam:    exam    || q0.exam    || '',
@@ -2289,14 +2289,15 @@ function renderQ(){_qtTick();
   const isEnglishSection=/english/i.test(_subjShort)||/english/i.test(q.subject||'')||/अंग्रेज/.test(q.subject||'');
   // Offer the toggle for Hindi tests on non-English-section questions even
   // before the English map is fetched — it loads lazily on first tap.
-  const hasEnglish=isHindiTest && !isEnglishSection;
+  const hasEnglish=(isHindiTest||(TSSC_EN2HI()&&tsscHiOk(qNum))) && !isEnglishSection;
   if(enBtn){
     if(hasEnglish){
       enBtn.style.display='flex';
       const isOn=!!showEnglishQ[currentQ];
       const eq=isOn?enQMap[qNum]:null;
       enBtn.classList.toggle('active',isOn);
-      enBtn.textContent=isOn?'✕ Hide English':'🇬🇧 View in English';
+      enBtn.textContent=TSSC_EN2HI()?(isOn?'✕ हिंदी छिपाएँ':'🇮🇳 हिंदी में देखें'):(isOn?'✕ Hide English':'🇬🇧 View in English');
+      { const _pl=document.querySelector('#enViewPanel .en-panel-label'); if(_pl&&TSSC_EN2HI()) _pl.textContent='🇮🇳 हिंदी संस्करण'; }
       if(isOn && eq && enPanel){
         document.getElementById('enQText').innerHTML=formatQText(eq.text||eq.question||'');
         mathDress(document.getElementById('enQText'));
@@ -2343,12 +2344,92 @@ function renderQ(){_qtTick();
   updateProgress();
 }
 
-window.selectOpt=o=>{answers[currentQ]=o;renderQ();};
+window.selectOpt=o=>{ if(answers[currentQ]===o) delete answers[currentQ]; else answers[currentQ]=o; renderQ(); };   /* TSSC-EXAMUI-V1: tap again to unselect */
 window.clearResponse=()=>{ if(answers[currentQ]!==undefined){ delete answers[currentQ]; } renderQ(); };
 window.nextQ=()=>{const ts=timedSections[curTS];const lim=ts?ts.to:questions.length-1;if(currentQ<lim){currentQ++;renderQ();}};
 window.prevQ=()=>{const ts=timedSections[curTS];const lo=ts?ts.from:0;if(currentQ>lo){currentQ--;renderQ();}};
 window.goQ=i=>{if(!inActiveTS(i))return;currentQ=i;renderQ();};
 window.markForReview=()=>{markedForReview[currentQ]=!markedForReview[currentQ];renderQ();};
+
+/* TSSC-EXAMUI-V1 (2026-11-17) — exam-style controls: Save & Next, tap again to unselect,
+   silent section change, status palette with counts, and Hindi view on English tests. */
+function TSSC_EN2HI(){ try{ if(typeof CW!=='undefined'&&CW&&CW.lang) return CW.lang!=='hi'; }catch(_){} return new URLSearchParams(location.search).get('lang')!=='hi'; }
+function tsscHiOk(n){ let ok=true; try{ ok=(typeof CW!=='undefined')||!!enFetchParams; }catch(_){} return ok && !(enMapLoaded && !enQMap[n]); }
+function tsscToast(msg){
+  try{
+    let t=document.getElementById('tsscToast');
+    if(!t){ t=document.createElement('div'); t.id='tsscToast';
+      t.style.cssText='position:fixed;left:50%;top:70px;transform:translateX(-50%);z-index:99999;max-width:88vw;background:#0F172A;color:#fff;font-size:13.5px;font-weight:600;line-height:1.4;padding:10px 16px;border-radius:10px;box-shadow:0 6px 20px rgba(15,23,42,.25);text-align:center;transition:opacity .3s;pointer-events:none;';
+      document.body.appendChild(t); }
+    t.textContent=msg; t.style.opacity='1'; t.style.display='block';
+    clearTimeout(t._h); t._h=setTimeout(()=>{ t.style.opacity='0'; setTimeout(()=>{ t.style.display='none'; },320); },4000);
+  }catch(_){}
+}
+const tsscSeen=new WeakSet();
+function tsscPal(){
+  if(!questions||!questions.length) return;
+  if(questions[currentQ]) tsscSeen.add(questions[currentQ]);
+  const st=i=>{ const a=answers[i]!==undefined, m=!!markedForReview[i];
+    return m?(a?'am':'mk'):(a?'an':(tsscSeen.has(questions[i])?'na':'nv')); };
+  const c={an:0,na:0,nv:0,mk:0,am:0};
+  questions.forEach((_,i)=>{ const s=st(i); c[s]++;
+    const d=document.getElementById('dot'+i); if(d) d.classList.toggle('skipped',s==='na'&&i!==currentQ); });
+  document.querySelectorAll('#drawerGrid .dot').forEach(d=>{ const i=parseInt(d.textContent,10)-1;
+    if(i>=0) d.classList.toggle('skipped',st(i)==='na'&&i!==currentQ); });
+  const row=(dot,label,n)=>'<div class="legend-item"><div class="legend-dot" style="'+dot+'"></div>'+label+(n===null?'':'<b style="margin-left:auto;color:#0F172A;">'+n+'</b>')+'</div>';
+  const lg=row('background:#22C55E;','Answered',c.an)
+    +row('background:#FEF9C3;border:1.5px solid #EAB308;','Not Answered',c.na)
+    +row('background:#fff;border:1.5px solid #E2E8F0;','Not Visited',c.nv)
+    +row('background:#EEF2FF;border:1.5px solid #6366F1;','Marked for Review',c.mk)
+    +'<div class="legend-item"><div class="legend-dot" style="background:#EEF2FF;border:1.5px solid #6366F1;position:relative;"><span style="position:absolute;top:1px;right:1px;width:5px;height:5px;border-radius:50%;background:#22C55E;"></span></div>Answered &amp; Marked<b style="margin-left:auto;color:#0F172A;">'+c.am+'</b></div>'
+    +row('background:#FFF3E8;border:2px solid #FF6B00;','Current',null);
+  let sum='';
+  if(sections&&sections.length>1){
+    const r=(l,a,t,b)=>'<div style="display:flex;justify-content:space-between;gap:8px;padding:3px 0;'+(b?'border-top:1px solid #E2E8F0;margin-top:3px;font-weight:700;color:#0F172A;':'')+'"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+l+'</span><span style="flex:none;">'+a+' / '+t+'</span></div>';
+    let tot=0;
+    sum='<div style="font-weight:700;color:#0F172A;margin-bottom:2px;">Attempted</div>'
+      +sections.map(s=>{ let a=0; for(let i=s.from;i<=s.to;i++) if(answers[i]!==undefined) a++; tot+=a; return r(s.label||s.name||'Section',a,s.to-s.from+1,false); }).join('')
+      +r('Total',tot,questions.length,true);
+  }
+  document.querySelectorAll('.legend').forEach(el=>{
+    el.innerHTML=lg;
+    let b=el.nextElementSibling;
+    if(!b||!b.classList.contains('tssc-secsum')){ b=document.createElement('div'); b.className='tssc-secsum';
+      b.style.cssText='font-size:11.5px;color:#64748B;font-weight:500;margin:0 0 14px;padding:8px 10px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;';
+      el.parentNode.insertBefore(b,el.nextSibling); }
+    b.style.display=sum?'':'none'; b.innerHTML=sum;
+  });
+}
+
+/* TSSC-EXAMUI-V1 — Hindi counterpart for English tests (same lazy pattern as the English map) */
+async function tsscLoadHindiTwin(){
+  if(enMapLoaded || enMapLoading || !enFetchParams) return;
+  enMapLoading=true; enFetchError=false;
+  const P=enFetchParams; let failed=false;
+  const isEn=d=>{ const l=String(d.language||'').trim().toLowerCase(); return l==='en'||l==='eng'||l==='english'; };
+  const swap=id=>{ id=String(id||''); if(!id) return []; const out=new Set();
+    [[/(^|[_\-])en($|[_\-])/gi,'$1hi$2'],[/(^|[_\-])english($|[_\-])/gi,'$1hindi$2'],[/(^|[_\-])eng($|[_\-])/gi,'$1hin$2']]
+      .forEach(([re,rep])=>{ const c=id.replace(re,rep); if(c!==id) out.add(c); });
+    if(!out.size){ out.add(id+'_hi'); out.add(id+'_hindi'); out.add(id+'-hi'); }
+    return [...out]; };
+  const byField=async(field,val)=>{ let docs=[], bad=0;
+    try{ docs=await _enRest(field,val); }catch(_){ bad++; }
+    if(!docs.length){ try{ const snap=await getDocs(query(collection(db,'questions'),where(field,'==',val))); snap.forEach(d=>docs.push({id:d.id,...d.data()})); }catch(_){ bad++; } }
+    if(bad===2) failed=true;
+    return docs.filter(d=>!isEn(d)); };
+  try{
+    let hi=[];
+    for(const [field,val] of [['mockId',P.mockId],['paperId',P.paperId]]){
+      if(hi.length||!val) continue;
+      for(const c of swap(val)){ const d=await byField(field,c); if(d.length){ hi=d; break; } }
+    }
+    if(!hi.length && failed) throw new Error('network');
+    hi.forEach(q=>{ normaliseQ(q); const n=parseInt(q.qNum)||0; if(n>=1) enQMap[n]=q; });
+    console.log('[TrickySSC] Hindi map built (lazy):',Object.keys(enQMap).length,'entries');
+    enMapLoaded=true;
+  }catch(e){ console.warn('[TrickySSC] Hindi fetch failed:',e.message); enFetchError=true; }
+  finally{ enMapLoading=false; }
+}
 
 // ── Report a question / a solution (both write to question_reports) ──
 // target:'question'  → raised from the test screen, under the options
@@ -2495,6 +2576,7 @@ async function _enRest(field,value){
 }
 
 async function ensureEnglishMap(){
+  if(TSSC_EN2HI()) return tsscLoadHindiTwin();   /* TSSC-EXAMUI-V1 */
   if(enMapLoaded || enMapLoading || !enFetchParams) return;
   enMapLoading=true; enFetchError=false;
   const {exam,year,mNum,heldOn,shift,paperId,mockId}=enFetchParams;
@@ -2542,7 +2624,7 @@ window.toggleSolLang=function(btn){
   body.innerHTML=renderContent(raw)+(img?img.outerHTML:'');
   body.setAttribute('data-lang',to);
   try{ mathDress(body); }catch(e){}
-  btn.textContent=(to==='en')?'हिंदी में देखें':'View in English';
+  btn.textContent=((to==='en')!==TSSC_EN2HI())?'हिंदी में देखें':'View in English';
 };
 
 window.toggleEnglishView=async()=>{
@@ -2552,6 +2634,10 @@ window.toggleEnglishView=async()=>{
     if(btn) btn.textContent='⏳ Loading…';
     await ensureEnglishMap();
   }
+  if(TSSC_EN2HI()){ const _n=parseInt((questions[currentQ]||{}).qNum)||0;
+    if(enFetchError||!enMapLoaded||!enQMap[_n]){
+      tsscToast((enFetchError||!enMapLoaded)?"Couldn't load the Hindi version. Check your connection and try again.":(Object.keys(enQMap).length?'Hindi version is not available for this question.':'Hindi version is not available for this test.'));
+      renderQ(); return; } }
   showEnglishQ[currentQ]=true;
   renderQ();
 };
@@ -2716,6 +2802,7 @@ function updateGrid(){
 }
 
 function updateProgress(){
+  try{ tsscPal(); }catch(_){}   /* TSSC-EXAMUI-V1 */
   const answered=Object.keys(answers).length;
   const total=questions.length;
   document.getElementById('progressText').textContent=`${answered} / ${total}`;
@@ -2774,7 +2861,7 @@ window.togglePause=function(){_qtTick();
 function onSectionTimeUp(){
   if(curTS>=timedSections.length-1){ submitTest(); }
   else {
-    alert('⏱ Time is up for '+(timedSections[curTS]?timedSections[curTS].name:'this section')+'. Moving to the next section.');
+    tsscToast('⏱ Time is up for '+(timedSections[curTS]?timedSections[curTS].name:'this section')+'. Moving to the next section.');
     submitSection(true);
   }
 }
@@ -2982,10 +3069,10 @@ window.imgFail = function (el) {
     const _enTrk=(_enDoc&&_enDoc.trick)||'';
     const _enc=s=>encodeURIComponent(s||'');
     const solToggleBtn=_hasEnSol
-      ?`<button class="sol-lang-btn" onclick="toggleSolLang(this)">View in English</button>`:'';
+      ?`<button class="sol-lang-btn" onclick="toggleSolLang(this)">${TSSC_EN2HI()?'हिंदी में देखें':'View in English'}</button>`:'';
     const solHtml=(q.explanation||solImg)?`<div class="sol-panel sol-sol"><div class="sol-head"><span class="sol-ic">💡</span>Step-by-Step Solution${solToggleBtn}</div><div class="sol-body" data-hi="${_enc(q.explanation||'')}" data-en="${_enc(_enExp)}" data-lang="hi">${renderContent(q.explanation||'')}${solImg?`<img src="${solImg}" onerror="this.style.display='none'" alt="Solution">`:''}</div></div>`:'';
     const trickToggleBtn=(_hasEnSol&&_enTrk)
-      ?`<button class="sol-lang-btn" onclick="toggleSolLang(this)">View in English</button>`:'';
+      ?`<button class="sol-lang-btn" onclick="toggleSolLang(this)">${TSSC_EN2HI()?'हिंदी में देखें':'View in English'}</button>`:'';
     const trickHtml=q.trick?`<div class="sol-panel sol-trick"><div class="sol-head"><span class="sol-ic">⚡</span>Quick Trick${trickToggleBtn}</div><div class="sol-body" data-hi="${_enc(q.trick)}" data-en="${_enc(_enTrk)}" data-lang="hi">${renderContent(q.trick)}</div></div>`:'';
     const conceptHtml=q.concept?`<div class="sol-panel sol-concept"><div class="sol-head"><span class="sol-ic">🧠</span>Concept</div><div class="sol-body">${renderContent(q.concept)}</div></div>`:'';
     const solReportHtml=(solHtml||trickHtml||conceptHtml)
