@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../billing.dart';
 import '../data.dart';
 import 'engine.dart';
 import '../profile.dart';
@@ -147,106 +148,178 @@ Future<void> addWithApp(String col, Map<String, dynamic> body, {String? id}) asy
 }
 
 /// Post-test rating, same mock_ratings doc as the website (one per student per test).
-class RateCard extends StatefulWidget {
-  final Exam exam;
-  final Paper paper;
-  final String title;
-  const RateCard({super.key, required this.exam, required this.paper, required this.title});
+/// A small popup over the result, not a card on the page:
+///   student with no pass  -> rating on top + the Full Access offer below (offer once per app opening)
+///   pass holder           -> rating only
+/// A test already rated is not asked again.
+bool _offerShown = false;
 
-  @override
-  State<RateCard> createState() => _RateCardState();
-}
-
-class _RateCardState extends State<RateCard> {
-  int _stars = 0;
-  String _diff = '';
-  bool _busy = false, _done = false, _hidden = true;
-  String _err = '';
-
-  String get _id => '${widget.paper.rules.mockId}_${FirebaseAuth.instance.currentUser?.uid ?? 'anon_${DateTime.now().millisecondsSinceEpoch}'}';
-
-  @override
-  void initState() {
-    super.initState();
-    FirebaseFirestore.instance.collection('mock_ratings').doc(_id).get().then((d) {
-      if (mounted) setState(() => _hidden = d.exists);
-    }).catchError((_) {
-      if (mounted) setState(() => _hidden = false);
-    });
+Future<void> showRatePopup(BuildContext context, {required Exam exam, required Paper paper, required String title}) async {
+  final u = FirebaseAuth.instance.currentUser;
+  if (u == null) return;
+  final id = '${paper.rules.mockId}_${u.uid}';
+  bool rated = false;
+  try {
+    rated = (await FirebaseFirestore.instance.collection('mock_ratings').doc(id).get()).exists;
+  } catch (_) {}
+  String? price;
+  if (!_offerShown) {
+    final owned = await loadOwnedOrNull(u.uid);
+    if (owned != null && owned.isEmpty) {
+      try {
+        int? cat;
+        for (final p in await pricingProducts()) {
+          if (p is Map && p['id'] == 'p-all-mocks' && p['live'] != false && p['price'] is num) cat = (p['price'] as num).toInt();
+        }
+        final play = await Billing.I.playProducts();
+        price = play[allMocksProduct]?.price ?? (cat == null ? null : '₹$cat');
+      } catch (_) {}
+    }
   }
+  final offer = price != null;
+  final String priceText = price ?? '';
+  if (rated && !offer) return;
+  if (!context.mounted) return;
+  if (offer) _offerShown = true;
 
   // value saved (same set as the website, which reports-admin.html charts) -> label shown
-  static const _diffs = {'Easy': 'Easy', 'Same as CGL': 'Same as real exam', 'Difficult': 'Difficult', 'Very Difficult': 'Very Difficult'};
+  const diffs = {'Easy': 'Easy', 'Same as CGL': 'Same as real exam', 'Difficult': 'Difficult', 'Very Difficult': 'Very Difficult'};
+  int stars = 0;
+  String diff = '';
+  bool busy = false, done = false;
+  String err = '';
 
-  Future<void> _send() async {
-    if (_stars < 1) return;
-    setState(() {
-      _busy = true;
-      _err = '';
-    });
-    final u = FirebaseAuth.instance.currentUser;
+  Future<bool> send() async {
+    if (rated || stars < 1) return true;
     try {
       await addWithApp('mock_ratings', {
-        'mockId': widget.paper.rules.mockId,
-        'uid': u?.uid ?? '',
-        'name': u?.displayName ?? '',
-        'stars': _stars,
-        'difficulty': _diff,
-        'testName': widget.paper.title.isNotEmpty ? widget.paper.title : widget.title,
-        if (widget.paper.chapter != null) 'source': 'chapterwise' else if (isPyqId(widget.paper.rules.mockId)) 'source': 'pyq',
+        'mockId': paper.rules.mockId,
+        'uid': u.uid,
+        'name': u.displayName ?? '',
+        'stars': stars,
+        'difficulty': diff,
+        'testName': paper.title.isNotEmpty ? paper.title : title,
+        if (paper.chapter != null) 'source': 'chapterwise' else if (isPyqId(paper.rules.mockId)) 'source': 'pyq',
         'createdAt': FieldValue.serverTimestamp(),
-      }, id: _id);
-      if (mounted) setState(() => _done = true);
+      }, id: id);
+      return true;
     } catch (_) {
-      if (mounted) setState(() => _err = 'Could not send. Please try again.');
-    } finally {
-      if (mounted) setState(() => _busy = false);
+      return false;
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    if (_hidden) return const SizedBox.shrink();
-    final c1 = widget.exam.c1;
-    return Container(
-      margin: const EdgeInsets.only(top: 12),
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18), border: Border.all(color: const Color(0xFFE2E8F0))),
-      child: _done
-          ? const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              Icon(Icons.favorite, color: Color(0xFFE11D48), size: 18),
-              SizedBox(width: 6),
-              Text('Thanks for rating this test!', style: TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF16A34A))),
-            ])
-          : Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              const Text('How was this test?', textAlign: TextAlign.center, style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.w900)),
-              const SizedBox(height: 4),
-              Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                for (var i = 1; i <= 5; i++)
-                  IconButton(
-                    onPressed: _busy ? null : () => setState(() => _stars = i),
-                    icon: Icon(i <= _stars ? Icons.star_rounded : Icons.star_outline_rounded, size: 34, color: i <= _stars ? const Color(0xFFF59E0B) : const Color(0xFF94A3B8)),
-                  ),
-              ]),
-              const Text('Difficulty level', textAlign: TextAlign.center, style: TextStyle(fontSize: 12.5, color: Color(0xFF64748B), fontWeight: FontWeight.w700)),
-              const SizedBox(height: 6),
-              Wrap(alignment: WrapAlignment.center, spacing: 6, runSpacing: 6, children: [
-                for (final d in _diffs.keys)
-                  ChoiceChip(
-                    label: Text(_diffs[d]!, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
-                    selected: _diff == d,
-                    selectedColor: c1.withValues(alpha: .18),
-                    onSelected: _busy ? null : (_) => setState(() => _diff = d),
-                  ),
-              ]),
-              if (_err.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 6), child: Text(_err, textAlign: TextAlign.center, style: const TextStyle(color: Color(0xFFDC2626), fontWeight: FontWeight.w700))),
-              const SizedBox(height: 8),
-              FilledButton(
-                onPressed: _stars < 1 || _busy ? null : _send,
-                style: FilledButton.styleFrom(backgroundColor: c1, minimumSize: const Size.fromHeight(44), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                child: Text(_busy ? 'Sending…' : 'Submit rating', style: const TextStyle(fontWeight: FontWeight.w800)),
-              ),
-            ]),
-    );
-  }
+  await showDialog<void>(
+    context: context,
+    builder: (c) => StatefulBuilder(builder: (c, setS) {
+      Future<void> closeWith(VoidCallback? then) async {
+        setS(() {
+          busy = true;
+          err = '';
+        });
+        final ok = await send();
+        if (!c.mounted) return;
+        if (!ok && then == null && !offer) {
+          setS(() {
+            busy = false;
+            err = 'Could not send. Please try again.';
+          });
+          return;
+        }
+        if (!offer && stars > 0) {
+          setS(() => done = true);
+          await Future.delayed(const Duration(milliseconds: 900));
+          if (!c.mounted) return;
+        }
+        Navigator.pop(c);
+        then?.call();
+      }
+
+      return Dialog(
+        backgroundColor: Colors.white,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 36, vertical: 24),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 330),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+            child: done
+                ? const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 14),
+                    child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                      Icon(Icons.favorite, color: Color(0xFFE11D48), size: 18),
+                      SizedBox(width: 6),
+                      Text('Thanks for rating this test!', style: TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF16A34A))),
+                    ]),
+                  )
+                : Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                    if (!rated) ...[
+                      const Text('How was this test?', textAlign: TextAlign.center, style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.w900)),
+                      const SizedBox(height: 4),
+                      Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                        for (var i = 1; i <= 5; i++)
+                          InkResponse(
+                            onTap: busy ? null : () => setS(() => stars = i),
+                            radius: 22,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                              child: Icon(i <= stars ? Icons.star_rounded : Icons.star_outline_rounded, size: 32, color: i <= stars ? const Color(0xFFF59E0B) : const Color(0xFF94A3B8)),
+                            ),
+                          ),
+                      ]),
+                      const SizedBox(height: 6),
+                      Wrap(alignment: WrapAlignment.center, spacing: 6, runSpacing: 2, children: [
+                        for (final d in diffs.keys)
+                          ChoiceChip(
+                            label: Text(diffs[d]!, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                            selected: diff == d,
+                            visualDensity: VisualDensity.compact,
+                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            selectedColor: exam.c1.withValues(alpha: .18),
+                            onSelected: busy ? null : (_) => setS(() => diff = d),
+                          ),
+                      ]),
+                      if (err.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 6), child: Text(err, textAlign: TextAlign.center, style: const TextStyle(color: Color(0xFFDC2626), fontWeight: FontWeight.w700, fontSize: 12.5))),
+                      const SizedBox(height: 10),
+                    ],
+                    if (offer) ...[
+                      if (!rated) const Divider(height: 1, color: Color(0xFFE2E8F0)),
+                      const SizedBox(height: 10),
+                      Row(children: [
+                        const Text('👑', style: TextStyle(fontSize: 22)),
+                        const SizedBox(width: 8),
+                        const Expanded(
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Text('Full Access', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
+                            Text('Every mock of every exam · 1 year', style: TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w700)),
+                          ]),
+                        ),
+                        Text(priceText, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Color(0xFFD97706))),
+                      ]),
+                      const SizedBox(height: 10),
+                      FilledButton(
+                        onPressed: busy ? null : () => closeWith(() => Billing.I.buy(allMocksProduct, 'all-mocks')),
+                        style: FilledButton.styleFrom(backgroundColor: const Color(0xFFD97706), minimumSize: const Size.fromHeight(44), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                        child: Text('Get Full Access for $priceText', style: const TextStyle(fontWeight: FontWeight.w900)),
+                      ),
+                      TextButton(
+                        onPressed: busy ? null : () => closeWith(null),
+                        child: const Text('Go to results →', style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w800)),
+                      ),
+                    ] else ...[
+                      FilledButton(
+                        onPressed: stars < 1 || busy ? null : () => closeWith(null),
+                        style: FilledButton.styleFrom(backgroundColor: exam.c1, minimumSize: const Size.fromHeight(42), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                        child: Text(busy ? 'Sending…' : 'Submit rating', style: const TextStyle(fontWeight: FontWeight.w800)),
+                      ),
+                      TextButton(
+                        onPressed: busy ? null : () => Navigator.pop(c),
+                        child: const Text('Skip', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: Color(0xFF64748B))),
+                      ),
+                    ],
+                  ]),
+          ),
+        ),
+      );
+    }),
+  );
 }
