@@ -1541,6 +1541,10 @@ const SUBJECTS=[
   {v:'finance',  l:'Finance & Economics',short:'Finance',tier:2,icon:'\uD83D\uDCB0',color:'#6366F1'}
 ];
 const SUBJECT_TO_CANON={reasoning:'reasoning',gk:'ga',quant:'quant',english:'english',statistics:'statistics',finance:'finance_economics',computer:'computer'};
+/* TSSC-CA-TOPICS (2026-11-17) — topic-wise current affairs tests (ca-topics/, subject gk).
+   Registered here only, so this page can play them; the shared taxonomy stays unchanged. */
+const CA_TOPIC_PAGES={"ca.international":["International","international"],"ca.national":["National","national"],"ca.economic":["Economic","economy"],"ca.science-tech":["Science and Technology","science-technology"],"ca.sports":["Sports Affairs","sports"],"ca.awards":["Awards and Honours","awards-honours"],"ca.conferences":["Conferences, Meetings, Fairs, Festivals and Exhibitions","conferences-summits"],"ca.appointments":["Election and Appointments","appointments"],"ca.military":["Campaigns, Operations and Military Exercises","defence-exercises"],"ca.important-days":["Important Days","important-days"],"ca.economic-survey":["Economic Survey","economic-survey"],"ca.budget":["Budget 2026","budget"]};
+try{ Object.keys(CA_TOPIC_PAGES).forEach(id=>{ const ch=CANON.subjects.ga.chapters; if(!ch.some(c=>c.id===id)) ch.push({id:id,name:'Current Affairs: '+CA_TOPIC_PAGES[id][0],group:'Current Affairs'}); }); }catch(e){}
 function subjectMeta(v){return SUBJECTS.find(s=>s.v===v);}
 function chaptersFor(v){const k=SUBJECT_TO_CANON[v];const s=CANON.subjects&&CANON.subjects[k];return s?s.chapters:[];}
 function chapterMeta(subjV,chId){return chaptersFor(subjV).find(c=>c.id===chId);}
@@ -2062,13 +2066,14 @@ window.cwClose=()=>{
 const CW_PAGE_KEY='tsscChPage:'+CHID;
 const CW_PAGE_SLUG_OVERRIDE={ 'quant.divisibility':'divisibility-rules', 'quant.simplification':'power-indices-surds', 'quant.algebra':'algebraic-expression' };
 function cwReferrerPath(){ try{ const u=new URL(document.referrer); return (u.origin===location.origin)?u.pathname:''; }catch(e){ return ''; } }
-function cwIsChapterPage(path){ return /^\/ssc-cgl-[a-z0-9-]+-questions\.html$/i.test(path||''); }
+function cwIsChapterPage(path){ return /^\/ssc-cgl-[a-z0-9-]+-questions\.html$/i.test(path||'') || /^\/current-affairs-[a-z0-9-]+\.html$/i.test(path||''); }
 (function cwRememberChapterPage(){
   const ref=cwReferrerPath();
   if(CHID && cwIsChapterPage(ref)){ try{ localStorage.setItem(CW_PAGE_KEY, ref); }catch(e){} }
 })();
 function cwChapterPageGuess(){
   if(!CHID) return '';
+  if(CA_TOPIC_PAGES[CHID]) return '/current-affairs-'+CA_TOPIC_PAGES[CHID][1]+'.html';
   const slug=CW_PAGE_SLUG_OVERRIDE[CHID] || CHID.replace(/^[a-z_]+\./,'');
   return /^[a-z0-9-]+$/.test(slug) ? '/ssc-cgl-'+slug+'-questions.html' : '';
 }
