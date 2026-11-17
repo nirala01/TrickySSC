@@ -513,7 +513,6 @@ def subj_list_html(tk, key, papers):
 
 
 def bake_subject_pages(papers, root=".", dry_run=False):
-    import os
     written = []
     for (tk, key), (fname, label, q, mins, per_q) in SUBJECT_PAGES.items():
         path = os.path.join(root, fname)
@@ -589,7 +588,6 @@ def build(page_path, sitemap_path=None, dry_run=False, subject_pages=True, full=
         print(f"[build] wrote {page_path}")
 
     if subject_pages:
-        import os
         bake_subject_pages(papers, os.path.dirname(os.path.abspath(page_path)), dry_run)
 
     if sitemap_path:
