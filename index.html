@@ -4647,19 +4647,22 @@ onAuthStateChanged(_auth, async user => {
 
   // TSSC-OFFERSPOPUP-V1 — never sell a series this browser already holds;
   // single plans that qualify for the add-on price say so and open it.
+  /* TSSC-UPGRADEONLY-V1 (2026-11-17) — a pass holder is shown only the upgrade to the All
+     Mocks Pass (Rs 49 for 1 series held, Rs 20 for 2); 3 or more held: no popup. */
+  var S5=['ssc-cgl-mocks','ssc-chsl-mocks','ssc-gd-mocks','ssc-mts-mocks','rrb-ntpc-mocks'], held=0;
+  for(var h5=0;h5<S5.length;h5++) if(owns(S5[h5])) held++;
+  if(owns('all-mocks') || held>=3) return;
   var rows=box.querySelectorAll('[data-mp-grants]'), shown=0;
   for(var r=0;r<rows.length;r++){
     var el=rows[r], keys=(el.getAttribute('data-mp-grants')||'').split(' '), hit=false;
     /* TSSC-ALLUP-V1 — the All Mocks Pass row: Rs 99 for someone who holds nothing; for a
        pass holder it becomes the upgrade (they pay only the difference: 1 series held
-       Rs 49, 2 held Rs 19 — display only, the charge comes from config/pricing);
+       Rs 49, 2 held Rs 20 — display only, the charge comes from config/pricing);
        hidden for someone who already holds 3 or more series. */
     if(el.className.indexOf('tsscMP-all')!==-1){
-      var S5=['ssc-cgl-mocks','ssc-chsl-mocks','ssc-gd-mocks','ssc-mts-mocks','rrb-ntpc-mocks'], held=0;
-      for(var h5=0;h5<S5.length;h5++) if(owns(S5[h5])) held++;
       if(held>=3){ el.hidden=true; continue; }
       if(held>0){
-        var more=[49,19][held-1], set=function(c,t){ var x=el.querySelector(c); if(x) x.textContent=t; };
+        var more=[49,20][held-1], set=function(c,t){ var x=el.querySelector(c); if(x) x.textContent=t; };
         set('.tag','\u2B50 UPGRADE FOR YOU');
         set('.nm','Upgrade to All Mocks Pass');
         set('.ct','You already hold '+(held===1?'a mock pass':held+' mock passes')+' \u2014 pay only the difference');
@@ -4668,6 +4671,7 @@ onAuthStateChanged(_auth, async user => {
       }
       shown++; continue;
     }
+    if(held>0){ el.hidden=true; continue; }               // TSSC-UPGRADEONLY-V1
     for(var q=0;q<keys.length;q++) if(keys[q] && owns(keys[q])) hit=true;
     if(hit){ el.hidden=true; continue; }
     shown++;

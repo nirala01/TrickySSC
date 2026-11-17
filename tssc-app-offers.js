@@ -2,8 +2,8 @@
    pages) and app.html. One rule set, used in two places:
 
      no pass bought        -> the student's exam pass, the All Mocks Pass, then the other exams
-     1 or 2 series bought  -> the All Mocks Pass at the difference price, then add-ons / other exams
-     3 or 4 series bought  -> only the series still missing
+     1 or 2 series bought  -> only the All Mocks Pass at the difference price (TSSC-UPGRADEONLY-V1)
+     3 or 4 series bought  -> nothing
      All Mocks Pass        -> nothing, anywhere
 
    Where it shows
@@ -27,7 +27,7 @@
     { k: 'gd', name: 'SSC GD', ic: '🛡️', key: 'ssc-gd-mocks', page: '/app-ssc-gd-mock-test.html', c: '#B91C1C', c2: '#F87171', s: 'rgba(239,68,68,.25)', addonIf: 'ssc-chsl-mocks' },
     { k: 'ntpc', name: 'RRB NTPC', ic: '🚆', key: 'rrb-ntpc-mocks', page: '/app-rrb-ntpc-mock-test.html', c: '#1E3FAE', c2: '#60A5FA', s: 'rgba(29,78,216,.25)', addonIf: '' }
   ];
-  var UPGRADE_DIFF = [49, 19];             // All Mocks Pass for a holder of 1 / 2 series (same as the website popups)
+  var UPGRADE_DIFF = [49, 20];             // All Mocks Pass for a holder of 1 / 2 series (same as the website popups)
   var R = '₹';
 
   function user() { try { var u = JSON.parse(localStorage.getItem('tssc_user') || 'null'); return u && u.uid ? u : null; } catch (e) { return null; } }
@@ -80,7 +80,7 @@
   function plan(m, cat) {
     var P = window.TSSC_PRICING, held = 0, out = [], mine = myExam();
     S5.forEach(function (k) { if (m[k] === true) held++; });
-    if (held >= S5.length) return out;                                    // All Mocks Pass (or every series): nothing
+    if (held >= S5.length || held >= 3) return out;                                    // All Mocks Pass (or every series): nothing
     function cheapest(key, single) {
       var ps = P.productsGranting(cat, key).filter(function (p) {
         var all = (p.grants || []).indexOf('all-mocks') >= 0; return Number(p.price) > 0 && (single ? (!all && p.grants.length === 1) : all); });
@@ -95,6 +95,7 @@
         : { ic: '⭐', title: 'All Mocks upgrade', sub: 'Every exam · pay only the difference', price: '+' + R + UPGRADE_DIFF[held - 1], was: R + allP.price, href: allHref };
       allCard.c = '#4338CA'; allCard.c2 = '#818CF8'; allCard.s = 'rgba(79,70,229,.25)';
     }
+    if (held > 0) return allCard ? [allCard] : out;                      // TSSC-UPGRADEONLY-V1
     var singles = [];
     EXAMS.slice().sort(function (a, b) { return (b.k === mine) - (a.k === mine); }).forEach(function (x) {
       if (m[x.key] === true) return;

@@ -175,9 +175,11 @@
 
     var shown = 0, held = 0, i;
     for (i = 0; i < S5.length; i++) if (owns(S5[i])) held++;
+    /* TSSC-UPGRADEONLY-V1 (2026-11-17) — a pass holder sees only the upgrade; 3 or more held: no popup */
+    if (owns('all-mocks') || held >= 3) return null;
 
     /* All Mocks Pass: Rs 99 with no pass; the difference for a holder of 1 or 2 series
-       (Rs 49 / Rs 19, same as the home page popup); hidden for 3 or more. */
+       (Rs 49 / Rs 20, same as the home page popup); hidden for 3 or more. */
     var all = box.querySelector('.rp-all');
     if (held >= 3) { all.hidden = true; }
     else {
@@ -187,13 +189,14 @@
         set('.rp-nm', 'Upgrade to All Mocks Pass');
         set('.rp-ct', 'You already hold ' + (held === 1 ? 'a mock pass' : held + ' mock passes') + ' \u2014 pay only the difference');
         set('.rp-up', 'Every SSC and RRB NTPC mock + every new series, for 1 year');
-        set('.rp-was', R + '99'); set('.rp-now', '+' + R + [49, 19][held - 1]); set('.rp-sv', 'UPGRADE');
+        set('.rp-was', R + '99'); set('.rp-now', '+' + R + [49, 20][held - 1]); set('.rp-sv', 'UPGRADE');
       }
       shown++;
     }
     var rows = box.querySelectorAll('[data-rp-grants]');
     for (i = 0; i < rows.length; i++) {
       var el = rows[i], keys = el.getAttribute('data-rp-grants').split(' '), hit = false, q;
+      if (held > 0) { el.hidden = true; continue; }          // TSSC-UPGRADEONLY-V1
       for (q = 0; q < keys.length; q++) if (owns(keys[q])) hit = true;
       if (hit) { el.hidden = true; continue; }
       shown++;

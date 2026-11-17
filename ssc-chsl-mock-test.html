@@ -2856,6 +2856,20 @@ async function openBuy(card) {
     const upg = P.upgradeFor(cat, CFG.module);
     if (upg && tsscUpgradeAllowed(upg, OWN)) { lead = upg; upgraded = true; }
   }
+  /* TSSC-UPGRADEONLY-V1 (2026-11-17) — plan doc: a student who already holds a mock series
+     is offered only the upgrade to the All Mocks Pass (p-upgrade-all-1 Rs 49, p-upgrade-all-2
+     Rs 20), the same as in the Android app. No single passes, combos or add-ons for them.
+     Holders of 3 or more series have no upgrade product, so nothing is sold to them here. */
+  if (OWN && !OWN.all && OWN.keys.size) {
+    const upOnly = tsscAllUpgrade(cat, OWN);
+    if (!upOnly) {
+      document.getElementById('mbpPrice').innerHTML =
+        '<span style="font-size:.85rem;color:#1E293B;">You already hold ' + OWN.keys.size + ' mock passes. ' +
+        'For the All Mocks Pass, write to <a href="mailto:contact@trickyssc.com">contact@trickyssc.com</a> and we will upgrade your account.</span>';
+      return;
+    }
+    lead = upOnly; upgraded = true; window.__tsscWantAll = true;
+  }
   /* TSSC-ALLPASS-V1 / TSSC-ALLUP-V1 — the Rs 99 All Mocks Pass. upAll is the upgrade
      price for a buyer who already holds a series (they pay only the difference).
      Arriving with ?pass=all leads with the pass: the full Rs 99 plan for someone who
@@ -2997,7 +3011,7 @@ function tsscSeries(p) { return ((p && p.grants) || []).filter(k => TSSC_SERIES.
 function tsscSellsOwned(p, own) { return !!own && (own.all || tsscSeries(p).some(k => own.keys.has(k))); }
 /* TSSC-ALLUP-V1 (2026-11-13) — a buyer who already holds a mock series pays only the
    difference to move up to the Rs 99 All Mocks Pass: products p-upgrade-all-1
-   (holds 1 series, Rs 49) and p-upgrade-all-2 (holds 2, Rs 19) in admin-pricing;
+   (holds 1 series, Rs 49) and p-upgrade-all-2 (holds 2, Rs 20) in admin-pricing;
    a product p-upgrade-all-3 would serve holders of 3 or more, none exists. They
    grant the all-mocks key, which every page and engine treats as every series.
    null = nothing to offer (holds nothing, holds everything, or not Live). */
