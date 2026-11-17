@@ -257,8 +257,9 @@ class _TestScreenState extends State<TestScreen> with WidgetsBindingObserver {
   DateTime _qStart = DateTime.now();
   int _tick = 0;
   bool _showEn = false;
-  Map<int, Question>? _en;
+  Map<int, Question>? _en; // the other-language version by qNum: English for a Hindi test, Hindi for an English test
   bool _enLoading = false;
+  bool _noTwin = false; // TSSC-EXAMUI-V1: this English test has no Hindi version — the button is hidden
   final _scroll = ScrollController();
 
   Paper get p => widget.paper;
@@ -330,7 +331,14 @@ class _TestScreenState extends State<TestScreen> with WidgetsBindingObserver {
   }
 
   void _pick(String k) {
-    setState(() => pr.answers[pr.current] = k);
+    // TSSC-EXAMUI-V1: tapping the selected option again clears the answer
+    setState(() {
+      if (pr.answers[pr.current] == k) {
+        pr.answers.remove(pr.current);
+      } else {
+        pr.answers[pr.current] = k;
+      }
+    });
     _persist();
   }
 
@@ -372,11 +380,27 @@ class _TestScreenState extends State<TestScreen> with WidgetsBindingObserver {
     if (_lastUnit) {
       _submit();
     } else {
+      // TSSC-EXAMUI-V1: silent section change — no dialog. Anything open (palette, a confirm box) is closed,
+      // the next section opens at once and a small notice shows for 4 seconds.
+      if (!mounted) return;
+      final done = unit.label;
+      Navigator.of(context).popUntil((r) => r is! PopupRoute);
       _advance();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Time up. ${p.units[pr.unit].label} is open now.')));
-      }
+      _notice('⏱ Time is up for $done. Moving to the next $_unitWord.');
     }
+  }
+
+  void _notice(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+        content: Text(msg, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w600)),
+        duration: const Duration(seconds: 4),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: const Color(0xFF0F172A),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ));
   }
 
   void _advance() {
@@ -448,6 +472,27 @@ class _TestScreenState extends State<TestScreen> with WidgetsBindingObserver {
     return ok == true;
   }
 
+  // TSSC-EXAMUI-V1: a Hindi test offers "View in English" (the question is shown in English); an English test
+  // offers "हिंदी में देखें" (the Hindi version is shown below the question).
+  bool get _hiTest => (p.chapter?.lang ?? widget.lang) == 'hi';
+
+  /// English / Hindi language sections have no other-language version to show.
+  bool get _langSection =>
+      p.chapter?.subject == 'english' || canonSubject(q.subjectRaw) == 'English' || RegExp(r'hindi|हिंदी|हिन्दी', caseSensitive: false).hasMatch(q.subjectRaw);
+
+  bool get _langBtn => _hiTest || (!_noTwin && !_langSection);
+
+  Future<Map<int, Question>?> _loadHindi() async {
+    final ch = p.chapter;
+    if (ch == null) return loadHindiTwin(p.rules.mockId);
+    if (ch.hi.isNotEmpty || ch.hiLoader == null) return ch.hi;
+    try {
+      return await ch.hiLoader!();
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<void> _toggleEnglish() async {
     if (_showEn) {
       setState(() => _showEn = false);
@@ -455,20 +500,56 @@ class _TestScreenState extends State<TestScreen> with WidgetsBindingObserver {
     }
     if (_en == null) {
       setState(() => _enLoading = true);
-      _en = p.chapter != null ? p.chapter!.en : await loadEnglishTwin(p.rules.mockId);
+      final m = _hiTest ? (p.chapter != null ? p.chapter!.en : await loadEnglishTwin(p.rules.mockId)) : await _loadHindi();
       if (!mounted) return;
       setState(() => _enLoading = false);
+      if (m == null) {
+        _notice("Couldn't load the Hindi version. Check your connection and try again.");
+        return;
+      }
+      _en = m;
     }
-    if ((_en ?? const {})[q.qNumOr(pr.current + 1)] == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No English version of this question.')));
+    if (!_hiTest && _en!.isEmpty) {
+      setState(() => _noTwin = true);
+      _notice('Hindi version is not available for this test');
+      return;
+    }
+    if (_en![q.qNumOr(pr.current + 1)] == null) {
+      _notice(_hiTest ? 'No English version of this question.' : 'Hindi version is not available for this question.');
       return;
     }
     setState(() => _showEn = true);
   }
 
+  /// The Hindi version of the current question, shown below it on an English test.
+  Widget _hindiPanel() {
+    final h = _en![q.qNumOr(pr.current + 1)]!;
+    return Container(
+      margin: const EdgeInsets.only(top: 4, bottom: 8),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      decoration: BoxDecoration(color: const Color(0xFFEFF6FF), borderRadius: BorderRadius.circular(14), border: Border.all(color: const Color(0xFFBFDBFE))),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        const Text('हिंदी संस्करण', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF1D4ED8))),
+        const SizedBox(height: 6),
+        Rich(questionHtml(h.text), size: 15.5, weight: FontWeight.w600),
+        const SizedBox(height: 6),
+        for (final k in q.keys)
+          if (stripFigRef(h.option(k)).isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('$k)  ', style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF1D4ED8))),
+                Expanded(child: Rich(h.option(k), size: 15)),
+              ]),
+            ),
+      ]),
+    );
+  }
+
   // colours of the palette states
   static const _answered = Color(0xFF16A34A);
-  static const _notAnswered = Color(0xFFDC2626);
+  static const _notAnswered = Color(0xFFFEF9C3); // TSSC-EXAMUI-V1: visited but not answered = yellow
+  static const _notAnsweredEdge = Color(0xFFEAB308);
   static const _markedC = Color(0xFF7C3AED);
 
   Color _stateColor(int i) {
@@ -488,11 +569,25 @@ class _TestScreenState extends State<TestScreen> with WidgetsBindingObserver {
       builder: (c) => StatefulBuilder(builder: (c, set) {
         final secs = p.sections.where((s) => s.from >= unit.from && s.to <= unit.to).toList();
         int count(bool Function(int) f) => [for (var i = unit.from; i <= unit.to; i++) if (f(i)) i].length;
-        Widget legend(Color col, String t, int n) => Row(mainAxisSize: MainAxisSize.min, children: [
-              Container(width: 14, height: 14, decoration: BoxDecoration(color: col, borderRadius: BorderRadius.circular(4))),
-              const SizedBox(width: 5),
-              Text('$t $n', style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
+        // TSSC-EXAMUI-V1: five statuses, each with a live count
+        Widget legend(Color col, String t, int n, {Color? edge, bool dot = false}) => Row(mainAxisSize: MainAxisSize.min, children: [
+              Stack(clipBehavior: Clip.none, children: [
+                Container(width: 14, height: 14, decoration: BoxDecoration(color: col, borderRadius: BorderRadius.circular(4), border: edge == null ? null : Border.all(color: edge, width: 1.5))),
+                if (dot) const Positioned(right: -3, top: -3, child: CircleAvatar(radius: 3.5, backgroundColor: _answered)),
+              ]),
+              const SizedBox(width: 6),
+              Text(t, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
+              const SizedBox(width: 4),
+              Text('$n', style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w900, color: Color(0xFF0F172A))),
             ]);
+        Widget attRow(String l, int a, int t, {bool bold = false}) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Row(children: [
+                Expanded(child: Text(l, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12.5, fontWeight: bold ? FontWeight.w800 : FontWeight.w600, color: bold ? const Color(0xFF0F172A) : const Color(0xFF64748B)))),
+                Text('$a / $t', style: TextStyle(fontSize: 12.5, fontWeight: bold ? FontWeight.w800 : FontWeight.w600, color: bold ? const Color(0xFF0F172A) : const Color(0xFF64748B))),
+              ]),
+            );
+        int att(int from, int to) => [for (var i = from; i <= to; i++) if (pr.answers[i] != null) i].length;
         return SafeArea(
           child: ConstrainedBox(
             constraints: BoxConstraints(maxHeight: MediaQuery.of(c).size.height * 0.8),
@@ -505,10 +600,23 @@ class _TestScreenState extends State<TestScreen> with WidgetsBindingObserver {
                 const SizedBox(height: 8),
                 Wrap(spacing: 12, runSpacing: 6, children: [
                   legend(_answered, 'Answered', count((i) => pr.answers[i] != null && !pr.marked.contains(i))),
-                  legend(_notAnswered, 'Not answered', count((i) => pr.answers[i] == null && pr.visited.contains(i) && !pr.marked.contains(i))),
-                  legend(_markedC, 'Marked', count((i) => pr.marked.contains(i))),
-                  legend(const Color(0xFFE2E8F0), 'Not visited', count((i) => !pr.visited.contains(i))),
+                  legend(_notAnswered, 'Not Answered', count((i) => pr.answers[i] == null && pr.visited.contains(i) && !pr.marked.contains(i)), edge: _notAnsweredEdge),
+                  legend(const Color(0xFFE2E8F0), 'Not Visited', count((i) => pr.answers[i] == null && !pr.visited.contains(i) && !pr.marked.contains(i))),
+                  legend(_markedC, 'Marked for Review', count((i) => pr.marked.contains(i) && pr.answers[i] == null)),
+                  legend(_markedC, 'Answered & Marked', count((i) => pr.marked.contains(i) && pr.answers[i] != null), dot: true),
                 ]),
+                if (p.sections.length > 1)
+                  Container(
+                    margin: const EdgeInsets.only(top: 10),
+                    padding: const EdgeInsets.fromLTRB(10, 7, 10, 7),
+                    decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFFE2E8F0))),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                      const Text('Attempted', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: Color(0xFF0F172A))),
+                      for (final s in p.sections) attRow(s.label, att(s.from, s.to), s.to - s.from + 1),
+                      const Divider(height: 8, color: Color(0xFFE2E8F0)),
+                      attRow('Total', att(0, p.questions.length - 1), p.questions.length, bold: true),
+                    ]),
+                  ),
                 const SizedBox(height: 10),
                 Flexible(
                   child: SingleChildScrollView(
@@ -530,10 +638,12 @@ class _TestScreenState extends State<TestScreen> with WidgetsBindingObserver {
                                 decoration: BoxDecoration(
                                   color: _stateColor(i),
                                   borderRadius: BorderRadius.circular(10),
-                                  border: i == pr.current ? Border.all(color: const Color(0xFF0F172A), width: 2.5) : null,
+                                  border: i == pr.current
+                                      ? Border.all(color: const Color(0xFF0F172A), width: 2.5)
+                                      : (_stateColor(i) == _notAnswered ? Border.all(color: _notAnsweredEdge, width: 1.5) : null),
                                 ),
                                 child: Stack(clipBehavior: Clip.none, children: [
-                                  Text('${i + 1}', style: TextStyle(fontWeight: FontWeight.w800, color: _stateColor(i) == const Color(0xFFE2E8F0) ? const Color(0xFF334155) : Colors.white)),
+                                  Text('${i + 1}', style: TextStyle(fontWeight: FontWeight.w800, color: _stateColor(i) == const Color(0xFFE2E8F0) || _stateColor(i) == _notAnswered ? const Color(0xFF334155) : Colors.white)),
                                   if (pr.marked.contains(i) && pr.answers[i] != null)
                                     const Positioned(right: -10, top: -10, child: CircleAvatar(radius: 6, backgroundColor: _answered)),
                                 ]),
@@ -567,7 +677,7 @@ class _TestScreenState extends State<TestScreen> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     final exam = widget.exam;
     final secs = p.sections.where((s) => s.from >= unit.from && s.to <= unit.to).toList();
-    final shown = _showEn ? (_en?[q.qNumOr(pr.current + 1)] ?? q) : q;
+    final shown = _showEn && _hiTest ? (_en?[q.qNumOr(pr.current + 1)] ?? q) : q;
     final left = pr.remaining[pr.unit];
     final neg = p.rules.neg(q, pr.current);
     final low = !pr.untimed && left <= 60;
@@ -650,13 +760,19 @@ class _TestScreenState extends State<TestScreen> with WidgetsBindingObserver {
                               Text('Q ${pr.current + 1}', style: baloo(21)),
                               Text('  / ${p.questions.length}', style: const TextStyle(color: Color(0xFF8B8FB3), fontWeight: FontWeight.w800)),
                               const Spacer(),
-                              if (widget.lang == 'hi')
-                                TextButton(
-                                  onPressed: _enLoading ? null : _toggleEnglish,
-                                  style: TextButton.styleFrom(visualDensity: VisualDensity.compact, foregroundColor: exam.c1),
-                                  child: _enLoading
-                                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                                      : Text(_showEn ? 'हिंदी' : 'English', style: const TextStyle(fontWeight: FontWeight.w800)),
+                              if (_langBtn)
+                                Flexible(
+                                  child: TextButton(
+                                    onPressed: _enLoading ? null : _toggleEnglish,
+                                    style: TextButton.styleFrom(visualDensity: VisualDensity.compact, foregroundColor: exam.c1, padding: const EdgeInsets.symmetric(horizontal: 8)),
+                                    child: _enLoading
+                                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                                        : FittedBox(
+                                            fit: BoxFit.scaleDown,
+                                            child: Text(_hiTest ? (_showEn ? 'हिंदी' : 'View in English') : (_showEn ? 'हिंदी छिपाएँ' : 'हिंदी में देखें'),
+                                                maxLines: 1, style: const TextStyle(fontWeight: FontWeight.w800)),
+                                          ),
+                                  ),
                                 ),
                               _pill('+${_n(p.rules.pos)}', const Color(0xFF047857), const Color(0xFFD1FAE5)),
                               const SizedBox(width: 5),
@@ -681,6 +797,7 @@ class _TestScreenState extends State<TestScreen> with WidgetsBindingObserver {
                               _optionGrid(shown)
                             else
                               for (final k in q.keys) _option(k, shown),
+                            if (_showEn && !_hiTest && _en?[q.qNumOr(pr.current + 1)] != null) _hindiPanel(),
                             Row(children: [
                               if (pr.answers[pr.current] != null)
                                 TextButton.icon(
@@ -741,7 +858,7 @@ class _TestScreenState extends State<TestScreen> with WidgetsBindingObserver {
                                   borderRadius: BorderRadius.circular(15),
                                   onTap: _next,
                                   child: Center(
-                                    child: FittedBox(fit: BoxFit.scaleDown, child: Text(pr.current < unit.to ? 'Save & next' : (_lastUnit ? 'Submit' : 'Review'),
+                                    child: FittedBox(fit: BoxFit.scaleDown, child: Text(pr.current < unit.to ? 'Save & Next' : (_lastUnit ? 'Submit' : 'Review'),
                                         maxLines: 1, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 15))),
                                   ),
                                 ),

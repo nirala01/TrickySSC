@@ -194,7 +194,11 @@ class ChapterInfo {
   final int level, testNum;
   final Map<int, Question> en; // English questions by qNum, for "View in English"
   final bool pyq; // chapter-wise PYQ test (website: pyq-chapter-test.html)
-  ChapterInfo(this.chapterId, this.chapterName, this.subject, this.level, this.testNum, this.lang, this.en, {this.pyq = false});
+  // TSSC-EXAMUI-V1: Hindi questions by qNum, for "हिंदी में देखें" on an English test. [hiLoader] fetches them
+  // on the first tap when they were not loaded with the test (chapter-wise PYQ tests).
+  final Map<int, Question> hi;
+  final Future<Map<int, Question>> Function()? hiLoader;
+  ChapterInfo(this.chapterId, this.chapterName, this.subject, this.level, this.testNum, this.lang, this.en, {this.pyq = false, this.hi = const {}, this.hiLoader});
   String get _key => chapterId.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '');
   String get lbKey => pyq ? 'cwp_ssc_all_${_key}_T$testNum' : cwLbKey(chapterId, level, testNum);
   String get lbName => pyq ? '$chapterName · SSC PYQ · Test $testNum' : '$chapterName · Level $level · Test $testNum';
@@ -230,7 +234,13 @@ Future<Paper> loadChapterPyqTest({required String chapterId, required String cha
   final useLang = lang == 'hi' && hi.isNotEmpty ? 'hi' : 'en';
   final qs = useLang == 'hi' ? hi : en;
   if (qs.isEmpty) throw 'This test could not be loaded just now.';
-  final info = ChapterInfo(chapterId, chapterName, subject, 1, testNum, useLang, {for (final q in en) q.qNumOr(0): q}, pyq: true);
+  final info = ChapterInfo(chapterId, chapterName, subject, 1, testNum, useLang, {for (final q in en) q.qNumOr(0): q},
+      pyq: true,
+      hi: {for (final q in hi) q.qNumOr(0): q},
+      hiLoader: () async {
+        final docs = await Future.wait([for (final r in refs) get(r.hi)]);
+        return {for (var k = 0; k < refs.length; k++) if (docs[k] != null) k + 1: make(docs[k]!, k)};
+      });
   final rules = Rules('${info.lbKey}_$useLang');
   final p = Paper(rules, qs, [Section(chapterName, 0, qs.length - 1)], [Unit(chapterName, 0, qs.length - 1, 15 * 60)], '$chapterName · PYQ Test $testNum', '');
   p.chapter = info;
@@ -259,7 +269,7 @@ Future<Paper> loadChapterTest({required String chapterId, required String chapte
   final id = '${cwLbKey(chapterId, level, testNum)}_$useLang';
   final rules = Rules(id);
   final p = Paper(rules, qs, [Section(chapterName, 0, qs.length - 1)], [Unit(chapterName, 0, qs.length - 1, 15 * 60)], '$chapterName · Level $level · Test $testNum', '');
-  p.chapter = ChapterInfo(chapterId, chapterName, subject, level, testNum, useLang, {for (final q in en) q.qNumOr(0): q});
+  p.chapter = ChapterInfo(chapterId, chapterName, subject, level, testNum, useLang, {for (final q in en) q.qNumOr(0): q}, hi: {for (final q in hi) q.qNumOr(0): q});
   return p;
 }
 
@@ -344,7 +354,7 @@ Paper caTestPaper(CaPool pool, CaTest t, String topicName, String lang) {
   final qs = useLang == 'hi' ? hi : en;
   final rules = Rules('${cwLbKey(pool.keyId, 1, t.num)}_$useLang');
   final p = Paper(rules, qs, [Section(topicName, 0, qs.length - 1)], [Unit(topicName, 0, qs.length - 1, 15 * 60)], '$topicName · Test ${t.num}', '');
-  p.chapter = ChapterInfo(pool.keyId, topicName, 'gk', 1, t.num, useLang, {for (final q in en) q.qNumOr(0): q});
+  p.chapter = ChapterInfo(pool.keyId, topicName, 'gk', 1, t.num, useLang, {for (final q in en) q.qNumOr(0): q}, hi: {for (final q in hi) q.qNumOr(0): q});
   return p;
 }
 
@@ -489,6 +499,25 @@ Future<Map<int, Question>> loadEnglishTwin(String mockId) async {
     }
   } catch (_) {}
   return out;
+}
+
+/// TSSC-EXAMUI-V1: Hindi version of each question of an English paper, by question number (for "हिंदी में देखें").
+/// An empty map = this test has no Hindi version; null = it could not be loaded (network).
+Future<Map<int, Question>?> loadHindiTwin(String mockId) async {
+  final base = mockId.replaceFirst(RegExp(r'__[a-z]+$'), '');
+  final id = twinId(base, 'hi');
+  if (id == base) return {};
+  try {
+    final out = <int, Question>{};
+    for (final q in await _fetch(id)) {
+      final l = '${q.raw['language'] ?? q.raw['lang'] ?? ''}'.trim().toLowerCase();
+      if (l == 'en' || l == 'eng' || l == 'english') continue;
+      out[q.qNum] = q;
+    }
+    return out;
+  } catch (_) {
+    return null;
+  }
 }
 
 // ---------------------------------------------------------------- saved progress
