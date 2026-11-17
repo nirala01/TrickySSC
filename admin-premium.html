@@ -931,125 +931,112 @@ document.addEventListener('click', async e => {
      welcome  welcomeAll                already purchased
    Nothing is written to Firestore. Edited wording and the tick for who has
    been messaged live in this browser's localStorage only. */
-const FU_TPL_KEY = 'tssc_followup_tpl_v2', FU_SENT_KEY = 'tssc_followup_sent';
+const FU_TPL_KEY = 'tssc_followup_tpl_v3', FU_SENT_KEY = 'tssc_followup_sent';
 const FU_FROM = 'contact@trickyssc.com';
 const HOSTINGER_INBOX = 'https://mail.hostinger.com/0/mailboxes/INBOX';
 const MAIL_API = 'https://trickyssc-mail.nirala01.workers.dev';
 const SITE = 'https://trickyssc.com/';
 const SERIES = ['ssc-cgl-mocks', 'ssc-chsl-mocks', 'ssc-gd-mocks', 'ssc-mts-mocks', 'rrb-ntpc-mocks'];
 
-const FU_OPEN = 'Greetings from Team TrickySSC. ';
-const FU_HELP = 'Any doubt or payment problem? Just reply, we will help you right away.';
-const FU_SIGN = 'Team TrickySSC';
-const FU_PS_ALL = 'P.S. The All Mocks Pass opens all 5 series for Rs 99.';
-const fuSingle = (seriesName, bullets, push, ps) =>
-  'Hi {name},\n\n' + FU_OPEN + 'We saw you opened the ' + seriesName + ' but did not finish unlocking it.\n\n' +
-  bullets + '\n- One payment of Rs {price} for a full year. Not per test.\n\n' + push + '\n\n' +
-  'Unlock here: {link}\n\n' + FU_HELP + '\n\n' + FU_SIGN + '\n\n' + ps;
-const FU_WELCOME_TIPS =
-  'How to get the most from it:\n';
-const FU_WELCOME_END =
-  'Start here: {link}\n\n' +
-  'For doubts and updates, join our Telegram channel: https://t.me/trickyssc\n\n' +
-  'If anything does not open or you need help, just reply to this message.\n\n' +
-  'All the best for your exam.\n' + FU_SIGN;
+/* TSSC-FOLLOWUP-V3 (2026-11-17) — wording as Ashish redrafted it. Same text for
+   WhatsApp and email; on WhatsApp "this email" reads "this message". */
+const FU_SIGN = 'Best regards,\nTeam TrickySSC\nhttps://trickyssc.com';
+const FU_ALL_LIST = 'SSC CGL\nSSC CHSL\nSSC GD\nSSC MTS\nRRB NTPC\nOther upcoming exam series';
+const fuSingle = (lines) => 'Dear {name},\n\nWelcome to TrickySSC!\n\n' + lines.join('\n\n') + '\n\n' + FU_SIGN;
 
 /* key -> { label (editor / picker), series key, page, sub, body } */
 const FU_TEMPLATES = {
   cgl: { label: '1. SSC CGL — did not pay', key: 'ssc-cgl-mocks', page: 'ssc-cgl-mock-test.html',
     sub: '{name}, your SSC CGL mocks are one step away',
-    body: fuSingle('SSC CGL Mock Test Series',
-      'Here is what you are leaving on the table:\n' +
-      '- 100 full-length mocks: 50 Tier I + 50 Tier II, with real sectional timing\n' +
-      '- English and Hindi, with detailed solutions and shortcut tricks\n' +
-      '- Section-wise analysis after every attempt, unlimited reattempts',
-      'If you liked the 4 free mocks, the other 96 are the same quality. CGL is won on speed, and speed only comes from timed practice.',
-      'P.S. Preparing for CHSL, GD, MTS or NTPC too? The All Mocks Pass opens all 5 series for Rs 99.') },
+    body: fuSingle([
+      'We noticed that you explored our SSC CGL Mock Test Series but haven\'t completed your purchase yet.',
+      'Our mock tests are designed to help you practise exam-level questions, improve your speed and accuracy, and identify your weak areas before the actual examination.',
+      'For just ₹{price}, you can access the SSC CGL Mock Tests for one full year.',
+      'Don\'t stop at exploring the tests. Start practising and make every attempt count!',
+      'Purchase your course here: {link}',
+      'If you need any assistance, simply reply to this email.']) },
   chsl: { label: '2. SSC CHSL — did not pay', key: 'ssc-chsl-mocks', page: 'ssc-chsl-mock-test.html',
     sub: '{name}, 80 CHSL mocks are waiting for you',
-    body: fuSingle('SSC CHSL Mock Test Series',
-      'What the pass gives you:\n' +
-      '- 80 full-length mocks covering Tier I and Tier II\n' +
-      '- English and Hindi, with detailed solutions\n' +
-      '- Section-wise analysis after every attempt',
-      'You have seen the 2 free mocks. The remaining 78 are what turn a borderline score into a safe one.',
-      'P.S. The All Mocks Pass opens CGL, CHSL, GD, MTS and NTPC together for Rs 99.') },
+    body: fuSingle([
+      'You recently explored our SSC CHSL Mock Test Series. We would love to help you take the next step in your preparation.',
+      'Regular mock tests help you understand the exam pattern, manage your time effectively, and identify topics that need more practice.',
+      'Get access to the SSC CHSL Mock Test Series for one full year at just ₹{price}.',
+      'Your preparation deserves consistent practice. Start today and work towards your goal with confidence.',
+      'Purchase your course here: {link}',
+      'Need help with the purchase? Just reply to this email.']) },
   gd: { label: '3. SSC GD — did not pay', key: 'ssc-gd-mocks', page: 'ssc-gd-mock-test.html',
     sub: '{name}, finish unlocking your SSC GD mocks',
-    body: fuSingle('SSC GD Constable Mock Test Series',
-      'What the pass gives you:\n' +
-      '- 60 full-length mocks on the latest SSC GD pattern\n' +
-      '- English and Hindi, with detailed solutions\n' +
-      '- Your score and weak areas after every attempt',
-      'In GD, a few marks decide the merit list. 58 more mocks after the 2 free ones is the cheapest way to find those marks.',
-      FU_PS_ALL) },
+    body: fuSingle([
+      'We noticed that you visited our SSC GD Constable Mock Test Series but haven\'t completed your purchase.',
+      'Consistent practice is essential for improving accuracy, speed, and confidence. Our mock tests give you an opportunity to practise questions and assess your preparation before the examination.',
+      'Get access to the SSC GD Mock Test Series for one full year at just ₹{price}.',
+      'Take the next step in your SSC GD preparation and start practising today.',
+      'Purchase your course here: {link}',
+      'If you encountered any difficulty during checkout, reply to this email and we will assist you.']) },
   mts: { label: '4. SSC MTS — did not pay', key: 'ssc-mts-mocks', page: 'ssc-mts-mock-test.html',
     sub: '{name}, your SSC MTS mocks are one step away',
-    body: fuSingle('SSC MTS Mock Test Series',
-      'What the pass gives you:\n' +
-      '- 60 full-length mocks in the real two-session format\n' +
-      '- English and Hindi, with detailed solutions\n' +
-      '- Your score and weak areas after every attempt',
-      'Session II has negative marking, and most students lose marks there. Practising in the real format is how you stop that.',
-      FU_PS_ALL) },
+    body: fuSingle([
+      'You recently explored our SSC MTS Mock Test Series. Have you started practising regularly for your upcoming examination?',
+      'Mock tests help you become familiar with exam-level questions, improve your time management, and identify areas where you need more practice.',
+      'At just ₹{price}, you can access the SSC MTS Mock Test Series for one full year.',
+      'Start practising consistently and use every test to improve your performance.',
+      'Purchase your course here: {link}',
+      'For any assistance with your purchase, simply reply to this email.']) },
   ntpc: { label: '5. RRB NTPC — did not pay', key: 'rrb-ntpc-mocks', page: 'rrb-ntpc-mock-test.html',
     sub: '{name}, 60 RRB NTPC mocks are waiting for you',
-    body: fuSingle('RRB NTPC Mock Test Series',
-      'What the pass gives you:\n' +
-      '- 60 full-length CBT-1 mocks\n' +
-      '- English and Hindi, with detailed solutions\n' +
-      '- Your score and weak areas after every attempt',
-      'NTPC has lakhs of applicants for every post. The ones who clear it have already sat the paper many times at home.',
-      FU_PS_ALL) },
+    body: fuSingle([
+      'We noticed that you explored our RRB NTPC Mock Test Series but haven\'t completed your purchase.',
+      'Practising mock tests regularly can help you improve your speed, accuracy, and time management while preparing for the examination.',
+      'Get access to the RRB NTPC Mock Test Series for one full year at just ₹{price}.',
+      'Don\'t leave your preparation at the planning stage. Start practising, analyse your performance, and keep improving with every test.',
+      'Purchase your course here: {link}',
+      'If you need help completing your purchase, just reply to this email.']) },
   all: { label: '6. All Mocks Pass — did not pay', key: 'all-mocks', page: 'ssc-cgl-mock-test.html?pass=all',
     sub: '{name}, 360 mocks for Rs 99',
-    body: 'Hi {name},\n\n' + FU_OPEN + 'We saw you opened the All Mocks Pass but did not finish unlocking it.\n\n' +
-      'One pass, everything:\n' +
-      '- SSC CGL (100), CHSL (80), GD (60), MTS (60) and RRB NTPC (60): 360 full-length mocks\n' +
-      '- English and Hindi, with detailed solutions\n' +
-      '- One payment of Rs 99 for a full year\n\n' +
-      'That is about 27 paise a mock. The syllabus of these exams overlaps heavily, so every mock you take helps in all of them, and you never pay again for another exam.\n\n' +
-      'Unlock here: {link}\n\n' + FU_HELP + '\n\n' + FU_SIGN },
+    body: fuSingle([
+      'You recently explored our All Mocks Pass, but your purchase hasn\'t been completed yet.',
+      'Why purchase mock tests separately when you can prepare for multiple examinations with one pass?',
+      'For just ₹{price}, the All Mocks Pass provides access to existing and upcoming mock test series for:\n\n' + FU_ALL_LIST,
+      'You can use the pass to practise across multiple examinations and make your preparation more flexible.',
+      'Get access to the All Mocks Pass and start practising today.',
+      'Purchase here: {link}',
+      'If you have any questions, simply reply to this email.']) },
   upgrade: { label: '7. Upgrade — already holds a pass', key: 'all-mocks', page: 'ssc-cgl-mock-test.html?pass=all',
     sub: '{name}, upgrade to all 5 mock series for Rs {price}',
-    body: 'Hi {name},\n\n' + FU_OPEN + 'You already hold a TrickySSC mock pass, and we saw you looked at the All Mocks Pass upgrade.\n\n' +
-      'Because you have already paid, you only pay the difference: Rs {price}.\n\n' +
-      '- Opens every series: SSC CGL, CHSL, GD, MTS and RRB NTPC\n' +
-      '- Your current pass stays exactly as it is\n' +
-      '- The other series open for 1 year from the day you upgrade\n\n' +
-      'Upgrade here: {link}\n\n' +
-      'Any doubt? Just reply, we will help you right away.\n\n' + FU_SIGN },
+    body: fuSingle([
+      'You already have access to a mock test series, and we noticed that you explored our All Mocks Pass.',
+      'With the All Mocks Pass, you can expand your preparation to multiple examinations without purchasing each mock test series separately.',
+      'Your upgrade is available for the difference price of ₹{price}.',
+      'The pass includes access to existing and upcoming mock test series for SSC CGL, SSC CHSL, SSC GD, SSC MTS, RRB NTPC, and other upcoming exams.',
+      'Upgrade today to make the most of your preparation.',
+      'Complete your upgrade here: {link}',
+      'If you need any assistance, reply to this email.']) },
   order: { label: '8. Order created — payment not completed', key: '', page: '',
     sub: '{name}, your {course} is one step away',
-    body: 'Hi {name},\n\n' + FU_OPEN + 'You chose {course} and reached the payment step, so you already know it is the right pass for you. Only the last step is left.\n\n' +
-      'What opens the moment you pay Rs {price}:\n' +
-      '- Every full-length mock in the series, on the latest pattern\n' +
-      '- English and Hindi, with detailed solutions\n' +
-      '- Your score and weak areas after every attempt\n' +
-      '- A full year of access with one payment. Not per test.\n\n' +
-      'Every week without timed practice is a week your competitors are using. Students who start mocks early walk into the exam hall having already seen the paper many times.\n\n' +
-      'Finish in under a minute here: {link}\n\n' +
-      'If money was deducted, reply with a screenshot and we will activate your pass right away.\n\n' + FU_SIGN },
+    body: fuSingle([
+      'We noticed that your order was created, but the payment has not yet been confirmed. As a result, your course access has not been activated.',
+      'If you still wish to purchase the course, please revisit TrickySSC and complete the payment.',
+      'Complete your purchase here: {link}',
+      'Important: If the amount has already been deducted from your bank account or UPI, please do not make another payment immediately. Reply to this email with your order details so we can help you check the transaction status.',
+      'We are here to help you get started with your preparation without unnecessary payment issues.']) },
   welcome: { label: '9. Welcome — single pass buyer', key: '', page: '',
     sub: 'Welcome to TrickySSC, {name}. Your {course} is active',
-    body: 'Hi {name},\n\n' +
-      'Welcome to TrickySSC, and thank you for your purchase. Your {course} is now active and valid till {valid}.\n\n' +
-      FU_WELCOME_TIPS +
-      '- Start with Mock 1 today, in exam conditions, with the timer on\n' +
-      '- After every mock, go through the solutions of the questions you got wrong or skipped\n' +
-      '- Reattempt a mock after a few days and compare your score\n\n' +
-      FU_WELCOME_END + '\n\n' +
-      'P.S. Preparing for other exams too? As a pass holder you can upgrade to the All Mocks Pass by paying only the difference.' },
+    body: fuSingle([
+      'Thank you for purchasing the {course} for ₹{price}. Your payment has been received successfully, and your course access is active until {valid}.',
+      'You can now access your mock tests and use them to practise exam-level questions, improve your speed and accuracy, and identify areas that need more attention.',
+      'To get started:\n\n1. Visit {link}\n2. Log in using the same Google account or mobile number you used during purchase.\n3. Open your purchased course and start attempting the tests.',
+      'Make the most of your access by practising regularly and reviewing your performance after each test.',
+      'If you face any difficulty accessing your course, simply reply to this email. We will be happy to assist you.',
+      'Thank you for choosing TrickySSC. We wish you success in your exam preparation!']) },
   welcomeAll: { label: '10. Welcome — All Mocks Pass buyer', key: 'all-mocks', page: '',
     sub: 'Welcome to TrickySSC, {name}. All 5 mock series are open for you',
-    body: 'Hi {name},\n\n' +
-      'Welcome to TrickySSC, and thank you for your purchase. Your All Mocks Pass is now active and valid till {valid}.\n\n' +
-      'Everything is open for you: SSC CGL, CHSL, GD, MTS and RRB NTPC, 360 full-length mocks in all.\n\n' +
-      FU_WELCOME_TIPS +
-      '- Pick your main exam and start with Mock 1 today, with the timer on\n' +
-      '- After every mock, go through the solutions of the questions you got wrong or skipped\n' +
-      '- Use the other exams\' mocks as extra practice, since the syllabus overlaps\n\n' +
-      FU_WELCOME_END }
+    body: fuSingle([
+      'Thank you for purchasing the All Mocks Pass for ₹{price}. Your payment has been received successfully, and your access is active until {valid}.',
+      'Your pass includes access to existing and upcoming mock test series for:\n\n' + FU_ALL_LIST,
+      'You can now prepare for multiple examinations with one pass. Attempt mock tests regularly, analyse your performance, and focus on improving your weaker areas.',
+      'To access your tests, visit {link} and log in using the same Google account or mobile number you used during purchase.',
+      'If you experience any difficulty accessing your tests, simply reply to this email. We will be happy to help.',
+      'Thank you for choosing TrickySSC. We wish you the very best in your exam preparation!']) }
 };
 const FU_KEYS = Object.keys(FU_TEMPLATES);
 
@@ -1152,6 +1139,7 @@ function fuVars(key, rec) {
     price = (fuProduct('p-upgrade-all-' + n) || {}).price || null;
   } else if (key === 'welcome' || key === 'welcomeAll') {
     link = SITE + (key === 'welcome' ? fuExamPage(rec) : '');
+    price = rec.amount || null;                  /* what they actually paid; none for a manual grant */
   } else {
     price = fuPriceOf(t.key);
   }
@@ -1160,7 +1148,9 @@ function fuVars(key, rec) {
 }
 function fuFill(text, v) {
   let s = String(text || '');
-  if (!v.valid) s = s.replace(/\s+and valid till \{valid\}/g, '').replace(/\s+valid till \{valid\}/g, '');
+  if (!v.valid) s = s.replace(/\s+and valid till \{valid\}/g, '').replace(/\s+valid till \{valid\}/g, '')
+                   .replace(/ until \{valid\}/g, '');
+  if (v.price == null) s = s.replace(/ for ₹\{price\}/g, '');   /* welcome after a manual grant */
   return s.replace(/\{name\}/g, v.name).replace(/\{course\}/g, v.course)
           .replace(/\{price\}/g, v.price == null ? '___' : String(v.price))
           .replace(/\{link\}/g, v.link).replace(/\{valid\}/g, v.valid);
@@ -1220,8 +1210,10 @@ function fcFillFrom(key) {
   if (!FC) return;
   const t = fuTpl(key), v = fuVars(key, FC.rec);
   $('fcSubj').value = fuFill(t.sub, v);
-  $('fcText').value = fuFill(t.body, v);
-  fcSay(v.price == null && /\{price\}/.test(t.sub + t.body)
+  let body = fuFill(t.body, v);
+  if (FC.ch === 'wa') body = body.replace(/this email/g, 'this message');
+  $('fcText').value = body;
+  fcSay(/___/.test($('fcSubj').value + body)
     ? 'Price for this pass was not found in the price list — replace <b>___</b> with the amount before sending.' : '', 'warn');
 }
 function fcOpen(ch, kind, rec) {
