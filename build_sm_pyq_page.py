@@ -7,7 +7,8 @@ TSSC-SM-PYQ-V1 (2026-11-18), ported from build_ntpc_pyq_page.py. Differences:
 * exam id rrb-sm, engine test-sm.html, 120 minutes;
 * papers held up to 2026 are RRB Section Controller shifts (the only papers on the Station Master
   pattern) and are named so; a paper of 2027 or later is named RRB Station Master (pname());
-* there are no subject-wise pages, so nothing else is baked.
+* the three section-wise pages (Maths & DI, Logical Capability, Mental Reasoning) are baked too
+  (TSSC-SM-SUBJ-V1, 2026-11-18), run on test-sm-subject.html.
 
 What it does (TSSC-NTPC-PYQ-V1, 2026-11-13)
 -----------------------------------------
@@ -63,23 +64,24 @@ SITE = "https://trickyssc.com"
 PAGE = "rrb-station-master-pyq.html"
 
 ENGINE = f"{SITE}/test-sm.html"
-SUBJ_ENGINE = f"{SITE}/test-ntpc-subject.html"
+SUBJ_ENGINE = f"{SITE}/test-sm-subject.html"
 MINS, PER_Q = 120, 1
 YEAR_COLORS = ["#FF6B00", "#6366F1", "#00A86B", "#0EA5E9",
                "#E11D48", "#F59E0B", "#8B5CF6", "#10B981"]
 MONTHS = ["January", "February", "March", "April", "May", "June",
           "July", "August", "September", "October", "November", "December"]
 
-# the three subject pages: key -> (file, label, questions, minutes, part)
-# NTPC CBT-1 is ONE mixed section, so there is no part letter; the subject engine picks the
-# questions by their `subject` field (Mathematics 30, Reasoning 30, General Awareness 40).
+# the three section pages: key -> (file, label, questions, minutes, part)   (TSSC-SM-SUBJ-V1, 2026-11-18)
+# The CBT has three sections on one 120-minute clock; test-sm-subject.html picks each section's questions
+# by their `subject` field: Mathematics + Data Analysis and Interpretation (60), Logical Reasoning +
+# Reading Comprehension (20), Mental Reasoning (20). Minutes are each section's share at 1.2 min a question.
 SUBJECT_PAGES = {
-    "quant":     ("rrb-ntpc-maths-previous-year-questions.html",     "Maths",     30, 27, ""),
-    "reasoning": ("rrb-ntpc-reasoning-previous-year-questions.html", "Reasoning", 30, 27, ""),
-    "gk":        ("rrb-ntpc-gk-previous-year-questions.html",        "GK",        40, 36, ""),
+    "quant":   ("rrb-station-master-maths-previous-year-questions.html",             "Maths & DI",         60, 72, ""),
+    "logical": ("rrb-station-master-logical-capability-previous-year-questions.html", "Logical Capability", 20, 24, ""),
+    "mental":  ("rrb-station-master-mental-reasoning-previous-year-questions.html",   "Mental Reasoning",   20, 24, ""),
 }
-SUBJ_BTN = {"reasoning": ("#6366F1", "#818CF8"), "gk": ("#00A86B", "#10B981"),
-            "quant": ("#FF6B00", "#FF8C38")}
+SUBJ_BTN = {"quant": ("#FF6B00", "#FF8C38"), "logical": ("#6366F1", "#818CF8"),
+            "mental": ("#0E7490", "#0891B2")}
 
 RUNQUERY = (f"https://firestore.googleapis.com/v1/projects/{PROJECT}"
             f"/databases/(default)/documents:runQuery?key={API_KEY}")
@@ -304,7 +306,7 @@ def subj_row_html(p, key, label, q, mins):
     shift = p["shift"] or "Full Paper"
     s_num = re.search(r"Shift[- ]?(\d+)", p["shift"] or "", re.I)
     pick = re.sub(r"\s+", "-", "-".join([EXAM, "t1", p["year"], p["shift"] or "full", p["heldOn"] or "", key]))
-    title = f"{EXAM_NAME} CBT-1 {p['year']} · {shift}" + (f" · {date}" if date else "") + f" · {label}"
+    title = f"{pname(p['year'])} CBT {p['year']} · {shift}" + (f" · {date}" if date else "") + f" · {label}"
     en_url = subj_url(p, "en", key) if p["en"] else ""
     hi_url = subj_url(p, "hi", key) if p["hi"] else ""
     c1, c2 = SUBJ_BTN.get(key, ("#FF6B00", "#FF8C38"))
@@ -347,7 +349,7 @@ def subj_list_html(key, papers):
         rows = sort_rows(grouped[year])
         out.append(f'<details class="yr-acc"{" open" if yi == 0 else ""}><summary class="yr-head">'
                    f'<span class="yr-badge" style="background:{accent};">{e(year)}</span>'
-                   f'<span class="yr-title">{EXAM_NAME} CBT-1 {e(year)} — {e(label)}</span>'
+                   f'<span class="yr-title">{pname(year)} CBT {e(year)} — {e(label)}</span>'
                    f'<span class="yr-count">{len(rows)} test{"s" if len(rows) != 1 else ""}</span>'
                    f'<span class="yr-chev" aria-hidden="true">▾</span></summary>'
                    f'<div class="yr-body" style="border-left:3px solid {accent};">\n')
@@ -391,7 +393,7 @@ def set_text(html, el_id, text):
     return pat.sub(lambda m: m.group(1) + text + m.group(3), html, count=1)
 
 
-def build(page_path, sitemap_path=None, dry_run=False, subject_pages=False):
+def build(page_path, sitemap_path=None, dry_run=False, subject_pages=True):
     print(f"[build] reading `papers` cards for {EXAM} …")
     cards = fetch_cards()
     print(f"[build] {len(cards)} cards fetched")
@@ -457,4 +459,4 @@ if __name__ == "__main__":
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--no-subject-pages", action="store_true")
     a = ap.parse_args()
-    sys.exit(build(a.page, a.sitemap, a.dry_run, False))   # no subject-wise pages for Station Master
+    sys.exit(build(a.page, a.sitemap, a.dry_run, not a.no_subject_pages))
