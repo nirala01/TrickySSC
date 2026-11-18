@@ -1,6 +1,8 @@
-// TSSC-APPISSUE-V1 (2026-11-18): Me tab -> "Report an issue with the app".
-// Each report is one doc in Firestore `app_reports`; the admin sees them on
-// trickyssc.com/admin-app-reports.html, marks them resolved and emails the student.
+// TSSC-APPISSUE-V2 (2026-11-18): Me tab -> "Report an issue with the app".
+// Saved in the existing `question_reports` collection (no new Firestore rules) with
+// source 'app-issue'; reply email, phone and device go in the note. The admin sees them on
+// trickyssc.com/admin-app-reports.html (reports-admin.html skips them), marks them
+// resolved and emails the student.
 import 'dart:io' show Platform;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -10,7 +12,7 @@ import 'package:flutter/material.dart';
 import '../data.dart';
 import '../profile.dart' show appVersion;
 import '../ui/soft.dart';
-import '../ui/soft_list.dart';
+import '../test/report.dart' show addWithApp;
 import 'dash/ui.dart';
 
 const _kinds = [
@@ -40,7 +42,6 @@ class _ReportIssuePageState extends State<ReportIssuePage> {
   bool _sending = false;
   String _err = '';
   Map<String, dynamic> _profile = {};
-  List<Map<String, dynamic>>? _mine;
 
   @override
   void initState() {
@@ -52,7 +53,6 @@ class _ReportIssuePageState extends State<ReportIssuePage> {
       final e = '${_profile['email'] ?? ''}'.trim();
       if (_email.text.isEmpty && e.isNotEmpty) setState(() => _email.text = e);
     }).catchError((_) {});
-    _loadMine();
   }
 
   @override
@@ -60,18 +60,6 @@ class _ReportIssuePageState extends State<ReportIssuePage> {
     _text.dispose();
     _email.dispose();
     super.dispose();
-  }
-
-  Future<void> _loadMine() async {
-    try {
-      final s = await FirebaseFirestore.instance.collection('app_reports').where('uid', isEqualTo: widget.user.uid).limit(20).get();
-      final l = s.docs.map((d) => d.data()).toList();
-      int ms(Map<String, dynamic> m) => m['createdAt'] is Timestamp ? (m['createdAt'] as Timestamp).millisecondsSinceEpoch : 0;
-      l.sort((a, b) => ms(b) - ms(a));
-      if (mounted) setState(() => _mine = l);
-    } catch (_) {
-      if (mounted) setState(() => _mine = const []);
-    }
   }
 
   Future<void> _send() async {
@@ -100,19 +88,19 @@ class _ReportIssuePageState extends State<ReportIssuePage> {
       os = '${Platform.operatingSystem} ${Platform.operatingSystemVersion}';
     } catch (_) {}
     try {
-      await FirebaseFirestore.instance.collection('app_reports').add({
+      final body = msg.length > 800 ? msg.substring(0, 800) : msg;
+      await addWithApp('question_reports', {
+        'source': 'app-issue',
+        'target': 'app',
+        'mockId': 'app-issue',
+        'qNum': '-',
+        'position': 0,
+        'subject': widget.exam.id,
+        'reason': _kindLabel(_kind),
+        'note': '$body\n\n— Reply email: ${email.isEmpty ? '-' : email} · Phone: ${phone.isEmpty ? '-' : phone} · Device: ${os.isEmpty ? '-' : os}',
         'uid': u.uid,
         'name': name,
-        'email': email,
-        'phone': phone,
-        'kind': _kind,
-        'kindLabel': _kindLabel(_kind),
-        'message': msg.length > 2000 ? msg.substring(0, 2000) : msg,
-        'exam': widget.exam.id,
-        'appVersion': appVersion,
-        'device': os,
-        'platform': 'app',
-        'status': 'open',
+        'testName': 'App issue report',
         'createdAt': FieldValue.serverTimestamp(),
       });
     } catch (_) {
@@ -130,7 +118,6 @@ class _ReportIssuePageState extends State<ReportIssuePage> {
       _sending = false;
       _kind = '';
     });
-    _loadMine();
     await showDialog<void>(
       context: context,
       builder: (c) => AlertDialog(
@@ -174,7 +161,7 @@ class _ReportIssuePageState extends State<ReportIssuePage> {
         ]),
       ]),
       PCard(title: 'Tell us what happened', sub: 'Which screen or test, what you tapped and what went wrong.', children: [
-        TextField(controller: _text, minLines: 4, maxLines: 8, maxLength: 2000, enabled: !_sending, decoration: box('Example: CGL Mock 12 does not open after I tap Start.')),
+        TextField(controller: _text, minLines: 4, maxLines: 8, maxLength: 800, enabled: !_sending, decoration: box('Example: CGL Mock 12 does not open after I tap Start.')),
         const SizedBox(height: 6),
         const Text('Email for our reply', style: TextStyle(fontWeight: FontWeight.w800, color: softInk)),
         const SizedBox(height: 6),
@@ -189,25 +176,6 @@ class _ReportIssuePageState extends State<ReportIssuePage> {
         const SizedBox(height: 6),
         Text('App version $appVersion and your Android version are sent with the report.', textAlign: TextAlign.center, style: const TextStyle(fontSize: 12, color: softMuted)),
       ]),
-      if (_mine != null && _mine!.isNotEmpty)
-        PCard(title: 'Your reports', children: [
-          for (final r in _mine!)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('${r['kindLabel'] ?? _kindLabel('${r['kind']}')}', style: const TextStyle(fontWeight: FontWeight.w800, color: softInk)),
-                    Text('${r['message'] ?? ''}', maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, color: softMuted)),
-                  ]),
-                ),
-                const SizedBox(width: 8),
-                r['status'] == 'resolved'
-                    ? const SoftTag('✓ Resolved', Color(0xFF15803D), Color(0xFFDCFCE7))
-                    : const SoftTag('Open', Color(0xFF92400E), Color(0xFFFEF3C7)),
-              ]),
-            ),
-        ]),
     ]);
   }
 }

@@ -455,7 +455,7 @@ async function loadAll(){
       getDocs(collection(db,'question_reports')),
       getDocs(collection(db,'mock_ratings'))
     ]);
-    REPORTS = []; rs.forEach(d=>REPORTS.push({id:d.id, ...d.data()}));
+    REPORTS = []; rs.forEach(d=>{ const v = d.data(); if(v && v.source === 'app-issue') return; REPORTS.push({id:d.id, ...v}); });   /* app issues live on admin-app-reports.html */
     RATINGS = []; qs.forEach(d=>RATINGS.push({id:d.id, ...d.data()}));
     renderReports(); renderRatings();
     resolveContacts();   /* TSSC-REPORTCONTACT-V2: fills mobile / email under each name afterwards */

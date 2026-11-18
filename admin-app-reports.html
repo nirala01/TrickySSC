@@ -6,9 +6,11 @@
 <meta name="robots" content="noindex,nofollow">
 <title>App issue reports — TrickySSC Admin</title>
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<!-- TSSC-APPISSUE-V1 (2026-11-18): issues reported from the Android app's Me tab
-     ("Report an issue"), Firestore collection app_reports. Mark resolved, then the
-     ✉️ button emails the student through the trickyssc-mail Worker. -->
+<!-- TSSC-APPISSUE-V2 (2026-11-18): issues reported from the Android app's Me tab
+     ("Report an issue"). No new Firestore rules: they are saved in question_reports with
+     source 'app-issue' (reply email, phone and device in the note). Resolved / mailed is
+     saved on the report when the rules allow it, otherwise in this browser.
+     The ✉️ button emails the student through the trickyssc-mail Worker. -->
 <style>
   *{box-sizing:border-box;}
   body{margin:0;font-family:'Inter',sans-serif;background:#F1F5F9;color:#1E293B;}
@@ -95,14 +97,17 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, initializeFirestore, collection, getDocs, doc, getDoc, updateDoc, serverTimestamp, deleteField }
+import { getFirestore, initializeFirestore, collection, getDocs, doc, getDoc, updateDoc, serverTimestamp, deleteField, query, where }
   from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut }
   from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 const ADMIN_EMAILS = ["nirala01@gmail.com"];
 const MAIL_API = 'https://trickyssc-mail.nirala01.workers.dev';
-const COLL = 'app_reports';
+const COLL = 'question_reports';
+const STATE_KEY = 'tssc_appissue_state';
+let STATE = {}; try{ STATE = JSON.parse(localStorage.getItem(STATE_KEY) || '{}') || {}; }catch(_){ STATE = {}; }
+const saveState = () => { try{ localStorage.setItem(STATE_KEY, JSON.stringify(STATE)); }catch(_){} };
 
 const app = initializeApp({
   apiKey:"AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",
@@ -120,7 +125,21 @@ const ms = t => { try{ return t?.toMillis ? t.toMillis() : (t ? new Date(t).getT
 const when = t => { const m = ms(t); return m ? new Date(m).toLocaleString('en-IN',{day:'numeric',month:'short',year:'numeric',hour:'numeric',minute:'2-digit'}) : ''; };
 const KINDS = { crash:'💥 App crashes or freezes', test:'📝 Test not loading or not saving', payment:'💳 Payment or pass access',
                 login:'🔑 Sign-in problem', content:'❓ Wrong question, answer or solution', other:'💬 Something else' };
-const kindOf = r => r.kindLabel || KINDS[r.kind] || '💬 Something else';
+const kindOf = r => r.kindLabel || r.reason || KINDS[r.kind] || '💬 Something else';
+/* note = "<message>\n\n— Reply email: x · Phone: y · Device: z" (from the app) */
+function parse(r){
+  const n = String(r.note || ''), i = n.lastIndexOf('\n\n— Reply email:');
+  const tail = i >= 0 ? n.slice(i) : '';
+  const get = k => { const m = tail.match(new RegExp(k + ':\\s*([^·\\n]*)')); const v = m ? m[1].trim() : ''; return v === '-' ? '' : v; };
+  r.message = i >= 0 ? n.slice(0, i) : n;
+  r.email = get('Reply email'); r.phone = get('Phone'); r.device = get('Device');
+  r.exam = r.subject || '';
+  const st = STATE[r.id] || {};
+  if(!r.status && st.status) r.status = st.status;
+  if(!r.resolvedAt && st.resolvedAt) r.resolvedAt = st.resolvedAt;
+  if(!r.mailedAt && st.mailedAt) r.mailedAt = st.mailedAt;
+  return r;
+}
 
 let ALL = [], FILTER = 'open';
 const USERS = {};   /* uid -> users/{uid} doc, for a missing email or phone */
@@ -152,10 +171,10 @@ onAuthStateChanged(auth, async user => {
 async function load(){
   $('list').innerHTML = '<div class="card empty">Loading reports…</div>';
   try{
-    const s = await getDocs(collection(db, COLL));
-    ALL = s.docs.map(d => ({ id:d.id, ...d.data() })).sort((a,b) => ms(b.createdAt) - ms(a.createdAt));
+    const s = await getDocs(query(collection(db, COLL), where('source','==','app-issue')));
+    ALL = s.docs.map(d => parse({ id:d.id, ...d.data() })).sort((a,b) => ms(b.createdAt) - ms(a.createdAt));
   }catch(e){
-    $('list').innerHTML = `<div class="card empty">Could not load: ${esc(e.message||e)}<br><br>If it says <b>permission</b>, the Firestore rule for <code>${COLL}</code> is missing.</div>`;
+    $('list').innerHTML = `<div class="card empty">Could not load: ${esc(e.message||e)}<br><br>Sign out and in again with the admin account.</div>`;
     return;
   }
   paint();
@@ -218,18 +237,18 @@ $('reload').onclick = load;
 async function setStatus(id, resolved, btn){
   const r = ALL.find(x => x.id === id); if(!r) return;
   btn.disabled = true;
+  /* saved on the report if the rules allow it; always kept in this browser too */
   try{
     await updateDoc(doc(db, COLL, id), resolved
       ? { status:'resolved', resolvedAt: serverTimestamp(), resolvedBy: auth.currentUser?.email || '' }
       : { status:'open', resolvedAt: deleteField(), resolvedBy: deleteField() });
-    r.status = resolved ? 'resolved' : 'open';
-    r.resolvedAt = resolved ? new Date() : null;
-    paint();
-    if(resolved) openMail(r);
-  }catch(e){
-    btn.disabled = false;
-    alert('Could not save: ' + (e.message || e) + (String(e.code||'').includes('permission') ? '\n\nThe Firestore rule must let the admin update ' + COLL + '.' : ''));
-  }
+  }catch(_){}
+  STATE[id] = Object.assign({}, STATE[id], resolved ? { status:'resolved', resolvedAt: Date.now() } : { status:'open', resolvedAt: 0 });
+  saveState();
+  r.status = resolved ? 'resolved' : 'open';
+  r.resolvedAt = resolved ? Date.now() : null;
+  paint();
+  if(resolved) openMail(r);
 }
 
 document.addEventListener('click', e => {
@@ -286,7 +305,8 @@ $('mSend').onclick = async () => {
   }
   const r = CUR;
   try{ await updateDoc(doc(db, COLL, r.id), { mailedAt: serverTimestamp(), mailedTo: to }); }catch(_){}
-  r.mailedAt = new Date();
+  STATE[r.id] = Object.assign({}, STATE[r.id], { mailedAt: Date.now() }); saveState();
+  r.mailedAt = Date.now();
   closeMail(); paint();
 };
 </script>
