@@ -1759,7 +1759,9 @@ async function openBuy(card) {
       const s = document.createElement('script'); s.src = '/tssc-paid98.js'; s.onload = go; s.onerror = () => res(false);
       document.head.appendChild(s);
     });
-    if (paid98) {
+    /* TSSC-FREECLAIM-V1 is OFF until the trickyssc-play Worker is deployed (window.TSSC_FREECLAIM_ON in
+       tssc-paid98.js). While off, a Rs 98+ student is asked to write in, as before the Claim button. */
+    if (paid98 && window.TSSC_FREECLAIM_ON) {
       document.getElementById('mbpSub').textContent = 'Free Full Access';
       document.getElementById('mbpPerks').innerHTML = '<li>Every SSC CGL, CHSL, GD, MTS and RRB NTPC mock</li><li>Nothing to pay</li>';
       document.getElementById('mbpNext').style.display = 'none';
@@ -1778,7 +1780,7 @@ async function openBuy(card) {
       });
       return;
     }
-    if (!upOnly) {
+    if (!upOnly || paid98) {
       document.getElementById('mbpPrice').innerHTML =
         '<span style="font-size:.85rem;color:#1E293B;">You already hold ' + OWN.keys.size + (OWN.keys.size === 1 ? ' mock pass. ' : ' mock passes. ') +
         'For the All Mocks Pass, write to <a href="mailto:contact@trickyssc.com">contact@trickyssc.com</a> and we will upgrade your account.</span>';
