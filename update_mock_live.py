@@ -57,7 +57,9 @@ SERIES = {
     ("rrb-ntpc", "tier1"): ["rrb-ntpc-mock-test.html", "rrb-ntpc-maths-mock-test.html", "rrb-ntpc-reasoning-mock-test.html",
                             "rrb-ntpc-gk-mock-test.html"],
     # TSSC-SM-MOCK-V1: RRB Station Master CBT, one paper stored as tier1/cbt1; cards are data-mock="rrb-sm_cbt1_mockN"
-    ("rrb-sm", "tier1"):   ["rrb-station-master-mock-test.html"],
+    ("rrb-sm", "tier1"):   ["rrb-station-master-mock-test.html",   # TSSC-SM-SUBJMOCK-V1: + the four section-wise pages
+                            "rrb-station-master-maths-science-mock-test.html", "rrb-station-master-data-interpretation-mock-test.html",
+                            "rrb-station-master-logical-capability-mock-test.html", "rrb-station-master-mental-reasoning-mock-test.html"],
 }
 # pages that show the "N Live" status bar for an exam's tiers
 BAR_PAGES = {
@@ -70,7 +72,9 @@ BAR_PAGES = {
                  "ssc-mts-gk-mock-test.html", "ssc-mts-english-mock-test.html"],
     "rrb-ntpc": ["rrb-ntpc-mock-test.html", "rrb-ntpc-maths-mock-test.html", "rrb-ntpc-reasoning-mock-test.html",
                  "rrb-ntpc-gk-mock-test.html"],
-    "rrb-sm":   ["rrb-station-master-mock-test.html"],
+    "rrb-sm":   ["rrb-station-master-mock-test.html",
+                 "rrb-station-master-maths-science-mock-test.html", "rrb-station-master-data-interpretation-mock-test.html",
+                 "rrb-station-master-logical-capability-mock-test.html", "rrb-station-master-mental-reasoning-mock-test.html"],
 }
 ALL_PAGES = sorted({p for v in SERIES.values() for p in v})
 

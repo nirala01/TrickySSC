@@ -1452,8 +1452,8 @@ const SUBJ_META={
   english:  {label:'English Language',      short:'English',        band:[76,100]}
 };
 const subjectKey=String(new URLSearchParams(window.location.search).get('subject')||'').toLowerCase().replace(/^(maths?|quantitative|quants)$/,'quant').replace(/^(ga|general-awareness)$/,'gk').replace(/^reason.*$/,'reasoning').replace(/^eng.*$/,'english');
-const SUBJ=SUBJ_META[subjectKey]||null;
-const SUBJ_SUFFIX=SUBJ?('__'+subjectKey):'';
+let SUBJ=SUBJ_META[subjectKey]||null;
+const SUBJ_SUFFIX=(SUBJ||(/^rrb-sm_/i.test(new URLSearchParams(location.search).get('mockId')||'')&&['scimaths','di','logical','mental'].indexOf(subjectKey)>=0))?('__'+subjectKey):'';   /* TSSC-SM-SUBJMOCK-V1: SM keys are added to SUBJ_META below */
 const SUBJ_PAGE={quant:'ssc-cgl-quant-mock-test.html',reasoning:'ssc-cgl-reasoning-mock-test.html',gk:'ssc-cgl-gk-mock-test.html',english:'ssc-cgl-english-mock-test.html'};
 /* TSSC-CHSL-MOCK-V1 — CHSL mocks use the CHSL question-number bands as the
    fallback and send the student back to the CHSL subject page. */
@@ -1495,6 +1495,24 @@ if(IS_NTPC_MOCK){
   SUBJ_META.quant.label='Mathematics'; SUBJ_META.reasoning.label='General Intelligence & Reasoning'; SUBJ_META.gk.label='General Awareness';
   const _D={quant:27,reasoning:27,gk:36};
   if(_D[subjectKey]) SECTION_DUR=_D[subjectKey]*60;
+}
+/* TSSC-SM-SUBJMOCK-V1 (2026-11-18) — RRB Station Master mocks (mockId rrb-sm_cbt1_mockN_<lang>): four
+   section-wise tests, picked by each question's own subject, on one clock at the paper's 1.2 min a question:
+   scimaths = Basic Science + Mathematics (36 min), di = Data Analysis and Interpretation (36),
+   logical = Logical Reasoning + Reading Comprehension (24), mental = Mental Reasoning (24). +1 / −1/3. */
+const IS_SM_MOCK=/^rrb-sm_/i.test(new URLSearchParams(location.search).get('mockId')||'');
+const SM_SUBJ_SETS={scimaths:['basic science','mathematics'],di:['data analysis and interpretation'],
+  logical:['logical reasoning','reading comprehension'],mental:['mental reasoning']};
+if(IS_SM_MOCK){
+  SUBJ_META.scimaths={label:'Basic Science & Mathematics',short:'Maths & Science',band:[0,0]};
+  SUBJ_META.di={label:'Data Analysis & Interpretation',short:'Data Interpretation',band:[0,0]};
+  SUBJ_META.logical={label:'Logical Capability',short:'Logical Capability',band:[0,0]};
+  SUBJ_META.mental={label:'Mental Reasoning',short:'Mental Reasoning',band:[0,0]};
+  Object.assign(SUBJ_PAGE,{scimaths:'rrb-station-master-maths-science-mock-test.html',di:'rrb-station-master-data-interpretation-mock-test.html',
+    logical:'rrb-station-master-logical-capability-mock-test.html',mental:'rrb-station-master-mental-reasoning-mock-test.html'});
+  const _D={scimaths:36,di:36,logical:24,mental:24};
+  if(_D[subjectKey]) SECTION_DUR=_D[subjectKey]*60;
+  SUBJ=SUBJ_META[subjectKey]||null;
 }
 (function(){ const b=document.getElementById('subjBackBtn'); if(b&&SUBJ){ b.href='https://trickyssc.com/'+SUBJ_PAGE[subjectKey]; b.textContent='\u2190 More '+SUBJ.short+' mock tests'; b.style.display='inline-block'; } })();
 (function(){ try{ const sj=document.getElementById('instrSubjName'); if(sj&&SUBJ) sj.textContent=SUBJ.label; }catch(e){} })();
@@ -1641,21 +1659,22 @@ const TG_IS_GD       = /^ssc-gd_/i.test(new URLSearchParams(location.search).get
      Session II = General Awareness Q41-65 + English Q66-90                  — −1 per wrong answer
    The Hindi paper is Q1-65 in Hindi; Q66-90 are the same English questions. */
 const TG_IS_MTS      = /^ssc-mts_/i.test(new URLSearchParams(location.search).get('mockId')||'');
+const TG_IS_SM       = /^rrb-sm_/i.test(new URLSearchParams(location.search).get('mockId')||'');     /* TSSC-SM-SUBJMOCK-V1: pass key rrb-sm-mocks, Test 1-3 free, +1 / −1/3 */
 const TG_IS_NTPC     = /^rrb-ntpc_/i.test(new URLSearchParams(location.search).get('mockId')||'');   /* TSSC-NTPC-MOCK-V1: mockId rrb-ntpc_cbt1_mockN_<lang>, pass key rrb-ntpc-mocks, Mock 1-3 free, +1 / −1/3 */
-const TG_POS         = TG_IS_NTPC ? 1 : TG_IS_MTS ? 3 : 2;               /* marks for a correct answer */
-const TG_NEG         = TG_IS_NTPC ? (1/3) : TG_IS_MTS ? 1 : (TG_IS_GD ? 0.25 : 0.5);   /* marks lost per wrong answer (MTS: Session II only) */
+const TG_POS         = (TG_IS_NTPC||TG_IS_SM) ? 1 : TG_IS_MTS ? 3 : 2;               /* marks for a correct answer */
+const TG_NEG         = (TG_IS_NTPC||TG_IS_SM) ? (1/3) : TG_IS_MTS ? 1 : (TG_IS_GD ? 0.25 : 0.5);   /* marks lost per wrong answer (MTS: Session II only) */
 window.TSSC_MK       = [TG_POS, TG_NEG];                 /* read by the review panel below */
 /* TSSC-MTS-MOCK-V1 — negative marks for one question: MTS Session I (Q1-40) carries none */
 function tgNegFor(q,i){ if(!TG_IS_MTS) return TG_NEG; const n=parseInt(q&&q.qNum,10)||(i+1); return n>40?1:0; }
-const TG_MODULE      = TG_IS_NTPC ? 'rrb-ntpc-mocks' : TG_IS_MTS ? 'ssc-mts-mocks' : (TG_IS_GD ? 'ssc-gd-mocks' : (TG_IS_CHSL ? 'ssc-chsl-mocks' : 'ssc-cgl-mocks'));
+const TG_MODULE      = TG_IS_SM ? 'rrb-sm-mocks' : TG_IS_NTPC ? 'rrb-ntpc-mocks' : TG_IS_MTS ? 'ssc-mts-mocks' : (TG_IS_GD ? 'ssc-gd-mocks' : (TG_IS_CHSL ? 'ssc-chsl-mocks' : 'ssc-cgl-mocks'));
 /* CHSL FREE PERIOD (Sep 2026): every CHSL mock is free while Tier 1 is being released.
    To switch the CHSL pass on, set TG_CHSL_FREE_ALL to false (Mock 1-2 stay free). */
 const TG_CHSL_FREE_ALL = false;   /* TSSC-CHSLPAY-V1 2026-10-05: CHSL pass ON, Mock 1-2 free */
 const TG_GD_FREE_ALL   = false;   /* TSSC-GDFREE-V1 2026-11-04: Mock 1-2 free, Mock 3+ need the GD pass once TG_ENFORCE_FROM passes (every GD mock free till 7 Nov) */
 const TG_MTS_FREE_ALL  = false;   /* TSSC-MTS-MOCK-V1: Mock 1-2 free, Mock 3+ need the SSC MTS pass. Set true to open every MTS mock. */
-const TG_FREE_UP_TO  = TG_IS_NTPC ? 3 : TG_IS_MTS ? (TG_MTS_FREE_ALL ? 999 : 2) : (TG_IS_GD ? (TG_GD_FREE_ALL ? 999 : 2) : (TG_IS_CHSL ? (TG_CHSL_FREE_ALL ? 999 : 2) : 4));
-const TG_ENFORCE_FROM= (TG_IS_GD || TG_IS_MTS || TG_IS_NTPC) ? null : (TG_IS_CHSL ? null : '2026-08-25T00:00:00+05:30');   // null = enforce now; TSSC-GDPAY-NOW-V1: GD pass live from 7 Nov 2026
-const TG_BUY_URL     = (typeof SUBJ_PAGE!=='undefined' && SUBJ && SUBJ_PAGE[subjectKey]) ? SUBJ_PAGE[subjectKey] : (TG_IS_NTPC?'rrb-ntpc-mock-test.html':TG_IS_MTS?'ssc-mts-mock-test.html':TG_IS_GD?'ssc-gd-mock-test.html':(TG_IS_CHSL?'ssc-chsl-mock-test.html':'ssc-cgl-mock-test.html'));   /* TSSC-SUBJECT-MOCK-V1 */
+const TG_FREE_UP_TO  = (TG_IS_NTPC||TG_IS_SM) ? 3 : TG_IS_MTS ? (TG_MTS_FREE_ALL ? 999 : 2) : (TG_IS_GD ? (TG_GD_FREE_ALL ? 999 : 2) : (TG_IS_CHSL ? (TG_CHSL_FREE_ALL ? 999 : 2) : 4));
+const TG_ENFORCE_FROM= (TG_IS_GD || TG_IS_MTS || TG_IS_NTPC || TG_IS_SM) ? null : (TG_IS_CHSL ? null : '2026-08-25T00:00:00+05:30');   // null = enforce now; TSSC-GDPAY-NOW-V1: GD pass live from 7 Nov 2026
+const TG_BUY_URL     = (typeof SUBJ_PAGE!=='undefined' && SUBJ && SUBJ_PAGE[subjectKey]) ? SUBJ_PAGE[subjectKey] : (TG_IS_SM?'rrb-station-master-mock-test.html':TG_IS_NTPC?'rrb-ntpc-mock-test.html':TG_IS_MTS?'ssc-mts-mock-test.html':TG_IS_GD?'ssc-gd-mock-test.html':(TG_IS_CHSL?'ssc-chsl-mock-test.html':'ssc-cgl-mock-test.html'));   /* TSSC-SUBJECT-MOCK-V1 */
 
 /* TSSC-GD-MOCK-V1 — the instruction sheet and result card are written for −0.5;
    repaint the three static strings when a GD mock is open. */
@@ -1678,6 +1697,19 @@ if (TG_IS_MTS) { try {
   document.querySelectorAll('.instr-list li').forEach(li => {
     if (/15-minute/.test(li.innerHTML)) li.innerHTML = li.innerHTML.replace('15-minute', _mtsMin + '-minute');
     else if (/4 sections/.test(li.textContent)) li.innerHTML = 'This subject-wise test is one section of an SSC MTS mock. The full paper has 4 sections in 2 sessions: Session I &mdash; Maths and Reasoning (no negative marking); Session II &mdash; General Awareness and English (&minus;1).';
+  });
+} catch (e) {} }
+
+/* TSSC-SM-SUBJMOCK-V1 — repaint the instruction sheet and result card for an RRB Station Master section test. */
+if (TG_IS_SM) { try {
+  const _sMin = Math.round(SECTION_DUR/60);
+  document.querySelectorAll('.instr-mark-row.correct .instr-mark-val').forEach(el => { el.innerHTML = '+1.00'; });
+  document.querySelectorAll('.instr-mark-row.wrong .instr-mark-val').forEach(el => { el.innerHTML = '&minus;0.33'; });
+  document.querySelectorAll('.instr-marking-note').forEach(el => { el.innerHTML = el.innerHTML.replace(/Total marks = \(Correct &times; 2\) &minus; \(Wrong &times; 0\.5\)/, 'Total marks = Correct &minus; (Wrong &times; 1/3)'); });
+  const w = document.querySelector('#statWrong + .stat-lbl span'); if (w) w.textContent = '−1/3 each';
+  document.querySelectorAll('.instr-list li').forEach(li => {
+    if (/15-minute/.test(li.innerHTML)) li.innerHTML = li.innerHTML.replace('15-minute', _sMin + '-minute');
+    else if (/4 sections/.test(li.textContent)) li.innerHTML = 'This section-wise test is one part of an RRB Station Master mock. The full paper has 100 questions in 120 minutes: Basic Science, Mathematical &amp; Analytical Capability (Q1&ndash;60), Logical Capability (Q61&ndash;80) and Mental Reasoning (Q81&ndash;100).';
   });
 } catch (e) {} }
 
@@ -1787,7 +1819,7 @@ function tgShowLocked(mockNum){
     +'margin-bottom:0.6rem;">Mock Test '+mockNum+' is part of Premium</div>'
     +'<div style="font-size:0.9rem;opacity:0.9;line-height:1.65;margin-bottom:1.5rem;">'
     +'Mock 1 to '+TG_FREE_UP_TO+' are free to attempt. Unlock the full series &mdash; '
-    +(TG_IS_NTPC?'all 60 RRB NTPC mocks and every subject-wise test &mdash; with one payment.':TG_IS_MTS?'all 60 SSC MTS mocks and every subject-wise test &mdash; with one payment.':TG_IS_GD?'all 60 SSC GD mocks and every subject-wise test &mdash; for &#8377;49 a year.':'all Tier I and Tier II mocks &mdash; with one payment.')+'</div>'
+    +(TG_IS_SM?'all 60 RRB Station Master mocks and every section-wise test &mdash; with one payment.':TG_IS_NTPC?'all 60 RRB NTPC mocks and every subject-wise test &mdash; with one payment.':TG_IS_MTS?'all 60 SSC MTS mocks and every subject-wise test &mdash; with one payment.':TG_IS_GD?'all 60 SSC GD mocks and every subject-wise test &mdash; for &#8377;49 a year.':'all Tier I and Tier II mocks &mdash; with one payment.')+'</div>'
     +'<a href="'+TG_BUY_URL+'" style="display:inline-block;background:white;color:#FF6B00;'
     +'font-family:\'Rajdhani\',sans-serif;font-weight:700;font-size:1rem;padding:0.7rem 2rem;'
     +'border-radius:10px;text-decoration:none;margin-bottom:1rem;">Unlock all mocks &rarr;</a><br>'
@@ -1851,7 +1883,7 @@ async function tgAllowed(uid){
   const n=tgMockNumber();
   if(!n||n<=TG_FREE_UP_TO) return true;      // PYQ paper, or a free mock
   if(!tgEnforcing()) return true;            // before the paid launch date
-  if(TG_IS_MTS||TG_IS_NTPC){                 /* TSSC-MTS-PREPASS-V1 / TSSC-NTPC-MOCK-V1: open until the pass is Live in admin-pricing */
+  if(TG_IS_MTS||TG_IS_NTPC||TG_IS_SM){      /* TSSC-MTS-PREPASS-V1 / TSSC-NTPC-MOCK-V1: open until the pass is Live in admin-pricing */
     let ov=null; try{ ov=sessionStorage.getItem('tssc_paywall_override'); }catch(e){}
     if(ov!=='on' && !(await tgMtsPassLive())) return true;
   }
@@ -2153,8 +2185,8 @@ async function loadTest(){
     // ── TSSC-SUBJECT-MOCK-V1: keep only the chosen subject's questions ──
     if(SUBJ){
       const rng=SUBJ.band;
-      let picked=questions.filter(q=>canonSubject(q.subject||q.section||'')===SUBJ.short||(IS_GD_MOCK&&subjectKey==='english'&&/hindi|हिंदी|हिन्दी/i.test(String(q.subject||q.section||''))));   /* TSSC-GD-MOCK-V1: Part D is Hindi on the Hindi paper */
-      if(picked.length<5){
+      let picked=IS_SM_MOCK?questions.filter(q=>(SM_SUBJ_SETS[subjectKey]||[]).indexOf(String(q.subject||q.section||'').toLowerCase().replace(/&/g,'and').replace(/\s+/g,' ').trim())>=0):questions.filter(q=>canonSubject(q.subject||q.section||'')===SUBJ.short||(IS_GD_MOCK&&subjectKey==='english'&&/hindi|हिंदी|हिन्दी/i.test(String(q.subject||q.section||''))));   /* TSSC-GD-MOCK-V1: Part D is Hindi on the Hindi paper */
+      if(picked.length<5&&!IS_SM_MOCK){
         picked=questions.filter(q=>{const n=parseInt(q.qNum)||0;return n>=rng[0]&&n<=rng[1];});
       }
       console.log('[TrickySSC] subject',subjectKey,'\u2192',picked.length,'of',questions.length,'questions');
@@ -2188,7 +2220,7 @@ async function loadTest(){
     }
 
     // ── Build title ──
-    const examNames={'ssc-cgl':'SSC CGL','ssc-chsl':'SSC CHSL','ssc-mts':'SSC MTS','rrb-ntpc':'RRB NTPC','ssc-cpo':'SSC CPO','ssc-gd':'SSC GD Constable','ssc-je':'SSC JE','ssc-jht':'SSC JHT'};
+    const examNames={'ssc-cgl':'SSC CGL','ssc-chsl':'SSC CHSL','ssc-mts':'SSC MTS','rrb-ntpc':'RRB NTPC','rrb-sm':'RRB Station Master','ssc-cpo':'SSC CPO','ssc-gd':'SSC GD Constable','ssc-je':'SSC JE','ssc-jht':'SSC JHT'};
     const tierLabels={'tier1':'Tier I','tier-1':'Tier I','tier2':'Tier II','tier-2':'Tier II'};
     const eName=mockMeta?.title||(examNames[exam]||(exam||'').toUpperCase().replace(/-/g,' '));
     const tLabel=tier?(tierLabels[tier.toLowerCase()]||tier):'';
@@ -2401,7 +2433,7 @@ function renderQ(){_qtTick();
   const isHindiTest=(new URLSearchParams(window.location.search).get('lang')==='hi');
   // Offer the toggle on Q1-75 for Hindi tests even before the English map is
   // fetched — the map loads lazily on first tap.
-  const hasEnglish=(isHindiTest||(TSSC_EN2HI()&&tsscHiOk(qNum))) && qNum>=1 && qNum<=(TG_IS_NTPC?100:TG_IS_MTS?65:(TG_IS_GD?60:75));   /* TSSC-GD-MOCK-V1 / TSSC-MTS-MOCK-V1 */
+  const hasEnglish=(isHindiTest||(TSSC_EN2HI()&&tsscHiOk(qNum))) && qNum>=1 && qNum<=((TG_IS_NTPC||TG_IS_SM)?100:TG_IS_MTS?65:(TG_IS_GD?60:75));   /* TSSC-GD-MOCK-V1 / TSSC-MTS-MOCK-V1 */
   if(enBtn){
     if(hasEnglish){
       enBtn.style.display='flex';
@@ -2795,6 +2827,9 @@ function buildSections(){
   });
   if(sections.length===0&&questions.length>0)
     sections=[{name:'',label:'All Questions',from:0,to:questions.length-1}];
+  /* TSSC-SM-SUBJMOCK-V1: a Station Master section test is ONE section (its subjects come mixed) */
+  if(IS_SM_MOCK&&SUBJ&&questions.length>0)
+    sections=[{name:SUBJ.short,label:SUBJ.short,from:0,to:questions.length-1}];
   // Sectional timing: each subject section gets its own 15-min timer
   tsRemaining=sections.map(()=>SECTION_DUR);
   tsSubmitted=sections.map(()=>false);
@@ -3157,7 +3192,7 @@ window.imgFail = function (el) {
     // Per-solution EN/HI toggle: available for Q1–75 when an English counterpart
     // solution exists in enQMap. Q76–100 are English-only, so no toggle there.
     const _qn=parseInt(q.qNum)||(i+1);
-    const _enDoc=(_qn>=1&&_qn<=(TG_IS_NTPC?100:TG_IS_MTS?65:(TG_IS_GD?60:75)))?(enQMap&&enQMap[_qn]):null;   /* TSSC-GD-MOCK-V1 / TSSC-MTS-MOCK-V1 */
+    const _enDoc=(_qn>=1&&_qn<=((TG_IS_NTPC||TG_IS_SM)?100:TG_IS_MTS?65:(TG_IS_GD?60:75)))?(enQMap&&enQMap[_qn]):null;   /* TSSC-GD-MOCK-V1 / TSSC-MTS-MOCK-V1 */
     const _hasEnSol=!!(_enDoc&&(_enDoc.explanation||'').trim());
     const _enExp=_hasEnSol?_enDoc.explanation:'';
     const _enTrk=(_enDoc&&_enDoc.trick)||'';
@@ -3220,7 +3255,7 @@ window.imgFail = function (el) {
   if((correct+wrong)===0){ setSaveUi('saved','ℹ️ No question was attempted, so this result is not saved.'); isSubmitting=false; return; }
   const attemptId=`${currentUser.uid}_${exam||'exam'}_${year||'na'}_${Date.now()}`;
   // Build a readable exam name for dashboard display
-  const _examNames={'ssc-cgl':'SSC CGL','ssc-chsl':'SSC CHSL','ssc-mts':'SSC MTS','rrb-ntpc':'RRB NTPC','ssc-cpo':'SSC CPO','ssc-gd':'SSC GD','ssc-jht':'SSC JHT','ssc-je':'SSC JE'};
+  const _examNames={'ssc-cgl':'SSC CGL','ssc-chsl':'SSC CHSL','ssc-mts':'SSC MTS','rrb-ntpc':'RRB NTPC','rrb-sm':'RRB Station Master','ssc-cpo':'SSC CPO','ssc-gd':'SSC GD','ssc-jht':'SSC JHT','ssc-je':'SSC JE'};
   const _examLabel = (mockMeta?.title || ((_examNames[exam]||(exam||'').toUpperCase().replace(/-/g,' '))+(year?' '+year:'')))+(SUBJ?' · '+SUBJ.short:'');   /* TSSC-SUBJECT-MOCK-V1 */
   const _pid=new URLSearchParams(window.location.search).get('paperId')||'';
   const _midBase=new URLSearchParams(window.location.search).get('mockId')||'';
