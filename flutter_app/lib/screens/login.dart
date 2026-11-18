@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../profile.dart';
 import '../ui/soft.dart';
+import 'about.dart';
 import 'package:flutter/services.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
@@ -255,6 +256,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: const Text('Continue with Google', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
                 ),
               ),
+              const SizedBox(height: 22),
+              const GovDisclaimer(),
             ],
           ),
         ),

@@ -15,6 +15,7 @@ import 'plans.dart';
 import 'subject_mocks.dart';
 import 'current_affairs.dart';
 import 'report_issue.dart';
+import 'about.dart';
 import '../ui/icons3d.dart';
 import '../ui/soft.dart';
 import '../ui/soft_list.dart';
@@ -959,10 +960,17 @@ class _MeTab extends StatelessWidget {
         if (u != null)
           row(const Text('🐞', style: TextStyle(fontSize: 22)), 'Report an issue', 'Something not working in the app? Tell us',
               () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ReportIssuePage(user: u, exam: exam)))),
+        row(const Text('🏛️', style: TextStyle(fontSize: 22)), 'Disclaimer & official sources', 'Not a government app · ssc.gov.in, rrbapply.gov.in',
+            () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => AboutPage(color: exam.c1)))),
         row(const Text('✉️', style: TextStyle(fontSize: 22)), 'Help', 'Write to contact@trickyssc.com', () {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Write to contact@trickyssc.com — we reply within 24 hours.')));
         }),
         row(const Icon(Icons.logout_rounded, color: Color(0xFFDC2626)), 'Sign out', '', onSignOut, color: const Color(0xFFDC2626)),
+        const Padding(
+          padding: EdgeInsets.fromLTRB(6, 10, 6, 0),
+          child: Text('TrickySSC is a private practice app, not affiliated with SSC, RRB or any government body. Official information: ssc.gov.in, rrbapply.gov.in.',
+              textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: softMuted, height: 1.35)),
+        ),
       ],
     );
   }

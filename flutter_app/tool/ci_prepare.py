@@ -29,6 +29,14 @@ assert n == 1, "app label not found in AndroidManifest.xml"
 if "android.permission.INTERNET" not in s:
     s, n = re.subn(r"(<manifest[^>]*>)", r'\1\n    <uses-permission android:name="android.permission.INTERNET" />', s, count=1)
     assert n == 1, "<manifest> tag not found"
+# open https links (url_launcher, Disclaimer & official sources page) on Android 11+
+if '<data android:scheme="https"' not in s:
+    q = '    <queries>\n        <intent>\n            <action android:name="android.intent.action.VIEW" />\n            <data android:scheme="https" />\n        </intent>\n    </queries>\n'
+    if "<queries>" in s:
+        s = s.replace("<queries>", '<queries>\n        <intent>\n            <action android:name="android.intent.action.VIEW" />\n            <data android:scheme="https" />\n        </intent>', 1)
+    else:
+        s, n = re.subn(r"(</manifest>)", q + r"\1", s, count=1)
+        assert n == 1, "</manifest> not found"
 man.write_text(s, encoding="utf-8")
 
 # 2b. minimum Android version 6.0 (API 23) or whatever Flutter needs, if higher
