@@ -55,6 +55,8 @@ EXAMS = {
     "ssc-cpo":  {"name": "SSC CPO",  "tiered": True,  "hub": "ssc-cpo-pyq.html",  "mock": "",                        "cw": ""},
     # TSSC-NTPC-PYQ-V1 (2026-11-13): RRB NTPC papers join the same chapter pages, labelled "RRB NTPC <year> · <date> · <shift>"
     "rrb-ntpc": {"name": "RRB NTPC", "tiered": False, "hub": "rrb-ntpc-pyq.html", "mock": "rrb-ntpc-mock-test.html", "cw": ""},
+    # TSSC-SM-PYQ-V1 (2026-11-18): exam id rrb-sm holds the RRB Section Controller CBT 2026 papers shown on the Station Master PYQ page
+    "rrb-sm":   {"name": "RRB Section Controller", "tiered": False, "hub": "rrb-station-master-pyq.html", "mock": "rrb-station-master-mock-test.html", "cw": ""},
 }
 EXAM_ORDER = list(EXAMS)
 def exam_meta(exam):
