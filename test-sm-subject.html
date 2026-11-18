@@ -834,7 +834,7 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:10
   .btn-submit{background:#1E293B;color:#fff;box-shadow:none;font-size:13px;}
   .btn-section{background:#1E293B;color:#fff;box-shadow:none;font-size:13px;}
   .skip-btn-row{display:flex;gap:8px;}
-  .btn-mark{display:none;}
+  .btn-mark{padding:11px 0;}   /* TSSC-SM-MARK-V1 (2026-11-18): Mark for Review shown on phones too */
 
   #resultScreen{padding:12px;}
   .result-card{padding:22px 16px;border-radius:16px;}
@@ -2613,6 +2613,10 @@ function buildSections(){
   });
   if(sections.length===0&&questions.length>0)
     sections=[{name:'',label:'All Questions',from:0,to:questions.length-1}];
+  /* TSSC-SM-SUBJ-V2 (2026-11-18): a section test is ONE section on one clock — Maths and DI (or LR and RC)
+     come mixed in the paper, so splitting by subject made many tiny locked sections and broke submitting. */
+  if(questions.length>0)
+    sections=[{name:SUBJ?SUBJ.short:'',label:SUBJ?SUBJ.short:'All Questions',from:0,to:questions.length-1}];
   // Sectional timing: each subject section gets its own 15-min timer
   tsRemaining=sections.map(()=>SECTION_DUR);
   tsSubmitted=sections.map(()=>false);
