@@ -14,6 +14,7 @@ import 'chapters.dart';
 import 'plans.dart';
 import 'subject_mocks.dart';
 import 'current_affairs.dart';
+import 'report_issue.dart';
 import '../ui/icons3d.dart';
 import '../ui/soft.dart';
 import '../ui/soft_list.dart';
@@ -955,6 +956,9 @@ class _MeTab extends StatelessWidget {
         if (u != null)
           row(const Text('👤', style: TextStyle(fontSize: 22)), 'My profile', 'Name, phone and login method',
               () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ProfilePage(x: DashCtx(u, exam, const [], '', 'GEN'))))),
+        if (u != null)
+          row(const Text('🐞', style: TextStyle(fontSize: 22)), 'Report an issue', 'Something not working in the app? Tell us',
+              () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ReportIssuePage(user: u, exam: exam)))),
         row(const Text('✉️', style: TextStyle(fontSize: 22)), 'Help', 'Write to contact@trickyssc.com', () {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Write to contact@trickyssc.com — we reply within 24 hours.')));
         }),

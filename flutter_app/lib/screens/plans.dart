@@ -199,7 +199,7 @@ class _PlansTabState extends State<PlansTab> {
         points: const ['Every exam: all mocks and subject mocks', 'Pull down to try again'],
       );
     }
-    final price = q.price == 0 ? 'Free' : (_play[q.product]?.price ?? '₹${q.price}');
+    final price = _play[q.product]?.price ?? '₹${q.price}';
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
@@ -220,13 +220,8 @@ class _PlansTabState extends State<PlansTab> {
         FilledButton(
           onPressed: () => Billing.I.upgrade(q),
           style: FilledButton.styleFrom(backgroundColor: const Color(0xFFD97706), minimumSize: const Size.fromHeight(50), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
-          child: Text(q.price == 0 ? 'Upgrade to Full Access FREE' : 'Upgrade to Full Access @ $price', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
+          child: Text('Upgrade to Full Access @ $price', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
         ),
-        if (q.price == 0)
-          const Padding(
-            padding: EdgeInsets.only(top: 6),
-            child: Text('You have already paid ₹98 or more, so this one is on us.', textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: softMuted)),
-          ),
       ]),
     );
   }

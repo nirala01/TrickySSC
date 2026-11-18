@@ -20,7 +20,7 @@ const List<String> upgradeProducts = ['upgrade_full_49', 'upgrade_full_20'];
 /// The student's upgrade offer, worked out by the trickyssc-play Worker from their paid orders.
 class UpgradeQuote {
   final bool paid, full;
-  final int? price; // 49, 20, 0 (free) or null (free user / already full access)
+  final int? price; // 49, 20 or null (free user / already full access)
   final String? product;
   final Map<String, int> owned; // exam pass key -> expiry (ms)
   const UpgradeQuote({required this.paid, required this.full, this.price, this.product, this.owned = const {}});
@@ -209,7 +209,7 @@ class Billing {
           if (n > 0 && n < 100000) total += n;
         }
       }
-      final int? price = full || !paid ? null : (total >= 98 ? 0 : (total >= 70 ? 20 : 49));
+      final int? price = full || !paid ? null : (total >= 70 ? 20 : 49) /* 2026-11-18: no free upgrade any more */;
       return UpgradeQuote(paid: paid, full: full, price: price, product: price == 49 ? 'upgrade_full_49' : (price == 20 ? 'upgrade_full_20' : null), owned: owned);
     } catch (_) {
       return null;
@@ -243,33 +243,9 @@ class Billing {
     }
   }
 
-  /// Paid ₹98 or more already: full access without paying again.
-  Future<bool> upgradeFree() async {
-    final u = FirebaseAuth.instance.currentUser;
-    if (u == null) return false;
-    try {
-      final r = await http
-          .post(Uri.parse('$playApi/upgrade-free'), headers: {'content-type': 'application/json'}, body: jsonEncode({'idToken': await u.getIdToken()}))
-          .timeout(const Duration(seconds: 25));
-      final j = jsonDecode(r.body);
-      if (r.statusCode == 200 && j is Map && j['ok'] == true) {
-        recordIntent('paid', 'upgrade_full_free', {'failedAt': '', 'lastError': ''});
-        onGranted?.call();
-        onMessage?.call('You have been upgraded to Full Access, free. All the best!');
-        return true;
-      }
-    } catch (_) {}
-    onMessage?.call('Could not upgrade right now. Please try again in a little while.');
-    return false;
-  }
-
   /// Paid students: their one offer.
   Future<void> upgrade(UpgradeQuote q) async {
-    if (q.price == 0) {
-      await upgradeFree();
-    } else if (q.product != null) {
-      await buy(q.product!, q.product!);
-    }
+    if (q.product != null) await buy(q.product!, q.product!);
   }
 
   /// Opens Google Play for one pass (from the Plans tab).
@@ -369,7 +345,7 @@ class Billing {
   Future<void> showUpgradeSheet(BuildContext context, Exam exam, UpgradeQuote q) async {
     final play = q.product == null ? <String, ProductDetails>{} : await playProducts({q.product!});
     if (!context.mounted) return;
-    final price = q.price == 0 ? 'Free' : (play[q.product]?.price ?? '₹${q.price}');
+    final price = play[q.product]?.price ?? '₹${q.price}';
     await showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.white,
@@ -396,10 +372,10 @@ class Billing {
                 upgrade(q);
               },
               style: FilledButton.styleFrom(backgroundColor: const Color(0xFFD97706), minimumSize: const Size.fromHeight(52), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
-              child: Text(q.price == 0 ? 'Upgrade to Full Access FREE' : 'Get Full Access, pay $price more', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
+              child: Text('Get Full Access, pay $price more', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
             ),
             const SizedBox(height: 6),
-            Text(q.price == 0 ? 'You have already paid ₹98 or more, so this one is on us.' : 'Payment is handled by Google Play.',
+            Text('Payment is handled by Google Play.',
                 textAlign: TextAlign.center, style: const TextStyle(fontSize: 12, color: softMuted)),
           ]),
         ),

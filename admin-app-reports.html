@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>App issue reports — TrickySSC Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<!-- TSSC-APPISSUE-V1 (2026-11-18): issues reported from the Android app's Me tab
+     ("Report an issue"), Firestore collection app_reports. Mark resolved, then the
+     ✉️ button emails the student through the trickyssc-mail Worker. -->
+<style>
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Inter',sans-serif;background:#F1F5F9;color:#1E293B;}
+  .topbar{background:#fff;border-bottom:1px solid #E8EDF3;padding:14px 18px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;position:sticky;top:0;z-index:10;}
+  .brand{font-family:'Rajdhani';font-weight:700;font-size:20px;color:#FF6B00;}
+  .brand small{color:#64748B;font-size:14px;margin-left:6px;}
+  .nav a{font-size:12px;font-weight:700;color:#475569;text-decoration:none;padding:6px 10px;border-radius:8px;background:#F1F5F9;margin-right:4px;}
+  .who{margin-left:auto;font-size:12px;color:#64748B;}
+  .btn{font-size:13px;font-weight:700;padding:9px 16px;border-radius:9px;border:0;cursor:pointer;}
+  .btn:disabled{opacity:.55;cursor:default;}
+  .btn-orange{background:#FF6B00;color:#fff;}
+  .btn-green{background:#16A34A;color:#fff;}
+  .btn-ghost{background:#F1F5F9;color:#475569;border:1.5px solid #E2E8F0;}
+  .btn-mail{background:#EFF6FF;color:#1D4ED8;border:1.5px solid #BFDBFE;font-size:15px;padding:7px 12px;}
+  .btn-mail.sent{background:#DCFCE7;color:#15803D;border-color:#BBF7D0;}
+  .wrap{max-width:1000px;margin:0 auto;padding:18px 16px 60px;}
+  .tabs{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;}
+  .tab{padding:9px 16px;border-radius:10px;border:1.5px solid #E2E8F0;background:#fff;color:#475569;font-weight:700;font-size:14px;cursor:pointer;}
+  .tab.active{background:#FF6B00;color:#fff;border-color:#FF6B00;}
+  input.filter{width:100%;font-size:14px;padding:10px 12px;border-radius:10px;border:1.5px solid #E2E8F0;margin-bottom:14px;}
+  .card{background:#fff;border:1px solid #EDF1F6;border-radius:14px;padding:14px 16px;margin-bottom:12px;box-shadow:0 3px 14px rgba(15,23,42,.05);}
+  .card.resolved{opacity:.85;border-left:4px solid #16A34A;}
+  .card.open{border-left:4px solid #F59E0B;}
+  .head{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;}
+  .kind{font-weight:800;font-size:15px;}
+  .when{margin-left:auto;font-size:12px;color:#64748B;}
+  .pill{display:inline-block;font-size:11px;padding:2px 9px;border-radius:99px;font-weight:800;}
+  .p-open{background:#FEF3C7;color:#92400E;}
+  .p-res{background:#DCFCE7;color:#15803D;}
+  .msg{white-space:pre-wrap;font-size:14px;line-height:1.45;background:#F8FAFC;border:1px solid #EEF2F7;border-radius:10px;padding:10px 12px;margin-bottom:10px;}
+  .meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:4px 16px;font-size:13px;color:#334155;margin-bottom:10px;}
+  .meta b{color:#64748B;font-weight:700;}
+  code{background:#0B1220;color:#7DD3FC;padding:1px 6px;border-radius:5px;font-size:11.5px;word-break:break-all;}
+  .acts{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+  .note{font-size:12px;color:#64748B;}
+  .empty{text-align:center;color:#64748B;padding:40px 10px;}
+  .hidden{display:none !important;}
+  .modal{position:fixed;inset:0;background:rgba(15,23,42,.5);display:flex;align-items:center;justify-content:center;z-index:50;padding:16px;}
+  .box{background:#fff;border-radius:16px;max-width:560px;width:100%;padding:18px;max-height:92vh;overflow:auto;}
+  .box h3{font-family:'Rajdhani';font-size:20px;margin:0 0 4px;}
+  .box label{display:block;font-size:12px;font-weight:700;color:#64748B;margin:10px 0 4px;}
+  .box input,.box textarea{width:100%;font:inherit;font-size:14px;padding:9px 11px;border-radius:9px;border:1.5px solid #E2E8F0;}
+  .box textarea{min-height:220px;resize:vertical;}
+  .say{font-size:13px;margin-top:8px;}
+  .say.err{color:#DC2626;} .say.ok{color:#15803D;}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="brand">TrickySSC <small>📲 App issue reports</small></div>
+  <div class="nav"><a href="reports-admin.html">Question reports</a><a href="admin-premium.html">Premium</a></div>
+  <div class="who" id="who"></div>
+  <button class="btn btn-ghost hidden" id="so">Sign out</button>
+</div>
+
+<div class="wrap">
+  <div id="gate" class="card empty">Loading…</div>
+  <div id="main" class="hidden">
+    <div class="tabs">
+      <button class="tab active" data-f="open" id="tOpen">Open</button>
+      <button class="tab" data-f="resolved" id="tRes">Resolved</button>
+      <button class="tab" data-f="all" id="tAll">All</button>
+      <button class="btn btn-ghost" id="reload" style="margin-left:auto">↻ Refresh</button>
+    </div>
+    <input class="filter" id="q" placeholder="Search name, email, phone, message, app version…">
+    <div id="list"></div>
+  </div>
+</div>
+
+<div class="modal hidden" id="mm">
+  <div class="box">
+    <h3>✉️ Tell the student it is resolved</h3>
+    <div class="note">Sent from <b>contact@trickyssc.com</b> as soon as you press Send. Edit anything first.</div>
+    <label>To</label><input id="mTo">
+    <label>Subject</label><input id="mSub">
+    <label>Message</label><textarea id="mText"></textarea>
+    <div class="say" id="mSay"></div>
+    <div class="acts" style="margin-top:12px;justify-content:flex-end">
+      <button class="btn btn-ghost" id="mX">Cancel</button>
+      <button class="btn btn-orange" id="mSend">Send email</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getFirestore, initializeFirestore, collection, getDocs, doc, getDoc, updateDoc, serverTimestamp, deleteField }
+  from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut }
+  from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+const ADMIN_EMAILS = ["nirala01@gmail.com"];
+const MAIL_API = 'https://trickyssc-mail.nirala01.workers.dev';
+const COLL = 'app_reports';
+
+const app = initializeApp({
+  apiKey:"AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",
+  authDomain:"trickyssc-17bb3.firebaseapp.com",
+  projectId:"trickyssc-17bb3",
+  storageBucket:"trickyssc-17bb3.firebasestorage.app",
+  messagingSenderId:"450627057220",
+  appId:"1:450627057220:web:366267bf437d94f20c6e11"
+});
+let db; try{ db = initializeFirestore(app,{experimentalAutoDetectLongPolling:true}); }catch(_){ db = getFirestore(app); }
+const auth = getAuth(app);
+const $ = id => document.getElementById(id);
+const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const ms = t => { try{ return t?.toMillis ? t.toMillis() : (t ? new Date(t).getTime() : 0); }catch(_){ return 0; } };
+const when = t => { const m = ms(t); return m ? new Date(m).toLocaleString('en-IN',{day:'numeric',month:'short',year:'numeric',hour:'numeric',minute:'2-digit'}) : ''; };
+const KINDS = { crash:'💥 App crashes or freezes', test:'📝 Test not loading or not saving', payment:'💳 Payment or pass access',
+                login:'🔑 Sign-in problem', content:'❓ Wrong question, answer or solution', other:'💬 Something else' };
+const kindOf = r => r.kindLabel || KINDS[r.kind] || '💬 Something else';
+
+let ALL = [], FILTER = 'open';
+const USERS = {};   /* uid -> users/{uid} doc, for a missing email or phone */
+
+async function userOf(uid){
+  if(!uid) return {};
+  if(USERS[uid]) return USERS[uid];
+  try{ const d = await getDoc(doc(db,'users',uid)); USERS[uid] = d.exists() ? d.data() : {}; }catch(_){ USERS[uid] = {}; }
+  return USERS[uid];
+}
+
+$('so').onclick = () => signOut(auth);
+onAuthStateChanged(auth, async user => {
+  if(!user){
+    $('who').textContent = ''; $('so').classList.add('hidden'); $('main').classList.add('hidden');
+    $('gate').classList.remove('hidden');
+    $('gate').innerHTML = '<p>Sign in with the admin Google account.</p><button class="btn btn-orange" id="si">Sign in with Google</button>';
+    $('si').onclick = () => signInWithPopup(auth, new GoogleAuthProvider()).catch(e => alert(e.message));
+    return;
+  }
+  $('who').textContent = user.email || user.uid; $('so').classList.remove('hidden');
+  if(!ADMIN_EMAILS.includes((user.email||'').toLowerCase())){
+    $('gate').innerHTML = 'This account is not an admin.'; return;
+  }
+  $('gate').classList.add('hidden'); $('main').classList.remove('hidden');
+  load();
+});
+
+async function load(){
+  $('list').innerHTML = '<div class="card empty">Loading reports…</div>';
+  try{
+    const s = await getDocs(collection(db, COLL));
+    ALL = s.docs.map(d => ({ id:d.id, ...d.data() })).sort((a,b) => ms(b.createdAt) - ms(a.createdAt));
+  }catch(e){
+    $('list').innerHTML = `<div class="card empty">Could not load: ${esc(e.message||e)}<br><br>If it says <b>permission</b>, the Firestore rule for <code>${COLL}</code> is missing.</div>`;
+    return;
+  }
+  paint();
+  /* fill in missing email / phone from the student's profile */
+  for(const r of ALL){
+    if(r.email && r.phone) continue;
+    const u = await userOf(r.uid);
+    if(!r.email && u.email) r._email = u.email;
+    if(!r.phone && (u.phone||u.mobile)) r._phone = u.phone || u.mobile;
+  }
+  paint();
+}
+
+function paint(){
+  const open = ALL.filter(r => r.status !== 'resolved').length;
+  $('tOpen').textContent = `Open (${open})`;
+  $('tRes').textContent = `Resolved (${ALL.length - open})`;
+  $('tAll').textContent = `All (${ALL.length})`;
+  const q = $('q').value.trim().toLowerCase();
+  const rows = ALL.filter(r => FILTER === 'all' || (FILTER === 'resolved') === (r.status === 'resolved'))
+    .filter(r => !q || [r.name,r.email,r._email,r.phone,r._phone,r.message,r.appVersion,r.uid,r.exam,kindOf(r)].join(' ').toLowerCase().includes(q));
+  if(!rows.length){ $('list').innerHTML = `<div class="card empty">${FILTER==='open' ? 'No open issues 🎉' : 'Nothing here.'}</div>`; return; }
+  $('list').innerHTML = rows.map(r => {
+    const res = r.status === 'resolved', email = r.email || r._email || '', phone = r.phone || r._phone || '';
+    return `<div class="card ${res?'resolved':'open'}">
+      <div class="head">
+        <span class="kind">${esc(kindOf(r))}</span>
+        <span class="pill ${res?'p-res':'p-open'}">${res?'✓ Resolved':'Open'}</span>
+        <span class="when">${esc(when(r.createdAt))}</span>
+      </div>
+      <div class="msg">${esc(r.message||'')}</div>
+      <div class="meta">
+        <div><b>Name:</b> ${esc(r.name||'—')}</div>
+        <div><b>Email:</b> ${email ? `<a href="mailto:${esc(email)}">${esc(email)}</a>` : '—'}</div>
+        <div><b>Phone:</b> ${esc(phone||'—')}</div>
+        <div><b>Exam:</b> ${esc(r.exam||'—')}</div>
+        <div><b>App:</b> ${esc(r.appVersion||'—')}</div>
+        <div><b>Device:</b> ${esc(r.device||'—')}</div>
+        <div style="grid-column:1/-1"><b>UID:</b> <code>${esc(r.uid||'')}</code></div>
+      </div>
+      <div class="acts">
+        ${res
+          ? `<button class="btn btn-mail ${r.mailedAt?'sent':''}" data-mail="${esc(r.id)}" title="Email the student that it is resolved">✉️ ${r.mailedAt?'Mailed ✓':'Mail'}</button>
+             <button class="btn btn-ghost" data-open="${esc(r.id)}">↺ Reopen</button>
+             <span class="note">Resolved ${esc(when(r.resolvedAt))}${r.mailedAt?' · mailed '+esc(when(r.mailedAt)):''}</span>`
+          : `<button class="btn btn-green" data-res="${esc(r.id)}">✓ Mark resolved</button>`}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+document.querySelectorAll('.tab').forEach(t => t.onclick = () => {
+  FILTER = t.dataset.f;
+  document.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x === t));
+  paint();
+});
+$('q').oninput = paint;
+$('reload').onclick = load;
+
+async function setStatus(id, resolved, btn){
+  const r = ALL.find(x => x.id === id); if(!r) return;
+  btn.disabled = true;
+  try{
+    await updateDoc(doc(db, COLL, id), resolved
+      ? { status:'resolved', resolvedAt: serverTimestamp(), resolvedBy: auth.currentUser?.email || '' }
+      : { status:'open', resolvedAt: deleteField(), resolvedBy: deleteField() });
+    r.status = resolved ? 'resolved' : 'open';
+    r.resolvedAt = resolved ? new Date() : null;
+    paint();
+    if(resolved) openMail(r);
+  }catch(e){
+    btn.disabled = false;
+    alert('Could not save: ' + (e.message || e) + (String(e.code||'').includes('permission') ? '\n\nThe Firestore rule must let the admin update ' + COLL + '.' : ''));
+  }
+}
+
+document.addEventListener('click', e => {
+  const b = e.target.closest('button'); if(!b) return;
+  if(b.dataset.res) setStatus(b.dataset.res, true, b);
+  else if(b.dataset.open) setStatus(b.dataset.open, false, b);
+  else if(b.dataset.mail){ const r = ALL.find(x => x.id === b.dataset.mail); if(r) openMail(r); }
+});
+
+/* ── Email: "your issue is resolved" ── */
+let CUR = null;
+const say = (t, c) => { $('mSay').innerHTML = t; $('mSay').className = 'say ' + (c||''); };
+function firstName(r){
+  const w = String(r.name||'').trim().split(/\s+/).find(x => x.length > 1) || '';
+  if(!w || /^student$/i.test(w)) return 'Student';
+  return (w === w.toUpperCase() || w === w.toLowerCase()) ? w[0].toUpperCase() + w.slice(1).toLowerCase() : w;
+}
+function openMail(r){
+  CUR = r;
+  const name = firstName(r), shown = String(r.message||'').trim();
+  const quote = shown.length > 220 ? shown.slice(0, 220) + '…' : shown;
+  $('mTo').value = r.email || r._email || '';
+  $('mSub').value = `${name}, the issue you reported in the TrickySSC app is resolved`;
+  $('mText').value =
+    `Hi ${name},\n\nGreetings from Team TrickySSC.\n\n` +
+    `Thank you for reporting this in the TrickySSC app:\n"${quote}"\n\n` +
+    `We have looked into it and it is now resolved. If you still see the problem, please update the app from Google Play and try again, ` +
+    `or simply reply to this email and we will check it again.\n\n` +
+    `Thank you for helping us make TrickySSC better.\n\nTeam TrickySSC`;
+  say(($('mTo').value ? '' : 'No email on this report — type the student\'s email address.'), 'err');
+  $('mSend').disabled = false; $('mSend').textContent = 'Send email';
+  $('mm').classList.remove('hidden');
+}
+const closeMail = () => { $('mm').classList.add('hidden'); CUR = null; };
+$('mX').onclick = closeMail;
+document.addEventListener('keydown', e => { if(e.key === 'Escape' && !$('mm').classList.contains('hidden')) closeMail(); });
+
+$('mSend').onclick = async () => {
+  if(!CUR) return;
+  const to = $('mTo').value.trim(), subject = $('mSub').value.trim(), text = $('mText').value.trim();
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)){ say('Check the email address.', 'err'); return; }
+  if(!subject || !text){ say('Subject and message are needed.', 'err'); return; }
+  const user = auth.currentUser; if(!user){ say('Session expired — sign in again.', 'err'); return; }
+  const btn = $('mSend'); btn.disabled = true; btn.textContent = 'Sending…'; say('');
+  try{
+    const res = await fetch(MAIL_API + '/send', { method:'POST', headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({ idToken: await user.getIdToken(), to, subject, text }) });
+    const data = await res.json().catch(() => ({}));
+    if(!res.ok || !data.ok) throw new Error(data.error || ('Request failed (' + res.status + ')'));
+  }catch(err){
+    btn.disabled = false; btn.textContent = 'Send email';
+    say('Could not send: ' + esc(err.message || err) + '<br>Your text is still here — try again.', 'err');
+    return;
+  }
+  const r = CUR;
+  try{ await updateDoc(doc(db, COLL, r.id), { mailedAt: serverTimestamp(), mailedTo: to }); }catch(_){}
+  r.mailedAt = new Date();
+  closeMail(); paint();
+};
+</script>
+</body>
+</html>

@@ -168,7 +168,7 @@ async function fsPatch(pid, tok, path, fields, mask, extra = '') {
 }
 
 // ---- Upgrade to Full Access: price from the student's paid orders (plan doc)
-//   paid ₹49 -> pays ₹49 · paid ₹70-97 (combo, or pass + ₹29 add-on) -> ₹20 · paid ₹98+ -> free · full access -> nothing
+//   paid ₹49 -> pays ₹49 · paid ₹70-97 (combo, or pass + ₹29 add-on) -> ₹20 · paid ₹98+ -> ₹20 (no free upgrade since 2026-11-18) · full access -> nothing
 const activeExp = (ent, key) => {
   const m = ((((((ent || {}).fields || {}).modules || {}).mapValue || {}).fields || {})[key] || {}).mapValue;
   const e = m && (m.fields.active || {}).booleanValue === true ? Date.parse((m.fields.expiresAt || {}).timestampValue) : 0;
@@ -206,7 +206,7 @@ async function quote(pid, tok, uid) {
   const full = fullFlag || activeExp(ent, 'all-mocks') > 0 || exams.every((k) => owned[k]);
   const paid = Object.keys(owned).length > 0;
   const total = paid ? await paidTotal(pid, tok, uid) : 0;
-  const price = full || !paid ? null : total >= 98 ? 0 : total >= 70 ? 20 : 49;
+  const price = full || !paid ? null : total >= 70 ? 20 : 49; // 2026-11-18: no free upgrade any more
   return { ok: true, paid, full, total, price, product: price === 49 ? 'upgrade_full_49' : price === 20 ? 'upgrade_full_20' : null, owned };
 }
 // Validity rule: a course already running keeps its expiry; every newly opened course gets a year from today.
@@ -244,9 +244,9 @@ export default {
         const t = await accessToken(sa);
         const q = await quote(pid, t, who);
         if (url.pathname === '/quote') return json(q);
-        // /upgrade-free: paid ₹98 or more -> full access without paying again
+        // /upgrade-free: switched off 2026-11-18 (the free upgrade was dropped)
         if (q.full) return json({ ok: true, already: true });
-        if (q.price !== 0) return json({ ok: false, error: 'not-eligible' }, 409);
+        if (url.pathname === '/upgrade-free') return json({ ok: false, error: 'not-eligible' }, 409);
         const g = await grantUpgrade(pid, t, who, 'free_' + who);
         if (g.st !== 200) return json({ ok: false, error: 'grant-failed' }, 500);
         const uf = ((await fsGet(pid, t, `users/${who}`)) || {}).fields || {};
