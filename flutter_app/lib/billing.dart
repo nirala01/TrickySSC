@@ -64,6 +64,10 @@ class Billing {
   /// Shows a short message to the student.
   void Function(String)? onMessage;
 
+  /// True while a payment just made is being confirmed and the pass opened (a few seconds after the
+  /// Google Play sheet closes). The app shows "please wait" over the screen. (2026-11-18)
+  final ValueNotifier<bool> busy = ValueNotifier<bool>(false);
+
   /// Same breadcrumb as the website checkout (checkoutIntents/{uid}), so a student who opened the
   /// app's buy sheet but did not pay shows on admin-premium.html under "Started, not paid".
   void recordIntent(String stage, String courseId, [Map<String, dynamic> extra = const {}]) {
@@ -113,7 +117,14 @@ class Billing {
         recordIntent('failed', _keyOf(p.productID), {'failedAt': 'dismissed', 'lastError': 'closed Google Play'});
       }
       if (p.status == PurchaseStatus.purchased || p.status == PurchaseStatus.restored) {
-        final ok = await _verify(p);
+        final fresh = p.status == PurchaseStatus.purchased;
+        if (fresh) busy.value = true;
+        bool ok;
+        try {
+          ok = await _verify(p);
+        } finally {
+          if (fresh) busy.value = false;
+        }
         if (ok) {
           if (p.status == PurchaseStatus.purchased) recordIntent('paid', _keyOf(p.productID), {'failedAt': '', 'lastError': ''});
           onGranted?.call();

@@ -1250,7 +1250,7 @@ class _OrdersPageState extends State<OrdersPage> {
         emptyNote('No purchases yet.')
       else
         for (final p in pays)
-          PCard(title: s(p['productLabel']).isNotEmpty ? s(p['productLabel']) : planName(s(p['courseId'] ?? p['productId'])), trailing: Text('₹${s(p['amount'])}', style: baloo(20, color: exam.c1)), children: [
+          PCard(title: s(p['productLabel']).isNotEmpty ? s(p['productLabel']) : planName(s(p['courseId'] ?? p['productId'])), trailing: Text('₹${rupees(p['amount'])}', style: baloo(20, color: exam.c1)), children: [
             Align(alignment: Alignment.centerLeft, child: p['status'] == 'paid' ? const SoftTag('PAID', cGood, Color(0xFFDCFCE7)) : const SoftTag('NOT COMPLETED', cWarn, Color(0xFFFEF3C7))),
             const SizedBox(height: 6),
             KV(p['status'] == 'paid' ? 'Paid on' : 'Tried on', _longDate(_ms(p['paidAt']) == 0 ? _ms(p['createdAt']) : _ms(p['paidAt']))),
@@ -1260,4 +1260,11 @@ class _OrdersPageState extends State<OrdersPage> {
       const Note('Keep your Payment ID handy if you ever need to contact us about a purchase. Questions? Write to contact@trickyssc.com.'),
     ]);
   }
+}
+
+/// 49.0 -> 49, 49.5 -> 49.50 (app purchases are saved as decimals, website ones as whole numbers).
+String rupees(dynamic a) {
+  final n = a is num ? a : num.tryParse('${a ?? ''}');
+  if (n == null) return '${a ?? ''}';
+  return n == n.roundToDouble() ? n.round().toString() : n.toStringAsFixed(2);
 }

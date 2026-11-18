@@ -45,6 +45,15 @@ class _AppShellState extends State<AppShell> {
   List<MockItem>? _mocks;
   bool _mocksFailed = false;
   int? _price;
+  // until the name and the passes are loaded, a "please wait" screen covers the app, so a paid student on a
+  // slow connection never sees "Student" or a locked course first (2026-11-18)
+  bool _nameReady = false, _ownedReady = false;
+  bool get _ready => _nameReady && _ownedReady;
+  // what was loaded last for this student in this app run: shown at once when the exam is changed,
+  // so the wait screen appears only when the app is opened
+  static String? _cUid;
+  static String? _cName;
+  static Set<String>? _cOwned;
 
   bool get _hasPass => _owned.contains(widget.exam.pass);
 
@@ -70,18 +79,37 @@ class _AppShellState extends State<AppShell> {
       ..onMessage = _say
       ..onGranted = () {
         loadOwned(widget.user.uid).then((o) {
+          _cOwned = o;
           if (mounted) setState(() => _owned = o);
         });
       }
       ..start();
     _loadMocks();
+    if (_cUid == widget.user.uid) {
+      if (_cName != null) { _name = _cName!; _nameReady = true; }
+      if (_cOwned != null) { _owned = _cOwned!; _ownedReady = true; }
+    } else {
+      _cUid = widget.user.uid;
+      _cName = null;
+      _cOwned = null;
+    }
     loadName(widget.user.uid, widget.user.displayName).then((n) {
-      if (mounted) setState(() => _name = n);
+      _cName = n;
+      if (mounted) setState(() { _name = n; _nameReady = true; });
+    }).catchError((_) {
+      if (mounted) setState(() => _nameReady = true);
     });
     loadOwnedOrNull(widget.user.uid).then((o) {
+      if (o != null) _cOwned = o;
       if (!mounted) return;
-      setState(() => _owned = o ?? <String>{});
+      setState(() { _owned = o ?? <String>{}; _ownedReady = true; });
       if (o != null) _welcome(o);
+    }).catchError((_) {
+      if (mounted) setState(() => _ownedReady = true);
+    });
+    // never hold the app for long: after 12 seconds it opens with whatever has loaded
+    Future.delayed(const Duration(seconds: 12), () {
+      if (mounted && !_ready) setState(() { _nameReady = true; _ownedReady = true; });
     });
     _loadAtt();
     _loadResume();
@@ -279,7 +307,7 @@ class _AppShellState extends State<AppShell> {
           setState(() => _tab = 0);
         }
       },
-      child: examTheme(context, exam, Container(decoration: softBg, child: Scaffold(
+      child: Stack(children: [examTheme(context, exam, Container(decoration: softBg, child: Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
@@ -424,8 +452,34 @@ class _AppShellState extends State<AppShell> {
           NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: 'Me'),
         ],
       ),
-    ))));
+    ))),
+        if (!_ready) _wait('Please wait while we load your account…', opaque: true),
+        ValueListenableBuilder<bool>(
+          valueListenable: Billing.I.busy,
+          builder: (_, b, __) => b ? _wait('Confirming your payment…\nPlease wait, do not close the app.') : const SizedBox.shrink(),
+        ),
+      ]),
+    );
   }
+
+  /// A "please wait" layer over the whole screen. [opaque]: nothing behind it shows.
+  Widget _wait(String text, {bool opaque = false}) => Positioned.fill(
+        child: Material(
+          color: opaque ? softBgMid : Colors.black.withValues(alpha: .45),
+          child: Center(
+            child: Container(
+              margin: const EdgeInsets.all(32),
+              padding: const EdgeInsets.fromLTRB(22, 24, 22, 22),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                SizedBox(width: 34, height: 34, child: CircularProgressIndicator(strokeWidth: 3.2, color: widget.exam.c1)),
+                const SizedBox(height: 16),
+                Text(text, textAlign: TextAlign.center, style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700, color: softInk, height: 1.4)),
+              ]),
+            ),
+          ),
+        ),
+      );
 }
 
 /// The pass banner: price and Unlock for non-owners, "Pass active" for owners.
