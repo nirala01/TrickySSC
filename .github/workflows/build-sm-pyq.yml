@@ -1,0 +1,66 @@
+# .github/workflows/build-sm-pyq.yml
+#
+# Rebuilds the static RRB Station Master PYQ list (rrb-station-master-pyq.html) so newly uploaded
+# papers become crawlable HTML links. The papers under exam `rrb-sm` are the RRB Section Controller
+# CBT shifts of 2026 (the only papers on the Station Master pattern). Ported from build-ntpc-pyq.yml.
+# Before the first paper is uploaded every run is a harmless no-op.
+
+name: Build RRB Station Master PYQ page
+
+on:
+  schedule:
+    - cron: '20 21 * * 6'     # once a week: Sunday 2:50 AM IST (press Run workflow after an upload)
+  workflow_dispatch:            # rebuild by hand right after an upload
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-sm-pyq
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Bake the paper list into rrb-station-master-pyq.html
+        run: |
+          python build_sm_pyq_page.py \
+            --page rrb-station-master-pyq.html \
+            --sitemap sitemap-sm-pyq.xml
+
+      - name: Commit if anything changed
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for f in rrb-station-master-pyq.html sitemap-sm-pyq.xml; do
+            [ -f "$f" ] && git add "$f"
+          done
+          if git diff --cached --quiet; then
+            echo "No Station Master paper changes — nothing to commit."
+            exit 0
+          fi
+
+          # NO [skip ci] HERE. GitHub Pages publishes via the `pages build and
+          # deployment` workflow and [skip ci] suppresses it — the commit lands on
+          # main and the site keeps serving the old file (that is what hid 8 CHSL
+          # papers on 2026-08-20). This workflow runs only on schedule/dispatch,
+          # never on push, so there is no loop to guard against.
+          git commit -m "chore: rebuild RRB Station Master PYQ list"
+
+          for i in 1 2 3; do
+            if git push; then
+              echo "pushed on attempt $i"
+              exit 0
+            fi
+            echo "push rejected — rebasing onto origin/main and retrying"
+            git pull --rebase --autostash origin main
+          done
+          echo "::error::could not push after 3 attempts"
+          exit 1
