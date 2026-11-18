@@ -13,7 +13,7 @@
    Dismissing it hides it for the rest of the browser session. */
 (function () {
   'use strict';
-  var SERIES  = ['ssc-cgl-mocks', 'ssc-chsl-mocks', 'ssc-gd-mocks', 'ssc-mts-mocks', 'rrb-ntpc-mocks'];
+  var SERIES  = ['ssc-cgl-mocks', 'ssc-chsl-mocks', 'ssc-gd-mocks', 'ssc-mts-mocks', 'rrb-ntpc-mocks', 'rrb-sm-mocks'];
   var DISMISS = 'tssc_allup_dismissed';
   var RUPEE   = '₹';
 
@@ -24,7 +24,7 @@
     try { var u = JSON.parse(localStorage.getItem('tssc_user') || 'null'); return (u && u.uid) || ''; }
     catch (e) { return ''; }
   }
-  /* number of series held: 0-5, or null while the page has not read it yet */
+  /* number of series held: 0-6, or null while the page has not read it yet */
   function held() {
     var id = uid();
     if (!id) return 0;
@@ -38,6 +38,7 @@
   }
   function mainPage() {
     var p = location.pathname;
+    if (/rrb-station-master/.test(p)) return 'rrb-station-master-mock-test.html';
     if (/rrb-ntpc/.test(p)) return 'rrb-ntpc-mock-test.html';
     if (/ssc-mts/.test(p))  return 'ssc-mts-mock-test.html';
     if (/ssc-gd/.test(p))   return 'ssc-gd-mock-test.html';
@@ -78,7 +79,7 @@
     t.appendChild(document.createTextNode(
       'You already hold ' + (n === 1 ? 'a mock pass' : n + ' mock passes') + ', so you pay only the difference. '));
     var em = document.createElement('i');
-    em.textContent = 'Every SSC CGL, CHSL, GD, MTS and RRB NTPC mock + every new series added, for 1 year.';
+    em.textContent = 'Every SSC CGL, CHSL, GD, MTS, RRB NTPC and Station Master mock + every new series added, for 1 year.';
     t.appendChild(em);
 
     var go = document.createElement('a'); go.className = 'au-go';

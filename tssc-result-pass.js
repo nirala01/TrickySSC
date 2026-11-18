@@ -23,11 +23,12 @@
   var SHOW_EVERY_DAYS = 1;                 // 1 = once a day. Raise it to show less often.
   var SEEN = 'tssc_rp_seen';
   var H = 'https://trickyssc.com/';
-  var S5 = ['ssc-cgl-mocks', 'ssc-chsl-mocks', 'ssc-gd-mocks', 'ssc-mts-mocks', 'rrb-ntpc-mocks'];
+  var S5 = ['ssc-cgl-mocks', 'ssc-chsl-mocks', 'ssc-gd-mocks', 'ssc-mts-mocks', 'rrb-ntpc-mocks', 'rrb-sm-mocks'];
   var R = '\u20B9';
 
   function seriesOf(exam) {
     var e = String(exam || '').toLowerCase();
+    if (/rrb-sm|station/.test(e)) return 'rrb-sm-mocks';
     if (/ntpc/.test(e)) return 'rrb-ntpc-mocks';
     if (/mts/.test(e))  return 'ssc-mts-mocks';
     if (/gd/.test(e))   return 'ssc-gd-mocks';
@@ -105,6 +106,8 @@
     '#tsscRP .rp-sg.gd{background:#DCFCE7;color:#14532D;} #tsscRP .rp-sg.gd b{color:#166534;}' +
     '#tsscRP .rp-sg.mts{background:#CCFBF1;color:#134E4A;} #tsscRP .rp-sg.mts b{color:#115E59;}' +
     '#tsscRP .rp-sg.ntpc{background:#DBEAFE;color:#1E3A8A;} #tsscRP .rp-sg.ntpc b{color:#1E40AF;}' +
+    '#tsscRP .rp-sg.sm{background:#CFFAFE;color:#164E63;} #tsscRP .rp-sg.sm b{color:#0E7490;}' +
+    '#tsscRP .rp-rails{flex:none;}' +
     '#tsscRP .rp-band{margin:0;text-align:center;font-size:14px;font-weight:600;color:#166534;}' +
     '#tsscRP .rp-foot{flex:none;padding:10px 16px 14px;background:#fff;border-top:1px solid #E2E8F0;}' +
     '#tsscRP .rp-go{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:54px;border:0;border-radius:14px;' +
@@ -134,17 +137,22 @@
       '<a class="rp-all" href="' + H + 'ssc-chsl-mock-test.html?pass=all">' +
         '<span class="rp-who"><span class="rp-tag">ALL ACCESS PASS</span>' +
           '<span class="rp-nm">All Mocks Pass \u00B7 1 year</span>' +
-          '<span class="rp-ct">SSC CGL + CHSL + GD + MTS + RRB NTPC \u00B7 360 mocks</span>' +
+          '<span class="rp-ct">SSC CGL + CHSL + GD + MTS + RRB NTPC + Station Master \u00B7 420 mocks</span>' +
           '<span class="rp-up">New mock series join automatically</span></span>' +
-        '<span class="rp-pr"><span class="rp-was">' + R + '245</span><span class="rp-now">' + R + '99</span>' +
-          '<span class="rp-sv">SAVE ' + R + '146</span></span>' +
+        '<span class="rp-pr"><span class="rp-was">' + R + '294</span><span class="rp-now">' + R + '99</span>' +
+          '<span class="rp-sv">SAVE ' + R + '195</span></span>' +
       '</a>' +
-      '<a class="rp-cb rp-rail" data-rp-grants="rrb-ntpc-mocks" href="' + H + 'rrb-ntpc-mock-test.html">' +
-        '<span class="rp-who"><span class="rp-tag">NEW \u00B7 RAILWAY</span>' +
-          '<span class="rp-nm">RRB NTPC 2026-27</span>' +
-          '<span class="rp-ct">60 CBT-1 mocks \u00B7 Graduate \u00B7 Mock 1\u20133 free</span></span>' +
-        '<span class="rp-pr"><span class="rp-now">' + R + '49</span><span class="rp-sv">1 YEAR</span></span>' +
+      /* TSSC-RRBCOMBO-V1 (2026-11-18): the railway block — the 2-exam combo first, then each pass */
+      '<a class="rp-cb rp-rail" data-rp-grants="rrb-ntpc-mocks rrb-sm-mocks" href="' + H + 'rrb-station-master-mock-test.html?combo=1">' +
+        '<span class="rp-who"><span class="rp-tag">NEW \u00B7 RAILWAY COMBO</span>' +
+          '<span class="rp-nm">RRB NTPC + Station Master</span>' +
+          '<span class="rp-ct">120 mocks \u00B7 60 NTPC + 60 Station Master</span></span>' +
+        '<span class="rp-pr"><span class="rp-was">' + R + '98</span><span class="rp-now">' + R + '79</span><span class="rp-sv">SAVE ' + R + '19</span></span>' +
       '</a>' +
+      '<div class="rp-sgs rp-rails">' +
+        single('ntpc', 'rrb-ntpc-mocks', '', 'rrb-ntpc-mock-test.html', 'RRB NTPC', '60 mocks \u00B7 Graduate') +
+        single('sm', 'rrb-sm-mocks', '', 'rrb-station-master-mock-test.html', 'Station Master', '60 mocks \u00B7 new pattern') +
+      '</div>' +
       '<div class="rp-lbl" data-rp-lbl="combo">COMBO OFFERS \u00B7 2 EXAMS</div>' +
       '<div class="rp-cbs" data-rp-group="combo">' +
         combo('ssc-cgl-mocks ssc-chsl-mocks', 'ssc-chsl-mock-test.html?combo=1', 'SSC CGL + SSC CHSL', '180 mocks \u00B7 100 CGL + 80 CHSL') +
@@ -188,7 +196,7 @@
         set('.rp-tag', 'UPGRADE FOR YOU');
         set('.rp-nm', 'Upgrade to All Mocks Pass');
         set('.rp-ct', 'You already hold ' + (held === 1 ? 'a mock pass' : held + ' mock passes') + ' \u2014 pay only the difference');
-        set('.rp-up', 'Every SSC and RRB NTPC mock + every new series, for 1 year');
+        set('.rp-up', 'Every SSC, RRB NTPC and Station Master mock + every new series, for 1 year');
         set('.rp-was', R + '99'); set('.rp-now', '+' + R + [49, 20][held - 1]); set('.rp-sv', 'UPGRADE');
       }
       shown++;
@@ -209,6 +217,8 @@
     }
     if (!shown) return null;                                  // holds everything: nothing to offer
     box._held = held;
+    var rails = box.querySelector('.rp-rails');
+    if (rails) { var rv = false; for (i = 0; i < rails.children.length; i++) if (!rails.children[i].hidden) rv = true; if (!rv) rails.hidden = true; }
     ['combo', 'single'].forEach(function (g) {
       var grp = box.querySelector('[data-rp-group="' + g + '"]'), lbl = box.querySelector('[data-rp-lbl="' + g + '"]');
       var any = false, els = grp.children, k;
