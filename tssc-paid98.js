@@ -31,6 +31,7 @@
   }
   var _p = null, _for = '';
   window.tsscPaid98 = function () {
+    if (!window.TSSC_PAID98_ON) return Promise.resolve(false);   // 2026-11-18: off — Rs 98+ students see the normal offers
     var id = uid();
     if (!id) return Promise.resolve(false);
     var c = cached(id);
@@ -66,6 +67,9 @@
 /* Switch for the "Claim now" box on the mock pages. OFF (2026-11-18) until the trickyssc-play Worker
    and Google Play payments are set up; set to true then. */
 window.TSSC_FREECLAIM_ON = false;
+/* Switch for all Rs 98+ special handling (popups hidden, no upgrade sold). OFF 2026-11-18: those few
+   students are handled by hand, everyone sees the normal offers. */
+window.TSSC_PAID98_ON = false;
 
 /* TSSC-FREECLAIM-V1 (2026-11-17) — "You are eligible for free Full Access — Claim now".
    Asks the trickyssc-play Worker (/upgrade-free, the same call the Android app makes). The Worker
