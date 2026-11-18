@@ -59,6 +59,18 @@
   .del:disabled{opacity:.5;cursor:default;}
   .fix{background:#EEF2FF;color:#4338CA;border:1.5px solid #C7D2FE;border-radius:8px;font-size:12px;font-weight:700;padding:6px 10px;cursor:pointer;white-space:nowrap;margin-right:6px;}
   .fix:hover{background:#E0E7FF;}
+  /* TSSC-REPORTMSG-V1 — WhatsApp / Email buttons under each name, compose window */
+  .msgb{display:inline-block;margin-left:6px;font-size:11px;font-weight:700;padding:2px 8px;border-radius:7px;cursor:pointer;border:1.5px solid #BBF7D0;background:#F0FDF4;color:#15803D;}
+  .msgb.ml{border-color:#C7D2FE;background:#EEF2FF;color:#4338CA;}
+  .msgb.done{opacity:.75;}
+  .fc-fld{margin-bottom:10px;}
+  .fc-fld label{display:block;font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:.03em;margin-bottom:4px;}
+  .fc-fld input,.fc-fld select,.fc-fld textarea{width:100%;box-sizing:border-box;font:inherit;font-size:13px;padding:8px 10px;border:1.5px solid #E2E8F0;border-radius:9px;background:#fff;}
+  .fc-fld textarea{min-height:230px;resize:vertical;line-height:1.45;}
+  .fc-msg{font-size:12.5px;margin-top:4px;}
+  .fc-msg.err{color:#DC2626;}
+  .fc-msg.ok{color:#15803D;}
+  .fc-msg.warn{color:#B45309;}
   .fix:disabled{opacity:.5;cursor:default;}
   /* ── TSSC-QVIEW-V1 — 👁 Open: read-only view of the reported question ── */
   .view{background:#F0FDF4;color:#15803D;border:1.5px solid #BBF7D0;border-radius:8px;font-size:12px;font-weight:700;padding:6px 10px;cursor:pointer;white-space:nowrap;margin-right:6px;}
@@ -227,6 +239,22 @@
     </div>
   </div>
 
+  <!-- TSSC-REPORTMSG-V1: message a reporter / rater — everything pre-filled, editable, Send -->
+  <div id="fcModal" class="modal hidden" onclick="if(event.target===this)this.classList.add('hidden')">
+    <div class="sheet" style="max-width:580px">
+      <div class="sheet-head"><span class="t" id="fcTitle">Send email</span><button class="x" id="fcX">×</button></div>
+      <div class="sheet-body">
+        <div class="muted" id="fcSub" style="margin-bottom:10px"></div>
+        <div class="fc-fld"><label for="fcTpl">Template</label><select id="fcTpl"></select></div>
+        <div class="fc-fld"><label for="fcTo" id="fcToLbl">To</label><input id="fcTo" type="text"></div>
+        <div class="fc-fld" id="fcSubjFld"><label for="fcSubj">Subject</label><input id="fcSubj" type="text"></div>
+        <div class="fc-fld"><label for="fcText">Message</label><textarea id="fcText"></textarea></div>
+        <div class="fc-msg" id="fcMsg"></div>
+      </div>
+      <div class="sheet-foot"><button class="btn btn-ghost" id="fcCancel">Cancel</button><button class="btn btn-orange" id="fcSend">Send</button></div>
+    </div>
+  </div>
+
   <!-- TSSC-QVIEW-V1: read-only question viewer -->
   <div id="viewModal" class="modal hidden" onclick="if(event.target===this)closeView()">
     <div class="sheet">
@@ -285,6 +313,9 @@ let REPORTS = [], RATINGS = [];
    so re-opening the page costs no further reads for people already seen.
    Cells are filled in place as lookups land; the tables are not re-rendered. */
 const CONTACT = {};
+/* TSSC-REPORTMSG-V1: who has been messaged, per report / rating (this browser only) */
+const MSG_SENT_KEY = 'tssc_reportmsg_sent';
+let MSG_SENT = {}; try { MSG_SENT = JSON.parse(localStorage.getItem(MSG_SENT_KEY) || '{}') || {}; } catch(_){ MSG_SENT = {}; }
 const CONTACT_CACHE = 'tssc_report_contacts_v2';
 const CONTACT_TTL_HIT = 60*864e5, CONTACT_TTL_MISS = 7*864e5;
 try {
@@ -333,20 +364,28 @@ function saveContacts(){
 
 /* The mobile / email lines for one uid. showUid: also print the uid when
    nothing was found (used for a nameless reporter, as V1 did). */
-function contactInner(uid, showUid){
+function contactInner(uid, showUid, rid, rk){
   const c = CONTACT[uid];
   if(!c || c.loading) return '<div class="rc-note">looking up contact…</div>';
   const lines = [];
-  if(c.phone) lines.push(`<div class="rc"><a href="tel:${esc(c.phone)}">${esc(c.phone)}</a> · <a href="https://wa.me/${esc(waNumber(c.phone))}" target="_blank" rel="noopener">WhatsApp</a></div>`);
-  if(c.email) lines.push(`<div class="rc"><a href="mailto:${esc(c.email)}">${esc(c.email)}</a></div>`);
+  /* TSSC-REPORTMSG-V1: WhatsApp / Email open a pre-filled message for this report or rating */
+  const mb = (ch, label) => {
+    if(!rid) return '';
+    const t = (MSG_SENT[rk + ':' + rid] || {})[ch];
+    return `<button class="msgb ${ch}${t ? ' done' : ''}" data-msg="${ch}" data-rid="${esc(rid)}" data-rk="${esc(rk)}"` +
+           ` title="${t ? 'Sent on ' + new Date(t).toLocaleDateString('en-IN') + ' — click to open again' : 'Open a ready-written message'}">${t ? '✓ ' : ''}${label}</button>`;
+  };
+  if(c.phone) lines.push(`<div class="rc"><a href="tel:${esc(c.phone)}">${esc(c.phone)}</a>${waNumber(c.phone).length === 12 ? mb('wa', 'WhatsApp') : ''}</div>`);
+  if(c.email) lines.push(`<div class="rc">${esc(c.email)}${mb('ml', 'Email')}</div>`);
   if(!lines.length){
     lines.push(`<div class="rc-note">${c.err ? 'Could not look up contact' : 'No mobile or email saved'}</div>`);
     if(showUid) lines.push(`<div class="rc-uid" title="Search this uid in Firebase console → Authentication">${esc(uid)}</div>`);
   }
   return lines.join('');
 }
+const recKind = r => ('stars' in r) ? 't' : 'r';   /* TSSC-REPORTMSG-V1: rating or report */
 const contactBox = (r, showUid) => r.uid
-  ? `<div data-cuid="${esc(r.uid)}" data-su="${showUid?1:0}">${contactInner(String(r.uid), showUid)}</div>` : '';
+  ? `<div data-cuid="${esc(r.uid)}" data-su="${showUid?1:0}" data-rid="${esc(r.id||'')}" data-rk="${recKind(r)}">${contactInner(String(r.uid), showUid, r.id, recKind(r))}</div>` : '';
 
 /* Name as shown in a cell. A real name prints as is; a nameless one prints
    the fallback and is swapped for the profile name once the lookup lands. */
@@ -361,7 +400,7 @@ function nameHtml(r, fallback){
 const contactText = r => { const c = contactOf(r) || {}; const t = [c.phone, c.email].filter(Boolean).join(' · '); return t ? ' · ' + t : ''; };
 
 function paintContacts(){
-  document.querySelectorAll('[data-cuid]').forEach(el => { el.innerHTML = contactInner(el.dataset.cuid, el.dataset.su === '1'); });
+  document.querySelectorAll('[data-cuid]').forEach(el => { el.innerHTML = contactInner(el.dataset.cuid, el.dataset.su === '1', el.dataset.rid, el.dataset.rk); });
   document.querySelectorAll('[data-nuid]').forEach(el => { const c = CONTACT[el.dataset.nuid]; if(c && !c.loading && c.name) el.textContent = c.name; });
 }
 
@@ -2168,6 +2207,169 @@ document.addEventListener('click', (e)=>{
   const b = e.target.closest('button.fix'); if(!b) return;
   openFix(b.dataset.mockid, b.dataset.qnum);
 });
+
+/* ============================================ TSSC-REPORTMSG-V1 (2026-11-17)
+   Message a reporter or a rater straight from this page — the same compose
+   window as the Premium admin page: number / address, subject and message
+   filled in for THAT student and THAT test, all editable, then Send.
+     Email     sent from this page through the trickyssc-mail Worker (Resend,
+               contact@trickyssc.com); a copy lands in the contact@ inbox.
+     WhatsApp  opens WhatsApp Web on the student's chat with the message typed
+               (you press Enter).
+   Nothing is written to Firestore; the ✓ for who has been messaged lives in
+   this browser's localStorage. */
+const MAIL_API = 'https://trickyssc-mail.nirala01.workers.dev';
+const MSG_FROM = 'contact@trickyssc.com';
+
+const MSG_OPEN = 'Hi {name},\n\nGreetings from Team TrickySSC. ';
+const MSG_SIGN = '\n\nTeam TrickySSC';
+const MSG_TEMPLATES = {
+  fixed: { label: '1. Report — we corrected it', for: 'r',
+    sub: '{name}, thank you — we have corrected Q{q} of {test}',
+    body: MSG_OPEN + 'Thank you for reporting Q{q} of {test}.\n\n' +
+      'We checked it and have corrected the {part}. The updated version is live now, so you can reattempt the test or review the solution again.\n\n' +
+      'Reports like yours help every student practise with accurate questions. Please keep pointing out anything that looks wrong.' + MSG_SIGN },
+  correct: { label: '2. Report — checked, it is correct', for: 'r',
+    sub: '{name}, we checked Q{q} of {test}',
+    body: MSG_OPEN + 'Thank you for reporting Q{q} of {test}.\n\n' +
+      'We checked it carefully and the {part} is correct as given.\n\nExplanation: ___\n\n' +
+      'If you still feel something is wrong, reply with your reasoning and we will look at it again.' + MSG_SIGN },
+  details: { label: '3. Report — need more details', for: 'r',
+    sub: '{name}, a quick question about your report on Q{q}',
+    body: MSG_OPEN + 'Thank you for reporting Q{q} of {test}.\n\n' +
+      'To fix it quickly, could you tell us a little more: what exactly looks wrong, and what you think the right answer or wording should be? A screenshot also helps.\n\n' +
+      'Just reply to this message.' + MSG_SIGN },
+  low: { label: '4. Rating — low (1 to 3 stars)', for: 't',
+    sub: '{name}, how can we make {test} better?',
+    body: MSG_OPEN + 'Thank you for rating {test}.\n\n' +
+      'We saw you gave it {stars}, and we want to do better. What did not work for you: the questions, the level, the solutions or something on the site?\n\n' +
+      'Just reply to this message. We read every reply and fix what students point out.' + MSG_SIGN },
+  high: { label: '5. Rating — high (4 or 5 stars)', for: 't',
+    sub: '{name}, thank you for rating {test}',
+    body: MSG_OPEN + 'Thank you for the {starAdj} rating on {test}.\n\n' +
+      'If TrickySSC is helping your preparation, please share it with friends who are preparing for the same exam, and join our Telegram channel for updates and doubts: https://t.me/trickyssc\n\n' +
+      'All the best for your exam.' + MSG_SIGN }
+};
+const MSG_KEYS = Object.keys(MSG_TEMPLATES);
+
+/* First name for "Hi {name}": skips roll numbers and single initials; "Student" otherwise. */
+function msgName(r){
+  const c = contactOf(r) || {};
+  const words = String(realName(rawName(r)) || c.name || '').trim().split(/\s+/)
+    .map(w => w.replace(/^[^\p{L}\p{M}]+|[^\p{L}\p{M}]+$/gu, '')).filter(Boolean);
+  const w = words.find(x => x.length > 1) || words[0] || '';
+  if(!w || /^student$/i.test(w)) return 'Student';
+  return (w === w.toUpperCase() || w === w.toLowerCase()) ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : w;
+}
+/* Test name: the saved testName, else the id made readable
+   ("ssc-gd-2027-mock-03" -> "SSC GD 2027 Mock 03"). */
+function msgTest(r){
+  const t = String(r.testName || '').trim();
+  if(t) return t;
+  const id = String(r.mockId || '').trim();
+  if(!id) return 'the test';
+  const UP = { ssc:1, cgl:1, chsl:1, gd:1, mts:1, rrb:1, ntpc:1, je:1, cpo:1, pyq:1, ca:1, gk:1, aao:1, jso:1 };
+  return id.split(/[-_\s]+/).filter(Boolean).map(w => UP[w.toLowerCase()] ? w.toUpperCase() : (/^\d/.test(w) ? w : w.charAt(0).toUpperCase() + w.slice(1))).join(' ');
+}
+function msgVars(r){
+  const n = Math.round(Number(r.stars) || 0);
+  return { name: msgName(r), test: msgTest(r), q: String(r.qNum == null ? '' : r.qNum),
+           part: tgtOf(r), stars: n ? n + (n === 1 ? ' star' : ' stars') : 'a low rating', starAdj: n ? n + '-star' : 'kind' };
+}
+const msgFill = (t, v) => String(t || '').replace(/\{name\}/g, v.name).replace(/\{test\}/g, v.test)
+  .replace(/\{q\}/g, v.q).replace(/\{part\}/g, v.part).replace(/\{stars\}/g, v.stars).replace(/\{starAdj\}/g, v.starAdj);
+function msgPick(r, rk){
+  if(rk === 't') return (Math.round(Number(r.stars) || 0) >= 4) ? 'high' : 'low';
+  return 'fixed';
+}
+
+let FC = null;   /* { ch, rk, rec } while the window is open */
+const fcSay = (t, cls) => { const m = $('fcMsg'); m.innerHTML = t; m.className = 'fc-msg' + (t ? ' ' + (cls || 'ok') : ''); };
+const fcClose = () => { $('fcModal').classList.add('hidden'); FC = null; };
+$('fcX').onclick = fcClose; $('fcCancel').onclick = fcClose;
+
+function fcFill(key){
+  if(!FC) return;
+  const t = MSG_TEMPLATES[key], v = msgVars(FC.rec);
+  $('fcSubj').value = msgFill(t.sub, v);
+  $('fcText').value = msgFill(t.body, v);
+  fcSay(/___/.test($('fcText').value) ? 'Replace <b>___</b> with your explanation before sending.' : '', 'warn');
+}
+function fcOpen(ch, rk, rec){
+  FC = { ch, rk, rec };
+  const wa = ch === 'wa', c = contactOf(rec) || {};
+  $('fcTitle').textContent = (rk === 't' ? 'Rating — ' : 'Report — ') + (wa ? 'WhatsApp' : 'Email');
+  $('fcSub').innerHTML = (wa ? 'Send opens WhatsApp Web on this student\'s chat with the message typed. Press <b>Enter</b> there to send.'
+                             : 'Sent from <b>' + MSG_FROM + '</b> as soon as you press Send.') + ' Edit anything first if you like.';
+  $('fcToLbl').textContent = wa ? 'WhatsApp number' : 'To';
+  $('fcTo').value = wa ? '+' + waNumber(c.phone) : String(c.email || '').trim();
+  $('fcSubjFld').style.display = wa ? 'none' : '';
+  $('fcTpl').innerHTML = MSG_KEYS.filter(k => MSG_TEMPLATES[k].for === rk)
+    .map(k => `<option value="${k}">${esc(MSG_TEMPLATES[k].label)}</option>`).join('');
+  const key = msgPick(rec, rk);
+  $('fcTpl').value = key;
+  fcFill(key);
+  $('fcSend').disabled = false;
+  $('fcSend').textContent = wa ? 'Open in WhatsApp' : 'Send email';
+  $('fcModal').classList.remove('hidden');
+  setTimeout(() => $('fcText').focus(), 50);
+}
+$('fcTpl').onchange = () => fcFill($('fcTpl').value);
+
+function msgMark(rk, rec, ch){
+  const k = rk + ':' + rec.id;
+  MSG_SENT[k] = Object.assign({}, MSG_SENT[k], { [ch]: Date.now() });
+  try { localStorage.setItem(MSG_SENT_KEY, JSON.stringify(MSG_SENT)); } catch(_){}
+  paintContacts();
+}
+
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-msg]'); if(!b) return;
+  const rk = b.dataset.rk, id = b.dataset.rid;
+  const rec = (rk === 't' ? RATINGS : REPORTS).find(r => String(r.id) === String(id));
+  if(rec) fcOpen(b.dataset.msg, rk, rec);
+});
+
+$('fcSend').onclick = async () => {
+  if(!FC) return;
+  const { ch, rk, rec } = FC;
+  const text = $('fcText').value.trim();
+  if(!text){ fcSay('Message is empty.', 'err'); return; }
+  if(/___/.test(text)){ fcSay('Replace <b>___</b> with your explanation first.', 'err'); return; }
+
+  if(ch === 'wa'){
+    const num = waNumber($('fcTo').value);
+    if(num.length !== 12){ fcSay('That does not look like a 10-digit Indian mobile number.', 'err'); return; }
+    /* one named tab, reused — WhatsApp Web only works in one tab at a time */
+    window.open('https://web.whatsapp.com/send?phone=' + num + '&text=' + encodeURIComponent(text), 'tssc_wa');
+    msgMark(rk, rec, 'wa');
+    fcClose();
+    return;
+  }
+
+  const to = $('fcTo').value.trim(), subject = $('fcSubj').value.trim();
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)){ fcSay('Check the email address.', 'err'); return; }
+  if(!subject){ fcSay('Subject is empty.', 'err'); return; }
+  const user = auth.currentUser;
+  if(!user){ fcSay('Session expired — sign in again.', 'err'); return; }
+  const btn = $('fcSend');
+  btn.disabled = true; btn.textContent = 'Sending…'; fcSay('');
+  try {
+    const res = await fetch(MAIL_API + '/send', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ idToken: await user.getIdToken(), to, subject, text })
+    });
+    const data = await res.json().catch(() => ({}));
+    if(!res.ok || !data.ok) throw new Error(data.error || ('Request failed (' + res.status + ')'));
+  } catch(err) {
+    btn.disabled = false; btn.textContent = 'Send email';
+    fcSay('Could not send: ' + esc(err.message || err) + '<br>Your text is still here — try again.', 'err');
+    return;
+  }
+  msgMark(rk, rec, 'ml');
+  fcClose();
+};
+document.addEventListener('keydown', (e) => { if(e.key === 'Escape' && !$('fcModal').classList.contains('hidden')) fcClose(); });
 
 window.showTab = function(t){
   $('tabReports').classList.toggle('active', t==='reports');
