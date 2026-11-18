@@ -27,7 +27,7 @@ class SubjectMocksScreen extends StatefulWidget {
 }
 
 class _SubjectMocksScreenState extends State<SubjectMocksScreen> {
-  late String _subject = _subjects.first.$1;
+  late String _subject = _subjects.isEmpty ? '' : _subjects.first.$1; // TSSC-SM-APP-V1: no subjects, no crash
   late Set<String> _attempted = widget.attempted;
   Map<String, Map<String, dynamic>> _last = {};
 

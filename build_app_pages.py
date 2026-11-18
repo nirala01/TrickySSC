@@ -103,6 +103,7 @@ CUT_BY_CLASS = [
     ('div', 'crumb'), ('div', 'breadcrumb'), ('div', 'hero'), ('p', 'tier-intro'), ('div', 'tier-bars'),
     ('section', 'seo-content'), ('div', 'mock-explain'), ('p', 'mlb-sub'), ('div', 'pyq-seo-index'),
     ('div', 'left-panel'), ('a', 'back-link'),          # login page: the website's sales panel and "Back to Home"
+    ('div', 'tssc-xlink'),                              # TSSC-SM-XLINK-V1: website cross-links to other exams' pages
 ]
 
 VOID = {'br', 'img', 'input', 'meta', 'link', 'hr', 'source', 'area', 'base', 'col', 'embed', 'track', 'wbr'}
