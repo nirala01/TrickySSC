@@ -294,10 +294,14 @@ export default {
       }
       const api = `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${PACKAGE}/purchases/products/${b.productId}/tokens/${encodeURIComponent(purchaseToken)}`;
       const gr = await fetch(api, { headers: { authorization: 'Bearer ' + tok } });
-      if (gr.status !== 200) return json({ ok: false, error: 'not-found-at-google', status: gr.status }, 402);
+      if (gr.status !== 200) {
+        // shown in Cloudflare -> Worker -> Observability: why Google did not confirm the purchase (no secrets in it)
+        console.log('play-check', b.productId, gr.status, (await gr.text().catch(() => '')).replace(/\s+/g, ' ').slice(0, 300));
+        return json({ ok: false, error: 'not-found-at-google', status: gr.status }, 402);
+      }
       const g = await gr.json();
       if (g.purchaseState === 2) return json({ ok: false, error: 'pending' }, 202);   // e.g. cash / slow UPI: Play tells the app again when it is paid
-      if (g.purchaseState !== 0) return json({ ok: false, error: 'not-paid' }, 402);
+      if (g.purchaseState !== 0) { console.log('play-check', b.productId, 'state', g.purchaseState); return json({ ok: false, error: 'not-paid' }, 402); }
       if (g.obfuscatedExternalAccountId && g.obfuscatedExternalAccountId !== uid) return json({ ok: false, error: 'other-account' }, 409);
 
       // 2. one purchase unlocks one account, once
@@ -352,6 +356,7 @@ export default {
       await fetch(api + ':consume', { method: 'POST', headers: { authorization: 'Bearer ' + tok } }).catch(() => {});
       return json({ ok: true, key: product.key, expiresAt: expMs });
     } catch (e) {
+      console.log('play-error', url.pathname, String((e && e.message) || e).slice(0, 200));
       return json({ ok: false, error: 'server' }, 500);
     }
   },

@@ -112,11 +112,8 @@ class _PlansTabState extends State<PlansTab> {
           const SizedBox(height: 14),
           if (mine.isNotEmpty) _yours(mine),
           if (mine.isNotEmpty && !_all) ...[
-            // paid students: every pass is listed for information (their own blurred), the only
-            // thing they can buy is the upgrade to Full Access, last (plan doc)
-            _allPass(),
-            for (final k in _combos) _comboPass(k),
-            for (final e in exams) owned.contains(e.pass) ? _ownedPass(_examPass(e)) : _examPass(e),
+            // paid students see one thing only: the upgrade to Full Access. The other passes are not
+            // listed any more, they cannot buy them and it was confusing (2026-11-18)
             _upgrade(),
           ] else if (!_all) ...[
             _allPass(),
