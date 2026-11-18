@@ -26,7 +26,7 @@ const _subjects = [
   ('hindi', 'Hindi', 'paper'),
 ];
 
-const _examShort = {'ssc-cgl': 'CGL', 'ssc-chsl': 'CHSL', 'ssc-gd': 'GD', 'ssc-mts': 'MTS', 'ssc-rrb-ntpc': 'NTPC', 'rrb-ntpc': 'NTPC'};
+const _examShort = {'ssc-cgl': 'CGL', 'ssc-chsl': 'CHSL', 'ssc-gd': 'GD', 'ssc-mts': 'MTS', 'ssc-rrb-ntpc': 'NTPC', 'rrb-ntpc': 'NTPC', 'rrb-sm': 'Station Master'};
 
 class _Ch {
   final String id, name, subject;

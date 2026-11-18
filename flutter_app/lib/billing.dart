@@ -381,7 +381,7 @@ class Billing {
             const Text('👑', textAlign: TextAlign.center, style: TextStyle(fontSize: 34)),
             Text('Get Full Access', textAlign: TextAlign.center, style: baloo(23)),
             const SizedBox(height: 4),
-            Text('Every exam: ${exams.map((e) => e.name.replaceFirst('SSC ', '').replaceFirst('RRB ', '')).join(', ')} · all mocks and subject mocks',
+            Text('Every exam: ${exams.map((e) => e.short).join(', ')} · all mocks${exams.any((e) => e.subjects.isNotEmpty) ? ' and subject mocks' : ''}',
                 textAlign: TextAlign.center, style: const TextStyle(fontSize: 13.5, color: softMuted, fontWeight: FontWeight.w600)),
             const SizedBox(height: 10),
             Container(
@@ -416,9 +416,14 @@ class Billing {
     if (q != null && q.offer) return showUpgradeSheet(context, exam, q);
     // combos that include this exam, from admin-pricing
     final combos = <String, String>{}; // play id -> label
-    for (final p in await pricingProducts()) {
+    // TSSC-SM-PRICING-V1: as on the website, this exam's own pass is sold only while a live admin-pricing
+    // product grants it (a new course stays locked until its pass is switched Live in admin pricing).
+    var passLive = false;
+    final prods = await pricingProducts();
+    for (final p in prods) {
       if (p is! Map || p['live'] == false || '${p['id'] ?? ''}'.startsWith('p-upgrade-')) continue;
       final g = p['grants'] is List ? (p['grants'] as List).map((e) => '$e').where((k) => exams.any((e) => e.pass == k)).toList() : <String>[];
+      if (g.length == 1 && g.first == exam.pass) passLive = true;
       final id = g.contains(exam.pass) && g.length < exams.length ? comboProduct(g) : null;
       if (id != null) combos[id] = '${p['label'] ?? ''}'.replaceAll(' Mock Tests (Combo)', ' Combo');
     }
@@ -442,7 +447,7 @@ class Billing {
       return null;
     }
 
-    final one = find(productFor(exam)), all = find(allMocksProduct);
+    final one = passLive || prods.isEmpty ? find(productFor(exam)) : null, all = find(allMocksProduct);
     recordIntent('opened', exam.pass);
     await showModalBottomSheet<void>(
       context: context,
@@ -500,10 +505,10 @@ class Billing {
               Text('Unlock ${exam.name} mocks', style: baloo(21)),
               const Text('One payment · valid 1 year · Hindi & English · works on the website too', style: TextStyle(fontSize: 13.5, color: softMuted, fontWeight: FontWeight.w600)),
               const SizedBox(height: 14),
-              if (all != null) option(all, 'Full Access · All Mocks Pass', 'Every exam: CGL, CHSL, MTS, GD, NTPC', best: true),
+              if (all != null) option(all, 'Full Access · All Mocks Pass', 'Every exam: ${exams.map((e) => e.short).join(', ')}', best: true),
               for (final e in combos.entries)
                 if (find(e.key) != null) option(find(e.key)!, e.value.isEmpty ? 'Combo' : e.value, 'Two mock series in one pass'),
-              if (one != null) option(one, '${exam.name} Mock Pass', 'All ${exam.mocks} + subject mocks'),
+              if (one != null) option(one, '${exam.name} Mock Pass', exam.subjects.isEmpty ? 'All ${exam.mocks}' : 'All ${exam.mocks} + subject mocks'),
               if (one == null && all == null && combos.keys.every((k) => find(k) == null))
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 14),

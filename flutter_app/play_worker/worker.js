@@ -21,10 +21,11 @@ const PRODUCTS = {
   pass_ssc_mts: { key: 'ssc-mts-mocks', label: 'SSC MTS Mock Test Series' },
   pass_ssc_gd: { key: 'ssc-gd-mocks', label: 'SSC GD Constable Mock Test Series' },
   pass_rrb_ntpc: { key: 'rrb-ntpc-mocks', label: 'RRB NTPC Mock Test Series' },
+  pass_rrb_sm: { key: 'rrb-sm-mocks', label: 'RRB Station Master Mock Test Series' },
   pass_all_mocks: { key: 'all-mocks', label: 'All Mock Test Series' },
 };
 // Combos: Play product id combo_<exam>_<exam>[...] in this order, e.g. combo_ssc_cgl is not used; combo_cgl_chsl = CGL + CHSL.
-const SHORT = { cgl: ['ssc-cgl-mocks', 'SSC CGL'], chsl: ['ssc-chsl-mocks', 'SSC CHSL'], mts: ['ssc-mts-mocks', 'SSC MTS'], gd: ['ssc-gd-mocks', 'SSC GD'], ntpc: ['rrb-ntpc-mocks', 'RRB NTPC'] };
+const SHORT = { cgl: ['ssc-cgl-mocks', 'SSC CGL'], chsl: ['ssc-chsl-mocks', 'SSC CHSL'], mts: ['ssc-mts-mocks', 'SSC MTS'], gd: ['ssc-gd-mocks', 'SSC GD'], ntpc: ['rrb-ntpc-mocks', 'RRB NTPC'], sm: ['rrb-sm-mocks', 'RRB Station Master'] };
 // Upgrade to Full Access for students who already paid (plan doc): two fixed Play products.
 const UPGRADES = { upgrade_full_49: 49, upgrade_full_20: 20 };
 // Keys the app never grants (Dashboard Pro is retired; every gate also accepts ssc-cgl-mocks).
