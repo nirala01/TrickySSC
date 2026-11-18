@@ -169,9 +169,15 @@ async function fsPatch(pid, tok, path, fields, mask, extra = '') {
 
 // ---- Upgrade to Full Access: price from the student's paid orders (plan doc)
 //   paid ₹49 -> pays ₹49 · paid ₹70-97 (combo, or pass + ₹29 add-on) -> ₹20 · paid ₹98+ -> ₹20 (no free upgrade since 2026-11-18) · full access -> nothing
+// A pass with active:true and no expiry date (opened by hand from admin premium) counts as owned, the same as
+// in the app (data.dart _active): activeExp gives NO_EXPIRY for it. (2026-11-18)
+const NO_EXPIRY = 8640000000000000;
 const activeExp = (ent, key) => {
   const m = ((((((ent || {}).fields || {}).modules || {}).mapValue || {}).fields || {})[key] || {}).mapValue;
-  const e = m && (m.fields.active || {}).booleanValue === true ? Date.parse((m.fields.expiresAt || {}).timestampValue) : 0;
+  if (!m || !m.fields || (m.fields.active || {}).booleanValue !== true) return 0;
+  const t = (m.fields.expiresAt || {}).timestampValue;
+  if (!t) return NO_EXPIRY;
+  const e = Date.parse(t);
   return e > Date.now() ? e : 0;
 };
 async function paidTotal(pid, tok, uid) {
@@ -199,12 +205,13 @@ async function quote(pid, tok, uid) {
   const ent = await fsGet(pid, tok, `entitlements/${uid}`);
   const f = (ent || {}).fields || {};
   const allAcc = (((f.allAccess || {}).mapValue || {}).fields || {});
-  const fullFlag = (allAcc.active || {}).booleanValue === true && Date.parse((allAcc.expiresAt || {}).timestampValue || 0) > Date.now();
+  const fullFlag = (allAcc.active || {}).booleanValue === true && (!(allAcc.expiresAt || {}).timestampValue || Date.parse(allAcc.expiresAt.timestampValue) > Date.now());
   const exams = Object.values(SHORT).map((v) => v[0]);
-  const owned = {};
-  for (const k of exams) { const e = activeExp(ent, k); if (e) owned[k] = e; }
-  const full = fullFlag || activeExp(ent, 'all-mocks') > 0 || exams.every((k) => owned[k]);
-  const paid = Object.keys(owned).length > 0;
+  const owned = {}; // pass -> expiry (ms), for the "stays valid till" line; passes without an expiry date are left out
+  let have = 0;
+  for (const k of exams) { const e = activeExp(ent, k); if (e) { have++; if (e !== NO_EXPIRY) owned[k] = e; } }
+  const full = fullFlag || activeExp(ent, 'all-mocks') > 0 || have >= exams.length;
+  const paid = have > 0;
   const total = paid ? await paidTotal(pid, tok, uid) : 0;
   const price = full || !paid ? null : total >= 70 ? 20 : 49; // 2026-11-18: no free upgrade any more
   return { ok: true, paid, full, total, price, product: price === 49 ? 'upgrade_full_49' : price === 20 ? 'upgrade_full_20' : null, owned };

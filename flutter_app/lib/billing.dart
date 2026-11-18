@@ -183,21 +183,25 @@ class Billing {
       final db = FirebaseFirestore.instance;
       final ent = (await db.collection('entitlements').doc(uid).get()).data() ?? const <String, dynamic>{};
       final now = DateTime.now().millisecondsSinceEpoch;
+      // a pass opened by hand (active, no expiry date) counts as owned, as in data.dart _active: -1
       int exp(dynamic m) {
         if (m is! Map || m['active'] != true) return 0;
         final e = m['expiresAt'];
-        final ms = e is Timestamp ? e.millisecondsSinceEpoch : 0;
+        if (e is! Timestamp) return -1;
+        final ms = e.millisecondsSinceEpoch;
         return ms > now ? ms : 0;
       }
 
       final mods = ent['modules'] is Map ? ent['modules'] as Map : const {};
       final owned = <String, int>{};
+      var have = 0;
       for (final e in exams) {
         final x = exp(mods[e.pass]);
+        if (x != 0) have++;
         if (x > 0) owned[e.pass] = x;
       }
-      final full = exp(ent['allAccess']) > 0 || exp(mods['all-mocks']) > 0 || owned.length == exams.length;
-      final paid = owned.isNotEmpty;
+      final full = exp(ent['allAccess']) != 0 || exp(mods['all-mocks']) != 0 || have == exams.length;
+      final paid = have > 0;
       num total = 0;
       if (paid && !full) {
         final sn = await db.collection('payments').where('uid', isEqualTo: uid).get();
