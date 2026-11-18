@@ -833,7 +833,10 @@ function validateMock(p) {
       errs.push(`${figQ.length} figure question(s) (Q${figQ.join(', Q')}) but no figures .docx assigned`);
     } else {
       const got = new Set(p.docx.questions.map(q => q.qNum));
-      const missing = figQ.filter(n => !got.has(n));
+      /* TSSC-SM-MOCK-V1: a set question that says "Refer to the figure of Q.n" shares Q.n's figure */
+      const shared = {}; qEn.forEach(r => { const m = /Refer to the figure of Q\.(\d+)/i.exec(r.text || ''); if (m) shared[parseInt(r.qNum)] = parseInt(m[1]); });
+      p.sharedFig = shared;
+      const missing = figQ.filter(n => !got.has(n) && !(shared[n] && got.has(shared[n])));
       if (missing.length) errs.push(`no figures in the .docx for Q${missing.join(', Q')}`);
       const extra = p.docx.questions.map(q => q.qNum).filter(n => !figQ.includes(n));
       if (extra.length) warns.push(`.docx has figures for Q${extra.join(', Q')} which the CSV does not mark as figure questions`);
@@ -1024,7 +1027,7 @@ function buildDocs(p, lang, imgUrls, isNew) {
   return qRows.map(r => {
     const qNum = parseInt(r.qNum);
     const s = sol[qNum];
-    const im = imgUrls && imgUrls[qNum];
+    const im = imgUrls && (imgUrls[qNum] || (p.sharedFig && p.sharedFig[qNum] && imgUrls[p.sharedFig[qNum]]));   /* TSSC-SM-MOCK-V1: shared set figure */
 
     const oA = normalizeField(r.option_A), oB = normalizeField(r.option_B);
     const oC = normalizeField(r.option_C), oD = normalizeField(r.option_D);
