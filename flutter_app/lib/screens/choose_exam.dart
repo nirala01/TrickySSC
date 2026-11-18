@@ -4,12 +4,42 @@ import '../data.dart';
 import '../ui/icons3d.dart';
 import '../ui/soft.dart';
 
+/// TSSC-RRB-GROUP-V1: railway exams (id "rrb-…") sit behind one "RRB" card once there are two or more;
+/// tapping it opens a page listing them. A new rrb-* exam in catalog.json joins the group by itself.
+bool _isRrb(Exam e) => e.id.startsWith('rrb-');
+
 class ChooseExamScreen extends StatelessWidget {
   final void Function(Exam) onPick;
   const ChooseExamScreen({super.key, required this.onPick});
 
   @override
   Widget build(BuildContext context) {
+    final rrb = exams.where(_isRrb).toList();
+    final group = rrb.length >= 2;
+    final cards = <Widget>[];
+    var placed = false;
+    for (final e in exams) {
+      if (group && _isRrb(e)) {
+        if (placed) continue;
+        placed = true;
+        cards.add(_ExamCard(
+          name: 'RRB',
+          sub: 'Railway · ${rrb.map((x) => x.name.replaceFirst('RRB ', '')).join(', ')}',
+          icon3d: e.icon3d,
+          c1: e.c1,
+          onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
+              builder: (c) => _GroupScreen(
+                  title: 'RRB exams',
+                  list: rrb,
+                  onPick: (x) {
+                    Navigator.of(c).pop();
+                    onPick(x);
+                  }))),
+        ));
+      } else {
+        cards.add(_ExamCard(name: e.name, sub: e.sub, icon3d: e.icon3d, c1: e.c1, onTap: () => onPick(e)));
+      }
+    }
     return Scaffold(
       body: Container(
         decoration: softBg,
@@ -19,10 +49,43 @@ class ChooseExamScreen extends StatelessWidget {
             children: [
               const _HeroCard(),
               const SizedBox(height: 18),
-              for (final e in exams)
+              for (final w in cards) Padding(padding: const EdgeInsets.only(bottom: 12), child: w),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _GroupScreen extends StatelessWidget {
+  final String title;
+  final List<Exam> list;
+  final void Function(Exam) onPick;
+  const _GroupScreen({required this.title, required this.list, required this.onPick});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Container(
+        decoration: softBg,
+        child: SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+            children: [
+              Row(children: [
+                IconButton(onPressed: () => Navigator.of(context).pop(), icon: const Icon(Icons.arrow_back)),
+                const SizedBox(width: 4),
+                Text(title, style: baloo(26)),
+              ]),
+              const Padding(
+                padding: EdgeInsets.fromLTRB(8, 0, 8, 14),
+                child: Text('Choose your course', style: TextStyle(color: softMuted, fontSize: 15, fontWeight: FontWeight.w600)),
+              ),
+              for (final e in list)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12),
-                  child: _ExamCard(exam: e, onTap: () => onPick(e)),
+                  child: _ExamCard(name: e.name, sub: e.sub, icon3d: e.icon3d, c1: e.c1, onTap: () => onPick(e)),
                 ),
             ],
           ),
@@ -73,9 +136,10 @@ class _HeroCard extends StatelessWidget {
 }
 
 class _ExamCard extends StatelessWidget {
-  final Exam exam;
+  final String name, sub, icon3d;
+  final Color c1;
   final VoidCallback onTap;
-  const _ExamCard({required this.exam, required this.onTap});
+  const _ExamCard({required this.name, required this.sub, required this.icon3d, required this.c1, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -94,17 +158,17 @@ class _ExamCard extends StatelessWidget {
                 height: 64,
                 alignment: Alignment.center,
                 decoration: softWell(radius: 18),
-                child: Icon3D(exam.icon3d, size: 46),
+                child: Icon3D(icon3d, size: 46),
               ),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(exam.name, style: baloo(21)),
+                  Text(name, style: baloo(21)),
                   const SizedBox(height: 2),
-                  Text(exam.sub, style: const TextStyle(color: softMuted, fontSize: 14.5, fontWeight: FontWeight.w600)),
+                  Text(sub, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: softMuted, fontSize: 14.5, fontWeight: FontWeight.w600)),
                 ]),
               ),
-              Icon(Icons.chevron_right, color: exam.c1, size: 26),
+              Icon(Icons.chevron_right, color: c1, size: 26),
             ]),
           ),
         ),
