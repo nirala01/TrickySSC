@@ -330,7 +330,11 @@ export default {
       const entNow = await fsGet(pid, tok, `entitlements/${uid}`);
       const fields = {}, mask = ['updatedAt'];
       for (const k of keys) {
-        if (product.upgrade && activeExp(entNow, k) && !(((((((entNow || {}).fields || {}).modules || {}).mapValue || {}).fields || {})[k] || {}).mapValue || { fields: {} }).fields.orderId?.stringValue === (g.orderId || '')) continue;   // validity rule: a running course keeps its expiry
+        // validity rule: a course already running keeps its own expiry. Only a course this same order opened
+        // (the grant is being retried) is written again. 2026-11-18: the old check compared `!a === b`, which is
+        // never true, so the upgrade moved every running course to a year from today.
+        const curOrder = ((((((((entNow || {}).fields || {}).modules || {}).mapValue || {}).fields || {})[k] || {}).mapValue || { fields: {} }).fields.orderId || {}).stringValue || '';
+        if (product.upgrade && activeExp(entNow, k) && !(g.orderId && curOrder === g.orderId)) continue;
         const e = product.upgrade ? expMs : keys.length === 1 ? expMs : expiryFor(entNow, k, true);
         fields[k] = { mapValue: { fields: { active: { booleanValue: true }, expiresAt: ts(e), source: str('google-play'), orderId: str(g.orderId || '') } } };
         mask.push('modules.`' + k + '`');
