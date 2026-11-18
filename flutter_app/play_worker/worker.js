@@ -101,7 +101,7 @@ const fromB64u = (s) => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, 
 // [granted]: the purchase was already recorded, so the year is not added twice when the grant is retried.
 function expiryFor(ent, key, granted = false) {
   const cur = ((((((ent || {}).fields || {}).modules || {}).mapValue || {}).fields || {})[key] || {}).mapValue;
-  const curExp = cur && (cur.fields.active || {}).booleanValue === true ? Date.parse((cur.fields.expiresAt || {}).timestampValue) : 0;
+  const curExp = cur && (cur.fields.active || {}).booleanValue === true ? (expMsOf(cur.fields.expiresAt) || 0) : 0;
   if (granted && cur && (cur.fields.source || {}).stringValue === 'google-play' && curExp > Date.now() + (VALID_DAYS - 2) * 86400000) return curExp;
   return Math.max(Date.now(), curExp > Date.now() ? curExp : 0) + VALID_DAYS * 86400000;
 }
@@ -169,15 +169,22 @@ async function fsPatch(pid, tok, path, fields, mask, extra = '') {
 
 // ---- Upgrade to Full Access: price from the student's paid orders (plan doc)
 //   paid ₹49 -> pays ₹49 · paid ₹70-97 (combo, or pass + ₹29 add-on) -> ₹20 · paid ₹98+ -> ₹20 (no free upgrade since 2026-11-18) · full access -> nothing
+// expiresAt as milliseconds. The website Worker (index.js) saves it as an ISO text, this Worker as a timestamp;
+// both are read. NaN when the pass has no expiry date. (2026-11-18)
+const expMsOf = (f) => {
+  const x = f || {};
+  const v = x.timestampValue ?? x.stringValue ?? (x.integerValue != null ? Number(x.integerValue) : x.doubleValue);
+  if (v == null || v === '') return NaN;
+  return typeof v === 'number' ? v : Date.parse(v);
+};
 // A pass with active:true and no expiry date (opened by hand from admin premium) counts as owned, the same as
 // in the app (data.dart _active): activeExp gives NO_EXPIRY for it. (2026-11-18)
 const NO_EXPIRY = 8640000000000000;
 const activeExp = (ent, key) => {
   const m = ((((((ent || {}).fields || {}).modules || {}).mapValue || {}).fields || {})[key] || {}).mapValue;
   if (!m || !m.fields || (m.fields.active || {}).booleanValue !== true) return 0;
-  const t = (m.fields.expiresAt || {}).timestampValue;
-  if (!t) return NO_EXPIRY;
-  const e = Date.parse(t);
+  const e = expMsOf(m.fields.expiresAt);
+  if (!isFinite(e)) return NO_EXPIRY;
   return e > Date.now() ? e : 0;
 };
 async function paidTotal(pid, tok, uid) {
@@ -205,7 +212,7 @@ async function quote(pid, tok, uid) {
   const ent = await fsGet(pid, tok, `entitlements/${uid}`);
   const f = (ent || {}).fields || {};
   const allAcc = (((f.allAccess || {}).mapValue || {}).fields || {});
-  const fullFlag = (allAcc.active || {}).booleanValue === true && (!(allAcc.expiresAt || {}).timestampValue || Date.parse(allAcc.expiresAt.timestampValue) > Date.now());
+  const fullFlag = (allAcc.active || {}).booleanValue === true && (!isFinite(expMsOf(allAcc.expiresAt)) || expMsOf(allAcc.expiresAt) > Date.now());
   const exams = Object.values(SHORT).map((v) => v[0]);
   const owned = {}; // pass -> expiry (ms), for the "stays valid till" line; passes without an expiry date are left out
   let have = 0;

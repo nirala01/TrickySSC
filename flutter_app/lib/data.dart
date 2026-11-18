@@ -317,9 +317,17 @@ class Prefs {
 bool _active(dynamic g) {
   if (g is! Map) return false;
   if (g['active'] != true) return false;
-  final e = g['expiresAt'];
-  if (e is Timestamp) return e.toDate().isAfter(DateTime.now());
-  return true;
+  final ms = expiryMs(g['expiresAt']);
+  return ms == null || ms > DateTime.now().millisecondsSinceEpoch;
+}
+
+/// expiresAt as milliseconds: a Timestamp (passes bought in the app) or an ISO text (passes bought on the
+/// website). Null when the pass has no expiry date. (2026-11-18)
+int? expiryMs(dynamic e) {
+  if (e is Timestamp) return e.millisecondsSinceEpoch;
+  if (e is num) return e.toInt();
+  if (e is String && e.isNotEmpty) return DateTime.tryParse(e)?.millisecondsSinceEpoch;
+  return null;
 }
 
 /// The mock series this account owns (entitlement keys). Empty when nothing is owned or it cannot be read.

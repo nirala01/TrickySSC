@@ -186,9 +186,8 @@ class Billing {
       // a pass opened by hand (active, no expiry date) counts as owned, as in data.dart _active: -1
       int exp(dynamic m) {
         if (m is! Map || m['active'] != true) return 0;
-        final e = m['expiresAt'];
-        if (e is! Timestamp) return -1;
-        final ms = e.millisecondsSinceEpoch;
+        final ms = expiryMs(m['expiresAt']);
+        if (ms == null) return -1;
         return ms > now ? ms : 0;
       }
 
