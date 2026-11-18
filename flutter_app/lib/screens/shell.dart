@@ -614,7 +614,7 @@ class _HomeTab extends StatelessWidget {
               Expanded(
                 child: Row(children: [
                   // TSSC-SM-APP-V1: an exam with no subject mocks (RRB Station Master) shows no Subject mocks tile
-                  if (exam.subjects.isNotEmpty) ...[
+                  if (exam.hasSubjectMocks) ...[
                     _Tile('puzzle', 'Subject mocks', 'Sectional', exam.c1, onSubjects, tag: hasPass ? const SoftTag.premium() : SoftTag('${exam.free} FREE', const Color(0xFF047857), const Color(0xFFD1FAE5))),
                     const SizedBox(width: 8),
                   ],

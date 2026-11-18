@@ -36,6 +36,7 @@ class Exam {
   final bool partD; // Part D (Q61-80) can be taken in English or Hindi
   final bool canonStats; // subject stats by canonical subject name
   final List<String> subjects; // subject mocks offered
+  final List<SecTest> secTests; // own section tests instead of the four subjects (RRB Station Master); catalog key "secTests"
   final Map<String, List<int>> bands; // subject -> question range in the full mock (fallback)
   final Map<String, int> subjMin; // subject mock minutes (default 15)
   final List<String> pyqPages; // app PYQ list pages on trickyssc.com
@@ -43,6 +44,14 @@ class Exam {
   final List<String> chExtra; // extra chapter-test subjects: computer, finance, statistics
   final String passName; // name of the pass in My orders
   final String play; // Play product id of the pass ('' = made from the pass key)
+  /// TSSC-SM-SECTEST-V1: the exam has subject / section mocks (the Subject mocks tile).
+  bool get hasSubjectMocks => subjects.isNotEmpty || secTests.isNotEmpty;
+  SecTest? secTest(String key) {
+    for (final t in secTests) {
+      if (t.key == key) return t;
+    }
+    return null;
+  }
   String get icon3d => icon3dName.isNotEmpty ? icon3dName : (const {'cgl': 'target', 'chsl': 'clip', 'mts': 'pencil', 'gd': 'shield', 'ntpc': 'train'}[k] ?? 'book');
   /// Short name: CGL, CHSL, NTPC.
   String get short => name.replaceFirst('SSC ', '').replaceFirst('RRB ', '');
@@ -62,6 +71,7 @@ class Exam {
       this.partD = false,
       this.canonStats = false,
       this.subjects = const ['quant', 'reasoning', 'gk', 'english'],
+      this.secTests = const [],
       this.bands = const {},
       this.subjMin = const {},
       this.pyqPages = const [],
@@ -120,6 +130,7 @@ class Exam {
       partD: flag('partD', b?.partD ?? false),
       canonStats: flag('canonStats', b?.canonStats ?? true),
       subjects: strs('subjects', b?.subjects ?? const ['quant', 'reasoning', 'gk', 'english']),
+      secTests: j['secTests'] is List ? [for (final x in j['secTests'] as List) if (x is Map && SecTest.fromJson(x) != null) SecTest.fromJson(x)!] : (b?.secTests ?? const []),
       bands: bands,
       subjMin: subjMin,
       pyqPages: strs('pyqPages', b?.pyqPages ?? const []),
@@ -128,6 +139,21 @@ class Exam {
       passName: str('passName', b?.passName ?? ''),
       play: str('play', b?.play ?? ''),
     );
+  }
+}
+
+/// TSSC-SM-SECTEST-V1: one section test of a mock, picked by the questions' own subject names
+/// (website mock-test-subject.html SM_SUBJ_SETS). catalog.json: {"key", "name", "min", "match": [subjects]}.
+class SecTest {
+  final String key, name;
+  final int min;
+  final List<String> match; // lower case, '&' written as 'and'
+  const SecTest(this.key, this.name, this.min, this.match);
+  static String norm(String s) => s.toLowerCase().replaceAll('&', 'and').replaceAll(RegExp(r'\s+'), ' ').trim();
+  static SecTest? fromJson(Map j) {
+    final key = '${j['key'] ?? ''}', name = '${j['name'] ?? ''}';
+    if (key.isEmpty || name.isEmpty || j['match'] is! List) return null;
+    return SecTest(key, name, j['min'] is num ? (j['min'] as num).toInt() : 15, [for (final x in j['match'] as List) norm('$x')]);
   }
 }
 

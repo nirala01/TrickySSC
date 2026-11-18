@@ -82,7 +82,7 @@ String testName(Att a) {
   return n.isEmpty ? 'Test' : n;
 }
 
-String _subjName(String k) => const {'quant': 'Maths', 'maths': 'Maths', 'reasoning': 'Reasoning', 'english': 'English', 'gk': 'GK', 'ga': 'GK', 'computer': 'Computer'}[k.toLowerCase()] ?? k;
+String _subjName(String k) => const {'quant': 'Maths', 'maths': 'Maths', 'reasoning': 'Reasoning', 'english': 'English', 'gk': 'GK', 'ga': 'GK', 'computer': 'Computer', 'scimaths': 'Maths & Science', 'di': 'Data Interpretation', 'logical': 'Logical Capability', 'mental': 'Mental Reasoning'}[k.toLowerCase()] ?? k;
 
 /// Subject key normalisation (website SUBJ_KEY).
 String? skey(String k) {

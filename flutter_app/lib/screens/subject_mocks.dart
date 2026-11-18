@@ -51,6 +51,11 @@ class _SubjectMocksScreenState extends State<SubjectMocksScreen> {
 
   List<(String, String, IconData, Color)> get _subjects {
     final e = widget.exam;
+    // TSSC-SM-SECTEST-V1: an exam with its own section tests (RRB Station Master) lists those
+    if (e.secTests.isNotEmpty) {
+      const look = [(Icons.calculate, Color(0xFFEA580C)), (Icons.bar_chart, Color(0xFF0369A1)), (Icons.psychology, Color(0xFF7C3AED)), (Icons.extension, Color(0xFF047857))];
+      return [for (var i = 0; i < e.secTests.length; i++) (e.secTests[i].key, e.secTests[i].name, look[i % look.length].$1, look[i % look.length].$2)];
+    }
     final all = [
       ('quant', e.maths ? 'Maths' : 'Quant', Icons.calculate, const Color(0xFFEA580C)),
       ('reasoning', 'Reasoning', Icons.psychology, const Color(0xFF7C3AED)),

@@ -381,14 +381,28 @@ const subjectMockShort = {'quant': 'Quant', 'reasoning': 'Reasoning', 'gk': 'Gen
 
 List<int> _subjectBand(String mockId, String subject) => examOfPaper(mockId)?.bands[subject] ?? const [0, 0];
 
-int subjectMockMinutes(String mockId, String subject) => examOfPaper(mockId)?.subjMin[subject] ?? 15;
+int subjectMockMinutes(String mockId, String subject) => examOfPaper(mockId)?.secTest(subject)?.min ?? examOfPaper(mockId)?.subjMin[subject] ?? 15;
 
 Future<Paper> loadPaper(String mockId, String lang, {String? partD, String title = '', String? subject}) async {
   final rules = Rules(subject == null ? mockId : '${mockId}__$subject');
   var qs = await _fetch(mockId);
   if (qs.isEmpty) throw 'This paper has no questions yet.';
+  final sec = subject == null ? null : examOfPaper(mockId)?.secTest(subject);
+  if (sec != null) {
+    // TSSC-SM-SECTEST-V1: a section test picked by the questions' own subject names (website SM_SUBJ_SETS)
+    final picked = qs.where((q) => sec.match.contains(SecTest.norm(q.subjectRaw))).toList();
+    if (picked.isEmpty) throw 'This mock has no ${sec.name} questions yet.';
+    if (title.isEmpty) {
+      try {
+        final meta = await FirebaseFirestore.instance.collection('mock_tests').doc(mockId).get();
+        title = _str((meta.data() ?? const {})['title']);
+      } catch (_) {}
+    }
+    return Paper(rules, picked, [Section(sec.name, 0, picked.length - 1)], [Unit('${sec.name} section', 0, picked.length - 1, sec.min * 60)],
+        title.isEmpty ? '' : '$title · ${sec.name}', '');
+  }
   if (subject != null) {
-    final short = subjectMockShort[subject]!;
+    final short = subjectMockShort[subject] ?? 'Quant';
     var picked = qs.where((q) => canonSubject(q.subjectRaw) == short || (rules.gd && subject == 'english' && RegExp(r'hindi|हिंदी|हिन्दी', caseSensitive: false).hasMatch(q.subjectRaw))).toList();
     if (picked.length < 5) {
       final band = _subjectBand(mockId, subject);
