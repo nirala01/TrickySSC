@@ -76,6 +76,7 @@
       <button class="tab active" data-f="open" id="tOpen">Open</button>
       <button class="tab" data-f="resolved" id="tRes">Resolved</button>
       <button class="tab" data-f="all" id="tAll">All</button>
+      <button class="tab" data-f="rev" id="tRev">🤖 Google review</button>
       <button class="btn btn-ghost" id="reload" style="margin-left:auto">↻ Refresh</button>
     </div>
     <input class="filter" id="q" placeholder="Search name, email, phone, message, app version…">
@@ -134,6 +135,21 @@ const $ = id => document.getElementById(id);
 const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const ms = t => { try{ return t?.toMillis ? t.toMillis() : (t ? new Date(t).getTime() : 0); }catch(_){ return 0; } };
 const when = t => { const m = ms(t); return m ? new Date(m).toLocaleString('en-IN',{day:'numeric',month:'short',year:'numeric',hour:'numeric',minute:'2-digit'}) : ''; };
+
+/* TSSC-GREVIEW-V1 (2026-11-19) — Google Play's review / pre-launch accounts.
+   They sign in to the app on test emulators while a build is reviewed and tap
+   through the pass popup and Report an issue. Spotted by the device the app
+   records (from 2.0.72), by the known review accounts, or by the review-account
+   style address (name.12345@gmail.com) on an app-only account. */
+const G_REVIEW_KNOWN = ['madelinegriffith.25323@gmail.com','morrisblack.76059@gmail.com','elainemclaughlin.38007@gmail.com','claypowers.62727@gmail.com'];
+const G_REVIEW_DEV = /sdk_gphone|emulator|generic_x86|userdebug|dev-keys|test-keys/i;
+function isGoogleReview(email, u, extra) {
+  u = u || {};
+  const e = String(email || u.email || '').trim().toLowerCase();
+  if (u.appReview || G_REVIEW_DEV.test(String(u.appDevice || '')) || G_REVIEW_DEV.test(String(extra || ''))) return true;
+  if (G_REVIEW_KNOWN.includes(e)) return true;
+  return /^[a-z]{6,}\.\d{5}@gmail\.com$/.test(e) && !!u.appUser && !u.lastActive;
+}
 const KINDS = { crash:'💥 App crashes or freezes', test:'📝 Test not loading or not saving', payment:'💳 Payment or pass access',
                 login:'🔑 Sign-in problem', content:'❓ Wrong question, answer or solution', other:'💬 Something else' };
 const kindOf = r => r.kindLabel || r.reason || KINDS[r.kind] || '💬 Something else';
@@ -145,6 +161,7 @@ function parse(r){
   r.message = i >= 0 ? n.slice(0, i) : n;
   r.email = get('Reply email'); r.phone = get('Phone'); r.device = get('Device');
   r.exam = r.subject || '';
+  r.review = isGoogleReview(r.email, {}, r.device);
   const st = STATE[r.id] || {};
   if(!r.status && st.status) r.status = st.status;
   if(!r.resolvedAt && st.resolvedAt) r.resolvedAt = st.resolvedAt;
@@ -196,17 +213,20 @@ async function load(){
     const u = await userOf(r.uid);
     if(!r.email && u.email) r._email = u.email;
     if(!r.phone && (u.phone||u.mobile)) r._phone = u.phone || u.mobile;
+    if(!r.review && isGoogleReview(r.email || u.email, u, r.device)) r.review = true;
   }
   paint();
 }
 
 function paint(){
-  const open = ALL.filter(r => r.status !== 'resolved').length;
+  const real = ALL.filter(r => !r.review), open = real.filter(r => r.status !== 'resolved').length;
+  $('tRev').textContent = `🤖 Google review (${ALL.length - real.length})`;
   $('tOpen').textContent = `Open (${open})`;
-  $('tRes').textContent = `Resolved (${ALL.length - open})`;
-  $('tAll').textContent = `All (${ALL.length})`;
+  $('tRes').textContent = `Resolved (${real.length - open})`;
+  $('tAll').textContent = `All (${real.length})`;
   const q = $('q').value.trim().toLowerCase();
-  const rows = ALL.filter(r => FILTER === 'all' || (FILTER === 'resolved') === (r.status === 'resolved'))
+  const rows = ALL.filter(r => FILTER === 'rev' ? r.review : !r.review)
+    .filter(r => FILTER === 'all' || FILTER === 'rev' || (FILTER === 'resolved') === (r.status === 'resolved'))
     .filter(r => !q || [r.name,r.email,r._email,r.phone,r._phone,r.message,r.appVersion,r.uid,r.exam,kindOf(r)].join(' ').toLowerCase().includes(q));
   if(!rows.length){ $('list').innerHTML = `<div class="card empty">${FILTER==='open' ? 'No open issues 🎉' : 'Nothing here.'}</div>`; return; }
   $('list').innerHTML = rows.map(r => {
@@ -214,7 +234,7 @@ function paint(){
     return `<div class="card ${res?'resolved':'open'}">
       <div class="head">
         <span class="kind">${esc(kindOf(r))}</span>
-        <span class="pill ${res?'p-res':'p-open'}">${res?'✓ Resolved':'Open'}</span>
+        ${r.review ? '<span class="pill p-res" title="Sent by Google Play\'s review device while a build was checked — not a student">🤖 Google review</span>' : `<span class="pill ${res?'p-res':'p-open'}">${res?'✓ Resolved':'Open'}</span>`}
         <span class="when">${esc(when(r.createdAt))}</span>
       </div>
       <div class="msg">${esc(r.message||'')}</div>
@@ -227,14 +247,14 @@ function paint(){
         <div><b>Device:</b> ${esc(r.device||'—')}</div>
         <div style="grid-column:1/-1"><b>UID:</b> <code>${esc(r.uid||'')}</code></div>
       </div>
-      <div class="acts">
+      ${r.review ? '<div class="acts"><span class="note">Google Play checked the Report an issue button while reviewing a build. No reply needed.</span></div>' : `<div class="acts">
         ${res
           ? `<button class="btn btn-ghost" data-open="${esc(r.id)}">↺ Reopen</button>`
           : `<button class="btn btn-green" data-res="${esc(r.id)}">✓ Mark resolved</button>`}
         <button class="btn btn-mail ${r.mailedAt?'sent':''}" data-mail="${esc(r.id)}" title="Email the student">✉️ ${r.mailedAt?'Email ✓':'Email'}</button>
         ${waNumber(phone) ? `<button class="btn btn-wa ${r.waAt?'sent':''}" data-wa="${esc(r.id)}" title="WhatsApp the student">💬 ${r.waAt?'WhatsApp ✓':'WhatsApp'}</button>` : ''}
         <span class="note">${res ? 'Resolved ' + esc(when(r.resolvedAt)) : ''}${r.mailedAt ? (res?' · ':'') + 'mailed ' + esc(when(r.mailedAt)) : ''}${r.waAt ? ((res||r.mailedAt)?' · ':'') + 'WhatsApp ' + esc(when(r.waAt)) : ''}</span>
-      </div>
+      </div>`}
     </div>`;
   }).join('');
 }

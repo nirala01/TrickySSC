@@ -174,6 +174,7 @@ letter-spacing:.04em;color:#94A3B8;}}
       </tr></thead>
       <tbody id="intentRows"></tbody>
     </table>
+    <button id="revToggle" type="button" hidden style="margin:.5rem 0;font-size:.8rem;font-weight:700;padding:.4rem .8rem;border-radius:8px;border:1.5px solid #E2E8F0;background:#F8FAFC;color:#475569;cursor:pointer"></button>
     <div class="empty" id="intentEmpty" hidden></div>
   </div>
 </div>
@@ -480,6 +481,7 @@ async function load(force) {
           i.email  = i.email  || u.email || '';
           i.mobile = i.mobile || u.phone || u.mobile || u.phoneNumber || '';
           i.place  = i.place  || u.place || u.city || '';
+          i.review = isGoogleReview(i.email, u);
           i.loginType = u.loginType || u.provider || u.authProvider ||
                         (u.email ? '' : (i.mobile ? 'phone' : ''));
         } catch (e) { /* leave the row as the intent wrote it */ }
@@ -700,10 +702,26 @@ function actionCell(uid, courseId, courseActive) {
 
 /* People who opened checkout but never got as far as an order. Anyone with an
    order already appears in the table above, so they are filtered out here. */
+/* TSSC-GREVIEW-V1 (2026-11-19) — Google Play's review / pre-launch accounts.
+   They sign in to the app on test emulators while a build is reviewed and tap
+   through the pass popup and Report an issue. Spotted by the device the app
+   records (from 2.0.72), by the known review accounts, or by the review-account
+   style address (name.12345@gmail.com) on an app-only account. */
+const G_REVIEW_KNOWN = ['madelinegriffith.25323@gmail.com','morrisblack.76059@gmail.com','elainemclaughlin.38007@gmail.com','claypowers.62727@gmail.com'];
+const G_REVIEW_DEV = /sdk_gphone|emulator|generic_x86|userdebug|dev-keys|test-keys/i;
+function isGoogleReview(email, u, extra) {
+  u = u || {};
+  const e = String(email || u.email || '').trim().toLowerCase();
+  if (u.appReview || G_REVIEW_DEV.test(String(u.appDevice || '')) || G_REVIEW_DEV.test(String(extra || ''))) return true;
+  if (G_REVIEW_KNOWN.includes(e)) return true;
+  return /^[a-z]{6,}\.\d{5}@gmail\.com$/.test(e) && !!u.appUser && !u.lastActive;
+}
 function renderIntents() {
   const withOrders = new Set(ROWS.map(r => r.uid).filter(Boolean));
+  const revN = INTENTS.filter(i => !withOrders.has(i.uid) && (i.review || isGoogleReview(i.email, {}))).length;
   const rows = INTENTS
     .filter(i => !withOrders.has(i.uid))
+    .filter(i => SHOW_REVIEW || !(i.review || isGoogleReview(i.email, {})))
     .sort((a, b) => (b.lastAt || 0) - (a.lastAt || 0));
 
   const box = document.getElementById('intentEmpty');
@@ -736,9 +754,13 @@ function renderIntents() {
   const buildCell = i => i.build
     ? `<div class="em mono">${esc(i.build)}</div>`
     : `<div class="em" style="color:#B45309;font-weight:700">old page (no build stamp)</div>`;
+  /* Google review accounts are hidden unless asked for */
+  const rb = document.getElementById('revToggle');
+  if (rb) rb.textContent = revN ? (SHOW_REVIEW ? `Hide ${revN} Google review account${revN > 1 ? 's' : ''}` : `🤖 ${revN} Google review account${revN > 1 ? 's' : ''} hidden — show`) : '';
+  if (rb) rb.hidden = !revN;
   document.getElementById('intentRows').innerHTML = rows.map(i => `<tr>
     <td data-l="Candidate">
-      <div class="nm">${esc(i.name) || '—'}</div>
+      <div class="nm">${esc(i.name) || '—'}${(i.review || isGoogleReview(i.email, {})) ? ' <span class="pill p-stage" title="Google Play review account — not a student">🤖 Google review</span>' : ''}</div>
       ${i.email ? `<div class="em">${esc(i.email)}</div>` : ''}
       ${i.mobile ? `<div class="em mono">${esc(i.mobile)}</div>` : ''}
       ${i.loginType ? `<div class="em">${esc(i.loginType)} login</div>` : ''}
@@ -749,10 +771,12 @@ function renderIntents() {
     <td data-l="Tries" class="mono">${i.clicks}</td>
     <td data-l="Last seen">${fmt(i.lastAt)}</td>
     <td data-l="Actions">${actionCell(i.uid, i.courseId)}${
-      (i.stage !== 'paid' && fuWants(i)) ? followCell('intent', i.uid, i) : ''}</td>   <!-- TSSC-FOLLOWUP-V2 -->
+      (i.stage !== 'paid' && fuWants(i) && !(i.review || isGoogleReview(i.email, {}))) ? followCell('intent', i.uid, i) : ''}</td>   <!-- TSSC-FOLLOWUP-V2 -->
   </tr>`).join('');
 }
 
+let SHOW_REVIEW = false;
+document.addEventListener('click', e => { if (e.target && e.target.id === 'revToggle') { SHOW_REVIEW = !SHOW_REVIEW; renderIntents(); } });
 ['q','fStatus','fMode','fCourse'].forEach(id =>
   $(id).addEventListener('input', render));
 

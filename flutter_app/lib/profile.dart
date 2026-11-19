@@ -2,6 +2,7 @@
 // so app sign-ups show on candidates.html with name, mobile / email, login method and join date.
 // Also stamps the app version and last app open, so the admin pages can tell app users apart.
 import 'dart:async';
+import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -128,8 +129,16 @@ class _ProfileGateState extends State<ProfileGate> with WidgetsBindingObserver {
 
   /// App marker for the admin pages. Kept separate so a rules change can never block the profile.
   void _stampApp() {
+    String dev = '';
+    try {
+      dev = '${Platform.operatingSystem} ${Platform.operatingSystemVersion}';
+    } catch (_) {}
+    // Google's review / pre-launch devices are emulators with debug builds of Android
+    final review = RegExp(r'sdk_gphone|emulator|generic_x86|userdebug|dev-keys|test-keys', caseSensitive: false).hasMatch(dev);
     _ref.set({
       'appUser': true,
+      'appDevice': dev,
+      if (review) 'appReview': true,
       'appVersion': appVersion,
       'lastAppOpen': FieldValue.serverTimestamp(),
       'lastAppSeen': FieldValue.serverTimestamp(),

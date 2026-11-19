@@ -114,6 +114,7 @@
       <button class="tab" data-f="stu">Buyers</button>
       <button class="tab" data-f="nb">Non-buyers</button>
       <button class="tab" data-f="oth">Other app users</button>
+      <button class="tab" data-f="rev">🤖 Google review</button>
     </div>
     <div id="statusView" class="hidden"></div>
     <div id="listView">
@@ -208,6 +209,21 @@ const ADMINS = ['nirala01@gmail.com','ashish@trickyssc.com'];
 const isAdmin = e => !!e && (ADMINS.includes(e) || /@trickyssc\.com$/.test(e));
 const MAIL_API = 'https://trickyssc-mail.nirala01.workers.dev';
 const FROM = 'contact@trickyssc.com';
+
+/* TSSC-GREVIEW-V1 (2026-11-19) — Google Play's review / pre-launch accounts.
+   They sign in to the app on test emulators while a build is reviewed and tap
+   through the pass popup and Report an issue. Spotted by the device the app
+   records (from 2.0.72), by the known review accounts, or by the review-account
+   style address (name.12345@gmail.com) on an app-only account. */
+const G_REVIEW_KNOWN = ['madelinegriffith.25323@gmail.com','morrisblack.76059@gmail.com','elainemclaughlin.38007@gmail.com','claypowers.62727@gmail.com'];
+const G_REVIEW_DEV = /sdk_gphone|emulator|generic_x86|userdebug|dev-keys|test-keys/i;
+function isGoogleReview(email, u, extra) {
+  u = u || {};
+  const e = String(email || u.email || '').trim().toLowerCase();
+  if (u.appReview || G_REVIEW_DEV.test(String(u.appDevice || '')) || G_REVIEW_DEV.test(String(extra || ''))) return true;
+  if (G_REVIEW_KNOWN.includes(e)) return true;
+  return /^[a-z]{6,}\.\d{5}@gmail\.com$/.test(e) && !!u.appUser && !u.lastActive;
+}
 const IST = 'Asia/Kolkata';
 const LS = 'tssc_testers_cfg';
 
@@ -384,7 +400,8 @@ async function load() {
       name: String(u.name || '').trim(), mobile: u.phone || u.mobile || '',
       lastOpen, lastUse, status, siteLast: ts(u.lastActive), seen: u.appUser ? Math.max(ts(u.lastAppSeen), lastOpen) : 0, days, used14: win.filter(x => days.has(x)).length,
       opens: Number(u.appOpens || 0), tests: Number(u.appTests || 0), totalTests: Number(u.totalTests || 0),
-      ver: u.appUser ? String(u.appVersion || '') : ''
+      ver: u.appUser ? String(u.appVersion || '') : '',
+      review: isGoogleReview(email, u)
     };
   };
   ROWS = [];
@@ -393,7 +410,9 @@ async function load() {
   CFG.nb.forEach(e => ROWS.push(mk(e, 'nb', byEmail[e])));
   Object.keys(byEmail).forEach(e => { if (!list.includes(e) && byEmail[e].u.appUser) ROWS.push(mk(e, 'oth', byEmail[e])); });
   others.forEach(r => ROWS.push(mk('', 'oth', r)));
-  const GO = { own: 0, stu: 1, nb: 2, oth: 3 };                 /* my accounts first, then students, then the rest */
+  /* Google's review accounts are never testers: they go to their own group and out of every count */
+  ROWS.forEach(r => { if (r.review) r.group = 'rev'; });
+  const GO = { own: 0, stu: 1, nb: 2, oth: 3, rev: 4 };                 /* my accounts first, then students, then the rest */
   ROWS.sort((a, b) => (GO[a.group] - GO[b.group]) || (b.lastUse - a.lastUse) || (b.siteLast - a.siteLast) || a.email.localeCompare(b.email));
   say('');
   render();
@@ -401,12 +420,12 @@ async function load() {
 
 /* ---------------------------------------------------------------- render */
 function summary() {
-  const T = ROWS.filter(r => r.group !== 'oth');
+  const T = ROWS.filter(r => r.group !== 'oth' && r.group !== 'rev');
   const n = f => T.filter(f).length;
   const opened = n(r => r.status !== 'never'), act = n(r => r.status === 'today' || r.status === 'recent');
   const today = n(r => r.status === 'today'), steady = n(r => r.used14 >= 3);
   const tests = T.reduce((s, r) => s + r.tests, 0);
-  const oth = ROWS.length - T.length;
+  const oth = ROWS.filter(r => r.group === 'oth').length;
   $('stats').innerHTML = [
     [T.length, 'testers in the list', 'list'], [opened, 'opened the app', 'opened'], [today, 'active today', 'today'],
     [act, 'active today / yesterday', 'active'], [steady, 'used on 3+ days', 'steady'], [tests, 'tests taken in app', 'tested'], [oth, 'other app users', 'oth']
@@ -426,7 +445,7 @@ function shown() {
     if (FILTER === 'never' && !(r.status === 'never' && r.group !== 'oth')) return false;
     if (FILTER === 'idle' && !(r.status === 'idle' && r.group !== 'oth')) return false;
     if (FILTER === 'active' && !(r.status === 'today' || r.status === 'recent')) return false;
-    const mine = r.group !== 'oth', DAY = 86400000;       /* filters behind the number cards */
+    const mine = r.group !== 'oth' && r.group !== 'rev', DAY = 86400000;       /* filters behind the number cards */
     if (FILTER === 'list' && !mine) return false;
     if (FILTER === 'opened' && !(mine && r.status !== 'never')) return false;
     if (FILTER === 'today' && !(mine && r.status === 'today')) return false;
@@ -434,13 +453,13 @@ function shown() {
     if (FILTER === 'tested' && !(mine && r.tests > 0)) return false;
     if (FILTER === 'slip' && !(mine && r.status === 'idle' && Date.now() - r.lastUse < 3 * DAY)) return false;
     if (FILTER === 'drop' && !(mine && r.status !== 'never' && Date.now() - r.lastUse >= 3 * DAY)) return false;
-    if (FILTER === 'live' && !(r.seen && Date.now() - r.seen < 10 * 60000)) return false;
-    if (['own','stu','nb','oth'].includes(FILTER) && r.group !== FILTER) return false;
+    if (FILTER === 'live' && !(r.group !== 'rev' && r.seen && Date.now() - r.seen < 10 * 60000)) return false;
+    if (['own','stu','nb','oth','rev'].includes(FILTER) && r.group !== FILTER) return false;
     return !q || (r.email + ' ' + r.name + ' ' + r.mobile).toLowerCase().includes(q);
   });
 }
 const ST = { today: ['p-today','Active today'], recent: ['p-recent','Yesterday'], idle: ['p-idle','Idle'], never: ['p-never','Not opened'] };
-const GR = { own: ['p-own','My account'], stu: ['p-stu','Buyer'], nb: ['p-idle','Non-buyer'], oth: ['p-oth','Not in list'] };
+const GR = { own: ['p-own','My account'], stu: ['p-stu','Buyer'], nb: ['p-idle','Non-buyer'], oth: ['p-oth','Not in list'], rev: ['p-oth','🤖 Google review'] };
 const dShort = t => new Date(t).toLocaleDateString('en-IN', { day:'numeric', month:'short', timeZone: IST });
 function msgCell(r) {
   const s = CFG.sent[r.email] || {};
@@ -460,12 +479,12 @@ function msgCell(r) {
    Live    = app on screen in the last 10 minutes (exact from app 2.0.70). */
 const lt = (n, g, y) => n >= g ? 'g' : n >= y ? 'y' : 'r';
 function statusData() {
-  const T = ROWS.filter(r => r.group !== 'oth'), now = Date.now(), DAY = 86400000;
+  const T = ROWS.filter(r => r.group !== 'oth' && r.group !== 'rev'), now = Date.now(), DAY = 86400000;
   const joined = T.filter(r => r.status !== 'never');
   const active = joined.filter(r => r.status === 'today' || r.status === 'recent');
   const dropped = joined.filter(r => now - r.lastUse >= 3 * DAY);
   const slipping = joined.filter(r => r.status === 'idle' && now - r.lastUse < 3 * DAY);
-  const live = ROWS.filter(r => r.seen && now - r.seen < 10 * 60000);
+  const live = ROWS.filter(r => r.group !== 'rev' && r.seen && now - r.seen < 10 * 60000);
   const o = CFG.set.optIn || null;
   return { T, joined, active, dropped, slipping, live, optIn: o ? Number(o.n) : null, optAt: o ? o.at : 0 };
 }
