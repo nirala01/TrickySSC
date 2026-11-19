@@ -580,8 +580,7 @@ Future<Progress?> loadProgress(String uid, String mockId, String partD) async {
     final s = (await SharedPreferences.getInstance()).getString(_progressKey(uid, mockId, partD));
     if (s == null) return null;
     final j = jsonDecode(s) as Map<String, dynamic>;
-    final at = (j['at'] as num? ?? 0).toInt();
-    if (DateTime.now().millisecondsSinceEpoch - at > 3 * 24 * 3600 * 1000) return null;
+    // a test left half-way stays resumable until it is submitted or restarted (no expiry, 2026-11-19)
     return Progress.fromJson(j);
   } catch (_) {
     return null;
@@ -600,16 +599,10 @@ Future<Map<String, List<String>>> loadInProgress(String uid) async {
   try {
     final prefs = await SharedPreferences.getInstance();
     final pre = 'tssc_prog_${uid}_';
-    final now = DateTime.now().millisecondsSinceEpoch;
     for (final k in prefs.getKeys()) {
       if (!k.startsWith(pre)) continue;
       try {
         final j = jsonDecode(prefs.getString(k) ?? '') as Map<String, dynamic>;
-        final at = (j['at'] as num? ?? 0).toInt();
-        if (now - at > 3 * 24 * 3600 * 1000) {
-          await prefs.remove(k);
-          continue;
-        }
         final rest = k.substring(pre.length);
         final cut = rest.lastIndexOf('_');
         var mockId = rest.substring(0, cut);
