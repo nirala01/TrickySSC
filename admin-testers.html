@@ -411,7 +411,8 @@ async function load() {
   Object.keys(byEmail).forEach(e => { if (!list.includes(e) && byEmail[e].u.appUser) ROWS.push(mk(e, 'oth', byEmail[e])); });
   others.forEach(r => ROWS.push(mk('', 'oth', r)));
   /* Google's review accounts are never testers: they go to their own group and out of every count */
-  ROWS.forEach(r => { if (r.review) r.group = 'rev'; });
+  /* …except your own accounts: the login given to Google for review (trickyssc.review) is also used by you */
+  ROWS.forEach(r => { if (r.review && r.group !== 'own') r.group = 'rev'; });
   const GO = { own: 0, stu: 1, nb: 2, oth: 3, rev: 4 };                 /* my accounts first, then students, then the rest */
   ROWS.sort((a, b) => (GO[a.group] - GO[b.group]) || (b.lastUse - a.lastUse) || (b.siteLast - a.siteLast) || a.email.localeCompare(b.email));
   say('');

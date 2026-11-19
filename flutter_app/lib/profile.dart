@@ -138,7 +138,7 @@ class _ProfileGateState extends State<ProfileGate> with WidgetsBindingObserver {
     _ref.set({
       'appUser': true,
       'appDevice': dev,
-      if (review) 'appReview': true,
+      'appReview': review, // this open only: the same account can later be used on a real phone
       'appVersion': appVersion,
       'lastAppOpen': FieldValue.serverTimestamp(),
       'lastAppSeen': FieldValue.serverTimestamp(),
