@@ -50,7 +50,7 @@ String? comboProduct(Iterable<String> passes) {
 /// Play product id of an exam's pass: ssc-cgl-mocks -> pass_ssc_cgl.
 String productFor(Exam e) => e.play.isNotEmpty ? e.play : 'pass_${e.pass.replaceAll('-mocks', '').replaceAll('-', '_')}';
 
-class Billing {
+class Billing with WidgetsBindingObserver {
   Billing._();
   static final Billing I = Billing._();
 
@@ -67,6 +67,35 @@ class Billing {
   /// True while a payment just made is being confirmed and the pass opened (a few seconds after the
   /// Google Play sheet closes). The app shows "please wait" over the screen. (2026-11-18)
   final ValueNotifier<bool> busy = ValueNotifier<bool>(false);
+
+  /// A payment Google Play has taken but not confirmed yet (UPI, net banking: the bank confirms a few
+  /// minutes later). The app shows a "waiting for Google Play" card until it is confirmed. (2026-11-19)
+  final ValueNotifier<String?> waiting = ValueNotifier<String?>(null);
+  final _waitIds = <String>{};
+
+  /// The name of a pass just opened, for the "Payment successful" message.
+  final ValueNotifier<String?> unlocked = ValueNotifier<String?>(null);
+
+  /// Ask Google Play again for purchases it has confirmed (the "Check now" button, and on returning to the app).
+  void recheck() => _iap.restorePurchases().catchError((_) {});
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && waiting.value != null) recheck();
+  }
+
+  String passName(String productId) {
+    if (productId == allMocksProduct || productId.startsWith('upgrade_')) return 'Full Access';
+    for (final e in exams) {
+      if (productFor(e) == productId) return '${e.name} pass';
+    }
+    return productId.startsWith('combo_') ? 'combo pass' : 'pass';
+  }
+
+  void _stopWaiting(String id) {
+    _waitIds.remove(id);
+    if (waiting.value == id) waiting.value = _waitIds.isEmpty ? null : _waitIds.first;
+  }
 
   /// Same breadcrumb as the website checkout (checkoutIntents/{uid}), so a student who opened the
   /// app's buy sheet but did not pay shows on admin-premium.html under "Started, not paid".
@@ -96,6 +125,7 @@ class Billing {
   String _keyOfId(String productId) => productId.startsWith('combo_') || productId.startsWith('upgrade_') ? productId : productId == allMocksProduct ? 'all-mocks' : '${productId.replaceFirst('pass_', '').replaceAll('_', '-')}-mocks';
 
   void start() {
+    if (_sub == null) WidgetsBinding.instance.addObserver(this);
     _sub ??= _iap.purchaseStream.listen(_onPurchases, onError: (_) {});
     // purchases paid for but not yet opened (app closed mid-way, slow payment)
     _iap.isAvailable().then((ok) {
@@ -106,9 +136,12 @@ class Billing {
   Future<void> _onPurchases(List<PurchaseDetails> list) async {
     for (final p in list) {
       if (p.status == PurchaseStatus.pending) {
-        onMessage?.call('Payment is pending. Your pass opens as soon as it is confirmed.');
+        _waitIds.add(p.productID);
+        waiting.value = p.productID;
+        recordIntent('google-play', _keyOf(p.productID), {'failedAt': '', 'lastError': 'payment pending in Google Play'});
         continue;
       }
+      if (p.status == PurchaseStatus.error || p.status == PurchaseStatus.canceled) _stopWaiting(p.productID);
       if (p.status == PurchaseStatus.error) {
         onMessage?.call('Payment did not go through. You have not been charged.');
         recordIntent('failed', _keyOf(p.productID), {'failedAt': 'google-play', 'lastError': p.error?.message ?? 'error'});
@@ -117,18 +150,21 @@ class Billing {
         recordIntent('failed', _keyOf(p.productID), {'failedAt': 'dismissed', 'lastError': 'closed Google Play'});
       }
       if (p.status == PurchaseStatus.purchased || p.status == PurchaseStatus.restored) {
-        final fresh = p.status == PurchaseStatus.purchased;
+        // fresh: paid just now, or a payment we were waiting on (it may come back as "restored")
+        final fresh = p.status == PurchaseStatus.purchased || _waitIds.contains(p.productID);
         if (fresh) busy.value = true;
         bool ok;
         try {
           ok = await _verify(p);
         } finally {
           if (fresh) busy.value = false;
+          _stopWaiting(p.productID);
         }
         if (ok) {
-          if (p.status == PurchaseStatus.purchased) recordIntent('paid', _keyOf(p.productID), {'failedAt': '', 'lastError': ''});
+          if (fresh) recordIntent('paid', _keyOf(p.productID), {'failedAt': '', 'lastError': ''});
           onGranted?.call();
-          onMessage?.call('Pass unlocked. All the best!');
+          // a pass bought earlier and re-checked at start opens silently
+          if (fresh) unlocked.value = passName(p.productID);
         } else {
           recordIntent('failed', _keyOf(p.productID), {'failedAt': 'verify', 'lastError': _lastError.isEmpty ? 'paid on Google Play, pass not opened yet' : _lastError});
           onMessage?.call(_lastError == 'already-full' || _lastError == 'not-eligible'

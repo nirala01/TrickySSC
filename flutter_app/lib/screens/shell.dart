@@ -58,6 +58,35 @@ class _AppShellState extends State<AppShell> {
 
   bool get _hasPass => _owned.contains(widget.exam.pass);
 
+  /// Payment confirmed and pass opened: say so clearly, and offer to go straight to the mocks.
+  void _onUnlocked() {
+    final name = Billing.I.unlocked.value;
+    if (name == null || !mounted) return;
+    Billing.I.unlocked.value = null;
+    showDialog<void>(
+      context: context,
+      builder: (c) => AlertDialog(
+        icon: const Icon(Icons.check_circle_rounded, color: Color(0xFF16A34A), size: 48),
+        title: const Text('Payment successful', textAlign: TextAlign.center),
+        content: Text('Your $name is unlocked. All the best!', textAlign: TextAlign.center, style: const TextStyle(fontSize: 15.5, height: 1.4)),
+        actionsAlignment: MainAxisAlignment.center,
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c), child: const Text('OK')),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(c);
+              setState(() {
+                _mockSub = '';
+                _tab = 2;
+              });
+            },
+            child: const Text('Start practising'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   void _toHome() {
     if (mounted && _tab != 0) setState(() => _tab = 0);
@@ -66,6 +95,7 @@ class _AppShellState extends State<AppShell> {
   @override
   void dispose() {
     homeRequest.removeListener(_toHome);
+    Billing.I.unlocked.removeListener(_onUnlocked);
     Billing.I
       ..onMessage = null
       ..onGranted = null;
@@ -76,6 +106,7 @@ class _AppShellState extends State<AppShell> {
   void initState() {
     super.initState();
     homeRequest.addListener(_toHome);
+    Billing.I.unlocked.addListener(_onUnlocked);
     Billing.I
       ..onMessage = _say
       ..onGranted = () {
@@ -473,6 +504,39 @@ class _AppShellState extends State<AppShell> {
       ),
     ))),
         if (!_ready) _wait('Please wait while we load your account…', opaque: true),
+        // Google Play has the payment but the bank has not confirmed it yet (UPI, net banking)
+        ValueListenableBuilder<String?>(
+          valueListenable: Billing.I.waiting,
+          builder: (_, w, __) => w == null
+              ? const SizedBox.shrink()
+              : Positioned(
+                  left: 12,
+                  right: 12,
+                  bottom: 86 + MediaQuery.of(context).padding.bottom,
+                  child: Material(
+                    elevation: 8,
+                    color: const Color(0xFFFFFBEB),
+                    borderRadius: BorderRadius.circular(18),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 14, 12, 12),
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                        const Row(children: [
+                          SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2.6, color: Color(0xFFD97706))),
+                          SizedBox(width: 12),
+                          Expanded(child: Text('Waiting for Google Play to confirm your payment', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: softInk))),
+                        ]),
+                        const SizedBox(height: 8),
+                        const Text('UPI and net banking payments can take a few minutes. You can keep using the app: your pass opens by itself as soon as it is confirmed. Please do not pay again.',
+                            style: TextStyle(fontSize: 13.5, height: 1.4, color: softInk)),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(onPressed: Billing.I.recheck, child: const Text('Check now')),
+                        ),
+                      ]),
+                    ),
+                  ),
+                ),
+        ),
         ValueListenableBuilder<bool>(
           valueListenable: Billing.I.busy,
           builder: (_, b, __) => b ? _wait('Confirming your payment…\nPlease wait, do not close the app.') : const SizedBox.shrink(),
