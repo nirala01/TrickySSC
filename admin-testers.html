@@ -31,6 +31,7 @@
   .hidden{display:none !important;}
   .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:12px;}
   .stat{background:#fff;border:1px solid #EDF1F6;border-radius:12px;padding:12px 14px;}
+  .stat[data-f]{cursor:pointer;} .stat[data-f]:hover{border-color:#FF6B00;} .stat.on{border-color:#FF6B00;box-shadow:0 0 0 2px #FFE1CC;}
   .stat b{display:block;font-family:'Rajdhani';font-size:28px;line-height:1;}
   .stat span{font-size:12px;color:#64748B;font-weight:600;}
   .verdict{border-left:5px solid #94A3B8;font-size:14px;line-height:1.5;}
@@ -407,9 +408,9 @@ function summary() {
   const tests = T.reduce((s, r) => s + r.tests, 0);
   const oth = ROWS.length - T.length;
   $('stats').innerHTML = [
-    [T.length, 'testers in the list'], [opened, 'opened the app'], [today, 'active today'],
-    [act, 'active today / yesterday'], [steady, 'used on 3+ days'], [tests, 'tests taken in app'], [oth, 'other app users']
-  ].map(x => `<div class="stat"><b>${x[0]}</b><span>${x[1]}</span></div>`).join('');
+    [T.length, 'testers in the list', 'list'], [opened, 'opened the app', 'opened'], [today, 'active today', 'today'],
+    [act, 'active today / yesterday', 'active'], [steady, 'used on 3+ days', 'steady'], [tests, 'tests taken in app', 'tested'], [oth, 'other app users', 'oth']
+  ].map(x => `<div class="stat${FILTER === x[2] ? ' on' : ''}" data-f="${x[2]}" title="Click to see who"><b>${x[0]}</b><span>${x[1]}</span></div>`).join('');
 
   let cls, head, text;
   if (!T.length) { cls = ''; head = 'No testers in the list yet'; text = 'Press <b>＋ Add testers</b> and paste the addresses.'; }
@@ -425,6 +426,15 @@ function shown() {
     if (FILTER === 'never' && !(r.status === 'never' && r.group !== 'oth')) return false;
     if (FILTER === 'idle' && !(r.status === 'idle' && r.group !== 'oth')) return false;
     if (FILTER === 'active' && !(r.status === 'today' || r.status === 'recent')) return false;
+    const mine = r.group !== 'oth', DAY = 86400000;       /* filters behind the number cards */
+    if (FILTER === 'list' && !mine) return false;
+    if (FILTER === 'opened' && !(mine && r.status !== 'never')) return false;
+    if (FILTER === 'today' && !(mine && r.status === 'today')) return false;
+    if (FILTER === 'steady' && !(mine && r.used14 >= 3)) return false;
+    if (FILTER === 'tested' && !(mine && r.tests > 0)) return false;
+    if (FILTER === 'slip' && !(mine && r.status === 'idle' && Date.now() - r.lastUse < 3 * DAY)) return false;
+    if (FILTER === 'drop' && !(mine && r.status !== 'never' && Date.now() - r.lastUse >= 3 * DAY)) return false;
+    if (FILTER === 'live' && !(r.seen && Date.now() - r.seen < 10 * 60000)) return false;
     if (['own','stu','nb','oth'].includes(FILTER) && r.group !== FILTER) return false;
     return !q || (r.email + ' ' + r.name + ' ' + r.mobile).toLowerCase().includes(q);
   });
@@ -477,19 +487,19 @@ function renderStatus() {
     cls = 'y'; head = `Counting, but use is low — day ${dayNo} of 14`;
     text = `${opt} opted in, but only ${d.active.length} used the app today or yesterday. Google also looks at whether testers really use the app — send the reminder.`;
   }
-  const card = (n, label, c, sub) => `<div class="stat"><b><span class="lt ${c}"></span>${n}</b><span>${label}</span>${sub ? `<div class="note">${sub}</div>` : ''}</div>`;
+  const card = (n, label, c, sub, f) => `<div class="stat"${f ? ` data-f="${f}" title="Click to see who"` : ''}><b><span class="lt ${c}"></span>${n}</b><span>${label}</span>${sub ? `<div class="note">${sub}</div>` : ''}</div>`;
   const perDay = win.map(x => d.T.filter(r => r.days.has(x)).length), mx = Math.max(12, ...perDay);
   const names = l => l.length ? l.slice(0, 40).map(r => esc(r.name || r.email || 'mobile login')).join(', ') + (l.length > 40 ? ` … +${l.length - 40}` : '') : '—';
   $('statusView').innerHTML = `
     <div class="card big ${cls}"><div class="dot"></div><div><b>${head}</b>${text}</div></div>
     <div class="stats">
-      ${card(d.T.length, 'invited (in the list)', '')}
+      ${card(d.T.length, 'invited (in the list)', '', '', 'list')}
       ${card(d.optIn != null ? d.optIn : '—', 'opted in on Google Play', d.optIn != null ? lt(d.optIn, 12, 8) : '', d.optIn != null ? 'entered ' + dShort(d.optAt) : 'not entered yet')}
-      ${card(d.joined.length, 'joined — opened the app', lt(d.joined.length, 12, 8))}
-      ${card(d.active.length, 'active today / yesterday', lt(d.active.length, 12, 8))}
-      ${card(d.slipping.length, 'slipping — 2 days idle', d.slipping.length ? 'y' : 'g')}
-      ${card(d.dropped.length, 'dropped — 3+ days idle', d.dropped.length ? 'r' : 'g')}
-      ${card(d.live.length, 'live on the app now', d.live.length ? 'g' : '')}
+      ${card(d.joined.length, 'joined — opened the app', lt(d.joined.length, 12, 8), '', 'opened')}
+      ${card(d.active.length, 'active today / yesterday', lt(d.active.length, 12, 8), '', 'active')}
+      ${card(d.slipping.length, 'slipping — 2 days idle', d.slipping.length ? 'y' : 'g', '', 'slip')}
+      ${card(d.dropped.length, 'dropped — 3+ days idle', d.dropped.length ? 'r' : 'g', '', 'drop')}
+      ${card(d.live.length, 'live on the app now', d.live.length ? 'g' : '', '', 'live')}
     </div>
     <div class="card">
       <div class="acts">
@@ -556,6 +566,15 @@ $('tabs').onclick = e => {
   [...$('tabs').children].forEach(c => c.classList.toggle('active', c === t));
   render();
 };
+/* click a number card (top row or Testing status) to list the testers behind it */
+const setFilter = f => {
+  FILTER = f;
+  [...$('tabs').children].forEach(c => c.classList.toggle('active', c.getAttribute('data-f') === f));
+  render();
+  if (f !== 'status') $('listView').scrollIntoView({ behavior: 'smooth', block: 'start' });
+};
+$('stats').addEventListener('click', e => { const c = e.target.closest('[data-f]'); if (c) setFilter(c.getAttribute('data-f')); });
+$('statusView').addEventListener('click', e => { const c = e.target.closest('.stat[data-f]'); if (c) setFilter(c.getAttribute('data-f')); });
 $('q').oninput = render;
 /* the 40 shown testers most recently active on the website or app, not mailed yet */
 $('bTop').onclick = () => {
