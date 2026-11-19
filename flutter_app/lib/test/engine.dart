@@ -152,6 +152,7 @@ class Rules {
   }
 
   String timingLine(int units) {
+    if (mockId.contains('__') && isPyqId(mockId)) return 'One subject section of the paper on its own clock. Submit when you are done or when time runs out.';
     if (mockId.contains('__')) return 'One subject section of the mock on its own clock. Submit when you are done or when time runs out.';
     if (mockId.startsWith('cw_') || mockId.startsWith('cwp_')) return 'One chapter test of 25 questions. Choose a 15-minute clock or untimed practice below.';
     if (paper) return 'One paper on a single 2-hour clock. Move freely between the parts.';
@@ -408,7 +409,7 @@ Future<Paper> loadPaper(String mockId, String lang, {String? partD, String title
       final band = _subjectBand(mockId, subject);
       picked = qs.where((q) => q.qNum >= band[0] && q.qNum <= band[1]).toList();
     }
-    if (picked.isEmpty) throw 'This mock has no ${short == 'Quant' ? 'Maths' : short} questions yet.';
+    if (picked.isEmpty) throw 'This ${isPyqId(mockId) ? 'paper' : 'mock'} has no ${short == 'Quant' ? 'Maths' : short} questions yet.';
     if (title.isEmpty) {
       try {
         final meta = await FirebaseFirestore.instance.collection('mock_tests').doc(mockId).get();
@@ -809,9 +810,10 @@ Future<void> saveResult(User u, Exam exam, Paper p, Progress pr, Result r) async
     'analyticsV': 1,
     'partD': p.partD,
     if (rules.tier2 || rules.paper) 'tier': 'tier2', // the website files Paper II / III attempts under tier2 too
-    if (mockId.contains('__')) 'baseMockId': mockId.substring(0, mockId.indexOf('__')),
+    // one subject section on its own: a mock's, or a previous-year paper's (same fields as the website)
+    if (mockId.contains('__')) (pyq ? 'basePaperId' : 'baseMockId'): mockId.substring(0, mockId.indexOf('__')),
     if (mockId.contains('__')) 'subjectKey': mockId.substring(mockId.indexOf('__') + 2),
-    if (mockId.contains('__')) 'testKind': 'mock-subject',
+    if (mockId.contains('__')) 'testKind': pyq ? 'pyq-subject' : 'mock-subject',
     'timestamp': FieldValue.serverTimestamp(),
     'clientSubmittedAt': DateTime.now().toUtc().toIso8601String(),
   };

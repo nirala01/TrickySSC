@@ -144,11 +144,44 @@ class _PyqTabState extends State<PyqTab> {
   bool _failed = false;
   int _tier = 1;
   String _year = '';
+  // subject-wise PYQ: one section of each paper on its own clock ('' = the full paper). Tier 1 only.
+  String _subject = '';
+  Set<String> _subDone = <String>{};
+  Map<String, Map<String, dynamic>> _subLast = {};
 
   @override
   void initState() {
     super.initState();
     _load();
+    _loadSub();
+  }
+
+  List<(String, String)> get _subjects {
+    final e = widget.exam;
+    if (e.secTests.isNotEmpty) return const [];
+    const all = ['quant', 'reasoning', 'gk', 'english'];
+    return [
+      for (final k in all)
+        if (e.subjects.contains(k)) (k, k == 'quant' ? (e.maths ? 'Maths' : 'Quant') : k == 'reasoning' ? 'Reasoning' : k == 'gk' ? 'Gen. Awareness' : (e.partD ? 'English / Hindi' : 'English')),
+    ];
+  }
+
+  String get _subLabel => _subjects.firstWhere((s) => s.$1 == _subject, orElse: () => ('', '')).$2;
+
+  Future<void> _loadSub() async {
+    try {
+      final list = await loadAttempts(widget.user.uid);
+      final done = <String>{};
+      final m = <String, Map<String, dynamic>>{};
+      for (final a in list) {
+        final id = '${a['paperId'] ?? ''}';
+        if (!id.contains('__')) continue;
+        final key = id.replaceAll(RegExp(r'_(en|hi)__'), '__');
+        done.add(key);
+        m.putIfAbsent(key, () => a);
+      }
+      if (mounted) setState(() { _subDone = done; _subLast = m; });
+    } catch (_) {}
   }
 
   Future<void> _load({bool force = false}) async {
@@ -161,15 +194,17 @@ class _PyqTabState extends State<PyqTab> {
     }
   }
 
-  bool _done(PyqPaper p) => widget.attempted.contains(p.en) || widget.attempted.contains(p.hi);
-  bool _paused(PyqPaper p) => widget.resume.containsKey(p.base);
+  bool get _sub => _subject.isNotEmpty && _tier == 1;
+  bool _done(PyqPaper p) => _sub ? _subDone.contains('${p.base}__$_subject') : (widget.attempted.contains(p.en) || widget.attempted.contains(p.hi));
+  bool _paused(PyqPaper p) => !_sub && widget.resume.containsKey(p.base);
 
   Future<void> _start(PyqPaper p) async {
     final exam = widget.exam;
     String lang = p.en.isNotEmpty ? 'en' : 'hi';
     String partD = lang;
     final both = p.en.isNotEmpty && p.hi.isNotEmpty;
-    final saved = widget.resume[p.base];
+    final sub = _sub ? _subject : '';
+    final saved = sub.isEmpty ? widget.resume[p.base] : null;
     if (saved != null) {
       lang = saved[0];
       partD = saved[1].isEmpty ? lang : saved[1];
@@ -201,7 +236,7 @@ class _PyqTabState extends State<PyqTab> {
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
                 child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                  Text(p.title, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: exam.ink)),
+                  Text(sub.isEmpty ? p.title : '${p.title} · $_subLabel', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: exam.ink)),
                   const SizedBox(height: 12),
                   const Text('Paper language', style: TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF475569))),
                   const SizedBox(height: 6),
@@ -216,7 +251,7 @@ class _PyqTabState extends State<PyqTab> {
                           l = 'hi';
                         })),
                   ]),
-                  if (exam.partD) ...[
+                  if (exam.partD && sub.isEmpty) ...[
                     const SizedBox(height: 12),
                     const Text('Part D (Q61–80)', style: TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF475569))),
                     const SizedBox(height: 6),
@@ -244,17 +279,28 @@ class _PyqTabState extends State<PyqTab> {
     }
     final id = lang == 'hi' ? p.hi : p.en;
     await Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => TestFlow(
-        user: widget.user,
-        exam: exam,
-        mockId: id,
-        lang: lang,
-        partD: exam.partD ? partD : null,
-        paid: widget.paid,
-        title: p.title,
-      ),
+      builder: (_) => sub.isEmpty
+          ? TestFlow(
+              user: widget.user,
+              exam: exam,
+              mockId: id,
+              lang: lang,
+              partD: exam.partD ? partD : null,
+              paid: widget.paid,
+              title: p.title,
+            )
+          : TestFlow(
+              user: widget.user,
+              exam: exam,
+              mockId: '${id}__$sub',
+              lang: lang,
+              paid: widget.paid,
+              title: '${p.title} · $_subLabel',
+              loader: () => loadPaper(id, lang, subject: sub, title: p.title),
+            ),
     ));
     widget.onReturn();
+    if (sub.isNotEmpty) _loadSub();
   }
 
   @override
@@ -296,9 +342,9 @@ class _PyqTabState extends State<PyqTab> {
       child: ListView(padding: EdgeInsets.fromLTRB(16, 8, 16, 16 + MediaQuery.of(context).padding.bottom), children: [
         SoftSummary(
           icon: 'paper',
-          title: '$done of ${tierList.length} done',
+          title: _sub ? '$_subLabel · $done of ${tierList.length} done' : '$done of ${tierList.length} done',
           progress: tierList.isEmpty ? 0 : done / tierList.length,
-          sub: 'Real exam shifts · Hindi & English',
+          sub: _sub ? 'Only the $_subLabel section of each paper · ${subjectMockMinutes('${exam.id}_', _subject)} min' : 'Real exam shifts · Hindi & English',
           accent: exam.c1,
         ),
         const SizedBox(height: 10),
@@ -311,6 +357,16 @@ class _PyqTabState extends State<PyqTab> {
             ]),
           ),
         if (hasT2) const SizedBox(height: 8),
+        if (_tier == 1 && _subjects.isNotEmpty) ...[
+          SizedBox(
+            height: 46,
+            child: ListView(scrollDirection: Axis.horizontal, children: [
+              chip('Full paper', _subject.isEmpty, () => setState(() => _subject = '')),
+              for (final s in _subjects) chip(s.$2, _subject == s.$1, () => setState(() => _subject = s.$1)),
+            ]),
+          ),
+          const SizedBox(height: 8),
+        ],
         if (years.length > 1)
           SizedBox(
             height: 46,
@@ -348,21 +404,21 @@ class _PyqTabState extends State<PyqTab> {
     String shortMonths(String t) => t.replaceAllMapped(RegExp(r'\b(January|February|March|April|May|June|July|August|September|October|November|December)\b'), (m) => m[1]!.substring(0, 3) == 'Sep' ? 'Sept' : m[1]!.substring(0, 3));
     final title = parts.isEmpty ? p.year : parts.first.replaceFirst(RegExp(r'^SSC\s+'), '');
     final sub = shortMonths(parts.length > 1 ? parts.sublist(1).reversed.join(' · ') : p.shift);
-    final a = widget.last[p.base];
+    final a = _sub ? _subLast['${p.base}__$_subject'] : widget.last[p.base];
     final state = paused ? RowState.progress : (done ? RowState.done : RowState.todo);
     final em = exam.meta.split(' · ');
     return TestRow(
       tags: const [SoftTag('ORIGINAL PYQ', Color(0xFF1D4ED8), Color(0xFFDBEAFE)), SoftTag.free()],
-      title: title,
+      title: _sub ? '$title · $_subLabel' : title,
       sub: '$sub${langs.isNotEmpty ? ' · $langs' : ''}',
       meta: [
-        if (state == RowState.done && a != null) (Icons.calendar_today_outlined, shortDate(attemptMs(a))) else (Icons.help_outline_rounded, p.tier == 1 ? em.first : 'Tier 2'),
-        (Icons.schedule_rounded, p.tier == 1 && em.length > 1 ? em[1] : '135 min'),
+        if (state == RowState.done && a != null) (Icons.calendar_today_outlined, shortDate(attemptMs(a))) else (Icons.help_outline_rounded, _sub ? 'Sectional' : (p.tier == 1 ? em.first : 'Tier 2')),
+        (Icons.schedule_rounded, _sub ? '${subjectMockMinutes('${exam.id}_', _subject)} min' : (p.tier == 1 && em.length > 1 ? em[1] : '135 min')),
       ],
       state: state,
       score: state == RowState.done && a != null ? '${n1(marksOf(a))} / ${n1(maxOf(a))}' : null,
       accent: exam.c1,
-      onTap: () => state == RowState.done ? showDoneSheet(context, user: widget.user, exam: exam, a: a, title: p.title, onRetake: () => _start(p)) : _start(p),
+      onTap: () => state == RowState.done ? showDoneSheet(context, user: widget.user, exam: exam, a: a, title: _sub ? '${p.title} · $_subLabel' : p.title, onRetake: () => _start(p)) : _start(p),
       onAction: state == RowState.done ? () => _start(p) : null,
     );
   }
