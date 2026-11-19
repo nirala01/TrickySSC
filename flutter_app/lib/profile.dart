@@ -1,6 +1,8 @@
 // The student's profile in users/{uid}, kept the same as the website's login does,
 // so app sign-ups show on candidates.html with name, mobile / email, login method and join date.
 // Also stamps the app version and last app open, so the admin pages can tell app users apart.
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -33,7 +35,7 @@ class ProfileGate extends StatefulWidget {
   State<ProfileGate> createState() => _ProfileGateState();
 }
 
-class _ProfileGateState extends State<ProfileGate> {
+class _ProfileGateState extends State<ProfileGate> with WidgetsBindingObserver {
   bool _loading = true, _needName = false, _busy = false;
   String _msg = '';
   final _name = TextEditingController();
@@ -43,7 +45,34 @@ class _ProfileGateState extends State<ProfileGate> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    // "live on the app" for the testers page: a small stamp every 5 minutes while the app is on screen
+    _beat = Timer.periodic(const Duration(minutes: 5), (_) {
+      if (_front) _seen();
+    });
     _check();
+  }
+
+  Timer? _beat;
+  bool _front = true;
+
+  void _seen() {
+    _ref.set({'lastAppSeen': FieldValue.serverTimestamp()}, SetOptions(merge: true)).catchError((_) {});
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final now = state == AppLifecycleState.resumed;
+    if (now && !_front) _seen();
+    _front = now;
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _beat?.cancel();
+    _name.dispose();
+    super.dispose();
   }
 
   Future<void> _check() async {
@@ -103,6 +132,7 @@ class _ProfileGateState extends State<ProfileGate> {
       'appUser': true,
       'appVersion': appVersion,
       'lastAppOpen': FieldValue.serverTimestamp(),
+      'lastAppSeen': FieldValue.serverTimestamp(),
       'appOpens': FieldValue.increment(1),
       'appDays': FieldValue.arrayUnion([DateTime.now().toUtc().add(const Duration(hours: 5, minutes: 30)).toIso8601String().substring(0, 10)]),
     }, SetOptions(merge: true)).catchError((_) {});

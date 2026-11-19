@@ -56,6 +56,19 @@
   .dots{display:flex;gap:2px;margin-top:4px;}
   .dots i{width:7px;height:14px;border-radius:2px;background:#E2E8F0;display:block;}
   .dots i.on{background:#16A34A;}
+  .lt{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:7px;vertical-align:-1px;background:#94A3B8;}
+  .lt.g{background:#16A34A;} .lt.y{background:#F59E0B;} .lt.r{background:#DC2626;}
+  .big{display:flex;gap:14px;align-items:center;border-left:6px solid #94A3B8;}
+  .big.g{border-left-color:#16A34A;background:#F0FDF4;} .big.y{border-left-color:#F59E0B;background:#FFFBEB;} .big.r{border-left-color:#DC2626;background:#FEF2F2;}
+  .big .dot{width:44px;height:44px;border-radius:50%;flex:none;background:#94A3B8;}
+  .big.g .dot{background:#16A34A;} .big.y .dot{background:#F59E0B;} .big.r .dot{background:#DC2626;}
+  .big b{font-size:18px;display:block;margin-bottom:2px;}
+  .bars{display:flex;gap:5px;align-items:flex-end;height:120px;margin-top:8px;}
+  .bars div{flex:1;text-align:center;font-size:10px;color:#64748B;display:flex;flex-direction:column;justify-content:flex-end;height:100%;}
+  .bars i{display:block;border-radius:4px 4px 0 0;min-height:3px;background:#DC2626;}
+  .bars i.g{background:#16A34A;} .bars i.y{background:#F59E0B;}
+  .bars span{font-weight:700;color:#1E293B;font-size:11px;}
+  .who2{font-size:13px;line-height:1.7;}
   .note{font-size:12px;color:#64748B;line-height:1.5;}
   .say{font-size:13px;margin-top:8px;} .say.err{color:#DC2626;} .say.ok{color:#15803D;}
   .modal{position:fixed;inset:0;background:rgba(15,23,42,.5);display:flex;align-items:center;justify-content:center;z-index:50;padding:14px;}
@@ -91,6 +104,7 @@
     </div>
 
     <div class="tabs" id="tabs">
+      <button class="tab" data-f="status">📊 Testing status</button>
       <button class="tab active" data-f="all">All</button>
       <button class="tab" data-f="never">Not opened yet</button>
       <button class="tab" data-f="idle">Idle 2+ days</button>
@@ -100,6 +114,8 @@
       <button class="tab" data-f="nb">Non-buyers</button>
       <button class="tab" data-f="oth">Other app users</button>
     </div>
+    <div id="statusView" class="hidden"></div>
+    <div id="listView">
     <input class="filter" id="q" placeholder="Search name, email, mobile…">
 
     <div class="bar">
@@ -116,6 +132,7 @@
       <tbody id="rows"></tbody>
     </table></div>
     <p class="note">“Opted in” on Google Play is counted only by Play Console (Closed testing → Dashboard). This page shows real use of the app: an account appears as opened once it signs in to the app. Days used / opens / tests in the app are counted from app version 2.0.69 onward; “Last opened” works on older versions too.</p>
+    </div>
   </div>
 </div>
 
@@ -364,7 +381,7 @@ async function load() {
     return {
       key: email || ('uid:' + (rec ? rec.uid : '')), email, group, uid: rec ? rec.uid : '',
       name: String(u.name || '').trim(), mobile: u.phone || u.mobile || '',
-      lastOpen, lastUse, status, siteLast: ts(u.lastActive), days, used14: win.filter(x => days.has(x)).length,
+      lastOpen, lastUse, status, siteLast: ts(u.lastActive), seen: u.appUser ? Math.max(ts(u.lastAppSeen), lastOpen) : 0, days, used14: win.filter(x => days.has(x)).length,
       opens: Number(u.appOpens || 0), tests: Number(u.appTests || 0), totalTests: Number(u.totalTests || 0),
       ver: u.appUser ? String(u.appVersion || '') : ''
     };
@@ -424,8 +441,93 @@ function msgCell(r) {
   if (ph) h += `<button class="act wa${s.wa ? ' done' : ''}" data-m="wa" data-k="${esc(r.key)}">WhatsApp${tag('wa')}</button>`;
   return h || '<span class="em">—</span>';
 }
+/* ------------------------------------------------- 📊 Testing status tab
+   Opt-in is known only to Play Console, so its number is typed in here (or the
+   "joined" count — testers who signed in to the app — stands in for it).
+   Joined  = in the list and has opened the app.
+   Active  = used the app today or yesterday.   Slipping = last used 2 days ago.
+   Dropped = joined but no use for 3 days or more.
+   Live    = app on screen in the last 10 minutes (exact from app 2.0.70). */
+const lt = (n, g, y) => n >= g ? 'g' : n >= y ? 'y' : 'r';
+function statusData() {
+  const T = ROWS.filter(r => r.group !== 'oth'), now = Date.now(), DAY = 86400000;
+  const joined = T.filter(r => r.status !== 'never');
+  const active = joined.filter(r => r.status === 'today' || r.status === 'recent');
+  const dropped = joined.filter(r => now - r.lastUse >= 3 * DAY);
+  const slipping = joined.filter(r => r.status === 'idle' && now - r.lastUse < 3 * DAY);
+  const live = ROWS.filter(r => r.seen && now - r.seen < 10 * 60000);
+  const o = CFG.set.optIn || null;
+  return { T, joined, active, dropped, slipping, live, optIn: o ? Number(o.n) : null, optAt: o ? o.at : 0 };
+}
+function renderStatus() {
+  const d = statusData(), win = last14();
+  const opt = d.optIn != null ? d.optIn : d.joined.length;
+  /* the 14 days start on the first day 12 testers are opted in */
+  if (opt >= 12 && !CFG.set.start) { CFG.set.start = dayIST(Date.now()); saveCfg(); }
+  const start = CFG.set.start || '';
+  const dayNo = start ? Math.floor((Date.parse(dayIST(Date.now())) - Date.parse(start)) / 86400000) + 1 : 0;
+  let cls, head, text;
+  if (opt < 12) {
+    cls = opt >= 8 ? 'y' : 'r'; head = `Requirement not met yet — ${opt} of 12 testers`;
+    text = `Google starts counting the 14 days only when 12 testers are opted in. ${12 - opt} more needed.`;
+  } else if (d.active.length >= 12) {
+    cls = 'g'; head = dayNo >= 14 ? 'Requirement fulfilled — you can apply for production' : `On track — day ${dayNo} of 14`;
+    text = `${opt} opted in, ${d.active.length} used the app today or yesterday.` + (dayNo < 14 ? ` Keep 12 or more opted in until day 14.` : '');
+  } else {
+    cls = 'y'; head = `Counting, but use is low — day ${dayNo} of 14`;
+    text = `${opt} opted in, but only ${d.active.length} used the app today or yesterday. Google also looks at whether testers really use the app — send the reminder.`;
+  }
+  const card = (n, label, c, sub) => `<div class="stat"><b><span class="lt ${c}"></span>${n}</b><span>${label}</span>${sub ? `<div class="note">${sub}</div>` : ''}</div>`;
+  const perDay = win.map(x => d.T.filter(r => r.days.has(x)).length), mx = Math.max(12, ...perDay);
+  const names = l => l.length ? l.slice(0, 40).map(r => esc(r.name || r.email || 'mobile login')).join(', ') + (l.length > 40 ? ` … +${l.length - 40}` : '') : '—';
+  $('statusView').innerHTML = `
+    <div class="card big ${cls}"><div class="dot"></div><div><b>${head}</b>${text}</div></div>
+    <div class="stats">
+      ${card(d.T.length, 'invited (in the list)', '')}
+      ${card(d.optIn != null ? d.optIn : '—', 'opted in on Google Play', d.optIn != null ? lt(d.optIn, 12, 8) : '', d.optIn != null ? 'entered ' + dShort(d.optAt) : 'not entered yet')}
+      ${card(d.joined.length, 'joined — opened the app', lt(d.joined.length, 12, 8))}
+      ${card(d.active.length, 'active today / yesterday', lt(d.active.length, 12, 8))}
+      ${card(d.slipping.length, 'slipping — 2 days idle', d.slipping.length ? 'y' : 'g')}
+      ${card(d.dropped.length, 'dropped — 3+ days idle', d.dropped.length ? 'r' : 'g')}
+      ${card(d.live.length, 'live on the app now', d.live.length ? 'g' : '')}
+    </div>
+    <div class="card">
+      <div class="acts">
+        <b>Opted-in count from Play Console</b>
+        <input id="optN" type="number" min="0" style="width:90px;padding:8px;border-radius:9px;border:1.5px solid #E2E8F0" value="${d.optIn != null ? d.optIn : ''}">
+        <button class="btn btn-orange" id="optSave">Save</button>
+        <span class="note">Play Console → Dashboard → “testers currently opted-in”.</span>
+      </div>
+      <div class="acts" style="margin-top:10px">
+        <b>14 days started on</b>
+        <input id="startD" type="date" style="padding:8px;border-radius:9px;border:1.5px solid #E2E8F0" value="${esc(start)}">
+        <button class="btn btn-ghost" id="startSave">Save</button>
+        <span class="note">Set automatically on the first day the count reaches 12; change it if Play Console shows another date.</span>
+      </div>
+    </div>
+    <div class="card"><b>Testers who used the app, last 14 days</b> <span class="note">green 12+, yellow 8–11, red below 8 · counted from app 2.0.69</span>
+      <div class="bars">${perDay.map((n, i) => `<div><span>${n}</span><i class="${lt(n, 12, 8)}" style="height:${Math.round(n / mx * 100)}%"></i>${win[i].slice(8)}</div>`).join('')}</div>
+    </div>
+    <div class="card who2"><b><span class="lt ${d.live.length ? 'g' : ''}"></span>Live now (${d.live.length})</b><br>${names(d.live)}</div>
+    <div class="card who2"><b><span class="lt y"></span>Slipping (${d.slipping.length})</b><br>${names(d.slipping)}
+      <div style="margin-top:8px"><b><span class="lt r"></span>Dropped (${d.dropped.length})</b><br>${names(d.dropped)}</div>
+      <div class="acts" style="margin-top:10px"><button class="btn btn-orange" id="remind"${d.slipping.length + d.dropped.length ? '' : ' disabled'}>✉️ Email reminder to slipping + dropped</button></div>
+    </div>`;
+  $('optSave').onclick = () => {
+    const v = $('optN').value.trim();
+    if (v === '') delete CFG.set.optIn; else CFG.set.optIn = { n: Math.max(0, parseInt(v, 10) || 0), at: Date.now() };
+    saveCfg(); renderStatus();
+  };
+  $('startSave').onclick = () => { CFG.set.start = $('startD').value || ''; if (!CFG.set.start) delete CFG.set.start; saveCfg(); renderStatus(); };
+  $('remind').onclick = () => { const l = [...d.slipping, ...d.dropped].filter(r => r.email); if (l.length) openMsg('ml', l); };
+}
+
 function render() {
   summary();
+  const st = FILTER === 'status';
+  $('statusView').classList.toggle('hidden', !st); $('listView').classList.toggle('hidden', st);
+  $('stats').classList.toggle('hidden', st); $('verdict').classList.toggle('hidden', st);
+  if (st) { renderStatus(); return; }
   const win = last14(), list = shown();
   $('rows').innerHTML = list.map(r => `
     <tr>
@@ -539,7 +641,7 @@ $('sReset').onclick = () => { $('sInvSub').value = DEF.invSub; $('sInv').value =
 $('sSave').onclick = () => {
   const link = $('sLink').value.trim();
   if (link && !/^https:\/\/play\.google\.com\//.test(link)) { $('sSay').className = 'say err'; $('sSay').textContent = 'The link should start with https://play.google.com/'; return; }
-  CFG.set = { link, invSub: $('sInvSub').value.trim(), inv: $('sInv').value, nbSub: $('sNbSub').value.trim(), nb: $('sNb').value, remSub: $('sRemSub').value.trim(), rem: $('sRem').value };
+  CFG.set = { ...CFG.set, link, invSub: $('sInvSub').value.trim(), inv: $('sInv').value, nbSub: $('sNbSub').value.trim(), nb: $('sNb').value, remSub: $('sRemSub').value.trim(), rem: $('sRem').value };
   saveCfg(); hide('mSet'); say('Saved.', 'ok');
 };
 
