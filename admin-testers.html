@@ -96,13 +96,15 @@
       <button class="tab" data-f="idle">Idle 2+ days</button>
       <button class="tab" data-f="active">Active (today / yesterday)</button>
       <button class="tab" data-f="own">My accounts</button>
-      <button class="tab" data-f="stu">Students</button>
+      <button class="tab" data-f="stu">Buyers</button>
+      <button class="tab" data-f="nb">Non-buyers</button>
       <button class="tab" data-f="oth">Other app users</button>
     </div>
     <input class="filter" id="q" placeholder="Search name, email, mobile…">
 
     <div class="bar">
       <label><input type="checkbox" id="selAll"> Select all shown</label>
+      <button class="btn btn-ghost" id="bTop">Tick 40 most active shown</button>
       <span id="selN" class="note"></span>
       <button class="btn btn-orange" id="bMailSel" disabled>✉️ Email selected</button>
       <button class="btn btn-ghost" id="bDelSel" disabled>Remove selected from list</button>
@@ -110,7 +112,7 @@
     </div>
 
     <div class="tw"><table>
-      <thead><tr><th></th><th>Tester</th><th>Status</th><th>Last opened</th><th>Days used (14)</th><th>Opens</th><th>Tests</th><th>Version</th><th>Message</th></tr></thead>
+      <thead><tr><th></th><th>Tester</th><th>Status</th><th>Last opened app</th><th>Last on website</th><th>Days used (14)</th><th>Opens</th><th>Tests</th><th>Version</th><th>Message</th></tr></thead>
       <tbody id="rows"></tbody>
     </table></div>
     <p class="note">“Opted in” on Google Play is counted only by Play Console (Closed testing → Dashboard). This page shows real use of the app: an account appears as opened once it signs in to the app. Days used / opens / tests in the app are counted from app version 2.0.69 onward; “Last opened” works on older versions too.</p>
@@ -120,9 +122,9 @@
 <!-- add testers -->
 <div class="modal hidden" id="mAdd"><div class="box">
   <h3>＋ Add testers</h3>
-  <div class="note">Paste Gmail addresses in any form (one per line, comma-separated, or a whole CSV) — or pick a CSV file. Duplicates are skipped.</div>
+  <div class="note">Paste Gmail addresses in any form (one per line, comma-separated, or a whole CSV) — or pick a CSV file. Duplicates are skipped; an address already in another group moves to the group chosen here.</div>
   <label>Group</label>
-  <select id="aGroup"><option value="own">My accounts</option><option value="stu">Students</option></select>
+  <select id="aGroup"><option value="own">My accounts</option><option value="stu">Buyers (paid students)</option><option value="nb">Non-buyers (opened a pass popup)</option></select>
   <label>Addresses</label><textarea id="aText" style="min-height:150px" placeholder="name1@gmail.com, name2@gmail.com"></textarea>
   <label>…or CSV file</label><input type="file" id="aFile" accept=".csv,.txt">
   <div class="say" id="aSay"></div>
@@ -137,8 +139,10 @@
   <h3>⚙ Link &amp; messages</h3>
   <label>Closed-testing opt-in link (from Play Console → Closed testing → Testers → “Join on the web”)</label>
   <input id="sLink" placeholder="https://play.google.com/apps/testing/com.trickyssc.app">
-  <label>Email subject — invitation</label><input id="sInvSub">
-  <label>Invitation message ({name} and {link} are filled in)</label><textarea id="sInv"></textarea>
+  <label>Email subject — invitation, buyers</label><input id="sInvSub">
+  <label>Invitation for buyers ({name} and {link} are filled in)</label><textarea id="sInv"></textarea>
+  <label>Email subject — invitation, non-buyers</label><input id="sNbSub">
+  <label>Invitation for non-buyers</label><textarea id="sNb"></textarea>
   <label>Email subject — reminder</label><input id="sRemSub">
   <label>Reminder message</label><textarea id="sRem" style="min-height:140px"></textarea>
   <div class="say" id="sSay"></div>
@@ -154,7 +158,7 @@
   <h3 id="mTitle">Message</h3>
   <div class="note" id="mSub"></div>
   <label>Message type</label>
-  <select id="mTpl"><option value="inv">Invitation to test</option><option value="rem">Reminder to open the app daily</option></select>
+  <select id="mTpl"><option value="inv">Invitation — buyers</option><option value="nb">Invitation — non-buyers</option><option value="rem">Reminder to open the app daily</option></select>
   <div id="mToFld"><label id="mToLbl">To</label><input id="mTo"></div>
   <div id="mSubjFld"><label>Subject</label><input id="mSubj"></div>
   <label>Message</label><textarea id="mText"></textarea>
@@ -198,21 +202,43 @@ document.addEventListener('click', e => { const x = e.target.closest?.('[data-x]
 
 const DEF = {
   link: '',
-  invSub: 'Help us test the new TrickySSC Android app (2 minutes)',
+  invSub: 'Your TrickySSC pass now works in our new Android app — try it first',
   inv:
 `Hi {name},
 
-The TrickySSC Android app is ready and we are inviting a small group of students to try it before the public launch. You get all your mocks, PYQs and chapter tests in the app, with the same login.
+Thank you for being a TrickySSC student. Our Android app is ready, and we are opening it to our paid students before the public launch.
 
-How to join (2 minutes):
+Your pass works in the app with the same login. All your mocks, PYQs, chapter tests and results are there.
+
+How to get it (2 minutes):
 1. Open this link on your Android phone: {link}
-2. Sign in with the same Gmail that your phone's Play Store uses, and tap "Become a tester".
+2. Sign in with the same Gmail your phone's Play Store uses and tap "Become a tester".
 3. Tap "Download it on Google Play" and install the app.
-4. Sign in to the app and attempt any test.
+4. Sign in to the app with the login you use on trickyssc.com.
 
-Please keep the app installed and open it for a few minutes every day for the next 14 days — that is what Google needs before we can launch for everyone. If anything looks wrong, tell us from Me → Report an issue in the app.
+One request: please keep the app installed and open it for a few minutes every day for the next 14 days. Google needs this before we can launch the app for everyone. If anything looks wrong, tell us from Me → Report an issue in the app.
 
 Thank you for helping us.
+Team TrickySSC`,
+  nbSub: 'TrickySSC Android app — early access for you',
+  nb:
+`Hi {name},
+
+You recently looked at a TrickySSC mock test pass. Our Android app is now ready, and we are inviting a small group of students to try it before the public launch.
+
+In the app you can attempt free mocks, previous year papers and chapter tests in the real exam layout, in Hindi and English, and see your full analysis after each test. With the CHSL and CGL exams close, it is an easy way to practise daily on your phone.
+
+How to get it (2 minutes):
+1. Open this link on your Android phone: {link}
+2. Sign in with the same Gmail your phone's Play Store uses and tap "Become a tester".
+3. Tap "Download it on Google Play" and install the app.
+4. Sign in to the app and attempt any free test.
+
+If you want the full mock series later, the passes are available inside the app.
+
+Please keep the app installed and open it for a few minutes every day for the next 14 days. Google needs this before we can launch for everyone. If anything looks wrong, tell us from Me → Report an issue in the app.
+
+Thank you,
 Team TrickySSC`,
   remSub: 'TrickySSC app testing — please open the app today',
   rem:
@@ -227,7 +253,7 @@ Team TrickySSC`
 };
 
 let ME = null;
-let CFG = { own: [], stu: [], set: {}, sent: {} };   // sent: email -> {inv:{ml,wa}, rem:{ml,wa}} timestamps
+let CFG = { own: [], stu: [], nb: [], set: {}, sent: {} };   // sent: email -> {inv:{ml,wa}, rem:{ml,wa}} timestamps
 let ROWS = [];
 let FILTER = 'all';
 const SEL = new Set();
@@ -255,7 +281,8 @@ function cleanCfg(c) {
   c = c || {};
   const own = [...new Set((c.own || []).map(norm).filter(Boolean))];
   const stu = [...new Set((c.stu || []).map(norm).filter(e => e && !own.includes(e)))];
-  return { own, stu, set: c.set || {}, sent: c.sent || {}, at: c.at || 0 };
+  const nb = [...new Set((c.nb || []).map(norm).filter(e => e && !own.includes(e) && !stu.includes(e)))];
+  return { own, stu, nb, set: c.set || {}, sent: c.sent || {}, at: c.at || 0 };
 }
 async function loadCfg() {
   let local = null, remote = null;
@@ -314,7 +341,7 @@ async function load() {
     (await getDocs(query(collection(db, 'users'), where('appUser', '==', true)))).forEach(d => take(d.id, d.data() || {}));
   } catch (e) { say('Could not read app users: ' + esc(e.message), 'err'); }
 
-  const list = [...CFG.own, ...CFG.stu];
+  const list = [...CFG.own, ...CFG.stu, ...CFG.nb];
   const missing = list.filter(e => !byEmail[e]);
   for (let i = 0; i < missing.length; i += 30) {
     try {
@@ -337,7 +364,7 @@ async function load() {
     return {
       key: email || ('uid:' + (rec ? rec.uid : '')), email, group, uid: rec ? rec.uid : '',
       name: String(u.name || '').trim(), mobile: u.phone || u.mobile || '',
-      lastOpen, lastUse, status, days, used14: win.filter(x => days.has(x)).length,
+      lastOpen, lastUse, status, siteLast: ts(u.lastActive), days, used14: win.filter(x => days.has(x)).length,
       opens: Number(u.appOpens || 0), tests: Number(u.appTests || 0), totalTests: Number(u.totalTests || 0),
       ver: u.appUser ? String(u.appVersion || '') : ''
     };
@@ -345,10 +372,11 @@ async function load() {
   ROWS = [];
   CFG.own.forEach(e => ROWS.push(mk(e, 'own', byEmail[e])));
   CFG.stu.forEach(e => ROWS.push(mk(e, 'stu', byEmail[e])));
+  CFG.nb.forEach(e => ROWS.push(mk(e, 'nb', byEmail[e])));
   Object.keys(byEmail).forEach(e => { if (!list.includes(e) && byEmail[e].u.appUser) ROWS.push(mk(e, 'oth', byEmail[e])); });
   others.forEach(r => ROWS.push(mk('', 'oth', r)));
-  const GO = { own: 0, stu: 1, oth: 2 };                 /* my accounts first, then students, then the rest */
-  ROWS.sort((a, b) => (GO[a.group] - GO[b.group]) || (b.lastUse - a.lastUse) || a.email.localeCompare(b.email));
+  const GO = { own: 0, stu: 1, nb: 2, oth: 3 };                 /* my accounts first, then students, then the rest */
+  ROWS.sort((a, b) => (GO[a.group] - GO[b.group]) || (b.lastUse - a.lastUse) || (b.siteLast - a.siteLast) || a.email.localeCompare(b.email));
   say('');
   render();
 }
@@ -380,12 +408,12 @@ function shown() {
     if (FILTER === 'never' && !(r.status === 'never' && r.group !== 'oth')) return false;
     if (FILTER === 'idle' && !(r.status === 'idle' && r.group !== 'oth')) return false;
     if (FILTER === 'active' && !(r.status === 'today' || r.status === 'recent')) return false;
-    if (['own','stu','oth'].includes(FILTER) && r.group !== FILTER) return false;
+    if (['own','stu','nb','oth'].includes(FILTER) && r.group !== FILTER) return false;
     return !q || (r.email + ' ' + r.name + ' ' + r.mobile).toLowerCase().includes(q);
   });
 }
 const ST = { today: ['p-today','Active today'], recent: ['p-recent','Yesterday'], idle: ['p-idle','Idle'], never: ['p-never','Not opened'] };
-const GR = { own: ['p-own','My account'], stu: ['p-stu','Student'], oth: ['p-oth','Not in list'] };
+const GR = { own: ['p-own','My account'], stu: ['p-stu','Buyer'], nb: ['p-idle','Non-buyer'], oth: ['p-oth','Not in list'] };
 const dShort = t => new Date(t).toLocaleDateString('en-IN', { day:'numeric', month:'short', timeZone: IST });
 function msgCell(r) {
   const s = CFG.sent[r.email] || {};
@@ -406,12 +434,13 @@ function render() {
           <div class="em">${esc(r.email || 'mobile login')}${r.mobile ? ' · ' + esc(r.mobile) : ''}</div></td>
       <td><span class="pill ${ST[r.status][0]}">${ST[r.status][1]}</span></td>
       <td>${fmt(r.lastOpen)}</td>
+      <td>${r.siteLast ? dShort(r.siteLast) : '—'}</td>
       <td><b>${r.used14}</b><div class="dots" title="last 14 days, today on the right">${win.map(d => `<i class="${r.days.has(d) ? 'on' : ''}"></i>`).join('')}</div></td>
       <td>${r.opens || '—'}</td>
       <td>${r.tests || '—'}${r.totalTests ? `<div class="em">${r.totalTests} in all</div>` : ''}</td>
       <td>${esc(r.ver || '—')}</td>
       <td>${msgCell(r)}</td>
-    </tr>`).join('') || '<tr><td colspan="9" class="empty">Nothing here.</td></tr>';
+    </tr>`).join('') || '<tr><td colspan="10" class="empty">Nothing here.</td></tr>';
   $('selAll').checked = list.length > 0 && list.filter(r => r.email).every(r => SEL.has(r.email));
   selInfo();
 }
@@ -426,6 +455,14 @@ $('tabs').onclick = e => {
   render();
 };
 $('q').oninput = render;
+/* the 40 shown testers most recently active on the website or app, not mailed yet */
+$('bTop').onclick = () => {
+  SEL.clear();
+  shown().filter(r => r.email && !(CFG.sent[r.email] || {}).ml)
+    .sort((a, b) => Math.max(b.siteLast, b.lastUse) - Math.max(a.siteLast, a.lastUse))
+    .slice(0, 40).forEach(r => SEL.add(r.email));
+  render();
+};
 $('reload').onclick = load;
 $('selAll').onchange = e => { shown().forEach(r => { if (r.email) e.target.checked ? SEL.add(r.email) : SEL.delete(r.email); }); render(); };
 $('rows').addEventListener('change', e => {
@@ -463,7 +500,7 @@ $('bDelSel').onclick = () => {
   const b = $('bDelSel');
   if (b.dataset.sure !== '1') { b.dataset.sure = '1'; b.textContent = 'Press again to remove ' + SEL.size; setTimeout(() => { b.dataset.sure = ''; b.textContent = 'Remove selected from list'; }, 4000); return; }
   b.dataset.sure = ''; b.textContent = 'Remove selected from list';
-  CFG.own = CFG.own.filter(e => !SEL.has(e)); CFG.stu = CFG.stu.filter(e => !SEL.has(e));
+  ['own','stu','nb'].forEach(g => { CFG[g] = CFG[g].filter(e => !SEL.has(e)); });
   SEL.clear(); saveCfg(); load();
 };
 
@@ -480,28 +517,29 @@ $('aSave').onclick = async () => {
   let added = 0;
   lines.forEach(line => {
     const rest = line.replace(/\S+@\S+/g, ' ');
-    const grp = /my account|\bown\b/i.test(rest) ? 'own' : /\bstudent\b/i.test(rest) ? 'stu' : g;
+    const grp = /my account|\bown\b/i.test(rest) ? 'own' : /non-?buyer/i.test(rest) ? 'nb' : /\b(student|buyer)\b/i.test(rest) ? 'stu' : g;
     emailsIn(line).forEach(e => {
-      if (CFG.own.includes(e) || CFG.stu.includes(e)) return;
+      if (CFG[grp].includes(e)) return;
+      ['own','stu','nb'].forEach(x => { CFG[x] = CFG[x].filter(y => y !== e); });
       CFG[grp].push(e); added++;
     });
   });
   if (!added) { $('aSay').className = 'say err'; $('aSay').textContent = 'No new addresses found.'; return; }
   saveCfg(); hide('mAdd'); await load();
-  say(added + ' testers added to this page. Add the same addresses in Play Console too (Copy emails).', 'ok');
+  say(added + ' testers added or moved on this page. Add the same addresses in Play Console too (Copy emails).', 'ok');
 };
 
 /* settings */
 $('bSet').onclick = () => {
   $('sLink').value = CFG.set.link || '';
-  $('sInvSub').value = S('invSub'); $('sInv').value = S('inv'); $('sRemSub').value = S('remSub'); $('sRem').value = S('rem');
+  $('sInvSub').value = S('invSub'); $('sInv').value = S('inv'); $('sNbSub').value = S('nbSub'); $('sNb').value = S('nb'); $('sRemSub').value = S('remSub'); $('sRem').value = S('rem');
   $('sSay').textContent = ''; show('mSet');
 };
-$('sReset').onclick = () => { $('sInvSub').value = DEF.invSub; $('sInv').value = DEF.inv; $('sRemSub').value = DEF.remSub; $('sRem').value = DEF.rem; };
+$('sReset').onclick = () => { $('sInvSub').value = DEF.invSub; $('sInv').value = DEF.inv; $('sNbSub').value = DEF.nbSub; $('sNb').value = DEF.nb; $('sRemSub').value = DEF.remSub; $('sRem').value = DEF.rem; };
 $('sSave').onclick = () => {
   const link = $('sLink').value.trim();
   if (link && !/^https:\/\/play\.google\.com\//.test(link)) { $('sSay').className = 'say err'; $('sSay').textContent = 'The link should start with https://play.google.com/'; return; }
-  CFG.set = { link, invSub: $('sInvSub').value.trim(), inv: $('sInv').value, remSub: $('sRemSub').value.trim(), rem: $('sRem').value };
+  CFG.set = { link, invSub: $('sInvSub').value.trim(), inv: $('sInv').value, nbSub: $('sNbSub').value.trim(), nb: $('sNb').value, remSub: $('sRemSub').value.trim(), rem: $('sRem').value };
   saveCfg(); hide('mSet'); say('Saved.', 'ok');
 };
 
@@ -513,7 +551,8 @@ function fillMsg() {
   $('mSubj').value = S(k + 'Sub');
   $('mText').value = one ? fill(S(k), one) : S(k).replace(/\{link\}/g, CFG.set.link || '{link}');
   $('mSay').className = 'say err';
-  $('mSay').textContent = CFG.set.link ? '' : 'Add the opt-in link first in ⚙ Link & messages — the message has {link} in it.';
+  $('mSay').textContent = !CFG.set.link ? 'Add the opt-in link first in ⚙ Link & messages — the message has {link} in it.'
+    : (MSG.mixed && k !== 'rem') ? 'Buyers and non-buyers are both selected — everyone gets this one text. Use the Buyers / Non-buyers tabs to send each group its own.' : '';
 }
 function openMsg(ch, recs) {
   MSG = { ch, recs };
@@ -526,7 +565,8 @@ function openMsg(ch, recs) {
   if (!many) $('mTo').value = wa ? '+' + waNumber(recs[0].mobile) : recs[0].email;
   $('mSubjFld').style.display = wa ? 'none' : '';
   /* default: invitation for those who never opened, reminder for the rest */
-  $('mTpl').value = recs.every(r => r.status !== 'never') ? 'rem' : 'inv';
+  $('mTpl').value = recs.every(r => r.status !== 'never') ? 'rem' : recs.every(r => r.group === 'nb') ? 'nb' : 'inv';
+  MSG.mixed = recs.some(r => r.group === 'nb') && recs.some(r => r.group !== 'nb');
   $('mSend').disabled = false; $('mSend').textContent = wa ? 'Open in WhatsApp' : (many ? 'Send ' + recs.length + ' emails' : 'Send email');
   $('mCancel').textContent = 'Close';
   fillMsg(); show('mMsg');
