@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>App testers — TrickySSC Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<!-- TSSC-TESTERS-V1 (2026-11-19): closed-testing tracker for the Android app.
+     No new Firestore rules. App use comes from users/{uid} (appUser, lastAppOpen,
+     appDays, appOpens, appTests — written by the app itself). The tester list holds
+     email addresses, so it is NOT in this public repo: it is saved on your own
+     users/{uid} document (testerCfg) and mirrored in this browser.
+     Email goes through the trickyssc-mail Worker, WhatsApp opens the chat. -->
+<style>
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Inter',sans-serif;background:#F1F5F9;color:#1E293B;}
+  .topbar{background:#fff;border-bottom:1px solid #E8EDF3;padding:12px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;position:sticky;top:0;z-index:10;}
+  .brand{font-family:'Rajdhani';font-weight:700;font-size:20px;color:#FF6B00;}
+  .brand small{color:#64748B;font-size:14px;margin-left:6px;}
+  .nav a{font-size:12px;font-weight:700;color:#475569;text-decoration:none;padding:6px 10px;border-radius:8px;background:#F1F5F9;margin-right:4px;}
+  .who{margin-left:auto;font-size:12px;color:#64748B;}
+  .btn{font-size:13px;font-weight:700;padding:9px 14px;border-radius:9px;border:0;cursor:pointer;}
+  .btn:disabled{opacity:.5;cursor:default;}
+  .btn-orange{background:#FF6B00;color:#fff;}
+  .btn-green{background:#16A34A;color:#fff;}
+  .btn-ghost{background:#F1F5F9;color:#475569;border:1.5px solid #E2E8F0;}
+  .wrap{max-width:1150px;margin:0 auto;padding:16px 14px 70px;}
+  .card{background:#fff;border:1px solid #EDF1F6;border-radius:14px;padding:14px 16px;margin-bottom:12px;box-shadow:0 3px 14px rgba(15,23,42,.05);}
+  .empty{text-align:center;color:#64748B;padding:36px 10px;}
+  .hidden{display:none !important;}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:12px;}
+  .stat{background:#fff;border:1px solid #EDF1F6;border-radius:12px;padding:12px 14px;}
+  .stat b{display:block;font-family:'Rajdhani';font-size:28px;line-height:1;}
+  .stat span{font-size:12px;color:#64748B;font-weight:600;}
+  .verdict{border-left:5px solid #94A3B8;font-size:14px;line-height:1.5;}
+  .verdict.good{border-left-color:#16A34A;} .verdict.mid{border-left-color:#F59E0B;} .verdict.bad{border-left-color:#DC2626;}
+  .verdict b.h{font-size:16px;}
+  .tabs{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;align-items:center;}
+  .tab{padding:8px 13px;border-radius:10px;border:1.5px solid #E2E8F0;background:#fff;color:#475569;font-weight:700;font-size:13px;cursor:pointer;}
+  .tab.active{background:#FF6B00;color:#fff;border-color:#FF6B00;}
+  input.filter{width:100%;font-size:14px;padding:10px 12px;border-radius:10px;border:1.5px solid #E2E8F0;margin-bottom:10px;}
+  .bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;font-size:13px;}
+  .tw{overflow-x:auto;background:#fff;border:1px solid #EDF1F6;border-radius:14px;}
+  table{border-collapse:collapse;width:100%;font-size:13px;min-width:820px;}
+  th,td{padding:9px 10px;text-align:left;border-bottom:1px solid #F1F5F9;vertical-align:top;}
+  th{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#64748B;background:#F8FAFC;white-space:nowrap;}
+  td .em{font-size:12px;color:#64748B;word-break:break-all;}
+  .pill{display:inline-block;font-size:11px;padding:2px 9px;border-radius:99px;font-weight:800;white-space:nowrap;}
+  .p-today{background:#DCFCE7;color:#15803D;} .p-recent{background:#DBEAFE;color:#1D4ED8;}
+  .p-idle{background:#FEF3C7;color:#92400E;} .p-never{background:#FEE2E2;color:#B91C1C;}
+  .p-own{background:#EDE9FE;color:#6D28D9;} .p-stu{background:#E0F2FE;color:#0369A1;} .p-oth{background:#F1F5F9;color:#475569;}
+  .act{font-size:12px;font-weight:700;padding:5px 9px;border-radius:8px;border:1.5px solid #E2E8F0;background:#fff;cursor:pointer;margin:0 4px 4px 0;}
+  .act.wa{color:#15803D;border-color:#BBF7D0;background:#F0FDF4;} .act.ml{color:#1D4ED8;border-color:#BFDBFE;background:#EFF6FF;}
+  .act.done{opacity:.75;}
+  .dots{display:flex;gap:2px;margin-top:4px;}
+  .dots i{width:7px;height:14px;border-radius:2px;background:#E2E8F0;display:block;}
+  .dots i.on{background:#16A34A;}
+  .note{font-size:12px;color:#64748B;line-height:1.5;}
+  .say{font-size:13px;margin-top:8px;} .say.err{color:#DC2626;} .say.ok{color:#15803D;}
+  .modal{position:fixed;inset:0;background:rgba(15,23,42,.5);display:flex;align-items:center;justify-content:center;z-index:50;padding:14px;}
+  .box{background:#fff;border-radius:16px;max-width:600px;width:100%;padding:18px;max-height:94vh;overflow:auto;}
+  .box h3{font-family:'Rajdhani';font-size:20px;margin:0 0 4px;}
+  .box label{display:block;font-size:12px;font-weight:700;color:#64748B;margin:10px 0 4px;}
+  .box input,.box textarea,.box select{width:100%;font:inherit;font-size:14px;padding:9px 11px;border-radius:9px;border:1.5px solid #E2E8F0;background:#fff;}
+  .box textarea{min-height:200px;resize:vertical;}
+  .acts{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">TrickySSC <small>🧪 App testers</small></div>
+  <div class="nav"><a href="admin-premium.html">Premium</a><a href="admin-app-reports.html">App issues</a></div>
+  <div class="who" id="who"></div>
+  <button class="btn btn-ghost hidden" id="so">Sign out</button>
+</div>
+
+<div class="wrap">
+  <div id="gate" class="card empty">Loading…</div>
+  <div id="main" class="hidden">
+    <div class="stats" id="stats"></div>
+    <div class="card verdict" id="verdict"></div>
+
+    <div class="bar">
+      <button class="btn btn-orange" id="bAdd">＋ Add testers</button>
+      <button class="btn btn-ghost" id="bSet">⚙ Link &amp; messages</button>
+      <button class="btn btn-ghost" id="bCopy">Copy emails (for Play Console)</button>
+      <button class="btn btn-ghost" id="bCsv">⬇ CSV</button>
+      <button class="btn btn-ghost" id="reload" style="margin-left:auto">↻ Refresh</button>
+    </div>
+
+    <div class="tabs" id="tabs">
+      <button class="tab active" data-f="all">All</button>
+      <button class="tab" data-f="never">Not opened yet</button>
+      <button class="tab" data-f="idle">Idle 2+ days</button>
+      <button class="tab" data-f="active">Active (today / yesterday)</button>
+      <button class="tab" data-f="own">My accounts</button>
+      <button class="tab" data-f="stu">Students</button>
+      <button class="tab" data-f="oth">Other app users</button>
+    </div>
+    <input class="filter" id="q" placeholder="Search name, email, mobile…">
+
+    <div class="bar">
+      <label><input type="checkbox" id="selAll"> Select all shown</label>
+      <span id="selN" class="note"></span>
+      <button class="btn btn-orange" id="bMailSel" disabled>✉️ Email selected</button>
+      <button class="btn btn-ghost" id="bDelSel" disabled>Remove selected from list</button>
+      <span class="say" id="say"></span>
+    </div>
+
+    <div class="tw"><table>
+      <thead><tr><th></th><th>Tester</th><th>Status</th><th>Last opened</th><th>Days used (14)</th><th>Opens</th><th>Tests</th><th>Version</th><th>Message</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table></div>
+    <p class="note">“Opted in” on Google Play is counted only by Play Console (Closed testing → Dashboard). This page shows real use of the app: an account appears as opened once it signs in to the app. Days used / opens / tests in the app are counted from app version 2.0.69 onward; “Last opened” works on older versions too.</p>
+  </div>
+</div>
+
+<!-- add testers -->
+<div class="modal hidden" id="mAdd"><div class="box">
+  <h3>＋ Add testers</h3>
+  <div class="note">Paste Gmail addresses in any form (one per line, comma-separated, or a whole CSV) — or pick a CSV file. Duplicates are skipped.</div>
+  <label>Group</label>
+  <select id="aGroup"><option value="own">My accounts</option><option value="stu">Students</option></select>
+  <label>Addresses</label><textarea id="aText" style="min-height:150px" placeholder="name1@gmail.com, name2@gmail.com"></textarea>
+  <label>…or CSV file</label><input type="file" id="aFile" accept=".csv,.txt">
+  <div class="say" id="aSay"></div>
+  <div class="acts" style="margin-top:12px;justify-content:flex-end">
+    <button class="btn btn-ghost" data-x="mAdd">Cancel</button>
+    <button class="btn btn-orange" id="aSave">Add</button>
+  </div>
+</div></div>
+
+<!-- settings -->
+<div class="modal hidden" id="mSet"><div class="box">
+  <h3>⚙ Link &amp; messages</h3>
+  <label>Closed-testing opt-in link (from Play Console → Closed testing → Testers → “Join on the web”)</label>
+  <input id="sLink" placeholder="https://play.google.com/apps/testing/com.trickyssc.app">
+  <label>Email subject — invitation</label><input id="sInvSub">
+  <label>Invitation message ({name} and {link} are filled in)</label><textarea id="sInv"></textarea>
+  <label>Email subject — reminder</label><input id="sRemSub">
+  <label>Reminder message</label><textarea id="sRem" style="min-height:140px"></textarea>
+  <div class="say" id="sSay"></div>
+  <div class="acts" style="margin-top:12px;justify-content:flex-end">
+    <button class="btn btn-ghost" id="sReset">Reset to default text</button>
+    <button class="btn btn-ghost" data-x="mSet">Cancel</button>
+    <button class="btn btn-orange" id="sSave">Save</button>
+  </div>
+</div></div>
+
+<!-- compose -->
+<div class="modal hidden" id="mMsg"><div class="box">
+  <h3 id="mTitle">Message</h3>
+  <div class="note" id="mSub"></div>
+  <label>Message type</label>
+  <select id="mTpl"><option value="inv">Invitation to test</option><option value="rem">Reminder to open the app daily</option></select>
+  <div id="mToFld"><label id="mToLbl">To</label><input id="mTo"></div>
+  <div id="mSubjFld"><label>Subject</label><input id="mSubj"></div>
+  <label>Message</label><textarea id="mText"></textarea>
+  <div class="say" id="mSay"></div>
+  <div class="acts" style="margin-top:12px;justify-content:flex-end">
+    <button class="btn btn-ghost" id="mCopy">Copy message</button>
+    <button class="btn btn-ghost" data-x="mMsg" id="mCancel">Close</button>
+    <button class="btn btn-orange" id="mSend">Send</button>
+  </div>
+</div></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut }
+  from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import { getFirestore, collection, getDocs, doc, getDoc, setDoc, query, where }
+  from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+const app = initializeApp({
+  apiKey:"AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",
+  authDomain:"trickyssc-17bb3.firebaseapp.com",
+  projectId:"trickyssc-17bb3",
+  storageBucket:"trickyssc-17bb3.firebasestorage.app",
+  messagingSenderId:"450627057220",
+  appId:"1:450627057220:web:366267bf437d94f20c6e11"
+});
+const auth = getAuth(app), db = getFirestore(app);
+const ADMINS = ['nirala01@gmail.com','ashish@trickyssc.com'];
+const isAdmin = e => !!e && (ADMINS.includes(e) || /@trickyssc\.com$/.test(e));
+const MAIL_API = 'https://trickyssc-mail.nirala01.workers.dev';
+const FROM = 'contact@trickyssc.com';
+const IST = 'Asia/Kolkata';
+const LS = 'tssc_testers_cfg';
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const say = (t, cls) => { const m = $('say'); m.innerHTML = t || ''; m.className = 'say ' + (cls || 'ok'); };
+const show = id => $(id).classList.remove('hidden');
+const hide = id => $(id).classList.add('hidden');
+document.addEventListener('click', e => { const x = e.target.closest?.('[data-x]'); if (x && !BULK_ON) hide(x.getAttribute('data-x')); });
+
+const DEF = {
+  link: '',
+  invSub: 'Help us test the new TrickySSC Android app (2 minutes)',
+  inv:
+`Hi {name},
+
+The TrickySSC Android app is ready and we are inviting a small group of students to try it before the public launch. You get all your mocks, PYQs and chapter tests in the app, with the same login.
+
+How to join (2 minutes):
+1. Open this link on your Android phone: {link}
+2. Sign in with the same Gmail that your phone's Play Store uses, and tap "Become a tester".
+3. Tap "Download it on Google Play" and install the app.
+4. Sign in to the app and attempt any test.
+
+Please keep the app installed and open it for a few minutes every day for the next 14 days — that is what Google needs before we can launch for everyone. If anything looks wrong, tell us from Me → Report an issue in the app.
+
+Thank you for helping us.
+Team TrickySSC`,
+  remSub: 'TrickySSC app testing — please open the app today',
+  rem:
+`Hi {name},
+
+A small reminder: please open the TrickySSC app for a few minutes today and attempt any one test. Google counts the testing days only while the app stays installed and in use.
+
+Not joined yet? Open {link} on your Android phone, tap "Become a tester" and install the app.
+
+Thank you,
+Team TrickySSC`
+};
+
+let ME = null;
+let CFG = { own: [], stu: [], set: {}, sent: {} };   // sent: email -> {inv:{ml,wa}, rem:{ml,wa}} timestamps
+let ROWS = [];
+let FILTER = 'all';
+const SEL = new Set();
+let BULK_ON = false;
+
+/* ------------------------------------------------------------------ auth */
+onAuthStateChanged(auth, async user => {
+  if (!user) {
+    $('gate').innerHTML = '<p>Sign in with the admin Google account.</p><button class="btn btn-orange" id="si">Sign in with Google</button>';
+    $('si').onclick = () => signInWithPopup(auth, new GoogleAuthProvider()).catch(e => { $('gate').insertAdjacentHTML('beforeend', '<p class="say err">' + esc(e.message) + '</p>'); });
+    show('gate'); hide('main'); hide('so'); return;
+  }
+  if (!isAdmin(user.email)) { $('gate').textContent = user.email + ' is not an admin account.'; await signOut(auth); return; }
+  ME = user; $('who').textContent = user.email; show('so');
+  $('gate').textContent = 'Loading…';
+  await loadCfg();
+  await load();
+  hide('gate'); show('main');
+});
+$('so').onclick = () => signOut(auth);
+
+/* ---------------------------------------------------------------- config */
+const norm = e => String(e || '').trim().toLowerCase();
+function cleanCfg(c) {
+  c = c || {};
+  const own = [...new Set((c.own || []).map(norm).filter(Boolean))];
+  const stu = [...new Set((c.stu || []).map(norm).filter(e => e && !own.includes(e)))];
+  return { own, stu, set: c.set || {}, sent: c.sent || {}, at: c.at || 0 };
+}
+async function loadCfg() {
+  let local = null, remote = null;
+  try { local = JSON.parse(localStorage.getItem(LS) || 'null'); } catch (e) {}
+  try { remote = ((await getDoc(doc(db, 'users', ME.uid))).data() || {}).testerCfg || null; } catch (e) { console.warn('testerCfg read:', e.message); }
+  const pick = (remote && local) ? ((remote.at || 0) >= (local.at || 0) ? remote : local) : (remote || local);
+  CFG = cleanCfg(pick);
+}
+let saveT = null;
+function saveCfg() {
+  CFG.at = Date.now();
+  try { localStorage.setItem(LS, JSON.stringify(CFG)); } catch (e) {}
+  clearTimeout(saveT);
+  saveT = setTimeout(async () => {
+    try { await setDoc(doc(db, 'users', ME.uid), { testerCfg: CFG }, { merge: true }); }
+    catch (e) { say('List saved on this device only (' + esc(e.message) + ').', 'err'); }
+  }, 600);
+}
+const S = k => (CFG.set && CFG.set[k] != null && CFG.set[k] !== '') ? CFG.set[k] : DEF[k];
+
+/* ------------------------------------------------------------------ data */
+const ts = v => {
+  if (!v) return 0;
+  if (typeof v === 'string') { const t = Date.parse(v); return isFinite(t) ? t : 0; }
+  if (v.toDate) return v.toDate().getTime();
+  if (v.seconds) return v.seconds * 1000;
+  return typeof v === 'number' ? v : 0;
+};
+const dayIST = t => new Date(t).toLocaleDateString('en-CA', { timeZone: IST });          // YYYY-MM-DD
+const fmt = t => t ? new Date(t).toLocaleString('en-IN', { day:'numeric', month:'short', hour:'numeric', minute:'2-digit', timeZone: IST }) : '—';
+const last14 = () => { const a = []; for (let i = 13; i >= 0; i--) a.push(dayIST(Date.now() - i * 86400000)); return a; };
+
+function waNumber(m) {
+  let d = String(m || '').replace(/\D/g, '');
+  if (d.length === 11 && d[0] === '0') d = d.slice(1);
+  if (d.length === 10 && /^[6-9]/.test(d)) return '91' + d;
+  if (d.length === 12 && d.slice(0, 2) === '91' && /^[6-9]/.test(d[2])) return d;
+  return '';
+}
+function firstName(n) {
+  const w = String(n || '').trim().split(/\s+/).map(x => x.replace(/^[^\p{L}\p{M}]+|[^\p{L}\p{M}]+$/gu, '')).filter(Boolean);
+  const f = w.find(x => x.length > 1) || '';
+  return (!f || /^student$/i.test(f)) ? 'Student' : f[0].toUpperCase() + f.slice(1).toLowerCase();
+}
+
+async function load() {
+  say('Loading…');
+  const byEmail = {}, others = [];
+  const take = (id, u) => {
+    const e = norm(u.email);
+    const rec = { uid: id, u };
+    if (e) { if (!byEmail[e] || ts(u.lastAppOpen) > ts(byEmail[e].u.lastAppOpen)) byEmail[e] = rec; }
+    else others.push(rec);
+  };
+  try {
+    (await getDocs(query(collection(db, 'users'), where('appUser', '==', true)))).forEach(d => take(d.id, d.data() || {}));
+  } catch (e) { say('Could not read app users: ' + esc(e.message), 'err'); }
+
+  const list = [...CFG.own, ...CFG.stu];
+  const missing = list.filter(e => !byEmail[e]);
+  for (let i = 0; i < missing.length; i += 30) {
+    try {
+      (await getDocs(query(collection(db, 'users'), where('email', 'in', missing.slice(i, i + 30))))).forEach(d => {
+        const u = d.data() || {}; const e = norm(u.email);
+        if (e && !byEmail[e]) byEmail[e] = { uid: d.id, u };
+      });
+    } catch (e) { console.warn('email lookup:', e.message); }
+  }
+
+  const today = dayIST(Date.now()), yest = dayIST(Date.now() - 86400000), win = last14();
+  const mk = (email, group, rec) => {
+    const u = (rec && rec.u) || {};
+    const lastOpen = u.appUser ? ts(u.lastAppOpen) : 0;
+    const lastUse = Math.max(lastOpen, ts(u.lastAppTest));
+    const days = new Set(Array.isArray(u.appDays) ? u.appDays : []);
+    if (lastOpen) days.add(dayIST(lastOpen));
+    const d = lastUse ? dayIST(lastUse) : '';
+    const status = !lastUse ? 'never' : d === today ? 'today' : d === yest ? 'recent' : 'idle';
+    return {
+      key: email || ('uid:' + (rec ? rec.uid : '')), email, group, uid: rec ? rec.uid : '',
+      name: String(u.name || '').trim(), mobile: u.phone || u.mobile || '',
+      lastOpen, lastUse, status, days, used14: win.filter(x => days.has(x)).length,
+      opens: Number(u.appOpens || 0), tests: Number(u.appTests || 0), totalTests: Number(u.totalTests || 0),
+      ver: u.appUser ? String(u.appVersion || '') : ''
+    };
+  };
+  ROWS = [];
+  CFG.own.forEach(e => ROWS.push(mk(e, 'own', byEmail[e])));
+  CFG.stu.forEach(e => ROWS.push(mk(e, 'stu', byEmail[e])));
+  Object.keys(byEmail).forEach(e => { if (!list.includes(e) && byEmail[e].u.appUser) ROWS.push(mk(e, 'oth', byEmail[e])); });
+  others.forEach(r => ROWS.push(mk('', 'oth', r)));
+  ROWS.sort((a, b) => (b.lastUse - a.lastUse) || a.group.localeCompare(b.group) || a.email.localeCompare(b.email));
+  say('');
+  render();
+}
+
+/* ---------------------------------------------------------------- render */
+function summary() {
+  const T = ROWS.filter(r => r.group !== 'oth');
+  const n = f => T.filter(f).length;
+  const opened = n(r => r.status !== 'never'), act = n(r => r.status === 'today' || r.status === 'recent');
+  const today = n(r => r.status === 'today'), steady = n(r => r.used14 >= 3);
+  const tests = T.reduce((s, r) => s + r.tests, 0);
+  const oth = ROWS.length - T.length;
+  $('stats').innerHTML = [
+    [T.length, 'testers in the list'], [opened, 'opened the app'], [today, 'active today'],
+    [act, 'active today / yesterday'], [steady, 'used on 3+ days'], [tests, 'tests taken in app'], [oth, 'other app users']
+  ].map(x => `<div class="stat"><b>${x[0]}</b><span>${x[1]}</span></div>`).join('');
+
+  let cls, head, text;
+  if (!T.length) { cls = ''; head = 'No testers in the list yet'; text = 'Press <b>＋ Add testers</b> and paste the addresses.'; }
+  else if (act >= 12) { cls = 'good'; head = 'Testing is going well'; text = `${act} testers used the app today or yesterday. Google wants at least 12 opted-in testers for 14 days in a row — keep this number at 12 or more every day.`; }
+  else if (opened >= 12) { cls = 'mid'; head = 'Enough testers joined, but daily use is low'; text = `${opened} have opened the app, only ${act} in the last two days. Send the <b>reminder</b> to the “Idle 2+ days” tab.`; }
+  else { cls = 'bad'; head = 'Not enough testers yet'; text = `${opened} of ${T.length} have opened the app; 12 or more are needed. Send the <b>invitation</b> to the “Not opened yet” tab.`; }
+  $('verdict').className = 'card verdict ' + cls;
+  $('verdict').innerHTML = `<b class="h">${head}</b><br>${text}`;
+}
+function shown() {
+  const q = norm($('q').value);
+  return ROWS.filter(r => {
+    if (FILTER === 'never' && !(r.status === 'never' && r.group !== 'oth')) return false;
+    if (FILTER === 'idle' && !(r.status === 'idle' && r.group !== 'oth')) return false;
+    if (FILTER === 'active' && !(r.status === 'today' || r.status === 'recent')) return false;
+    if (['own','stu','oth'].includes(FILTER) && r.group !== FILTER) return false;
+    return !q || (r.email + ' ' + r.name + ' ' + r.mobile).toLowerCase().includes(q);
+  });
+}
+const ST = { today: ['p-today','Active today'], recent: ['p-recent','Yesterday'], idle: ['p-idle','Idle'], never: ['p-never','Not opened'] };
+const GR = { own: ['p-own','My account'], stu: ['p-stu','Student'], oth: ['p-oth','Not in list'] };
+const dShort = t => new Date(t).toLocaleDateString('en-IN', { day:'numeric', month:'short', timeZone: IST });
+function msgCell(r) {
+  const s = CFG.sent[r.email] || {};
+  const tag = k => { const t = s[k]; return t ? ' ✓ ' + dShort(t) : ''; };
+  const ph = waNumber(r.mobile);
+  let h = '';
+  if (r.email) h += `<button class="act ml${s.ml ? ' done' : ''}" data-m="ml" data-k="${esc(r.key)}">✉️ Email${tag('ml')}</button>`;
+  if (ph) h += `<button class="act wa${s.wa ? ' done' : ''}" data-m="wa" data-k="${esc(r.key)}">WhatsApp${tag('wa')}</button>`;
+  return h || '<span class="em">—</span>';
+}
+function render() {
+  summary();
+  const win = last14(), list = shown();
+  $('rows').innerHTML = list.map(r => `
+    <tr>
+      <td>${r.email ? `<input type="checkbox" data-sel="${esc(r.email)}"${SEL.has(r.email) ? ' checked' : ''}>` : ''}</td>
+      <td><b>${esc(r.name || '—')}</b> <span class="pill ${GR[r.group][0]}">${GR[r.group][1]}</span>
+          <div class="em">${esc(r.email || 'mobile login')}${r.mobile ? ' · ' + esc(r.mobile) : ''}</div></td>
+      <td><span class="pill ${ST[r.status][0]}">${ST[r.status][1]}</span></td>
+      <td>${fmt(r.lastOpen)}</td>
+      <td><b>${r.used14}</b><div class="dots" title="last 14 days, today on the right">${win.map(d => `<i class="${r.days.has(d) ? 'on' : ''}"></i>`).join('')}</div></td>
+      <td>${r.opens || '—'}</td>
+      <td>${r.tests || '—'}${r.totalTests ? `<div class="em">${r.totalTests} in all</div>` : ''}</td>
+      <td>${esc(r.ver || '—')}</td>
+      <td>${msgCell(r)}</td>
+    </tr>`).join('') || '<tr><td colspan="9" class="empty">Nothing here.</td></tr>';
+  $('selAll').checked = list.length > 0 && list.filter(r => r.email).every(r => SEL.has(r.email));
+  selInfo();
+}
+function selInfo() {
+  $('selN').textContent = SEL.size ? SEL.size + ' selected' : '';
+  $('bMailSel').disabled = !SEL.size; $('bDelSel').disabled = !SEL.size;
+}
+$('tabs').onclick = e => {
+  const t = e.target.closest('.tab'); if (!t) return;
+  FILTER = t.getAttribute('data-f');
+  [...$('tabs').children].forEach(c => c.classList.toggle('active', c === t));
+  render();
+};
+$('q').oninput = render;
+$('reload').onclick = load;
+$('selAll').onchange = e => { shown().forEach(r => { if (r.email) e.target.checked ? SEL.add(r.email) : SEL.delete(r.email); }); render(); };
+$('rows').addEventListener('change', e => {
+  const m = e.target.getAttribute?.('data-sel'); if (!m) return;
+  e.target.checked ? SEL.add(m) : SEL.delete(m); selInfo();
+});
+$('rows').addEventListener('click', e => {
+  const b = e.target.closest?.('[data-m]'); if (!b) return;
+  const r = ROWS.find(x => x.key === b.getAttribute('data-k'));
+  if (r) openMsg(b.getAttribute('data-m'), [r]);
+});
+
+/* ------------------------------------------------------------ list tools */
+async function copy(text) {
+  try { await navigator.clipboard.writeText(text); return true; }
+  catch (e) {
+    const ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select(); const ok = document.execCommand('copy'); ta.remove(); return ok;
+  }
+}
+$('bCopy').onclick = async () => {
+  const l = (SEL.size ? [...SEL] : shown().filter(r => r.email && r.group !== 'oth').map(r => r.email));
+  say((await copy(l.join(', '))) ? l.length + ' addresses copied — paste them in Play Console → Closed testing → Testers → the list → “Add email addresses”, then press Enter and Save.' : 'Could not copy.', 'ok');
+};
+$('bCsv').onclick = () => {
+  const q = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+  const rows = [['Email','Group','Name','Mobile','Status','Last opened (IST)','Days used (14)','Opens','Tests in app','App version']]
+    .concat(ROWS.map(r => [r.email, GR[r.group][1], r.name, r.mobile, ST[r.status][1], r.lastOpen ? fmt(r.lastOpen) : '', r.used14, r.opens, r.tests, r.ver]));
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([rows.map(x => x.map(q).join(',')).join('\n')], { type: 'text/csv' }));
+  a.download = 'trickyssc-testers-' + dayIST(Date.now()) + '.csv'; a.click();
+};
+$('bDelSel').onclick = () => {
+  if (!SEL.size) return;
+  const b = $('bDelSel');
+  if (b.dataset.sure !== '1') { b.dataset.sure = '1'; b.textContent = 'Press again to remove ' + SEL.size; setTimeout(() => { b.dataset.sure = ''; b.textContent = 'Remove selected from list'; }, 4000); return; }
+  b.dataset.sure = ''; b.textContent = 'Remove selected from list';
+  CFG.own = CFG.own.filter(e => !SEL.has(e)); CFG.stu = CFG.stu.filter(e => !SEL.has(e));
+  SEL.clear(); saveCfg(); load();
+};
+
+/* add */
+$('bAdd').onclick = () => { $('aText').value = ''; $('aFile').value = ''; $('aSay').textContent = ''; show('mAdd'); };
+const emailsIn = t => [...new Set((String(t).match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g) || []).map(norm))];
+$('aSave').onclick = async () => {
+  let text = $('aText').value;
+  const f = $('aFile').files[0];
+  if (f) text += '\n' + await f.text();
+  const g = $('aGroup').value;
+  /* a CSV made here carries the group on each line; otherwise the chosen group is used */
+  const lines = text.split(/\r?\n/);
+  let added = 0;
+  lines.forEach(line => {
+    const rest = line.replace(/\S+@\S+/g, ' ');
+    const grp = /my account|\bown\b/i.test(rest) ? 'own' : /\bstudent\b/i.test(rest) ? 'stu' : g;
+    emailsIn(line).forEach(e => {
+      if (CFG.own.includes(e) || CFG.stu.includes(e)) return;
+      CFG[grp].push(e); added++;
+    });
+  });
+  if (!added) { $('aSay').className = 'say err'; $('aSay').textContent = 'No new addresses found.'; return; }
+  saveCfg(); hide('mAdd'); await load();
+  say(added + ' testers added to this page. Add the same addresses in Play Console too (Copy emails).', 'ok');
+};
+
+/* settings */
+$('bSet').onclick = () => {
+  $('sLink').value = CFG.set.link || '';
+  $('sInvSub').value = S('invSub'); $('sInv').value = S('inv'); $('sRemSub').value = S('remSub'); $('sRem').value = S('rem');
+  $('sSay').textContent = ''; show('mSet');
+};
+$('sReset').onclick = () => { $('sInvSub').value = DEF.invSub; $('sInv').value = DEF.inv; $('sRemSub').value = DEF.remSub; $('sRem').value = DEF.rem; };
+$('sSave').onclick = () => {
+  const link = $('sLink').value.trim();
+  if (link && !/^https:\/\/play\.google\.com\//.test(link)) { $('sSay').className = 'say err'; $('sSay').textContent = 'The link should start with https://play.google.com/'; return; }
+  CFG.set = { link, invSub: $('sInvSub').value.trim(), inv: $('sInv').value, remSub: $('sRemSub').value.trim(), rem: $('sRem').value };
+  saveCfg(); hide('mSet'); say('Saved.', 'ok');
+};
+
+/* --------------------------------------------------------------- compose */
+let MSG = null;                                   // {ch, recs}
+const fill = (t, r) => String(t).replace(/\{name\}/g, firstName(r && r.name)).replace(/\{link\}/g, CFG.set.link || '{link}');
+function fillMsg() {
+  const k = $('mTpl').value, one = MSG.recs.length === 1 ? MSG.recs[0] : null;
+  $('mSubj').value = S(k + 'Sub');
+  $('mText').value = one ? fill(S(k), one) : S(k).replace(/\{link\}/g, CFG.set.link || '{link}');
+  $('mSay').className = 'say err';
+  $('mSay').textContent = CFG.set.link ? '' : 'Add the opt-in link first in ⚙ Link & messages — the message has {link} in it.';
+}
+function openMsg(ch, recs) {
+  MSG = { ch, recs };
+  const wa = ch === 'wa', many = recs.length > 1;
+  $('mTitle').textContent = wa ? 'WhatsApp' : (many ? 'Email ' + recs.length + ' testers' : 'Email');
+  $('mSub').innerHTML = wa ? 'Opens WhatsApp on this tester\'s chat with the message typed — press send there.'
+    : 'Sent from <b>' + FROM + '</b>, one mail per tester' + (many ? ' — <b>{name}</b> becomes each tester\'s first name.' : '.');
+  $('mToFld').style.display = many ? 'none' : '';
+  $('mToLbl').textContent = wa ? 'WhatsApp number' : 'To';
+  if (!many) $('mTo').value = wa ? '+' + waNumber(recs[0].mobile) : recs[0].email;
+  $('mSubjFld').style.display = wa ? 'none' : '';
+  /* default: invitation for those who never opened, reminder for the rest */
+  $('mTpl').value = recs.every(r => r.status !== 'never') ? 'rem' : 'inv';
+  $('mSend').disabled = false; $('mSend').textContent = wa ? 'Open in WhatsApp' : (many ? 'Send ' + recs.length + ' emails' : 'Send email');
+  $('mCancel').textContent = 'Close';
+  fillMsg(); show('mMsg');
+}
+$('mTpl').onchange = fillMsg;
+$('mCopy').onclick = async () => { const b = $('mCopy'); b.textContent = (await copy($('mText').value)) ? 'Copied ✓' : 'Copy failed'; setTimeout(() => b.textContent = 'Copy message', 1200); };
+$('bMailSel').onclick = () => {
+  const recs = ROWS.filter(r => r.email && SEL.has(r.email));
+  if (recs.length) openMsg('ml', recs);
+};
+const mark = (email, ch) => { if (!email) return; CFG.sent[email] = Object.assign({}, CFG.sent[email], { [ch]: Date.now() }); };
+
+async function sendMail(to, subject, text) {
+  const res = await fetch(MAIL_API + '/send', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ idToken: await auth.currentUser.getIdToken(), to, subject, text })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.ok) throw new Error(data.error || ('Request failed (' + res.status + ')'));
+}
+$('mSend').onclick = async () => {
+  if (!MSG || BULK_ON) return;
+  const { ch, recs } = MSG, body = $('mText').value.trim(), sub = $('mSubj').value.trim();
+  const err = t => { $('mSay').className = 'say err'; $('mSay').innerHTML = t; };
+  if (!body) return err('Message is empty.');
+  if (/\{link\}/.test(body)) return err('Add the opt-in link first in ⚙ Link &amp; messages.');
+
+  if (ch === 'wa') {
+    const num = waNumber($('mTo').value);
+    if (!num) return err('That does not look like a 10-digit Indian mobile number.');
+    window.open('https://wa.me/' + num + '?text=' + encodeURIComponent(body), 'tssc_wa');
+    mark(recs[0].email, 'wa'); saveCfg(); hide('mMsg'); render(); return;
+  }
+  if (!sub) return err('Subject is empty.');
+  const btn = $('mSend');
+  if (recs.length === 1) {
+    const to = $('mTo').value.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) return err('Check the email address.');
+    btn.disabled = true; btn.textContent = 'Sending…';
+    try { await sendMail(to, sub, body); } catch (e) { btn.disabled = false; btn.textContent = 'Send email'; return err('Could not send: ' + esc(e.message)); }
+    mark(recs[0].email, 'ml'); saveCfg(); hide('mMsg'); render(); say('Email sent to ' + esc(to) + '.', 'ok'); return;
+  }
+  /* many: one mail each, slowly, stop after 3 failures in a row */
+  BULK_ON = true; btn.disabled = true;
+  let ok = 0, bad = 0, run = 0; const failed = [];
+  for (let i = 0; i < recs.length; i++) {
+    const r = recs[i];
+    $('mSay').className = 'say ok'; $('mSay').textContent = `Sending ${i + 1} of ${recs.length}… keep this page open.`;
+    try { await sendMail(r.email, sub, body.replace(/\{name\}/g, firstName(r.name))); ok++; run = 0; mark(r.email, 'ml'); SEL.delete(r.email); }
+    catch (e) { bad++; run++; failed.push(r.email + ' — ' + e.message); if (run >= 3) break; }
+    if (i % 10 === 9) saveCfg();
+    await new Promise(z => setTimeout(z, 700));
+  }
+  BULK_ON = false; saveCfg(); render();
+  btn.textContent = 'Done'; $('mCancel').textContent = 'Close';
+  $('mSay').className = 'say ' + (bad ? 'err' : 'ok');
+  $('mSay').innerHTML = `${ok} sent` + (bad ? `, ${bad} failed${run >= 3 ? ' — stopped after 3 failures in a row' : ''}:<br>` + failed.slice(0, 6).map(esc).join('<br>') + '<br>The ones not sent are still selected.' : '.');
+};
+</script>
+</body>
+</html>

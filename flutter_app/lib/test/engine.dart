@@ -819,6 +819,13 @@ Future<void> saveResult(User u, Exam exam, Paper p, Progress pr, Result r) async
   r.attemptId = attemptId;
   r.saved = true;
 
+  // app usage, for the testers page (admin-testers.html)
+  db.collection('users').doc(u.uid).set({
+    'appTests': FieldValue.increment(1),
+    'lastAppTest': FieldValue.serverTimestamp(),
+    'appDays': FieldValue.arrayUnion([_todayIst()]),
+  }, SetOptions(merge: true)).catchError((_) {});
+
   // user totals (same arithmetic as the website; chapter tests do not count here)
   if (ch == null) try {
     final ref = db.collection('users').doc(u.uid);

@@ -103,6 +103,8 @@ class _ProfileGateState extends State<ProfileGate> {
       'appUser': true,
       'appVersion': appVersion,
       'lastAppOpen': FieldValue.serverTimestamp(),
+      'appOpens': FieldValue.increment(1),
+      'appDays': FieldValue.arrayUnion([DateTime.now().toUtc().add(const Duration(hours: 5, minutes: 30)).toIso8601String().substring(0, 10)]),
     }, SetOptions(merge: true)).catchError((_) {});
   }
 
