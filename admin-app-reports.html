@@ -26,6 +26,9 @@
   .btn-ghost{background:#F1F5F9;color:#475569;border:1.5px solid #E2E8F0;}
   .btn-mail{background:#EFF6FF;color:#1D4ED8;border:1.5px solid #BFDBFE;font-size:15px;padding:7px 12px;}
   .btn-mail.sent{background:#DCFCE7;color:#15803D;border-color:#BBF7D0;}
+  .btn-wa{background:#F0FDF4;color:#15803D;border:1.5px solid #BBF7D0;font-size:15px;padding:7px 12px;}
+  .btn-wa.sent{background:#DCFCE7;}
+  .box select{width:100%;font:inherit;font-size:14px;padding:9px 11px;border-radius:9px;border:1.5px solid #E2E8F0;background:#fff;}
   .wrap{max-width:1000px;margin:0 auto;padding:18px 16px 60px;}
   .tabs{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;}
   .tab{padding:9px 16px;border-radius:10px;border:1.5px solid #E2E8F0;background:#fff;color:#475569;font-weight:700;font-size:14px;cursor:pointer;}
@@ -82,11 +85,19 @@
 
 <div class="modal hidden" id="mm">
   <div class="box">
-    <h3>✉️ Tell the student it is resolved</h3>
-    <div class="note">Sent from <b>contact@trickyssc.com</b> as soon as you press Send. Edit anything first.</div>
-    <label>To</label><input id="mTo">
-    <label>Subject</label><input id="mSub">
-    <label>Message</label><textarea id="mText"></textarea>
+    <h3 id="mTitle">✉️ Reply to the student</h3>
+    <div class="note" id="mNote">Sent from <b>contact@trickyssc.com</b> as soon as you press Send. Edit anything first.</div>
+    <label>Message</label>
+    <select id="mTpl">
+      <option value="resolved">Issue resolved</option>
+      <option value="working">Received — we are working on it</option>
+      <option value="details">Need more details</option>
+      <option value="update">Please update the app</option>
+      <option value="custom">Blank (write your own)</option>
+    </select>
+    <label id="mToLbl">To</label><input id="mTo">
+    <div id="mSubFld"><label>Subject</label><input id="mSub"></div>
+    <label>Text</label><textarea id="mText"></textarea>
     <div class="say" id="mSay"></div>
     <div class="acts" style="margin-top:12px;justify-content:flex-end">
       <button class="btn btn-ghost" id="mX">Cancel</button>
@@ -138,6 +149,7 @@ function parse(r){
   if(!r.status && st.status) r.status = st.status;
   if(!r.resolvedAt && st.resolvedAt) r.resolvedAt = st.resolvedAt;
   if(!r.mailedAt && st.mailedAt) r.mailedAt = st.mailedAt;
+  if(!r.waAt && st.waAt) r.waAt = st.waAt;
   return r;
 }
 
@@ -217,10 +229,11 @@ function paint(){
       </div>
       <div class="acts">
         ${res
-          ? `<button class="btn btn-mail ${r.mailedAt?'sent':''}" data-mail="${esc(r.id)}" title="Email the student that it is resolved">✉️ ${r.mailedAt?'Mailed ✓':'Mail'}</button>
-             <button class="btn btn-ghost" data-open="${esc(r.id)}">↺ Reopen</button>
-             <span class="note">Resolved ${esc(when(r.resolvedAt))}${r.mailedAt?' · mailed '+esc(when(r.mailedAt)):''}</span>`
+          ? `<button class="btn btn-ghost" data-open="${esc(r.id)}">↺ Reopen</button>`
           : `<button class="btn btn-green" data-res="${esc(r.id)}">✓ Mark resolved</button>`}
+        <button class="btn btn-mail ${r.mailedAt?'sent':''}" data-mail="${esc(r.id)}" title="Email the student">✉️ ${r.mailedAt?'Email ✓':'Email'}</button>
+        ${waNumber(phone) ? `<button class="btn btn-wa ${r.waAt?'sent':''}" data-wa="${esc(r.id)}" title="WhatsApp the student">💬 ${r.waAt?'WhatsApp ✓':'WhatsApp'}</button>` : ''}
+        <span class="note">${res ? 'Resolved ' + esc(when(r.resolvedAt)) : ''}${r.mailedAt ? (res?' · ':'') + 'mailed ' + esc(when(r.mailedAt)) : ''}${r.waAt ? ((res||r.mailedAt)?' · ':'') + 'WhatsApp ' + esc(when(r.waAt)) : ''}</span>
       </div>
     </div>`;
   }).join('');
@@ -248,14 +261,15 @@ async function setStatus(id, resolved, btn){
   r.status = resolved ? 'resolved' : 'open';
   r.resolvedAt = resolved ? Date.now() : null;
   paint();
-  if(resolved) openMail(r);
+  if(resolved) openMsg(r, 'ml', 'resolved');
 }
 
 document.addEventListener('click', e => {
   const b = e.target.closest('button'); if(!b) return;
   if(b.dataset.res) setStatus(b.dataset.res, true, b);
   else if(b.dataset.open) setStatus(b.dataset.open, false, b);
-  else if(b.dataset.mail){ const r = ALL.find(x => x.id === b.dataset.mail); if(r) openMail(r); }
+  else if(b.dataset.mail){ const r = ALL.find(x => x.id === b.dataset.mail); if(r) openMsg(r, 'ml'); }
+  else if(b.dataset.wa){ const r = ALL.find(x => x.id === b.dataset.wa); if(r) openMsg(r, 'wa'); }
 });
 
 /* ── Email: "your issue is resolved" ── */
@@ -266,29 +280,77 @@ function firstName(r){
   if(!w || /^student$/i.test(w)) return 'Student';
   return (w === w.toUpperCase() || w === w.toLowerCase()) ? w[0].toUpperCase() + w.slice(1).toLowerCase() : w;
 }
-function openMail(r){
-  CUR = r;
+/* 10-digit Indian mobile -> 91XXXXXXXXXX; anything else gets no WhatsApp button */
+function waNumber(m){
+  let d = String(m||'').replace(/\D/g,'');
+  if(d.length === 11 && d[0] === '0') d = d.slice(1);
+  if(d.length === 10 && /^[6-9]/.test(d)) return '91' + d;
+  if(d.length === 12 && d.slice(0,2) === '91' && /^[6-9]/.test(d[2])) return d;
+  return '';
+}
+/* the same text goes by email or WhatsApp; email adds a subject */
+function tpl(key, r){
   const name = firstName(r), shown = String(r.message||'').trim();
   const quote = shown.length > 220 ? shown.slice(0, 220) + '…' : shown;
-  $('mTo').value = r.email || r._email || '';
-  $('mSub').value = `${name}, the issue you reported in the TrickySSC app is resolved`;
-  $('mText').value =
-    `Hi ${name},\n\nGreetings from Team TrickySSC.\n\n` +
-    `Thank you for reporting this in the TrickySSC app:\n"${quote}"\n\n` +
-    `We have looked into it and it is now resolved. If you still see the problem, please update the app from Google Play and try again, ` +
-    `or simply reply to this email and we will check it again.\n\n` +
-    `Thank you for helping us make TrickySSC better.\n\nTeam TrickySSC`;
-  say(($('mTo').value ? '' : 'No email on this report — type the student\'s email address.'), 'err');
-  $('mSend').disabled = false; $('mSend').textContent = 'Send email';
+  const head = `Hi ${name},\n\nGreetings from Team TrickySSC.\n\nThank you for reporting this in the TrickySSC app:\n"${quote}"\n\n`;
+  const T = {
+    resolved: [`${name}, the issue you reported in the TrickySSC app is resolved`,
+      head + `We have looked into it and it is now resolved. If you still see the problem, please update the app from Google Play and try again, ` +
+      `or simply reply to this message and we will check it again.\n\nThank you for helping us make TrickySSC better.\n\nTeam TrickySSC`],
+    working: [`${name}, we have received your TrickySSC app report`,
+      head + `We have received it and are working on it. We will let you know as soon as it is fixed.\n\nThank you for your patience.\n\nTeam TrickySSC`],
+    details: [`${name}, a few details about your TrickySSC app report`,
+      head + `To fix this quickly, could you please tell us a little more:\n` +
+      `1. Which test or screen were you on?\n2. What did you see (a screenshot helps a lot)?\n3. Does it happen every time?\n\n` +
+      `Just reply to this message.\n\nTeam TrickySSC`],
+    update: [`${name}, please update the TrickySSC app`,
+      head + `This is fixed in the latest version of the app. Please open Google Play, search TrickySSC and tap Update, then try again.\n\n` +
+      `If you still see the problem after updating, reply to this message and we will check it again.\n\nTeam TrickySSC`],
+    custom: [`${name}, about your TrickySSC app report`, `Hi ${name},\n\n\n\nTeam TrickySSC`]
+  };
+  return T[key] || T.resolved;
+}
+function fillMsg(){
+  if(!CUR) return;
+  const [sub, text] = tpl($('mTpl').value, CUR.r);
+  $('mSub').value = sub; $('mText').value = text;
+}
+function openMsg(r, ch, key){
+  CUR = { r, ch };
+  const wa = ch === 'wa';
+  $('mTitle').textContent = wa ? '💬 WhatsApp the student' : '✉️ Email the student';
+  $('mNote').innerHTML = wa
+    ? 'Send opens WhatsApp Web on this student\'s chat with the message typed. Press <b>Enter</b> there to send. Edit anything first.'
+    : 'Sent from <b>contact@trickyssc.com</b> as soon as you press Send. Edit anything first.';
+  $('mToLbl').textContent = wa ? 'WhatsApp number' : 'To';
+  $('mSubFld').style.display = wa ? 'none' : '';
+  $('mTo').value = wa ? ('+' + waNumber(r.phone || r._phone)) : (r.email || r._email || '');
+  $('mTpl').value = key || (r.status === 'resolved' ? 'resolved' : 'working');
+  fillMsg();
+  say((!wa && !$('mTo').value) ? 'No email on this report — type the student\'s email address.' : '', 'err');
+  $('mSend').disabled = false; $('mSend').textContent = wa ? 'Open in WhatsApp' : 'Send email';
   $('mm').classList.remove('hidden');
 }
+$('mTpl').onchange = fillMsg;
 const closeMail = () => { $('mm').classList.add('hidden'); CUR = null; };
 $('mX').onclick = closeMail;
 document.addEventListener('keydown', e => { if(e.key === 'Escape' && !$('mm').classList.contains('hidden')) closeMail(); });
 
 $('mSend').onclick = async () => {
   if(!CUR) return;
-  const to = $('mTo').value.trim(), subject = $('mSub').value.trim(), text = $('mText').value.trim();
+  const r = CUR.r, text = $('mText').value.trim();
+  if(CUR.ch === 'wa'){
+    const num = waNumber($('mTo').value);
+    if(!num){ say('That does not look like a 10-digit Indian mobile number.', 'err'); return; }
+    if(!text){ say('Message is empty.', 'err'); return; }
+    /* one named tab, reused — WhatsApp Web works in one tab at a time */
+    window.open('https://web.whatsapp.com/send?phone=' + num + '&text=' + encodeURIComponent(text), 'tssc_wa');
+    try{ await updateDoc(doc(db, COLL, r.id), { waAt: serverTimestamp() }); }catch(_){}
+    STATE[r.id] = Object.assign({}, STATE[r.id], { waAt: Date.now() }); saveState();
+    r.waAt = Date.now();
+    closeMail(); paint(); return;
+  }
+  const to = $('mTo').value.trim(), subject = $('mSub').value.trim();
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)){ say('Check the email address.', 'err'); return; }
   if(!subject || !text){ say('Subject and message are needed.', 'err'); return; }
   const user = auth.currentUser; if(!user){ say('Session expired — sign in again.', 'err'); return; }
@@ -303,7 +365,6 @@ $('mSend').onclick = async () => {
     say('Could not send: ' + esc(err.message || err) + '<br>Your text is still here — try again.', 'err');
     return;
   }
-  const r = CUR;
   try{ await updateDoc(doc(db, COLL, r.id), { mailedAt: serverTimestamp(), mailedTo: to }); }catch(_){}
   STATE[r.id] = Object.assign({}, STATE[r.id], { mailedAt: Date.now() }); saveState();
   r.mailedAt = Date.now();
