@@ -347,7 +347,8 @@ async function load() {
   CFG.stu.forEach(e => ROWS.push(mk(e, 'stu', byEmail[e])));
   Object.keys(byEmail).forEach(e => { if (!list.includes(e) && byEmail[e].u.appUser) ROWS.push(mk(e, 'oth', byEmail[e])); });
   others.forEach(r => ROWS.push(mk('', 'oth', r)));
-  ROWS.sort((a, b) => (b.lastUse - a.lastUse) || a.group.localeCompare(b.group) || a.email.localeCompare(b.email));
+  const GO = { own: 0, stu: 1, oth: 2 };                 /* my accounts first, then students, then the rest */
+  ROWS.sort((a, b) => (GO[a.group] - GO[b.group]) || (b.lastUse - a.lastUse) || a.email.localeCompare(b.email));
   say('');
   render();
 }
