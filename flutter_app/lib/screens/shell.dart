@@ -672,6 +672,51 @@ class _HomeTab extends StatelessWidget {
     }
     final resumeNext = next != null && resuming(next);
     String num(int v) => loaded ? '$v' : '–';
+    // "View details" on each card: what is inside, in plain words
+    final passLine = hasPass ? 'Your pass is active, so every one of them is open for you.' : 'Mocks 1 to ${exam.free} are free. The ${exam.name} pass opens all of them for 1 year.';
+    final subj = subjectChoices(exam).map((x) => x.$2).join(', ');
+    final dMocks = [
+      '${exam.mocks}, full length, on the latest ${exam.name} pattern.',
+      if (exam.meta.isNotEmpty) 'Each mock: ${exam.meta}, the same as the real exam.',
+      if (loaded) '$live mocks are live now; new ones keep being added.',
+      passLine,
+      'Hindi and English, with a solution for every question.',
+      'After each test: your score, accuracy, time taken and section-wise analysis.',
+      'Leave a test half-way and resume it later from the same question.',
+    ];
+    final dPyq = [
+      'Real question papers from previous ${exam.name} exams, exactly as asked.',
+      'Attempt the full paper on the real exam clock.',
+      if (exam.secTests.isEmpty && subj.isNotEmpty) 'Or attempt just one subject of a paper: $subj.',
+      'Hindi and English, with solutions.',
+      'Free for everyone.',
+    ];
+    final dChap = [
+      'Short practice tests for every chapter of every subject.',
+      'Two levels: Level 1 to build the basics, Level 2 at real exam level.',
+      'Solutions after every test, so you learn the method.',
+      'Best for fixing weak topics you find in mocks.',
+      'Free for everyone.',
+    ];
+    final dChapPyq = [
+      'Previous year questions sorted chapter by chapter.',
+      'See exactly what the exam asks from each topic, and how often.',
+      'Solutions with every question.',
+      'Free for everyone.',
+    ];
+    final dSub = [
+      'One section of a full mock on its own shorter timer.',
+      if (subj.isNotEmpty) 'Sections: $subj.',
+      'Good for daily practice when you do not have time for a full mock.',
+      'Your score is saved separately from the full mock.',
+      hasPass ? 'Your pass is active, so every section of every mock is open.' : 'Free for Mocks 1 to ${exam.free}; the pass opens the rest.',
+    ];
+    final dCa = [
+      'Daily current affairs, updated every day.',
+      'Topic-wise collections: read a topic, then attempt a short test on it.',
+      'Covers the questions asked in the GK section of the exam.',
+      'Free for everyone.',
+    ];
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
       child: Column(
@@ -735,17 +780,17 @@ class _HomeTab extends StatelessWidget {
             child: Column(children: [
               Expanded(
                 child: Row(children: [
-                  _Tile('target', 'Mock tests', exam.mocks, exam.c1, onMocks, tag: hasPass ? const SoftTag.premium() : SoftTag('${exam.free} FREE', const Color(0xFF047857), const Color(0xFFD1FAE5))),
+                  _Tile('target', 'Mock tests', exam.mocks, exam.c1, onMocks, details: dMocks, tag: hasPass ? const SoftTag.premium() : SoftTag('${exam.free} FREE', const Color(0xFF047857), const Color(0xFFD1FAE5))),
                   const SizedBox(width: 8),
-                  _Tile('paper', 'Previous year papers', 'Real exam papers', exam.c1, onPyq, tag: const SoftTag.free()),
+                  _Tile('paper', 'Previous year papers', 'Real exam papers', exam.c1, onPyq, details: dPyq, tag: const SoftTag.free()),
                 ]),
               ),
               const SizedBox(height: 8),
               Expanded(
                 child: Row(children: [
-                  _Tile('book', 'Chapter tests', '2 levels', exam.c1, onChapters, tag: const SoftTag.free()),
+                  _Tile('book', 'Chapter tests', '2 levels', exam.c1, onChapters, details: dChap, tag: const SoftTag.free()),
                   const SizedBox(width: 8),
-                  _Tile('folder', 'Chapter PYQs', 'Real questions', exam.c1, onChapterPyq, tag: const SoftTag.free()),
+                  _Tile('folder', 'Chapter PYQs', 'Real questions', exam.c1, onChapterPyq, details: dChapPyq, tag: const SoftTag.free()),
                 ]),
               ),
               const SizedBox(height: 8),
@@ -753,10 +798,10 @@ class _HomeTab extends StatelessWidget {
                 child: Row(children: [
                   // TSSC-SM-APP-V1: an exam with no subject mocks (RRB Station Master) shows no Subject mocks tile
                   if (exam.hasSubjectMocks) ...[
-                    _Tile('puzzle', 'Subject mocks', 'Sectional', exam.c1, onSubjects, tag: hasPass ? const SoftTag.premium() : SoftTag('${exam.free} FREE', const Color(0xFF047857), const Color(0xFFD1FAE5))),
+                    _Tile('puzzle', 'Subject mocks', 'Sectional', exam.c1, onSubjects, details: dSub, tag: hasPass ? const SoftTag.premium() : SoftTag('${exam.free} FREE', const Color(0xFF047857), const Color(0xFFD1FAE5))),
                     const SizedBox(width: 8),
                   ],
-                  _Tile('news', 'Current affairs', 'Daily · Topic-wise', exam.c1, onCa, tag: const SoftTag.free()),
+                  _Tile('news', 'Current affairs', 'Daily · Topic-wise', exam.c1, onCa, details: dCa, tag: const SoftTag.free()),
                 ]),
               ),
             ]),
@@ -796,7 +841,54 @@ class _Tile extends StatelessWidget {
   final Color accent;
   final VoidCallback onTap;
   final Widget? tag;
-  const _Tile(this.icon, this.title, this.sub, this.accent, this.onTap, {this.tag});
+  final List<String>? details;
+  const _Tile(this.icon, this.title, this.sub, this.accent, this.onTap, {this.tag, this.details});
+
+  void _showDetails(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (c) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 14, 20, 16),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: const Color(0xFFE2E8F0), borderRadius: BorderRadius.circular(4)))),
+            const SizedBox(height: 14),
+            Row(children: [
+              Container(width: 48, height: 48, alignment: Alignment.center, decoration: softWell(), child: Icon3D(icon, size: 36)),
+              const SizedBox(width: 12),
+              Expanded(child: Text(title, style: baloo(21))),
+              if (tag != null) tag!,
+            ]),
+            const SizedBox(height: 12),
+            for (final l in details!)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 9),
+                child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Padding(padding: const EdgeInsets.only(top: 2), child: Icon(Icons.check_circle_rounded, size: 18, color: accent)),
+                  const SizedBox(width: 10),
+                  Expanded(child: Text(l, style: const TextStyle(fontSize: 15, height: 1.4, color: softInk))),
+                ]),
+              ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                style: FilledButton.styleFrom(backgroundColor: accent, padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+                onPressed: () {
+                  Navigator.pop(c);
+                  onTap();
+                },
+                child: Text('Open $title', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+              ),
+            ),
+          ]),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -819,7 +911,18 @@ class _Tile extends StatelessWidget {
                 const Spacer(),
                 Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: baloo(18)),
                 const SizedBox(height: 2),
-                Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 14, color: accent, fontWeight: FontWeight.w800)),
+                Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                  Expanded(child: Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 14, color: accent, fontWeight: FontWeight.w800))),
+                  if (details != null)
+                    InkWell(
+                      borderRadius: BorderRadius.circular(8),
+                      onTap: () => _showDetails(context),
+                      child: const Padding(
+                        padding: EdgeInsets.fromLTRB(6, 4, 0, 0),
+                        child: Text('View details ›', style: TextStyle(fontSize: 12, color: softMuted, fontWeight: FontWeight.w800, decoration: TextDecoration.underline)),
+                      ),
+                    ),
+                ]),
               ]),
             ),
           ),
