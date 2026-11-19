@@ -36,6 +36,7 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   int _tab = 0;
   int _tier = 1;
+  String _mockSub = ''; // Mocks tab: the subject picked ('' = full mocks)
   String _name = 'Student';
   Set<String> _owned = <String>{};
   Set<String> _attempted = <String>{};
@@ -406,7 +407,25 @@ class _AppShellState extends State<AppShell> {
             onSoon: _soon,
           ),
           PlansTab(exam: exam, owned: _owned),
+          if (_mockSub.isNotEmpty && _tier == 1 && _mocks != null)
+            // Mocks tab, one subject picked: the subject-wise list, with a "Full mock" chip to come back
+            SubjectMocksScreen(
+              key: ValueKey('mock-sub-${exam.id}'),
+              embedded: true,
+              initialSubject: _mockSub,
+              onFull: () => setState(() => _mockSub = ''),
+              user: widget.user,
+              exam: exam,
+              mocks: _mocks ?? const [],
+              hasPass: _hasPass,
+              paid: _owned.isNotEmpty,
+              attempted: _attempted,
+              onReturn: _afterTest,
+              onBuy: () => _buy(),
+            )
+          else
           _MocksTab(
+            onSubject: (k) => setState(() => _mockSub = k),
             exam: exam,
             mocks: _mocks,
             failed: _mocksFailed,
@@ -757,12 +776,14 @@ class _MocksTab extends StatelessWidget {
   final bool Function(MockItem) isOpen;
   final bool Function(MockItem) resuming;
   final void Function(int) onTier;
+  final void Function(String) onSubject;
   final void Function(MockItem) onStart;
   final void Function(MockItem) onRetake;
   final void Function(String) onSoon;
   final VoidCallback onRetry;
   final Map<String, Map<String, dynamic>> last;
   const _MocksTab({
+    required this.onSubject,
     required this.last,
     required this.onRetake,
     required this.exam,
@@ -835,6 +856,18 @@ class _MocksTab extends StatelessWidget {
               ),
             ),
           ]),
+        ),
+      // subject-wise mocks: the same chips as the PYQ tab (Tier 1 only)
+      if (tier == 1 && list.isNotEmpty && subjectChoices(exam).isNotEmpty)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: SizedBox(
+            height: 46,
+            child: ListView(scrollDirection: Axis.horizontal, children: [
+              SoftChip('Full mock', true, exam.c1, () {}),
+              for (final s in subjectChoices(exam)) SoftChip(s.$2, false, exam.c1, () => onSubject(s.$1)),
+            ]),
+          ),
         ),
     ];
     if (list.isEmpty) {
