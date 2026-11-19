@@ -325,10 +325,15 @@ class _CaTopicTestsScreenState extends State<CaTopicTestsScreen> {
   CaPool? _pool;
   bool _failed = false;
   late Set<String> _attempted = widget.attempted;
+  Map<String, List<String>> _paused = {};
+  void _loadPaused() => loadInProgress(widget.user.uid).then((r) {
+        if (mounted) setState(() => _paused = r);
+      });
 
   @override
   void initState() {
     super.initState();
+    _loadPaused();
     _load();
   }
 
@@ -345,7 +350,10 @@ class _CaTopicTestsScreenState extends State<CaTopicTestsScreen> {
   Future<void> _open(CaTest t) async {
     final exam = widget.exam, pool = _pool!;
     var lang = t.en.isNotEmpty ? 'en' : 'hi';
-    if (t.en.isNotEmpty && t.hi.isNotEmpty) {
+    final saved = _paused[cwLbKey(pool.keyId, 1, t.num)];
+    if (saved != null) {
+      lang = saved[0];
+    } else if (t.en.isNotEmpty && t.hi.isNotEmpty) {
       final picked = await showModalBottomSheet<String>(
         context: context,
         backgroundColor: Colors.white,
@@ -389,6 +397,7 @@ class _CaTopicTestsScreenState extends State<CaTopicTestsScreen> {
     widget.onReturn();
     final a = await loadAttempted(widget.user.uid);
     if (mounted) setState(() => _attempted = a);
+    _loadPaused();
   }
 
   String _span(CaTest t) {
@@ -438,7 +447,8 @@ class _CaTopicTestsScreenState extends State<CaTopicTestsScreen> {
                               title: 'Test ${t.num}',
                               tags: [done ? const SoftTag.done() : const SoftTag.free()],
                               meta: '${span.isEmpty ? '' : '$span · '}${t.count} Qs${t.hi.isNotEmpty && t.en.isNotEmpty ? ' · EN · हिंदी' : ''}',
-                              action: done ? 'Retake' : 'Start',
+                              action: _paused.containsKey(cwLbKey(pool.keyId, 1, t.num)) ? 'Resume' : (done ? 'Re-attempt' : 'Start'),
+                              resume: _paused.containsKey(cwLbKey(pool.keyId, 1, t.num)),
                               accent: exam.c1,
                               onTap: () => _open(t),
                             );

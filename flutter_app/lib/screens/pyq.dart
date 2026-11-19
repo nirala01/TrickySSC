@@ -154,6 +154,7 @@ class _PyqTabState extends State<PyqTab> {
     super.initState();
     _load();
     _loadSub();
+    _loadSubPaused();
   }
 
   List<(String, String)> get _subjects {
@@ -196,7 +197,11 @@ class _PyqTabState extends State<PyqTab> {
 
   bool get _sub => _subject.isNotEmpty && _tier == 1;
   bool _done(PyqPaper p) => _sub ? _subDone.contains('${p.base}__$_subject') : (widget.attempted.contains(p.en) || widget.attempted.contains(p.hi));
-  bool _paused(PyqPaper p) => !_sub && widget.resume.containsKey(p.base);
+  Map<String, List<String>> _subPaused = {};
+  void _loadSubPaused() => loadInProgress(widget.user.uid).then((r) {
+        if (mounted) setState(() => _subPaused = r);
+      });
+  bool _paused(PyqPaper p) => _sub ? _subPaused.containsKey('${p.base}__$_subject') : widget.resume.containsKey(p.base);
 
   Future<void> _start(PyqPaper p) async {
     final exam = widget.exam;
@@ -204,7 +209,7 @@ class _PyqTabState extends State<PyqTab> {
     String partD = lang;
     final both = p.en.isNotEmpty && p.hi.isNotEmpty;
     final sub = _sub ? _subject : '';
-    final saved = sub.isEmpty ? widget.resume[p.base] : null;
+    final saved = sub.isEmpty ? widget.resume[p.base] : _subPaused['${p.base}__$sub'];
     if (saved != null) {
       lang = saved[0];
       partD = saved[1].isEmpty ? lang : saved[1];
@@ -301,6 +306,7 @@ class _PyqTabState extends State<PyqTab> {
     ));
     widget.onReturn();
     if (sub.isNotEmpty) _loadSub();
+    _loadSubPaused();
   }
 
   @override

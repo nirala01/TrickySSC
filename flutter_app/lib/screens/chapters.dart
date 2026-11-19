@@ -297,10 +297,15 @@ class _ChapterTestsScreenState extends State<ChapterTestsScreen> {
   Map<int, Map<int, Set<String>>>? _by; // level -> test -> {en, hi}
   bool _failed = false;
   late Set<String> _attempted = widget.attempted;
+  Map<String, List<String>> _paused = {}; // tests left half-way: key -> [lang, partD]
+  void _loadPaused() => loadInProgress(widget.user.uid).then((r) {
+        if (mounted) setState(() => _paused = r);
+      });
 
   @override
   void initState() {
     super.initState();
+    _loadPaused();
     _load();
   }
 
@@ -330,7 +335,10 @@ class _ChapterTestsScreenState extends State<ChapterTestsScreen> {
   Future<void> _open(int lv, int tn, Set<String> langs) async {
     final exam = widget.exam;
     var lang = langs.contains('en') ? 'en' : 'hi';
-    if (langs.length > 1) {
+    final saved = _paused[cwLbKey(widget.chapter.id, lv, tn)];
+    if (saved != null) {
+      lang = saved[0]; // resume in the language it was started in
+    } else if (langs.length > 1) {
       final picked = await showModalBottomSheet<String>(
         context: context,
         backgroundColor: Colors.white,
@@ -380,6 +388,7 @@ class _ChapterTestsScreenState extends State<ChapterTestsScreen> {
     widget.onReturn();
     final a = await loadAttempted(widget.user.uid);
     if (mounted) setState(() => _attempted = a);
+    _loadPaused();
   }
 
   @override
@@ -434,6 +443,7 @@ class _ChapterTestsScreenState extends State<ChapterTestsScreen> {
                   Builder(builder: (_) {
                     final langs = by[lv.$1]![tn]!;
                     final isDone = _attempted.contains(cwLbKey(ch.id, lv.$1, tn));
+                    final isPaused = _paused.containsKey(cwLbKey(ch.id, lv.$1, tn));
                     return Material(
                       color: Colors.transparent,
                       child: Ink(
@@ -448,6 +458,9 @@ class _ChapterTestsScreenState extends State<ChapterTestsScreen> {
                               const SizedBox(height: 4),
                               isDone ? const SoftTag.done() : const SoftTag.free(),
                               const SizedBox(height: 4),
+                              Text(isPaused ? 'Resume ›' : (isDone ? 'Re-attempt ›' : 'Start ›'),
+                                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w900, color: isPaused ? const Color(0xFFD97706) : exam.c1)),
+                              const SizedBox(height: 2),
                               Text(langs.length > 1 ? 'EN · हिंदी' : (langs.contains('hi') ? 'हिंदी' : 'English'), style: const TextStyle(fontSize: 12, color: softMuted, fontWeight: FontWeight.w700)),
                             ]),
                           ),

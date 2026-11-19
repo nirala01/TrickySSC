@@ -612,11 +612,19 @@ Future<Map<String, List<String>>> loadInProgress(String uid) async {
         }
         final rest = k.substring(pre.length);
         final cut = rest.lastIndexOf('_');
-        final mockId = rest.substring(0, cut), partD = rest.substring(cut + 1);
+        var mockId = rest.substring(0, cut);
+        final partD = rest.substring(cut + 1);
+        // one subject section ("<base>_<lang>__<subject>") is listed as "<base>__<subject>"
+        var tail = '';
+        final ss = mockId.indexOf('__');
+        if (ss > 0) {
+          tail = mockId.substring(ss);
+          mockId = mockId.substring(0, ss);
+        }
         final lc = mockId.lastIndexOf('_');
         final lang = mockId.substring(lc + 1);
         if (lang != 'en' && lang != 'hi') continue;
-        out[mockId.substring(0, lc)] = [lang, partD];
+        out[mockId.substring(0, lc) + tail] = [lang, partD];
       } catch (_) {}
     }
   } catch (_) {}

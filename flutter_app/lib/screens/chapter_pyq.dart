@@ -246,10 +246,15 @@ class _TestsScreenState extends State<_TestsScreen> {
   List<(int, List<PyqRef>)>? _sets;
   bool _failed = false;
   late Set<String> _attempted = widget.attempted;
+  Map<String, List<String>> _paused = {};
+  void _loadPaused() => loadInProgress(widget.user.uid).then((r) {
+        if (mounted) setState(() => _paused = r);
+      });
 
   @override
   void initState() {
     super.initState();
+    _loadPaused();
     _load();
   }
 
@@ -274,7 +279,10 @@ class _TestsScreenState extends State<_TestsScreen> {
   Future<void> _open(int n, List<PyqRef> refs) async {
     final exam = widget.exam, ch = widget.ch;
     var lang = 'en';
-    if (ch.hi && refs.any((r) => r.hi.isNotEmpty)) {
+    final saved = _paused[_key(n)];
+    if (saved != null) {
+      lang = saved[0];
+    } else if (ch.hi && refs.any((r) => r.hi.isNotEmpty)) {
       final picked = await showModalBottomSheet<String>(
         context: context,
         backgroundColor: Colors.white,
@@ -318,6 +326,7 @@ class _TestsScreenState extends State<_TestsScreen> {
     widget.onReturn();
     final a = await loadAttempted(widget.user.uid);
     if (mounted) setState(() => _attempted = a);
+    _loadPaused();
   }
 
   @override
@@ -359,7 +368,8 @@ class _TestsScreenState extends State<_TestsScreen> {
                           title: 'Test ${s.$1}',
                           tags: [const SoftTag.free(), if (isDone) const SoftTag.done()],
                           meta: '${s.$2.length} Qs · ${first == last ? first : '$first → $last'}',
-                          action: isDone ? 'Retake' : 'Start',
+                          action: _paused.containsKey(_key(s.$1)) ? 'Resume' : (isDone ? 'Re-attempt' : 'Start'),
+                          resume: _paused.containsKey(_key(s.$1)),
                           accent: exam.c1,
                           onTap: () => _open(s.$1, s.$2),
                         );

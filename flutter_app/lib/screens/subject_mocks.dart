@@ -54,6 +54,7 @@ class _SubjectMocksScreenState extends State<SubjectMocksScreen> {
   @override
   void initState() {
     super.initState();
+    _loadPaused();
     _loadLast();
   }
 
@@ -71,6 +72,12 @@ class _SubjectMocksScreenState extends State<SubjectMocksScreen> {
 
   List<(String, String, IconData, Color)> get _subjects => subjectChoices(widget.exam);
 
+  Map<String, List<String>> _paused = {}; // sections left half-way: "<base>__<subject>" -> [lang, partD]
+  void _loadPaused() => loadInProgress(widget.user.uid).then((r) {
+        if (mounted) setState(() => _paused = r);
+      });
+  bool _isPaused(MockItem m) => _paused.containsKey('${mockBase(widget.exam, m)}__$_subject');
+
   bool _open(MockItem m) => widget.hasPass || m.n <= widget.exam.free;
 
   bool _done(MockItem m) {
@@ -85,7 +92,10 @@ class _SubjectMocksScreenState extends State<SubjectMocksScreen> {
       return;
     }
     var lang = m.en ? 'en' : 'hi';
-    if (m.en && m.hi) {
+    final saved = _paused['${mockBase(exam, m)}__$_subject'];
+    if (saved != null) {
+      lang = saved[0];
+    } else if (m.en && m.hi) {
       final picked = await showModalBottomSheet<String>(
         context: context,
         backgroundColor: Colors.white,
@@ -131,6 +141,7 @@ class _SubjectMocksScreenState extends State<SubjectMocksScreen> {
     final a = await loadAttempted(widget.user.uid);
     if (mounted) setState(() => _attempted = a);
     _loadLast();
+    _loadPaused();
   }
 
   String _label() => _subjects.firstWhere((s) => s.$1 == _subject).$2;
@@ -178,7 +189,7 @@ class _SubjectMocksScreenState extends State<SubjectMocksScreen> {
     final exam = widget.exam;
     final open = _open(m), done = _done(m), free = m.n <= exam.free;
     final a = _last['${mockBase(exam, m)}__$_subject'];
-    final state = !open ? RowState.locked : (done ? RowState.done : RowState.todo);
+    final state = !open ? RowState.locked : (_isPaused(m) ? RowState.progress : (done ? RowState.done : RowState.todo));
     final mins = subjectMockMinutes('${exam.id}_', _subject);
     final langs = [if (m.en) 'EN', if (m.hi) 'हिंदी'].join(', ');
     final title = 'Mock ${m.n.toString().padLeft(2, '0')} · ${_label()}';
