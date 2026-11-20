@@ -1357,7 +1357,7 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#F0F4F8;min-height:10
     <!-- TSSC:PYQ-MOCKOFFER (TSSC-PYQCARDS-V1) — mock test series & plans, filled by tsscRenderPlans() after a PYQ attempt (never on a mock) -->
     <div id="cwMockOffer"></div>
     <div class="gz-row">   <!-- TSSC-GLITZ-V1 -->
-      <button class="btn btn-next" id="goDashboardBtn" style="margin-top:24px;padding:12px 32px;" onclick="window.location='https://trickyssc.com/dashboard.html'" disabled>Saving result...</button>
+      <button class="btn btn-next" id="goDashboardBtn" style="margin-top:24px;padding:12px 32px;" onclick="window.location=window.__tsscAfter||'https://trickyssc.com/test-analysis.html'" disabled>Saving result...</button>
       <a id="viewRankBtn" href="#" style="display:none;margin-top:12px;margin-left:8px;padding:12px 28px;border-radius:10px;background:#FFF3E8;color:#FF6B00;font-weight:700;font-size:14px;text-decoration:none;border:1.5px solid #FFD9B8;">🏆 View Rank &amp; Leaderboard</a>
     </div>
     <a id="subjBackBtn" href="https://trickyssc.com/rrb-ntpc-pyq.html" style="display:none;margin:12px auto 0;padding:11px 26px;border-radius:12px;border:1.5px solid #FF6B00;color:#FF6B00;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:15px;text-decoration:none;">← More subject-wise PYQ tests</a>
@@ -2140,6 +2140,7 @@ function tsscReviewFinish(){
     if(t&&!isNaN(t)) when=t.toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'});
   }catch(_){}
   setSaveUi('saved','📖 Reviewing your attempt'+(when?' of '+when:'')+' — nothing is saved or counted again.');
+  window.__tsscAfter='https://trickyssc.com/dashboard.html';   /* TSSC-SPLIT-V1: review mode still goes back to the dashboard */
   const go=document.getElementById('goDashboardBtn'); if(go) go.textContent='← Back to Dashboard';
   document.querySelectorAll('#resultScreen .rc-card,#resultScreen .rate-card,#resultScreen #rateCard').forEach(el=>{ el.style.display='none'; });
   try{ document.title='Review · '+(document.getElementById('examTitle')?.textContent||'Attempt'); }catch(_){}
@@ -2844,6 +2845,8 @@ function setSaveUi(state,msg){
 
 async function persistAttempt(payload,attemptId){
   await setDoc(doc(db,'attempts',attemptId),payload,{merge:true});
+  /* TSSC-SPLIT-V1: the result-screen button opens the analysis of THIS attempt (test-analysis.html), not the dashboard */
+  window.__tsscAfter='https://trickyssc.com/test-analysis.html?id='+encodeURIComponent(attemptId);
   const userRef=doc(db,'users',payload.uid);
   const userSnap=await getDoc(userRef);
   if(userSnap.exists()){
