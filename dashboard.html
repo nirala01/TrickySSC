@@ -4,6 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>My Dashboard — TrickySSC</title>
+<!-- TSSC-SPLIT-V1 (2026-11-20): dashboard.html = everything across all tests; test-analysis.html = one test.
+     Both files are the SAME code. The only difference is the page flag on the next line (and the <title>).
+     When you edit one, make the same edit in the other. -->
+<script>window.TSSC_PAGE='dashboard';document.documentElement.className+=' pg-'+window.TSSC_PAGE;</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Baloo+2:wght@700;800&family=Hind:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -547,7 +551,8 @@
   .hero{display:grid;grid-template-columns:1fr 1.05fr;gap:1rem;margin-bottom:1rem;}
   .hero-card{border-radius:18px;padding:1.4rem 1.6rem;position:relative;overflow:hidden;min-height:196px;}
   .hero-score-card{background:linear-gradient(180deg,#fff 30%,#FFF7ED);border:1px solid var(--border);}
-  .hero-score small{display:block;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.95rem;color:#334155;}
+  .hero-score small{display:block;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1.2rem;line-height:1.25;color:var(--dark);}
+  .hero-score small .hs-k{display:block;font-size:.74rem;letter-spacing:.8px;text-transform:uppercase;color:var(--gray);margin-bottom:.2rem;}
   .hero-score>b{display:block;font-family:'Baloo 2',cursive;line-height:1;margin:.55rem 0 .25rem;color:var(--orange);}
   .hero-score #bsMarks{font-size:4rem;}
   .hero-score #bsMax{font-size:1.3rem;color:#94A3B8;}
@@ -592,8 +597,9 @@
   .qtable tr:last-child td{border-bottom:none;}
   .qtable td:first-child{border-left:none;padding:0 .9rem 0 1.25rem;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.98rem;color:var(--dark);white-space:nowrap;}
   .qtable th:first-child{padding-left:1.25rem;}
+  .th-s{display:none;}
   .qsub{display:inline-flex;align-items:center;gap:.55rem;}
-  .qsub i{width:10px;height:10px;border-radius:3px;background:var(--c,#1A202C);}
+  .qsub i{flex:0 0 auto;width:10px;height:10px;border-radius:3px;background:var(--c,#1A202C);}
   .bcell{position:relative;height:52px;display:flex;align-items:center;gap:.25rem;padding:0 .9rem;white-space:nowrap;}
   .bcell>i{position:absolute;left:0;top:0;bottom:0;width:var(--w,0%);background:rgba(15,23,42,.07);background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--c,#1A202C) 22%,transparent));border-right:2px solid var(--c,#1A202C);}
   .bcell>i.z{display:none;}
@@ -629,7 +635,8 @@
     .hbtn{font-size:1rem;padding:.62rem 1.35rem;}
     .hero{gap:1.25rem;margin-bottom:1.25rem;}
     .hero-card{padding:1.8rem 2.1rem;min-height:16rem;border-radius:1.25rem;}
-    .hero-score small{font-size:1.15rem;}
+    .hero-score small{font-size:1.4rem;}
+    .hero-score small .hs-k{font-size:.8rem;}
     .hero-score #bsMarks{font-size:5.8rem;}
     .hero-score #bsMax{font-size:1.8rem;}
     .hero-score em{font-size:.92rem;}
@@ -658,10 +665,15 @@
     .attempts-table td{font-size:.9rem;}.attempts-table th{font-size:.74rem;}
     .att-tab{font-size:.96rem;padding:.6rem 1.15rem;}
   }
-  /* the "Showing" test picker — large, same height as the buttons beside it */
-  .head-scope .scope-pick{font-size:1rem;gap:.6rem;}
-  .head-scope .scope-pick .cat-sel{font-size:1rem;font-weight:700;color:var(--dark);padding:.58rem .9rem;border:1px solid #CBD5E1;border-radius:100px;background:#fff;max-width:min(78vw,30rem);cursor:pointer;}
-  .head-scope .scope-pick .cat-sel:hover,.head-scope .scope-pick .cat-sel:focus{border-color:var(--orange);outline:none;}
+  /* test picker (TSSC-DASHNAV-V2): no "Showing" label */
+  .side-scope{margin-top:.55rem;}
+  .side-scope .scope-pick{display:flex;width:100%;max-width:100%;}
+  .side-scope .cat-sel{flex:1 1 auto;min-width:0;width:100%;max-width:100%;font-size:.88rem;font-weight:700;color:var(--dark);padding:.5rem .6rem;border:1px solid #CBD5E1;border-radius:.6rem;background:#F8FAFC;text-overflow:ellipsis;cursor:pointer;}
+  .side-scope:has(.scope-pick:not([style*="none"]))+.side-sub{display:none;}
+  .head-scope:empty{display:none;}
+  .head-scope .scope-pick{font-size:1rem;display:flex;}
+  .head-scope .scope-pick .cat-sel{font-size:.95rem;font-weight:700;color:var(--dark);padding:.5rem .8rem;border:1px solid #CBD5E1;border-radius:100px;background:#fff;max-width:min(78vw,30rem);text-overflow:ellipsis;cursor:pointer;}
+  .side-scope .cat-sel:hover,.side-scope .cat-sel:focus,.head-scope .scope-pick .cat-sel:hover,.head-scope .scope-pick .cat-sel:focus{border-color:var(--orange);outline:none;}
   @media(max-width:1179px){
     .main{padding-top:0;}
     .shell{grid-template-columns:minmax(0,1fr);gap:1rem;}
@@ -675,14 +687,17 @@
     .snav.active{box-shadow:none;border-color:var(--dark);}
   }
   @media(max-width:900px){
+    .head-actions .hbtn:not(.solid):not(.keep){display:none;}   /* Leaderboard is already in the top bar */
     .stats-row{grid-template-columns:1fr 1fr;}
     .topbar{padding:0 1rem;}.topbar-right{gap:.5rem;}
     .nav-link .nav-label{display:none;}
     .nav-link{padding:.35rem .55rem!important;font-size:1rem!important;line-height:1;}
     .topbar-name{max-width:9rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   }
+  @media(max-width:400px){.topbar{padding:0 .6rem;gap:.3rem;}.topbar-right{gap:.3rem;}.nav-link{padding:.3rem .4rem!important;}.logout-btn{padding:.3rem .5rem;font-size:.75rem;}.topbar-brand{font-size:.95rem;gap:.3rem;}.brand-bolt{width:28px;height:28px;}.topbar .avatar{flex:0 0 30px!important;width:30px;height:30px;font-size:.85rem;}}
+  @media(max-width:340px){.topbar a[href="my-orders.html"]{display:none;}}
   @media(max-width:1400px){.topbar-name{max-width:12rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}}
-  .topbar{gap:.6rem;}.topbar-right{min-width:0;flex-shrink:1;}.logout-btn,.nav-link{flex:0 0 auto;white-space:nowrap;}
+  .topbar{gap:.6rem;}.topbar-right{min-width:0;flex-shrink:1;}.logout-btn,.nav-link{flex:0 0 auto;white-space:nowrap;}.topbar .avatar{flex:0 0 36px;}
   @media(max-width:900px){.hero{grid-template-columns:1fr;}.hero-card{min-height:0;}}
   @media(max-width:760px){#proInner{grid-template-columns:1fr;}}
   @media(max-width:640px){
@@ -690,8 +705,8 @@
     .side{top:56px;padding:.5rem 1rem;margin:0 -1rem;}
     .content-head h1{font-size:1.3rem;}
     .head-scope,.head-scope .scope-pick{max-width:100%;min-width:0;}
-    .head-scope .scope-pick{font-size:.9rem;}
-    .head-scope .scope-pick .cat-sel{font-size:.9rem;max-width:calc(100vw - 6.8rem);}
+    .head-scope .scope-pick{font-size:.88rem;}
+    .head-scope .scope-pick .cat-sel{font-size:.88rem;}
     .hbtn{font-size:.82rem;padding:.4rem .8rem;}
     .hero-card{padding:1.1rem 1.15rem;}
     .hero-score #bsMarks{font-size:3.2rem;}
@@ -701,8 +716,63 @@
     .qt-wrap{margin:0 -.9rem;}
     .qt-wrap.last{margin-bottom:-.9rem;}
     .qtable td:first-child,.qtable th:first-child{padding-left:.9rem;}
+    /* phones: the tables fit the card — no sideways scrolling, short column names */
+    .th-l{display:none;}.th-s{display:inline;}
+    .qtable{min-width:0;table-layout:fixed;}
+    .qtable th{padding:.55rem .4rem;font-size:.7rem;white-space:normal;}
+    .qtable th:first-child{width:31%;}
+    .qtable td:first-child{padding-right:.3rem;white-space:normal;font-size:.84rem;line-height:1.2;}
+    .qsub{gap:.4rem;}.qsub i{width:8px;height:8px;}
+    .bcell{height:48px;padding:0 .4rem;gap:.15rem;}
+    .bcell b{font-size:.9rem;}.bcell small{font-size:.64rem;}
+    .qt5 .bcell{flex-direction:column;align-items:flex-start;justify-content:center;gap:0;line-height:1.15;}
+    .qt5 th:first-child{width:34%;}
+    /* phones: title + Attempt button on one row, test picker full width under them */
+    .content-head{gap:.6rem .6rem;margin-bottom:.9rem;}
+    .content-head h1{flex:1 1 0;min-width:0;order:1;}
+    html.pg-analysis .content-head h1{flex:1 1 100%;}   /* long section names: buttons go on the next row */
+    .head-actions{display:contents;}
+    .head-actions .hbtn{order:2;}
+    .head-actions .hbtn:not(.solid):not(.keep){display:none;}   /* Leaderboard is already in the top bar */
+    .head-scope{order:3;flex:1 1 100%;}
+    .head-scope .scope-pick{display:flex;width:100%;}
+    .head-scope .scope-pick .cat-sel{flex:1 1 auto;min-width:0;max-width:none;padding:.5rem .75rem;}
+    .qtile-l{font-size:.68rem;letter-spacing:.3px;gap:.35rem;}
+    .qt-title{margin-bottom:.55rem;}
     .qchip{width:36px;}
   }
+
+  /* ═══ TSSC-SPLIT-V1 — one code base, two pages: [data-pg] blocks belong to one page only ═══ */
+  html.pg-dashboard [data-pg="analysis"],html.pg-analysis [data-pg="dashboard"]{display:none!important;}
+  .shell[data-view="ready"] [data-v~="ready"]{display:block;}
+  .side-back{display:inline-block;margin-top:.5rem;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.88rem;color:var(--orange);text-decoration:none;}
+  .side-back:hover{text-decoration:underline;}
+  .hero-link{display:inline-block;margin-top:1rem;}
+  @media(min-width:1180px){.an-back{display:none!important;}}   /* desktop has the link in the left menu */
+  .hero-rank{background:linear-gradient(135deg,#1A202C 0%,#0F172A 60%,#1E3A2F 100%);color:#fff;display:flex;flex-direction:column;justify-content:center;}
+  .hero-rank .hr-k{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.8rem;letter-spacing:.8px;text-transform:uppercase;color:rgba(255,255,255,.6);}
+  .hero-rank .hr-big{font-family:'Baloo 2',cursive;font-size:4rem;line-height:1;margin:.5rem 0 .2rem;color:#FFB570;}
+  .hero-rank .hr-big small{font-family:'Rajdhani',sans-serif;font-size:1.2rem;font-weight:700;color:rgba(255,255,255,.55);}
+  .hero-rank .hr-row{display:flex;gap:.5rem 1.6rem;flex-wrap:wrap;margin-top:.9rem;}
+  .hero-rank .hr-row div{line-height:1.2;}
+  .hero-rank .hr-row small{display:block;font-size:.74rem;font-weight:600;color:rgba(255,255,255,.55);}
+  .hero-rank .hr-row b{font-family:'Baloo 2',cursive;font-size:1.3rem;}
+  .hero-rank p{font-size:.9rem;color:rgba(255,255,255,.7);line-height:1.5;margin-top:.5rem;}
+  .hero-rank a{color:#FFB570;font-weight:700;text-decoration:none;font-family:'Rajdhani',sans-serif;}
+  .trend{position:relative;height:11rem;margin:.4rem 0 .3rem;}
+  .trend svg{display:block;width:100%;height:100%;overflow:visible;}
+  .trend .t-line{fill:none;stroke:var(--orange);stroke-width:2.5;stroke-linejoin:round;stroke-linecap:round;vector-effect:non-scaling-stroke;}
+  .trend .t-area{fill:rgba(255,107,0,.10);stroke:none;}
+  .trend .t-avg{stroke:#94A3B8;stroke-width:1.2;stroke-dasharray:5 5;vector-effect:non-scaling-stroke;}
+  .trend .t-cut{stroke:#DC2626;stroke-width:1.2;stroke-dasharray:3 4;vector-effect:non-scaling-stroke;}
+  .trend .t-dot{position:absolute;width:9px;height:9px;margin:-4.5px 0 0 -4.5px;border-radius:50%;background:#fff;border:2px solid var(--orange);}
+  .trend .t-dot.last{background:var(--orange);width:11px;height:11px;margin:-5.5px 0 0 -5.5px;}
+  .trend-ax{display:flex;justify-content:space-between;font-size:.76rem;color:var(--gray);}
+  .att-an{display:inline-block;color:#fff!important;background:var(--dark);border-radius:6px;padding:.1rem .5rem;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.8rem;text-decoration:none;margin-right:.7rem;}
+  .att-an:hover{background:var(--orange);}
+  @media(min-width:901px){.attempts-table td[data-label=""] a.att-an{display:inline-block;margin:0 0 .2rem!important;}}
+  @media(min-width:1180px){.hero-rank .hr-big{font-size:5.4rem;}.hero-rank .hr-row b{font-size:1.5rem;}.hero-rank .hr-row small{font-size:.86rem;}.hero-rank .hr-k{font-size:.86rem;}}
+  @media(max-width:640px){.hero-rank .hr-big{font-size:3rem;}.trend{height:8.5rem;}}
 </style>
 <!-- TSSC-LOGINMODAL-V1: in-place login popup -->
 <script type="module" src="/login-modal.js"></script>
@@ -737,19 +807,24 @@
 
   <aside class="side">
     <div class="side-head">
-      <div class="side-title">My Dashboard</div>
+      <div class="side-title" data-pg="dashboard">My Dashboard</div>
+      <div class="side-title" data-pg="analysis">Test Analysis</div>
+      <div class="side-scope" id="sideScope"></div>
       <div class="side-sub" id="sideSub">Scores, rank and analysis</div>
+      <a class="side-back" data-pg="analysis" href="dashboard.html">← My Dashboard</a>
     </div>
-    <nav class="side-nav" id="sideNav" aria-label="Dashboard sections">
-      <button type="button" class="snav active" data-go="overview"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg><span>Overview</span><i>›</i></button>
-      <button type="button" class="snav" data-go="attempts"><svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg><span>My Tests</span><i>›</i></button>
-      <button type="button" class="snav" data-go="perf"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 15l4-5 4 3 5-7"/></svg><span>Performance Analysis</span><i>›</i></button>
-      <button type="button" class="snav" data-go="rank"><svg viewBox="0 0 24 24"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg><span>Rank &amp; Cut-off</span><i>›</i></button>
-      <button type="button" class="snav" data-go="time"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>Time Analysis</span><i>›</i></button>
-      <button type="button" class="snav" data-go="diff"><svg viewBox="0 0 24 24"><path d="M4 20v-5M10 20V10M16 20V6M22 20H2"/></svg><span>Difficulty Analysis</span><i>›</i></button>
-      <button type="button" class="snav" data-go="chapters"><svg viewBox="0 0 24 24"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 21a2 2 0 0 1 2-2h13v2z"/></svg><span>Chapter Analysis</span><i>›</i></button>
-      <button type="button" class="snav" data-go="qbq"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Qs by Qs Analysis</span><i>›</i></button>
-      <button type="button" class="snav" data-go="profile"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><span>Profile &amp; Orders</span><i>›</i></button>
+    <nav class="side-nav" id="sideNav" aria-label="Sections">
+      <button type="button" class="snav" data-go="overview" data-pg="dashboard"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg><span>Overview</span><i>›</i></button>
+      <button type="button" class="snav" data-go="attempts" data-pg="dashboard"><svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg><span>My Tests</span><i>›</i></button>
+      <button type="button" class="snav" data-go="ready" data-pg="dashboard"><svg viewBox="0 0 24 24"><path d="M4 20v-5M10 20V10M16 20V6M22 20H2"/></svg><span>Exam Readiness</span><i>›</i></button>
+      <button type="button" class="snav" data-go="chapters" data-pg="dashboard"><svg viewBox="0 0 24 24"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 21a2 2 0 0 1 2-2h13v2z"/></svg><span>Chapter Analysis</span><i>›</i></button>
+      <button type="button" class="snav" data-go="profile" data-pg="dashboard"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><span>Profile &amp; Orders</span><i>›</i></button>
+      <button type="button" class="snav" data-go="overview" data-pg="analysis"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg><span>Overview</span><i>›</i></button>
+      <button type="button" class="snav" data-go="perf" data-pg="analysis"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 15l4-5 4 3 5-7"/></svg><span>Performance Analysis</span><i>›</i></button>
+      <button type="button" class="snav" data-go="rank" data-pg="analysis"><svg viewBox="0 0 24 24"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg><span>Rank &amp; Topper</span><i>›</i></button>
+      <button type="button" class="snav" data-go="time" data-pg="analysis"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>Time Analysis</span><i>›</i></button>
+      <button type="button" class="snav" data-go="diff" data-pg="analysis"><svg viewBox="0 0 24 24"><path d="M4 20v-5M10 20V10M16 20V6M22 20H2"/></svg><span>Difficulty Analysis</span><i>›</i></button>
+      <button type="button" class="snav" data-go="qbq" data-pg="analysis"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Qs by Qs Analysis</span><i>›</i></button>
     </nav>
   </aside>
 
@@ -758,9 +833,11 @@
       <h1 id="viewTitle">Overview</h1>
       <div class="head-actions">
         <!-- TSSC-DASHSCOPE-V1: the analysis follows the exam the student took last; this picker switches it -->
-        <span class="head-scope"><label class="scope-pick" id="scopePick" style="display:none;"><span>Showing</span><select class="cat-sel" id="scopeSel"></select></label></span>
-        <a class="hbtn" href="rank.html">Leaderboard</a>
-        <a class="hbtn solid" href="https://trickyssc.com/ssc-cgl-pyq.html">Attempt a PYQ →</a>
+        <span class="head-scope"><label class="scope-pick" id="scopePick" style="display:none;"><select class="cat-sel" id="scopeSel" aria-label="Choose what to analyse"></select></label></span>
+        <a class="hbtn" data-pg="dashboard" href="rank.html">Leaderboard</a>
+        <a class="hbtn solid" data-pg="dashboard" href="https://trickyssc.com/ssc-cgl-pyq.html">Attempt a PYQ →</a>
+        <a class="hbtn keep an-back" data-pg="analysis" href="dashboard.html">← Dashboard</a>
+        <a class="hbtn solid" data-pg="analysis" id="anSolBtn" href="dashboard.html#attempts" style="display:none;">View solutions →</a>
       </div>
     </div>
 
@@ -773,6 +850,7 @@
             <b><span id="bsMarks">—</span><span id="bsMax"></span></b>
             <em id="bsDelta"></em>
             <div class="hero-subj" id="bsSubj"></div>
+            <a class="hbtn hero-link" data-pg="dashboard" id="bsLink" href="test-analysis.html">View full analysis of this test →</a>
           </div>
           <div class="hero-empty">
             <h3>No test in this dashboard yet</h3>
@@ -780,7 +858,8 @@
             <a class="hbtn solid" href="https://trickyssc.com/ssc-cgl-pyq.html">Attempt a PYQ →</a>
           </div>
         </div>
-        <div class="hero-card hero-welcome">
+        <div class="hero-card hero-rank" data-pg="analysis" id="cHeroRank"></div>
+        <div class="hero-card hero-welcome" data-pg="dashboard">
           <div class="banner-glow"></div>
           <div class="welcome-text">
             <h2>Welcome back, <span id="wName">Student</span>! 👋</h2>
@@ -791,31 +870,8 @@
       </div>
     </div>
 
-    <!-- Analysis cards (TSSC-DASHPRO-V1) — each card shows in the view named in its data-v -->
-    <div id="proZone" data-v="overview perf rank time diff chapters qbq">
-      <div id="proEmpty" class="pro-empty">Attempt any test — PYQ, mock, subject-wise or chapter — to see your analysis.</div>
-      <div class="paid" id="proWrap" style="display:none;">
-        <div class="paid-inner" id="proInner">
-          <div class="pcard flat w2" id="cTiles" data-v="overview"></div>
-          <div class="pcard w2" id="cBreak" data-v="perf"></div>
-          <div class="pcard w2" id="cLost" data-v="perf"></div>
-          <div class="pcard" id="cRank" data-v="rank"></div>
-          <div class="pcard" id="cNext" data-v="rank"></div>
-          <div class="pcard w2" id="cCutoff" data-v="rank"></div>
-          <div class="pcard w2" id="cTimeTbl" data-v="time"></div>
-          <div class="pcard w2" id="cTime" data-v="time"></div>
-          <div class="pcard w2" id="cDiff" data-v="diff"></div>
-          <div class="pcard w2" id="cSelect" data-v="diff"></div>
-          <div class="pcard w2" id="cChapters" data-v="chapters"></div>
-          <div class="pcard w2" id="cReady" data-v="chapters"></div>
-          <div class="pcard w2" id="cGrid" data-v="qbq"></div>
-          <div class="pcard w2" id="cErrors" data-v="qbq"></div>
-        </div>
-      </div>
-    </div>
-
     <!-- Overview: all-time numbers -->
-    <div data-v="overview">
+    <div data-v="overview" data-pg="dashboard" style="margin-bottom:1.2rem;">
       <div class="section-head"><div class="section-title">Your journey so far</div></div>
   <div class="stats-row">
     <div class="stat-card s-orange">
@@ -846,8 +902,36 @@
 
     </div>
 
+    <!-- Analysis cards (TSSC-DASHPRO-V1) — each card shows in the view named in its data-v -->
+    <div id="proZone" data-v="overview perf rank time diff chapters qbq ready">
+      <div id="proEmpty" class="pro-empty">Attempt any test — PYQ, mock, subject-wise or chapter — to see your analysis.</div>
+      <div class="paid" id="proWrap" style="display:none;">
+        <div class="paid-inner" id="proInner">
+          <!-- dashboard.html (all tests) -->
+          <div class="pcard w2" id="cTrend" data-v="overview" data-pg="dashboard"></div>
+          <div class="pcard w2" id="cSubjAll" data-v="overview" data-pg="dashboard"></div>
+          <div class="pcard w2" id="cReady" data-v="ready" data-pg="dashboard"></div>
+          <div class="pcard w2" id="cChapters" data-v="chapters" data-pg="dashboard"></div>
+          <!-- both pages: cut-off gap -->
+          <div class="pcard w2" id="cCutoff" data-v="rank ready"></div>
+          <!-- test-analysis.html (one test) -->
+          <div class="pcard flat w2" id="cTiles" data-v="overview" data-pg="analysis"></div>
+          <div class="pcard w2" id="cBreak" data-v="perf" data-pg="analysis"></div>
+          <div class="pcard w2" id="cLost" data-v="perf" data-pg="analysis"></div>
+          <div class="pcard" id="cRank" data-v="rank" data-pg="analysis" style="order:-1"></div>
+          <div class="pcard" id="cNext" data-v="rank" data-pg="analysis" style="order:-1"></div>
+          <div class="pcard w2" id="cTimeTbl" data-v="time" data-pg="analysis"></div>
+          <div class="pcard w2" id="cTime" data-v="time" data-pg="analysis"></div>
+          <div class="pcard w2" id="cDiff" data-v="diff" data-pg="analysis"></div>
+          <div class="pcard w2" id="cSelect" data-v="diff" data-pg="analysis"></div>
+          <div class="pcard w2" id="cGrid" data-v="qbq" data-pg="analysis"></div>
+          <div class="pcard w2" id="cErrors" data-v="qbq" data-pg="analysis"></div>
+        </div>
+      </div>
+    </div>
+
     <!-- My Tests -->
-    <div data-v="attempts">
+    <div data-v="attempts" data-pg="dashboard">
   <div class="attempts-tabs">
     <button class="att-tab active" id="atab-all" onclick="switchAttTab('all')">All <span class="att-count" id="acnt-all">0</span></button>
     <button class="att-tab" id="atab-pyq" onclick="switchAttTab('pyq')">📄 PYQ <span class="att-count" id="acnt-pyq">0</span></button>
@@ -861,7 +945,7 @@
     </div>
 
     <!-- Profile & Orders -->
-    <div data-v="profile">
+    <div data-v="profile" data-pg="dashboard">
   <div class="profile-card">
     <div class="profile-row">
       <div class="profile-avatar" id="profileAvatar">S</div>
@@ -912,21 +996,27 @@
 <script>
 /* TSSC-DASHNAV-V1 — menu switching. #perf, #time … in the URL open that section; the old #pro link opens Performance Analysis. */
 (function(){
-  var T={overview:'Overview',attempts:'My Tests',perf:'Performance Analysis',rank:'Rank & Cut-off',time:'Time Analysis',diff:'Difficulty Analysis',chapters:'Chapter Analysis',qbq:'Qs by Qs Analysis',profile:'Profile & Orders'};
+  var PG=window.TSSC_PAGE||'dashboard';
   var shell=document.getElementById('dashShell'), nav=document.getElementById('sideNav'), title=document.getElementById('viewTitle');
+  var btns=[].slice.call(nav.querySelectorAll('.snav')).filter(function(b){ return b.getAttribute('data-pg')===PG; });
   function go(v,setHash){
-    if(v==='pro') v='perf';
-    if(!T[v]) v='overview';
-    shell.setAttribute('data-view',v); title.textContent=T[v];
-    var btns=nav.querySelectorAll('.snav');
-    for(var i=0;i<btns.length;i++){ var on=btns[i].getAttribute('data-go')===v; btns[i].classList.toggle('active',on);
-      if(on && nav.scrollWidth>nav.clientWidth) nav.scrollLeft=btns[i].offsetLeft-nav.offsetLeft-(nav.clientWidth-btns[i].offsetWidth)/2; }
-    if(setHash){ try{ history.replaceState(null,'','#'+v); }catch(e){} window.scrollTo(0,0); }
+    if(v==='pro') v=(PG==='dashboard')?'ready':'perf';   /* old links to dashboard.html#pro */
+    var hit=null; for(var i=0;i<btns.length;i++) if(btns[i].getAttribute('data-go')===v) hit=btns[i];
+    if(!hit){ hit=btns[0]; v=hit.getAttribute('data-go'); }
+    shell.setAttribute('data-view',v); title.textContent=hit.querySelector('span').textContent;
+    var all=nav.querySelectorAll('.snav'); for(var j=0;j<all.length;j++) all[j].classList.toggle('active',all[j]===hit);
+    if(nav.scrollWidth>nav.clientWidth) nav.scrollLeft=hit.offsetLeft-nav.offsetLeft-(nav.clientWidth-hit.offsetWidth)/2;
+    if(setHash){ try{ history.replaceState(null,'',location.pathname+location.search+'#'+v); }catch(e){} window.scrollTo(0,0); }
   }
   window.tsscDashGo=function(v){ go(v,true); };
   nav.addEventListener('click',function(e){ var b=e.target.closest('.snav'); if(b) go(b.getAttribute('data-go'),true); });
   window.addEventListener('hashchange',function(){ go(location.hash.slice(1),false); });
   go(location.hash.slice(1),false);
+  /* the test picker sits in the left menu on desktop and under the title on tablets/phones */
+  var pick=document.getElementById('scopePick'), sideSlot=document.getElementById('sideScope'), headSlot=document.querySelector('.head-scope');
+  var mq=window.matchMedia('(min-width:1180px)');
+  function place(){ var to=mq.matches?sideSlot:headSlot; if(pick&&to&&pick.parentNode!==to) to.appendChild(pick); }
+  place(); if(mq.addEventListener) mq.addEventListener('change',place); else if(mq.addListener) mq.addListener(place);
 })();
 </script>
 
@@ -1604,7 +1694,7 @@ function renderAttempts(attempts) {
       <td data-label="GA" class="num subj-cell hide-m">${_sm.G!==undefined?_sm.G:'—'}</td>
       <td data-label="Rank" class="num">${_lb?'<span class="dp-rank" data-lb="'+_lb+'"><span style="color:#94A3B8">…</span></span>':'<span style="color:#94A3B8">—</span>'}</td>
       <td data-label="Date" style="color:var(--gray);font-size:0.82rem;">${date}</td>
-      <td data-label="" style="text-align:right;white-space:nowrap;">${_canReview?`<a href="${retryUrl+(retryUrl.includes('?')?'&':'?')+'review='+encodeURIComponent(a.id)}" title="Reopen your answers and the solutions" style="color:#0D9488;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.85rem;text-decoration:none;margin-right:0.9rem;">Review →</a>`:''}<a href="${retryUrl}" style="color:var(--orange);font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.85rem;text-decoration:none;">Retry →</a></td>
+      <td data-label="" style="text-align:right;white-space:nowrap;">${a.id?`<a class="att-an" href="test-analysis.html?id=${encodeURIComponent(a.id)}" title="Full analysis of this test">Analysis</a>`:''}${_canReview?`<a href="${retryUrl+(retryUrl.includes('?')?'&':'?')+'review='+encodeURIComponent(a.id)}" title="Reopen your answers and the solutions" style="color:#0D9488;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.85rem;text-decoration:none;margin-right:0.9rem;">Review →</a>`:''}<a href="${retryUrl}" style="color:var(--orange);font-family:'Rajdhani',sans-serif;font-weight:700;font-size:0.85rem;text-decoration:none;">Retry →</a></td>
     </tr>`;
   }).join('');
 
@@ -1744,7 +1834,24 @@ const lbKey = a => { if(isChapter(a)) return a.lbKey||cwLbKey(a);
   if(a.testKind==='mock-subject' && a.subjectKey){ const b=a.baseMockId||String(a.mockId||'').replace(/__[a-z]+$/i,''); return b ? String(b).replace(/([_\-])(hi|en|hindi|english)$/i,'')+'__'+a.subjectKey : ''; }   /* TSSC-SUBJECT-MOCK-V1 */
   const id=a.paperId||a.mockId||''; return id ? String(id).replace(/([_\-])(hi|en|hindi|english)$/i,'') : ''; };
 const examTier = a => (a.exam||'ssc-cgl')+'|'+(isTier2(a)?'tier2':'tier1');
-function testName(a){ const n=(a.examName||a.exam||'Test').replace(/\s*—.*$/,''); return isChapter(a)?n+' · Level '+(parseInt(a.level)||1)+' · Test '+(parseInt(a.testNum)||1):n; }
+/* TSSC-DASHNAV-V2: the full name of the test as the student saw it (date/shift or mock number kept) */
+function fullTestName(a){
+  const n=String(a.examName||'').replace(/\s+/g,' ').trim() || ((a.exam||'Test')+(a.year?' '+a.year:''));
+  if(isChapter(a)){ const c=a.chapterName||n; return c+(a.type!=='pyq-chapter'&&a.level?' · Level '+(parseInt(a.level)||1):'')+(a.testNum?' · Test '+(parseInt(a.testNum)||1):''); }
+  const subj=(a.testKind==='pyq-subject'||a.testKind==='mock-subject')&&a.subjectKey ? (SUBJ_NAME[skey(a.subjectKey)]||String(a.subjectKey)) : '';
+  const id=String(a.paperId||''); const low=id.toLowerCase(); const bits=[]; let head=n;
+  if(id && !isMock(a)){   // PYQ: the saved name is only "SSC CGL 2025" — tier, date and shift are in the paper id
+    const t=low.match(/tier[-_]?(\d)/); if(t && !/tier/i.test(n)) head+=' Tier '+(t[1]==='2'?'II':'I');
+    const dm=id.match(/(20\d{2})[-_](\d{2})[-_](\d{2})/);
+    if(dm){ const mo=parseInt(dm[2],10), d=parseInt(dm[3],10); const M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; if(mo>=1&&mo<=12&&d>=1&&d<=31) bits.push(d+' '+M[mo-1]+' '+dm[1]); }
+    const sh=low.match(/shift[-_]?(\d)/); if(sh) bits.push('Shift '+sh[1]);
+  }
+  if(subj) bits.push(subj);
+  if(/([_-])(hi|hindi)$/.test((id||String(a.mockId||'')).toLowerCase())) bits.push('Hindi');
+  return [head].concat(bits).join(' · ');
+}
+function testName(a){ if(PAGE==='analysis') return fullTestName(a);   /* TSSC-SPLIT-V1: the analysis page always shows the full name */
+  const n=(a.examName||a.exam||'Test').replace(/\s*—.*$/,''); return isChapter(a)?n+' · Level '+(parseInt(a.level)||1)+' · Test '+(parseInt(a.testNum)||1):n; }
 /* ── TSSC-DASHSCOPE-V1 (2026-09-16) ─────────────────────────────────────────
    The analysis used to be computed over FULL papers only, so a student who had
    just finished a chapter or subject-wise test was shown cards about an older
@@ -1753,6 +1860,10 @@ function testName(a){ const n=(a.examName||a.exam||'Test').replace(/\s*—.*$/,'
    tests — the analysis renders for the scope of the LATEST attempt, and the
    picker in the section head switches between the scopes the student has.   */
 let SCOPE='';
+/* TSSC-SPLIT-V1 — which page this is, and (on test-analysis.html) which attempt is open */
+const PAGE = (window.TSSC_PAGE==='analysis') ? 'analysis' : 'dashboard';
+let SEL_ID = PAGE==='analysis' ? (new URLSearchParams(location.search).get('id')||'') : '';
+function cur(){ if(PAGE==='analysis'){ const a=ATT.find(x=>x.id===SEL_ID); if(a) return a; } return scopeAtt()[0]||ATT[0]||null; }
 function scopeOf(a){
   if(isChapter(a)) return 'ch|'+(a.chapterId||a.chapter||'');
   if((a.testKind==='pyq-subject'||a.testKind==='mock-subject')&&a.subjectKey) return 'subj|'+examTier(a)+'|'+String(a.subjectKey).toLowerCase();
@@ -1769,6 +1880,15 @@ const isChapterScope = () => SCOPE.startsWith('ch|');
 function scopeAtt(){ return ATT.filter(a=>scopeOf(a)===SCOPE); }
 function renderScopeSel(){
   const wrap=$('scopePick'), sel=$('scopeSel'); if(!wrap||!sel) return;
+  if(PAGE==='analysis'){   /* the picker lists TESTS here, newest first */
+    if(!ATT.length){ wrap.style.display='none'; return; }
+    const c=cur(); let list=ATT.slice(0,80); if(c&&!list.includes(c)) list=[c].concat(list);
+    sel.innerHTML=list.map(a=>'<option value="'+esc(a.id)+'"'+(c&&a.id===c.id?' selected':'')+'>'+esc(fullTestName(a))+(tsOf(a)?' — '+new Date(tsOf(a)).toLocaleDateString('en-IN',{day:'numeric',month:'short'}):'')+' ('+n1(marksOf(a))+')</option>').join('');
+    wrap.style.display='';
+    sel.onchange=()=>{ SEL_ID=sel.value; const a=cur(); SCOPE=scopeOf(a); PERF_SEL=''; try{ history.replaceState(null,'',location.pathname+'?id='+encodeURIComponent(SEL_ID)+location.hash); }catch(e){}
+      paintTop(); renderAll(); const k=lbKey(a); if(OWNED&&k&&!LB[k]) fetchRanks([a]).then(()=>{ renderAll(); }).catch(()=>{}); };
+    return;
+  }
   const seen={}; const list=[];            // scopes in order of most recent attempt (ATT is newest-first)
   ATT.forEach(a=>{ const k=scopeOf(a); if(seen[k]){ seen[k].n++; return; } seen[k]={k,a,n:1}; list.push(seen[k]); });
   if(!list.length){ wrap.style.display='none'; return; }
@@ -1800,7 +1920,8 @@ window.tsscProInit = async function(attempts, uid){
   ATT = (attempts||[]).slice().sort((a,b)=>tsOf(b)-tsOf(a));
   UID = uid||'';
   /* TSSC-DASHSCOPE-V1: analyse the exam the student took LAST (chapter, subject-wise or full) */
-  if(!SCOPE || !ATT.some(a=>scopeOf(a)===SCOPE)) SCOPE = ATT.length ? scopeOf(ATT[0]) : '';
+  if(PAGE==='analysis' && ATT.length){ if(!ATT.some(a=>a.id===SEL_ID)) SEL_ID=ATT[0].id; SCOPE=scopeOf(cur()); }
+  else if(!SCOPE || !ATT.some(a=>scopeOf(a)===SCOPE)) SCOPE = ATT.length ? scopeOf(ATT[0]) : '';
   renderScopeSel();
   paintTop();
   const full = ATT.filter(a=>lbKey(a));   /* TSSC-CWRANK-V1: every ranked test, chapter tests included */
@@ -1861,8 +1982,8 @@ function paintTop(){
   const st=$('statStreak'); if(st) st.textContent=streak;
   // banner score — the latest test of the selected scope, compared with the average of that scope (TSSC-DASHSCOPE-V1)
   const sc=scopeAtt();
-  if(sc.length){ const a=sc[0]; const m=marksOf(a), mx=maxOf(a); $('bsMarks').textContent=n1(m); $('bsMax').textContent='/'+mx; $('bsLabel').textContent='Last test · '+testName(a).slice(0,40);
-    const sm=sc.map(marksOf); const avg=sm.length?sm.reduce((x,y)=>x+y,0)/sm.length:m; const df=m-avg; const e=$('bsDelta'); e.textContent=sc.length>1?((df>=0?'▲ ':'▼ ')+n1(Math.abs(df))+' vs your average in these tests'):'your first test of this kind'; e.className=df>=0?'':'down'; $('bannerScore').style.display=''; paintHeroSubj(a); }
+  if(sc.length){ const a=cur()||sc[0]; const m=marksOf(a), mx=maxOf(a); $('bsMarks').textContent=n1(m); $('bsMax').textContent='/'+mx; $('bsLabel').innerHTML='<span class="hs-k">'+(PAGE==='analysis'?(tsOf(a)?'Attempted on '+new Date(tsOf(a)).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'}):'Your score'):'Last test')+'</span>'+esc(fullTestName(a)); const bl=$('bsLink'); if(bl) bl.href='test-analysis.html?id='+encodeURIComponent(a.id||'');
+    const sm=sc.map(marksOf); const avg=sm.length?sm.reduce((x,y)=>x+y,0)/sm.length:m; const df=m-avg; const e=$('bsDelta'); e.textContent=sc.length>1?((df>=0?'▲ ':'▼ ')+n1(Math.abs(df))+' vs your average in these tests'):(PAGE==='analysis'?'your only test of this kind so far':'your first test of this kind'); e.className=df>=0?'':'down'; $('bannerScore').style.display=''; paintHeroSubj(a); }
   else $('bannerScore').style.display='none';
   // goal line: % of the way to GEN cut-off on the latest 5 tier-1 tests
   const g=$('wGoal'); if(g){ const ff=full.filter(isFullPaper); const t1=ff.filter(a=>CUTOFFS[examTier(a)]&&examTier(a)===examTier(ff.find(x=>CUTOFFS[examTier(x)])||a)).slice(0,5); if(t1.length){ const c=CUTOFFS[examTier(t1[0])]; const av=t1.reduce((s,a)=>s+meritMarks(a),0)/t1.length; const p=Math.min(100,Math.round(av/c.cut[CAT]*100)); g.textContent='🎯 '+p+'% of the way to last year\'s '+CAT+' cut-off ('+(c.merit?'Tier II':'Tier I')+')'; } }
@@ -1872,7 +1993,7 @@ function paintTop(){
 function lbCacheGet(k){ try{ const o=JSON.parse(localStorage.getItem('tssc_dp_lb_'+k)||'null'); if(o&&Date.now()-o.ts<LB_RANK_TTL) return o.v; }catch(e){} return null; }
 function lbCacheSet(k,v){ try{ localStorage.setItem('tssc_dp_lb_'+k, JSON.stringify({ts:Date.now(),v})); }catch(e){} }
 async function fetchRanks(full){
-  const keys=[]; const sc=scopeAtt(); if(sc.length&&lbKey(sc[0])) keys.push(lbKey(sc[0]));   /* TSSC-CWRANK-V1: the analysed test first */
+  const keys=[]; const c0=cur(); if(c0&&lbKey(c0)) keys.push(lbKey(c0));   /* TSSC-CWRANK-V1: the analysed test first */
   full.forEach(a=>{ const k=lbKey(a); if(k&&!keys.includes(k)) keys.push(k); });
   const todo=keys.slice(0,MAX_RANKED);
   await Promise.all(todo.map(async k=>{
@@ -1941,10 +2062,16 @@ function renderAll(){
     renderChapters(smp); renderReady(smp); renderTopper(smp[0]); renderTime(smp[0]); renderPerf(smp);
     return;
   }
-  const latest=full[0];
-  renderNavCards(latest, full);   /* TSSC-DASHNAV-V1 */
-  renderRank(latest); renderCutoff(full); renderLost(latest); renderSelect(latest);
-  renderChapters(full); renderReady(full); renderTopper(latest); renderTime(latest); renderPerf(full);
+  if(PAGE==='analysis'){   /* TSSC-SPLIT-V1: one test — the selected attempt first, the rest of its group behind it for the comparisons */
+    const latest=cur(); const grp=[latest].concat(full.filter(x=>x!==latest));
+    renderNavCards(latest, grp);
+    renderRank(latest); renderCutoff(grp); renderLost(latest); renderSelect(latest);
+    renderTopper(latest); renderTime(latest); renderPerf([latest]);
+    return;
+  }
+  /* dashboard: everything across the tests of the selected group — no per-question Firestore reads here */
+  const sub=$('sideSub'); if(sub) sub.textContent=scopeLabel(SCOPE, full[0]);
+  renderTrend(full); renderSubjAll(full); renderCutoff(full); renderChapters(full); renderReady(full);
 }
 /* ───────── TSSC-DASHNAV-V1 — cards added with the left-menu layout ─────────
    Overview tiles, subject breakdown table, time table, difficulty table and the
@@ -1967,13 +2094,54 @@ function paintHeroSubj(a){
 function bcell(v,of,col){ const w=of>0?Math.max(0,Math.min(100,v/of*100)):0; return '<td><div class="bcell" style="--w:'+w.toFixed(1)+'%;--c:'+col+'"><i'+(w<=0?' class="z"':'')+'></i><b>'+n1(v)+'</b><small>/ '+of+'</small></div></td>'; }
 function renderNavCards(a, full){
   const sub=$('sideSub'); if(sub) sub.textContent=scopeLabel(SCOPE, full[0]);
-  renderTiles(a); renderBreak(a); renderTimeTbl(a); renderDiff(a); renderGrid(a);
+  renderTiles(a); renderHeroRank(a); renderBreak(a); renderTimeTbl(a); renderDiff(a); renderGrid(a);
+  const sb=$('anSolBtn'); if(sb){ if(a.id&&answersOf(a).length&&!String(a.id).startsWith('sample')){ const u=testUrl(a); sb.href=u+(u.includes('?')?'&':'?')+'review='+encodeURIComponent(a.id); sb.style.display=''; } else sb.style.display='none'; }
+}
+function renderHeroRank(a){
+  const el=$('cHeroRank'); if(!el) return; const k=lbKey(a); const v=(OWNED&&k)?LB[k]:null; const r=rankOf(v);
+  let h='<div class="hr-k">Leaderboard rank</div>';
+  if(r){ h+='<div class="hr-big">#'+r+'<small> / '+v.total+'</small></div><div class="hr-row"><div><small>Percentile</small><b>'+pctile(v)+'</b></div><div><small>Topper</small><b>'+n1(v.top)+'</b></div><div><small>Average</small><b>'+n1(v.avg)+'</b></div></div><p><a href="rank.html?paper='+encodeURIComponent(k)+(isChapter(a)?'&name='+encodeURIComponent(testName(a)):'')+'">Full leaderboard →</a></p>'; }
+  else if(k&&OWNED&&!v) h+='<div class="hr-big">…</div><p>Loading your rank…</p>';
+  else h+='<div class="hr-big">—</div><p>'+(k?'Your score for this test is not on the leaderboard yet.':'This kind of test has no leaderboard.')+'</p>';
+  el.innerHTML=h;
+}
+/* ───────── TSSC-SPLIT-V1 — dashboard-only cards (all tests of the selected group) ───────── */
+function renderTrend(full){
+  const el=$('cTrend'); if(!el) return; const ch=full.slice(0,20).reverse(); const m=ch.map(marksOf); const mx=maxOf(full[0]);
+  const all=full.map(marksOf); const avg=all.reduce((x,y)=>x+y,0)/all.length; const best=Math.max.apply(null,all);
+  let h='<h4>Score trend <em>'+(ch.length>1?'last '+ch.length+' of '+full.length+' tests':full.length+' test')+' · '+esc(scopeLabel(SCOPE, full[0]))+'</em></h4>';
+  if(ch.length>=2){
+    const ct=CUTOFFS[examTier(full[0])]; const cut=(ct&&isFullPaper(full[0])&&!ct.merit)?ct.cut[CAT]:null;
+    let lo=Math.min.apply(null,m.concat([avg])), hi=Math.max.apply(null,m.concat([avg])); if(cut!=null&&cut<=hi+ (hi-lo)*1.5+10){ hi=Math.max(hi,cut); lo=Math.min(lo,cut); }
+    const pad=Math.max(2,(hi-lo)*0.12); lo-=pad; hi+=pad; const sp=hi-lo||1;
+    const X=i=>i/(m.length-1)*100, Y=v=>(1-(v-lo)/sp)*100;
+    const pts=m.map((v,i)=>X(i).toFixed(2)+','+Y(v).toFixed(2)).join(' ');
+    h+='<div class="trend"><svg viewBox="0 0 100 100" preserveAspectRatio="none"><polygon class="t-area" points="0,100 '+pts+' 100,100"/><line class="t-avg" x1="0" x2="100" y1="'+Y(avg).toFixed(2)+'" y2="'+Y(avg).toFixed(2)+'"/>'+(cut!=null?'<line class="t-cut" x1="0" x2="100" y1="'+Y(cut).toFixed(2)+'" y2="'+Y(cut).toFixed(2)+'"/>':'')+'<polyline class="t-line" points="'+pts+'"/></svg>';
+    h+=m.map((v,i)=>'<i class="t-dot'+(i===m.length-1?' last':'')+'" style="left:'+X(i).toFixed(2)+'%;top:'+Y(v).toFixed(2)+'%" title="'+esc(fullTestName(ch[i]))+' — '+n1(v)+' / '+maxOf(ch[i])+'"></i>').join('')+'</div>';
+    h+='<div class="trend-ax"><span>'+(tsOf(ch[0])?new Date(tsOf(ch[0])).toLocaleDateString('en-IN',{day:'numeric',month:'short'}):'oldest')+'</span><span>'+(tsOf(ch[ch.length-1])?new Date(tsOf(ch[ch.length-1])).toLocaleDateString('en-IN',{day:'numeric',month:'short'}):'latest')+'</span></div>';
+    h+='<div class="lg"><span><i style="background:var(--orange)"></i>Your marks</span><span><i style="background:#94A3B8"></i>Your average '+n1(avg)+'</span>'+(cut!=null?'<span><i style="background:#DC2626"></i>'+CAT+' cut-off '+n1(cut)+'</span>':'')+'</div>';
+  } else h+='<div class="pnote">Take one more test of this kind to see your trend.</div>';
+  h+='<div class="kv" style="margin-top:.6rem"><span>Tests in this group</span><b>'+full.length+'</b></div><div class="kv"><span>Average marks</span><b>'+n1(avg)+' / '+mx+'</b></div><div class="kv"><span>Best marks</span><b>'+n1(best)+' / '+mx+'</b></div>';
+  if(full.length>=6){ const l5=full.slice(0,5).reduce((x,a)=>x+marksOf(a),0)/5, pn=Math.min(5,full.length-5), p5=full.slice(5,10).reduce((x,a)=>x+marksOf(a),0)/pn; h+='<div class="kv"><span>Last 5 tests vs the '+pn+' before</span><b class="'+(l5>=p5?'good':'bad')+'">'+(l5>=p5?'▲ ':'▼ ')+n1(Math.abs(l5-p5))+'</b></div>'; }
+  h+='<div style="margin-top:.8rem"><button class="pbtn solid" id="reportBtn2">Download my report card</button></div>';
+  el.innerHTML=h; const rb=$('reportBtn2'); if(rb) rb.onclick=()=>reportCard(full);
+}
+function renderSubjAll(full){
+  const el=$('cSubjAll'); if(!el) return;
+  const m={}; full.forEach(a=>{ const ss=a.subjectStats||{}; for(const k in ss){ const s=skey(k); if(!s) continue; const st=ss[k]||{}; if(!m[s]) m[s]={c:0,w:0,k:0}; m[s].c+=parseInt(st.correct)||0; m[s].w+=parseInt(st.wrong)||0; m[s].k+=parseInt(st.skip)||0; } });
+  const rows='QREGCS'.split('').filter(s=>m[s]&&(m[s].c+m[s].w+m[s].k)>0);
+  if(rows.length<2){ el.style.display='none'; return; }   // chapter / single-subject groups: nothing to compare
+  el.style.display='';
+  let h='<h4>Subject-wise accuracy <em>all '+full.length+' test'+(full.length>1?'s':'')+' in this group</em></h4><div class="qt-wrap last"><table class="qtable qt5"><thead><tr><th>Subject</th><th><span class="th-l">Questions seen</span><span class="th-s">Seen</span></th><th>Correct</th><th>Wrong</th><th><span class="th-l">Not attempted</span><span class="th-s">Skipped</span></th></tr></thead><tbody>';
+  rows.forEach(s=>{ const x=m[s]; const n=x.c+x.w+x.k; h+='<tr><td><span class="qsub" style="--c:'+SUBJ_COL[s]+'"><i></i>'+SUBJ_NAME[s]+'</span></td><td><div class="bcell"><b>'+n+'</b></div></td>'+bcell(x.c,n,'#00A86B')+bcell(x.w,n,'#DC2626')+bcell(x.k,n,'#94A3B8')+'</tr>'; });
+  h+='</tbody></table></div>';
+  el.innerHTML=h;
 }
 function renderTiles(a){
   const el=$('cTiles'); if(!el) return; const L=lostBreakdown(a); const mx=maxOf(a); const k=lbKey(a); const v=(OWNED&&k)?LB[k]:null; const r=rankOf(v);
   const secs=Number(a.timeUsed)>0?Number(a.timeUsed):answersOf(a).reduce((s,x)=>s+(Number(x.t)||0),0);
   const tile=(col,lbl,big,small,extra)=>'<div class="qtile"><div class="qtile-l"><i style="--c:'+col+'"></i>'+lbl+'</div><div class="qtile-v"><b>'+big+'</b>'+(small?'<small>'+small+'</small>':'')+(extra||'')+'</div></div>';
-  let h='<div class="qt-title"><b>Latest test at a glance</b><span>'+esc(testName(a))+(tsOf(a)?' · '+new Date(tsOf(a)).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'}):'')+'</span></div><div class="qtiles">';
+  let h='<div class="qt-title"><b>'+(PAGE==='analysis'?'This test at a glance':'Latest test at a glance')+'</b><span>'+esc(fullTestName(a))+(tsOf(a)?' · '+new Date(tsOf(a)).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'}):'')+'</span></div><div class="qtiles">';
   h+=tile('#DC2626','Leaderboard rank', r?('#'+r):(k&&OWNED&&!v?'…':'—'), r?('/'+v.total):'', k?'<a href="rank.html?paper='+encodeURIComponent(k)+(isChapter(a)?'&name='+encodeURIComponent(testName(a)):'')+'">View ›</a>':'');
   h+=tile('#0EA5E9','Qs attempted', L.attempted, '/'+L.total);
   h+=tile('#7C3AED','Accuracy', L.attempted?(Math.round(L.acc*1000)/10)+'%':'—', '');
@@ -1985,7 +2153,7 @@ function renderTiles(a){
 function renderBreak(a){
   const el=$('cBreak'); if(!el) return; const rows=subjRows(a); const L=lostBreakdown(a); const mx=maxOf(a); const dark='#1A202C';
   const tr=(nm,col,marks,max,c,w,k,n)=>'<tr><td><span class="qsub" style="--c:'+col+'"><i></i>'+nm+'</span></td>'+bcell(Math.max(0,marks),max,col).replace('<b>'+n1(Math.max(0,marks))+'</b>','<b>'+n1(marks)+'</b>')+bcell(c,n,col)+bcell(w,n,col)+bcell(k,n,col)+'</tr>';
-  let h='<h4>Test breakdown <em>'+esc(testName(a))+'</em></h4><div class="qt-wrap last"><table class="qtable"><thead><tr><th>Subject</th><th>Total score</th><th>Attempted correct</th><th>Attempted wrong</th><th>Not attempted</th></tr></thead><tbody>';
+  let h='<h4>Test breakdown <em>'+esc(testName(a))+'</em></h4><div class="qt-wrap last"><table class="qtable qt5"><thead><tr><th>Subject</th><th><span class="th-l">Total score</span><span class="th-s">Score</span></th><th><span class="th-l">Attempted correct</span><span class="th-s">Correct</span></th><th><span class="th-l">Attempted wrong</span><span class="th-s">Wrong</span></th><th><span class="th-l">Not attempted</span><span class="th-s">Skipped</span></th></tr></thead><tbody>';
   h+=tr('Overall',dark,marksOf(a),mx,L.c,L.w,L.k,L.total);
   rows.forEach(r=>{ h+=tr(r.name,r.col,r.marks,r.max,r.c,r.w,r.k,r.n); });
   h+='</tbody></table></div>';
@@ -1999,8 +2167,8 @@ function renderTimeTbl(a){
   const tot=ans.reduce((s,x)=>s+Number(x.t),0); const used=Number(a.timeUsed)>0?Number(a.timeUsed):tot;
   const L=lostBreakdown(a);
   const accCell=(c,w,col)=>{ const n=c+w; const p=n?Math.round(c/n*100):0; return '<td><div class="bcell" style="--w:'+p+'%;--c:'+col+'"><i'+(p?'':' class="z"')+'></i><b>'+(n?p+'%':'—')+'</b></div></td>'; };
-  const tr=(nm,col,t,att,n,c,w)=>'<tr><td><span class="qsub" style="--c:'+col+'"><i></i>'+nm+'</span></td><td><div class="bcell"><b>'+navDur(t)+'</b></div></td><td><div class="bcell"><b>'+att+'</b><small>/ '+n+' Qs</small></div></td>'+accCell(c,w,col)+'</tr>';
-  let h='<h4>Time breakdown <em>'+esc(testName(a))+'</em></h4><div class="qt-wrap"><table class="qtable"><thead><tr><th>Subject</th><th>Time spent</th><th>Qs attempted</th><th>Accuracy</th></tr></thead><tbody>';
+  const tr=(nm,col,t,att,n,c,w)=>'<tr><td><span class="qsub" style="--c:'+col+'"><i></i>'+nm+'</span></td><td><div class="bcell"><b>'+navDur(t)+'</b></div></td><td><div class="bcell"><b>'+att+'</b><small>/ '+n+'<span class="th-l"> Qs</span></small></div></td>'+accCell(c,w,col)+'</tr>';
+  let h='<h4>Time breakdown <em>'+esc(testName(a))+'</em></h4><div class="qt-wrap"><table class="qtable"><thead><tr><th>Subject</th><th><span class="th-l">Time spent</span><span class="th-s">Time</span></th><th><span class="th-l">Qs attempted</span><span class="th-s">Attempted</span></th><th>Accuracy</th></tr></thead><tbody>';
   h+=tr('Overall',dark,used,L.attempted,L.total,L.c,L.w);
   rows.forEach(r=>{ h+=tr(r.name,r.col,r.t,r.c+r.w,r.n,r.c,r.w); });
   h+='</tbody></table></div>';
@@ -2018,7 +2186,7 @@ function renderDiff(a){
   ans.forEach(x=>{ const d=dkey(String(x.d||'').toLowerCase()); if(d){ by[d].n++; by[d][x.r==='c'?'c':x.r==='w'?'w':'k']++; } });
   if(!(by.easy.n+by.moderate.n+by.hard.n)){ el.style.display='none'; return; }   // cSelect below carries the "no difficulty tag" note
   el.style.display='';
-  let h='<h4>Difficulty analysis <em>'+esc(testName(a))+'</em></h4><div class="qt-wrap"><table class="qtable"><thead><tr><th>Difficulty</th><th>Attempted correct</th><th>Attempted wrong</th><th>Not attempted</th></tr></thead><tbody>';
+  let h='<h4>Difficulty analysis <em>'+esc(testName(a))+'</em></h4><div class="qt-wrap"><table class="qtable"><thead><tr><th>Difficulty</th><th><span class="th-l">Attempted correct</span><span class="th-s">Correct</span></th><th><span class="th-l">Attempted wrong</span><span class="th-s">Wrong</span></th><th><span class="th-l">Not attempted</span><span class="th-s">Skipped</span></th></tr></thead><tbody>';
   const defs=[['easy','Easy','#00A86B'],['moderate','Moderate','#F59E0B'],['hard','Hard','#DC2626']];
   defs.forEach(([k,l,col])=>{ const s=by[k]; if(!s.n) return; h+='<tr><td><span class="qsub" style="--c:'+col+'"><i></i>'+l+'</span></td>'+bcell(s.c,s.n,'#00A86B')+bcell(s.w,s.n,'#DC2626')+bcell(s.k,s.n,'#94A3B8')+'</tr>'; });
   h+='</tbody></table></div><div class="qh">Graphical view</div>';
@@ -2070,7 +2238,7 @@ const lockedSample = { rank:'#312', total:'2,418', pct:'87.1' };
 
 function renderRank(a){
   const el=$('cRank'); const k=lbKey(a); const v=OWNED?LB[k]:null;
-  let h='<h4>Latest test rank <em>'+esc(testName(a))+'</em></h4>';
+  let h='<h4>'+(PAGE==='analysis'?'Rank in this test':'Latest test rank')+' <em>'+esc(testName(a))+'</em></h4>';
   if(!OWNED){
     h+='<div style="display:flex;align-items:baseline;gap:1rem;"><span class="pbig">'+lockedSample.rank+'</span><span class="muted">of '+lockedSample.total+' candidates</span></div><div class="kv"><span>Percentile</span><b>'+lockedSample.pct+'</b></div><div class="kv"><span>Your marks</span><b>'+n1(marksOf(a))+' / '+maxOf(a)+'</b></div><div class="kv"><span>Topper</span><b>178.5</b></div><div class="kv"><span>Average</span><b>112.3</b></div><h4 style="margin-top:.9rem">Section rank</h4>'+['Quant','Reasoning','English','Gen. Awareness'].map((s,i)=>'<div class="prow"><span class="lbl">'+s+'</span><div class="bar"><i class="'+(i%2?'':'a')+'" style="width:'+(50+i*12)+'%"></i></div><span class="val">#'+(300+i*250)+'</span></div>').join('');
     el.innerHTML=h; return;
