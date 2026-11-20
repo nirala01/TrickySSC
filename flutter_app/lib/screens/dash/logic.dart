@@ -182,6 +182,31 @@ List<Map<String, dynamic>> answersOf(Att a) => [
           if (x is Map) Map<String, dynamic>.from(x)
     ];
 
+/// Chapter id -> chapter name ("fineco.accounting-basics" -> "Accounting Basics"), filled from the website
+/// chapter lists by loadAllChapterNames() in chapters.dart.
+final Map<String, String> chapterNames = {};
+
+/// The name to show for a question's chapter tag. Tags are chapter ids on most tests; anything that is
+/// already a name is returned as it is. Unknown ids are turned into words.
+String chapterLabel(String raw) {
+  final hit = chapterNames[raw];
+  if (hit != null && hit.isNotEmpty) return hit;
+  if (!RegExp(r'^[a-z0-9]+[._][a-z0-9._-]+$').hasMatch(raw)) return raw;
+  if (raw.length >= 40) {
+    // saved tags are cut at 40 characters
+    for (final e in chapterNames.entries) {
+      if (e.key.startsWith(raw)) return e.value;
+    }
+  }
+  const small = {'and', 'of', 'the', 'in', 'to', 'for', 'on'};
+  const caps = {'gst': 'GST', 'gdp': 'GDP', 'rbi': 'RBI', 'lcm': 'LCM', 'hcf': 'HCF', 'si': 'SI', 'ci': 'CI', 'ms': 'MS', 'di': 'DI', 'gk': 'GK', 'pyq': 'PYQ', 'cag': 'CAG', 'it': 'IT'};
+  final words = raw.substring(raw.indexOf(RegExp(r'[._]')) + 1).split(RegExp(r'[-._]+')).where((w) => w.isNotEmpty).toList();
+  return [
+    for (var i = 0; i < words.length; i++)
+      caps[words[i]] ?? (i > 0 && small.contains(words[i]) ? words[i] : words[i][0].toUpperCase() + words[i].substring(1))
+  ].join(' ');
+}
+
 class ChStat {
   final String name;
   int n = 0, c = 0, w = 0, k = 0;
@@ -194,7 +219,7 @@ List<ChStat> chapterStats(List<Att> list) {
   for (final a in list) {
     for (final x in answersOf(a)) {
       final raw = s(x['ch']).replaceAll(RegExp(r'<[^>]*>'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
-      final name = raw.isEmpty ? 'Untagged' : (raw.length > 40 ? raw.substring(0, 40) : raw);
+      final name = raw.isEmpty ? 'Untagged' : chapterLabel(raw.length > 40 ? raw.substring(0, 40) : raw);
       final st = m.putIfAbsent(name, () => ChStat(name));
       st.n++;
       if (x['r'] == 'c') {

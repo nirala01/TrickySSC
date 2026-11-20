@@ -12,6 +12,7 @@ import '../test/test_screen.dart';
 import '../ui/icons3d.dart';
 import '../ui/soft.dart';
 import '../ui/soft_list.dart';
+import 'dash/logic.dart' show chapterNames;
 import 'dash/ui.dart';
 
 class ChSubject {
@@ -83,6 +84,20 @@ Future<List<ChChapter>> _loadChapters(ChSubject s) async {
     await prefs.setString(key, jsonEncode({'at': DateTime.now().millisecondsSinceEpoch, 'l': [for (final c in out) [c.id, c.name, c.icon]]}));
   }
   return out;
+}
+
+/// Fills chapterNames (dash/logic.dart) with every subject's chapter id -> name, so the dashboard shows
+/// chapter names instead of ids. Uses the saved lists; a subject that cannot be loaded is skipped.
+Future<void> loadAllChapterNames() async {
+  Future<void> one(ChSubject s) async {
+    try {
+      for (final c in await _loadChapters(s)) {
+        if (c.name.isNotEmpty) chapterNames[c.id] = c.name;
+      }
+    } catch (_) {}
+  }
+
+  await Future.wait([for (final s in _subjects) one(s)]);
 }
 
 /// Number of tests in each chapter (English test 1st questions, as the website counts them). Cached 6 h.

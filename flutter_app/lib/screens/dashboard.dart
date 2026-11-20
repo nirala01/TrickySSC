@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../data.dart';
 import '../ui/soft.dart';
 import '../ui/soft_list.dart';
+import 'chapters.dart';
 import 'dash/logic.dart';
 import 'dash/pages.dart';
 import 'dash/ui.dart';
@@ -58,6 +59,10 @@ class _DashboardTabState extends State<DashboardTab> {
         if (_scope.isEmpty || !mine.any((x) => scopeOf(x) == _scope)) _scope = mine.isEmpty ? '' : scopeOf(mine.first);
       });
       _rank();
+      final had = chapterNames.length;
+      loadAllChapterNames().then((_) {
+        if (mounted && chapterNames.length != had) setState(() {});
+      });
     } catch (_) {
       if (mounted) setState(() => _failed = true);
     }
