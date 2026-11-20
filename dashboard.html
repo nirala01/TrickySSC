@@ -731,6 +731,7 @@
     .content-head{gap:.6rem .6rem;margin-bottom:.9rem;}
     .content-head h1{flex:1 1 0;min-width:0;order:1;}
     html.pg-analysis .content-head h1{flex:1 1 100%;}   /* long section names: buttons go on the next row */
+    html.pg-analysis .head-actions .hbtn{font-size:.78rem;padding:.4rem .62rem;}
     .head-actions{display:contents;}
     .head-actions .hbtn{order:2;}
     .head-actions .hbtn:not(.solid):not(.keep){display:none;}   /* Leaderboard is already in the top bar */
@@ -835,6 +836,7 @@
       <button type="button" class="snav" data-go="rank" data-pg="analysis"><svg viewBox="0 0 24 24"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg><span>Rank &amp; Topper</span><i>›</i></button>
       <button type="button" class="snav" data-go="time" data-pg="analysis"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>Time Analysis</span><i>›</i></button>
       <button type="button" class="snav" data-go="diff" data-pg="analysis"><svg viewBox="0 0 24 24"><path d="M4 20v-5M10 20V10M16 20V6M22 20H2"/></svg><span>Difficulty Analysis</span><i>›</i></button>
+      <button type="button" class="snav" data-go="chapters" data-pg="analysis"><svg viewBox="0 0 24 24"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 21a2 2 0 0 1 2-2h13v2z"/></svg><span>Chapter Analysis</span><i>›</i></button>
       <button type="button" class="snav" data-go="qbq" data-pg="analysis"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Qs by Qs Analysis</span><i>›</i></button>
     </nav>
   </aside>
@@ -848,7 +850,8 @@
         <a class="hbtn" data-pg="dashboard" href="rank.html">Leaderboard</a>
         <a class="hbtn solid" data-pg="dashboard" href="https://trickyssc.com/ssc-cgl-pyq.html">Attempt a PYQ →</a>
         <a class="hbtn keep an-back" data-pg="analysis" href="dashboard.html">← Dashboard</a>
-        <a class="hbtn solid" data-pg="analysis" id="anSolBtn" href="dashboard.html#attempts" style="display:none;">View solutions →</a>
+        <button type="button" class="hbtn keep" data-pg="analysis" id="anShareBtn" style="display:none;cursor:pointer;">Share <span class="th-l">my </span>scorecard</button>
+        <a class="hbtn solid" data-pg="analysis" id="anSolBtn" href="dashboard.html#attempts" style="display:none;"><span class="th-l">View solutions</span><span class="th-s">Solutions</span> →</a>
       </div>
     </div>
 
@@ -922,7 +925,7 @@
           <div class="pcard w2" id="cTrend" data-v="overview" data-pg="dashboard"></div>
           <div class="pcard w2" id="cSubjAll" data-v="overview" data-pg="dashboard"></div>
           <div class="pcard w2" id="cReady" data-v="ready" data-pg="dashboard"></div>
-          <div class="pcard w2" id="cChapters" data-v="chapters" data-pg="dashboard"></div>
+          <div class="pcard w2" id="cChapters" data-v="chapters"></div>
           <!-- both pages: cut-off gap -->
           <div class="pcard w2" id="cCutoff" data-v="rank ready"></div>
           <!-- test-analysis.html (one test) -->
@@ -2098,6 +2101,8 @@ function renderAll(){
     renderNavCards(latest, grp);
     renderRank(latest); renderCutoff(grp); renderLost(latest); renderSelect(latest);
     renderTopper(latest); renderTime(latest); renderPerf([latest]);
+    renderChapters(isChapter(latest)?grp:[latest]);   /* TSSC-ANCH-V1: chapter-wise analysis of this test */
+    const shb=$('anShareBtn'); if(shb){ shb.style.display=''; shb.onclick=()=>scoreCard(latest); }
     return;
   }
   /* dashboard: everything across the tests of the selected group — no per-question Firestore reads here */
@@ -2364,9 +2369,10 @@ function renderChapters(full){
   if(PAGE!=='dashboard' && full.length && isChapter(full[0])) return renderChapterSets(full);
   const el=$('cChapters'); const ch=chapterStats(full);
   const withData=full.filter(a=>answersOf(a).length).length;
-  let h='<h4>Chapter-wise accuracy <em>'+(withData?withData+' test'+(withData>1?'s':'')+' · weighted by how often it appears in the papers you attempted':'')+'</em></h4>';
-  if(!ch.length){ el.innerHTML=h+'<div class="pnote">Chapter analysis covers tests taken after this update. Your older tests show subject-level marks in My Tests.</div>'; return; }
-  const tagged=ch.filter(c=>c.name!=='Untagged'&&c.n>=3);
+  const one=PAGE==='analysis';   /* TSSC-ANCH-V1: on test-analysis.html this card is about ONE test */
+  let h='<h4>Chapter-wise accuracy <em>'+(one?esc(testName(full[0])):(withData?withData+' test'+(withData>1?'s':'')+' · weighted by how often it appears in the papers you attempted':''))+'</em></h4>';
+  if(!ch.length){ el.innerHTML=h+'<div class="pnote">'+(one?'Chapter-wise analysis is not available for this test — it was taken before question-level data was saved.':'Chapter analysis covers tests taken after this update. Your older tests show subject-level marks in My Tests.')+'</div>'; return; }
+  const tagged=ch.filter(c=>c.name!=='Untagged'&&c.n>=(one?2:3));
   const weak=tagged.filter(c=>c.acc<0.7).sort((x,y)=>(x.acc-y.acc)||(y.n-x.n)).slice(0,6);
   // strongest = best accuracy among chapters you got at least one right in; empty only when everything is wrong
   const strong=tagged.filter(c=>c.c>0&&!weak.includes(c)).sort((x,y)=>(y.acc-x.acc)||(y.n-x.n)).slice(0,6);
@@ -2374,13 +2380,13 @@ function renderChapters(full){
   const row=c=>{ const p=Math.round(c.acc*100); return '<div class="prow"><span class="lbl" title="'+esc(c.name)+'">'+esc(c.name)+' <span class="muted">· '+(sj(c)?esc(sj(c))+' · ':'')+c.n+'×</span></span><div class="bar"><i class="'+(p>=70?'':p>=50?'a':'r')+'" style="width:'+p+'%"></i></div><span class="val">'+c.c+'/'+c.n+'</span></div>'; };
   h+='<div class="pgrid2"><div><p class="muted" style="margin-bottom:.3rem">Weakest chapters</p>'+(weak.length?weak.map(row).join(''):'<div class="muted">Nothing below 70% yet — nice.</div>')+'</div><div><p class="muted" style="margin-bottom:.3rem">Strongest chapters</p>'+(strong.length?strong.map(row).join(''):'<div class="muted">No chapter with a correct answer yet — every tagged question so far was wrong or skipped.</div>')+'</div></div>';
   if(weak.length){ const w=weak.slice().sort((x,y)=>((1-y.acc)*y.n)-((1-x.acc)*x.n))[0]; const {pos}=posneg(full[0]); const perPaper=(w.n/Math.max(1,withData))*(1-w.acc)*pos;
-    h+='<div class="pnote">Highest score opportunity: <b>'+esc(w.name)+'</b> — appeared '+w.n+' times in your tests, you get '+Math.round(w.acc*100)+'% right. Fixing it alone is worth ~'+n1(perPaper)+' marks per paper.</div>';
+    h+='<div class="pnote">Highest score opportunity: <b>'+esc(w.name)+'</b> — '+(one?w.n+' questions in this test, you got '+w.c+' right. Getting them all right was worth '+n1((w.n-w.c)*pos)+' more marks.':'appeared '+w.n+' times in your tests, you get '+Math.round(w.acc*100)+'% right. Fixing it alone is worth ~'+n1(perPaper)+' marks per paper.')+'</div>';
     h+='<div style="margin-top:.7rem">'+weak.slice(0,3).map((c,i)=>'<a class="pbtn'+(i?'':' solid')+'" href="ssc-cgl-chapterwise.html#'+chSlug(c.name)+'">Practice '+esc(c.name)+'</a>').join('')+'</div>'; }
   /* TSSC-CHSUBJ-V1 — every chapter, grouped under its subject (weakest first inside each subject) */
   const grp={}; ch.filter(c=>c.name!=='Untagged').forEach(c=>{ const k=skey(c.subj)||'Z'; (grp[k]=grp[k]||[]).push(c); });
   const keys='QREGCSZ'.split('').filter(k=>grp[k]);
   if(keys.length){
-    h+='<div class="qh" style="margin-top:1.4rem">All chapters, subject-wise</div>';
+    h+='<div class="qh" style="margin-top:1.4rem">'+(one?'All chapters of this test, subject-wise':'All chapters, subject-wise')+'</div>';
     keys.forEach(k=>{ const list=grp[k].slice().sort((x,y)=>(x.acc-y.acc)||(y.n-x.n)); const tn=list.reduce((t,c)=>t+c.n,0), tc=list.reduce((t,c)=>t+c.c,0); const col=SUBJ_COL[k]||'#64748B';
       h+='<div class="chs"><div class="chs-h" style="--c:'+col+'"><i></i><b>'+(SUBJ_NAME[k]||'Other')+'</b><span>'+list.length+' chapter'+(list.length>1?'s':'')+' · '+tc+' of '+tn+' correct ('+(tn?Math.round(tc/tn*100):0)+'%)</span></div><div class="chs-g">'
         +list.map(c=>{ const p=Math.round(c.acc*100); return '<div class="prow"><span class="lbl" title="'+esc(c.name)+'">'+esc(c.name)+' <span class="muted">· '+c.n+'×</span></span><div class="bar"><i class="'+(p>=70?'':p>=50?'a':'r')+'" style="width:'+p+'%"></i></div><span class="val">'+c.c+'/'+c.n+' · '+p+'%</span></div>'; }).join('')
@@ -2571,6 +2577,48 @@ function renderPerf(full){
   })();
 }
 /* ───────── shareable report card (PNG) ───────── */
+/* ───────── TSSC-ANCH-V1 — "Share my scorecard": an image of ONE test (test-analysis.html) ─────────
+   Phones get the share sheet (WhatsApp, Telegram …) through navigator.share; elsewhere the PNG is downloaded. */
+function scoreCard(a){
+  const c=document.createElement('canvas'); c.width=1080; c.height=1350; const g=c.getContext('2d');
+  const rr=(x,y,w,h,r)=>{ g.beginPath(); if(g.roundRect) g.roundRect(x,y,w,h,r); else g.rect(x,y,w,h); g.fill(); };
+  g.fillStyle='#0F172A'; g.fillRect(0,0,1080,1350);
+  const grd=g.createLinearGradient(0,0,1080,0); grd.addColorStop(0,'#FF6B00'); grd.addColorStop(1,'#FF8C38'); g.fillStyle=grd; g.fillRect(0,0,1080,14);
+  const name=($('profileName')?.textContent||'Student'); const L=lostBreakdown(a); const mx=maxOf(a); const v=LB[lbKey(a)]; const r=rankOf(v);
+  g.fillStyle='#fff'; g.font='bold 54px "Baloo 2", sans-serif'; g.fillText('TrickySSC scorecard',60,108);
+  g.fillStyle='#FDBA74'; g.font='bold 32px Rajdhani, sans-serif'; g.fillText(name+(tsOf(a)?'  ·  '+new Date(tsOf(a)).toLocaleDateString('en-IN',{day:'numeric',month:'long',year:'numeric'}):''),60,160);
+  /* test name, wrapped to two lines */
+  g.fillStyle='#E2E8F0'; g.font='bold 38px Rajdhani, sans-serif'; const words=fullTestName(a).split(' '); const lines=['']; words.forEach(w=>{ const t=(lines[lines.length-1]+' '+w).trim(); if(g.measureText(t).width>960&&lines[lines.length-1]){ lines.push(w); } else lines[lines.length-1]=t; });
+  let y=232; lines.slice(0,2).forEach(t=>{ g.fillText(t,60,y); y+=48; });
+  /* score */
+  y+=20; g.fillStyle='#1E293B'; rr(60,y,960,230,28);
+  g.fillStyle='#FF8C38'; g.font='bold 150px "Baloo 2", sans-serif'; const ms=n1(marksOf(a)); g.fillText(ms,96,y+160); const mw=g.measureText(ms).width;
+  g.fillStyle='#94A3B8'; g.font='bold 52px "Baloo 2", sans-serif'; g.fillText('/ '+mx,96+mw+18,y+160);
+  g.textAlign='right';
+  if(r){ g.fillStyle='#fff'; g.font='bold 60px "Baloo 2", sans-serif'; g.fillText('Rank #'+r,984,y+96); g.fillStyle='#94A3B8'; g.font='600 30px Rajdhani, sans-serif'; g.fillText('of '+v.total+'  ·  '+pctile(v)+' percentile',984,y+146); }
+  else { g.fillStyle='#fff'; g.font='bold 60px "Baloo 2", sans-serif'; g.fillText((L.attempted?Math.round(L.acc*100):0)+'%',984,y+96); g.fillStyle='#94A3B8'; g.font='600 30px Rajdhani, sans-serif'; g.fillText('accuracy',984,y+146); }
+  g.textAlign='left'; y+=262;
+  const ct=isFullPaper(a)?CUTOFFS[examTier(a)]:null;
+  if(ct){ const gap=meritMarks(a)-ct.cut[CAT]; g.fillStyle=gap>=0?'#86EFAC':'#FCA5A5'; g.font='bold 32px Rajdhani, sans-serif'; g.fillText((gap>=0?'Above ':'Below ')+'last year\'s '+CAT+' cut-off ('+n1(ct.cut[CAT])+') by '+n1(Math.abs(gap))+' marks',60,y+8); y+=58; }
+  /* four boxes */
+  const secs=Number(a.timeUsed)>0?Number(a.timeUsed):answersOf(a).reduce((t,x)=>t+(Number(x.t)||0),0);
+  const box=(i,label,val)=>{ const x=60+i*245; g.fillStyle='#1E293B'; rr(x,y,225,140,20); g.fillStyle='#fff'; let fs=50; g.font='bold '+fs+'px "Baloo 2", sans-serif'; while(fs>30&&g.measureText(val).width>185){ fs-=2; g.font='bold '+fs+'px "Baloo 2", sans-serif'; } g.fillText(val,x+20,y+78); g.fillStyle='#94A3B8'; g.font='600 24px Rajdhani, sans-serif'; g.fillText(label,x+20,y+116); };
+  box(0,'Attempted',L.attempted+'/'+L.total); box(1,'Correct',String(L.c)); box(2,'Wrong',String(L.w)); box(3,r?'Accuracy':'Time taken', r?((L.attempted?Math.round(L.acc*100):0)+'%'):(secs>0?navDur(secs):'—'));
+  y+=190;
+  /* subjects */
+  const rows=subjRows(a);
+  if(rows.length){ g.fillStyle='#fff'; g.font='bold 34px Rajdhani, sans-serif'; g.fillText('Subject-wise',60,y); y+=34;
+    rows.slice(0,6).forEach(s=>{ const acc=s.n?s.c/s.n:0; g.fillStyle='#1E293B'; rr(60,y,960,58,12); g.fillStyle='#334155'; rr(60,y+50,960,8,4); g.fillStyle=s.col; rr(60,y+50,Math.max(8,Math.round(960*Math.max(0,acc))),8,4); rr(80,y+16,18,18,5);
+      g.fillStyle='#fff'; g.font='bold 28px Rajdhani, sans-serif'; g.fillText(s.name,110,y+36); g.textAlign='right'; g.fillText(n1(s.marks)+' / '+s.max+'   ·   '+s.c+' of '+s.n+' correct',1000,y+36); g.textAlign='left'; y+=72; }); }
+  g.fillStyle='#64748B'; g.font='26px Hind, sans-serif'; g.fillText('trickyssc.com · free PYQs, mocks and chapter tests',60,1300);
+  const fname='trickyssc-scorecard.png';
+  const save=()=>{ const l=document.createElement('a'); l.download=fname; l.href=c.toDataURL('image/png'); document.body.appendChild(l); l.click(); l.remove(); };
+  try{
+    c.toBlob(b=>{ try{ const f=b&&window.File?new File([b],fname,{type:'image/png'}):null;
+        if(f&&navigator.canShare&&navigator.canShare({files:[f]})){ navigator.share({files:[f],title:'My TrickySSC scorecard',text:'My score in '+fullTestName(a)+': '+n1(marksOf(a))+' / '+mx+' — trickyssc.com'}).catch(e=>{ if(!e||e.name!=='AbortError') save(); }); }
+        else save(); }catch(e){ save(); } },'image/png');
+  }catch(e){ save(); }
+}
 function reportCard(full){
   const c=document.createElement('canvas'); c.width=1080; c.height=1350; const g=c.getContext('2d');
   g.fillStyle='#0F172A'; g.fillRect(0,0,c.width,c.height);
