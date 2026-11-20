@@ -894,13 +894,13 @@
     <div class="stat-card s-blue">
       <div class="stat-top"><span class="stat-icon">✅</span><span class="delta" id="dAvg"></span></div>
       <div class="stat-num" id="statAvg">—</div>
-      <div class="stat-label">Avg Marks <span style="font-size:0.65rem;color:#94A3B8;">/200</span></div>
+      <div class="stat-label">Avg Marks <span class="stat-max" style="font-size:0.65rem;color:#94A3B8;">/200</span></div>
       <svg class="spark" id="spAvg" viewBox="0 0 100 28" preserveAspectRatio="none"></svg>
     </div>
     <div class="stat-card s-green">
       <div class="stat-top"><span class="stat-icon">🏆</span><span class="delta" id="dBest"></span></div>
       <div class="stat-num" id="statBest">—</div>
-      <div class="stat-label">Best Marks <span style="font-size:0.65rem;color:#94A3B8;">/200</span></div>
+      <div class="stat-label">Best Marks <span class="stat-max" style="font-size:0.65rem;color:#94A3B8;">/200</span></div>
       <svg class="spark" id="spBest" viewBox="0 0 100 28" preserveAspectRatio="none"></svg>
     </div>
     <div class="stat-card s-gold">
@@ -1875,15 +1875,24 @@ let SCOPE='';
 const PAGE = (window.TSSC_PAGE==='analysis') ? 'analysis' : 'dashboard';
 let SEL_ID = PAGE==='analysis' ? (new URLSearchParams(location.search).get('id')||'') : '';
 function cur(){ if(PAGE==='analysis'){ const a=ATT.find(x=>x.id===SEL_ID); if(a) return a; } return scopeAtt()[0]||ATT[0]||null; }
-function scopeOf(a){
+/* TSSC-EXAMSCOPE-V1 (2026-11-20) — on dashboard.html the picker lists EXAMS only (SSC CGL Tier I, SSC CGL Tier II,
+   SSC CHSL Tier I …) and every card shows the overall performance in that exam: its full papers, subject-wise
+   sets and chapter tests together. test-analysis.html keeps the finer groups (kindOf) for its comparisons. */
+const EXAM_LABEL = { 'ssc-cgl':'SSC CGL', 'ssc-chsl':'SSC CHSL', 'ssc-mts':'SSC MTS', 'ssc-gd':'SSC GD Constable', 'ssc-cpo':'SSC CPO', 'ssc-jht':'SSC JHT', 'ssc-je':'SSC JE',
+  'ssc':'SSC (chapter-wise PYQ)', 'rrb-ntpc':'RRB NTPC', 'rrb-sm':'RRB Station Master', 'rrb-group-d':'RRB Group D' };
+const TIERED = { 'ssc-cgl':1, 'ssc-chsl':1 };
+function examLabel(ex, tier){ const n=EXAM_LABEL[ex] || String(ex||'Exam').toUpperCase().replace(/-/g,' '); return n+((TIERED[ex]||tier==='tier2')?(tier==='tier2'?' Tier II':' Tier I'):''); }
+function scopeOf(a){ return PAGE==='dashboard' ? 'exam|'+examTier(a) : kindOf(a); }
+function kindOf(a){
   if(isChapter(a)) return 'ch|'+(a.chapterId||a.chapter||'');
   if((a.testKind==='pyq-subject'||a.testKind==='mock-subject')&&a.subjectKey) return 'subj|'+examTier(a)+'|'+String(a.subjectKey).toLowerCase();
   return 'full|'+examTier(a);
 }
 function scopeLabel(key, a){
   const p=key.split('|');
+  if(p[0]==='exam') return examLabel(p[1],p[2]);
   if(p[0]==='ch') return ((a&&(a.chapterName||a.examName))||p[1]||'Chapter')+' · Chapter tests';
-  const ex=p[1]==='ssc-mts' ? 'SSC MTS' : p[1]==='ssc-gd' ? 'SSC GD Constable CBE' : ((p[1]==='ssc-chsl'?'SSC CHSL':'SSC CGL')+' '+(p[2]==='tier2'?'Tier II':'Tier I'));   /* TSSC-GD-MOCK-V1 */
+  const ex=examLabel(p[1],p[2]);
   if(p[0]==='subj') return ex+' · '+(SUBJ_NAME[skey(p[3])]||p[3])+' subject tests';
   return ex+' · Full tests (PYQ + mocks)';
 }
@@ -1970,12 +1979,23 @@ function spark(id, vals){
   const pts=vals.map((v,i)=>((i/(vals.length-1))*100).toFixed(1)+','+(26-((v-mn)/sp)*22).toFixed(1)).join(' ');
   el.innerHTML='<polyline points="'+pts+'"/>';
 }
+/* the attempts whose MARKS are comparable inside the selected exam: its full papers; if none, its subject sets; if none, everything */
+function markSet(list){ const f=list.filter(isFullPaper); if(f.length) return f; const n=list.filter(a=>!isChapter(a)); return n.length?n:list; }
 function paintTop(){
-  const full=ATT.filter(a=>!isChapter(a));
+  const exAll = PAGE==='dashboard' ? scopeAtt() : ATT;
+  const full = PAGE==='dashboard' ? markSet(exAll) : ATT.filter(a=>!isChapter(a));
+  if(PAGE==='dashboard' && exAll.length){   /* TSSC-EXAMSCOPE-V1: tests taken / average / best are for the selected exam */
+    const ms=full.map(marksOf); const mx=maxOf(full[0]); const same=full.every(a=>maxOf(a)===mx);
+    const pv=same?ms:full.map(a=>maxOf(a)?marksOf(a)/maxOf(a)*100:0);
+    const st=$('statTests'); if(st) st.textContent=exAll.length;
+    const sa=$('statAvg'); if(sa) sa.textContent=n1(pv.reduce((x,y)=>x+y,0)/pv.length)+(same?'':'%');
+    const sb=$('statBest'); if(sb) sb.textContent=n1(Math.max.apply(null,pv))+(same?'':'%');
+    document.querySelectorAll('.stat-max').forEach(e=>{ e.textContent=same?'/'+mx:''; });
+  }
   const chrono=full.slice().reverse();               // oldest → newest
   const marks=chrono.map(marksOf);
   const week=Date.now()-7*86400000;
-  const thisWeek=ATT.filter(a=>tsOf(a)>=week).length;
+  const thisWeek=exAll.filter(a=>tsOf(a)>=week).length;
   const d=$('dTests'); if(d) d.textContent = thisWeek ? '+'+thisWeek+' this week' : 'none this week';
   spark('spTests', chrono.map((_,i)=>i+1).slice(-12));
   spark('spAvg', marks.slice(-12));
@@ -1994,7 +2014,7 @@ function paintTop(){
   // banner score — the latest test of the selected scope, compared with the average of that scope (TSSC-DASHSCOPE-V1)
   const sc=scopeAtt();
   if(sc.length){ const a=cur()||sc[0]; const m=marksOf(a), mx=maxOf(a); $('bsMarks').textContent=n1(m); $('bsMax').textContent='/'+mx; $('bsLabel').innerHTML='<span class="hs-k">'+(PAGE==='analysis'?(tsOf(a)?'Attempted on '+new Date(tsOf(a)).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'}):'Your score'):'Last test')+'</span>'+esc(fullTestName(a)); const bl=$('bsLink'); if(bl) bl.href='test-analysis.html?id='+encodeURIComponent(a.id||'');
-    const sm=sc.map(marksOf); const avg=sm.length?sm.reduce((x,y)=>x+y,0)/sm.length:m; const df=m-avg; const e=$('bsDelta'); e.textContent=sc.length>1?((df>=0?'▲ ':'▼ ')+n1(Math.abs(df))+' vs your average in these tests'):(PAGE==='analysis'?'your only test of this kind so far':'your first test of this kind'); e.className=df>=0?'':'down'; $('bannerScore').style.display=''; paintHeroSubj(a); }
+    const sk=sc.filter(x=>kindOf(x)===kindOf(a)); const sm=sk.map(marksOf); const avg=sm.length?sm.reduce((x,y)=>x+y,0)/sm.length:m; const df=m-avg; const e=$('bsDelta'); e.textContent=sk.length>1?((df>=0?'▲ ':'▼ ')+n1(Math.abs(df))+' vs your average in '+(PAGE==='dashboard'?'tests of this kind':'these tests')):(PAGE==='analysis'?'your only test of this kind so far':'your first test of this kind'); e.className=df>=0?'':'down'; $('bannerScore').style.display=''; paintHeroSubj(a); }
   else $('bannerScore').style.display='none';
   // goal line: % of the way to GEN cut-off on the latest 5 tier-1 tests
   const g=$('wGoal'); if(g){ const ff=full.filter(isFullPaper); const t1=ff.filter(a=>CUTOFFS[examTier(a)]&&examTier(a)===examTier(ff.find(x=>CUTOFFS[examTier(x)])||a)).slice(0,5); if(t1.length){ const c=CUTOFFS[examTier(t1[0])]; const av=t1.reduce((s,a)=>s+meritMarks(a),0)/t1.length; const p=Math.min(100,Math.round(av/c.cut[CAT]*100)); g.textContent='🎯 '+p+'% of the way to last year\'s '+CAT+' cut-off ('+(c.merit?'Tier II':'Tier I')+')'; } }
@@ -2082,7 +2102,7 @@ function renderAll(){
   }
   /* dashboard: everything across the tests of the selected group — no per-question Firestore reads here */
   const sub=$('sideSub'); if(sub) sub.textContent=scopeLabel(SCOPE, full[0]);
-  renderTrend(full); renderSubjAll(full); renderCutoff(full); renderChapters(full); renderReady(full);
+  renderTrend(full); renderSubjAll(full); renderCutoff(full); renderChapters(full); renderReady(markSet(full));
 }
 /* ───────── TSSC-DASHNAV-V1 — cards added with the left-menu layout ─────────
    Overview tiles, subject breakdown table, time table, difficulty table and the
@@ -2117,23 +2137,24 @@ function renderHeroRank(a){
   el.innerHTML=h;
 }
 /* ───────── TSSC-SPLIT-V1 — dashboard-only cards (all tests of the selected group) ───────── */
-function renderTrend(full){
-  const el=$('cTrend'); if(!el) return; const ch=full.slice(0,20).reverse(); const m=ch.map(marksOf); const mx=maxOf(full[0]);
-  const all=full.map(marksOf); const avg=all.reduce((x,y)=>x+y,0)/all.length; const best=Math.max.apply(null,all);
-  let h='<h4>Score trend <em>'+(ch.length>1?'last '+ch.length+' of '+full.length+' tests':full.length+' test')+' · '+esc(scopeLabel(SCOPE, full[0]))+'</em></h4>';
+function renderTrend(all){
+  const full=markSet(all); const kind=full.every(isFullPaper)?'full tests (PYQ + mocks)':full.every(x=>!isChapter(x))?'subject-wise tests':'chapter tests';
+  const el=$('cTrend'); if(!el) return; const ch=full.slice(0,20).reverse(); const same=full.every(x=>maxOf(x)===maxOf(full[0])); const val=x=>same?marksOf(x):(maxOf(x)?marksOf(x)/maxOf(x)*100:0); const m=ch.map(val); const mx=same?maxOf(full[0]):100; const U=same?'':'%';
+  const vals=full.map(val); const avg=vals.reduce((x,y)=>x+y,0)/vals.length; const best=Math.max.apply(null,vals);
+  let h='<h4>Score trend <em>'+(ch.length>1?'last '+ch.length+' of '+full.length+' tests':full.length+' test')+' · '+esc(scopeLabel(SCOPE, full[0]))+' · '+kind+'</em></h4>';
   if(ch.length>=2){
-    const ct=CUTOFFS[examTier(full[0])]; const cut=(ct&&isFullPaper(full[0])&&!ct.merit)?ct.cut[CAT]:null;
+    const ct=CUTOFFS[examTier(full[0])]; const cut=(ct&&same&&isFullPaper(full[0])&&!ct.merit)?ct.cut[CAT]:null;
     let lo=Math.min.apply(null,m.concat([avg])), hi=Math.max.apply(null,m.concat([avg])); if(cut!=null&&cut<=hi+ (hi-lo)*1.5+10){ hi=Math.max(hi,cut); lo=Math.min(lo,cut); }
     const pad=Math.max(2,(hi-lo)*0.12); lo-=pad; hi+=pad; const sp=hi-lo||1;
     const X=i=>i/(m.length-1)*100, Y=v=>(1-(v-lo)/sp)*100;
     const pts=m.map((v,i)=>X(i).toFixed(2)+','+Y(v).toFixed(2)).join(' ');
     h+='<div class="trend"><svg viewBox="0 0 100 100" preserveAspectRatio="none"><polygon class="t-area" points="0,100 '+pts+' 100,100"/><line class="t-avg" x1="0" x2="100" y1="'+Y(avg).toFixed(2)+'" y2="'+Y(avg).toFixed(2)+'"/>'+(cut!=null?'<line class="t-cut" x1="0" x2="100" y1="'+Y(cut).toFixed(2)+'" y2="'+Y(cut).toFixed(2)+'"/>':'')+'<polyline class="t-line" points="'+pts+'"/></svg>';
-    h+=m.map((v,i)=>'<i class="t-dot'+(i===m.length-1?' last':'')+'" style="left:'+X(i).toFixed(2)+'%;top:'+Y(v).toFixed(2)+'%" title="'+esc(fullTestName(ch[i]))+' — '+n1(v)+' / '+maxOf(ch[i])+'"></i>').join('')+'</div>';
+    h+=m.map((v,i)=>'<i class="t-dot'+(i===m.length-1?' last':'')+'" style="left:'+X(i).toFixed(2)+'%;top:'+Y(v).toFixed(2)+'%" title="'+esc(fullTestName(ch[i]))+' — '+n1(marksOf(ch[i]))+' / '+maxOf(ch[i])+'"></i>').join('')+'</div>';
     h+='<div class="trend-ax"><span>'+(tsOf(ch[0])?new Date(tsOf(ch[0])).toLocaleDateString('en-IN',{day:'numeric',month:'short'}):'oldest')+'</span><span>'+(tsOf(ch[ch.length-1])?new Date(tsOf(ch[ch.length-1])).toLocaleDateString('en-IN',{day:'numeric',month:'short'}):'latest')+'</span></div>';
-    h+='<div class="lg"><span><i style="background:var(--orange)"></i>Your marks</span><span><i style="background:#94A3B8"></i>Your average '+n1(avg)+'</span>'+(cut!=null?'<span><i style="background:#DC2626"></i>'+CAT+' cut-off '+n1(cut)+'</span>':'')+'</div>';
+    h+='<div class="lg"><span><i style="background:var(--orange)"></i>Your '+(same?'marks':'score %')+'</span><span><i style="background:#94A3B8"></i>Your average '+n1(avg)+U+'</span>'+(cut!=null?'<span><i style="background:#DC2626"></i>'+CAT+' cut-off '+n1(cut)+'</span>':'')+'</div>';
   } else h+='<div class="pnote">Take one more test of this kind to see your trend.</div>';
-  h+='<div class="kv" style="margin-top:.6rem"><span>Tests in this group</span><b>'+full.length+'</b></div><div class="kv"><span>Average marks</span><b>'+n1(avg)+' / '+mx+'</b></div><div class="kv"><span>Best marks</span><b>'+n1(best)+' / '+mx+'</b></div>';
-  if(full.length>=6){ const l5=full.slice(0,5).reduce((x,a)=>x+marksOf(a),0)/5, pn=Math.min(5,full.length-5), p5=full.slice(5,10).reduce((x,a)=>x+marksOf(a),0)/pn; h+='<div class="kv"><span>Last 5 tests vs the '+pn+' before</span><b class="'+(l5>=p5?'good':'bad')+'">'+(l5>=p5?'▲ ':'▼ ')+n1(Math.abs(l5-p5))+'</b></div>'; }
+  h+='<div class="kv" style="margin-top:.6rem"><span>'+kind.charAt(0).toUpperCase()+kind.slice(1)+' taken</span><b>'+full.length+'</b></div>'+(all.length>full.length?'<div class="kv"><span>All tests in this exam (with subject-wise and chapter tests)</span><b>'+all.length+'</b></div>':'')+'<div class="kv"><span>Average '+(same?'marks':'score')+'</span><b>'+n1(avg)+(same?' / '+mx:'%')+'</b></div><div class="kv"><span>Best '+(same?'marks':'score')+'</span><b>'+n1(best)+(same?' / '+mx:'%')+'</b></div>';
+  if(full.length>=6){ const l5=full.slice(0,5).reduce((x,a)=>x+val(a),0)/5, pn=Math.min(5,full.length-5), p5=full.slice(5,10).reduce((x,a)=>x+val(a),0)/pn; h+='<div class="kv"><span>Last 5 tests vs the '+pn+' before</span><b class="'+(l5>=p5?'good':'bad')+'">'+(l5>=p5?'▲ ':'▼ ')+n1(Math.abs(l5-p5))+'</b></div>'; }
   h+='<div style="margin-top:.8rem"><button class="pbtn solid" id="reportBtn2">Download my report card</button></div>';
   el.innerHTML=h; const rb=$('reportBtn2'); if(rb) rb.onclick=()=>reportCard(full);
 }
@@ -2143,7 +2164,7 @@ function renderSubjAll(full){
   const rows='QREGCS'.split('').filter(s=>m[s]&&(m[s].c+m[s].w+m[s].k)>0);
   if(rows.length<2){ el.style.display='none'; return; }   // chapter / single-subject groups: nothing to compare
   el.style.display='';
-  let h='<h4>Subject-wise accuracy <em>all '+full.length+' test'+(full.length>1?'s':'')+' in this group</em></h4><div class="qt-wrap last"><table class="qtable qt5"><thead><tr><th>Subject</th><th><span class="th-l">Questions seen</span><span class="th-s">Seen</span></th><th>Correct</th><th>Wrong</th><th><span class="th-l">Not attempted</span><span class="th-s">Skipped</span></th></tr></thead><tbody>';
+  let h='<h4>Subject-wise accuracy <em>all '+full.length+' test'+(full.length>1?'s':'')+' in this exam</em></h4><div class="qt-wrap last"><table class="qtable qt5"><thead><tr><th>Subject</th><th><span class="th-l">Questions seen</span><span class="th-s">Seen</span></th><th>Correct</th><th>Wrong</th><th><span class="th-l">Not attempted</span><span class="th-s">Skipped</span></th></tr></thead><tbody>';
   rows.forEach(s=>{ const x=m[s]; const n=x.c+x.w+x.k; h+='<tr><td><span class="qsub" style="--c:'+SUBJ_COL[s]+'"><i></i>'+SUBJ_NAME[s]+'</span></td><td><div class="bcell"><b>'+n+'</b></div></td>'+bcell(x.c,n,'#00A86B')+bcell(x.w,n,'#DC2626')+bcell(x.k,n,'#94A3B8')+'</tr>'; });
   h+='</tbody></table></div>';
   el.innerHTML=h;
@@ -2340,7 +2361,7 @@ function renderChapterSets(full){
   el.innerHTML=h;
 }
 function renderChapters(full){
-  if(full.length && isChapter(full[0])) return renderChapterSets(full);
+  if(PAGE!=='dashboard' && full.length && isChapter(full[0])) return renderChapterSets(full);
   const el=$('cChapters'); const ch=chapterStats(full);
   const withData=full.filter(a=>answersOf(a).length).length;
   let h='<h4>Chapter-wise accuracy <em>'+(withData?withData+' test'+(withData>1?'s':'')+' · weighted by how often it appears in the papers you attempted':'')+'</em></h4>';
