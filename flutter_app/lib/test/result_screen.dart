@@ -679,14 +679,18 @@ class _SolutionsScreenState extends State<SolutionsScreen> {
 
 /// Open the solutions of a saved attempt (from the dashboard).
 Future<void> openAttemptSolutions(BuildContext context, Exam exam, Map<String, dynamic> a) async {
-  final mockId = '${a['mockId'] ?? ''}'.isNotEmpty ? '${a['mockId']}' : '${a['paperId'] ?? ''}';
+  final full = '${a['mockId'] ?? ''}'.isNotEmpty ? '${a['mockId']}' : '${a['paperId'] ?? ''}';
+  // one subject section of a paper / mock is saved as <id>__<subject>
+  final cut = full.indexOf('__');
+  final mockId = cut > 0 ? full.substring(0, cut) : full;
+  final subject = cut > 0 ? full.substring(cut + 2) : (s0(a['subjectKey']).isNotEmpty && s0(a['testKind']).isNotEmpty ? s0(a['subjectKey']) : '');
   final lang = mockId.endsWith('_hi') ? 'hi' : 'en';
   final pd = '${a['partD'] ?? ''}';
   final nav = Navigator.of(context);
   final msg = ScaffoldMessenger.of(context);
   showDialog(context: context, barrierDismissible: false, builder: (_) => const Center(child: CircularProgressIndicator()));
   try {
-    final p = await loadPaper(mockId, lang, partD: pd.isEmpty ? null : pd, title: '${a['examName'] ?? ''}');
+    final p = await loadPaper(mockId, lang, partD: pd.isEmpty || subject.isNotEmpty ? null : pd, title: subject.isEmpty ? '${a['examName'] ?? ''}' : '', subject: subject.isEmpty ? null : subject);
     final pr = Progress();
     final byQ = <String, Map>{};
     for (final x in (a['answers'] as List? ?? const [])) {
@@ -707,3 +711,5 @@ Future<void> openAttemptSolutions(BuildContext context, Exam exam, Map<String, d
     msg.showSnackBar(const SnackBar(content: Text('Could not open the solutions. Check your internet and try again.')));
   }
 }
+
+String s0(Object? v) => v == null ? '' : '$v';
