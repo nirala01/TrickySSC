@@ -18,7 +18,10 @@ class TestAnalysisPage extends StatefulWidget {
   final DashCtx x;
   final Att a;
   final VoidCallback? onRetake;
-  const TestAnalysisPage({super.key, required this.x, required this.a, this.onRetake});
+  /// Just submitted: read the rank afresh, open solutions from the paper in hand, and show "Back to tests".
+  final void Function(int? q)? onSolutions;
+  final bool fresh;
+  const TestAnalysisPage({super.key, required this.x, required this.a, this.onRetake, this.onSolutions, this.fresh = false});
   @override
   State<TestAnalysisPage> createState() => _TestAnalysisPageState();
 }
@@ -67,7 +70,7 @@ class _TestAnalysisPageState extends State<TestAnalysisPage> {
     if (k.isEmpty) {
       _lbDone = true;
     } else {
-      fetchRank(k, widget.x.user.uid, from: a).then((v) {
+      fetchRank(k, widget.x.user.uid, from: a, fresh: widget.fresh).then((v) {
         if (mounted) {
           setState(() {
             _v = v;
@@ -86,7 +89,7 @@ class _TestAnalysisPageState extends State<TestAnalysisPage> {
     return '';
   }
 
-  void _solutions({int? q}) => openAttemptSolutions(context, widget.x.exam, a, openQ: q);
+  void _solutions({int? q}) => widget.onSolutions != null ? widget.onSolutions!(q) : openAttemptSolutions(context, widget.x.exam, a, openQ: q);
 
   @override
   Widget build(BuildContext context) {
@@ -94,7 +97,7 @@ class _TestAnalysisPageState extends State<TestAnalysisPage> {
     final ok = _v != null && _v!.ok;
     final v = _v ?? LbInfo(err: true);
     final key = lbKeyOf(a);
-    final canSol = canOpenSolutions(a);
+    final canSol = widget.onSolutions != null || canOpenSolutions(a);
     final ans = answersOf(a)..sort((p, q) => inum(p['q']).compareTo(inum(q['q'])));
     final L = lostOf(a);
     final pn = posneg(a);
@@ -245,15 +248,32 @@ class _TestAnalysisPageState extends State<TestAnalysisPage> {
         stat('${(L.acc * 100).round()}%', 'Accuracy', exam.c1),
       ]),
       const SizedBox(height: 12),
-      if (canSol)
+      if (canSol || key.isNotEmpty)
         Padding(
           padding: const EdgeInsets.only(bottom: 12),
-          child: FilledButton.icon(
-            onPressed: _solutions,
-            style: FilledButton.styleFrom(backgroundColor: exam.c1, minimumSize: const Size.fromHeight(50), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
-            icon: const Icon(Icons.menu_book),
-            label: const Text('View solutions', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
-          ),
+          child: Row(children: [
+            if (canSol)
+              Expanded(
+                flex: 5,
+                child: FilledButton.icon(
+                  onPressed: _solutions,
+                  style: FilledButton.styleFrom(backgroundColor: exam.c1, minimumSize: const Size.fromHeight(50), padding: const EdgeInsets.symmetric(horizontal: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+                  icon: const Icon(Icons.menu_book, size: 20),
+                  label: const Text('View solutions', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+                ),
+              ),
+            if (canSol && key.isNotEmpty) const SizedBox(width: 8),
+            if (key.isNotEmpty)
+              Expanded(
+                flex: 4,
+                child: FilledButton.tonalIcon(
+                  onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => LeaderboardScreen(exam: exam, base: key, title: testName(a), uid: x.user.uid))),
+                  style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50), padding: const EdgeInsets.symmetric(horizontal: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+                  icon: const Icon(Icons.emoji_events_outlined, size: 20),
+                  label: const Text('Leaderboard', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+                ),
+              ),
+          ]),
         ),
 
       // ================================================= subject-wise
@@ -501,12 +521,11 @@ class _TestAnalysisPageState extends State<TestAnalysisPage> {
       if (ans.isEmpty) emptyNote('Detailed analysis is available for tests taken after the dashboard update.'),
 
       // ================================================= actions
-      if (ok)
-        FilledButton.tonalIcon(
-          onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => LeaderboardScreen(exam: exam, base: key, title: testName(a), uid: x.user.uid))),
-          style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
-          icon: const Icon(Icons.emoji_events_outlined),
-          label: const Text('Leaderboard', style: TextStyle(fontWeight: FontWeight.w800)),
+      if (widget.fresh)
+        OutlinedButton(
+          onPressed: () => Navigator.of(context).pop(true),
+          style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(50), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+          child: const Text('Back to tests', style: TextStyle(fontWeight: FontWeight.w800)),
         ),
       if (widget.onRetake != null) ...[
         const SizedBox(height: 8),

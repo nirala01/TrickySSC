@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../ui/soft.dart';
@@ -7,6 +8,9 @@ import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import '../data.dart';
 import 'engine.dart';
 import '../screens/dashboard.dart';
+import '../screens/dash/analysis.dart';
+import '../screens/dash/logic.dart' show scopeOf;
+import '../screens/dash/pages.dart' show DashCtx;
 import 'compare.dart';
 import 'leaderboard.dart';
 import 'report.dart';
@@ -29,6 +33,7 @@ class _ResultScreenState extends State<ResultScreen> {
   bool _saving = true;
   bool _failed = false;
   Compare? _cmp;
+  Map<String, dynamic>? _att; // the saved attempt: once it is here the full Test analysis is shown
 
   void _loadCompare() => Compare.load(widget.paper, widget.progress).then((c) {
         if (mounted && c != null) setState(() => _cmp = c);
@@ -66,7 +71,16 @@ class _ResultScreenState extends State<ResultScreen> {
       await saveResult(widget.user, widget.exam, widget.paper, widget.progress, r);
       if (first) await countDailyTest(widget.user);
       await clearProgress(widget.user.uid, widget.paper.rules.mockId, widget.paper.partD);
-      if (mounted) setState(() => _saving = false);
+      Map<String, dynamic>? att;
+      try {
+        if ((r.attemptId ?? '').isNotEmpty) att = (await FirebaseFirestore.instance.collection('attempts').doc(r.attemptId).get()).data();
+      } catch (_) {}
+      if (mounted) {
+        setState(() {
+          _saving = false;
+          _att = att;
+        });
+      }
       _loadCompare();
       _askRating();
     } catch (_) {
@@ -129,6 +143,29 @@ class _ResultScreenState extends State<ResultScreen> {
     final exam = widget.exam;
     final attempted = r.correct + r.wrong;
     final acc = attempted == 0 ? 0 : (r.correct * 100 / attempted).round();
+    final att = _att;
+    if (att != null) {
+      return TestAnalysisPage(
+        x: DashCtx(widget.user, exam, [att], scopeOf(att), 'GEN'),
+        a: att,
+        fresh: true,
+        onSolutions: (q) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => SolutionsScreen(exam: exam, paper: widget.paper, progress: widget.progress, openQ: q))),
+      );
+    }
+    if (_saving && attempted > 0) {
+      return examTheme(context, exam, Container(decoration: softBg, child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: Center(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Text('${_n(r.marks)} / ${_n(r.maxMarks)}', style: baloo(40, color: exam.c1)),
+            const SizedBox(height: 14),
+            const SizedBox(width: 26, height: 26, child: CircularProgressIndicator(strokeWidth: 3)),
+            const SizedBox(height: 12),
+            const Text('Preparing your analysis…', style: TextStyle(fontSize: 15, color: softMuted, fontWeight: FontWeight.w700)),
+          ]),
+        ),
+      )));
+    }
     Widget stat(String v, String l, Color c) => Expanded(
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 10),

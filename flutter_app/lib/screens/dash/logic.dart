@@ -391,10 +391,10 @@ Future<bool> _restoreRow(String key, String uid, Att a) async {
   }
 }
 
-Future<LbInfo> fetchRank(String key, String uid, {Att? from}) async {
-  if (_lbMem[key] != null) return _lbMem[key]!;
+Future<LbInfo> fetchRank(String key, String uid, {Att? from, bool fresh = false}) async {
+  if (!fresh && _lbMem[key] != null) return _lbMem[key]!;
   final prefs = await SharedPreferences.getInstance();
-  try {
+  if (!fresh) try {
     final c = jsonDecode(prefs.getString('tssc_dp_lb2_$key') ?? 'null');
     if (c is Map && DateTime.now().millisecondsSinceEpoch - inum(c['ts']) < 6 * 3600 * 1000) return _lbMem[key] = LbInfo.fromJson(c['v'] as Map);
   } catch (_) {}

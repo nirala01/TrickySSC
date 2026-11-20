@@ -181,21 +181,14 @@ class _DashboardTabState extends State<DashboardTab> {
     final live = (_plans ?? const []).where((p) => p.$3).toList();
 
     // teasers
-    final lb = _lb;
-    final hasLb = lbKeyOf(a).isNotEmpty;
-    final rankT = !hasLb ? 'No leaderboard for this test type' : (lb == null ? 'Loading…' : (lb.ok ? '#${lb.rank} of ${lb.total} · ${n1(lb.pctile)} percentile' : 'Not ranked yet'));
     final scCut = cutoffTests(sc);
     String? cutT;
     if (scCut.isNotEmpty) {
       final g = meritMarks(scCut.first) - cutoffs[examTier(scCut.first)]!.cut[_cat]!;
       cutT = g >= 0 ? 'Cleared $_cat by +${n1(g)}' : '${n1(-g)} marks short of $_cat';
     }
-    final L = lostOf(a);
     final chScope = isChapter(a);
     final weakN = chapterStats(sc).where((c) => c.name != 'Untagged' && c.n >= 3 && c.acc < .7).length;
-    final ans = answersOf(a).where((q) => dnum(q['t']) > 0).toList();
-    final tAvg = ans.isEmpty ? null : ans.fold(0.0, (t, q) => t + dnum(q['t'])) / ans.length;
-    final topT = !hasLb ? 'No leaderboard for this test type' : (lb == null ? 'Loading…' : (lb.ok ? 'Topper ${n1(lb.top)} · you ${n1(lb.my)}' : 'Not ranked yet'));
 
     Widget stat(String v, String l, String d, {Widget? extra}) => Expanded(
           child: Container(
@@ -297,8 +290,8 @@ class _DashboardTabState extends State<DashboardTab> {
               ])),
         ]),
         const SizedBox(height: 12),
-        section('📊', 'My recent attempts', '${all.length} tests · tap any for solutions, rank or review', (c) => AttemptsPage(x: c)),
-        head('📈 Performance analysis'),
+        section('📊', 'My recent attempts', '${all.length} tests · tap any for its full analysis', (c) => AttemptsPage(x: c)),
+        head('📈 Overall performance'),
         Material(
           color: Colors.transparent,
           child: Ink(
@@ -318,16 +311,10 @@ class _DashboardTabState extends State<DashboardTab> {
           ),
         ),
         const SizedBox(height: 10),
-        section('🏆', 'Latest test rank', rankT, (c) => RankPage(x: c)),
         if (cutT != null) section('🎯', 'Cut-off gap', cutT, (c) => CutoffPage(x: c), tc: cutT.startsWith('Cleared') ? cGood : cBad),
-        section('📉', 'Where you lost marks', '−${n1(maxOf(a) - marksOf(a))} marks · ~${n1(L.recover)} recoverable', (c) => LostPage(x: c)),
-        section('🧠', 'Question selection', '${(L.acc * 100).round()}% accuracy on ${L.attempted} attempted', (c) => SelectionPage(x: c)),
         section('📚', chScope ? 'Test-wise accuracy' : 'Chapter-wise accuracy',
             chScope ? '${sc.length} attempt${sc.length == 1 ? '' : 's'} of this chapter' : (weakN > 0 ? '$weakN weak chapter${weakN == 1 ? '' : 's'} found' : 'Your weak and strong chapters'), (c) => ChaptersPage(x: c)),
         section('💪', chScope ? 'Chapter readiness' : 'Exam readiness', '${readiness(sc)} / 100 · last ${sc.length < 5 ? sc.length : 5} tests', (c) => ReadinessPage(x: c)),
-        section('🥇', 'Compare with topper', topT, (c) => TopperPage(x: c)),
-        section('⏱️', 'Time analysis', tAvg == null ? 'Time per question and slowest questions' : '${tAvg.round()} s per question on average', (c) => TimePage(x: c)),
-        section('🔍', 'Question by question', '% got it right and your time vs others', (c) => QuestionsPage(x: c)),
         section('🖼️', 'Report card', 'Share an image of your progress', (c) => ReportCardPage(x: c, name: widget.user.displayName ?? 'Student')),
         head('👤 Account'),
         section('👤', 'My profile', widget.user.email ?? widget.user.phoneNumber ?? 'Name, phone, login method', (c) => ProfilePage(x: c)),
