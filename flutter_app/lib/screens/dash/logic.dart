@@ -400,6 +400,9 @@ class LbInfo {
 
 final _lbMem = <String, LbInfo>{};
 
+/// Leaderboard rows read for a rank (the top of the board). Bigger boards use count / average queries for the rest.
+const _lbRows = 100;
+
 /// Puts a finished attempt on the leaderboard when its row is missing (a submit whose leaderboard write failed).
 Future<bool> _restoreRow(String key, String uid, Att a) async {
   try {
@@ -436,7 +439,7 @@ Future<LbInfo> fetchRank(String key, String uid, {Att? from, bool fresh = false}
   } catch (_) {}
   try {
     final col = FirebaseFirestore.instance.collection('leaderboards').doc(key).collection('scores');
-    final res = await Future.wait([col.doc(uid).get(), col.orderBy('marks', descending: true).limit(300).get()]);
+    final res = await Future.wait([col.doc(uid).get(), col.orderBy('marks', descending: true).limit(_lbRows).get()]);
     final me = res[0] as DocumentSnapshot<Map<String, dynamic>>;
     final board = res[1] as QuerySnapshot<Map<String, dynamic>>;
     if (!me.exists) {
@@ -448,19 +451,27 @@ Future<LbInfo> fetchRank(String key, String uid, {Att? from, bool fresh = false}
     final rows = [for (final d in board.docs) d.data()];
     var ahead = rows.where((r) => dnum(r['marks']) > my).length;
     var total = rows.length > ahead + 1 ? rows.length : ahead + 1;
-    if (rows.length >= 300) {
+    var avg = rows.isEmpty ? 0.0 : rows.fold(0.0, (x, r) => x + dnum(r['marks'])) / rows.length;
+    final tRows = rows.where((r) => dnum(r['timeUsed']) > 0).toList();
+    var tAvg = tRows.isEmpty ? 0.0 : tRows.fold(0.0, (x, r) => x + dnum(r['timeUsed'])) / tRows.length;
+    final big = rows.length >= _lbRows; // more students than the rows read: totals come from count / average queries
+    if (big) {
       try {
-        total = (await col.count().get()).count ?? total;
-        ahead = (await col.where('marks', isGreaterThan: my).count().get()).count ?? ahead;
+        final ag = await Future.wait([
+          col.aggregate(count(), average('marks')).get(),
+          col.where('marks', isGreaterThan: my).count().get(),
+          col.where('timeUsed', isGreaterThan: 0).aggregate(average('timeUsed')).get(),
+        ]);
+        total = ag[0].count ?? total;
+        avg = ag[0].getAverage('marks') ?? avg;
+        ahead = ag[1].count ?? ahead;
+        tAvg = ag[2].getAverage('timeUsed') ?? tAvg;
       } catch (_) {}
     }
-    final avg = rows.isEmpty ? 0.0 : rows.fold(0.0, (x, r) => x + dnum(r['marks'])) / rows.length;
-    final tRows = rows.where((r) => dnum(r['timeUsed']) > 0).toList();
-    final tAvg = tRows.isEmpty ? 0.0 : tRows.fold(0.0, (x, r) => x + dnum(r['timeUsed'])) / tRows.length;
     final t = rows.isEmpty ? <String, dynamic>{} : rows.first;
     final sm = (md['subjectMarks'] as Map?) ?? {};
     final subj = <String, ({double my, int ahead, double avg, int n})>{};
-    sm.forEach((k, v) {
+    if (!big) sm.forEach((k, v) {
       final mine = dnum(v);
       final have = rows.where((r) => r['subjectMarks'] is Map && (r['subjectMarks'] as Map).containsKey(k)).toList();
       subj['$k'] = (
