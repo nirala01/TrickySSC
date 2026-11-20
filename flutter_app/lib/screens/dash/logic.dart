@@ -336,7 +336,9 @@ class LbInfo {
   final double topTime;
   final Map<String, double> topSubj;
   final Map<String, ({double my, int ahead, double avg, int n})> subj;
-  LbInfo({this.none = false, this.err = false, this.my = 0, this.max = 0, this.avg = 0, this.tAvg = 0, this.top = 0, this.total = 0, this.ahead = 0, this.topName = '', this.topAcc, this.topTime = 0, this.topSubj = const {}, this.subj = const {}});
+  /// Averages of the top 10% and top 25% of the board: label -> marks, time used, subject marks.
+  final List<({String label, double marks, double time, Map<String, double> subj})> bands;
+  LbInfo({this.bands = const [], this.none = false, this.err = false, this.my = 0, this.max = 0, this.avg = 0, this.tAvg = 0, this.top = 0, this.total = 0, this.ahead = 0, this.topName = '', this.topAcc, this.topTime = 0, this.topSubj = const {}, this.subj = const {}});
   int get rank => ahead + 1;
   double get pctile => total == 0 ? 0 : ((1 - ahead / total) * 1000).round() / 10;
   bool get ok => !none && !err;
@@ -345,12 +347,18 @@ class LbInfo {
         'none': none, 'err': err, 'my': my, 'max': max, 'avg': avg, 'tAvg': tAvg, 'top': top, 'total': total, 'ahead': ahead,
         'topName': topName, 'topAcc': topAcc, 'topTime': topTime, 'topSubj': topSubj,
         'subj': {for (final e in subj.entries) e.key: {'my': e.value.my, 'ahead': e.value.ahead, 'avg': e.value.avg, 'n': e.value.n}},
+        'bands': [for (final b in bands) {'label': b.label, 'marks': b.marks, 'time': b.time, 'subj': b.subj}],
       };
   factory LbInfo.fromJson(Map j) => LbInfo(
         none: j['none'] == true, err: j['err'] == true, my: dnum(j['my']), max: dnum(j['max']), avg: dnum(j['avg']), tAvg: dnum(j['tAvg']), top: dnum(j['top']),
         total: inum(j['total']), ahead: inum(j['ahead']), topName: s(j['topName']), topAcc: j['topAcc'] == null ? null : dnum(j['topAcc']), topTime: dnum(j['topTime']),
         topSubj: {for (final e in ((j['topSubj'] as Map?) ?? {}).entries) '${e.key}': dnum(e.value)},
         subj: {for (final e in ((j['subj'] as Map?) ?? {}).entries) '${e.key}': (my: dnum(e.value['my']), ahead: inum(e.value['ahead']), avg: dnum(e.value['avg']), n: inum(e.value['n']))},
+        bands: [
+          for (final b in ((j['bands'] as List?) ?? const []))
+            if (b is Map)
+              (label: s(b['label']), marks: dnum(b['marks']), time: dnum(b['time']), subj: {for (final e in ((b['subj'] as Map?) ?? {}).entries) '${e.key}': dnum(e.value)}),
+        ],
       );
 }
 
@@ -387,7 +395,7 @@ Future<LbInfo> fetchRank(String key, String uid, {Att? from}) async {
   if (_lbMem[key] != null) return _lbMem[key]!;
   final prefs = await SharedPreferences.getInstance();
   try {
-    final c = jsonDecode(prefs.getString('tssc_dp_lb_$key') ?? 'null');
+    final c = jsonDecode(prefs.getString('tssc_dp_lb2_$key') ?? 'null');
     if (c is Map && DateTime.now().millisecondsSinceEpoch - inum(c['ts']) < 6 * 3600 * 1000) return _lbMem[key] = LbInfo.fromJson(c['v'] as Map);
   } catch (_) {}
   try {
@@ -426,13 +434,34 @@ Future<LbInfo> fetchRank(String key, String uid, {Att? from}) async {
         n: have.length,
       );
     });
+    // top 10% / top 25% averages (the board is read best-first, up to 300 rows)
+    final bands = <({String label, double marks, double time, Map<String, double> subj})>[];
+    if (total >= 8) {
+      for (final b in const [('Top 10%', .10), ('Top 25%', .25)]) {
+        final n = (total * b.$2).ceil().clamp(1, rows.length);
+        final g = rows.take(n).toList();
+        final tg = g.where((r) => dnum(r['timeUsed']) > 0).toList();
+        final sj = <String, List<double>>{};
+        for (final r in g) {
+          if (r['subjectMarks'] is! Map) continue;
+          (r['subjectMarks'] as Map).forEach((k, v) => (sj['$k'] ??= [0, 0])..[0] += dnum(v)..[1] += 1);
+        }
+        bands.add((
+          label: b.$1,
+          marks: g.fold(0.0, (x, r) => x + dnum(r['marks'])) / g.length,
+          time: tg.isEmpty ? 0.0 : tg.fold(0.0, (x, r) => x + dnum(r['timeUsed'])) / tg.length,
+          subj: {for (final e in sj.entries) e.key: e.value[0] / e.value[1]},
+        ));
+      }
+    }
     final v = LbInfo(
+      bands: bands,
       my: my, max: dnum(md['maxMarks']), total: total, ahead: ahead, avg: avg, tAvg: tAvg, top: dnum(t['marks']), topName: s(t['name']),
       topAcc: t['accuracy'] == null ? null : dnum(t['accuracy']), topTime: dnum(t['timeUsed']),
       topSubj: {for (final e in ((t['subjectMarks'] as Map?) ?? {}).entries) '${e.key}': dnum(e.value)}, subj: subj,
     );
     _lbMem[key] = v;
-    await prefs.setString('tssc_dp_lb_$key', jsonEncode({'ts': DateTime.now().millisecondsSinceEpoch, 'v': v.toJson()}));
+    await prefs.setString('tssc_dp_lb2_$key', jsonEncode({'ts': DateTime.now().millisecondsSinceEpoch, 'v': v.toJson()}));
     return v;
   } catch (_) {
     return LbInfo(err: true);
