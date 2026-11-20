@@ -11,7 +11,12 @@
      appDays, appOpens, appTests — written by the app itself). The tester list holds
      email addresses, so it is NOT in this public repo: it is saved on your own
      users/{uid} document (testerCfg) and mirrored in this browser.
-     Email goes through the trickyssc-mail Worker, WhatsApp opens the chat. -->
+     Email goes through the trickyssc-mail Worker, WhatsApp opens the chat.
+     TSSC-TESTERS-V2 (2026-11-20): saves MERGE with the saved list instead of replacing it.
+     Every add / move / remove is stamped (testerCfg.mt: email -> {g, t}); before each save
+     the page re-reads the saved list and keeps the newest stamp per email, so an old page
+     on another device can no longer wipe testers added elsewhere. The page also re-reads
+     the list whenever it comes back into view. -->
 <style>
   *{box-sizing:border-box;}
   body{margin:0;font-family:'Inter',sans-serif;background:#F1F5F9;color:#1E293B;}
@@ -316,14 +321,54 @@ function cleanCfg(c) {
   const own = [...new Set((c.own || []).map(norm).filter(Boolean))];
   const stu = [...new Set((c.stu || []).map(norm).filter(e => e && !own.includes(e)))];
   const nb = [...new Set((c.nb || []).map(norm).filter(e => e && !own.includes(e) && !stu.includes(e)))];
-  return { own, stu, nb, set: c.set || {}, sent: c.sent || {}, at: c.at || 0 };
+  const mt = {};
+  Object.entries(c.mt || {}).forEach(([e, v]) => { const k = norm(e); if (k && v && v.t) mt[k] = { g: v.g || '', t: Number(v.t) || 0 }; });
+  return { own, stu, nb, mt, set: c.set || {}, setAt: c.setAt || 0, sent: c.sent || {}, at: c.at || 0 };
 }
+/* group of every email in one copy of the list: the stamped change wins, else the lists (stamp 0) */
+function entriesOf(c) {
+  const m = {};
+  ['own','stu','nb'].forEach(g => (c[g] || []).forEach(e => { m[e] = { g, t: 0 }; }));
+  Object.entries(c.mt || {}).forEach(([e, v]) => { m[e] = { g: v.g || '', t: v.t || 0 }; });
+  return m;
+}
+/* "sent" holds timestamps (possibly one level nested): keep the latest of each */
+function maxMerge(a, b) {
+  const o = {};
+  [a, b].forEach(x => Object.entries(x || {}).forEach(([k, v]) => {
+    if (typeof v === 'number') { if (!(typeof o[k] === 'number' && o[k] >= v)) o[k] = v; }
+    else if (v && typeof v === 'object') o[k] = maxMerge(o[k] && typeof o[k] === 'object' ? o[k] : {}, v);
+  }));
+  return o;
+}
+/* merge two copies of the list: per email the newest change wins; unstamped entries are kept (union) */
+function mergeCfg(a, b) {
+  a = cleanCfg(a); b = cleanCfg(b);
+  const ea = entriesOf(a), eb = entriesOf(b), mt = {}, out = { own: [], stu: [], nb: [] };
+  new Set([...Object.keys(ea), ...Object.keys(eb)]).forEach(e => {
+    const x = ea[e], y = eb[e];
+    const w = !x ? y : !y ? x : (x.t !== y.t ? (x.t > y.t ? x : y) : (x.g ? x : y));
+    if (w.t) mt[e] = { g: w.g, t: w.t };
+    if (w.g && out[w.g]) out[w.g].push(e);
+  });
+  const sa = a.setAt || 0, sb = b.setAt || 0;
+  const [hi, lo] = sa !== sb ? (sa > sb ? [a, b] : [b, a]) : ((a.at || 0) >= (b.at || 0) ? [a, b] : [b, a]);
+  const set = { ...(hi.set || {}) };
+  if (sa === sb && !set.start && lo.set && lo.set.start) set.start = lo.set.start;
+  return cleanCfg({ ...out, mt, set, setAt: Math.max(sa, sb), sent: maxMerge(a.sent, b.sent), at: Math.max(a.at || 0, b.at || 0) });
+}
+const listKey = c => JSON.stringify([c.own, c.stu, c.nb]);
+async function readRemote() {
+  try { return ((await getDoc(doc(db, 'users', ME.uid))).data() || {}).testerCfg || null; }
+  catch (e) { console.warn('testerCfg read:', e.message); return null; }
+}
+/* stamp a change to one email's group ('' = removed) so merges know it is newer */
+const stamp = (e, g) => { CFG.mt = CFG.mt || {}; CFG.mt[e] = { g, t: Date.now() }; };
 async function loadCfg() {
-  let local = null, remote = null;
+  let local = null;
   try { local = JSON.parse(localStorage.getItem(LS) || 'null'); } catch (e) {}
-  try { remote = ((await getDoc(doc(db, 'users', ME.uid))).data() || {}).testerCfg || null; } catch (e) { console.warn('testerCfg read:', e.message); }
-  const pick = (remote && local) ? ((remote.at || 0) >= (local.at || 0) ? remote : local) : (remote || local);
-  CFG = cleanCfg(pick);
+  const remote = await readRemote();
+  CFG = (remote && local) ? mergeCfg(local, remote) : cleanCfg(remote || local);
 }
 let saveT = null;
 function saveCfg() {
@@ -331,10 +376,27 @@ function saveCfg() {
   try { localStorage.setItem(LS, JSON.stringify(CFG)); } catch (e) {}
   clearTimeout(saveT);
   saveT = setTimeout(async () => {
-    try { await setDoc(doc(db, 'users', ME.uid), { testerCfg: CFG }, { merge: true }); }
-    catch (e) { say('List saved on this device only (' + esc(e.message) + ').', 'err'); }
+    const before = listKey(CFG);
+    try {
+      const remote = await readRemote();                  /* never overwrite: merge with what is saved now */
+      if (remote) CFG = mergeCfg(CFG, remote);
+      CFG.at = Date.now();
+      try { localStorage.setItem(LS, JSON.stringify(CFG)); } catch (e) {}
+      await setDoc(doc(db, 'users', ME.uid), { testerCfg: CFG }, { merge: true });
+    } catch (e) { say('List saved on this device only (' + esc(e.message) + ').', 'err'); }
+    if (listKey(CFG) !== before && !BULK_ON) load();   /* testers added on another device show up */
   }, 600);
 }
+/* coming back to an old tab: pick up changes made elsewhere before anything is saved from here */
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState !== 'visible' || !ME || BULK_ON) return;
+  const remote = await readRemote();
+  if (!remote) return;
+  const before = listKey(CFG);
+  CFG = mergeCfg(CFG, remote);
+  try { localStorage.setItem(LS, JSON.stringify(CFG)); } catch (e) {}
+  if (listKey(CFG) !== before) load();
+});
 const S = k => (CFG.set && CFG.set[k] != null && CFG.set[k] !== '') ? CFG.set[k] : DEF[k];
 
 /* ------------------------------------------------------------------ data */
@@ -493,7 +555,7 @@ function renderStatus() {
   const d = statusData(), win = last14();
   const opt = d.optIn != null ? d.optIn : d.joined.length;
   /* the 14 days start on the first day 12 testers are opted in */
-  if (opt >= 12 && !CFG.set.start) { CFG.set.start = dayIST(Date.now()); saveCfg(); }
+  if (opt >= 12 && !CFG.set.start) { CFG.set.start = dayIST(Date.now()); saveCfg(); }   /* auto start: not stamped, so a manual date always wins */
   const start = CFG.set.start || '';
   const dayNo = start ? Math.floor((Date.parse(dayIST(Date.now())) - Date.parse(start)) / 86400000) + 1 : 0;
   let cls, head, text;
@@ -546,9 +608,9 @@ function renderStatus() {
   $('optSave').onclick = () => {
     const v = $('optN').value.trim();
     if (v === '') delete CFG.set.optIn; else CFG.set.optIn = { n: Math.max(0, parseInt(v, 10) || 0), at: Date.now() };
-    saveCfg(); renderStatus();
+    CFG.setAt = Date.now(); saveCfg(); renderStatus();
   };
-  $('startSave').onclick = () => { CFG.set.start = $('startD').value || ''; if (!CFG.set.start) delete CFG.set.start; saveCfg(); renderStatus(); };
+  $('startSave').onclick = () => { CFG.set.start = $('startD').value || ''; if (!CFG.set.start) delete CFG.set.start; CFG.setAt = Date.now(); saveCfg(); renderStatus(); };
   $('remind').onclick = () => { const l = [...d.slipping, ...d.dropped].filter(r => r.email); if (l.length) openMsg('ml', l); };
 }
 
@@ -642,6 +704,7 @@ $('bDelSel').onclick = () => {
   if (b.dataset.sure !== '1') { b.dataset.sure = '1'; b.textContent = 'Press again to remove ' + SEL.size; setTimeout(() => { b.dataset.sure = ''; b.textContent = 'Remove selected from list'; }, 4000); return; }
   b.dataset.sure = ''; b.textContent = 'Remove selected from list';
   ['own','stu','nb'].forEach(g => { CFG[g] = CFG[g].filter(e => !SEL.has(e)); });
+  SEL.forEach(e => { if (e && !String(e).startsWith('uid:')) stamp(norm(e), ''); });
   SEL.clear(); saveCfg(); load();
 };
 
@@ -662,7 +725,7 @@ $('aSave').onclick = async () => {
     emailsIn(line).forEach(e => {
       if (CFG[grp].includes(e)) return;
       ['own','stu','nb'].forEach(x => { CFG[x] = CFG[x].filter(y => y !== e); });
-      CFG[grp].push(e); added++;
+      CFG[grp].push(e); stamp(e, grp); added++;
     });
   });
   if (!added) { $('aSay').className = 'say err'; $('aSay').textContent = 'No new addresses found.'; return; }
@@ -681,7 +744,7 @@ $('sSave').onclick = () => {
   const link = $('sLink').value.trim();
   if (link && !/^https:\/\/play\.google\.com\//.test(link)) { $('sSay').className = 'say err'; $('sSay').textContent = 'The link should start with https://play.google.com/'; return; }
   CFG.set = { ...CFG.set, link, invSub: $('sInvSub').value.trim(), inv: $('sInv').value, nbSub: $('sNbSub').value.trim(), nb: $('sNb').value, remSub: $('sRemSub').value.trim(), rem: $('sRem').value };
-  saveCfg(); hide('mSet'); say('Saved.', 'ok');
+  CFG.setAt = Date.now(); saveCfg(); hide('mSet'); say('Saved.', 'ok');
 };
 
 /* --------------------------------------------------------------- compose */
