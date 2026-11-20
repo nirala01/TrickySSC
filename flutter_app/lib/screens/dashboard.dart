@@ -23,8 +23,84 @@ class DashboardTab extends StatefulWidget {
 }
 
 class _DashboardTabState extends State<DashboardTab> {
-  List<Att>? _all;
+  List<Att>? _raw; // every attempt of this student
+  String _grp = ''; // the exam chosen in the dropdown: "<exam id>|tier1|tier2|paper2|paper3"
   bool _failed = false;
+
+  String _gkey(Att a) {
+    final id = s(a['paperId']) + s(a['mockId']);
+    final t = id.contains('_paper2_') ? 'paper2' : (id.contains('_paper3_') ? 'paper3' : (isTier2(a) ? 'tier2' : 'tier1'));
+    return '${s(a['exam'])}|$t';
+  }
+
+  /// Attempts of the chosen exam. Chapter tests are common practice, so they count under Tier 1.
+  List<Att>? get _all => _raw?.where((a) => isChapter(a) ? _grp.endsWith('|tier1') : _gkey(a) == _grp).toList();
+
+  Exam get _exam => examById(_grp.split('|').first) ?? widget.exam;
+
+  bool _holds(Exam e) => (_plans ?? const []).any((p) => p.$3 && (p.$1.replaceFirst(RegExp(r'^p-'), '') == e.pass || p.$1.contains('all')));
+
+  /// Dropdown choices: the exam open in the app, exams whose pass the student holds, and exams already attempted.
+  List<String> get _groups {
+    final out = <String>['${widget.exam.id}|tier1'];
+    void add(String g) {
+      if (!out.contains(g) && examById(g.split('|').first) != null) out.add(g);
+    }
+
+    if (widget.exam.tier2 && _holds(widget.exam)) add('${widget.exam.id}|tier2');
+    for (final e in exams) {
+      if (!_holds(e)) continue;
+      add('${e.id}|tier1');
+      if (e.tier2) add('${e.id}|tier2');
+    }
+    for (final a in _raw ?? const <Att>[]) {
+      if (!isChapter(a)) add(_gkey(a));
+    }
+    return out;
+  }
+
+  String _label(String g) {
+    final p = g.split('|');
+    final e = examById(p[0]);
+    final n = e?.name ?? p[0];
+    return switch (p.length > 1 ? p[1] : 'tier1') {
+      'tier2' => '$n Tier 2',
+      'paper2' => '$n Statistics (Paper II)',
+      'paper3' => '$n AAO (Paper III)',
+      _ => (e?.tier2 ?? false) ? '$n Tier 1' : n,
+    };
+  }
+
+  void _pickExam() {
+    final gs = _groups;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (c) => SafeArea(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: MediaQuery.of(c).size.height * .7),
+          child: ListView(shrinkWrap: true, padding: const EdgeInsets.fromLTRB(8, 14, 8, 8), children: [
+            Padding(padding: const EdgeInsets.fromLTRB(12, 0, 12, 8), child: Text('Show performance for', style: baloo(19))),
+            for (final g in gs)
+              Builder(builder: (_) {
+                final n = (_raw ?? const <Att>[]).where((a) => !isChapter(a) && _gkey(a) == g).length;
+                return ListTile(
+                  title: Text(_label(g), style: TextStyle(fontWeight: FontWeight.w800, color: g == _grp ? _exam.c1 : softInk)),
+                  subtitle: Text(n == 0 ? 'No tests yet' : '$n test${n == 1 ? '' : 's'} taken'),
+                  trailing: g == _grp ? Icon(Icons.check_circle, color: _exam.c1) : null,
+                  onTap: () {
+                    Navigator.pop(c);
+                    setState(() => _grp = g);
+                  },
+                );
+              }),
+          ]),
+        ),
+      ),
+    );
+  }
   String _scope = '';
   String _cat = 'GEN';
   List<(String, int, bool)>? _plans;
@@ -51,11 +127,13 @@ class _DashboardTabState extends State<DashboardTab> {
     setState(() => _failed = false);
     try {
       final a = await loadAttempts(widget.user.uid);
-      final mine = a.where((x) => x['exam'] == widget.exam.id || isChapter(x)).toList();
       if (!mounted) return;
       setState(() {
-        _all = mine;
-        if (_scope.isEmpty || !mine.any((x) => scopeOf(x) == _scope)) _scope = mine.isEmpty ? '' : scopeOf(mine.first);
+        _raw = a;
+        if (_grp.isEmpty) {
+          final mine = a.where((x) => !isChapter(x) && x['exam'] == widget.exam.id).toList();
+          _grp = mine.isEmpty ? '${widget.exam.id}|tier1' : _gkey(mine.first);
+        }
       });
       final had = chapterNames.length;
       loadAllChapterNames().then((_) {
@@ -66,7 +144,7 @@ class _DashboardTabState extends State<DashboardTab> {
     }
   }
 
-  DashCtx get _ctx => DashCtx(widget.user, widget.exam, _all!, _scope, _cat, overall: true);
+  DashCtx get _ctx => DashCtx(widget.user, _exam, _all!, _scope, _cat, overall: true);
 
   Future<void> _open(Widget Function(DashCtx) page) async {
     await Navigator.of(context).push(MaterialPageRoute(builder: (_) => page(_ctx)));
@@ -76,7 +154,7 @@ class _DashboardTabState extends State<DashboardTab> {
 
   @override
   Widget build(BuildContext context) {
-    final exam = widget.exam;
+    final exam = _exam;
     if (_failed) {
       return Center(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -89,16 +167,36 @@ class _DashboardTabState extends State<DashboardTab> {
     if (all == null) return const Center(child: CircularProgressIndicator());
     final first = (widget.user.displayName ?? 'Student').split(' ').first;
 
+    final picker = Material(
+      color: Colors.transparent,
+      child: Ink(
+        decoration: BoxDecoration(color: Color.lerp(Colors.white, exam.c2, .18), borderRadius: BorderRadius.circular(16)),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: _pickExam,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+            child: Row(children: [
+              const Text('Exam  ', style: TextStyle(color: softMuted, fontWeight: FontWeight.w700)),
+              Expanded(child: Text(_label(_grp), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.w800, color: exam.ink))),
+              Icon(Icons.expand_more_rounded, color: exam.c1),
+            ]),
+          ),
+        ),
+      ),
+    );
+
     if (all.isEmpty) {
       return RefreshIndicator(
         onRefresh: _load,
-        child: ListView(padding: const EdgeInsets.all(28), children: [
-          const SizedBox(height: 60),
+        child: ListView(padding: const EdgeInsets.fromLTRB(14, 8, 14, 28), children: [
+          picker,
+          const SizedBox(height: 50),
           Icon(Icons.insights, size: 56, color: exam.c1),
           const SizedBox(height: 10),
-          Text('No ${exam.name} tests yet', textAlign: TextAlign.center, style: baloo(21)),
+          Text('No ${_label(_grp)} tests yet', textAlign: TextAlign.center, style: baloo(21)),
           const SizedBox(height: 6),
-          const Text('Attempt any test — PYQ, mock, subject-wise or chapter — to see your rank, cut-off gap and weak areas here.',
+          const Text('Attempt any test — PYQ, mock, subject-wise or chapter — to see your overall performance here.',
               textAlign: TextAlign.center, style: TextStyle(fontSize: 15, color: softMuted, fontWeight: FontWeight.w600)),
           const SizedBox(height: 16),
           Center(child: FilledButton(onPressed: widget.onMocks, style: FilledButton.styleFrom(backgroundColor: exam.c1), child: const Text('Go to mocks'))),
@@ -106,7 +204,7 @@ class _DashboardTabState extends State<DashboardTab> {
       );
     }
 
-    final full = all.where((t) => isFullPaper(t) && s(t['exam']) == exam.id).toList();
+    final full = all.where((t) => isFullPaper(t)).toList();
     final fullMarks = full.map(marksOf).toList();
     final avg = fullMarks.isEmpty ? null : fullMarks.fold(0.0, (t, v) => t + v) / fullMarks.length;
     final best = fullMarks.isEmpty ? null : fullMarks.reduce((p, q) => p > q ? p : q);
@@ -173,6 +271,8 @@ class _DashboardTabState extends State<DashboardTab> {
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView(padding: EdgeInsets.fromLTRB(14, 8, 14, 20 + MediaQuery.of(context).padding.bottom), children: [
+        picker,
+        const SizedBox(height: 10),
         // welcome
         Container(
           padding: const EdgeInsets.all(16),
@@ -202,7 +302,7 @@ class _DashboardTabState extends State<DashboardTab> {
         ]),
         const SizedBox(height: 10),
         Row(children: [
-          stat(best == null ? '—' : n1(best), 'Best marks $maxLabel', exam.name),
+          stat(best == null ? '—' : n1(best), 'Best marks $maxLabel', _label(_grp)),
           const SizedBox(width: 10),
           stat('$streak', 'Day streak', '',
               extra: Row(children: [
