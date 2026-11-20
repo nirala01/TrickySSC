@@ -16,7 +16,11 @@
      Every add / move / remove is stamped (testerCfg.mt: email -> {g, t}); before each save
      the page re-reads the saved list and keeps the newest stamp per email, so an old page
      on another device can no longer wipe testers added elsewhere. The page also re-reads
-     the list whenever it comes back into view. -->
+     the list whenever it comes back into view.
+     TSSC-TESTERS-V3 (2026-11-20): one plain list, no grouping — everyone who uses the app,
+     most recently active at the top (today's testers first). Group tabs and group tags are
+     gone from the view; the groups are still kept behind the scenes for the message templates.
+     Google review accounts stay out of the list (own tab only). -->
 <style>
   *{box-sizing:border-box;}
   body{margin:0;font-family:'Inter',sans-serif;background:#F1F5F9;color:#1E293B;}
@@ -114,11 +118,8 @@
       <button class="tab active" data-f="all">All</button>
       <button class="tab" data-f="never">Not opened yet</button>
       <button class="tab" data-f="idle">Idle 2+ days</button>
+      <button class="tab" data-f="tday">Tested today</button>
       <button class="tab" data-f="active">Active (today / yesterday)</button>
-      <button class="tab" data-f="own">My accounts</button>
-      <button class="tab" data-f="stu">Buyers</button>
-      <button class="tab" data-f="nb">Non-buyers</button>
-      <button class="tab" data-f="oth">Other app users</button>
       <button class="tab" data-f="rev">🤖 Google review</button>
     </div>
     <div id="statusView" class="hidden"></div>
@@ -475,8 +476,8 @@ async function load() {
   /* Google's review accounts are never testers: they go to their own group and out of every count */
   /* …except your own accounts: the login given to Google for review (trickyssc.review) is also used by you */
   ROWS.forEach(r => { if (r.review && r.group !== 'own') r.group = 'rev'; });
-  const GO = { own: 0, stu: 1, nb: 2, oth: 3, rev: 4 };                 /* my accounts first, then students, then the rest */
-  ROWS.sort((a, b) => (GO[a.group] - GO[b.group]) || (b.lastUse - a.lastUse) || (b.siteLast - a.siteLast) || a.email.localeCompare(b.email));
+  /* no grouping: most recently active first, never-opened at the bottom (newest website visit first) */
+  ROWS.sort((a, b) => (b.lastUse - a.lastUse) || (b.siteLast - a.siteLast) || a.email.localeCompare(b.email));
   say('');
   render();
 }
@@ -517,7 +518,9 @@ function shown() {
     if (FILTER === 'slip' && !(mine && r.status === 'idle' && Date.now() - r.lastUse < 3 * DAY)) return false;
     if (FILTER === 'drop' && !(mine && r.status !== 'never' && Date.now() - r.lastUse >= 3 * DAY)) return false;
     if (FILTER === 'live' && !(r.group !== 'rev' && r.seen && Date.now() - r.seen < 10 * 60000)) return false;
-    if (['own','stu','nb','oth','rev'].includes(FILTER) && r.group !== FILTER) return false;
+    if (FILTER === 'rev' ? r.group !== 'rev' : r.group === 'rev') return false;   /* Google review accounts: own tab only */
+    if (FILTER === 'tday' && r.status !== 'today') return false;
+    if (['own','stu','nb','oth'].includes(FILTER) && r.group !== FILTER) return false;   /* still used by the "other app users" number card */
     return !q || (r.email + ' ' + r.name + ' ' + r.mobile).toLowerCase().includes(q);
   });
 }
@@ -624,7 +627,7 @@ function render() {
   $('rows').innerHTML = list.map(r => `
     <tr>
       <td>${r.email ? `<input type="checkbox" data-sel="${esc(r.email)}"${SEL.has(r.email) ? ' checked' : ''}>` : ''}</td>
-      <td><b>${esc(r.name || '—')}</b> <span class="pill ${GR[r.group][0]}">${GR[r.group][1]}</span>
+      <td><b>${esc(r.name || '—')}</b>
           <div class="em">${esc(r.email || 'mobile login')}${r.mobile ? ' · ' + esc(r.mobile) : ''}</div></td>
       <td><span class="pill ${ST[r.status][0]}">${ST[r.status][1]}</span></td>
       <td>${fmt(r.lastOpen)}</td>
