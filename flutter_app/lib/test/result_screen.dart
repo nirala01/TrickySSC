@@ -317,7 +317,8 @@ class SolutionsScreen extends StatefulWidget {
   final Exam exam;
   final Paper paper;
   final Progress progress;
-  const SolutionsScreen({super.key, required this.exam, required this.paper, required this.progress});
+  final int? openQ; // question number to open first (from the test analysis page)
+  const SolutionsScreen({super.key, required this.exam, required this.paper, required this.progress, this.openQ});
 
   @override
   State<SolutionsScreen> createState() => _SolutionsScreenState();
@@ -333,6 +334,16 @@ class _SolutionsScreenState extends State<SolutionsScreen> {
   @override
   void initState() {
     super.initState();
+    final q = widget.openQ;
+    if (q != null) {
+      for (var i = 0; i < p.questions.length; i++) {
+        if (p.questions[i].qNumOr(i + 1) == q) {
+          _i = i;
+          _scrollMode = false;
+          break;
+        }
+      }
+    }
     Compare.load(widget.paper, widget.progress).then((c) {
       if (mounted && c != null) setState(() => _cmp = c);
     });
@@ -678,7 +689,7 @@ class _SolutionsScreenState extends State<SolutionsScreen> {
 
 
 /// Open the solutions of a saved attempt (from the dashboard).
-Future<void> openAttemptSolutions(BuildContext context, Exam exam, Map<String, dynamic> a) async {
+Future<void> openAttemptSolutions(BuildContext context, Exam exam, Map<String, dynamic> a, {int? openQ}) async {
   final full = '${a['mockId'] ?? ''}'.isNotEmpty ? '${a['mockId']}' : '${a['paperId'] ?? ''}';
   // one subject section of a paper / mock is saved as <id>__<subject>
   final cut = full.indexOf('__');
@@ -705,7 +716,7 @@ Future<void> openAttemptSolutions(BuildContext context, Exam exam, Map<String, d
       if (t > 0) pr.qMs[i] = t * 1000;
     }
     nav.pop();
-    nav.push(MaterialPageRoute(builder: (_) => SolutionsScreen(exam: exam, paper: p, progress: pr)));
+    nav.push(MaterialPageRoute(builder: (_) => SolutionsScreen(exam: exam, paper: p, progress: pr, openQ: openQ)));
   } catch (_) {
     nav.pop();
     msg.showSnackBar(const SnackBar(content: Text('Could not open the solutions. Check your internet and try again.')));
