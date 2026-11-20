@@ -7,6 +7,8 @@
 # so Google sign-in and, later, Google Play accept it.
 # Download it from the run's page, under "Artifacts": trickyssc-flutter-apk (install on a phone)
 # and trickyssc-flutter-aab (upload to Google Play Console).
+# With the PLAY_SERVICE_ACCOUNT_JSON secret set, every build also goes to Play internal testing by itself;
+# "Run workflow" with the closed box ticked sends it to closed testing too (flutter_app/tool/play_upload.py).
 
 name: Build Flutter app
 
@@ -17,6 +19,11 @@ on:
       - 'flutter_app/**'
       - '.github/workflows/build-flutter.yml'
   workflow_dispatch:
+    inputs:
+      closed:
+        description: 'Also send this build to closed testing (testers; Google reviews it)'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -120,3 +127,13 @@ jobs:
         with:
           name: trickyssc-flutter-aab
           path: out/trickyssc-flutter.aab
+
+      - name: Upload to Google Play (internal testing; closed testing when asked)
+        env:
+          PLAY_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          TRACKS: ${{ (github.event_name == 'workflow_dispatch' && inputs.closed) && 'internal,alpha' || 'internal' }}
+          NOTES: ${{ github.event.head_commit.message }}
+        run: |
+          if [ -z "${PLAY_JSON:-}" ]; then echo "::notice::PLAY_SERVICE_ACCOUNT_JSON is not set, so the Play upload is skipped."; exit 0; fi
+          pip install -q google-api-python-client google-auth
+          python3 flutter_app/tool/play_upload.py com.trickyssc.app out/trickyssc-flutter.aab "$TRACKS" "2.0.${{ github.run_number }}"
