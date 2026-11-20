@@ -24,8 +24,9 @@ class DashCtx {
   final List<Att> all; // this exam + chapter tests, newest first
   final String scope;
   final String cat;
-  DashCtx(this.user, this.exam, this.all, this.scope, this.cat);
-  List<Att> get sc => all.where((a) => scopeOf(a) == scope).toList();
+  final bool overall; // the dashboard: every test of this exam together, not one group of tests
+  DashCtx(this.user, this.exam, this.all, this.scope, this.cat, {this.overall = false});
+  List<Att> get sc => overall ? all : all.where((a) => scopeOf(a) == scope).toList();
   Att? get latest => sc.isEmpty ? null : sc.first;
 }
 
@@ -552,7 +553,7 @@ class ReadinessPage extends StatelessWidget {
     final sc = x.sc, exam = x.exam;
     final last = sc.take(5).toList();
     final score = readiness(sc);
-    final chScope = isChapter(last.first);
+    final chScope = !x.overall && isChapter(last.first);
     final subj = subjectAcc(last)..sort((a, b) => b.acc.compareTo(a.acc));
     (String, Color) lab(double v) => v >= .75 ? ('Strong', cGood) : v >= .6 ? ('Good', cGood) : v >= .45 ? ('Improving', cWarn) : ('Weak', cBad);
     final lv = <int, List<int>>{};

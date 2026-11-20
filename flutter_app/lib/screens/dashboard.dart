@@ -6,6 +6,7 @@ import '../data.dart';
 import '../ui/soft.dart';
 import '../ui/soft_list.dart';
 import 'chapters.dart';
+import 'dash/analysis.dart';
 import 'dash/logic.dart';
 import 'dash/pages.dart';
 import 'dash/ui.dart';
@@ -26,8 +27,6 @@ class _DashboardTabState extends State<DashboardTab> {
   bool _failed = false;
   String _scope = '';
   String _cat = 'GEN';
-  LbInfo? _lb;
-  String _lbFor = '';
   List<(String, int, bool)>? _plans;
 
   @override
@@ -58,7 +57,6 @@ class _DashboardTabState extends State<DashboardTab> {
         _all = mine;
         if (_scope.isEmpty || !mine.any((x) => scopeOf(x) == _scope)) _scope = mine.isEmpty ? '' : scopeOf(mine.first);
       });
-      _rank();
       final had = chapterNames.length;
       loadAllChapterNames().then((_) {
         if (mounted && chapterNames.length != had) setState(() {});
@@ -68,60 +66,12 @@ class _DashboardTabState extends State<DashboardTab> {
     }
   }
 
-  void _rank() {
-    final sc = (_all ?? const <Att>[]).where((a) => scopeOf(a) == _scope).toList();
-    if (sc.isEmpty) return;
-    final k = lbKeyOf(sc.first);
-    if (k.isEmpty || k == _lbFor) return;
-    _lbFor = k;
-    _lb = null;
-    fetchRank(k, widget.user.uid, from: sc.first).then((v) {
-      if (mounted && _lbFor == k) setState(() => _lb = v);
-    });
-  }
-
-  DashCtx get _ctx => DashCtx(widget.user, widget.exam, _all!, _scope, _cat);
+  DashCtx get _ctx => DashCtx(widget.user, widget.exam, _all!, _scope, _cat, overall: true);
 
   Future<void> _open(Widget Function(DashCtx) page) async {
     await Navigator.of(context).push(MaterialPageRoute(builder: (_) => page(_ctx)));
     final c = await loadCat();
     if (mounted && c != _cat) setState(() => _cat = c);
-  }
-
-  void _pickScope() {
-    final all = _all!;
-    final seen = <String, int>{};
-    final first = <String, Att>{};
-    for (final a in all) {
-      final k = scopeOf(a);
-      seen[k] = (seen[k] ?? 0) + 1;
-      first.putIfAbsent(k, () => a);
-    }
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (c) => SafeArea(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(maxHeight: MediaQuery.of(c).size.height * .7),
-          child: ListView(shrinkWrap: true, padding: const EdgeInsets.fromLTRB(8, 14, 8, 8), children: [
-            Padding(padding: const EdgeInsets.fromLTRB(12, 0, 12, 8), child: Text('Analyse which tests?', style: baloo(19))),
-            for (final k in seen.keys)
-              ListTile(
-                title: Text(scopeLabel(k, first[k]!), style: TextStyle(fontWeight: FontWeight.w800, color: k == _scope ? widget.exam.c1 : softInk)),
-                subtitle: Text('${seen[k]} test${seen[k] == 1 ? '' : 's'} · last ${shortDate(tsOf(first[k]!))}'),
-                trailing: k == _scope ? Icon(Icons.check_circle, color: widget.exam.c1) : null,
-                onTap: () {
-                  Navigator.pop(c);
-                  setState(() => _scope = k);
-                  _rank();
-                },
-              ),
-          ]),
-        ),
-      ),
-    );
   }
 
   @override
@@ -156,9 +106,6 @@ class _DashboardTabState extends State<DashboardTab> {
       );
     }
 
-    final x = _ctx;
-    final sc = x.sc;
-    final a = sc.first;
     final full = all.where((t) => isFullPaper(t) && s(t['exam']) == exam.id).toList();
     final fullMarks = full.map(marksOf).toList();
     final avg = fullMarks.isEmpty ? null : fullMarks.fold(0.0, (t, v) => t + v) / fullMarks.length;
@@ -167,9 +114,6 @@ class _DashboardTabState extends State<DashboardTab> {
     final week = all.where((t) => tsOf(t) >= DateTime.now().millisecondsSinceEpoch - 7 * 86400000).length;
     final streak = streakDays(all);
     final dots = last7(all);
-    final scM = sc.map(marksOf).toList();
-    final scAvg = scM.fold(0.0, (t, v) => t + v) / scM.length;
-    final delta = marksOf(a) - scAvg;
     final ct = cutoffTests(full);
     String? goal;
     if (ct.isNotEmpty) {
@@ -181,14 +125,7 @@ class _DashboardTabState extends State<DashboardTab> {
     final live = (_plans ?? const []).where((p) => p.$3).toList();
 
     // teasers
-    final scCut = cutoffTests(sc);
-    String? cutT;
-    if (scCut.isNotEmpty) {
-      final g = meritMarks(scCut.first) - cutoffs[examTier(scCut.first)]!.cut[_cat]!;
-      cutT = g >= 0 ? 'Cleared $_cat by +${n1(g)}' : '${n1(-g)} marks short of $_cat';
-    }
-    final chScope = isChapter(a);
-    final weakN = chapterStats(sc).where((c) => c.name != 'Untagged' && c.n >= 3 && c.acc < .7).length;
+    final weakN = chapterStats(all).where((c) => c.name != 'Untagged' && c.n >= 3 && c.acc < .7).length;
 
     Widget stat(String v, String l, String d, {Widget? extra}) => Expanded(
           child: Container(
@@ -254,22 +191,6 @@ class _DashboardTabState extends State<DashboardTab> {
                 padding: const EdgeInsets.only(top: 2),
                 child: Text(live.map((p) => '${planName(p.$1).replaceAll(' Mock Test Series', ' mocks')} till ${shortDate(p.$2)}').join(' · '), style: const TextStyle(color: Color(0xEEFFFFFF), fontSize: 12.5, fontWeight: FontWeight.w600)),
               ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
-              child: Row(children: [
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('Last test · ${testName(a)}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5, color: softMuted, fontWeight: FontWeight.w700)),
-                    Text(sc.length > 1 ? '${delta >= 0 ? '▲' : '▼'} ${n1(delta.abs())} vs your average in these tests' : 'your first test of this kind',
-                        style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: delta >= 0 ? cGood : cBad)),
-                  ]),
-                ),
-                Text(n1(marksOf(a)), style: baloo(28, color: exam.c1)),
-                Text('/${n1(maxOf(a))}', style: const TextStyle(color: softMuted, fontWeight: FontWeight.w800)),
-              ]),
-            ),
             if (goal != null) Padding(padding: const EdgeInsets.only(top: 8), child: Text(goal, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13.5))),
           ]),
         ),
@@ -290,35 +211,10 @@ class _DashboardTabState extends State<DashboardTab> {
               ])),
         ]),
         const SizedBox(height: 12),
-        section('📊', 'My recent attempts', '${all.length} tests · tap any for its full analysis', (c) => AttemptsPage(x: c)),
         head('📈 Overall performance'),
-        Material(
-          color: Colors.transparent,
-          child: Ink(
-            decoration: BoxDecoration(color: Color.lerp(Colors.white, exam.c2, .18), borderRadius: BorderRadius.circular(16)),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(16),
-              onTap: _pickScope,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
-                child: Row(children: [
-                  const Text('Showing  ', style: TextStyle(color: softMuted, fontWeight: FontWeight.w700)),
-                  Expanded(child: Text('${scopeLabel(_scope, a)} (${sc.length})', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontWeight: FontWeight.w800, color: exam.ink))),
-                  Icon(Icons.expand_more_rounded, color: exam.c1),
-                ]),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 10),
-        if (cutT != null) section('🎯', 'Cut-off gap', cutT, (c) => CutoffPage(x: c), tc: cutT.startsWith('Cleared') ? cGood : cBad),
-        section('📚', chScope ? 'Test-wise accuracy' : 'Chapter-wise accuracy',
-            chScope ? '${sc.length} attempt${sc.length == 1 ? '' : 's'} of this chapter' : (weakN > 0 ? '$weakN weak chapter${weakN == 1 ? '' : 's'} found' : 'Your weak and strong chapters'), (c) => ChaptersPage(x: c)),
-        section('💪', chScope ? 'Chapter readiness' : 'Exam readiness', '${readiness(sc)} / 100 · last ${sc.length < 5 ? sc.length : 5} tests', (c) => ReadinessPage(x: c)),
-        section('🖼️', 'Report card', 'Share an image of your progress', (c) => ReportCardPage(x: c, name: widget.user.displayName ?? 'Student')),
-        head('👤 Account'),
-        section('👤', 'My profile', widget.user.email ?? widget.user.phoneNumber ?? 'Name, phone, login method', (c) => ProfilePage(x: c)),
-        section('🧾', 'My orders', _plans == null ? 'Purchases and access validity' : (live.isNotEmpty ? 'Premium active' : 'Free plan · purchases and payment IDs'), (c) => OrdersPage(x: c)),
+        section('📊', 'My tests', '${all.length} tests · tap any for its full analysis', (c) => AttemptsPage(x: c)),
+        section('💪', 'Exam readiness', '${readiness(all)} / 100 · last ${all.length < 5 ? all.length : 5} tests', (c) => ReadinessPage(x: c)),
+        section('📚', 'Chapter analysis', weakN > 0 ? '$weakN weak chapter${weakN == 1 ? '' : 's'} · subject-wise' : 'Subject-wise, weakest first', (c) => ChapterAnalysisPage(x: c)),
       ]),
     );
   }

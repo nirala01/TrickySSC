@@ -214,12 +214,48 @@ class ChStat {
   double get acc => n == 0 ? 0 : c / n;
 }
 
+/// Chapter name for a saved tag: id -> name, and a paper name stuck after a dash is dropped
+/// ("Syllogism — SSC CGL 2025 Sep 25 Shift 1" -> "Syllogism").
+String cleanChapter(String raw) {
+  var n = chapterLabel(raw.length > 40 ? raw.substring(0, 40) : raw);
+  final cutAt = n.indexOf(RegExp(r'\s[—–]\s'));
+  if (cutAt > 0) n = n.substring(0, cutAt);
+  return n.trim();
+}
+
+const _chPrefix = {'quant': 'Quant', 'math': 'Quant', 'maths': 'Quant', 'reason': 'Reasoning', 'reasoning': 'Reasoning', 'eng': 'English', 'english': 'English', 'ga': 'Gen. Awareness', 'gk': 'Gen. Awareness', 'computer': 'Computer', 'statistics': 'Statistics', 'fineco': 'Finance & Economics'};
+
+/// Chapters grouped under their subject: subject name -> chapter stats.
+Map<String, List<ChStat>> chaptersBySubject(List<Att> list) {
+  final m = <String, Map<String, ChStat>>{};
+  for (final a in list) {
+    final own = subjName[skey(s(a['subject']))];
+    for (final x in answersOf(a)) {
+      final raw = s(x['ch']).replaceAll(RegExp(r'<[^>]*>'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+      if (raw.isEmpty) continue;
+      final pre = RegExp(r'^([a-z]+)[._]').firstMatch(raw)?.group(1);
+      final sub = subjName[skey(s(x['s']))] ?? own ?? _chPrefix[pre] ?? (s(x['s']).isEmpty || s(x['s']) == 'General' ? 'Other' : s(x['s']));
+      final name = cleanChapter(raw);
+      final st = (m[sub] ??= {}).putIfAbsent(name, () => ChStat(name));
+      st.n++;
+      if (x['r'] == 'c') {
+        st.c++;
+      } else if (x['r'] == 'w') {
+        st.w++;
+      } else {
+        st.k++;
+      }
+    }
+  }
+  return {for (final e in m.entries) e.key: e.value.values.toList()};
+}
+
 List<ChStat> chapterStats(List<Att> list) {
   final m = <String, ChStat>{};
   for (final a in list) {
     for (final x in answersOf(a)) {
       final raw = s(x['ch']).replaceAll(RegExp(r'<[^>]*>'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
-      final name = raw.isEmpty ? 'Untagged' : chapterLabel(raw.length > 40 ? raw.substring(0, 40) : raw);
+      final name = raw.isEmpty ? 'Untagged' : cleanChapter(raw);
       final st = m.putIfAbsent(name, () => ChStat(name));
       st.n++;
       if (x['r'] == 'c') {

@@ -248,32 +248,25 @@ class _TestAnalysisPageState extends State<TestAnalysisPage> {
         stat('${(L.acc * 100).round()}%', 'Accuracy', exam.c1),
       ]),
       const SizedBox(height: 12),
-      if (canSol || key.isNotEmpty)
+      if (canSol)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: FilledButton.icon(
+            onPressed: _solutions,
+            style: FilledButton.styleFrom(backgroundColor: exam.c1, minimumSize: const Size.fromHeight(50), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+            icon: const Icon(Icons.menu_book),
+            label: const Text('View solutions', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+          ),
+        ),
+      if (key.isNotEmpty)
         Padding(
           padding: const EdgeInsets.only(bottom: 12),
-          child: Row(children: [
-            if (canSol)
-              Expanded(
-                flex: 5,
-                child: FilledButton.icon(
-                  onPressed: _solutions,
-                  style: FilledButton.styleFrom(backgroundColor: exam.c1, minimumSize: const Size.fromHeight(50), padding: const EdgeInsets.symmetric(horizontal: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
-                  icon: const Icon(Icons.menu_book, size: 20),
-                  label: const Text('View solutions', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
-                ),
-              ),
-            if (canSol && key.isNotEmpty) const SizedBox(width: 8),
-            if (key.isNotEmpty)
-              Expanded(
-                flex: 4,
-                child: FilledButton.tonalIcon(
-                  onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => LeaderboardScreen(exam: exam, base: key, title: testName(a), uid: x.user.uid))),
-                  style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50), padding: const EdgeInsets.symmetric(horizontal: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
-                  icon: const Icon(Icons.emoji_events_outlined, size: 20),
-                  label: const Text('Leaderboard', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
-                ),
-              ),
-          ]),
+          child: FilledButton.tonalIcon(
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => LeaderboardScreen(exam: exam, base: key, title: testName(a), uid: x.user.uid))),
+            style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+            icon: const Icon(Icons.emoji_events_outlined),
+            label: const Text('Leaderboard', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+          ),
         ),
 
       // ================================================= subject-wise
@@ -309,28 +302,21 @@ class _TestAnalysisPageState extends State<TestAnalysisPage> {
       if (ok)
         PCard(title: 'You vs top students', sub: v.total > 1 ? 'You did better than ${v.pctile.round()}% of ${v.total} students' : null, children: [
           Builder(builder: (_) {
-            final hasT = t > 0 && (v.topTime > 0 || v.bands.any((b) => b.time > 0));
-            Widget row(String l, String sc, String tm, {Color? c, bool head = false}) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 5),
-                  child: Row(children: [
-                    Expanded(child: Text(l, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 14.5, color: c ?? const Color(0xFF475569), fontWeight: c != null ? FontWeight.w800 : FontWeight.w600))),
-                    SizedBox(width: 70, child: Text(sc, textAlign: TextAlign.right, style: TextStyle(fontSize: head ? 13 : 15, fontWeight: FontWeight.w800, color: head ? softMuted : (c ?? softInk)))),
-                    if (hasT) SizedBox(width: 84, child: Text(tm, textAlign: TextAlign.right, style: TextStyle(fontSize: head ? 13 : 15, fontWeight: FontWeight.w800, color: head ? softMuted : (c ?? softInk)))),
-                  ]),
-                );
-            String tm(double x) => x > 0 ? fmtSec(x) : '—';
+            String tm(double x) => x <= 0 ? '—' : (x >= 60 ? '${(x / 60).round()}m' : '${x.round()}s');
             final target = v.bands.where((b) => b.marks > v.my).toList();
             return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              row('', 'Score', 'Time', head: true),
-              const Divider(height: 8),
-              row('You', n1(v.my), tm(t), c: exam.c1),
-              for (final b in v.bands) row(b.label, n1(b.marks), tm(b.time)),
-              row('Topper${v.topName.isNotEmpty ? ' · ${v.topName.split(' ').first}' : ''}', n1(v.top), tm(v.topTime), c: const Color(0xFFB45309)),
-              row('Average student', n1(v.avg), tm(v.tAvg)),
-              for (final e in v.topSubj.entries)
-                if (sm.containsKey(e.key))
-                  KV('${e.key} · you / ${v.bands.isNotEmpty && v.bands.first.subj[e.key] != null ? 'top 10% / ' : ''}topper',
-                      '${n1(dnum(sm[e.key]))} / ${v.bands.isNotEmpty && v.bands.first.subj[e.key] != null ? '${n1(v.bands.first.subj[e.key]!)} / ' : ''}${n1(e.value)}'),
+              tbl(
+                ['', 'You', for (final b in v.bands) b.label, 'Topper'],
+                [
+                  ['Score', n1(v.my), for (final b in v.bands) n1(b.marks), n1(v.top)],
+                  if (t > 0) ['Time', tm(t), for (final b in v.bands) tm(b.time), tm(v.topTime)],
+                  for (final e in v.topSubj.entries)
+                    if (sm.containsKey(e.key)) [shortSub(e.key), n1(dnum(sm[e.key])), for (final b in v.bands) b.subj[e.key] == null ? '—' : n1(b.subj[e.key]!), n1(e.value)],
+                ],
+                colors: [exam.c1, for (final _ in v.bands) null, const Color(0xFFB45309)],
+              ),
+              const SizedBox(height: 4),
+              KV('Average student', '${n1(v.avg)}${v.tAvg > 0 ? ' · ${tm(v.tAvg)}' : ''}'),
               Note(
                   v.top <= v.my
                       ? 'You are the topper on this test. 🏆'
@@ -342,28 +328,37 @@ class _TestAnalysisPageState extends State<TestAnalysisPage> {
           }),
         ]),
 
+      // ================================================= cut-off gap
+      if (isFullPaper(a) && cutoffs[examTier(a)] != null)
+        Builder(builder: (_) {
+          final c = cutoffs[examTier(a)]!;
+          final m = meritMarks(a);
+          return PCard(title: 'Cut-off gap', sub: 'vs ${c.label}', children: [
+            tbl(
+              ['Category', 'Cut-off', 'You', 'Gap'],
+              [
+                for (final k in cats) [k, n1(c.cut[k]!), n1(m), '${m - c.cut[k]! >= 0 ? '+' : '−'}${n1((m - c.cut[k]!).abs())}'],
+              ],
+              cellColor: (r, col) => col == 3 ? (m - c.cut[cats[r]]! >= 0 ? cGood : cBad) : null,
+            ),
+            const Note('Cut-offs are normalised scores published by the board; your marks here are raw.', color: softMuted),
+          ]);
+        }),
+
       // ================================================= quality of attempt + time
       if (tAll > 0)
         PCard(title: 'Quality of attempt', sub: 'Time per question in this test: ${lim.round()} s', children: [
-          Row(children: [
-            for (final k in const ['perfect', 'overtime', 'wasted', 'confused']) ...[
-              if (k != 'perfect') const SizedBox(width: 6),
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  decoration: BoxDecoration(color: _qCol[k]!.withValues(alpha: .1), borderRadius: BorderRadius.circular(12)),
-                  child: Column(children: [
-                    Text('${qual[k]}', style: baloo(20, color: _qCol[k]!)),
-                    Text(_qName[k]!, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color.lerp(_qCol[k]!, Colors.black, .25))),
-                  ]),
-                ),
-              ),
+          tbl(
+            ['', 'Perfect', 'Over', 'Wasted', 'Confused'],
+            [
+              ['All', for (final k in const ['perfect', 'overtime', 'wasted', 'confused']) '${qual[k]}'],
+              if (qualSub.length > 1)
+                for (final e in qualSub.entries) [shortSub(e.key), for (final k in const ['perfect', 'overtime', 'wasted', 'confused']) '${e.value[k]}'],
             ],
-          ]),
-          if (qualSub.length > 1) ...[
-            const SizedBox(height: 6),
-            for (final e in qualSub.entries) KV(e.key, '${e.value['perfect']} perfect · ${e.value['overtime']} overtime · ${e.value['wasted']} wasted · ${e.value['confused']} confused'),
-          ],
+            colors: const [cGood, cWarn, cBad, Color(0xFF64748B)],
+            headColors: true,
+            boldRows: const {0},
+          ),
           const Note('Perfect: correct within the time. Overtime: took longer than the time. Wasted: wrong and answered very fast (a guess). Confused: spent the time, then skipped.'),
           const SizedBox(height: 12),
           const Text('Quality of time spent', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: softInk)),
@@ -404,24 +399,15 @@ class _TestAnalysisPageState extends State<TestAnalysisPage> {
                 for (final sb in dSubs) SoftChip(sb, _dSub == sb, exam.c1, () => setState(() => _dSub = sb)),
               ]),
             ),
-          Row(children: const [
-            Expanded(child: SizedBox()),
-            SizedBox(width: 64, child: Text('✓', textAlign: TextAlign.right, style: TextStyle(fontWeight: FontWeight.w800, color: cGood))),
-            SizedBox(width: 48, child: Text('✕', textAlign: TextAlign.right, style: TextStyle(fontWeight: FontWeight.w800, color: cBad))),
-            SizedBox(width: 48, child: Text('–', textAlign: TextAlign.right, style: TextStyle(fontWeight: FontWeight.w800, color: softMuted))),
-          ]),
-          const Divider(height: 10),
-          for (final k in const [('easy', 'Easy'), ('moderate', 'Moderate'), ('hard', 'Tough')])
-            if (by[k.$1]![0] > 0)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 5),
-                child: Row(children: [
-                  Expanded(child: Text(k.$2, style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700, color: softInk))),
-                  SizedBox(width: 64, child: Text('${by[k.$1]![1]}/${by[k.$1]![0]}', textAlign: TextAlign.right, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: cGood))),
-                  SizedBox(width: 48, child: Text('${by[k.$1]![2]}', textAlign: TextAlign.right, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: cBad))),
-                  SizedBox(width: 48, child: Text('${by[k.$1]![3]}', textAlign: TextAlign.right, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: softMuted))),
-                ]),
-              ),
+          tbl(
+            ['', 'Total', 'Correct', 'Wrong', 'Skipped'],
+            [
+              for (final k in const [('easy', 'Easy'), ('moderate', 'Moderate'), ('hard', 'Tough')])
+                if (by[k.$1]![0] > 0) [k.$2, '${by[k.$1]![0]}', '${by[k.$1]![1]}', '${by[k.$1]![2]}', '${by[k.$1]![3]}'],
+            ],
+            colors: const [null, cGood, cBad, Color(0xFF64748B)],
+            headColors: true,
+          ),
           if (easyK > 0) KV('Easy questions you skipped', '$easyK · worth ${n1(easyK * pn.pos)}', color: cWarn),
           if (easyW > 0) KV('Easy questions you got wrong', '$easyW', color: cBad),
           if (riskyW > 0) KV('Tough questions gone wrong', '$riskyW · cost ${n1(riskyW * pn.neg)}', color: cBad),
@@ -457,6 +443,9 @@ class _TestAnalysisPageState extends State<TestAnalysisPage> {
             ]),
           ],
         ]),
+
+      // ================================================= chapter analysis (subject, then its chapters)
+      ChapterAnalysis(list: [a], exam: exam, minQ: 1),
 
       // ================================================= painful questions
       if (painKeys.isNotEmpty)
@@ -527,6 +516,13 @@ class _TestAnalysisPageState extends State<TestAnalysisPage> {
           style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(50), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
           child: const Text('Back to tests', style: TextStyle(fontWeight: FontWeight.w800)),
         ),
+      const SizedBox(height: 8),
+      OutlinedButton.icon(
+        onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ReportCardPage(x: DashCtx(x.user, exam, [a], scopeOf(a), x.cat), name: x.user.displayName ?? 'Student'))),
+        style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(50), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+        icon: const Icon(Icons.image_outlined),
+        label: const Text('Report card', style: TextStyle(fontWeight: FontWeight.w800)),
+      ),
       if (widget.onRetake != null) ...[
         const SizedBox(height: 8),
         OutlinedButton.icon(
@@ -539,6 +535,106 @@ class _TestAnalysisPageState extends State<TestAnalysisPage> {
           label: const Text('Retake test', style: TextStyle(fontWeight: FontWeight.w800)),
         ),
       ],
+    ]);
+  }
+}
+
+// ---------------------------------------------------------------- shared pieces
+
+String shortSub(String n) => const {'Gen. Awareness': 'GA', 'General Awareness': 'GA', 'General Intelligence': 'Reasoning', 'Quantitative Aptitude': 'Quant'}[n] ?? n;
+
+/// A plain table: first column is the row name, the rest are right-aligned values.
+/// [colors] colour the value columns (index 0 = first value column).
+Widget tbl(List<String> head, List<List<String>> rows, {List<Color?>? colors, bool headColors = false, Set<int> boldRows = const {}, Color? Function(int row, int col)? cellColor}) {
+  Widget cell(String t, int i, {bool h = false, bool bold = false, Color? c}) => Expanded(
+        flex: i == 0 ? 5 : 4,
+        child: Text(t,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: i == 0 ? TextAlign.left : TextAlign.right,
+            style: TextStyle(
+              fontSize: h ? 12 : 13.5,
+              fontWeight: h || bold || i > 0 ? FontWeight.w800 : FontWeight.w700,
+              color: c ?? (h ? softMuted : (i == 0 ? const Color(0xFF334155) : softInk)),
+            )),
+      );
+  Color? col(int i) => i > 0 && colors != null && i - 1 < colors.length ? colors[i - 1] : null;
+  return Column(children: [
+    Row(children: [for (var i = 0; i < head.length; i++) cell(head[i], i, h: true, c: headColors ? col(i) : null)]),
+    const Divider(height: 10),
+    for (var r = 0; r < rows.length; r++)
+      Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(children: [
+          for (var i = 0; i < rows[r].length; i++) cell(rows[r][i], i, bold: boldRows.contains(r), c: cellColor?.call(r, i) ?? (headColors ? null : col(i))),
+        ]),
+      ),
+  ]);
+}
+
+/// Chapter analysis: pick a subject, see only its chapters (weakest first).
+class ChapterAnalysis extends StatefulWidget {
+  final List<Att> list;
+  final Exam exam;
+  final int minQ; // leave out chapters with fewer questions than this
+  const ChapterAnalysis({super.key, required this.list, required this.exam, this.minQ = 1});
+  @override
+  State<ChapterAnalysis> createState() => _ChapterAnalysisState();
+}
+
+class _ChapterAnalysisState extends State<ChapterAnalysis> {
+  String _sub = '';
+  bool _all = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final exam = widget.exam;
+    final by = chaptersBySubject(widget.list);
+    for (final k in by.keys.toList()) {
+      by[k] = by[k]!.where((c) => c.n >= widget.minQ).toList();
+      if (by[k]!.isEmpty) by.remove(k);
+    }
+    if (by.isEmpty) return const SizedBox.shrink();
+    const order = ['Quant', 'Reasoning', 'English', 'Gen. Awareness', 'Computer', 'Statistics'];
+    final subs = by.keys.toList()..sort((p, q) => (order.contains(p) ? order.indexOf(p) : 99).compareTo(order.contains(q) ? order.indexOf(q) : 99));
+    if (!subs.contains(_sub)) _sub = subs.first;
+    final rows = by[_sub]!..sort((p, q) => p.acc != q.acc ? p.acc.compareTo(q.acc) : q.n.compareTo(p.n));
+    final shown = _all ? rows : rows.take(12).toList();
+    final tests = widget.list.where((a) => answersOf(a).isNotEmpty).length;
+    return PCard(title: 'Chapter analysis', sub: widget.list.length > 1 ? '$tests test${tests == 1 ? '' : 's'} analysed · weakest first' : 'Weakest first', children: [
+      if (subs.length > 1)
+        SizedBox(
+          height: 44,
+          child: ListView(scrollDirection: Axis.horizontal, children: [
+            for (final sb in subs)
+              SoftChip(shortSub(sb), _sub == sb, exam.c1, () => setState(() {
+                    _sub = sb;
+                    _all = false;
+                  })),
+          ]),
+        ),
+      tbl(
+        ['${shortSub(_sub)} chapter', 'Qs', 'Correct', 'Accuracy'],
+        [
+          for (final c in shown) [c.name, '${c.n}', '${c.c}', '${(c.acc * 100).round()}%'],
+        ],
+        cellColor: (r, col) => col == 3 ? accColor(shown[r].acc) : null,
+      ),
+      if (rows.length > shown.length)
+        TextButton(onPressed: () => setState(() => _all = true), child: Text('Show all ${rows.length} chapters', style: TextStyle(fontWeight: FontWeight.w800, color: exam.c1))),
+    ]);
+  }
+}
+
+/// Dashboard > Chapter analysis: every test of this exam together.
+class ChapterAnalysisPage extends StatelessWidget {
+  final DashCtx x;
+  const ChapterAnalysisPage({super.key, required this.x});
+  @override
+  Widget build(BuildContext context) {
+    final has = x.all.any((a) => answersOf(a).isNotEmpty);
+    return DashPage(exam: x.exam, title: 'Chapter analysis', children: [
+      if (!has) emptyNote('Chapter analysis covers tests taken after the dashboard update.') else ChapterAnalysis(list: x.all, exam: x.exam, minQ: 3),
     ]);
   }
 }
