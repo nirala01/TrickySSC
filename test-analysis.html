@@ -774,6 +774,17 @@
   @media(min-width:901px){.attempts-table td[data-label=""] a.att-an{display:inline-block;margin:0 0 .2rem!important;}}
   @media(min-width:1180px){.hero-rank .hr-big{font-size:5.4rem;}.hero-rank .hr-row b{font-size:1.5rem;}.hero-rank .hr-row small{font-size:.86rem;}.hero-rank .hr-k{font-size:.86rem;}}
   @media(max-width:640px){.hero-rank .hr-big{font-size:3rem;}.trend{height:8.5rem;}}
+
+  /* TSSC-CHSUBJ-V1 — chapters grouped by subject */
+  .chs{border:1px solid var(--border);border-radius:12px;margin-top:.7rem;overflow:hidden;}
+  .chs-h{display:flex;align-items:center;gap:.55rem;flex-wrap:wrap;padding:.6rem .9rem;background:#F8FAFC;border-bottom:1px solid var(--border);}
+  .chs-h i{width:10px;height:10px;border-radius:3px;background:var(--c);flex:0 0 auto;}
+  .chs-h b{font-family:'Rajdhani',sans-serif;font-size:1.05rem;color:var(--c);}
+  .chs-h span{font-size:.82rem;color:var(--gray);margin-left:auto;}
+  .chs-g{display:grid;grid-template-columns:1fr 1fr;gap:0 2rem;padding:.4rem .9rem .5rem;}
+  .chs-g .prow .val{width:auto;min-width:6.2rem;}
+  @media(max-width:900px){.chs-g{grid-template-columns:1fr;}}
+  @media(max-width:640px){.chs-h span{margin-left:0;flex-basis:100%;}.chs-g .prow .val{min-width:5.4rem;}}
 </style>
 <!-- TSSC-LOGINMODAL-V1: in-place login popup -->
 <script type="module" src="/login-modal.js"></script>
@@ -2339,11 +2350,22 @@ function renderChapters(full){
   const weak=tagged.filter(c=>c.acc<0.7).sort((x,y)=>(x.acc-y.acc)||(y.n-x.n)).slice(0,6);
   // strongest = best accuracy among chapters you got at least one right in; empty only when everything is wrong
   const strong=tagged.filter(c=>c.c>0&&!weak.includes(c)).sort((x,y)=>(y.acc-x.acc)||(y.n-x.n)).slice(0,6);
-  const row=c=>{ const p=Math.round(c.acc*100); return '<div class="prow"><span class="lbl">'+esc(c.name)+' <span class="muted">· '+c.n+'×</span></span><div class="bar"><i class="'+(p>=70?'':p>=50?'a':'r')+'" style="width:'+p+'%"></i></div><span class="val">'+c.c+'/'+c.n+'</span></div>'; };
+  const sj=c=>{ const k=skey(c.subj); return k?SUBJ_NAME[k]:''; };
+  const row=c=>{ const p=Math.round(c.acc*100); return '<div class="prow"><span class="lbl" title="'+esc(c.name)+'">'+esc(c.name)+' <span class="muted">· '+(sj(c)?esc(sj(c))+' · ':'')+c.n+'×</span></span><div class="bar"><i class="'+(p>=70?'':p>=50?'a':'r')+'" style="width:'+p+'%"></i></div><span class="val">'+c.c+'/'+c.n+'</span></div>'; };
   h+='<div class="pgrid2"><div><p class="muted" style="margin-bottom:.3rem">Weakest chapters</p>'+(weak.length?weak.map(row).join(''):'<div class="muted">Nothing below 70% yet — nice.</div>')+'</div><div><p class="muted" style="margin-bottom:.3rem">Strongest chapters</p>'+(strong.length?strong.map(row).join(''):'<div class="muted">No chapter with a correct answer yet — every tagged question so far was wrong or skipped.</div>')+'</div></div>';
   if(weak.length){ const w=weak.slice().sort((x,y)=>((1-y.acc)*y.n)-((1-x.acc)*x.n))[0]; const {pos}=posneg(full[0]); const perPaper=(w.n/Math.max(1,withData))*(1-w.acc)*pos;
     h+='<div class="pnote">Highest score opportunity: <b>'+esc(w.name)+'</b> — appeared '+w.n+' times in your tests, you get '+Math.round(w.acc*100)+'% right. Fixing it alone is worth ~'+n1(perPaper)+' marks per paper.</div>';
     h+='<div style="margin-top:.7rem">'+weak.slice(0,3).map((c,i)=>'<a class="pbtn'+(i?'':' solid')+'" href="ssc-cgl-chapterwise.html#'+chSlug(c.name)+'">Practice '+esc(c.name)+'</a>').join('')+'</div>'; }
+  /* TSSC-CHSUBJ-V1 — every chapter, grouped under its subject (weakest first inside each subject) */
+  const grp={}; ch.filter(c=>c.name!=='Untagged').forEach(c=>{ const k=skey(c.subj)||'Z'; (grp[k]=grp[k]||[]).push(c); });
+  const keys='QREGCSZ'.split('').filter(k=>grp[k]);
+  if(keys.length){
+    h+='<div class="qh" style="margin-top:1.4rem">All chapters, subject-wise</div>';
+    keys.forEach(k=>{ const list=grp[k].slice().sort((x,y)=>(x.acc-y.acc)||(y.n-x.n)); const tn=list.reduce((t,c)=>t+c.n,0), tc=list.reduce((t,c)=>t+c.c,0); const col=SUBJ_COL[k]||'#64748B';
+      h+='<div class="chs"><div class="chs-h" style="--c:'+col+'"><i></i><b>'+(SUBJ_NAME[k]||'Other')+'</b><span>'+list.length+' chapter'+(list.length>1?'s':'')+' · '+tc+' of '+tn+' correct ('+(tn?Math.round(tc/tn*100):0)+'%)</span></div><div class="chs-g">'
+        +list.map(c=>{ const p=Math.round(c.acc*100); return '<div class="prow"><span class="lbl" title="'+esc(c.name)+'">'+esc(c.name)+' <span class="muted">· '+c.n+'×</span></span><div class="bar"><i class="'+(p>=70?'':p>=50?'a':'r')+'" style="width:'+p+'%"></i></div><span class="val">'+c.c+'/'+c.n+' · '+p+'%</span></div>'; }).join('')
+        +'</div></div>'; });
+  }
   el.innerHTML=h;
 }
 
