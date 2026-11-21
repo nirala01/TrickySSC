@@ -161,6 +161,7 @@ class Rules {
     if (mockId.contains('__')) return 'One subject section of the mock on its own clock. Submit when you are done or when time runs out.';
     if (mockId.startsWith('cw_') || mockId.startsWith('cwp_')) return 'One chapter test of 25 questions. Choose a 15-minute clock or untimed practice below.';
     if (paper) return 'One paper on a single 2-hour clock. Move freely between the parts.';
+    if (aic && !aicParts) return 'One 60-minute clock for the whole paper. Move freely between the sections.';
     if (aicParts) return 'Five separately timed parts, in order: Maths 30 min, Reasoning 30, English 40, General Awareness 20, Computer 15. You cannot go back to a finished part.';
     if (tier2) return 'Section I (Maths + Reasoning) 60 min, Section II (English + GA) 60 min, Section III (Computer) 15 min. Move freely inside the open section.';
     final note = (ex?.timingNote ?? '').isEmpty ? '' : ' ${ex!.timingNote}';
@@ -471,6 +472,9 @@ Future<Paper> loadPaper(String mockId, String lang, {String? partD, String title
       if (c == 'Quant') sections[i] = Section('Maths', sections[i].from, sections[i].to);
       units.add(Unit('Part ${i + 1} · ${sections[i].label}', sections[i].from, sections[i].to, (mins[c] ?? 30) * 60));
     }
+  } else if (rules.aic) {
+    // CHSL Tier 1 All India Challenge: one clock for the whole paper, no sectional timing
+    units.add(Unit('Full paper', 0, qs.length - 1, (aicSeriesOf(mockId) ?? aicChsl).paperMin * 60));
   } else if (rules.tier2) {
     const phaseOf = {'Quant': 0, 'Reasoning': 0, 'English': 1, 'Gen. Awareness': 1, 'Computer': 2};
     const meta = [('Section I', 60 * 60), ('Section II', 60 * 60), ('Section III', 15 * 60)];
