@@ -131,14 +131,16 @@ class Rules {
   final bool gd; // Part D in English or Hindi (SSC GD)
   final bool tier2; // CGL / CHSL Tier 2 (mock-test-tier2.html, test-tier2.html)
   final bool paper; // CGL Tier II Paper II (Statistics) / Paper III (Finance & Economics): 100 Qs, +2 / −0.5, one 2-hour clock
-  final bool aic; // SSC CGL Tier-2 All India Challenge Mock: Tier 2 marking, five separately timed parts
+  final bool aic; // an All India Challenge Mock (SSC CGL Tier 2 or SSC CHSL Tier 1)
+  final bool aicParts; // the CGL Tier 2 one: Tier 2 marking, five separately timed parts (CHSL: the usual one clock)
   Rules(String mockId) : this._(mockId, examOfPaper(mockId));
   Rules._(this.mockId, this.ex)
       : mts = ex?.timing == 'sessions',
         ntpc = ex?.timing == 'single',
         gd = ex?.partD ?? false,
-        tier2 = mockId.contains('_tier2_') || mockId.contains('_aic_'),
+        tier2 = mockId.contains('_tier2_') || mockId.startsWith('ssc-cgl_aic_'),
         aic = mockId.contains('_aic_'),
+        aicParts = mockId.startsWith('ssc-cgl_aic_'),
         paper = mockId.contains('_paper2_') || mockId.contains('_paper3_');
 
   static String _n(double v) => v == v.roundToDouble() ? '${v.round()}' : ((v * 3 - 1).abs() < 1e-9 ? '1/3' : v.toStringAsFixed(2));
@@ -159,7 +161,7 @@ class Rules {
     if (mockId.contains('__')) return 'One subject section of the mock on its own clock. Submit when you are done or when time runs out.';
     if (mockId.startsWith('cw_') || mockId.startsWith('cwp_')) return 'One chapter test of 25 questions. Choose a 15-minute clock or untimed practice below.';
     if (paper) return 'One paper on a single 2-hour clock. Move freely between the parts.';
-    if (aic) return 'Five separately timed parts, in order: Maths 30 min, Reasoning 30, English 40, General Awareness 20, Computer 15. You cannot go back to a finished part.';
+    if (aicParts) return 'Five separately timed parts, in order: Maths 30 min, Reasoning 30, English 40, General Awareness 20, Computer 15. You cannot go back to a finished part.';
     if (tier2) return 'Section I (Maths + Reasoning) 60 min, Section II (English + GA) 60 min, Section III (Computer) 15 min. Move freely inside the open section.';
     final note = (ex?.timingNote ?? '').isEmpty ? '' : ' ${ex!.timingNote}';
     final min = ex?.unitMin ?? 15;
@@ -445,7 +447,7 @@ Future<Paper> loadPaper(String mockId, String lang, {String? partD, String title
     } catch (_) {}
   }
 
-  if (title.isEmpty && rules.aic) title = aicTitle(aicRoundOf(mockId));
+  if (title.isEmpty && rules.aic) title = (aicSeriesOf(mockId) ?? aicCgl).title(aicRoundOf(mockId));
 
   // sections: consecutive questions of one subject
   final sections = <Section>[];
@@ -461,8 +463,8 @@ Future<Paper> loadPaper(String mockId, String lang, {String? partD, String title
   if (sections.isEmpty) sections.add(Section('All Questions', 0, qs.length - 1));
 
   final units = <Unit>[];
-  if (rules.aic) {
-    // All India Challenge: every part on its own clock, in paper order, no going back
+  if (rules.aicParts) {
+    // CGL Tier 2 All India Challenge: every part on its own clock, in paper order, no going back
     const mins = {'Quant': 30, 'Reasoning': 30, 'English': 40, 'Gen. Awareness': 20, 'Computer': 15};
     for (var i = 0; i < sections.length; i++) {
       final c = canonSubject(sections[i].label);
@@ -830,6 +832,7 @@ Future<void> saveResult(User u, Exam exam, Paper p, Progress pr, Result r) async
     'analyticsV': 1,
     'partD': p.partD,
     if (rules.tier2 || rules.paper) 'tier': 'tier2', // the website files Paper II / III attempts under tier2 too
+    if (rules.aic && !rules.tier2) 'tier': 'tier1', // CHSL Tier 1 All India Challenge
     if (p.aic != null) 'aic': p.aic!.toAttempt(), // All India Challenge: {round, live, resultAt}
     // one subject section on its own: a mock's, or a previous-year paper's (same fields as the website)
     if (mockId.contains('__')) (pyq ? 'basePaperId' : 'baseMockId'): mockId.substring(0, mockId.indexOf('__')),

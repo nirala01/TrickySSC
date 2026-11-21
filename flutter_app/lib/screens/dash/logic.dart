@@ -76,7 +76,7 @@ String testName(Att a) {
   }
   // All India Challenge: the live Sunday attempt, or the free mock taken after the result
   final ar = aicRoundOf(s(a['mockId']));
-  if (ar > 0) return 'All India Challenge Mock $ar${a['aic'] is Map && (a['aic'] as Map)['live'] == true ? '' : ' · Free mock'}';
+  if (ar > 0) return '${(aicSeriesOf(s(a['mockId'])) ?? aicCgl).short} All India Challenge Mock $ar${a['aic'] is Map && (a['aic'] as Map)['live'] == true ? '' : ' · Free mock'}';
   final sub = s(a['subjectKey']).isNotEmpty ? ' · ${_subjName(s(a['subjectKey']))}' : '';
   const tiers = {'tier1': 'Tier 1 ', 'tier2': 'Tier 2 ', 'cbt1': 'CBT 1 ', 'cbt2': 'CBT 2 ', 'paper2': 'Statistics ', 'paper3': 'AAO '};
   final ids = [s(a['mockId']), s(a['baseMockId']), s(a['paperId']), s(a['basePaperId'])].where((v) => v.isNotEmpty);

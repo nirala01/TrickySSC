@@ -177,7 +177,7 @@ class _AppShellState extends State<AppShell> {
       if (mounted && q != null && q.offer) await Billing.I.showUpgradeSheet(context, widget.exam, q);
     }
     // then the All India Challenge popup (once a day, and again when its state changes)
-    if (mounted) await maybeShowAicPopup(context, widget.user, examById('ssc-cgl') ?? widget.exam);
+    if (mounted) await maybeShowAicPopup(context, widget.user, widget.exam);
   }
 
   void _buy() => Billing.I.showBuySheet(context, widget.exam);
@@ -461,7 +461,8 @@ class _AppShellState extends State<AppShell> {
             )
           else
           _MocksTab(
-            top2: exam.id == 'ssc-cgl' && aicConfig.on ? AicEntryCard(user: widget.user, exam: exam) : null,
+            top2: exam.id == 'ssc-cgl' && aicCgl.on ? AicEntryCard(user: widget.user, exam: exam, series: aicCgl) : null,
+            top1: exam.id == 'ssc-chsl' && aicChsl.on ? AicEntryCard(user: widget.user, exam: exam, series: aicChsl) : null,
             onSubject: (k) => setState(() => _mockSub = k),
             exam: exam,
             mocks: _mocks,
@@ -958,8 +959,10 @@ class _MocksTab extends StatelessWidget {
   final VoidCallback onRetry;
   final Map<String, Map<String, dynamic>> last;
   final Widget? top2; // shown on top of the Tier 2 list (SSC CGL: the All India Challenge entry)
+  final Widget? top1; // shown on top of the Tier 1 list (SSC CHSL: the All India Challenge entry)
   const _MocksTab({
     this.top2,
+    this.top1,
     required this.onSubject,
     required this.last,
     required this.onRetake,
@@ -1035,6 +1038,7 @@ class _MocksTab extends StatelessWidget {
           ]),
         ),
       if (tier == 2 && top2 != null) top2!,
+      if (tier != 2 && top1 != null) top1!,
       // subject-wise mocks: the same chips as the PYQ tab (Tier 1 only)
       if (tier == 1 && list.isNotEmpty && subjectChoices(exam).isNotEmpty)
         Padding(

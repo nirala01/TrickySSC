@@ -254,7 +254,7 @@ class Catalog {
         if (e != null && !list.any((o) => o.k == e.k || o.pass == e.pass)) list.add(e);
       }
       if (list.isEmpty) return false;
-      aicApplyCatalog(j['aic']); // All India Challenge: on / off, first Sunday, last round
+      aicApplyCatalog(j); // All India Challenge series ("aic", "aicChsl"): on / off, first day, last round
       _v = v;
       exams = list;
       catalogVersion.value++;
@@ -510,7 +510,7 @@ Widget examTheme(BuildContext context, Exam exam, Widget child) {
 
 /// Every attempt of this user (website and app), newest first; each map has 'id'.
 Future<List<Map<String, dynamic>>> loadAttempts(String uid) async {
-  if (aicConfig.on) await AicClock.sync(); // the hold-back below runs on the server's time, not the phone's
+  if (aicAnyOn) await AicClock.sync(); // the hold-back below runs on the server's time, not the phone's
   final snap = await FirebaseFirestore.instance.collection('attempts').where('uid', isEqualTo: uid).get();
   final out = [for (final d in snap.docs) {...d.data(), 'id': d.id}];
   out.sort((a, b) => attemptMs(b).compareTo(attemptMs(a)));

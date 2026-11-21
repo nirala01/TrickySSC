@@ -1,7 +1,6 @@
 // All India Challenge: the server clock, registration and the few Firestore reads and writes.
 // No new collections: users/{uid}.aic, leaderboards/aic-registered and leaderboards/ssc-cgl_aic_mockN,
 // the same documents the website uses.
-import 'dart:convert';
 import 'dart:io' show HttpDate;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -67,7 +66,7 @@ class AicClock {
   }
 }
 
-/// What the app knows about this student and the challenge.
+/// What the app knows about this student and one series.
 class AicMe {
   final int? regAt; // when registered (ms), null = not registered
   final Set<int> submitted; // rounds with a live attempt
@@ -77,8 +76,8 @@ class AicMe {
 /// Live challenge attempts still held back (result not out): filled by loadAttempts, shown as a small note.
 List<Map<String, dynamic>> aicHeld = [];
 
-/// Rounds this student has a live attempt for (from the attempts last loaded).
-final Set<int> aicLiveRounds = {};
+/// Rounds this student has a live attempt for, per series key (from the attempts last loaded).
+final Map<String, Set<int>> aicLiveRounds = {};
 
 /// Called by loadAttempts with every attempt of the student: returns the list without the held ones.
 List<Map<String, dynamic>> aicFilterAttempts(List<Map<String, dynamic>> all) {
@@ -87,15 +86,15 @@ List<Map<String, dynamic>> aicFilterAttempts(List<Map<String, dynamic>> all) {
   final out = <Map<String, dynamic>>[];
   for (final a in all) {
     final x = a['aic'];
-    if (x is Map && x['live'] == true && x['round'] is num) aicLiveRounds.add((x['round'] as num).toInt());
+    if (x is Map && x['live'] == true && x['round'] is num) (aicLiveRounds[aicSeriesOfAttempt(a).key] ??= {}).add((x['round'] as num).toInt());
     (aicIsHeld(a, now) ? held : out).add(a);
   }
   aicHeld = held;
   return out;
 }
 
-String _regKey(String uid) => 'tssc_aic_reg_$uid';
-String _subKey(String uid) => 'tssc_aic_sub_$uid';
+String _regKey(AicSeries s, String uid) => 'tssc_aic_reg_${s.tag}$uid';
+String _subKey(AicSeries s, String uid) => 'tssc_aic_sub_${s.tag}$uid';
 
 int? _ms(dynamic v) {
   if (v is Timestamp) return v.millisecondsSinceEpoch;
@@ -105,26 +104,27 @@ int? _ms(dynamic v) {
 }
 
 /// Registration and submitted rounds as saved on this phone (instant, may be a little old).
-Future<AicMe> aicCached(String uid) async {
+Future<AicMe> aicCached(AicSeries se, String uid) async {
+  final liveR = aicLiveRounds[se.key] ?? const <int>{};
   try {
     final p = await SharedPreferences.getInstance();
-    final r = p.getInt(_regKey(uid));
-    final s = {for (final x in (p.getStringList(_subKey(uid)) ?? const <String>[])) int.tryParse(x) ?? 0}..remove(0);
-    return AicMe(r, {...s, ...aicLiveRounds});
+    final r = p.getInt(_regKey(se, uid));
+    final s = {for (final x in (p.getStringList(_subKey(se, uid)) ?? const <String>[])) int.tryParse(x) ?? 0}..remove(0);
+    return AicMe(r, {...s, ...liveR});
   } catch (_) {
-    return AicMe(null, {...aicLiveRounds});
+    return AicMe(null, {...liveR});
   }
 }
 
-/// Reads the registration (users/{uid}.aic) and whether rounds [rounds] were submitted (their leaderboard rows).
-Future<AicMe> aicLoadMe(String uid, List<int> rounds) async {
+/// Reads the registration (users/{uid}.<regField>) and whether rounds [rounds] were submitted (their leaderboard rows).
+Future<AicMe> aicLoadMe(AicSeries se, String uid, List<int> rounds) async {
   final db = FirebaseFirestore.instance;
-  final cached = await aicCached(uid);
+  final cached = await aicCached(se, uid);
   int? reg = cached.regAt;
   final sub = {...cached.submitted};
   try {
     final u = await db.collection('users').doc(uid).get();
-    final x = (u.data() ?? const {})['aic'];
+    final x = (u.data() ?? const {})[se.regField];
     if (x is Map && x['reg'] == true) {
       // a registration whose time is not on the server yet counts from now
       reg = _ms(x['at']) ?? reg ?? AicClock.now;
@@ -135,38 +135,39 @@ Future<AicMe> aicLoadMe(String uid, List<int> rounds) async {
   for (final n in rounds) {
     if (n < 1 || sub.contains(n)) continue;
     try {
-      final d = await db.collection('leaderboards').doc(aicBoard(n)).collection('scores').doc(uid).get();
+      final d = await db.collection('leaderboards').doc(se.board(n)).collection('scores').doc(uid).get();
       if (d.exists) sub.add(n);
     } catch (_) {}
   }
   try {
     final p = await SharedPreferences.getInstance();
     if (reg == null) {
-      await p.remove(_regKey(uid));
+      await p.remove(_regKey(se, uid));
     } else {
-      await p.setInt(_regKey(uid), reg);
+      await p.setInt(_regKey(se, uid), reg);
     }
-    await p.setStringList(_subKey(uid), [for (final n in sub) '$n']);
+    await p.setStringList(_subKey(se, uid), [for (final n in sub) '$n']);
   } catch (_) {}
   return AicMe(reg, sub);
 }
 
 /// Marks a round as submitted on this phone at once (the leaderboard row is the proof for other devices).
-Future<void> aicMarkSubmitted(String uid, int round) async {
-  aicLiveRounds.add(round);
+Future<void> aicMarkSubmitted(AicSeries se, String uid, int round) async {
+  (aicLiveRounds[se.key] ??= {}).add(round);
   try {
     final p = await SharedPreferences.getInstance();
-    final s = {...(p.getStringList(_subKey(uid)) ?? const <String>[]), '$round'};
-    await p.setStringList(_subKey(uid), s.toList());
+    final s = {...(p.getStringList(_subKey(se, uid)) ?? const <String>[]), '$round'};
+    await p.setStringList(_subKey(se, uid), s.toList());
   } catch (_) {}
 }
 
-/// One-time registration; it covers every later round. Returns the registration time, or null when it failed.
-Future<int?> aicRegister(User u) async {
+/// One-time registration for one series; it covers every later round of that series.
+/// Returns the registration time, or null when it failed.
+Future<int?> aicRegister(AicSeries se, User u) async {
   final db = FirebaseFirestore.instance;
   try {
     await db.collection('users').doc(u.uid).set({
-      'aic': {'reg': true, 'at': FieldValue.serverTimestamp(), 'src': 'app'}
+      se.regField: {'reg': true, 'at': FieldValue.serverTimestamp(), 'src': 'app'}
     }, SetOptions(merge: true));
   } catch (_) {
     return null;
@@ -179,10 +180,10 @@ Future<int?> aicRegister(User u) async {
       final ud = us.data() ?? const {};
       name = '${ud['name'] ?? ud['displayName'] ?? u.displayName ?? ''}'.trim();
     } catch (_) {}
-    await db.collection('leaderboards').doc(aicRegBoard).collection('scores').doc(u.uid).set({
+    await db.collection('leaderboards').doc(se.regBoard).collection('scores').doc(u.uid).set({
       'uid': u.uid,
       'name': name.isEmpty ? 'Student' : name,
-      'paperId': aicRegBoard,
+      'paperId': se.regBoard,
       'paperName': 'All India Challenge registration',
       'marks': 0,
       'maxMarks': 0,
@@ -195,20 +196,20 @@ Future<int?> aicRegister(User u) async {
   int? at;
   try {
     final us = await db.collection('users').doc(u.uid).get(const GetOptions(source: Source.server));
-    final x = (us.data() ?? const {})['aic'];
+    final x = (us.data() ?? const {})[se.regField];
     if (x is Map) at = _ms(x['at']);
   } catch (_) {}
   at ??= AicClock.now;
   try {
-    await (await SharedPreferences.getInstance()).setInt(_regKey(u.uid), at);
+    await (await SharedPreferences.getInstance()).setInt(_regKey(se, u.uid), at);
   } catch (_) {}
   return at;
 }
 
 /// "Students registered": the number of rows on the registration board. Null when it cannot be read.
-Future<int?> aicRegCount() async {
+Future<int?> aicRegCount(AicSeries se) async {
   try {
-    final c = await FirebaseFirestore.instance.collection('leaderboards').doc(aicRegBoard).collection('scores').count().get();
+    final c = await FirebaseFirestore.instance.collection('leaderboards').doc(se.regBoard).collection('scores').count().get();
     return c.count;
   } catch (_) {
     return null;
@@ -216,8 +217,8 @@ Future<int?> aicRegCount() async {
 }
 
 /// True when this student's live row of round [n] is on the board.
-Future<bool> aicHasRow(String uid, int n) async {
-  final d = await FirebaseFirestore.instance.collection('leaderboards').doc(aicBoard(n)).collection('scores').doc(uid).get();
+Future<bool> aicHasRow(AicSeries se, String uid, int n) async {
+  final d = await FirebaseFirestore.instance.collection('leaderboards').doc(se.board(n)).collection('scores').doc(uid).get();
   return d.exists;
 }
 
@@ -228,13 +229,14 @@ class AicTop {
   AicTop(this.uid, this.name, this.marks, this.timeUsed);
 }
 
-final _topMem = <int, (List<AicTop>, int)>{};
+final _topMem = <String, (List<AicTop>, int)>{};
 
 /// The top 10 of a finished round and how many students took it live. Closed until the result time.
-Future<(List<AicTop>, int)> aicTop10(int n) async {
-  if (aicBoardClosed(aicBoard(n), AicClock.now)) return (<AicTop>[], 0);
-  if (_topMem[n] != null) return _topMem[n]!;
-  final col = FirebaseFirestore.instance.collection('leaderboards').doc(aicBoard(n)).collection('scores');
+Future<(List<AicTop>, int)> aicTop10(AicSeries se, int n) async {
+  final key = se.board(n);
+  if (aicBoardClosed(key, AicClock.now)) return (<AicTop>[], 0);
+  if (_topMem[key] != null) return _topMem[key]!;
+  final col = FirebaseFirestore.instance.collection('leaderboards').doc(key).collection('scores');
   final snap = await col.orderBy('marks', descending: true).limit(10).get();
   var total = snap.docs.length;
   if (total >= 10) {
@@ -246,20 +248,5 @@ Future<(List<AicTop>, int)> aicTop10(int n) async {
     for (final d in snap.docs)
       AicTop(d.id, '${d.data()['name'] ?? 'Student'}', (d.data()['marks'] as num? ?? 0).toDouble(), (d.data()['timeUsed'] as num? ?? 0).toInt())
   ];
-  return _topMem[n] = (rows, total);
-}
-
-/// Once a day: has the "results are out" pop-up of this round been shown today (IST)?
-Future<bool> aicPopupDue(String uid, int round) async {
-  try {
-    final p = await SharedPreferences.getInstance();
-    final day = DateTime.fromMillisecondsSinceEpoch(AicClock.now, isUtc: true).add(const Duration(hours: 5, minutes: 30)).toIso8601String().substring(0, 10);
-    final key = 'tssc_aic_pop_$uid';
-    final v = jsonEncode([round, day]);
-    if (p.getString(key) == v) return false;
-    await p.setString(key, v);
-    return true;
-  } catch (_) {
-    return false;
-  }
+  return _topMem[key] = (rows, total);
 }

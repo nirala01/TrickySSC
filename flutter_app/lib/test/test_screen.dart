@@ -123,24 +123,25 @@ class _TestFlowState extends State<TestFlow> {
   /// Live challenge: null = may start / resume, 'submit' = past the hard stop, otherwise the reason it cannot start.
   Future<String?> _liveGate(Paper p, bool resume) async {
     final n = p.aic!.round;
+    final se = p.aic!.series;
     if (!await AicClock.sync(force: true) || !AicClock.synced) return 'Could not read the server time. Check your internet and try again.';
     final now = AicClock.now;
     if (resume) {
       try {
-        if (await aicHasRow(widget.user.uid, n)) {
+        if (await aicHasRow(se, widget.user.uid, n)) {
           // already submitted (on another device): nothing left to resume
           await clearProgress(widget.user.uid, widget.mockId, p.partD);
-          return 'You have already submitted Challenge Mock $n. Result on ${aicWhen(aicResultAt(n))}.';
+          return 'You have already submitted Challenge Mock $n. Result on ${aicWhen(se.resultAt(n))}.';
         }
       } catch (_) {}
-      return now >= aicHardStop(n, _saved!.startedAt > 0 ? _saved!.startedAt : aicStart(n)) ? 'submit' : null;
+      return now >= se.hardStop(n, _saved!.startedAt > 0 ? _saved!.startedAt : se.start(n)) ? 'submit' : null;
     }
-    if (now < aicStart(n)) return 'Challenge Mock $n starts on ${aicWhen(aicStart(n))}.';
-    if (now > aicLastEntry(n)) return 'Entry for Challenge Mock $n closed at ${aicClockText(aicLastEntry(n))}.';
+    if (now < se.start(n)) return 'Challenge Mock $n starts on ${aicWhen(se.start(n))}.';
+    if (now > se.lastEntry(n)) return 'Entry for Challenge Mock $n closed at ${aicClockText(se.lastEntry(n))}.';
     try {
-      final me = await aicLoadMe(widget.user.uid, [n]);
-      if (!aicInRound(n, me.regAt)) return 'You were not registered for Challenge Mock $n before registration closed.';
-      if (me.submitted.contains(n) || await aicHasRow(widget.user.uid, n)) return 'You have already submitted Challenge Mock $n. Result on ${aicWhen(aicResultAt(n))}.';
+      final me = await aicLoadMe(se, widget.user.uid, [n]);
+      if (!se.inRound(n, me.regAt)) return 'You were not registered for Challenge Mock $n before registration closed.';
+      if (me.submitted.contains(n) || await aicHasRow(se, widget.user.uid, n)) return 'You have already submitted Challenge Mock $n. Result on ${aicWhen(se.resultAt(n))}.';
     } catch (_) {
       return 'Could not check your registration. Check your internet and try again.';
     }
@@ -216,7 +217,7 @@ class _TestFlowState extends State<TestFlow> {
               line(Icons.grid_view, 'Use the question palette to jump between questions of the open ${p.units.length > 1 ? (p.rules.mts ? 'session' : 'section') : 'paper'}.'),
               line(Icons.bookmark_outline, 'Mark a question for review to come back to it. A marked question that has an answer is counted.'),
               if (p.aic?.live == true) ...[
-                line(Icons.block, 'One attempt only. There is no pause: the test ends 2 h 25 min after you start, and never later than 12:30 am.'),
+                line(Icons.block, 'One attempt only. There is no pause: the test ends ${p.aic!.series.hardStopMin} minutes after you start, and never later than 12:30 am.'),
                 line(Icons.event_available, 'Result, All India rank and solutions on ${aicWhen(p.aic!.resultAt)}.'),
               ],
               line(Icons.save_outlined, 'Your answers are saved on the phone as you go. If the app closes, you can resume.'),
@@ -382,7 +383,7 @@ class _TestScreenState extends State<TestScreen> with WidgetsBindingObserver {
   }
 
   bool get _live => p.aic?.live == true;
-  int get _hardStop => aicHardStop(p.aic!.round, pr.startedAt > 0 ? pr.startedAt : aicStart(p.aic!.round));
+  int get _hardStop => p.aic!.series.hardStop(p.aic!.round, pr.startedAt > 0 ? pr.startedAt : p.aic!.series.start(p.aic!.round));
 
   void _logTime() {
     final now = DateTime.now();

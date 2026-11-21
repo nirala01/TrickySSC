@@ -1,99 +1,222 @@
-// SSC CGL Tier-2 "All India Challenge Mock": the schedule and the states, in plain Dart
-// (no Flutter, no Firebase) so tool/aic_check.dart can run every state with a faked server time.
-// The website does the same in /tssc-aic.js.
+// All India Challenge Mocks (SSC CGL Tier 2 on Sundays, SSC CHSL Tier 1 on Saturdays): the schedule and
+// the states, in plain Dart (no Flutter, no Firebase) so tool/aic_check.dart can run every state with a
+// faked server time. The website does the same in /tssc-aic.js.
 //
-// All times are milliseconds since 1970 (UTC). Round N starts on a Sunday at 9:00 am IST,
-// N - 1 weeks after the first round.
+// All times are milliseconds since 1970 (UTC).
 
 const int _min = 60000;
 const int _hour = 60 * _min;
 const int _week = 7 * 24 * _hour;
 
-/// The "aic" block of catalog.json: on / off, the first Sunday and the last round (0 = no end yet).
-class AicConfig {
-  final bool on;
-  final int firstMs;
-  final int lastRound;
-  const AicConfig({required this.on, required this.firstMs, required this.lastRound});
+/// One challenge series. Two run side by side, as on the website (tssc-aic.js):
+///   cgl   SSC CGL Tier 2    every Sunday    from 29 Nov 2026, no end yet
+///   chsl  SSC CHSL Tier 1   every Saturday  from 28 Nov 2026 to round 5 (26 Dec 2026)
+/// Round N starts at 9:00 am IST, N - 1 weeks after the first round. The dates, the last round and the
+/// on / off switch come from catalog.json ("aic" and "aicChsl" blocks), so they change without an app update.
+class AicSeries {
+  final String key; // 'cgl' | 'chsl'
+  final String exam; // 'ssc-cgl' | 'ssc-chsl'
+  final String name; // 'SSC CGL Tier 2'
+  final String short; // 'CGL Tier 2'
+  final String day; // 'Sunday'
+  final String regField; // users/{uid}.<regField>
+  final String regBoard; // leaderboards/<regBoard>: the "students registered" count
+  final String tag; // part of the keys saved on the phone
+  final int paperMin; // length of the paper; the last entry is midnight minus this
+  final int hardStopMin; // the live test ends this long after its first start
+  final bool parts; // five separately timed parts (CGL Tier 2); false = one clock
+  final String paperLine;
+  bool on;
+  int firstMs;
+  int lastRound; // 0 = no end yet
+
+  AicSeries({
+    required this.key,
+    required this.exam,
+    required this.name,
+    required this.short,
+    required this.day,
+    required this.regField,
+    required this.regBoard,
+    required this.tag,
+    required this.paperMin,
+    required this.hardStopMin,
+    required this.parts,
+    required this.paperLine,
+    required this.firstMs,
+    required this.lastRound,
+    this.on = true,
+  });
+
+  /// Reads {"on": true, "first": "2026-11-29T09:00:00+05:30", "lastRound": 0}. Anything unreadable is ignored.
+  void apply(dynamic j) {
+    if (j is! Map) return;
+    final first = DateTime.tryParse('${j['first'] ?? ''}');
+    final last = j['lastRound'];
+    on = j['on'] != false;
+    if (first != null) firstMs = first.millisecondsSinceEpoch;
+    if (last is num) lastRound = last.toInt();
+  }
+
+  // ---------------------------------------------------------------- schedule
+  int start(int n) => firstMs + (n - 1) * _week; // challenge day, 9:00 am
+  int regClose(int n) => start(n) - 9 * _hour; // midnight before the challenge day
+  int windowEnd(int n) => start(n) + 15 * _hour; // midnight of the challenge day
+  int lastEntry(int n) => windowEnd(n) - paperMin * _min; // CGL 9:45 pm, CHSL 11 pm
+  int hardCap(int n) => windowEnd(n) + 30 * _min; // 12:30 am: nobody is still writing after this
+  int resultAt(int n) => start(n) + 48 * _hour; // two days later, 9:00 am
+
+  /// The live test ends [hardStopMin] after its first start, and never later than 12:30 am.
+  int hardStop(int n, int startedMs) {
+    final own = startedMs + hardStopMin * _min;
+    return own < hardCap(n) ? own : hardCap(n);
+  }
+
+  bool exists(int n) => n >= 1 && (lastRound <= 0 || n <= lastRound);
+
+  /// The round that is coming or is on now: the first one whose day has not ended. 0 = the series is over.
+  int upRound(int now) {
+    var n = 1;
+    if (now >= windowEnd(1)) n = ((now - windowEnd(1)) ~/ _week) + 2;
+    return exists(n) ? n : 0;
+  }
+
+  /// Rounds whose result is out, newest first (at most [limit]).
+  List<int> finished(int now, {int limit = 8}) {
+    final out = <int>[];
+    if (now < resultAt(1)) return out;
+    var n = ((now - resultAt(1)) ~/ _week) + 1;
+    if (lastRound > 0 && n > lastRound) n = lastRound;
+    for (; n >= 1 && out.length < limit; n--) {
+      out.add(n);
+    }
+    return out;
+  }
+
+  /// A student is in round N only when the registration was made before that round's registration closed.
+  bool inRound(int n, int? regAtMs) => regAtMs != null && regAtMs < regClose(n);
+
+  // ---------------------------------------------------------------- ids
+  String mockId(int n, String lang) => '${exam}_aic_mock${n}_$lang';
+  String board(int n) => '${exam}_aic_mock$n';
+  String title(int n) => '$name All India Challenge Mock $n';
+
+  /// [regAt]: when the student registered for this series (null = not registered). [submitted]: rounds with a
+  /// live attempt. [inProgress]: a live paper of the running round was started on this phone and can be resumed.
+  AicView view({required int now, int? regAt, Set<int> submitted = const {}, bool inProgress = false}) {
+    if (!on) return const AicView(AicState.off, 0);
+    final up = upRound(now);
+    // the last finished challenge day
+    final prev = up > 0 ? up - 1 : (lastRound > 0 ? lastRound : 0);
+    var results = 0;
+    if (prev >= 1 && now >= resultAt(prev) && now < start(prev) + _week) results = prev;
+
+    if (up > 0 && now >= start(up)) {
+      // challenge day, 9 am to midnight
+      if (inRound(up, regAt)) {
+        if (submitted.contains(up)) return AicView(AicState.submitted, up, countdownTo: resultAt(up));
+        if (now <= lastEntry(up)) return AicView(AicState.live, up, countdownTo: lastEntry(up));
+        if (inProgress && now < hardCap(up)) return AicView(AicState.live, up, countdownTo: hardCap(up));
+        return AicView(AicState.entryClosed, up);
+      }
+      if (!exists(up + 1)) return const AicView(AicState.off, 0);
+      if (regAt != null) return AicView(AicState.registeredNext, up + 1, countdownTo: start(up + 1));
+      return AicView(AicState.regNext, up + 1, countdownTo: regClose(up + 1));
+    }
+
+    // a paper still open past midnight (hard stop 12:30 am)
+    if (prev >= 1 && inProgress && !submitted.contains(prev) && inRound(prev, regAt) && now < hardCap(prev)) {
+      return AicView(AicState.live, prev, countdownTo: hardCap(prev));
+    }
+    if (prev >= 1 && submitted.contains(prev) && now < resultAt(prev)) {
+      return AicView(AicState.submitted, prev, countdownTo: resultAt(prev));
+    }
+    if (up == 0) return AicView(AicState.off, 0, resultsRound: results);
+    if (regAt == null) {
+      if (now < regClose(up)) return AicView(AicState.regOpen, up, countdownTo: regClose(up), resultsRound: results);
+      if (!exists(up + 1)) return AicView(AicState.off, 0, resultsRound: results);
+      return AicView(AicState.regNext, up + 1, countdownTo: regClose(up + 1), resultsRound: results);
+    }
+    if (inRound(up, regAt)) return AicView(AicState.registered, up, countdownTo: start(up), resultsRound: results);
+    if (!exists(up + 1)) return AicView(AicState.off, 0, resultsRound: results);
+    return AicView(AicState.registeredNext, up + 1, countdownTo: start(up + 1), resultsRound: results);
+  }
 }
 
-/// Round 1: Sunday 29 Nov 2026, 9:00 am IST (03:30 UTC). Replaced by catalog.json when it has an "aic" block.
-AicConfig aicConfig = AicConfig(on: true, firstMs: DateTime.utc(2026, 11, 29, 3, 30).millisecondsSinceEpoch, lastRound: 0);
+final AicSeries aicCgl = AicSeries(
+  key: 'cgl',
+  exam: 'ssc-cgl',
+  name: 'SSC CGL Tier 2',
+  short: 'CGL Tier 2',
+  day: 'Sunday',
+  regField: 'aic',
+  regBoard: 'aic-registered',
+  tag: '',
+  paperMin: 135,
+  hardStopMin: 145,
+  parts: true,
+  paperLine: '150 questions, +3 / −1, five timed parts (Maths 30 min, Reasoning 30, English 40, General Awareness 20, Computer 15).',
+  firstMs: DateTime.utc(2026, 11, 29, 3, 30).millisecondsSinceEpoch, // Sunday 29 Nov 2026, 9:00 am IST
+  lastRound: 0,
+);
 
-/// Reads {"on": true, "first": "2026-11-29T09:00:00+05:30", "lastRound": 0}. Anything unreadable is ignored.
+final AicSeries aicChsl = AicSeries(
+  key: 'chsl',
+  exam: 'ssc-chsl',
+  name: 'SSC CHSL Tier 1',
+  short: 'CHSL Tier 1',
+  day: 'Saturday',
+  regField: 'aicChsl',
+  regBoard: 'aic-chsl-registered',
+  tag: 'chsl_',
+  paperMin: 60,
+  hardStopMin: 70,
+  parts: false,
+  paperLine: '100 questions, +2 / −0.5, one 60-minute clock (the real exam pattern).',
+  firstMs: DateTime.utc(2026, 11, 28, 3, 30).millisecondsSinceEpoch, // Saturday 28 Nov 2026, 9:00 am IST
+  lastRound: 5, // 28 Nov, 5, 12, 19 and 26 Dec 2026
+);
+
+final List<AicSeries> aicAll = [aicChsl, aicCgl];
+
+/// True when at least one series is switched on.
+bool get aicAnyOn => aicAll.any((s) => s.on);
+
+/// catalog.json: "aic" is the CGL Tier 2 series, "aicChsl" the CHSL Tier 1 one.
 void aicApplyCatalog(dynamic j) {
   if (j is! Map) return;
-  final first = DateTime.tryParse('${j['first'] ?? ''}');
-  final last = j['lastRound'];
-  aicConfig = AicConfig(
-    on: j['on'] != false,
-    firstMs: first?.millisecondsSinceEpoch ?? aicConfig.firstMs,
-    lastRound: last is num ? last.toInt() : aicConfig.lastRound,
-  );
+  aicCgl.apply(j['aic']);
+  aicChsl.apply(j['aicChsl']);
 }
 
-// ------------------------------------------------------------------ schedule
+final _idRe = RegExp(r'^(ssc-cgl|ssc-chsl)_aic_mock(\d+)(?:_|$)');
 
-int aicStart(int n) => aicConfig.firstMs + (n - 1) * _week; // Sunday 9:00 am
-int aicRegClose(int n) => aicStart(n) - 9 * _hour; // Saturday midnight
-int aicLastEntry(int n) => aicStart(n) + 12 * _hour + 45 * _min; // Sunday 9:45 pm
-int aicWindowEnd(int n) => aicStart(n) + 15 * _hour; // Sunday midnight
-int aicHardCap(int n) => aicStart(n) + 15 * _hour + 30 * _min; // 12:30 am: nobody is still writing after this
-int aicResultAt(int n) => aicStart(n) + 48 * _hour; // Tuesday 9:00 am
-
-/// The live test ends 2 h 25 min after its first start, and never later than 12:30 am.
-int aicHardStop(int n, int startedMs) {
-  final own = startedMs + 145 * _min;
-  return own < aicHardCap(n) ? own : aicHardCap(n);
+/// The series of an All India Challenge id (mock id, board or leaderboard key); null for anything else.
+AicSeries? aicSeriesOf(String id) {
+  final m = _idRe.firstMatch(id);
+  return m == null ? null : (m.group(1) == 'ssc-chsl' ? aicChsl : aicCgl);
 }
 
-bool aicRoundExists(int n) => n >= 1 && (aicConfig.lastRound <= 0 || n <= aicConfig.lastRound);
-
-/// The round that is coming or is on now: the first one whose Sunday has not ended. 0 = the series is over.
-int aicUpRound(int now) {
-  var n = 1;
-  if (now >= aicWindowEnd(1)) n = ((now - aicWindowEnd(1)) ~/ _week) + 2;
-  return aicRoundExists(n) ? n : 0;
-}
-
-/// Rounds whose result is out, newest first (at most [limit]).
-List<int> aicFinished(int now, {int limit = 8}) {
-  final out = <int>[];
-  if (now < aicResultAt(1)) return out;
-  var n = ((now - aicResultAt(1)) ~/ _week) + 1;
-  if (aicConfig.lastRound > 0 && n > aicConfig.lastRound) n = aicConfig.lastRound;
-  for (; n >= 1 && out.length < limit; n--) {
-    out.add(n);
-  }
-  return out;
-}
-
-/// A student is in round N only when the registration was made before that round's registration closed.
-bool aicInRound(int n, int? regAtMs) => regAtMs != null && regAtMs < aicRegClose(n);
-
-// ------------------------------------------------------------------ ids
-
-String aicMockId(int n, String lang) => 'ssc-cgl_aic_mock${n}_$lang';
-String aicBoard(int n) => 'ssc-cgl_aic_mock$n';
-String aicTitle(int n) => 'SSC CGL Tier-2 All India Challenge Mock $n';
-const aicRegBoard = 'aic-registered';
-
-/// The round of an All India Challenge id (mock id, board or leaderboard key); 0 for anything else.
+/// The round of an All India Challenge id; 0 for anything else.
 int aicRoundOf(String id) {
-  final m = RegExp(r'^ssc-cgl_aic_mock(\d+)(?:_|$)').firstMatch(id);
-  return m == null ? 0 : int.parse(m.group(1)!);
+  final m = _idRe.firstMatch(id);
+  return m == null ? 0 : int.parse(m.group(2)!);
 }
 
-/// One run of the paper: the live Sunday attempt, or the free mock taken after the result.
+/// One run of a paper: the live attempt of the challenge day, or the free mock taken after the result.
 class AicRun {
+  final AicSeries series;
   final int round;
   final bool live;
-  const AicRun(this.round, this.live);
-  int get resultAt => aicResultAt(round);
+  const AicRun(this.series, this.round, this.live);
+  int get resultAt => series.resultAt(round);
   Map<String, dynamic> toAttempt() => live ? {'round': round, 'live': true, 'resultAt': resultAt} : {'round': round, 'live': false};
 }
 
 // ------------------------------------------------------------------ hold back
+
+/// The series an attempt belongs to (by its paper id, else by its exam).
+AicSeries aicSeriesOfAttempt(Map a) => aicSeriesOf('${a['mockId'] ?? ''}') ?? ('${a['exam'] ?? ''}' == 'ssc-chsl' ? aicChsl : aicCgl);
 
 /// When the result of this attempt opens (0 = it is not a live challenge attempt).
 int aicAttemptResultAt(Map a) {
@@ -102,7 +225,7 @@ int aicAttemptResultAt(Map a) {
   final r = x['resultAt'];
   if (r is num && r > 0) return r.toInt();
   final n = x['round'];
-  return n is num && n >= 1 ? aicResultAt(n.toInt()) : 0;
+  return n is num && n >= 1 ? aicSeriesOfAttempt(a).resultAt(n.toInt()) : 0;
 }
 
 /// A live challenge attempt before its result time: hidden everywhere (My Tests, dashboard, analysis, solutions, rank).
@@ -110,20 +233,20 @@ bool aicIsHeld(Map a, int now) => now < aicAttemptResultAt(a);
 
 /// The leaderboard of a round is closed until its result time.
 bool aicBoardClosed(String key, int now) {
-  final n = aicRoundOf(key);
-  return n > 0 && now < aicResultAt(n);
+  final s = aicSeriesOf(key);
+  return s != null && now < s.resultAt(aicRoundOf(key));
 }
 
 // ------------------------------------------------------------------ what the student sees
 
 enum AicState {
   off, // switched off, or the series is over
-  regOpen, // not registered, registration for the coming Sunday is open
-  regNext, // not registered, the coming / running Sunday is closed: registering now is for the Sunday after
-  registered, // registered in time for the coming Sunday
-  registeredNext, // registered, but after this Sunday's registration closed: in from the next round
-  live, // Sunday window, registered in time, not submitted: may start (or resume)
-  entryClosed, // Sunday after 9:45 pm, never started
+  regOpen, // not registered, registration for the coming round is open
+  regNext, // not registered, the coming / running round is closed: registering now is for the round after
+  registered, // registered in time for the coming round
+  registeredNext, // registered, but after this round's registration closed: in from the next round
+  live, // challenge day, registered in time, not submitted: may start (or resume)
+  entryClosed, // challenge day after the last entry, never started
   submitted, // live attempt submitted, the result is not out yet
 }
 
@@ -131,51 +254,10 @@ class AicView {
   final AicState state;
   final int round; // the round the state is about (regNext / registeredNext: the round the student will be in)
   final int countdownTo; // ms the countdown runs to (0 = none)
-  final int resultsRound; // "Challenge Mock N results are out" (Tuesday 9 am to the next Sunday 9 am); 0 = none
+  final int resultsRound; // "Challenge Mock N results are out" (result time to the next round's start); 0 = none
   const AicView(this.state, this.round, {this.countdownTo = 0, this.resultsRound = 0});
   @override
   String toString() => '${state.name} r$round${resultsRound > 0 ? ' results$resultsRound' : ''}';
-}
-
-/// [regAt]: when the student registered (null = not registered). [submitted]: rounds with a live attempt.
-/// [inProgress]: a live paper of the running round was started on this phone and can still be resumed.
-AicView aicView({required int now, int? regAt, Set<int> submitted = const {}, bool inProgress = false}) {
-  if (!aicConfig.on) return const AicView(AicState.off, 0);
-  final up = aicUpRound(now);
-  // the last finished Sunday
-  final prev = up > 0 ? up - 1 : (aicConfig.lastRound > 0 ? aicConfig.lastRound : 0);
-  var results = 0;
-  if (prev >= 1 && now >= aicResultAt(prev) && now < aicStart(prev) + _week) results = prev;
-
-  if (up > 0 && now >= aicStart(up)) {
-    // Sunday, 9 am to midnight
-    if (aicInRound(up, regAt)) {
-      if (submitted.contains(up)) return AicView(AicState.submitted, up, countdownTo: aicResultAt(up));
-      if (now <= aicLastEntry(up)) return AicView(AicState.live, up, countdownTo: aicLastEntry(up));
-      if (inProgress && now < aicHardCap(up)) return AicView(AicState.live, up, countdownTo: aicHardCap(up));
-      return AicView(AicState.entryClosed, up);
-    }
-    if (!aicRoundExists(up + 1)) return const AicView(AicState.off, 0);
-    if (regAt != null) return AicView(AicState.registeredNext, up + 1, countdownTo: aicStart(up + 1));
-    return AicView(AicState.regNext, up + 1, countdownTo: aicRegClose(up + 1));
-  }
-
-  // a paper still open past midnight (hard stop 12:30 am)
-  if (prev >= 1 && inProgress && !submitted.contains(prev) && aicInRound(prev, regAt) && now < aicHardCap(prev)) {
-    return AicView(AicState.live, prev, countdownTo: aicHardCap(prev));
-  }
-  if (prev >= 1 && submitted.contains(prev) && now < aicResultAt(prev)) {
-    return AicView(AicState.submitted, prev, countdownTo: aicResultAt(prev));
-  }
-  if (up == 0) return AicView(AicState.off, 0, resultsRound: results);
-  if (regAt == null) {
-    if (now < aicRegClose(up)) return AicView(AicState.regOpen, up, countdownTo: aicRegClose(up), resultsRound: results);
-    if (!aicRoundExists(up + 1)) return AicView(AicState.off, 0, resultsRound: results);
-    return AicView(AicState.regNext, up + 1, countdownTo: aicRegClose(up + 1), resultsRound: results);
-  }
-  if (aicInRound(up, regAt)) return AicView(AicState.registered, up, countdownTo: aicStart(up), resultsRound: results);
-  if (!aicRoundExists(up + 1)) return AicView(AicState.off, 0, resultsRound: results);
-  return AicView(AicState.registeredNext, up + 1, countdownTo: aicStart(up + 1), resultsRound: results);
 }
 
 // ------------------------------------------------------------------ text
