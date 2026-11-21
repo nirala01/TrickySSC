@@ -71,16 +71,39 @@ String testName(Att a) {
     final tn = inum(a['testNum']) == 0 ? 1 : inum(a['testNum']);
     return a['type'] == 'pyq-chapter' ? '$n · PYQ Test $tn' : '$n · Level ${inum(a['level']) == 0 ? 1 : inum(a['level'])} · Test $tn';
   }
-  final id = s(a['mockId']);
-  final m = RegExp(r'^([a-z-]+)_.*_(tier\d|cbt\d|paper\d)_mock(\d+)_(en|hi)(?:__([a-z]+))?$').firstMatch(id);
-  if (m != null) {
-    final ex = examById(m.group(1)!)?.name ?? '';
-    final sub = s(a['subjectKey']).isNotEmpty ? ' · ${_subjName(s(a['subjectKey']))}' : '';
-    return '$ex ${const {'tier2': 'Tier 2 ', 'paper2': 'Statistics ', 'paper3': 'AAO '}[m.group(2)] ?? ''}Mock ${m.group(3)}$sub';
+  final sub = s(a['subjectKey']).isNotEmpty ? ' · ${_subjName(s(a['subjectKey']))}' : '';
+  const tiers = {'tier1': 'Tier 1 ', 'tier2': 'Tier 2 ', 'cbt1': 'CBT 1 ', 'cbt2': 'CBT 2 ', 'paper2': 'Statistics ', 'paper3': 'AAO '};
+  final ids = [s(a['mockId']), s(a['baseMockId']), s(a['paperId']), s(a['basePaperId'])].where((v) => v.isNotEmpty);
+  for (final id in ids) {
+    // a mock: ssc-cgl_tier1_mock2_en, ssc-gd_2027_mock12_en
+    final m = RegExp(r'^([a-z-]+)_(?:(\d{4})_)?(?:.*?(tier\d|cbt\d|paper\d)_)?(?:.*_)?mock(\d+)_(?:en|hi)').firstMatch(id);
+    if (m != null) {
+      final e = examById(m.group(1)!);
+      final ex = e?.name ?? _idWords(m.group(1)!);
+      final tier = (e?.tier2 ?? false) || m.group(3) != 'tier1' ? (tiers[m.group(3)] ?? '') : '';
+      return '$ex ${m.group(2) == null ? '' : '${m.group(2)} '}${tier}Mock ${int.parse(m.group(4)!)}$sub';
+    }
+  }
+  for (final id in ids) {
+    // a previous-year paper: ssc-cgl_2026_tier1_shift-1_2026-10-13_en
+    final m = RegExp(r'^([a-z-]+)_(\d{4})_(?:(tier\d|cbt\d|paper\d)_)?(.*?)_?(\d{4})-(\d{2})-(\d{2})_(?:en|hi)').firstMatch(id);
+    if (m != null) {
+      final e = examById(m.group(1)!);
+      final ex = e?.name ?? _idWords(m.group(1)!);
+      final tier = (e?.tier2 ?? false) || (m.group(3) != null && m.group(3) != 'tier1') ? (tiers[m.group(3)] ?? '') : '';
+      const mon = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      final mo = int.parse(m.group(6)!);
+      final date = '${int.parse(m.group(7)!)} ${mo >= 1 && mo <= 12 ? mon[mo - 1] : ''} ${m.group(5)}';
+      final sh = RegExp(r'shift-?(\d+)').firstMatch(m.group(4)!);
+      final shift = sh != null ? ' · Shift ${sh.group(1)}' : (m.group(4)!.isEmpty ? '' : ' · ${_idWords(m.group(4)!)}');
+      return '$ex $tier${m.group(2)} · $date$shift$sub';
+    }
   }
   final n = s(a['examName']).replaceAll(RegExp(r'\s*—.*$'), '').trim();
-  return n.isEmpty ? 'Test' : n;
+  return n.isEmpty ? 'Test' : '$n$sub';
 }
+
+String _idWords(String v) => v.split(RegExp(r'[-_]+')).where((w) => w.isNotEmpty).map((w) => w.length <= 4 ? w.toUpperCase() : w[0].toUpperCase() + w.substring(1)).join(' ');
 
 String _subjName(String k) => const {'quant': 'Maths', 'maths': 'Maths', 'reasoning': 'Reasoning', 'english': 'English', 'gk': 'GK', 'ga': 'GK', 'computer': 'Computer', 'scimaths': 'Maths & Science', 'di': 'Data Interpretation', 'logical': 'Logical Capability', 'mental': 'Mental Reasoning'}[k.toLowerCase()] ?? k;
 
@@ -225,17 +248,60 @@ String cleanChapter(String raw) {
 
 const _chPrefix = {'quant': 'Quant', 'math': 'Quant', 'maths': 'Quant', 'reason': 'Reasoning', 'reasoning': 'Reasoning', 'eng': 'English', 'english': 'English', 'ga': 'Gen. Awareness', 'gk': 'Gen. Awareness', 'computer': 'Computer', 'statistics': 'Statistics', 'fineco': 'Finance & Economics'};
 
-/// Chapters grouped under their subject: subject name -> chapter stats.
+String _normCh(String v) => v.toLowerCase().replaceAll('&', ' and ').replaceAll(RegExp(r'[^a-z0-9]+'), ' ').trim();
+
+Map<String, String>? _chIndex; // normalised chapter name -> chapter id
+int _chIndexN = 0;
+
+/// The official chapter (id) for a saved tag, or null. Tags are chapter ids on chapter tests and new
+/// papers; older papers carry a free-text topic ("Trigonometry — heights and distances"), which is
+/// matched to the chapter it starts with.
+String? chapterIdOf(String raw) {
+  if (chapterNames.containsKey(raw)) return raw;
+  if (_chIndex == null || _chIndexN != chapterNames.length) {
+    _chIndex = {for (final e in chapterNames.entries) _normCh(e.value): e.key};
+    _chIndexN = chapterNames.length;
+  }
+  final idx = _chIndex!;
+  if (RegExp(r'^[a-z0-9]+[._][a-z0-9._-]+$').hasMatch(raw)) {
+    if (raw.length >= 40) {
+      for (final k in chapterNames.keys) {
+        if (k.startsWith(raw)) return k;
+      }
+    }
+    return null;
+  }
+  final n = _normCh(raw);
+  if (n.isEmpty) return null;
+  if (idx.containsKey(n)) return idx[n];
+  final head = _normCh(raw.split(RegExp(r'\s[—–:|(-]\s?|[:(|]')).first);
+  if (head.isNotEmpty && idx.containsKey(head)) return idx[head];
+  String? best;
+  var bl = 0;
+  for (final e in idx.entries) {
+    // the longest chapter name the tag starts with ("time and work pipes" -> Time and Work)
+    if (e.key.length > bl && e.key.length >= 5 && (n == e.key || n.startsWith('${e.key} '))) {
+      best = e.value;
+      bl = e.key.length;
+    }
+  }
+  return best;
+}
+
+/// Chapters grouped under their subject: subject name -> chapter stats. Once the chapter lists are
+/// loaded, only real chapters are listed; every other topic of a subject is added up as "Other topics".
 Map<String, List<ChStat>> chaptersBySubject(List<Att> list) {
   final m = <String, Map<String, ChStat>>{};
+  final official = chapterNames.isNotEmpty;
   for (final a in list) {
     final own = subjName[skey(s(a['subject']))];
     for (final x in answersOf(a)) {
       final raw = s(x['ch']).replaceAll(RegExp(r'<[^>]*>'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
       if (raw.isEmpty) continue;
-      final pre = RegExp(r'^([a-z]+)[._]').firstMatch(raw)?.group(1);
+      final id = official ? chapterIdOf(raw) : null;
+      final pre = RegExp(r'^([a-z]+)[._]').firstMatch(id ?? raw)?.group(1);
       final sub = subjName[skey(s(x['s']))] ?? own ?? _chPrefix[pre] ?? (s(x['s']).isEmpty || s(x['s']) == 'General' ? 'Other' : s(x['s']));
-      final name = cleanChapter(raw);
+      final name = id != null ? chapterNames[id]! : (official ? 'Other topics' : cleanChapter(raw));
       final st = (m[sub] ??= {}).putIfAbsent(name, () => ChStat(name));
       st.n++;
       if (x['r'] == 'c') {

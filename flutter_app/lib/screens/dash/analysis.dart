@@ -10,6 +10,7 @@ import '../../test/leaderboard.dart';
 import '../../test/result_screen.dart';
 import '../../ui/soft.dart';
 import '../../ui/soft_list.dart';
+import '../chapters.dart';
 import 'logic.dart';
 import 'pages.dart';
 import 'ui.dart';
@@ -545,11 +546,11 @@ String shortSub(String n) => const {'Gen. Awareness': 'GA', 'General Awareness':
 
 /// A plain table: first column is the row name, the rest are right-aligned values.
 /// [colors] colour the value columns (index 0 = first value column).
-Widget tbl(List<String> head, List<List<String>> rows, {List<Color?>? colors, bool headColors = false, Set<int> boldRows = const {}, Color? Function(int row, int col)? cellColor}) {
+Widget tbl(List<String> head, List<List<String>> rows, {List<Color?>? colors, bool headColors = false, Set<int> boldRows = const {}, Color? Function(int row, int col)? cellColor, int nameFlex = 5}) {
   Widget cell(String t, int i, {bool h = false, bool bold = false, Color? c}) => Expanded(
-        flex: i == 0 ? 5 : 4,
+        flex: i == 0 ? nameFlex : 4,
         child: Text(t,
-            maxLines: 1,
+            maxLines: i == 0 && nameFlex > 5 ? 2 : 1,
             overflow: TextOverflow.ellipsis,
             textAlign: i == 0 ? TextAlign.left : TextAlign.right,
             style: TextStyle(
@@ -587,6 +588,17 @@ class _ChapterAnalysisState extends State<ChapterAnalysis> {
   bool _all = false;
 
   @override
+  void initState() {
+    super.initState();
+    // the official chapter lists, so that topics are grouped under real chapters
+    if (chapterNames.isEmpty) {
+      loadAllChapterNames().then((_) {
+        if (mounted) setState(() {});
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final exam = widget.exam;
     final by = chaptersBySubject(widget.list);
@@ -598,7 +610,8 @@ class _ChapterAnalysisState extends State<ChapterAnalysis> {
     const order = ['Quant', 'Reasoning', 'English', 'Gen. Awareness', 'Computer', 'Statistics'];
     final subs = by.keys.toList()..sort((p, q) => (order.contains(p) ? order.indexOf(p) : 99).compareTo(order.contains(q) ? order.indexOf(q) : 99));
     if (!subs.contains(_sub)) _sub = subs.first;
-    final rows = by[_sub]!..sort((p, q) => p.acc != q.acc ? p.acc.compareTo(q.acc) : q.n.compareTo(p.n));
+    int last(ChStat c) => c.name == 'Other topics' ? 1 : 0;
+    final rows = by[_sub]!..sort((p, q) => last(p) != last(q) ? last(p).compareTo(last(q)) : (p.acc != q.acc ? p.acc.compareTo(q.acc) : q.n.compareTo(p.n)));
     final shown = _all ? rows : rows.take(12).toList();
     final tests = widget.list.where((a) => answersOf(a).isNotEmpty).length;
     return PCard(title: 'Chapter analysis', sub: widget.list.length > 1 ? '$tests test${tests == 1 ? '' : 's'} analysed · weakest first' : 'Weakest first', children: [
@@ -619,6 +632,7 @@ class _ChapterAnalysisState extends State<ChapterAnalysis> {
           for (final c in shown) [c.name, '${c.n}', '${c.c}', '${(c.acc * 100).round()}%'],
         ],
         cellColor: (r, col) => col == 3 ? accColor(shown[r].acc) : null,
+        nameFlex: 9,
       ),
       if (rows.length > shown.length)
         TextButton(onPressed: () => setState(() => _all = true), child: Text('Show all ${rows.length} chapters', style: TextStyle(fontWeight: FontWeight.w800, color: exam.c1))),
