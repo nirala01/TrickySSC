@@ -1801,7 +1801,7 @@ function aicApplyUi(){
   /* the "Ready to start?" dialog (TSSC-QUICKSTART-V1) lets a student skip the instructions — say the essentials there too */
   const qn=document.querySelector('#tsscQS .tqs-note');
   if(qn) qn.innerHTML=(live?'<strong style="color:#4C1D95;">All India Challenge &mdash; one attempt, no pause.</strong> Result on '+AIC_CTX.mod.fmtDay(AIC_CTX.r.resultAt)+', 9 am.<br>':'')
-    +'New timing: Maths 30 &middot; Reasoning 30 &middot; English 40 &middot; GA 20 &middot; Computer 15 minutes. You cannot go back to a part.';
+    +'New SSC CGL 2026 timing. You cannot go back to a part.';
   if(live){
     const pb=document.getElementById('pauseBtn'); if(pb) pb.style.display='none';   /* no pausing in the live challenge */
     const ol=li&&li.parentNode;
@@ -2773,6 +2773,16 @@ function buildTimedSections(){
   tsRemaining=timedSections.map(t=>t.dur);
   tsSubmitted=timedSections.map(()=>false);
   curTS=0;
+  /* TSSC-QSTIME-V1 (2026-11-21): the "Ready to start?" dialog shows the timing of this paper under "Go to test" —
+     students who skipped the instructions took the first section clock (60:00) for the whole paper. */
+  try{
+    const tot=Math.round(timedSections.reduce((x,y)=>x+y.dur,0)/60), h=Math.floor(tot/60), m=tot%60;
+    let line='⏱ <b>Total time: '+((h?h+' h ':'')+(m?m+' min':'')).trim()+'</b>';
+    if(timedSections.length>1) line+='<br>'+timedSections.map(t=>t.name.replace(/^Sec\s+[IV]+\s*·\s*/i,'').replace(/^Section III$/,'Section III (Computer)')+' '+Math.round(t.dur/60)+' min').join(' · ')
+      +'<br>Each section has its own clock.';
+    window.__tsscTimingLine=line;
+    const el=document.getElementById('tqsTime'); if(el){ el.innerHTML=line; el.style.display='block'; }
+  }catch(_){}
 }
 
 // True if question index i is inside the currently active (unlocked) timed section
@@ -4231,6 +4241,8 @@ window.doLogout=()=>{
 .tqs-read{background:#F1F5F9;color:#334155;font-weight:700;font-size:15.5px;}
 .tqs-btn[disabled]{opacity:.65;cursor:wait;}
 .tqs-note{font-family:'Plus Jakarta Sans','Hind',sans-serif;font-size:11.5px;color:#94A3B8;margin:12px 0 0;}
+.tqs-time{font-family:'Plus Jakarta Sans','Hind',sans-serif;font-size:12.5px;line-height:1.55;color:#475569;margin:9px 0 2px;}
+.tqs-time b{color:#1E293B;font-size:13.5px;}
 @media(prefers-reduced-motion:reduce){#tsscQS.on,.tqs-box{animation:none;}}
 </style>
 <div id="tsscQS" role="dialog" aria-modal="true" aria-labelledby="tqsTitle">
@@ -4275,6 +4287,9 @@ window.doLogout=()=>{
       btns.appendChild(mk('tqs-free','🧘 Go to test · without timer',function(b){ go(b,false); }));
     } else {
       btns.appendChild(mk('tqs-go','▶ Go to test',function(b){ go(b,false); }));
+      var tm=document.createElement('p'); tm.className='tqs-time'; tm.id='tqsTime';   /* TSSC-QSTIME-V1 */
+      tm.innerHTML=window.__tsscTimingLine||''; tm.style.display=window.__tsscTimingLine?'block':'none';
+      btns.appendChild(tm);
     }
     btns.appendChild(mk('tqs-read','📖 Read instructions first',function(){ hide(); }));
     box.classList.add('on');
