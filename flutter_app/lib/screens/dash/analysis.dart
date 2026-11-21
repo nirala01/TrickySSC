@@ -2,6 +2,7 @@
 // you vs top students, quality of attempt and of time, lost marks, difficulty, time, painful questions
 // and a table of every question.
 // Opened by tapping an attempt (Dashboard > My recent attempts) or "View Result" on a test list.
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../data.dart';
@@ -446,7 +447,7 @@ class _TestAnalysisPageState extends State<TestAnalysisPage> {
         ]),
 
       // ================================================= chapter analysis (subject, then its chapters)
-      ChapterAnalysis(list: [a], exam: exam, minQ: 1),
+      ChapterAnalysis(list: [a], exam: exam, user: x.user, minQ: 1),
 
       // ================================================= painful questions
       if (painKeys.isNotEmpty)
@@ -573,12 +574,15 @@ Widget tbl(List<String> head, List<List<String>> rows, {List<Color?>? colors, bo
   ]);
 }
 
-/// Chapter analysis: pick a subject, see only its chapters (weakest first).
+/// Chapter analysis: pick a subject, see only its chapters (weakest first). With [full], every chapter
+/// of the exam's subjects is listed, the ones not attempted yet with 0.
 class ChapterAnalysis extends StatefulWidget {
   final List<Att> list;
   final Exam exam;
+  final User user;
   final int minQ; // leave out chapters with fewer questions than this
-  const ChapterAnalysis({super.key, required this.list, required this.exam, this.minQ = 1});
+  final bool full;
+  const ChapterAnalysis({super.key, required this.list, required this.exam, required this.user, this.minQ = 1, this.full = false});
   @override
   State<ChapterAnalysis> createState() => _ChapterAnalysisState();
 }
@@ -586,16 +590,24 @@ class ChapterAnalysis extends StatefulWidget {
 class _ChapterAnalysisState extends State<ChapterAnalysis> {
   String _sub = '';
   bool _all = false;
+  String _opening = '';
 
   @override
   void initState() {
     super.initState();
     // the official chapter lists, so that topics are grouped under real chapters
-    if (chapterNames.isEmpty) {
+    if (chapterNames.isEmpty || !pyqChapterMapLoaded) {
       loadAllChapterNames().then((_) {
         if (mounted) setState(() {});
       });
     }
+  }
+
+  Future<void> _practice(ChStat c) async {
+    if (_opening.isNotEmpty) return;
+    setState(() => _opening = c.id!);
+    await openChapterPractice(context, widget.user, widget.exam, c.id!);
+    if (mounted) setState(() => _opening = '');
   }
 
   @override
@@ -603,17 +615,33 @@ class _ChapterAnalysisState extends State<ChapterAnalysis> {
     final exam = widget.exam;
     final by = chaptersBySubject(widget.list);
     for (final k in by.keys.toList()) {
-      by[k] = by[k]!.where((c) => c.n >= widget.minQ).toList();
+      by[k] = by[k]!.where((c) => c.n >= widget.minQ || (widget.full && c.id != null)).toList();
       if (by[k]!.isEmpty) by.remove(k);
     }
+    if (widget.full) {
+      // every chapter of the exam's subjects, the untouched ones with 0
+      chapterListsFor(exam).forEach((sub, ids) {
+        if (ids.isEmpty) return;
+        final rows = by[sub] ??= [];
+        final have = {for (final c in rows) c.id};
+        for (final id in ids) {
+          if (!have.contains(id)) rows.add(ChStat(chapterNames[id] ?? id, id));
+        }
+      });
+    }
     if (by.isEmpty) return const SizedBox.shrink();
-    const order = ['Quant', 'Reasoning', 'English', 'Gen. Awareness', 'Computer', 'Statistics'];
+    const order = ['Quant', 'Reasoning', 'English', 'Hindi', 'Gen. Awareness', 'Computer', 'Finance & Economics', 'Statistics'];
     final subs = by.keys.toList()..sort((p, q) => (order.contains(p) ? order.indexOf(p) : 99).compareTo(order.contains(q) ? order.indexOf(q) : 99));
     if (!subs.contains(_sub)) _sub = subs.first;
-    int last(ChStat c) => c.name == 'Other topics' ? 1 : 0;
-    final rows = by[_sub]!..sort((p, q) => last(p) != last(q) ? last(p).compareTo(last(q)) : (p.acc != q.acc ? p.acc.compareTo(q.acc) : q.n.compareTo(p.n)));
+    // attempted chapters (weakest first), then chapters not attempted yet, then the other topics
+    int grp(ChStat c) => c.name == otherTopics ? 2 : (c.n == 0 ? 1 : 0);
+    final rows = by[_sub]!..sort((p, q) => grp(p) != grp(q) ? grp(p).compareTo(grp(q)) : (p.acc != q.acc ? p.acc.compareTo(q.acc) : q.n.compareTo(p.n)));
     final shown = _all ? rows : rows.take(12).toList();
     final tests = widget.list.where((a) => answersOf(a).isNotEmpty).length;
+    Widget num(String t, {bool h = false, Color? c}) => Expanded(
+          flex: 4,
+          child: Text(t, maxLines: 1, textAlign: TextAlign.right, style: TextStyle(fontSize: h ? 12 : 13.5, fontWeight: FontWeight.w800, color: c ?? (h ? softMuted : softInk))),
+        );
     return PCard(title: 'Chapter analysis', sub: widget.list.length > 1 ? '$tests test${tests == 1 ? '' : 's'} analysed · weakest first' : 'Weakest first', children: [
       if (subs.length > 1)
         SizedBox(
@@ -626,14 +654,41 @@ class _ChapterAnalysisState extends State<ChapterAnalysis> {
                   })),
           ]),
         ),
-      tbl(
-        ['${shortSub(_sub)} chapter', 'Qs', 'Correct', 'Accuracy'],
-        [
-          for (final c in shown) [c.name, '${c.n}', '${c.c}', '${(c.acc * 100).round()}%'],
-        ],
-        cellColor: (r, col) => col == 3 ? accColor(shown[r].acc) : null,
-        nameFlex: 9,
-      ),
+      Row(children: [
+        Expanded(flex: 10, child: Text('${shortSub(_sub)} chapter', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: softMuted))),
+        num('Qs', h: true),
+        num('Correct', h: true),
+        num('Accuracy', h: true),
+      ]),
+      const Divider(height: 10),
+      for (final c in shown)
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 5),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Expanded(
+              flex: 10,
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(c.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: Color(0xFF334155))),
+                // a weak chapter, or one not attempted yet: straight to its chapter tests
+                if (c.id != null && (c.n == 0 || c.acc < .7))
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: GestureDetector(
+                      onTap: () => _practice(c),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(color: exam.c1.withValues(alpha: .1), borderRadius: BorderRadius.circular(20), border: Border.all(color: exam.c1.withValues(alpha: .35))),
+                        child: Text(_opening == c.id ? 'Opening…' : 'Practice ›', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: exam.c1)),
+                      ),
+                    ),
+                  ),
+              ]),
+            ),
+            num('${c.n}'),
+            num('${c.c}'),
+            num(c.n == 0 ? '—' : '${(c.acc * 100).round()}%', c: c.n == 0 ? softMuted : accColor(c.acc)),
+          ]),
+        ),
       if (rows.length > shown.length)
         TextButton(onPressed: () => setState(() => _all = true), child: Text('Show all ${rows.length} chapters', style: TextStyle(fontWeight: FontWeight.w800, color: exam.c1))),
     ]);
@@ -646,9 +701,8 @@ class ChapterAnalysisPage extends StatelessWidget {
   const ChapterAnalysisPage({super.key, required this.x});
   @override
   Widget build(BuildContext context) {
-    final has = x.all.any((a) => answersOf(a).isNotEmpty);
     return DashPage(exam: x.exam, title: 'Chapter analysis', children: [
-      if (!has) emptyNote('Chapter analysis covers tests taken after the dashboard update.') else ChapterAnalysis(list: x.all, exam: x.exam, minQ: 3),
+      ChapterAnalysis(list: x.all, exam: x.exam, user: x.user, minQ: 3, full: true),
     ]);
   }
 }

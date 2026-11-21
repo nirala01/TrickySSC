@@ -742,7 +742,7 @@ Future<void> saveResult(User u, Exam exam, Paper p, Progress pr, Result r) async
     log.add({
       'q': q.qNumOr(i + 1),
       's': rules.statKey(q),
-      'ch': q.chapter.replaceAll(RegExp(r'<[^>]*>'), ' ').replaceAll('&nbsp;', ' ').replaceAll('&amp;', '&').replaceAll(RegExp(r'\s+'), ' ').trim().characters40(),
+      'ch': (_str(q.raw['chapterId']).isNotEmpty ? _str(q.raw['chapterId']) : q.chapter).replaceAll(RegExp(r'<[^>]*>'), ' ').replaceAll('&nbsp;', ' ').replaceAll('&amp;', '&').replaceAll(RegExp(r'\s+'), ' ').trim().characters40(),
       'd': q.difficulty,
       'a': a,
       'c': q.correct,

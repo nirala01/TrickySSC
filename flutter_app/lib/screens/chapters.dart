@@ -12,7 +12,7 @@ import '../test/test_screen.dart';
 import '../ui/icons3d.dart';
 import '../ui/soft.dart';
 import '../ui/soft_list.dart';
-import 'dash/logic.dart' show chapterNames;
+import 'dash/logic.dart' show chapterNames, loadPyqChapterMap;
 import 'dash/ui.dart';
 
 class ChSubject {
@@ -97,7 +97,39 @@ Future<void> loadAllChapterNames() async {
     } catch (_) {}
   }
 
-  await Future.wait([for (final s in _subjects) one(s)]);
+  await Future.wait([loadPyqChapterMap(), for (final s in _subjects) one(s)]);
+}
+
+const _chIdPrefix = {'quant': 'quant', 'reasoning': 'reason', 'english': 'eng', 'gk': 'ga', 'computer': 'computer', 'finance': 'fineco', 'statistics': 'statistics'};
+const _chShown = {'quant': 'Quant', 'reasoning': 'Reasoning', 'english': 'English', 'gk': 'Gen. Awareness', 'computer': 'Computer', 'finance': 'Finance & Economics', 'statistics': 'Statistics'};
+
+/// Chapter-test subjects of an exam for the chapter analysis: shown name -> its chapter ids, in page order.
+Map<String, List<String>> chapterListsFor(Exam e) => {
+      for (final s in subjectsFor(e))
+        _chShown[s.key] ?? s.name: [
+          for (final id in chapterNames.keys)
+            if (id.startsWith('${_chIdPrefix[s.key]}.')) id
+        ]
+    };
+
+/// Opens the tests of one chapter (the "Practice" button of the chapter analysis).
+Future<void> openChapterPractice(BuildContext context, User user, Exam exam, String chapterId) async {
+  ChSubject? sub;
+  for (final s in _subjects) {
+    if (chapterId.startsWith('${_chIdPrefix[s.key]}.')) sub = s;
+  }
+  if (sub == null) return;
+  final nav = Navigator.of(context);
+  Set<String> owned = <String>{}, attempted = <String>{};
+  try {
+    final r = await Future.wait([loadOwned(user.uid), loadAttempted(user.uid)]);
+    owned = r[0];
+    attempted = r[1];
+  } catch (_) {}
+  final s0 = sub;
+  await nav.push(MaterialPageRoute(
+    builder: (_) => ChapterTestsScreen(user: user, exam: exam, subject: s0, chapter: ChChapter(chapterId, chapterNames[chapterId] ?? chapterId, ''), paid: owned.isNotEmpty, attempted: attempted, onReturn: () {}),
+  ));
 }
 
 /// Number of tests in each chapter (English test 1st questions, as the website counts them). Cached 6 h.

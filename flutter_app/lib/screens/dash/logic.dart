@@ -3,6 +3,7 @@
 import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../data.dart';
@@ -232,8 +233,9 @@ String chapterLabel(String raw) {
 
 class ChStat {
   final String name;
+  final String? id; // the official chapter id, when the row is a real chapter
   int n = 0, c = 0, w = 0, k = 0;
-  ChStat(this.name);
+  ChStat(this.name, [this.id]);
   double get acc => n == 0 ? 0 : c / n;
 }
 
@@ -246,47 +248,191 @@ String cleanChapter(String raw) {
   return n.trim();
 }
 
-const _chPrefix = {'quant': 'Quant', 'math': 'Quant', 'maths': 'Quant', 'reason': 'Reasoning', 'reasoning': 'Reasoning', 'eng': 'English', 'english': 'English', 'ga': 'Gen. Awareness', 'gk': 'Gen. Awareness', 'computer': 'Computer', 'statistics': 'Statistics', 'fineco': 'Finance & Economics'};
+const _chPrefix = {'hindi': 'Hindi', 'quant': 'Quant', 'math': 'Quant', 'maths': 'Quant', 'reason': 'Reasoning', 'reasoning': 'Reasoning', 'eng': 'English', 'english': 'English', 'ga': 'Gen. Awareness', 'gk': 'Gen. Awareness', 'computer': 'Computer', 'statistics': 'Statistics', 'fineco': 'Finance & Economics'};
 
-String _normCh(String v) => v.toLowerCase().replaceAll('&', ' and ').replaceAll(RegExp(r'[^a-z0-9]+'), ' ').trim();
+const _chSmall = {'and', 'of', 'the', 'in', 'to', 'for', 'on', 'a', 'an', 'by', 'with'};
 
-Map<String, String>? _chIndex; // normalised chapter name -> chapter id
-int _chIndexN = 0;
+/// Words of a chapter name or topic note, lower case, without plural "s" and small words.
+List<String> _stems(String v) => [
+      for (final w in v.toLowerCase().replaceAll('&', ' ').split(RegExp(r'[^a-z0-9]+')))
+        if (w.isNotEmpty && !_chSmall.contains(w)) w.length > 3 && w.endsWith('s') ? w.substring(0, w.length - 1) : w
+    ];
+
+/// Topic words that point to a chapter whose name does not carry them.
+const _chAlias = {
+  'quant.number-system': ['number system', 'unit digit', 'factor'],
+  'quant.divisibility': ['divisible'],
+  'quant.remainder-theorem': ['remainder'],
+  'quant.decimal-fraction': ['fraction', 'decimal'],
+  'quant.lcm-hcf': ['lcm', 'hcf'],
+  'quant.square-cube-root': ['square root', 'cube root'],
+  'quant.series-ap-gp': ['progression', 'ap gp'],
+  'quant.simplification': ['simplification', 'surd', 'indice', 'bodma'],
+  'quant.algebra': ['algebra', 'identity', 'linear equation', 'polynomial'],
+  'quant.percentage': ['percent'],
+  'quant.profit-loss': ['profit'],
+  'quant.discount': ['discount', 'marked price'],
+  'quant.simple-interest': ['si'],
+  'quant.compound-interest': ['ci', 'installment'],
+  'quant.ratio-proportion': ['ratio', 'proportion'],
+  'quant.average': ['average', 'mean'],
+  'quant.ages': ['age'],
+  'quant.mixture-alligation': ['mixture', 'alligation'],
+  'quant.time-work': ['work wage', 'work', 'efficiency'],
+  'quant.pipe-cistern': ['pipe', 'cistern'],
+  'quant.time-speed-distance': ['speed', 'train', 'time distance'],
+  'quant.boat-stream': ['boat', 'stream'],
+  'quant.race': ['race'],
+  'quant.trigonometry': ['trigonometric', 'trigo'],
+  'quant.height-distance': ['height', 'elevation'],
+  'quant.geometry': ['geometry', 'triangle', 'circle', 'quadrilateral', 'polygon', 'angle', 'chord', 'tangent'],
+  'quant.mensuration': ['mensuration', 'area', 'volume', 'cylinder', 'cone', 'sphere', 'cube', 'cuboid', 'prism', 'pyramid', 'perimeter', '2d', '3d'],
+  'quant.coordinate-geometry': ['coordinate'],
+  'quant.statistics': ['median', 'mode', 'statistic'],
+  'quant.data-interpretation': ['di', 'data interpretation', 'bar graph', 'pie chart', 'graph', 'chart', 'table', 'histogram'],
+  'reason.analogy-word': ['analogy'],
+  'reason.classification-word': ['classification', 'odd one', 'odd man'],
+  'reason.series': ['series'],
+  'reason.coding-decoding': ['coding', 'decoding'],
+  'reason.blood-relation': ['blood', 'relation'],
+  'reason.direction-distance': ['direction'],
+  'reason.ranking-arrangement': ['ranking', 'order'],
+  'reason.seating-arrangement': ['seating', 'arrangement'],
+  'reason.statement-conclusion': ['statement', 'inference', 'assumption', 'conclusion', 'course action'],
+  'reason.venn-diagram': ['venn'],
+  'reason.mathematical-operations': ['operation', 'symbol', 'interchange', 'equation'],
+  'reason.word-formation': ['dictionary', 'alphabet', 'word formation', 'jumbled word'],
+  'reason.missing-number': ['missing number', 'matrix', 'missing term'],
+  'reason.puzzle': ['puzzle'],
+  'reason.calendar-clock': ['calendar', 'clock'],
+  'reason.mirror-image': ['mirror', 'water image'],
+  'reason.paper-folding': ['paper folding', 'paper cutting', 'embedded', 'figure completion', 'completion', 'hidden figure'],
+  'reason.figure-series': ['figure series', 'figure counting', 'counting figure', 'figure', 'pattern', 'non verbal'],
+  'reason.dice': ['dice', 'cube'],
+  'eng.error-spotting': ['error'],
+  'eng.sentence-improvement': ['improvement'],
+  'eng.fill-blanks': ['fill', 'blank', 'preposition', 'article', 'grammar', 'vocabulary'],
+  'eng.active-passive': ['voice', 'active', 'passive'],
+  'eng.narration': ['narration', 'speech', 'direct indirect'],
+  'eng.para-jumbles': ['jumble', 'rearrangement', 'pqr', 'arrangement'],
+  'eng.synonyms': ['synonym'],
+  'eng.antonyms': ['antonym'],
+  'eng.spelling': ['spelling', 'spelt', 'misspelt', 'misspelled'],
+  'eng.idioms-phrases': ['idiom', 'phrase'],
+  'eng.one-word': ['one word', 'substitution'],
+  'eng.homonyms': ['homonym', 'homophone'],
+  'eng.cloze-test': ['cloze'],
+  'eng.reading-comprehension': ['comprehension', 'passage'],
+  'ga.history-ancient': ['ancient'],
+  'ga.history-medieval': ['medieval'],
+  'ga.history-modern': ['modern', 'freedom', 'history', 'national movement'],
+  'ga.art-culture': ['art', 'culture', 'dance', 'festival', 'music'],
+  'ga.geography-india': ['geography', 'river', 'soil', 'agriculture'],
+  'ga.geography-world': ['world geography', 'physical geography', 'world'],
+  'ga.polity': ['polity', 'constitution', 'parliament', 'article', 'fundamental right'],
+  'ga.economics': ['economic', 'economy', 'banking', 'budget'],
+  'ga.physics': ['physic'],
+  'ga.chemistry': ['chemistry', 'chemical'],
+  'ga.biology': ['biology', 'disease', 'botany', 'zoology'],
+  'ga.static-books-authors': ['book', 'author'],
+  'ga.static-awards': ['award', 'honour'],
+  'ga.static-days-events': ['important day'],
+  'ga.static-sports': ['sport'],
+  'ga.static-schemes': ['scheme', 'yojana'],
+  'ga.static-organizations': ['organization', 'organisation', 'headquarter'],
+  'ga.static-misc': ['static', 'miscellaneou'],
+  'ga.current-affairs': ['current', 'affair'],
+  'computer.fundamentals': ['fundamental', 'hardware', 'software', 'generation', 'input', 'output'],
+  'computer.memory-storage': ['memory', 'storage'],
+  'computer.os-windows': ['operating system', 'window', 'shortcut'],
+  'computer.ms-office': ['office', 'word', 'excel', 'powerpoint'],
+  'computer.internet-email': ['internet', 'email', 'mail', 'browser', 'web'],
+  'computer.networking': ['network'],
+  'computer.cyber-security': ['security', 'viru', 'malware', 'cyber'],
+};
+
+const _chLetter = {'quant': 'Q', 'reason': 'R', 'eng': 'E', 'ga': 'G', 'computer': 'C', 'statistics': 'S'};
+
+List<({String id, String letter, Set<String> words})>? _chPhrases;
+int _chPhrasesN = -1;
+
+/// The chapter of every previous-year question (assets/pyq_chapters.json), filled by loadPyqChapterMap().
+final Map<String, List<int>> pyqChapterMap = {};
+List<String> pyqChapterIds = const [];
+bool pyqChapterMapLoaded = false;
+
+Future<void> loadPyqChapterMap() async {
+  if (pyqChapterMapLoaded) return;
+  try {
+    final d = jsonDecode(await rootBundle.loadString('assets/pyq_chapters.json')) as Map;
+    pyqChapterIds = [for (final c in d['ch'] as List) '$c'];
+    (d['p'] as Map).forEach((k, v) => pyqChapterMap['$k'] = [for (final i in v as List) (i as num).toInt()]);
+  } catch (_) {}
+  pyqChapterMapLoaded = true;
+}
+
+/// The chapter id of one answered question: from the paper's own chapter list when it is a
+/// previous-year paper, else from the saved tag.
+String? chapterIdFor(Att a, Map<String, dynamic> x, String raw) {
+  final pid = s(a['basePaperId']).isNotEmpty ? s(a['basePaperId']) : s(a['paperId']);
+  if (pid.isNotEmpty && pyqChapterMap.isNotEmpty) {
+    final row = pyqChapterMap[pid.replaceAll(RegExp(r'__.*$'), '').replaceAll(RegExp(r'_(en|hi)$'), '')];
+    final q = inum(x['q']);
+    if (row != null && q >= 1 && q <= row.length && row[q - 1] >= 0 && row[q - 1] < pyqChapterIds.length) return pyqChapterIds[row[q - 1]];
+  }
+  return raw.isEmpty ? null : chapterIdOf(raw, skey(s(x['s'])) ?? skey(s(a['subject'])));
+}
 
 /// The official chapter (id) for a saved tag, or null. Tags are chapter ids on chapter tests and new
-/// papers; older papers carry a free-text topic ("Trigonometry — heights and distances"), which is
-/// matched to the chapter it starts with.
-String? chapterIdOf(String raw) {
+/// papers; older papers and mocks carry a free-text topic ("Heights and Distances — angle of elevation"),
+/// matched by its words to the chapter names of the same subject.
+String? chapterIdOf(String raw, [String? letter]) {
   if (chapterNames.containsKey(raw)) return raw;
-  if (_chIndex == null || _chIndexN != chapterNames.length) {
-    _chIndex = {for (final e in chapterNames.entries) _normCh(e.value): e.key};
-    _chIndexN = chapterNames.length;
-  }
-  final idx = _chIndex!;
   if (RegExp(r'^[a-z0-9]+[._][a-z0-9._-]+$').hasMatch(raw)) {
     if (raw.length >= 40) {
       for (final k in chapterNames.keys) {
         if (k.startsWith(raw)) return k;
       }
     }
-    return null;
+    return RegExp(r'^(quant|reason|eng|ga|computer|statistics|fineco|hindi)\.').hasMatch(raw) ? raw : null;
   }
-  final n = _normCh(raw);
-  if (n.isEmpty) return null;
-  if (idx.containsKey(n)) return idx[n];
-  final head = _normCh(raw.split(RegExp(r'\s[—–:|(-]\s?|[:(|]')).first);
-  if (head.isNotEmpty && idx.containsKey(head)) return idx[head];
+  if (_chPhrases == null || _chPhrasesN != chapterNames.length) {
+    final out = <({String id, String letter, Set<String> words})>[];
+    void add(String id, String phrase) {
+      final w = _stems(phrase).toSet();
+      if (w.isNotEmpty) out.add((id: id, letter: _chLetter[id.split('.').first] ?? '', words: w));
+    }
+
+    for (final e in chapterNames.entries) {
+      add(e.key, e.value);
+      add(e.key, e.value.split(RegExp(r'[(/]')).first);
+      if (e.value.contains(':')) add(e.key, e.value.split(':').last.split(RegExp(r'[(/]')).first);
+      add(e.key, e.key.substring(e.key.indexOf('.') + 1));
+    }
+    for (final e in _chAlias.entries) {
+      if (!chapterNames.containsKey(e.key)) continue;
+      for (final p in e.value) {
+        add(e.key, p);
+      }
+    }
+    _chPhrases = out;
+    _chPhrasesN = chapterNames.length;
+  }
+  final tag = _stems(raw).toSet();
+  if (tag.isEmpty) return null;
   String? best;
-  var bl = 0;
-  for (final e in idx.entries) {
-    // the longest chapter name the tag starts with ("time and work pipes" -> Time and Work)
-    if (e.key.length > bl && e.key.length >= 5 && (n == e.key || n.startsWith('${e.key} '))) {
-      best = e.value;
-      bl = e.key.length;
+  var score = 0;
+  for (final p in _chPhrases!) {
+    if (letter != null && p.letter.isNotEmpty && p.letter != letter) continue;
+    if (p.words.length > score && tag.containsAll(p.words)) {
+      best = p.id;
+      score = p.words.length;
     }
   }
   return best;
 }
+
+const otherTopics = 'Other topics';
 
 /// Chapters grouped under their subject: subject name -> chapter stats. Once the chapter lists are
 /// loaded, only real chapters are listed; every other topic of a subject is added up as "Other topics".
@@ -297,12 +443,16 @@ Map<String, List<ChStat>> chaptersBySubject(List<Att> list) {
     final own = subjName[skey(s(a['subject']))];
     for (final x in answersOf(a)) {
       final raw = s(x['ch']).replaceAll(RegExp(r'<[^>]*>'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
-      if (raw.isEmpty) continue;
-      final id = official ? chapterIdOf(raw) : null;
+      final id = official ? chapterIdFor(a, x, raw) : null;
+      if (raw.isEmpty && id == null) continue;
       final pre = RegExp(r'^([a-z]+)[._]').firstMatch(id ?? raw)?.group(1);
-      final sub = subjName[skey(s(x['s']))] ?? own ?? _chPrefix[pre] ?? (s(x['s']).isEmpty || s(x['s']) == 'General' ? 'Other' : s(x['s']));
-      final name = id != null ? chapterNames[id]! : (official ? 'Other topics' : cleanChapter(raw));
-      final st = (m[sub] ??= {}).putIfAbsent(name, () => ChStat(name));
+      final sub = (id != null ? _chPrefix[pre] : null) ??
+          subjName[skey(s(x['s']))] ??
+          own ??
+          _chPrefix[pre] ??
+          (s(x['s']).isEmpty || s(x['s']) == 'General' ? 'Other' : s(x['s']));
+      final name = id != null ? (chapterNames[id] ?? chapterLabel(id)) : (official ? otherTopics : cleanChapter(raw));
+      final st = (m[sub] ??= {}).putIfAbsent(name, () => ChStat(name, chapterNames.containsKey(id) ? id : null));
       st.n++;
       if (x['r'] == 'c') {
         st.c++;
@@ -316,25 +466,12 @@ Map<String, List<ChStat>> chaptersBySubject(List<Att> list) {
   return {for (final e in m.entries) e.key: e.value.values.toList()};
 }
 
-List<ChStat> chapterStats(List<Att> list) {
-  final m = <String, ChStat>{};
-  for (final a in list) {
-    for (final x in answersOf(a)) {
-      final raw = s(x['ch']).replaceAll(RegExp(r'<[^>]*>'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
-      final name = raw.isEmpty ? 'Untagged' : cleanChapter(raw);
-      final st = m.putIfAbsent(name, () => ChStat(name));
-      st.n++;
-      if (x['r'] == 'c') {
-        st.c++;
-      } else if (x['r'] == 'w') {
-        st.w++;
-      } else {
-        st.k++;
-      }
-    }
-  }
-  return m.values.toList();
-}
+/// Every chapter of the attempts in one list (the same chapters as chaptersBySubject).
+List<ChStat> chapterStats(List<Att> list) => [
+      for (final l in chaptersBySubject(list).values)
+        for (final c in l)
+          if (c.name != otherTopics) c
+    ];
 
 class Lost {
   final int c, w, k, total;
