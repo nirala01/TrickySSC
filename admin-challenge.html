@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Challenge registrations — TrickySSC Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<!-- TSSC-AIC-ADMIN-V1 (2026-11-21): who has registered for the All India Challenge Mocks.
+     Read only, no new Firestore rules. A registration is users/{uid}.aic (SSC CGL Tier 2) or
+     users/{uid}.aicChsl (SSC CHSL Tier 1), with a mirror row on leaderboards/aic-registered and
+     leaderboards/aic-chsl-registered. This page reads the user records (name, email, mobile) the
+     same way admin-testers.html reads app users, and falls back to the mirror rows (names only)
+     for anyone whose record could not be read. Who took a paper comes from the round's own board
+     leaderboards/<exam>_aic_mockN. Dates and rounds are worked out exactly as in /tssc-aic.js. -->
+<style>
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Inter',sans-serif;background:#F1F5F9;color:#1E293B;}
+  .topbar{background:#fff;border-bottom:1px solid #E8EDF3;padding:12px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;position:sticky;top:0;z-index:10;}
+  .brand{font-family:'Rajdhani';font-weight:700;font-size:20px;color:#FF6B00;}
+  .brand small{color:#64748B;font-size:14px;margin-left:6px;}
+  .nav a{font-size:12px;font-weight:700;color:#475569;text-decoration:none;padding:6px 10px;border-radius:8px;background:#F1F5F9;margin-right:4px;}
+  .who{margin-left:auto;font-size:12px;color:#64748B;}
+  .btn{font-size:13px;font-weight:700;padding:9px 14px;border-radius:9px;border:0;cursor:pointer;}
+  .btn:disabled{opacity:.5;cursor:default;}
+  .btn-orange{background:#FF6B00;color:#fff;}
+  .btn-ghost{background:#F1F5F9;color:#475569;border:1.5px solid #E2E8F0;}
+  .wrap{max-width:1150px;margin:0 auto;padding:16px 14px 70px;}
+  .card{background:#fff;border:1px solid #EDF1F6;border-radius:14px;padding:14px 16px;margin-bottom:12px;box-shadow:0 3px 14px rgba(15,23,42,.05);}
+  .empty{text-align:center;color:#64748B;padding:36px 10px;}
+  .hidden{display:none !important;}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:12px;}
+  .stat{background:#fff;border:1px solid #EDF1F6;border-radius:12px;padding:12px 14px;cursor:pointer;}
+  .stat:hover{border-color:#FF6B00;} .stat.on{border-color:#FF6B00;box-shadow:0 0 0 2px #FFE1CC;}
+  .stat b{display:block;font-family:'Rajdhani';font-size:28px;line-height:1;}
+  .stat span{font-size:12px;color:#64748B;font-weight:600;}
+  .next{font-size:13.5px;line-height:1.6;color:#334155;}
+  .next b{color:#1E293B;}
+  input.filter{width:100%;font-size:14px;padding:10px 12px;border-radius:10px;border:1.5px solid #E2E8F0;margin-bottom:10px;}
+  .bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;font-size:13px;color:#475569;}
+  .tw{overflow-x:auto;background:#fff;border:1px solid #EDF1F6;border-radius:14px;}
+  table{border-collapse:collapse;width:100%;font-size:13px;min-width:860px;}
+  th,td{padding:9px 10px;text-align:left;border-bottom:1px solid #F1F5F9;vertical-align:top;}
+  th{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#64748B;background:#F8FAFC;white-space:nowrap;}
+  td .em{font-size:12px;color:#64748B;word-break:break-all;}
+  .pill{display:inline-block;font-size:11px;padding:2px 9px;border-radius:99px;font-weight:800;white-space:nowrap;margin:0 3px 3px 0;}
+  .p-chsl{background:#FFEDD5;color:#C2410C;} .p-cgl{background:#E0E7FF;color:#4338CA;}
+  .p-done{background:#DCFCE7;color:#15803D;} .p-app{background:#F1F5F9;color:#475569;}
+  .say{font-size:13px;color:#64748B;margin:6px 0;} .say.err{color:#DC2626;font-weight:600;}
+  a.wa{color:#16A34A;font-weight:700;text-decoration:none;font-size:12px;}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <span class="brand">TrickySSC <small>Challenge registrations</small></span>
+  <span class="nav"><a href="/admin.html">Admin home</a><a href="/admin-premium.html">Premium</a><a href="/admin-testers.html">App testers</a></span>
+  <span class="who" id="who"></span>
+  <button class="btn btn-ghost hidden" id="so">Sign out</button>
+</div>
+<div class="wrap">
+  <div class="card empty" id="gate">Checking sign-in…</div>
+  <div id="main" class="hidden">
+    <div class="stats" id="stats"></div>
+    <div class="card next" id="next"></div>
+    <input class="filter" id="q" placeholder="Search name, email or mobile">
+    <div class="bar">
+      <span id="count"></span>
+      <span style="flex:1"></span>
+      <button class="btn btn-ghost" id="reload">Refresh</button>
+      <button class="btn btn-orange" id="csv">Download CSV</button>
+    </div>
+    <div class="say" id="say"></div>
+    <div class="tw"><table><thead><tr><th>#</th><th>Student</th><th>Mobile</th><th>Registered for</th><th>Registered on</th><th>First paper</th><th>Papers taken</th></tr></thead><tbody id="rows"></tbody></table></div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut }
+  from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import { getFirestore, collection, getDocs, query, where }
+  from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+const app = initializeApp({
+  apiKey:"AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA",
+  authDomain:"trickyssc-17bb3.firebaseapp.com",
+  projectId:"trickyssc-17bb3",
+  storageBucket:"trickyssc-17bb3.firebasestorage.app",
+  messagingSenderId:"450627057220",
+  appId:"1:450627057220:web:366267bf437d94f20c6e11"
+});
+const auth = getAuth(app), db = getFirestore(app);
+const ADMINS = ['nirala01@gmail.com','ashish@trickyssc.com'];
+const isAdmin = e => !!e && (ADMINS.includes(e) || /@trickyssc\.com$/.test(e));
+
+/* the two series — the same dates as /tssc-aic.js */
+const H = 3600000;
+const SER = {
+  chsl: { key:'chsl', name:'CHSL Tier 1', field:'aicChsl', board:'aic-chsl-registered', exam:'ssc-chsl', first:Date.UTC(2026,10,28,3,30), last:5 },
+  cgl:  { key:'cgl',  name:'CGL Tier 2',  field:'aic',     board:'aic-registered',      exam:'ssc-cgl',  first:Date.UTC(2026,10,29,3,30), last:0 }
+};
+const WEEK = 7*24*H;
+const startOf = (s,n) => s.first + (n-1)*WEEK;
+const hasRound = (s,n) => n>=1 && (!s.last || n<=s.last);
+/* the first round a registration made at time t counts for (registration closes 9 h before the paper opens) */
+function firstRound(s,t){ let n=1; while(hasRound(s,n) && t >= startOf(s,n)-9*H) n++; return hasRound(s,n) ? n : 0; }
+/* rounds whose paper has opened by now */
+function openedRounds(s){ const out=[]; for(let n=1; hasRound(s,n) && Date.now()>=startOf(s,n) && n<=60; n++) out.push(n); return out; }
+
+const $ = id => document.getElementById(id);
+const show = id => $(id).classList.remove('hidden'), hide = id => $(id).classList.add('hidden');
+const esc = s => String(s==null?'':s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const tsMs = v => !v ? 0 : (v.toMillis ? v.toMillis() : (v.seconds ? v.seconds*1000 : (Date.parse(v)||0)));
+const IST = { timeZone:'Asia/Kolkata' };
+const fmtWhen = ms => ms ? new Date(ms).toLocaleString('en-IN', Object.assign({ day:'numeric', month:'short', hour:'numeric', minute:'2-digit', hour12:true }, IST)) : '';
+const fmtDay = ms => new Date(ms).toLocaleDateString('en-IN', Object.assign({ weekday:'short', day:'numeric', month:'short' }, IST));
+function say(t, cls){ $('say').textContent = t||''; $('say').className = 'say'+(cls?' '+cls:''); }
+
+let ROWS = [], FILTER = 'all', TAKEN = {};   // TAKEN: 'chsl:1' -> Set(uid)
+
+onAuthStateChanged(auth, async user => {
+  if (!user) {
+    $('gate').innerHTML = '<p>Sign in with the admin Google account.</p><button class="btn btn-orange" id="si">Sign in with Google</button>';
+    $('si').onclick = () => signInWithPopup(auth, new GoogleAuthProvider()).catch(e => { $('gate').insertAdjacentHTML('beforeend', '<p class="say err">' + esc(e.message) + '</p>'); });
+    show('gate'); hide('main'); hide('so'); return;
+  }
+  if (!isAdmin(user.email)) { $('gate').textContent = user.email + ' is not an admin account.'; await signOut(auth); return; }
+  $('who').textContent = user.email; show('so');
+  $('gate').textContent = 'Loading…'; show('gate');
+  await load();
+  hide('gate'); show('main');
+});
+$('so').onclick = () => signOut(auth);
+$('reload').onclick = async () => { $('reload').disabled = true; await load(); $('reload').disabled = false; };
+$('q').oninput = paint;
+
+async function load() {
+  say('Loading…');
+  const by = {};   // uid -> row
+  const row = uid => by[uid] || (by[uid] = { uid, name:'', email:'', mobile:'', reg:{}, src:{}, full:false });
+  const problems = [];
+  for (const k of Object.keys(SER)) {
+    const s = SER[k];
+    /* 1. the student records (name, email, mobile) */
+    try {
+      (await getDocs(query(collection(db, 'users'), where(s.field + '.reg', '==', true)))).forEach(d => {
+        const u = d.data() || {}, r = row(d.id), a = u[s.field] || {};
+        r.name = String(u.name || u.displayName || r.name || '').trim(); r.email = String(u.email || r.email || '').trim();
+        r.mobile = String(u.phone || u.mobile || r.mobile || '').trim(); r.full = true;
+        r.reg[k] = tsMs(a.at) || r.reg[k] || 0; r.src[k] = a.src || '';
+      });
+    } catch (e) { problems.push(s.name + ' student records: ' + (e.code || e.message)); }
+    /* 2. the mirror rows: anyone missing above still shows, by name */
+    try {
+      (await getDocs(collection(db, 'leaderboards', s.board, 'scores'))).forEach(d => {
+        const x = d.data() || {}, r = row(d.id);
+        if (!r.name) r.name = String(x.name || '').trim();
+        if (!r.reg[k]) r.reg[k] = tsMs(x.submittedAt) || 1;
+      });
+    } catch (e) { problems.push(s.name + ' registration board: ' + (e.code || e.message)); }
+    /* 3. who has taken each paper that has opened */
+    for (const n of openedRounds(s)) {
+      try {
+        const set = new Set();
+        (await getDocs(collection(db, 'leaderboards', s.exam + '_aic_mock' + n, 'scores'))).forEach(d => set.add(d.id));
+        TAKEN[k + ':' + n] = set;
+      } catch (e) { problems.push(s.name + ' Mock ' + n + ' board: ' + (e.code || e.message)); }
+    }
+  }
+  ROWS = Object.values(by).sort((a, b) => Math.max(b.reg.chsl||0, b.reg.cgl||0) - Math.max(a.reg.chsl||0, a.reg.cgl||0));
+  say(problems.length ? 'Some data could not be read: ' + problems.join(' · ') : '', problems.length ? 'err' : '');
+  paintStats(); paintNext(); paint();
+}
+
+function paintStats() {
+  const c = k => ROWS.filter(r => r.reg[k]).length;
+  const both = ROWS.filter(r => r.reg.chsl && r.reg.cgl).length;
+  const day = new Date(Date.now()+19800000).toISOString().slice(0,10);
+  const today = ROWS.filter(r => ['chsl','cgl'].some(k => r.reg[k] > 1 && new Date(r.reg[k]+19800000).toISOString().slice(0,10) === day)).length;
+  const cells = [['all', ROWS.length, 'All registered students'], ['chsl', c('chsl'), 'CHSL Tier 1'], ['cgl', c('cgl'), 'CGL Tier 2'], ['both', both, 'Registered for both'], ['today', today, 'Registered today']];
+  $('stats').innerHTML = cells.map(x => '<div class="stat' + (FILTER===x[0]?' on':'') + '" data-f="' + x[0] + '"><b>' + x[1] + '</b><span>' + x[2] + '</span></div>').join('');
+  $('stats').querySelectorAll('.stat').forEach(el => el.onclick = () => { FILTER = el.dataset.f; paintStats(); paint(); });
+}
+
+/* how many are in for the next paper of each series */
+function paintNext() {
+  const lines = [];
+  for (const k of Object.keys(SER)) {
+    const s = SER[k]; let n = 1; while (hasRound(s, n) && Date.now() >= startOf(s, n) + 15*H) n++;
+    if (!hasRound(s, n)) { lines.push('<b>' + s.name + ':</b> the series is over.'); continue; }
+    const close = startOf(s, n) - 9*H;
+    const inTime = ROWS.filter(r => r.reg[k] && r.reg[k] < close).length;
+    const late = ROWS.filter(r => r.reg[k] && r.reg[k] >= close).length;
+    const taken = TAKEN[k + ':' + n] ? TAKEN[k + ':' + n].size : 0;
+    lines.push('<b>' + s.name + ' · Challenge Mock ' + n + '</b> on ' + fmtDay(startOf(s, n)) + ': <b>' + inTime + '</b> student' + (inTime===1?'':'s') + ' can take it'
+      + (late ? ' (' + late + ' more registered after the closing time and start from the next paper)' : '')
+      + (Date.now() >= startOf(s, n) ? ' · <b>' + taken + '</b> have submitted so far' : ' · registration closes ' + fmtWhen(close - 60000)) + '.');
+  }
+  $('next').innerHTML = lines.join('<br>');
+}
+
+function visible() {
+  const q = $('q').value.trim().toLowerCase();
+  const day = new Date(Date.now()+19800000).toISOString().slice(0,10);
+  return ROWS.filter(r => {
+    if (FILTER==='chsl' && !r.reg.chsl) return false;
+    if (FILTER==='cgl' && !r.reg.cgl) return false;
+    if (FILTER==='both' && !(r.reg.chsl && r.reg.cgl)) return false;
+    if (FILTER==='today' && !['chsl','cgl'].some(k => r.reg[k] > 1 && new Date(r.reg[k]+19800000).toISOString().slice(0,10) === day)) return false;
+    return !q || (r.name + ' ' + r.email + ' ' + r.mobile).toLowerCase().includes(q);
+  });
+}
+const takenList = r => Object.keys(TAKEN).filter(x => TAKEN[x].has(r.uid)).map(x => { const p = x.split(':'); return SER[p[0]].name + ' Mock ' + p[1]; });
+const firstList = r => Object.keys(SER).filter(k => r.reg[k]).map(k => { const n = firstRound(SER[k], r.reg[k]); return SER[k].name + ': ' + (n ? 'Mock ' + n + ' (' + fmtDay(startOf(SER[k], n)) + ')' : 'none left'); });
+
+function paint() {
+  const list = visible();
+  $('count').textContent = list.length + ' of ' + ROWS.length + ' students';
+  if (!list.length) { $('rows').innerHTML = '<tr><td colspan="7" class="empty">' + (ROWS.length ? 'No student matches.' : 'No registrations yet.') + '</td></tr>'; return; }
+  $('rows').innerHTML = list.map((r, i) => {
+    const wa = r.mobile.replace(/\D/g, ''); const wan = wa.length === 10 ? '91' + wa : wa;
+    return '<tr><td>' + (i+1) + '</td>'
+      + '<td><b>' + esc(r.name || 'Student') + '</b>' + (r.email ? '<div class="em">' + esc(r.email) + '</div>' : (r.full ? '' : '<div class="em">record not readable — name only</div>')) + '</td>'
+      + '<td>' + (r.mobile ? esc(r.mobile) + (wan.length >= 11 ? '<br><a class="wa" target="_blank" rel="noopener" href="https://wa.me/' + wan + '">WhatsApp</a>' : '') : '<span class="em">—</span>') + '</td>'
+      + '<td>' + ['chsl','cgl'].filter(k => r.reg[k]).map(k => '<span class="pill p-' + k + '">' + SER[k].name + '</span>' + (r.src[k] === 'app' ? '<span class="pill p-app">app</span>' : '')).join('') + '</td>'
+      + '<td>' + ['chsl','cgl'].filter(k => r.reg[k] > 1).map(k => '<div>' + SER[k].name + ': ' + fmtWhen(r.reg[k]) + '</div>').join('') + '</td>'
+      + '<td>' + firstList(r).map(x => '<div>' + esc(x) + '</div>').join('') + '</td>'
+      + '<td>' + (takenList(r).map(x => '<span class="pill p-done">' + esc(x) + '</span>').join('') || '<span class="em">—</span>') + '</td></tr>';
+  }).join('');
+}
+
+$('csv').onclick = () => {
+  const cell = v => '"' + String(v==null?'':v).replace(/"/g, '""') + '"';
+  const head = ['Name','Email','Mobile','CHSL Tier 1','CHSL registered on','CGL Tier 2','CGL registered on','First paper','Papers taken'];
+  const lines = [head.map(cell).join(',')].concat(visible().map(r => [r.name, r.email, r.mobile,
+    r.reg.chsl ? 'Yes' : '', r.reg.chsl > 1 ? fmtWhen(r.reg.chsl) : '', r.reg.cgl ? 'Yes' : '', r.reg.cgl > 1 ? fmtWhen(r.reg.cgl) : '',
+    firstList(r).join('; '), takenList(r).join('; ')].map(cell).join(',')));
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv' }));
+  a.download = 'challenge-registrations-' + new Date(Date.now()+19800000).toISOString().slice(0,10) + '.csv';
+  document.body.appendChild(a); a.click(); a.remove();
+};
+</script>
+</body>
+</html>
