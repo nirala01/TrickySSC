@@ -13,6 +13,7 @@ import '../../test/leaderboard.dart';
 import '../../test/result_screen.dart';
 import '../../ui/soft.dart';
 import '../../ui/soft_list.dart';
+import '../aic_screens.dart';
 import 'analysis.dart';
 import 'logic.dart';
 import 'ui.dart';
@@ -36,7 +37,7 @@ Future<void> saveCat(String c) async => (await SharedPreferences.getInstance()).
 bool canOpenSolutions(Att a) {
   var id = s(a['mockId']).isNotEmpty ? s(a['mockId']) : s(a['paperId']);
   if (id.contains('__')) id = id.substring(0, id.indexOf('__')); // one subject of a paper / mock
-  final ok = RegExp(r'_(tier1|tier2|cbt1|paper2|paper3)_mock\d+_(en|hi)$').hasMatch(id) || RegExp(r'^[a-z-]+_\d{4}_tier[12]_.*_(en|hi)$').hasMatch(id);
+  final ok = RegExp(r'_(tier1|tier2|aic|cbt1|paper2|paper3)_mock\d+_(en|hi)$').hasMatch(id) || RegExp(r'^[a-z-]+_\d{4}_tier[12]_.*_(en|hi)$').hasMatch(id);
   return ok && a['answers'] is List;
 }
 
@@ -101,6 +102,7 @@ class _AttemptsPageState extends State<AttemptsPage> {
     final list = _tab == 'all' ? all : all.where((a) => _kind(a) == _tab).toList();
     final trend = all.where((a) => isFullPaper(a) && s(a['exam']) == exam.id).take(10).toList().reversed.toList();
     return DashPage(exam: exam, title: 'My recent attempts', children: [
+      const AicHeldNote(), // a live All India Challenge attempt is held back until its result
       SizedBox(
         height: 44,
         child: ListView(scrollDirection: Axis.horizontal, children: [
@@ -973,7 +975,10 @@ class _ReportCardPageState extends State<ReportCardPage> {
             Row(children: [box('${n1(marksOf(a))}/${n1(maxOf(a))}', 'Score'), const SizedBox(width: 8), box('$cr / $wr', 'Correct / Wrong'), const SizedBox(width: 8), box('${cr + wr == 0 ? 0 : (cr * 100 / (cr + wr)).round()}%', 'Accuracy')]),
             const SizedBox(height: 12),
             Text([
-              if (v != null && v.ok) 'Rank #${v.rank} of ${v.total}  ·  ${n1(v.pctile)} percentile',
+              if (v != null && v.ok && isAicAtt(a))
+                aicLiveAtt(a) ? 'AIR #${v.rank} of ${v.total}  ·  ${n1(v.pctile)} percentile' : 'Would stand #${v.rank} among ${v.total} live students'
+              else if (v != null && v.ok)
+                'Rank #${v.rank} of ${v.total}  ·  ${n1(v.pctile)} percentile',
               if (tUsed > 0) 'Time ${fmtSec(tUsed)}',
               'Taken ${shortDate(tsOf(a))}',
             ].join('  ·  '), style: const TextStyle(color: Color(0xFFCBD5E1), fontWeight: FontWeight.w600)),

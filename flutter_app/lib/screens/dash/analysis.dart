@@ -231,8 +231,9 @@ class _TestAnalysisPageState extends State<TestAnalysisPage> {
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
                 decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
                 child: Column(children: [
+                  if (isAicAtt(a)) Text(aicLiveAtt(a) ? 'AIR' : 'Would be', style: TextStyle(fontSize: 11.5, color: exam.c1, fontWeight: FontWeight.w800)),
                   Text('#${v.rank}', style: baloo(24, color: exam.c1)),
-                  Text('of ${v.total}', style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w700)),
+                  Text('of ${isAicAtt(a) && !aicLiveAtt(a) ? v.total + 1 : v.total}', style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w700)),
                 ]),
               ),
             )
@@ -240,6 +241,16 @@ class _TestAnalysisPageState extends State<TestAnalysisPage> {
             const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white)),
         ]),
       ),
+      if (isAicAtt(a) && ok)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Note(
+            aicLiveAtt(a)
+                ? 'All India Rank ${v.rank} of ${v.total} students who took this Challenge Mock live · ${n1(v.pctile)} percentile.'
+                : 'Free mock: this score is not on the All India board. Among the ${v.total} students who took it live, you would have stood at rank ${v.rank}.',
+            color: exam.c1,
+          ),
+        ),
       Row(children: [
         stat('${L.c}', 'Correct', cGood),
         const SizedBox(width: 8),

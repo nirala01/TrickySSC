@@ -16,6 +16,8 @@ import 'subject_mocks.dart';
 import 'current_affairs.dart';
 import 'report_issue.dart';
 import 'about.dart';
+import 'aic_screens.dart';
+import '../aic.dart';
 import '../ui/icons3d.dart';
 import '../ui/soft.dart';
 import '../ui/soft_list.dart';
@@ -404,6 +406,7 @@ class _AppShellState extends State<AppShell> {
         index: _tab,
         children: [
           _HomeTab(
+            user: widget.user,
             exam: exam,
             hasPass: _hasPass,
             price: _owned.isNotEmpty ? null : _price, // paid students see only the Full Access upgrade
@@ -456,6 +459,7 @@ class _AppShellState extends State<AppShell> {
             )
           else
           _MocksTab(
+            top2: exam.id == 'ssc-cgl' && aicConfig.on ? AicEntryCard(user: widget.user, exam: exam) : null,
             onSubject: (k) => setState(() => _mockSub = k),
             exam: exam,
             mocks: _mocks,
@@ -613,6 +617,7 @@ class _PassCard extends StatelessWidget {
 }
 
 class _HomeTab extends StatelessWidget {
+  final User user;
   final Exam exam;
   final bool hasPass;
   final int? price;
@@ -631,6 +636,7 @@ class _HomeTab extends StatelessWidget {
   final void Function(MockItem) onStart;
   final void Function(String) onSoon;
   const _HomeTab({
+    required this.user,
     required this.exam,
     required this.hasPass,
     required this.price,
@@ -722,6 +728,8 @@ class _HomeTab extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // SSC CGL Tier-2 All India Challenge Mock (every Sunday): its banner, on the SSC CGL home
+          if (exam.id == 'ssc-cgl' && aicConfig.on) AicBanner(user: user, exam: exam),
           _PassCard(
             exam: exam,
             hasPass: hasPass,
@@ -949,7 +957,9 @@ class _MocksTab extends StatelessWidget {
   final void Function(String) onSoon;
   final VoidCallback onRetry;
   final Map<String, Map<String, dynamic>> last;
+  final Widget? top2; // shown on top of the Tier 2 list (SSC CGL: the All India Challenge entry)
   const _MocksTab({
+    this.top2,
     required this.onSubject,
     required this.last,
     required this.onRetake,
@@ -1024,6 +1034,7 @@ class _MocksTab extends StatelessWidget {
             ),
           ]),
         ),
+      if (tier == 2 && top2 != null) top2!,
       // subject-wise mocks: the same chips as the PYQ tab (Tier 1 only)
       if (tier == 1 && list.isNotEmpty && subjectChoices(exam).isNotEmpty)
         Padding(

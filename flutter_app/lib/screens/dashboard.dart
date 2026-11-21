@@ -6,6 +6,7 @@ import '../data.dart';
 import '../ui/soft.dart';
 import '../ui/soft_list.dart';
 import 'chapters.dart';
+import 'aic_screens.dart';
 import 'dash/analysis.dart';
 import 'dash/logic.dart';
 import 'dash/pages.dart';
@@ -191,7 +192,9 @@ class _DashboardTabState extends State<DashboardTab> {
         onRefresh: _load,
         child: ListView(padding: const EdgeInsets.fromLTRB(14, 8, 14, 28), children: [
           picker,
-          const SizedBox(height: 50),
+          const SizedBox(height: 10),
+          const AicHeldNote(),
+          const SizedBox(height: 40),
           Icon(Icons.insights, size: 56, color: exam.c1),
           const SizedBox(height: 10),
           Text('No ${_label(_grp)} tests yet', textAlign: TextAlign.center, style: baloo(21)),
@@ -273,6 +276,7 @@ class _DashboardTabState extends State<DashboardTab> {
       child: ListView(padding: EdgeInsets.fromLTRB(14, 8, 14, 20 + MediaQuery.of(context).padding.bottom), children: [
         picker,
         const SizedBox(height: 10),
+        const AicHeldNote(), // a live All India Challenge attempt is held back until its result
         // welcome
         Container(
           padding: const EdgeInsets.all(16),

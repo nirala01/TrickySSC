@@ -4,6 +4,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:http/http.dart' as http;
+
+import 'aic.dart';
+import 'aic_io.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const String otpApi = 'https://trickyssc-otp.nirala01.workers.dev';
@@ -251,6 +254,7 @@ class Catalog {
         if (e != null && !list.any((o) => o.k == e.k || o.pass == e.pass)) list.add(e);
       }
       if (list.isEmpty) return false;
+      aicApplyCatalog(j['aic']); // All India Challenge: on / off, first Sunday, last round
       _v = v;
       exams = list;
       catalogVersion.value++;
@@ -376,6 +380,7 @@ Future<List<MockItem>> loadMocks(Exam exam) async {
   for (final doc in snap.docs) {
     final m = doc.data();
     if (m['isPublished'] != true) continue;
+    if ('${m['tier'] ?? ''}' == 'aic' || doc.id.contains('_aic_')) continue; // All India Challenge papers are never in a mock list
     // CGL Tier II Paper II (Statistics, JSO) and Paper III (Finance & Economics, AAO): ssc-cgl_paper2_mock1_en …
     final t = '${m['tier'] ?? ''}';
     final tier = (t == 'paper2' || doc.id.contains('_paper2_'))
@@ -505,10 +510,12 @@ Widget examTheme(BuildContext context, Exam exam, Widget child) {
 
 /// Every attempt of this user (website and app), newest first; each map has 'id'.
 Future<List<Map<String, dynamic>>> loadAttempts(String uid) async {
+  if (aicConfig.on) await AicClock.sync(); // the hold-back below runs on the server's time, not the phone's
   final snap = await FirebaseFirestore.instance.collection('attempts').where('uid', isEqualTo: uid).get();
   final out = [for (final d in snap.docs) {...d.data(), 'id': d.id}];
   out.sort((a, b) => attemptMs(b).compareTo(attemptMs(a)));
-  return out;
+  // a live All India Challenge attempt stays hidden until its result time (website attempts too)
+  return aicFilterAttempts(out);
 }
 
 int attemptMs(Map<String, dynamic> a) {

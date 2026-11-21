@@ -8,6 +8,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../aic.dart';
 import '../data.dart';
 
 const Map<String, String> subjectShort = {
@@ -130,12 +131,14 @@ class Rules {
   final bool gd; // Part D in English or Hindi (SSC GD)
   final bool tier2; // CGL / CHSL Tier 2 (mock-test-tier2.html, test-tier2.html)
   final bool paper; // CGL Tier II Paper II (Statistics) / Paper III (Finance & Economics): 100 Qs, +2 / −0.5, one 2-hour clock
+  final bool aic; // SSC CGL Tier-2 All India Challenge Mock: Tier 2 marking, five separately timed parts
   Rules(String mockId) : this._(mockId, examOfPaper(mockId));
   Rules._(this.mockId, this.ex)
       : mts = ex?.timing == 'sessions',
         ntpc = ex?.timing == 'single',
         gd = ex?.partD ?? false,
-        tier2 = mockId.contains('_tier2_'),
+        tier2 = mockId.contains('_tier2_') || mockId.contains('_aic_'),
+        aic = mockId.contains('_aic_'),
         paper = mockId.contains('_paper2_') || mockId.contains('_paper3_');
 
   static String _n(double v) => v == v.roundToDouble() ? '${v.round()}' : ((v * 3 - 1).abs() < 1e-9 ? '1/3' : v.toStringAsFixed(2));
@@ -156,6 +159,7 @@ class Rules {
     if (mockId.contains('__')) return 'One subject section of the mock on its own clock. Submit when you are done or when time runs out.';
     if (mockId.startsWith('cw_') || mockId.startsWith('cwp_')) return 'One chapter test of 25 questions. Choose a 15-minute clock or untimed practice below.';
     if (paper) return 'One paper on a single 2-hour clock. Move freely between the parts.';
+    if (aic) return 'Five separately timed parts, in order: Maths 30 min, Reasoning 30, English 40, General Awareness 20, Computer 15. You cannot go back to a finished part.';
     if (tier2) return 'Section I (Maths + Reasoning) 60 min, Section II (English + GA) 60 min, Section III (Computer) 15 min. Move freely inside the open section.';
     final note = (ex?.timingNote ?? '').isEmpty ? '' : ' ${ex!.timingNote}';
     final min = ex?.unitMin ?? 15;
@@ -183,6 +187,7 @@ class Paper {
   final String title;
   final String partD; // GD only: 'en' / 'hi' / ''
   ChapterInfo? chapter; // set for chapter tests
+  AicRun? aic; // set for an All India Challenge paper: the live Sunday attempt or the free mock
   Paper(this.rules, this.questions, this.sections, this.units, this.title, this.partD);
 
   int unitSecs(int i) => units[i].seconds > 0 ? units[i].seconds : rules.unitSeconds;
@@ -440,6 +445,8 @@ Future<Paper> loadPaper(String mockId, String lang, {String? partD, String title
     } catch (_) {}
   }
 
+  if (title.isEmpty && rules.aic) title = aicTitle(aicRoundOf(mockId));
+
   // sections: consecutive questions of one subject
   final sections = <Section>[];
   String? prev;
@@ -454,7 +461,15 @@ Future<Paper> loadPaper(String mockId, String lang, {String? partD, String title
   if (sections.isEmpty) sections.add(Section('All Questions', 0, qs.length - 1));
 
   final units = <Unit>[];
-  if (rules.tier2) {
+  if (rules.aic) {
+    // All India Challenge: every part on its own clock, in paper order, no going back
+    const mins = {'Quant': 30, 'Reasoning': 30, 'English': 40, 'Gen. Awareness': 20, 'Computer': 15};
+    for (var i = 0; i < sections.length; i++) {
+      final c = canonSubject(sections[i].label);
+      if (c == 'Quant') sections[i] = Section('Maths', sections[i].from, sections[i].to);
+      units.add(Unit('Part ${i + 1} · ${sections[i].label}', sections[i].from, sections[i].to, (mins[c] ?? 30) * 60));
+    }
+  } else if (rules.tier2) {
     const phaseOf = {'Quant': 0, 'Reasoning': 0, 'English': 1, 'Gen. Awareness': 1, 'Computer': 2};
     const meta = [('Section I', 60 * 60), ('Section II', 60 * 60), ('Section III', 15 * 60)];
     int? curPhase;
@@ -546,6 +561,7 @@ class Progress {
   int current = 0;
   List<int> remaining = [];
   bool untimed = false; // chapter tests can be taken without a clock
+  int startedAt = 0; // All India Challenge, live: server time of the first start (the 2 h 25 min hard stop runs from it)
 
   Map<String, dynamic> toJson() => {
         'a': answers.map((k, v) => MapEntry('$k', v)),
@@ -556,6 +572,7 @@ class Progress {
         'c': current,
         'r': remaining,
         'ut': untimed,
+        if (startedAt > 0) 'st': startedAt,
         'at': DateTime.now().millisecondsSinceEpoch,
       };
 
@@ -569,6 +586,7 @@ class Progress {
     p.current = (j['c'] as num? ?? 0).toInt();
     p.remaining = [for (final x in (j['r'] as List? ?? [])) (x as num).toInt()];
     p.untimed = j['ut'] == true;
+    p.startedAt = (j['st'] as num? ?? 0).toInt();
     return p;
   }
 }
@@ -688,6 +706,7 @@ class Result {
   bool saved = false;
   int? rank;
   int? candidates;
+  bool lbSaved = true; // false: the leaderboard row could not be written (matters for a live challenge attempt)
   Result(this.correct, this.wrong, this.skip, this.total, this.marks, this.maxMarks, this.pct, this.subjects, this.timeUsed);
 }
 
@@ -811,6 +830,7 @@ Future<void> saveResult(User u, Exam exam, Paper p, Progress pr, Result r) async
     'analyticsV': 1,
     'partD': p.partD,
     if (rules.tier2 || rules.paper) 'tier': 'tier2', // the website files Paper II / III attempts under tier2 too
+    if (p.aic != null) 'aic': p.aic!.toAttempt(), // All India Challenge: {round, live, resultAt}
     // one subject section on its own: a mock's, or a previous-year paper's (same fields as the website)
     if (mockId.contains('__')) (pyq ? 'basePaperId' : 'baseMockId'): mockId.substring(0, mockId.indexOf('__')),
     if (mockId.contains('__')) 'subjectKey': mockId.substring(mockId.indexOf('__') + 2),
@@ -852,8 +872,10 @@ Future<void> saveResult(User u, Exam exam, Paper p, Progress pr, Result r) async
 
   final base = lbBase(mockId);
 
-  // leaderboard: best score only
-  try {
+  // leaderboard: best score only. All India Challenge: the board is live attempts only, so the free mock
+  // taken after the result writes no row; a live attempt tries three times, because that row is the proof of "submitted".
+  final aicFree = p.aic != null && !p.aic!.live;
+  if (!aicFree) {
     String name = 'Student';
     try {
       final us = await db.collection('users').doc(u.uid).get();
@@ -862,27 +884,34 @@ Future<void> saveResult(User u, Exam exam, Paper p, Progress pr, Result r) async
       if (name.isEmpty) name = 'Student';
     } catch (_) {}
     final ref = db.collection('leaderboards').doc(base).collection('scores').doc(u.uid);
-    await db.runTransaction((tx) async {
-      final cur = await tx.get(ref);
-      final prev = cur.exists ? ((cur.data() ?? const {})['marks'] as num? ?? 0).toDouble() : double.negativeInfinity;
-      if (!cur.exists || r.marks > prev) {
-        tx.set(ref, {
-          'uid': u.uid,
-          'name': name,
-          'paperId': base,
-          'paperName': ch != null ? ch.lbName : label,
-          'marks': r.marks,
-          'maxMarks': r.maxMarks,
-          'accuracy': r.pct,
-          'subjectMarks': ch != null ? <String, dynamic>{} : subjectMarks,
-          'timeUsed': r.timeUsed,
-          'submittedAt': FieldValue.serverTimestamp(),
+    var ok = false;
+    for (var tries = 0; tries < (p.aic != null ? 3 : 1) && !ok; tries++) {
+      try {
+        await db.runTransaction((tx) async {
+          final cur = await tx.get(ref);
+          final prev = cur.exists ? ((cur.data() ?? const {})['marks'] as num? ?? 0).toDouble() : double.negativeInfinity;
+          if (!cur.exists || r.marks > prev) {
+            tx.set(ref, {
+              'uid': u.uid,
+              'name': name,
+              'paperId': base,
+              'paperName': ch != null ? ch.lbName : label,
+              'marks': r.marks,
+              'maxMarks': r.maxMarks,
+              'accuracy': r.pct,
+              'subjectMarks': ch != null ? <String, dynamic>{} : subjectMarks,
+              'timeUsed': r.timeUsed,
+              'submittedAt': FieldValue.serverTimestamp(),
+            });
+          } else if ((cur.data() ?? const {})['name'] != name && name != 'Student') {
+            tx.set(ref, {'name': name}, SetOptions(merge: true));
+          }
         });
-      } else if ((cur.data() ?? const {})['name'] != name && name != 'Student') {
-        tx.set(ref, {'name': name}, SetOptions(merge: true));
-      }
-    });
-  } catch (_) {}
+        ok = true;
+      } catch (_) {}
+    }
+    r.lbSaved = ok;
+  }
 
   // per-question tallies and the topper row
   try {
@@ -901,7 +930,7 @@ Future<void> saveResult(User u, Exam exam, Paper p, Progress pr, Result r) async
     final tp = (sn.data() ?? const {})['top'];
     final beat = !(tp is Map &&
         ((tp['m'] as num? ?? 0) > r.marks || ((tp['m'] as num? ?? 0) == r.marks && (tp['tu'] as num? ?? 0) > 0 && (tp['tu'] as num? ?? 0) <= r.timeUsed)));
-    if (beat) {
+    if (beat && !aicFree) {
       final tq = <String, String>{for (final x in log) 'q${x['q']}': '${x['r']}${x['t']}'};
       await db.collection('qstats').doc(base).set({
         'top': {'m': r.marks, 'tu': r.timeUsed, 'q': tq, 'at': FieldValue.serverTimestamp()}
@@ -909,8 +938,8 @@ Future<void> saveResult(User u, Exam exam, Paper p, Progress pr, Result r) async
     }
   } catch (_) {}
 
-  // rank among everyone who took this mock
-  try {
+  // rank among everyone who took this mock (a challenge paper shows its rank only from the result time)
+  if (p.aic == null) try {
     final col = db.collection('leaderboards').doc(base).collection('scores');
     final above = await col.where('marks', isGreaterThan: r.marks).count().get();
     final all = await col.count().get();

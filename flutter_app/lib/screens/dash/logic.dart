@@ -6,6 +6,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../aic.dart';
+import '../../aic_io.dart';
 import '../../data.dart';
 
 typedef Att = Map<String, dynamic>;
@@ -72,6 +74,9 @@ String testName(Att a) {
     final tn = inum(a['testNum']) == 0 ? 1 : inum(a['testNum']);
     return a['type'] == 'pyq-chapter' ? '$n · PYQ Test $tn' : '$n · Level ${inum(a['level']) == 0 ? 1 : inum(a['level'])} · Test $tn';
   }
+  // All India Challenge: the live Sunday attempt, or the free mock taken after the result
+  final ar = aicRoundOf(s(a['mockId']));
+  if (ar > 0) return 'All India Challenge Mock $ar${a['aic'] is Map && (a['aic'] as Map)['live'] == true ? '' : ' · Free mock'}';
   final sub = s(a['subjectKey']).isNotEmpty ? ' · ${_subjName(s(a['subjectKey']))}' : '';
   const tiers = {'tier1': 'Tier 1 ', 'tier2': 'Tier 2 ', 'cbt1': 'CBT 1 ', 'cbt2': 'CBT 2 ', 'paper2': 'Statistics ', 'paper3': 'AAO '};
   final ids = [s(a['mockId']), s(a['baseMockId']), s(a['paperId']), s(a['basePaperId'])].where((v) => v.isNotEmpty);
@@ -680,7 +685,93 @@ Future<bool> _restoreRow(String key, String uid, Att a) async {
   }
 }
 
+/// True for an attempt of an All India Challenge paper; [aicLiveAtt]: the live Sunday attempt.
+bool isAicAtt(Att a) => aicRoundOf(s(a['mockId'])) > 0;
+bool aicLiveAtt(Att a) => a['aic'] is Map && (a['aic'] as Map)['live'] == true;
+
+/// All India Rank of a challenge round. The board holds the live attempts only: a live attempt is ranked by
+/// its own row; a free mock is shown where its score would have stood among the live students (no row is written).
+/// Rank = students with more marks + 1. Section ranks the same way. Closed until the result time.
+Future<LbInfo> _aicRank(String key, String uid, Att? from) async {
+  if (aicBoardClosed(key, AicClock.now)) return LbInfo(none: true);
+  final live = from == null || aicLiveAtt(from);
+  final mk = '$key|${live ? 'live' : s(from!['id'])}';
+  if (_lbMem[mk] != null) return _lbMem[mk]!;
+  try {
+    final col = FirebaseFirestore.instance.collection('leaderboards').doc(key).collection('scores');
+    double my;
+    double max;
+    Map sm;
+    if (live) {
+      final me = await col.doc(uid).get();
+      if (!me.exists && from == null) return LbInfo(none: true);
+      final md = me.data() ?? const <String, dynamic>{};
+      my = me.exists ? dnum(md['marks']) : marksOf(from!);
+      max = me.exists ? dnum(md['maxMarks']) : maxOf(from!);
+      sm = (me.exists ? md['subjectMarks'] : from!['subjectMarks']) as Map? ?? {};
+    } else {
+      my = marksOf(from!);
+      max = maxOf(from!);
+      sm = (from!['subjectMarks'] as Map?) ?? {};
+    }
+    final res = await Future.wait([
+      col.orderBy('marks', descending: true).limit(_lbRows).get(),
+      col.aggregate(count(), average('marks')).get(),
+      col.where('marks', isGreaterThan: my).count().get(),
+      col.where('timeUsed', isGreaterThan: 0).aggregate(average('timeUsed')).get(),
+    ]);
+    final rows = [for (final d in (res[0] as QuerySnapshot<Map<String, dynamic>>).docs) d.data()];
+    final ag = res[1] as AggregateQuerySnapshot;
+    final total = ag.count ?? rows.length;
+    final ahead = (res[2] as AggregateQuerySnapshot).count ?? 0;
+    final subj = <String, ({double my, int ahead, double avg, int n})>{};
+    for (final e in sm.entries) {
+      final k = '${e.key}';
+      final mine = dnum(e.value);
+      final have = rows.where((r) => r['subjectMarks'] is Map && (r['subjectMarks'] as Map).containsKey(k)).toList();
+      var sAhead = have.where((r) => dnum((r['subjectMarks'] as Map)[k]) > mine).length;
+      if (total > rows.length) {
+        // a big board: count the students ahead in this section on the server
+        try {
+          sAhead = (await col.where(FieldPath(['subjectMarks', k]), isGreaterThan: mine).count().get()).count ?? sAhead;
+        } catch (_) {}
+      }
+      subj[k] = (my: mine, ahead: sAhead, avg: have.isEmpty ? 0.0 : have.fold(0.0, (x, r) => x + dnum((r['subjectMarks'] as Map)[k])) / have.length, n: total);
+    }
+    final bands = <({String label, double marks, double time, Map<String, double> subj})>[];
+    if (total >= 8 && rows.isNotEmpty) {
+      for (final b in const [('Top 10%', .10), ('Top 25%', .25)]) {
+        final n = (total * b.$2).ceil().clamp(1, rows.length);
+        final g = rows.take(n).toList();
+        final tg = g.where((r) => dnum(r['timeUsed']) > 0).toList();
+        final sj = <String, List<double>>{};
+        for (final r in g) {
+          if (r['subjectMarks'] is! Map) continue;
+          (r['subjectMarks'] as Map).forEach((k, v) => (sj['$k'] ??= [0, 0])..[0] += dnum(v)..[1] += 1);
+        }
+        bands.add((
+          label: b.$1,
+          marks: g.fold(0.0, (x, r) => x + dnum(r['marks'])) / g.length,
+          time: tg.isEmpty ? 0.0 : tg.fold(0.0, (x, r) => x + dnum(r['timeUsed'])) / tg.length,
+          subj: {for (final e in sj.entries) e.key: e.value[0] / e.value[1]},
+        ));
+      }
+    }
+    final t = rows.isEmpty ? <String, dynamic>{} : rows.first;
+    return _lbMem[mk] = LbInfo(
+      bands: bands,
+      my: my, max: max, total: total, ahead: ahead, avg: ag.getAverage('marks') ?? 0,
+      tAvg: (res[3] as AggregateQuerySnapshot).getAverage('timeUsed') ?? 0,
+      top: dnum(t['marks']), topName: s(t['name']), topAcc: t['accuracy'] == null ? null : dnum(t['accuracy']), topTime: dnum(t['timeUsed']),
+      topSubj: {for (final e in ((t['subjectMarks'] as Map?) ?? {}).entries) '${e.key}': dnum(e.value)}, subj: subj,
+    );
+  } catch (_) {
+    return LbInfo(err: true);
+  }
+}
+
 Future<LbInfo> fetchRank(String key, String uid, {Att? from, bool fresh = false}) async {
+  if (aicRoundOf(key) > 0) return _aicRank(key, uid, from); // All India Challenge: live attempts only, never restored
   if (!fresh && _lbMem[key] != null) return _lbMem[key]!;
   final prefs = await SharedPreferences.getInstance();
   if (!fresh) try {

@@ -1,3 +1,5 @@
+import '../aic.dart';
+import '../aic_io.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../ui/nav.dart';
@@ -46,6 +48,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
   Future<void> _load() async {
     setState(() => _failed = false);
     try {
+      // an All India Challenge board is closed until its result time
+      if (aicBoardClosed(widget.base, AicClock.now)) throw 'closed';
       final col = FirebaseFirestore.instance.collection('leaderboards').doc(widget.base).collection('scores');
       final snap = await col.orderBy('marks', descending: true).limit(100).get();
       final rows = [for (final d in snap.docs) LbRow.from(d.id, d.data())];

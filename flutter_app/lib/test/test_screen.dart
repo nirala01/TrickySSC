@@ -4,7 +4,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../ui/nav.dart';
 
+import '../aic.dart';
+import '../aic_io.dart';
 import '../data.dart';
+import '../screens/aic_screens.dart';
 import 'engine.dart';
 import 'render.dart';
 import 'report.dart';
@@ -21,7 +24,8 @@ class TestFlow extends StatefulWidget {
   final bool paid;
   final String title;
   final Future<Paper> Function()? loader; // chapter tests load their own paper
-  const TestFlow({super.key, required this.user, required this.exam, required this.mockId, required this.lang, this.partD, required this.paid, required this.title, this.loader});
+  final AicRun? aic; // All India Challenge: the live Sunday attempt or the free mock
+  const TestFlow({super.key, required this.user, required this.exam, required this.mockId, required this.lang, this.partD, required this.paid, required this.title, this.loader, this.aic});
 
   @override
   State<TestFlow> createState() => _TestFlowState();
@@ -44,6 +48,7 @@ class _TestFlowState extends State<TestFlow> {
     setState(() => _error = null);
     try {
       final p = widget.loader != null ? await widget.loader!() : await loadPaper(widget.mockId, widget.lang, partD: widget.partD, title: isPyqId(widget.mockId) ? widget.title : '');
+      p.aic = widget.aic;
       final s = await loadProgress(widget.user.uid, widget.mockId, p.partD);
       if (!mounted) return;
       setState(() {
@@ -58,7 +63,33 @@ class _TestFlowState extends State<TestFlow> {
   Future<void> _begin(bool resume) async {
     final p = _paper!;
     setState(() => _starting = true);
-    if (!resume) {
+    final live = p.aic?.live == true;
+    if (live) {
+      // the live challenge runs on the server's clock: entry until 9:45 pm, one attempt, hard stop
+      final why = await _liveGate(p, resume);
+      if (!mounted) return;
+      if (why == 'submit') {
+        // past the hard stop: what was answered is submitted as it is
+        await Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => AicSubmitScreen(user: widget.user, exam: widget.exam, paper: p, progress: _saved!, result: scorePaper(p, _saved!)),
+        ));
+        if (mounted) Navigator.of(context).pop();
+        return;
+      }
+      if (why != null) {
+        setState(() => _starting = false);
+        await showDialog<void>(
+          context: context,
+          builder: (c) => AlertDialog(
+            title: const Text('All India Challenge'),
+            content: Text(why),
+            actions: [TextButton(onPressed: () => Navigator.pop(c), child: const Text('OK'))],
+          ),
+        );
+        return;
+      }
+    }
+    if (!resume && p.aic == null) {
       final limit = await dailyLimitReached(widget.user, widget.paid);
       if (!mounted) return;
       if (limit != null) {
@@ -78,13 +109,42 @@ class _TestFlowState extends State<TestFlow> {
         ? _saved!
         : (Progress()
           ..remaining = [for (var i = 0; i < p.units.length; i++) p.unitSecs(i)]
-          ..untimed = p.chapter != null && !_timed);
+          ..untimed = p.chapter != null && !_timed
+          ..startedAt = live ? AicClock.now : 0);
     if (!resume) await clearProgress(widget.user.uid, widget.mockId, p.partD);
+    if (live && !resume) await saveProgress(widget.user.uid, widget.mockId, p.partD, pr); // the first start is on record at once
     if (!mounted) return;
     await Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => TestScreen(user: widget.user, exam: widget.exam, paper: p, progress: pr, lang: widget.lang, title: widget.title),
     ));
     if (mounted) Navigator.of(context).pop();
+  }
+
+  /// Live challenge: null = may start / resume, 'submit' = past the hard stop, otherwise the reason it cannot start.
+  Future<String?> _liveGate(Paper p, bool resume) async {
+    final n = p.aic!.round;
+    if (!await AicClock.sync(force: true) || !AicClock.synced) return 'Could not read the server time. Check your internet and try again.';
+    final now = AicClock.now;
+    if (resume) {
+      try {
+        if (await aicHasRow(widget.user.uid, n)) {
+          // already submitted (on another device): nothing left to resume
+          await clearProgress(widget.user.uid, widget.mockId, p.partD);
+          return 'You have already submitted Challenge Mock $n. Result on ${aicWhen(aicResultAt(n))}.';
+        }
+      } catch (_) {}
+      return now >= aicHardStop(n, _saved!.startedAt > 0 ? _saved!.startedAt : aicStart(n)) ? 'submit' : null;
+    }
+    if (now < aicStart(n)) return 'Challenge Mock $n starts on ${aicWhen(aicStart(n))}.';
+    if (now > aicLastEntry(n)) return 'Entry for Challenge Mock $n closed at ${aicClockText(aicLastEntry(n))}.';
+    try {
+      final me = await aicLoadMe(widget.user.uid, [n]);
+      if (!aicInRound(n, me.regAt)) return 'You were not registered for Challenge Mock $n before registration closed.';
+      if (me.submitted.contains(n) || await aicHasRow(widget.user.uid, n)) return 'You have already submitted Challenge Mock $n. Result on ${aicWhen(aicResultAt(n))}.';
+    } catch (_) {
+      return 'Could not check your registration. Check your internet and try again.';
+    }
+    return null;
   }
 
   @override
@@ -155,6 +215,10 @@ class _TestFlowState extends State<TestFlow> {
               line(Icons.calculate_outlined, p.rules.markingLine()),
               line(Icons.grid_view, 'Use the question palette to jump between questions of the open ${p.units.length > 1 ? (p.rules.mts ? 'session' : 'section') : 'paper'}.'),
               line(Icons.bookmark_outline, 'Mark a question for review to come back to it. A marked question that has an answer is counted.'),
+              if (p.aic?.live == true) ...[
+                line(Icons.block, 'One attempt only. There is no pause: the test ends 2 h 25 min after you start, and never later than 12:30 am.'),
+                line(Icons.event_available, 'Result, All India rank and solutions on ${aicWhen(p.aic!.resultAt)}.'),
+              ],
               line(Icons.save_outlined, 'Your answers are saved on the phone as you go. If the app closes, you can resume.'),
               if (p.rules.gd && p.partD.isNotEmpty) line(Icons.translate, 'Part D (Q61–80) is in ${p.partD == 'hi' ? 'Hindi' : 'English'}.'),
             ]),
@@ -208,7 +272,7 @@ class _TestFlowState extends State<TestFlow> {
         child: Padding(
           padding: const EdgeInsets.fromLTRB(14, 6, 14, 12),
           child: Row(children: [
-            if (_saved != null) ...[
+            if (_saved != null && p.aic?.live != true) ...[
               Expanded(
                 child: OutlinedButton(
                   onPressed: _starting ? null : () => _begin(false),
@@ -290,6 +354,7 @@ class _TestScreenState extends State<TestScreen> with WidgetsBindingObserver {
       _logTime();
       _persist();
     }
+    if (s == AppLifecycleState.resumed && _live) AicClock.sync(force: true); // back in the app: read the server time again
   }
 
   void _start() {
@@ -297,6 +362,15 @@ class _TestScreenState extends State<TestScreen> with WidgetsBindingObserver {
     _qStart = DateTime.now();
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (_paused || _submitting) return;
+      if (_live) {
+        // All India Challenge: the server clock ends the test (2 h 25 min after the first start, 12:30 am at the latest)
+        if (_tick % 120 == 119) AicClock.sync(force: true);
+        if (AicClock.now >= _hardStop) {
+          Navigator.of(context).popUntil((r) => r is! PopupRoute);
+          _submit();
+          return;
+        }
+      }
       if (pr.untimed) {
         if (++_tick % 10 == 0) _persist();
         return;
@@ -306,6 +380,9 @@ class _TestScreenState extends State<TestScreen> with WidgetsBindingObserver {
       if (pr.remaining[pr.unit] <= 0) _unitTimeUp();
     });
   }
+
+  bool get _live => p.aic?.live == true;
+  int get _hardStop => aicHardStop(p.aic!.round, pr.startedAt > 0 ? pr.startedAt : aicStart(p.aic!.round));
 
   void _logTime() {
     final now = DateTime.now();
@@ -448,7 +525,10 @@ class _TestScreenState extends State<TestScreen> with WidgetsBindingObserver {
     final r = scorePaper(p, pr);
     if (!mounted) return;
     await Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => ResultScreen(user: widget.user, exam: widget.exam, paper: p, progress: pr, result: r, title: widget.title),
+      // a live challenge attempt shows no score: only "submitted, result on Tuesday"
+      builder: (_) => _live
+          ? AicSubmitScreen(user: widget.user, exam: widget.exam, paper: p, progress: pr, result: r)
+          : ResultScreen(user: widget.user, exam: widget.exam, paper: p, progress: pr, result: r, title: widget.title),
     ));
     if (mounted) Navigator.of(context).pop();
   }
@@ -458,7 +538,9 @@ class _TestScreenState extends State<TestScreen> with WidgetsBindingObserver {
       context: context,
       builder: (c) => AlertDialog(
         title: const Text('Leave the test?'),
-        content: const Text('Your answers and time are saved. You can resume this mock from the mock list.'),
+        content: Text(_live
+            ? 'Your answers are saved, but the challenge does not wait: it ends at ${aicClockText(_hardStop)} whether you are here or not. Come back before that to finish.'
+            : 'Your answers and time are saved. You can resume this mock from the mock list.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Stay')),
           FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Leave')),
@@ -721,8 +803,10 @@ class _TestScreenState extends State<TestScreen> with WidgetsBindingObserver {
                 ]),
               ),
               const SizedBox(width: 6),
-              _sbtn(_paused ? Icons.play_arrow_rounded : Icons.pause_rounded, _togglePause, _paused ? 'Resume' : 'Pause'),
-              const SizedBox(width: 6),
+              if (!_live) ...[
+                _sbtn(_paused ? Icons.play_arrow_rounded : Icons.pause_rounded, _togglePause, _paused ? 'Resume' : 'Pause'),
+                const SizedBox(width: 6),
+              ],
               _sbtn(Icons.home_rounded, () async {
                 if (await _confirmLeave() && context.mounted) goHome(context);
               }, 'Home'),
