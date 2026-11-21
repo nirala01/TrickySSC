@@ -321,7 +321,8 @@ class Billing with WidgetsBindingObserver {
   }
 
   /// Welcome popup for a student with no pass: Full Access first, then a link to every other pass.
-  Future<void> showFullAccessPopup(BuildContext context, {required VoidCallback onExplore}) async {
+  /// [top]: shown first in the popup (the All India Challenge strip, as on the website's offers pop-up).
+  Future<void> showFullAccessPopup(BuildContext context, {required VoidCallback onExplore, Widget Function(BuildContext)? top}) async {
     int? cat, mrp;
     for (final p in await pricingProducts()) {
       if (p is Map && p['id'] == 'p-all-mocks' && p['live'] != false) {
@@ -350,6 +351,7 @@ class Billing with WidgetsBindingObserver {
           padding: const EdgeInsets.fromLTRB(18, 8, 18, 14),
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Align(alignment: Alignment.centerRight, child: IconButton(onPressed: () => Navigator.pop(c), icon: const Icon(Icons.close, color: softMuted))),
+            if (top != null) top(c),
             const Text('👑', textAlign: TextAlign.center, style: TextStyle(fontSize: 38)),
             Text('Full Access', textAlign: TextAlign.center, style: baloo(26)),
             if (price != null)
@@ -392,7 +394,7 @@ class Billing with WidgetsBindingObserver {
   }
 
   /// Upgrade sheet for students who already paid: one offer only (plan doc).
-  Future<void> showUpgradeSheet(BuildContext context, Exam exam, UpgradeQuote q) async {
+  Future<void> showUpgradeSheet(BuildContext context, Exam exam, UpgradeQuote q, {Widget Function(BuildContext)? top}) async {
     final play = q.product == null ? <String, ProductDetails>{} : await playProducts({q.product!});
     if (!context.mounted) return;
     final price = play[q.product]?.price ?? '₹${q.price}';
@@ -404,6 +406,7 @@ class Billing with WidgetsBindingObserver {
         child: Padding(
           padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            if (top != null) top(c),
             const Text('👑', textAlign: TextAlign.center, style: TextStyle(fontSize: 34)),
             Text('Get Full Access', textAlign: TextAlign.center, style: baloo(23)),
             const SizedBox(height: 4),
