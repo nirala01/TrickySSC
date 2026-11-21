@@ -8,6 +8,44 @@
      Both files are the SAME code. The only difference is the page flag on the next line (and the <title>).
      When you edit one, make the same edit in the other. -->
 <script>window.TSSC_PAGE='dashboard';document.documentElement.className+=' pg-'+window.TSSC_PAGE;</script>
+<script>
+/* TSSC-AIC-V1 — SSC CGL Tier-2 All India Challenge: a LIVE challenge attempt carries aic:{round,live:true,resultAt}.
+   Until resultAt (Tuesday 9 am IST) it is taken out of every list, stat and analysis on this page, so the score,
+   rank and solutions come out for everyone together. Nothing else is changed. */
+window.aicHold=function(arr){
+  try{
+    var skew=0; try{ skew=parseInt(sessionStorage.getItem('tssc_aic_skew')||'0',10)||0; }catch(e){}
+    var now=Date.now()+skew, held=window.__aicHeld||(window.__aicHeld=[]);
+    for(var i=arr.length-1;i>=0;i--){ var x=arr[i]&&arr[i].aic;
+      if(x&&x.live&&x.resultAt&&now<Number(x.resultAt)){ if(!held.some(function(h){return h.id===arr[i].id;})) held.push(arr[i]); arr.splice(i,1); } }
+    if(held.length) window.aicHeldNotice(held);
+  }catch(e){}
+  return arr;
+};
+window.aicHeldNotice=function(held){
+  if(document.getElementById('aicHeldBar')) return;
+  var q=new URLSearchParams(location.search), id=q.get('id')||'', rq=q.get('aic')||'';
+  var h=held.filter(function(a){return a.id===id||String(a.aic.round)===rq;})[0];
+  var asked=!!h; h=h||held[0];
+  var when=new Date(Number(h.aic.resultAt)).toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'short',timeZone:'Asia/Kolkata'});
+  var msg='All India Challenge Mock '+h.aic.round+': your result, All India rank and solutions open on <b>'+when+', 9 am</b>.';
+  var d=document.createElement('div'); d.id='aicHeldBar';
+  if(asked&&window.TSSC_PAGE==='analysis'){
+    d.style.cssText='position:fixed;inset:0;z-index:5000;background:#F5F7FA;display:flex;align-items:center;justify-content:center;padding:20px;font-family:Hind,system-ui,sans-serif;';
+    d.innerHTML='<div style="max-width:460px;width:100%;background:#fff;border:1px solid #E2E8F0;border-radius:18px;padding:28px 22px;text-align:center;box-shadow:0 10px 30px rgba(15,23,42,.08);">'
+      +'<div style="font-size:52px;line-height:1;">&#9989;</div>'
+      +'<div style="font-family:Rajdhani,sans-serif;font-weight:800;font-size:1.5rem;color:#1A202C;margin:10px 0 6px;">Your test has been submitted successfully</div>'
+      +'<div style="background:#F5F3FF;border:1px solid #DDD6FE;border-radius:12px;padding:12px 14px;color:#4C1D95;font-size:.96rem;line-height:1.6;margin:12px 0 16px;">'+msg+'</div>'
+      +'<a href="/ssc-cgl-tier-2-mock-test.html" style="display:inline-block;background:linear-gradient(135deg,#FF6B00,#FF8C38);color:#fff;font-family:Rajdhani,sans-serif;font-weight:700;padding:.7rem 1.3rem;border-radius:10px;text-decoration:none;margin:4px;">Practise Tier 2 mock tests &rarr;</a>'
+      +'<a href="/dashboard.html" style="display:inline-block;background:#fff;color:#FF6B00;border:1.5px solid #FFD9B8;font-family:Rajdhani,sans-serif;font-weight:700;padding:.65rem 1.2rem;border-radius:10px;text-decoration:none;margin:4px;">My dashboard</a></div>';
+  }else{
+    d.style.cssText='position:fixed;left:12px;right:12px;bottom:12px;z-index:4000;max-width:720px;margin:0 auto;background:linear-gradient(120deg,#1E1B4B,#4C1D95 55%,#BE185D);color:#fff;border-radius:14px;padding:12px 40px 12px 16px;font-family:Hind,system-ui,sans-serif;font-size:.92rem;line-height:1.5;box-shadow:0 8px 26px rgba(76,29,149,.3);';
+    d.innerHTML='&#9203; '+msg+' <a href="/ssc-cgl-tier-2-all-india-challenge-mock.html" style="color:#FDE68A;font-weight:700;">Challenge page</a><button type="button" aria-label="Close" style="position:absolute;top:8px;right:10px;width:26px;height:26px;border:0;border-radius:50%;background:rgba(255,255,255,.22);color:#fff;cursor:pointer;">&times;</button>';
+    d.querySelector('button').onclick=function(){ d.remove(); };
+  }
+  (document.body||document.documentElement).appendChild(d);
+};
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Baloo+2:wght@700;800&family=Hind:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -1320,6 +1358,7 @@ async function loadDashboard(user) {
     const snap = await getDocs(q);
     const attempts = [];
     snap.forEach(d => attempts.push({id:d.id,...d.data()}));
+    window.aicHold(attempts);   /* TSSC-AIC-V1 */
     // Sort by timestamp desc in JS (avoids Firestore composite index requirement)
     attempts.sort((a,b) => {
       const ta = a.timestamp?.toDate ? a.timestamp.toDate().getTime() : (a.clientSubmittedAt ? new Date(a.clientSubmittedAt).getTime() : 0);
@@ -1418,6 +1457,7 @@ async function loadDashboardMobile(mUser) {
     const snap = await getDocs(q);
     const attempts = [];
     snap.forEach(d => attempts.push({id:d.id,...d.data()}));
+    window.aicHold(attempts);   /* TSSC-AIC-V1 */
     const isChapter = a => a.type==='chapterwise' || a.type==='pyq-chapter';   /* TSSC-PYQCH-V1 */
     const isMock    = a => !isChapter(a) && !!(a.mockId || a.type==='mock' || (a.paperId||'').includes('_mock'));
     const paperAttempts = attempts.filter(a => !isChapter(a));   // PYQ + Mock only
@@ -1953,6 +1993,7 @@ window.tsscProInit = async function(attempts, uid){
   ATT = (attempts||[]).slice().sort((a,b)=>tsOf(b)-tsOf(a));
   UID = uid||'';
   /* TSSC-DASHSCOPE-V1: analyse the exam the student took LAST (chapter, subject-wise or full) */
+  if(PAGE==='analysis' && !SEL_ID){ const _aq=new URLSearchParams(location.search).get('aic'); const _ax=_aq?ATT.find(a=>a.aic&&a.aic.live&&String(a.aic.round)===_aq):null; if(_ax) SEL_ID=_ax.id; }   /* TSSC-AIC-V1 */
   if(PAGE==='analysis' && ATT.length){ if(!ATT.some(a=>a.id===SEL_ID)) SEL_ID=ATT[0].id; SCOPE=scopeOf(cur()); }
   else if(!SCOPE || !ATT.some(a=>scopeOf(a)===SCOPE)) SCOPE = ATT.length ? scopeOf(ATT[0]) : '';
   renderScopeSel();
@@ -2049,15 +2090,19 @@ async function fetchRanks(full){
         getDoc(doc(db,'leaderboards',k,'scores',UID)),
         getDocs(query(col, orderBy('marks','desc'), limit(300)))
       ]);
-      if(!meSnap.exists()) { LB[k]={none:true}; return; }
-      const md=meSnap.data(); const my=Number(md.marks)||0;
+      /* TSSC-AIC-V1: a challenge paper taken later as a free mock has no row on the board (the board is the live
+         challenge only) — place that attempt among the live candidates instead of showing "no entry". */
+      const _aicA=(!meSnap.exists()&&/_aic_mock\d+$/i.test(k)) ? (full.find(a=>lbKey(a)===k&&a.aic&&!a.aic.live)||null) : null;
+      if(!meSnap.exists() && !_aicA) { LB[k]={none:true}; return; }
+      const md=_aicA ? {marks:marksOf(_aicA),maxMarks:maxOf(_aicA),subjectMarks:_aicA.subjectMarks||{}} : meSnap.data(); const my=Number(md.marks)||0;
       const rows=[]; boardSnap.forEach(d=>rows.push(d.data()||{}));
       let ahead=rows.filter(r=>(Number(r.marks)||0)>my).length, total=Math.max(rows.length, ahead+1);
       if(rows.length>=300){ try{ total=(await getCountFromServer(col)).data().count||total; ahead=(await getCountFromServer(query(col,where('marks','>',my)))).data().count||ahead; }catch(e){} }
-      const avg=rows.length?rows.reduce((x,r)=>x+(Number(r.marks)||0),0)/rows.length:0;
+      let avg=rows.length?rows.reduce((x,r)=>x+(Number(r.marks)||0),0)/rows.length:0;
+      if(rows.length>=300){ try{ const _av=(await getAggregateFromServer(col,{a:average('marks')})).data().a; if(_av!=null&&isFinite(_av)) avg=_av; }catch(e){} }   /* TSSC-AIC-V1: the average of ALL candidates, not of the top 300 */
       const tRows=rows.filter(r=>Number(r.timeUsed)>0); const tAvg=tRows.length?tRows.reduce((x,r)=>x+Number(r.timeUsed),0)/tRows.length:0;
       const t=rows[0]||{};
-      const v={ my, max:Number(md.maxMarks)||0, total, ahead, avg, tAvg, top:Number(t.marks)||0, topName:t.name||'', topAcc:(t.accuracy!=null)?Number(t.accuracy):null, topTime:Number(t.timeUsed)||0, topSubj:t.subjectMarks||{}, subj:{} };
+      const v={ my, max:Number(md.maxMarks)||0, total, ahead, avg, tAvg, top:Number(t.marks)||0, topName:t.name||'', topAcc:(t.accuracy!=null)?Number(t.accuracy):null, topTime:Number(t.timeUsed)||0, topSubj:t.subjectMarks||{}, subj:{}, virtual:!!_aicA };
       const sm=md.subjectMarks||{};
       Object.keys(sm).forEach(sk=>{ const mine=Number(sm[sk])||0; const have=rows.filter(r=>r.subjectMarks&&r.subjectMarks[sk]!==undefined);
         v.subj[sk]={ my:mine, ahead:have.filter(r=>Number(r.subjectMarks[sk])>mine).length, avg:have.length?have.reduce((x,r)=>x+(Number(r.subjectMarks[sk])||0),0)/have.length:0, n:have.length }; });
@@ -2285,7 +2330,8 @@ const lockedSample = { rank:'#312', total:'2,418', pct:'87.1' };
 
 function renderRank(a){
   const el=$('cRank'); const k=lbKey(a); const v=OWNED?LB[k]:null;
-  let h='<h4>'+(PAGE==='analysis'?'Rank in this test':'Latest test rank')+' <em>'+esc(testName(a))+'</em></h4>';
+  const _aic=(a.aic&&/_aic_mock\d+$/i.test(k||''))?a.aic:null;   /* TSSC-AIC-V1 */
+  let h='<h4>'+(_aic?(_aic.live?'All India Rank':'Your place among the live challenge candidates'):(PAGE==='analysis'?'Rank in this test':'Latest test rank'))+' <em>'+esc(testName(a))+'</em></h4>';
   if(!OWNED){
     h+='<div style="display:flex;align-items:baseline;gap:1rem;"><span class="pbig">'+lockedSample.rank+'</span><span class="muted">of '+lockedSample.total+' candidates</span></div><div class="kv"><span>Percentile</span><b>'+lockedSample.pct+'</b></div><div class="kv"><span>Your marks</span><b>'+n1(marksOf(a))+' / '+maxOf(a)+'</b></div><div class="kv"><span>Topper</span><b>178.5</b></div><div class="kv"><span>Average</span><b>112.3</b></div><h4 style="margin-top:.9rem">Section rank</h4>'+['Quant','Reasoning','English','Gen. Awareness'].map((s,i)=>'<div class="prow"><span class="lbl">'+s+'</span><div class="bar"><i class="'+(i%2?'':'a')+'" style="width:'+(50+i*12)+'%"></i></div><span class="val">#'+(300+i*250)+'</span></div>').join('');
     el.innerHTML=h; return;
@@ -2294,7 +2340,8 @@ function renderRank(a){
   if(!v){ el.innerHTML=h+'<div class="muted">Loading rank…</div>'; return; }
   if(v.none||v.err){ el.innerHTML=h+'<div class="pnote">'+(v.none?'No leaderboard entry for this test yet — it appears after your next submit.':'Rank could not be loaded right now.'+(v.msg?' <span class="muted">('+esc(v.msg).slice(0,120)+')</span>':''))+'</div>'; return; }
   const r=rankOf(v);
-  h+='<div style="display:flex;align-items:baseline;gap:1rem;"><span class="pbig">#'+r+'</span><span class="muted">of '+v.total+' candidate'+(v.total===1?'':'s')+'</span></div>';
+  h+='<div style="display:flex;align-items:baseline;gap:1rem;"><span class="pbig">#'+r+'</span><span class="muted">of '+v.total+' candidate'+(v.total===1?'':'s')+(_aic?' in the live challenge':'')+'</span></div>';
+  if(_aic&&!_aic.live) h+='<div class="pnote">You took this paper as a free mock after the challenge, so this is where your score would have stood. Take the next All India Challenge live to get a real rank. <a href="/ssc-cgl-tier-2-all-india-challenge-mock.html">All India Challenge →</a></div>';
   h+='<div class="kv"><span>Percentile</span><b>'+pctile(v)+'</b></div><div class="kv"><span>Your marks</span><b>'+n1(v.my)+(v.max?' / '+v.max:'')+'</b></div><div class="kv"><span>Topper'+(v.topName?' · '+esc(v.topName):'')+'</span><b>'+n1(v.top)+'</b></div><div class="kv"><span>Average</span><b>'+n1(v.avg)+'</b></div>';
   if(v.top>v.my) h+='<div class="kv"><span>To reach the topper</span><b class="warn">+'+n1(v.top-v.my)+' marks</b></div>';
   const secs=Object.keys(v.subj);
@@ -2605,7 +2652,7 @@ function scoreCard(a){
   g.fillStyle='#FF8C38'; g.font='bold 150px "Baloo 2", sans-serif'; const ms=n1(marksOf(a)); g.fillText(ms,96,y+160); const mw=g.measureText(ms).width;
   g.fillStyle='#94A3B8'; g.font='bold 52px "Baloo 2", sans-serif'; g.fillText('/ '+mx,96+mw+18,y+160);
   g.textAlign='right';
-  if(r){ g.fillStyle='#fff'; g.font='bold 60px "Baloo 2", sans-serif'; g.fillText('Rank #'+r,984,y+96); g.fillStyle='#94A3B8'; g.font='600 30px Rajdhani, sans-serif'; g.fillText('of '+v.total+'  ·  '+pctile(v)+' percentile',984,y+146); }
+  if(r){ g.fillStyle='#fff'; g.font='bold 60px "Baloo 2", sans-serif'; g.fillText(((a.aic&&a.aic.live)?'AIR #':'Rank #')+r,984,y+96); g.fillStyle='#94A3B8'; g.font='600 30px Rajdhani, sans-serif'; g.fillText('of '+v.total+'  ·  '+pctile(v)+' percentile',984,y+146); }
   else { g.fillStyle='#fff'; g.font='bold 60px "Baloo 2", sans-serif'; g.fillText((L.attempted?Math.round(L.acc*100):0)+'%',984,y+96); g.fillStyle='#94A3B8'; g.font='600 30px Rajdhani, sans-serif'; g.fillText('accuracy',984,y+146); }
   g.textAlign='left'; y+=262;
   const ct=isFullPaper(a)?CUTOFFS[examTier(a)]:null;

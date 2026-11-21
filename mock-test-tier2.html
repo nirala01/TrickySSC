@@ -1306,6 +1306,9 @@ window.imgFail = function (el) {
 @media(max-width:640px){.gz-row{gap:8px;}.gz-row>#goDashboardBtn,.gz-row>#viewRankBtn{font-size:15px!important;padding:12px 10px!important;border-radius:12px!important;}}
 @media(max-width:400px){.gz-row>#goDashboardBtn,.gz-row>#viewRankBtn{font-size:13.5px!important;padding:11px 8px!important;}}
 </style>
+<style>/* TSSC-AIC-V1 — live challenge attempt: only the "submitted" card and the rating card are shown */
+body.aic-hold #resultScreen > *:not(#aicDoneCard):not(#rateCard){display:none!important}
+body.aic-hold #aicDoneCard{text-align:center}</style>
 <div id="resultScreen">
   <div class="result-card">
     <div style="font-family:'Rajdhani';font-size:22px;font-weight:700;color:#1E293B;margin-bottom:14px;" id="resultExamName"></div>
@@ -1601,7 +1604,12 @@ const TG_MODULE      = TG_IS_CHSL ? 'ssc-chsl-mocks' : 'ssc-cgl-mocks';
 const TG_CHSL_FREE_ALL = false;   /* TSSC-CHSLPAY-V1 2026-10-05: CHSL pass ON, Mock 1-2 free */
 /* TSSC-T2PAPER-V1 — Paper II (Statistics) / Paper III (Finance) mocks: ssc-cgl_paper2_… / ssc-cgl_paper3_…, Mock 1 free, rest in the CGL pass */
 const TG_IS_PAPER    = /^ssc-cgl_paper[23]_/i.test(new URLSearchParams(location.search).get('mockId')||'');
-const TG_FREE_UP_TO  = TG_IS_CHSL ? (TG_CHSL_FREE_ALL ? 999 : 2) : (TG_IS_PAPER ? 1 : 4);
+/* TSSC-AIC-V1 — SSC CGL Tier-2 All India Challenge papers (ssc-cgl_aic_mockN_en / _hi). They are never part of a
+   pass: /tssc-aic.js decides who may open one and when (registered students in the Sunday window, everyone as a
+   free mock from the result time). Every AIC line in this file is behind TG_IS_AIC, so no other mock is touched. */
+const TG_IS_AIC      = /^ssc-cgl_aic_mock\d+/i.test(new URLSearchParams(location.search).get('mockId')||'');
+let AIC_CTX=null;    /* { mode:'live'|'practice', round, r, mod } once the challenge gate has let the student in */
+const TG_FREE_UP_TO  = TG_IS_AIC ? 999 : (TG_IS_CHSL ? (TG_CHSL_FREE_ALL ? 999 : 2) : (TG_IS_PAPER ? 1 : 4));
 const TG_ENFORCE_FROM= TG_IS_CHSL ? null : '2026-08-25T00:00:00+05:30';   // null = enforce now
 const TG_BUY_URL     = TG_IS_CHSL ? 'ssc-chsl-tier-2-mock-test.html' : 'ssc-cgl-mock-test.html';
 
@@ -1730,12 +1738,14 @@ function tgShowCheckFailed(){
 
 /* true = this open needs the entitlement check before the test may start */
 function tgNeedsCheck(){
+  if(TG_IS_AIC) return true;                 /* TSSC-AIC-V1: the challenge gate always runs, no localStorage fast-start */
   const n=tgMockNumber();
   return !!n && n>TG_FREE_UP_TO && tgEnforcing();
 }
 
 /* true = let them in, false = locked screen shown, do not start the test */
 async function tgAllowed(uid){
+  if(TG_IS_AIC) return await aicAllowed(uid);   /* TSSC-AIC-V1 */
   const n=tgMockNumber();
   if(!n||n<=TG_FREE_UP_TO) return true;      // PYQ paper, or a free mock
   if(!tgEnforcing()) return true;            // before the paid launch date
@@ -1745,6 +1755,90 @@ async function tgAllowed(uid){
   return false;
 }
 /* ================= end TSSC-TESTGATE-V1 ================= */
+
+/* ===================== TSSC-AIC-V1 — All India Challenge gate =====================
+   Fail CLOSED: if /tssc-aic.js cannot be loaded or the check errors, the paper does
+   not open (a retry screen is shown), so the challenge can never start early. */
+function aicScreen(sc){
+  tgGateShown=true;
+  const loader=document.getElementById('loader'); if(!loader) return;
+  loader.innerHTML='<div style="text-align:center;padding:2rem;max-width:380px;">'
+    +'<div style="font-size:3rem;margin-bottom:1rem;">'+(sc.icon||'&#9203;')+'</div>'
+    +'<div style="font-family:\'Rajdhani\',sans-serif;font-size:1.45rem;font-weight:700;margin-bottom:0.6rem;line-height:1.25;">'+sc.title+'</div>'
+    +'<div style="font-size:0.92rem;opacity:0.92;line-height:1.65;margin-bottom:1.5rem;">'+sc.body+'</div>'
+    +'<a href="'+(sc.href||'/ssc-cgl-tier-2-all-india-challenge-mock.html')+'" style="display:inline-block;background:white;color:#FF6B00;font-family:\'Rajdhani\',sans-serif;font-weight:700;font-size:1rem;padding:0.7rem 1.6rem;border-radius:10px;text-decoration:none;">'+(sc.cta||'Open the All India Challenge page')+' &rarr;</a></div>';
+}
+async function aicAllowed(uid){
+  window.__aicChecking=true;
+  try{
+    setLoaderMsg('Checking the challenge schedule...');
+    const mod=await import('./tssc-aic.js');
+    const g=await mod.gate(uid,new URLSearchParams(location.search).get('mockId')||'');
+    if(!g.ok){ aicScreen(g.screen); return false; }
+    AIC_CTX={mode:g.mode,round:g.round,r:g.r,mod};
+    return true;
+  }catch(e){
+    console.warn('[aic] gate failed:',e&&e.message);
+    aicScreen({icon:'&#128260;',title:'Could not open the challenge paper',body:'Your connection dropped while we were checking the schedule. Nothing is lost &mdash; please try again.',cta:'Try again',href:'javascript:location.reload()'});
+    return false;
+  }finally{ window.__aicChecking=false; }
+}
+/* The new SSC CGL 2026 Tier II timing: five separately timed modules instead of 60 + 60 + 15. */
+const AIC_MODULES=[
+  {re:/quant|aptitude|math|मात्रात्मक|गणित/i,      name:'Sec I · Maths',          dur:30*60},
+  {re:/reason|intelligence|बुद्धि|तर्क/i,           name:'Sec I · Reasoning',      dur:30*60},
+  {re:/english|comprehension|अंग्रे/i,              name:'Sec II · English',       dur:40*60},
+  {re:/aware|\bgk\b|जागरूक|सामान्य ज्ञान/i,        name:'Sec II · Gen. Awareness',dur:20*60},
+  {re:/computer|कंप्यूटर/i,                         name:'Sec III · Computer',     dur:15*60}
+];
+function aicApplyUi(){
+  if(!TG_IS_AIC) return;
+  const live=!!(AIC_CTX&&AIC_CTX.mode==='live');
+  const li=[...document.querySelectorAll('.instr-list li')].find(x=>/timed sections/.test(x.textContent));
+  if(li) li.innerHTML='This paper follows the <strong>new SSC CGL 2026 Tier II sectional timing</strong>: <strong>Maths 30 min</strong>, <strong>Reasoning 30 min</strong>, <strong>English 40 min</strong>, <strong>General Awareness 20 min</strong> and <strong>Computer 15 min</strong>. Each part has its own clock; when its time is over the next part opens and you cannot go back.';
+  const li2=[...document.querySelectorAll('.instr-list li')].find(x=>/within the active section/.test(x.textContent));
+  if(li2) li2.innerHTML='Only <strong>one part is open at a time</strong>. Parts you have not reached, and parts already submitted, are <strong>locked</strong> (shown with 🔒).';
+  /* the "Ready to start?" dialog (TSSC-QUICKSTART-V1) lets a student skip the instructions — say the essentials there too */
+  const qn=document.querySelector('#tsscQS .tqs-note');
+  if(qn) qn.innerHTML=(live?'<strong style="color:#4C1D95;">All India Challenge &mdash; one attempt, no pause.</strong> Result on '+AIC_CTX.mod.fmtDay(AIC_CTX.r.resultAt)+', 9 am.<br>':'')
+    +'New timing: Maths 30 &middot; Reasoning 30 &middot; English 40 &middot; GA 20 &middot; Computer 15 minutes. You cannot go back to a part.';
+  if(live){
+    const pb=document.getElementById('pauseBtn'); if(pb) pb.style.display='none';   /* no pausing in the live challenge */
+    const ol=li&&li.parentNode;
+    if(ol&&!document.getElementById('aicInstrLive')){
+      const x=document.createElement('li'); x.id='aicInstrLive';
+      x.innerHTML='<strong>All India Challenge Mock '+AIC_CTX.round+' &mdash; live attempt.</strong> You get <strong>one attempt</strong> and the test cannot be paused. Your score is not shown after you submit: the result, All India rank and solutions open on <strong>'+AIC_CTX.mod.fmtDay(AIC_CTX.r.resultAt)+' at 9 am</strong>.';
+      ol.insertBefore(x,ol.firstChild);
+    }
+  }
+}
+/* Live attempt submitted: show "submitted successfully" in place of the score, solutions and rank. */
+function aicHoldScreen(){
+  document.body.classList.add('aic-hold');
+  const rs=document.getElementById('resultScreen'); if(!rs||document.getElementById('aicDoneCard')) return;
+  const r=AIC_CTX.r, nx=AIC_CTX.mod.round(AIC_CTX.round+1), day=AIC_CTX.mod.fmtDay;
+  const c=document.createElement('div'); c.id='aicDoneCard'; c.className='result-card';
+  c.innerHTML='<div style="font-size:54px;line-height:1;margin-bottom:10px;">&#9989;</div>'
+    +'<div style="font-family:\'Rajdhani\';font-size:24px;font-weight:700;color:#1E293B;line-height:1.25;">Your test has been submitted successfully</div>'
+    +'<div style="font-size:14px;color:#475569;margin-top:8px;line-height:1.65;">SSC CGL Tier 2 &middot; All India Challenge Mock '+AIC_CTX.round+'</div>'
+    +'<div style="margin:16px auto 6px;max-width:420px;background:#F5F3FF;border:1px solid #DDD6FE;border-radius:12px;padding:14px 16px;font-size:14.5px;color:#4C1D95;line-height:1.6;">'
+    +'Result, All India rank, full analysis and solutions will be available on<br><strong style="font-size:17px;">'+day(r.resultAt)+', 9 am</strong></div>'
+    +'<div style="font-size:13.5px;color:#475569;line-height:1.65;max-width:440px;margin:10px auto 0;">You are already registered for <strong>Challenge Mock '+(AIC_CTX.round+1)+' on '+day(nx.start)+'</strong>. Until the result, keep practising on the new timing with the SSC CGL Tier 2 mock tests.</div>'
+    +'<div id="aicSaveLine" style="margin-top:14px;font-size:13px;color:#94A3B8;">&#9203; Saving your submission...</div>'
+    +'<button class="btn btn-submit" id="aicRetryBtn" style="margin-top:10px;display:none;" onclick="retrySaveResult()">Retry Save</button>'
+    +'<div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:18px;">'
+    +'<a href="https://trickyssc.com/ssc-cgl-tier-2-mock-test.html" class="btn btn-next" style="padding:12px 22px;text-decoration:none;">Practise Tier 2 mock tests &rarr;</a>'
+    +'<a href="https://trickyssc.com/ssc-cgl-tier-2-all-india-challenge-mock.html" style="padding:12px 22px;border-radius:10px;background:#FFF3E8;color:#FF6B00;font-weight:700;font-size:14px;text-decoration:none;border:1.5px solid #FFD9B8;">All India Challenge page</a></div>';
+  rs.insertBefore(c,rs.firstChild);
+  window.scrollTo(0,0);
+}
+function aicSaveUi(state,msg){
+  const l=document.getElementById('aicSaveLine'), b=document.getElementById('aicRetryBtn'); if(!l) return;
+  if(state==='saved'){ l.innerHTML='&#9989; Submission saved.'; l.style.color='#16A34A'; if(b) b.style.display='none'; }
+  else if(state==='error'){ l.textContent=msg||'Could not save. Check your internet and tap Retry Save.'; l.style.color='#DC2626'; if(b) b.style.display='inline-block'; }
+  else { l.innerHTML='&#9203; Saving your submission...'; l.style.color='#94A3B8'; if(b) b.style.display='none'; }
+}
+/* ================= end TSSC-AIC-V1 gate ================= */
 
 // Fast-start from localStorage — only where nothing needs gating (see V2 note above)
 if(storedUser && !tgNeedsCheck()){
@@ -1791,7 +1885,7 @@ onAuthStateChanged(auth,async user=>{
 
 // Show login button after 4s if still stuck
 setTimeout(()=>{
-  if(testStarted||tgGateShown)return;            /* TSSC-GATEMSG-V1: never replace the lock screen */
+  if(testStarted||tgGateShown||window.__aicChecking)return;            /* TSSC-GATEMSG-V1: never replace the lock screen */
   showLoginPrompt();
 },4000);
 function showLoginPrompt(){
@@ -2066,6 +2160,7 @@ async function loadTest(){
     currentQ=0;
     tsscApplyPaperMode();   /* TSSC-T2PAPER-V1 */
     buildSections();buildTimedSections();buildSectionBar();buildGrid();
+    try{ aicApplyUi(); }catch(_){}   /* TSSC-AIC-V1 */
     document.getElementById('qNumTotal').textContent=questions.length;
     document.getElementById('qNumCurrent').textContent='1';
     document.getElementById('progressText').textContent='0 / '+questions.length;
@@ -2183,7 +2278,11 @@ function normaliseQ(q) {
 /* ── Render question ── */
 window.beginTest=function(){
   /* TSSC-DAILYLIMIT-V1 — check the day's test limit before starting (never in review replay) */
-  if(!window.__tdlPass && !REVIEW_ID && currentUser && currentUser.uid){
+  const _aicLive=!!(AIC_CTX&&AIC_CTX.mode==='live'&&!REVIEW_ID);   /* TSSC-AIC-V1: the live challenge never counts against the daily test limit */
+  if(_aicLive){ try{ const _u=currentUser&&currentUser.uid; AIC_CTX.mod.markStarted(AIC_CTX.round,_u);
+      /* hard stop: 2 h 15 min + 10 min from the FIRST start (a restart does not buy a new paper), and never beyond 12:30 am */
+      AIC_CTX.deadline=Math.min((AIC_CTX.mod.startedAt(AIC_CTX.round,_u)||AIC_CTX.mod.now())+145*60000, AIC_CTX.r.end+30*60000); }catch(_){} }
+  if(!window.__tdlPass && !_aicLive && !REVIEW_ID && currentUser && currentUser.uid){
     const _b=document.getElementById('instrStartBtn'); const _bt=_b?_b.innerHTML:'';
     if(_b){_b.disabled=true;_b.textContent='Starting...';}
     _tdlMod.then(m=>m?m.tdlGate(currentUser.uid):true).catch(()=>true).then(ok=>{
@@ -2659,9 +2758,10 @@ function buildTimedSections(){
   let cur=null;
   sections.forEach(s=>{
     let ph=SUBJECT_PHASE[s.name];
+    if(TG_IS_AIC){ ph=AIC_MODULES.findIndex(m=>m.re.test((s.name||'')+' '+(s.label||''))); if(ph<0) ph=undefined; }   /* TSSC-AIC-V1: 30-30-40-20-15 */
     if(ph===undefined) ph=(cur?cur.phase:timedSections.length); // unknown subject joins current phase
     if(!cur||cur.phase!==ph){
-      const meta=PHASE_META[ph]||{name:'Section '+(timedSections.length+1),dur:60*60};
+      const meta=(TG_IS_AIC?AIC_MODULES[ph]:PHASE_META[ph])||{name:'Section '+(timedSections.length+1),dur:60*60};
       cur={phase:ph,from:s.from,to:s.to,name:meta.name,dur:meta.dur};
       timedSections.push(cur);
     }else{
@@ -2787,6 +2887,8 @@ function updateProgress(){
 function startTimer(){
   if(timerInterval){clearInterval(timerInterval);timerInterval=null;}
   function tick(){
+    if(AIC_CTX&&AIC_CTX.mode==='live'&&AIC_CTX.deadline&&!isSubmitting&&AIC_CTX.mod.now()>AIC_CTX.deadline){   /* TSSC-AIC-V1 */
+      clearInterval(timerInterval);timerInterval=null;tsscToast('⏱ The challenge time is over. Submitting your test.');submitTest();return; }
     const t=tsRemaining[curTS]||0;
     const m=Math.floor(t/60),s=t%60;
     document.getElementById('timer').textContent=String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
@@ -2803,6 +2905,7 @@ function startTimer(){
 }
 
 window.togglePause=function(){_qtTick();
+  if(AIC_CTX&&AIC_CTX.mode==='live') return;   /* TSSC-AIC-V1 */
   // Don't allow pausing before the test has started or after submission
   if(!paused && !timerInterval) return;
   if(typeof isSubmitting!=='undefined' && isSubmitting) return;
@@ -2880,6 +2983,7 @@ function submitSection(){
 
 /* ── Save helpers ── */
 function setSaveUi(state,msg){
+  try{ if(document.body.classList.contains('aic-hold')) aicSaveUi(state,msg); }catch(_){}   /* TSSC-AIC-V1 */
   const goBtn=document.getElementById('goDashboardBtn');
   const saveStatus=document.getElementById('saveStatus');
   const retryBtn=document.getElementById('retrySaveBtn');
@@ -2978,6 +3082,8 @@ window.submitTest=async()=>{
   const _timeUsed=Math.round(Object.values(_qtime).reduce((x,y)=>x+y,0)/1000);  // TSSC-ANSWERS-V1
   const maxMarks = questions.length * MARK_CORRECT;
   const pct = parseFloat(((parseFloat(marks)/maxMarks)*100).toFixed(1));
+  const _aicLive=!!(AIC_CTX&&AIC_CTX.mode==='live'&&!REVIEW_ID), _aicPractice=!!(AIC_CTX&&AIC_CTX.mode==='practice'&&!REVIEW_ID);   /* TSSC-AIC-V1 */
+  if(_aicLive){ try{ aicHoldScreen(); }catch(e){ console.warn('[aic] hold',e); } }
   document.getElementById('testScreen').style.display='none';
   document.getElementById('resultScreen').style.display='block';
   document.getElementById('resultExamName').textContent=mockMeta?.title||((exam||'').toUpperCase().replace('-',' ')+(year?' '+year:''));
@@ -3099,7 +3205,7 @@ window.imgFail = function (el) {
   /* TSSC-DAILYLIMIT-V1 — every real submit counts toward the day's limit; a paper with
      NOTHING answered is not saved (no attempt row, leaderboard or qstats) */
   _tdlMod.then(m=>m&&m.tdlCount(currentUser.uid)).catch(()=>{});
-  if((correct+wrong)===0){ setSaveUi('saved','ℹ️ No question was attempted, so this result is not saved.'); isSubmitting=false; return; }
+  if((correct+wrong)===0 && !_aicLive){ setSaveUi('saved','ℹ️ No question was attempted, so this result is not saved.'); isSubmitting=false; return; }   /* TSSC-AIC-V1: a live challenge attempt is always saved — it is the student's one attempt */
   const attemptId=`${currentUser.uid}_${exam||'exam'}_${year||'na'}_${Date.now()}`;
   // Build a readable exam name for dashboard display
   const _examNames={'ssc-cgl':'SSC CGL','ssc-chsl':'SSC CHSL','ssc-mts':'SSC MTS','ssc-cpo':'SSC CPO','ssc-gd':'SSC GD','ssc-jht':'SSC JHT','ssc-je':'SSC JE'};
@@ -3107,13 +3213,17 @@ window.imgFail = function (el) {
   const _pid=new URLSearchParams(window.location.search).get('paperId')||'';
   const _mid=new URLSearchParams(window.location.search).get('mockId')||'';
   const payload={uid:currentUser.uid,exam,year:year||'',examName:_examLabel,tier:'tier2',paperId:_pid,mockId:_mid,total:questions.length,correct,wrong,skip,marks:parseFloat(marks),percentage:pct,subjectStats,subjectMarks:_subjMarks,answers:_ansLog,timeUsed:_timeUsed,analyticsV:1,timestamp:serverTimestamp(),clientSubmittedAt:new Date().toISOString()};
+  /* TSSC-AIC-V1 — live: the attempt is held back on the dashboard and analysis page until resultAt.
+     practice (after the result): a normal free-mock attempt that is NOT added to the All India rank. */
+  if(_aicLive) payload.aic={round:AIC_CTX.round,live:true,resultAt:AIC_CTX.r.resultAt};
+  else if(_aicPractice) payload.aic={round:AIC_CTX.round,live:false};
   // Leaderboard: record best score for this paper (non-blocking) + reveal Rank button
   const _lbId=_pid||_mid;
   // Language-agnostic leaderboard key so Hindi & English candidates for the
   // same paper/mock share ONE ranking (drop a trailing hi/en/hindi/english).
   const _lbBase=String(_lbId||'').replace(/([_\-])(hi|en|hindi|english)$/i,'');
   if(_lbId){
-    recordScore({uid:currentUser.uid,displayName:currentUser?.displayName,paperId:_lbBase,paperName:_examLabel,marks:parseFloat(marks),maxMarks:maxMarks,accuracy:pct,subjectMarks:_subjMarks,timeUsed:_timeUsed}).catch(()=>{});
+    if(!_aicPractice) recordScore({uid:currentUser.uid,displayName:currentUser?.displayName,paperId:_lbBase,paperName:_examLabel,marks:parseFloat(marks),maxMarks:maxMarks,accuracy:pct,subjectMarks:_subjMarks,timeUsed:_timeUsed}).catch(()=>{});   /* TSSC-AIC-V1: the challenge board holds live attempts only */
     const _rb=document.getElementById('viewRankBtn');
     if(_rb){_rb.dataset.rgHref='rank.html?paper='+encodeURIComponent(_lbBase)+'&from=test';}   /* TSSC-RANKGATE-V1: shown by rgApply() */
   }
@@ -3134,14 +3244,16 @@ window.imgFail = function (el) {
     setDoc(doc(db,'qstats',_lbBase),{n:increment(1),total:questions.length,updatedAt:serverTimestamp(),q:_qs},{merge:true}).catch(()=>{}); } }catch(e){}
   /* TSSC-TOPPER-V1 — qstats/{paper}.top = the best attempt so far (higher marks, then less time): per question
      r + seconds ("c43", "w12", "k0") for the solutions screen's Topper row. Separate write, never awaited. */
-  try{ if(_lbBase){ const _tm=parseFloat(marks)||0, _tu=Number(_timeUsed)||0, _tl=_ansLog.slice();
+  try{ if(_lbBase&&!_aicPractice){ const _tm=parseFloat(marks)||0, _tu=Number(_timeUsed)||0, _tl=_ansLog.slice();   /* TSSC-AIC-V1: the topper is a live candidate */
     getDoc(doc(db,'qstats',_lbBase)).then(sn=>{ const tp=sn.exists()?((sn.data()||{}).top||null):null;
       if(tp&&(Number(tp.m)>_tm||(Number(tp.m)===_tm&&Number(tp.tu)>0&&Number(tp.tu)<=_tu))) return;
       const tq={}; _tl.forEach(x=>{ tq['q'+x.q]=String(x.r||'k')+Math.max(0,Math.round(Number(x.t)||0)); });
       return setDoc(doc(db,'qstats',_lbBase),{top:{m:_tm,tu:_tu,q:tq,at:serverTimestamp()}},{mergeFields:['top']});
     }).catch(()=>{}); } }catch(e){}
+  if(_aicLive){ try{ AIC_CTX.mod.markDone(AIC_CTX.round,currentUser.uid,attemptId); }catch(_){} }   /* TSSC-AIC-V1 */
   try{await persistWithRetry(payload,attemptId,3);localStorage.removeItem('pending_attempt_'+attemptId);setSaveUi('saved','✅ Result saved successfully.');}
   catch(e){console.warn('Save failed:',e);localStorage.setItem('pending_attempt_'+attemptId,JSON.stringify(lastResultPayload));setSaveUi('error','⚠️ Could not save. Check internet and tap Retry Save.');}
+  if(_aicLive){ isSubmitting=false; return; }   /* TSSC-AIC-V1: no result snapshot — Back must not bring the score up */
   // Snapshot the finished result screen so returning via Back restores it (no restart)
   try{
     const _rs=document.getElementById('resultScreen');

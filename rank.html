@@ -146,6 +146,7 @@ const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&l
 const CW_NAMES = {};
 function prettyPaper(id, fallback){
   const raw = String(id||''); if(!raw) return fallback || 'Test';
+  const aic = raw.match(/^ssc-cgl_aic_mock(\d+)/i); if(aic) return 'SSC CGL Tier II · All India Challenge Mock '+aic[1];   /* TSSC-AIC-V1 */
   const cw = raw.match(/^cw_([a-z0-9]+)_L(\d+)_T(\d+)$/i);
   if(cw){ if(fallback) return fallback; if(CW_NAMES[raw]) return CW_NAMES[raw];
     return cw[1].replace(/^(quant|reason|reasoning|eng|english|ga|gk|computer|statistics|fineco)/i,'').replace(/([a-z])([A-Z])/g,'$1 $2')+' · Chapter test · Level '+cw[2]+' · Test '+cw[3]; }
@@ -311,6 +312,16 @@ async function loadLeaderboard(rawPaper){
   const bn=$('boardName'); if(bn) bn.textContent=prettyPaper(paperId, (params.get('paper')&&lbBaseId(params.get('paper'))===paperId)?params.get('name'):'');   /* TSSC-CWRANK-V1 */
   $('content').innerHTML = `<div class="empty"><div class="spin"></div><div style="margin-top:12px;">Loading leaderboard…</div></div>`;
   $('footNote').textContent = '';
+  /* TSSC-AIC-V1 — the All India Challenge board stays closed until the result time (Tuesday 9 am), read from /tssc-aic.js */
+  const _aicM = String(paperId).match(/^ssc-cgl_aic_mock(\d+)$/i);
+  if (_aicM) {
+    let _open = false, _when = '';
+    try { const m = await import('./tssc-aic.js'); await m.syncClock(); const r = m.round(parseInt(_aicM[1],10)); _open = m.now() >= r.resultAt; _when = m.fmtDay(r.resultAt); } catch (e) {}
+    if (!_open) {
+      $('content').innerHTML = `<div class="empty"><div style="font-size:42px;">⏳</div><div style="margin-top:10px;font-weight:700;">The All India Challenge leaderboard opens ${_when ? 'on ' + _when + ' at 9 am' : 'with the result'}</div><div style="margin-top:8px;"><a href="/ssc-cgl-tier-2-all-india-challenge-mock.html" style="color:#FF6B00;font-weight:700;">Open the All India Challenge page →</a></div></div>`;
+      return;
+    }
+  }
 
   // Read the merged board (base) plus any legacy language-suffixed boards, so
   // scores written before the merge still count. New scores all land on `base`.

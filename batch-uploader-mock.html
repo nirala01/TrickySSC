@@ -367,6 +367,8 @@ function metaFromPrefix(prefix) {
   /* TSSC-T2PAPER-V1 — CGL Tier II Paper II (Statistics) / Paper III (Finance & Economics) series */
   if (/paper[-_]?(2|ii)\b/.test(p)) meta.tier = 'paper2';
   if (/paper[-_]?(3|iii)\b/.test(p)) meta.tier = 'paper3';
+  /* TSSC-AIC-V1 — SSC CGL Tier-2 All India Challenge papers: name the files ssc-cgl-2026-aic-mock-01-… → mockId ssc-cgl_aic_mock1_en / _hi */
+  if (/(^|[-_])aic([-_]|$)/.test(p)) meta.tier = 'aic';
 
   const yr = p.match(/(20\d{2})/);
   if (yr) meta.year = yr[1];
@@ -396,6 +398,7 @@ function buildMockId(m, lang) {
 function defaultTitle(m) {
   const examName = (m.exam || '').replace('ssc-', 'SSC ').toUpperCase();
   const tierLbl  = ({tier2: 'Tier II', paper2: 'Tier II Paper II (Statistics)', paper3: 'Tier II Paper III (Finance & Economics)'})[m.tier] || 'Tier I';
+  if (m.tier === 'aic') return `${examName} Tier II — All India Challenge Mock ${m.mockNum}`;   /* TSSC-AIC-V1 */
   return `${examName} ${tierLbl} — Mock Test ${m.mockNum}`;
 }
 
@@ -690,6 +693,7 @@ function renderManifest() {
             <option value="tier2" ${p.meta.tier === 'tier2' ? 'selected' : ''}>tier2</option>
             <option value="paper2" ${p.meta.tier === 'paper2' ? 'selected' : ''}>paper2</option>
             <option value="paper3" ${p.meta.tier === 'paper3' ? 'selected' : ''}>paper3</option>
+            <option value="aic" ${p.meta.tier === 'aic' ? 'selected' : ''}>aic (All India Challenge)</option>
           </select></td>
       <td><input type="number" min="1" value="${p.meta.mockNum}" onchange="setMeta(${i},'mockNum',this.value)"></td>
       <td><input value="${p.meta.year}" onchange="setMeta(${i},'year',this.value)"></td>
@@ -1156,14 +1160,16 @@ window.runAll = async () => {
             seriesNum: parseInt(p.meta.mockNum), mockNum: parseInt(p.meta.mockNum),
             title: p.meta.title || defaultTitle(p.meta),
             totalQuestions: rows.length, subjectCounts: subCounts,
-            duration: /^paper/.test(p.meta.tier) ? 120 : duration,   /* TSSC-T2PAPER-V1: Paper II / III are 2-hour papers */
-            totalMarks: Math.round(rows.length * perMark),
-            isPublished: publish, updatedAt: new Date()
+            duration: /^paper/.test(p.meta.tier) ? 120 : (p.meta.tier === 'aic' ? 135 : duration),   /* TSSC-T2PAPER-V1: Paper II / III are 2-hour papers */
+            totalMarks: Math.round(rows.length * (p.meta.tier === 'aic' ? 3 : perMark)),
+            /* TSSC-AIC-V1: a challenge paper's card is ALWAYS a draft — no mock list or count on the site may pick it up.
+               /tssc-aic.js opens it by date (Sunday window, then free mock from the result time). */
+            isPublished: p.meta.tier === 'aic' ? false : publish, updatedAt: new Date()
           };
           if (p.meta.year) card.year = p.meta.year;
           await setDoc(doc(db, 'mock_tests', mid), card, { merge: true });
         }
-        log(`${p.prefix}: mock cards ${publish ? 'published' : 'saved as draft'}`, 'ok');
+        log(p.meta.tier === 'aic' ? `${p.prefix}: All India Challenge paper saved — it opens by itself on its Sunday (no publishing needed)` : `${p.prefix}: mock cards ${publish ? 'published' : 'saved as draft'}`, 'ok');
       }
 
       p.done = true;
