@@ -327,6 +327,10 @@ body.aic-pop-open #tsscMP{display:none!important}
 #aicPop .aicB-main{flex:0 0 auto}
 #aicPop .aicB{padding:24px 20px 20px;text-align:center}
 #aicPop .aicB-cd{justify-content:center}
+#aicPop .aicB-note{text-align:center}
+#aicPop .aicPop-box{animation:aicPopUp .26s cubic-bezier(.16,1,.3,1)}
+@keyframes aicPopUp{from{transform:translateY(12px);opacity:0}to{transform:none;opacity:1}}
+@media(prefers-reduced-motion:reduce){#aicPop .aicPop-box{animation:none}}
 `;
 function injectCss() { if (document.getElementById('aicCss')) return; const s = document.createElement('style'); s.id = 'aicCss'; s.textContent = CSS; document.head.appendChild(s); }
 
@@ -526,35 +530,77 @@ export function render() {
       paintSchedule();
       paintCount();
       maybePopup(st);
-    } catch (e) { console.warn('[aic] render:', e); }
+    } catch (e) { console.warn('[aic] render:', e); if (_authKnown && !_popDecided && document.body.hasAttribute('data-aic-popup')) { _popDecided = true; popSignal('none'); } }
     finally { _rendering = null; }
   })();
   return _rendering;
 }
 
-/* "Results are out" pop-up: from Tuesday 9 am until the next Sunday's paper opens, once a day per browser. */
-function maybePopup(st) {
-  if (!document.body.hasAttribute('data-aic-popup') || !st || !st.prev || st.prevPhase !== 'out' || st.t >= st.r.start) return;
-  if (document.getElementById('aicPop')) return;
-  const p = st.n - 1, key = 'tssc_aic_pop_' + p, day = new Date(now() + 19800000).toISOString().slice(0, 10);
-  if (lsGet(key) === day) return;
+/* TSSC-AICPOP-V2 (2026-11-21) — the home page has no banner any more: the challenge is a pop-up, and the plans
+   pop-up opens only after this one is closed.
+   What it shows:
+     - "results are out" (Tuesday 9 am until the next paper opens), once a day per browser;
+     - otherwise today's state of the challenge (register / registered / live / submitted):
+         someone not yet registered, or a registered student on the live Sunday  → once per browser session
+         a registered student on other days                                      → once a day
+   window.__tsscAicPop = 'open' | 'closed' | 'none' and the event "tssc:aic-pop-done" tell the plans pop-up when to open. */
+let _authKnown = false, _popDecided = false, _popVariant = '';
+const ONCE_A_DAY = { registered: 1, 'registered-next': 1, missed: 1, 'live-next': 1, submitted: 1, 'wait-final': 1, 'result-final': 1 };
+const istDay = () => new Date(now() + 19800000).toISOString().slice(0, 10);
+function popSignal(v) { window.__tsscAicPop = v; if (v !== 'open') { try { window.dispatchEvent(new Event('tssc:aic-pop-done')); } catch (e) {} } }
+function popClose() {
+  const box = document.getElementById('aicPop'); if (box) box.remove();
+  document.body.classList.remove('aic-pop-open'); _popVariant = ''; popSignal('closed');
+}
+function popShell(inner) {
+  let box = document.getElementById('aicPop');
+  if (!box) {
+    box = document.createElement('div'); box.id = 'aicPop'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true');
+    box.setAttribute('aria-label', 'SSC CGL Tier 2 All India Challenge Mock');
+    box.addEventListener('click', e => { if (e.target === box) popClose(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && document.getElementById('aicPop')) popClose(); });
+    document.body.appendChild(box);
+  }
+  box.innerHTML = '<div class="aicPop-box"><button type="button" class="aicPop-x" aria-label="Close">&times;</button>' + inner + '</div>';
+  box.querySelector('.aicPop-x').addEventListener('click', popClose);
+  box.querySelectorAll('[data-aic-register]').forEach(b => b.addEventListener('click', () => onRegisterClick(b)));
+  document.body.classList.add('aic-pop-open');   /* the plans pop-up waits behind this one */
+  tickCd();
+  return box;
+}
+function resultsHtml(st) {
+  const p = st.n - 1;
   const nextLine = st.reg ? 'You are already registered for <b>Challenge Mock ' + st.n + ' on ' + fmtDay(st.r.start) + '</b>.'
     : 'Next: <b>Challenge Mock ' + st.n + ' on ' + fmtDay(st.r.start) + '</b>. Register free before Saturday midnight.';
-  const box = document.createElement('div'); box.id = 'aicPop';
-  box.innerHTML = '<div class="aicPop-box"><button type="button" class="aicPop-x" aria-label="Close">&times;</button><div class="aicB"><div class="aicB-row"><div class="aicB-main">'
+  return '<div class="aicB"><div class="aicB-row"><div class="aicB-main">'
     + '<span class="aicB-tag">Results out</span><div class="aicB-h">All India Challenge Mock ' + p + ' <em>results are out</em></div>'
     + '<p class="aicB-p">' + (st.prevDone ? 'Your All India rank, percentile, topper comparison and full solutions are ready.' : 'See who topped, and attempt the paper as a free mock with full solutions.') + '</p>'
     + '<p class="aicB-p" style="margin-top:8px">' + nextLine + '</p></div><div class="aicB-act">'
     + '<a class="aicB-btn" href="' + (st.prevDone ? resultUrl(p, st.prevDone) : CFG.page + '#results') + '">' + (st.prevDone ? 'Check your result →' : 'See the leaderboard →') + '</a>'
     + (st.reg ? '' : '<button type="button" class="aicB-btn ghost" data-aic-register>Register for Challenge Mock ' + st.n + '</button><div class="aicB-err" data-aic-err hidden></div>')
-    + '</div></div></div></div>';
-  const close = () => { lsSet(key, day); box.remove(); document.body.classList.remove('aic-pop-open'); };
-  box.addEventListener('click', e => { if (e.target === box) close(); });
-  box.querySelector('.aicPop-x').addEventListener('click', close);
-  box.querySelectorAll('a').forEach(a => a.addEventListener('click', () => lsSet(key, day)));
-  box.querySelectorAll('[data-aic-register]').forEach(b => b.addEventListener('click', async () => { await onRegisterClick(b); if (currentUid() && await regAt(currentUid())) close(); }));
-  document.body.classList.add('aic-pop-open');   /* the plans pop-up waits behind this one */
-  setTimeout(() => { if (!document.getElementById('aicPop')) document.body.appendChild(box); }, 900);
+    + '</div></div></div>';
+}
+function maybePopup(st) {
+  if (!document.body.hasAttribute('data-aic-popup')) return;
+  /* an open pop-up follows the student's state (for example right after registering) */
+  if (document.getElementById('aicPop')) {
+    if (st) popShell(_popVariant === 'results' ? resultsHtml(st) : stateHtml(st, ''));
+    return;
+  }
+  if (_popDecided || !_authKnown) return;          // decide once per page load, and only when the login state is known
+  _popDecided = true;
+  if (!st) { popSignal('none'); return; }
+  const day = istDay();
+  let variant = '';
+  if (st.prev && st.prevPhase === 'out' && st.t < st.r.start && lsGet('tssc_aic_pop_' + (st.n - 1)) !== day) variant = 'results';
+  else if (ONCE_A_DAY[st.kind]) { if (lsGet('tssc_aic_pop_d') !== day + ':' + st.kind) variant = 'state'; }
+  else if (!ssGet('tssc_aic_pop_s', 864e5)) variant = 'state';
+  if (!variant) { popSignal('none'); return; }
+  if (variant === 'results') lsSet('tssc_aic_pop_' + (st.n - 1), day);
+  if (ONCE_A_DAY[st.kind]) lsSet('tssc_aic_pop_d', day + ':' + st.kind);
+  ssSet('tssc_aic_pop_s', 1);
+  _popVariant = variant; popSignal('open');
+  popShell(variant === 'results' ? resultsHtml(st) : stateHtml(st, ''));
 }
 
 /* ───────────────────────── start ───────────────────────── */
@@ -563,7 +609,7 @@ window.tsscAic = { CFG, round, nextRound, isAicId, roundOfMock, testUrl, now, sy
 function boot() {
   if (!document.querySelector('[data-aic]') && !document.body.hasAttribute('data-aic-popup')) return;
   syncClock().then(render);
-  authReady.then(render);
+  authReady.then(async () => { _authKnown = true; await render(); if (!_popDecided) await render(); });   /* TSSC-AICPOP-V2 */
   try { onAuthStateChanged(auth, () => render()); } catch (e) {}
   window.addEventListener('tssc:login', () => render());
   setInterval(tickCd, 1000);
