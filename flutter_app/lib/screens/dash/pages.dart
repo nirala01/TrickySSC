@@ -937,22 +937,22 @@ class _ReportCardPageState extends State<ReportCardPage> {
   @override
   Widget build(BuildContext context) {
     final x = widget.x, exam = x.exam, sc = x.sc, a = sc.first;
-    final marks = sc.map(marksOf).toList();
-    final avg = marks.fold(0.0, (t, v) => t + v) / marks.length;
-    final best = marks.reduce((p, q) => p > q ? p : q);
+    // the card is about one test: the one it was opened from
+    final cr = inum(a['correct']), wr = inum(a['wrong']);
+    final tUsed = inum(a['timeUsed']);
     final v = _v;
     final c = isFullPaper(a) ? cutoffs[examTier(a)] : null;
-    final ch = chapterStats(sc).where((c) => c.name != 'Untagged' && c.n >= 3).toList();
+    final ch = chapterStats([a]).where((c) => c.name != 'Untagged' && c.n >= 2).toList();
     final weak = (ch.where((c) => c.acc < .7).toList()..sort((p, q) => p.acc.compareTo(q.acc))).take(4).toList();
     final strong = (ch.where((c) => c.acc >= .7).toList()..sort((p, q) => q.acc.compareTo(p.acc))).take(4).toList();
-    final sub = subjectAcc(sc.take(5).toList());
+    final sub = subjectAcc([a]);
     const w = TextStyle(color: Colors.white, fontWeight: FontWeight.w800);
     const g = TextStyle(color: Color(0xFF94A3B8), fontWeight: FontWeight.w600, fontSize: 12.5);
     Widget box(String v, String l) => Expanded(
           child: Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(12)),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(v, style: baloo(24, color: Colors.white)), Text(l, style: g)]),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(v, style: baloo(22, color: Colors.white))), Text(l, style: g)]),
           ),
         );
     final now = DateTime.now();
@@ -968,10 +968,15 @@ class _ReportCardPageState extends State<ReportCardPage> {
             Text('TrickySSC report card', style: baloo(24, color: Colors.white)),
             Text('${widget.name} · ${now.day} ${mo[now.month - 1]} ${now.year}', style: TextStyle(color: exam.c2, fontWeight: FontWeight.w800)),
             const SizedBox(height: 12),
-            Row(children: [box('${sc.length}', isChapter(a) ? 'Chapter tests' : 'Tests'), const SizedBox(width: 8), box(n1(avg), 'Average marks'), const SizedBox(width: 8), box(n1(best), 'Best score')]),
+            Text(testName(a), style: w.copyWith(fontSize: 15.5)),
+            const SizedBox(height: 10),
+            Row(children: [box('${n1(marksOf(a))}/${n1(maxOf(a))}', 'Score'), const SizedBox(width: 8), box('$cr / $wr', 'Correct / Wrong'), const SizedBox(width: 8), box('${cr + wr == 0 ? 0 : (cr * 100 / (cr + wr)).round()}%', 'Accuracy')]),
             const SizedBox(height: 12),
-            Text('Latest: ${testName(a)}', style: w),
-            Text('${n1(marksOf(a))} / ${n1(maxOf(a))} marks${v != null && v.ok ? '  ·  Rank #${v.rank} of ${v.total}  ·  ${n1(v.pctile)} percentile' : ''}', style: const TextStyle(color: Color(0xFFCBD5E1), fontWeight: FontWeight.w600)),
+            Text([
+              if (v != null && v.ok) 'Rank #${v.rank} of ${v.total}  ·  ${n1(v.pctile)} percentile',
+              if (tUsed > 0) 'Time ${fmtSec(tUsed)}',
+              'Taken ${shortDate(tsOf(a))}',
+            ].join('  ·  '), style: const TextStyle(color: Color(0xFFCBD5E1), fontWeight: FontWeight.w600)),
             if (c != null)
               Builder(builder: (_) {
                 final gap = meritMarks(a) - c.cut[x.cat]!;
@@ -987,14 +992,14 @@ class _ReportCardPageState extends State<ReportCardPage> {
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Text(col.$1, style: w),
                     const SizedBox(height: 4),
-                    if (col.$2.isEmpty) const Text('— after a few more tests', style: g),
+                    if (col.$2.isEmpty) const Text('— none in this test', style: g),
                     for (final i in col.$2) Text('${i.name.length > 20 ? i.name.substring(0, 20) : i.name}  ${(i.acc * 100).round()}%', style: TextStyle(color: col.$3, fontWeight: FontWeight.w700, fontSize: 13)),
                   ]),
                 ),
             ]),
             if (sub.isNotEmpty) ...[
               const SizedBox(height: 12),
-              const Text('Subjects (last 5 tests)', style: w),
+              const Text('Subject-wise accuracy', style: w),
               const SizedBox(height: 6),
               for (final x in sub)
                 Padding(
