@@ -614,8 +614,9 @@ class _ChapterAnalysisState extends State<ChapterAnalysis> {
   Widget build(BuildContext context) {
     final exam = widget.exam;
     final by = chaptersBySubject(widget.list);
+    final hn = hindiChapterNames.toSet();
     for (final k in by.keys.toList()) {
-      by[k] = by[k]!.where((c) => c.n >= widget.minQ || (widget.full && c.id != null)).toList();
+      by[k] = by[k]!.where((c) => c.n >= widget.minQ || (widget.full && (c.id != null || hn.contains(c.name)))).toList();
       if (by[k]!.isEmpty) by.remove(k);
     }
     if (widget.full) {
