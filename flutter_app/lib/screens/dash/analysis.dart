@@ -628,6 +628,13 @@ class _ChapterAnalysisState extends State<ChapterAnalysis> {
           if (!have.contains(id)) rows.add(ChStat(chapterNames[id] ?? id, id));
         }
       });
+      // Hindi (no chapter tests): its chapter-wise PYQ chapters, once the student has Hindi questions
+      if (by.containsKey('Hindi')) {
+        final have = {for (final c in by['Hindi']!) c.name};
+        for (final n in hindiChapterNames) {
+          if (!have.contains(n)) by['Hindi']!.add(ChStat(n));
+        }
+      }
     }
     if (by.isEmpty) return const SizedBox.shrink();
     const order = ['Quant', 'Reasoning', 'English', 'Hindi', 'Gen. Awareness', 'Computer', 'Finance & Economics', 'Statistics'];

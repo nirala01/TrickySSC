@@ -441,6 +441,41 @@ String? chapterIdOf(String raw, [String? letter]) {
 
 const otherTopics = 'Other topics';
 
+/// Hindi has no chapter-test list, so its chapters are the chapter-wise PYQ ones (hindi.*). A topic note
+/// of a Hindi question (from a mock) is matched to them by these words.
+const _hindiKeys = {
+  'hindi.paryayvachi': ['पर्याय', 'समानार्थ', 'synonym', 'paryay'],
+  'hindi.vilom': ['विलोम', 'विपरीत', 'antonym', 'vilom'],
+  'hindi.muhavare-lokoktiyan': ['मुहावर', 'लोकोक्ति', 'कहावत', 'idiom', 'proverb', 'muhavar', 'lokokti'],
+  'hindi.anek-shabd': ['वाक्यांश', 'एक शब्द', 'one word', 'substitution'],
+  'hindi.anekarthi-shabd': ['अनेकार्थ', 'समश्रुत', 'भिन्नार्थ', 'homonym', 'anekarth', 'shrutisam'],
+  'hindi.gadyansh': ['गद्यांश', 'अपठित', 'पद्यांश', 'comprehension', 'passage', 'gadyansh'],
+  'hindi.rikt-sthan': ['रिक्त', 'fill', 'blank', 'rikt'],
+  'hindi.shabd-bhed': ['तत्सम', 'तद्भव', 'देशज', 'विदेशज', 'tatsam', 'tadbhav', 'origin'],
+  'hindi.vakya-shuddhi': ['वाक्य', 'अशुद्ध', 'sentence', 'error', 'vakya'],
+  'hindi.vartani': ['वर्तनी', 'spelling', 'vartani'],
+  'hindi.vyakaran': ['संज्ञा', 'सर्वनाम', 'विशेषण', 'क्रिया', 'लिंग', 'वचन', 'कारक', 'काल', 'संधि', 'समास', 'उपसर्ग', 'प्रत्यय', 'अलंकार', 'रस', 'छंद', 'व्याकरण', 'अव्यय', 'grammar', 'sandhi', 'samas', 'vyakaran', 'noun', 'pronoun', 'verb', 'gender', 'tense'],
+};
+
+final _isHindi = RegExp(r'hindi|हिंदी|हिन्दी', caseSensitive: false);
+
+String? _hindiChapter(String raw) {
+  final l = raw.toLowerCase();
+  for (final e in _hindiKeys.entries) {
+    if (!pyqChapterNames.containsKey(e.key)) continue;
+    for (final k in e.value) {
+      if (l.contains(k)) return e.key;
+    }
+  }
+  return null;
+}
+
+/// The Hindi chapters (names), for the full chapter list of the dashboard.
+List<String> get hindiChapterNames => [
+      for (final e in pyqChapterNames.entries)
+        if (e.key.startsWith('hindi.')) e.value
+    ];
+
 /// Chapters grouped under their subject: subject name -> chapter stats. Once the chapter lists are
 /// loaded, only real chapters are listed; every other topic of a subject is added up as "Other topics".
 Map<String, List<ChStat>> chaptersBySubject(List<Att> list) {
@@ -452,10 +487,13 @@ Map<String, List<ChStat>> chaptersBySubject(List<Att> list) {
     final own = subjName[skey(s(a['subject']))];
     for (final x in answersOf(a)) {
       final raw = s(x['ch']).replaceAll(RegExp(r'<[^>]*>'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
-      final id = official ? chapterIdFor(a, x, raw) : null;
+      var id = official ? chapterIdFor(a, x, raw) : null;
+      final hindi = _isHindi.hasMatch(s(x['s'])) || (id ?? '').startsWith('hindi.');
+      if (id == null && hindi && raw.isNotEmpty) id = _hindiChapter(raw);
       if (raw.isEmpty && id == null) continue;
       final pre = RegExp(r'^([a-z]+)[._]').firstMatch(id ?? raw)?.group(1);
-      final sub = (id != null ? _chPrefix[pre] : null) ??
+      final sub = (hindi ? 'Hindi' : null) ??
+          (id != null ? _chPrefix[pre] : null) ??
           subjName[skey(s(x['s']))] ??
           own ??
           _chPrefix[pre] ??
