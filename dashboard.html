@@ -24,11 +24,12 @@ window.aicHold=function(arr){
 };
 window.aicHeldNotice=function(held){
   if(document.getElementById('aicHeldBar')) return;
-  var q=new URLSearchParams(location.search), id=q.get('id')||'', rq=q.get('aic')||'';
-  var h=held.filter(function(a){return a.id===id||String(a.aic.round)===rq;})[0];
+  var q=new URLSearchParams(location.search), id=q.get('id')||'', rq=q.get('aic')||'', rs=(q.get('aics')||'cgl').toLowerCase();
+  var ser=function(a){return /^ssc-chsl_/i.test(String(a.mockId||''))?'chsl':'cgl';};   /* TSSC-AIC-V2: two challenge series */
+  var h=held.filter(function(a){return a.id===id||(String(a.aic.round)===rq&&ser(a)===rs);})[0];
   var asked=!!h; h=h||held[0];
   var when=new Date(Number(h.aic.resultAt)).toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'short',timeZone:'Asia/Kolkata'});
-  var msg='All India Challenge Mock '+h.aic.round+': your result, All India rank and solutions open on <b>'+when+', 9 am</b>.';
+  var msg=(ser(h)==='chsl'?'SSC CHSL Tier 1':'SSC CGL Tier 2')+' All India Challenge Mock '+h.aic.round+': your result, All India rank and solutions open on <b>'+when+', 9 am</b>.';
   var d=document.createElement('div'); d.id='aicHeldBar';
   if(asked&&window.TSSC_PAGE==='analysis'){
     d.style.cssText='position:fixed;inset:0;z-index:5000;background:#F5F7FA;display:flex;align-items:center;justify-content:center;padding:20px;font-family:Hind,system-ui,sans-serif;';
@@ -1993,7 +1994,7 @@ window.tsscProInit = async function(attempts, uid){
   ATT = (attempts||[]).slice().sort((a,b)=>tsOf(b)-tsOf(a));
   UID = uid||'';
   /* TSSC-DASHSCOPE-V1: analyse the exam the student took LAST (chapter, subject-wise or full) */
-  if(PAGE==='analysis' && !SEL_ID){ const _aq=new URLSearchParams(location.search).get('aic'); const _ax=_aq?ATT.find(a=>a.aic&&a.aic.live&&String(a.aic.round)===_aq):null; if(_ax) SEL_ID=_ax.id; }   /* TSSC-AIC-V1 */
+  if(PAGE==='analysis' && !SEL_ID){ const _aq=new URLSearchParams(location.search).get('aic'), _as=(new URLSearchParams(location.search).get('aics')||'cgl').toLowerCase(); const _ax=_aq?ATT.find(a=>a.aic&&a.aic.live&&String(a.aic.round)===_aq&&((/^ssc-chsl_/i.test(String(a.mockId||''))?'chsl':'cgl')===_as)):null; if(_ax) SEL_ID=_ax.id; }   /* TSSC-AIC-V1 */
   if(PAGE==='analysis' && ATT.length){ if(!ATT.some(a=>a.id===SEL_ID)) SEL_ID=ATT[0].id; SCOPE=scopeOf(cur()); }
   else if(!SCOPE || !ATT.some(a=>scopeOf(a)===SCOPE)) SCOPE = ATT.length ? scopeOf(ATT[0]) : '';
   renderScopeSel();
@@ -2341,7 +2342,7 @@ function renderRank(a){
   if(v.none||v.err){ el.innerHTML=h+'<div class="pnote">'+(v.none?'No leaderboard entry for this test yet — it appears after your next submit.':'Rank could not be loaded right now.'+(v.msg?' <span class="muted">('+esc(v.msg).slice(0,120)+')</span>':''))+'</div>'; return; }
   const r=rankOf(v);
   h+='<div style="display:flex;align-items:baseline;gap:1rem;"><span class="pbig">#'+r+'</span><span class="muted">of '+v.total+' candidate'+(v.total===1?'':'s')+(_aic?' in the live challenge':'')+'</span></div>';
-  if(_aic&&!_aic.live) h+='<div class="pnote">You took this paper as a free mock after the challenge, so this is where your score would have stood. Take the next All India Challenge live to get a real rank. <a href="/ssc-cgl-tier-2-all-india-challenge-mock.html">All India Challenge →</a></div>';
+  if(_aic&&!_aic.live) h+='<div class="pnote">You took this paper as a free mock after the challenge, so this is where your score would have stood. Take the next All India Challenge live to get a real rank. <a href="'+(/^ssc-chsl_/i.test(String(a.mockId||''))?'/ssc-chsl-tier-1-all-india-challenge-mock.html':'/ssc-cgl-tier-2-all-india-challenge-mock.html')+'">All India Challenge →</a></div>';
   h+='<div class="kv"><span>Percentile</span><b>'+pctile(v)+'</b></div><div class="kv"><span>Your marks</span><b>'+n1(v.my)+(v.max?' / '+v.max:'')+'</b></div><div class="kv"><span>Topper'+(v.topName?' · '+esc(v.topName):'')+'</span><b>'+n1(v.top)+'</b></div><div class="kv"><span>Average</span><b>'+n1(v.avg)+'</b></div>';
   if(v.top>v.my) h+='<div class="kv"><span>To reach the topper</span><b class="warn">+'+n1(v.top-v.my)+' marks</b></div>';
   const secs=Object.keys(v.subj);

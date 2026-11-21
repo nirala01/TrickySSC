@@ -398,7 +398,7 @@ function buildMockId(m, lang) {
 function defaultTitle(m) {
   const examName = (m.exam || '').replace('ssc-', 'SSC ').toUpperCase();
   const tierLbl  = ({tier2: 'Tier II', paper2: 'Tier II Paper II (Statistics)', paper3: 'Tier II Paper III (Finance & Economics)'})[m.tier] || 'Tier I';
-  if (m.tier === 'aic') return `${examName} Tier II — All India Challenge Mock ${m.mockNum}`;   /* TSSC-AIC-V1 */
+  if (m.tier === 'aic') return `${examName} ${m.exam === 'ssc-chsl' ? 'Tier I' : 'Tier II'} — All India Challenge Mock ${m.mockNum}`;   /* TSSC-AIC-V1; V2: SSC CHSL Tier 1 challenge (ssc-chsl-2026-aic-mock-01-… → ssc-chsl_aic_mock1_en / _hi) */
   return `${examName} ${tierLbl} — Mock Test ${m.mockNum}`;
 }
 
@@ -1160,8 +1160,8 @@ window.runAll = async () => {
             seriesNum: parseInt(p.meta.mockNum), mockNum: parseInt(p.meta.mockNum),
             title: p.meta.title || defaultTitle(p.meta),
             totalQuestions: rows.length, subjectCounts: subCounts,
-            duration: /^paper/.test(p.meta.tier) ? 120 : (p.meta.tier === 'aic' ? 135 : duration),   /* TSSC-T2PAPER-V1: Paper II / III are 2-hour papers */
-            totalMarks: Math.round(rows.length * (p.meta.tier === 'aic' ? 3 : perMark)),
+            duration: /^paper/.test(p.meta.tier) ? 120 : (p.meta.tier === 'aic' ? (p.meta.exam === 'ssc-chsl' ? 60 : 135) : duration),   /* TSSC-T2PAPER-V1: Paper II / III are 2-hour papers */
+            totalMarks: Math.round(rows.length * (p.meta.tier === 'aic' ? (p.meta.exam === 'ssc-chsl' ? 2 : 3) : perMark)),
             /* TSSC-AIC-V1: a challenge paper's card is ALWAYS a draft — no mock list or count on the site may pick it up.
                /tssc-aic.js opens it by date (Sunday window, then free mock from the result time). */
             isPublished: p.meta.tier === 'aic' ? false : publish, updatedAt: new Date()
@@ -1169,7 +1169,7 @@ window.runAll = async () => {
           if (p.meta.year) card.year = p.meta.year;
           await setDoc(doc(db, 'mock_tests', mid), card, { merge: true });
         }
-        log(p.meta.tier === 'aic' ? `${p.prefix}: All India Challenge paper saved — it opens by itself on its Sunday (no publishing needed)` : `${p.prefix}: mock cards ${publish ? 'published' : 'saved as draft'}`, 'ok');
+        log(p.meta.tier === 'aic' ? `${p.prefix}: All India Challenge paper saved — it opens by itself on its challenge day (no publishing needed)` : `${p.prefix}: mock cards ${publish ? 'published' : 'saved as draft'}`, 'ok');
       }
 
       p.done = true;
