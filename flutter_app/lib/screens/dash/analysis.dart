@@ -216,7 +216,7 @@ class _TestAnalysisPageState extends State<TestAnalysisPage> {
         child: Row(children: [
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(testName(a), maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Color(0xEEFFFFFF), fontSize: 13.5, fontWeight: FontWeight.w700)),
+              Text(testName(a), maxLines: 3, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 16, height: 1.25, fontWeight: FontWeight.w800)),
               const SizedBox(height: 2),
               Text('${n1(marks)} / ${n1(max)}', style: baloo(32, color: Colors.white)),
               Text('${max == 0 ? 0 : (marks * 100 / max).round()}%${t > 0 ? ' · ${fmtSec(t)} used' : ''} · ${shortDate(tsOf(a))}',
