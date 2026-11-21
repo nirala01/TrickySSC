@@ -213,7 +213,7 @@ final Map<String, String> chapterNames = {};
 /// The name to show for a question's chapter tag. Tags are chapter ids on most tests; anything that is
 /// already a name is returned as it is. Unknown ids are turned into words.
 String chapterLabel(String raw) {
-  final hit = chapterNames[raw];
+  final hit = chapterNames[raw] ?? pyqChapterNames[raw];
   if (hit != null && hit.isNotEmpty) return hit;
   if (!RegExp(r'^[a-z0-9]+[._][a-z0-9._-]+$').hasMatch(raw)) return raw;
   if (raw.length >= 40) {
@@ -359,6 +359,7 @@ int _chPhrasesN = -1;
 /// The chapter of every previous-year question (assets/pyq_chapters.json), filled by loadPyqChapterMap().
 final Map<String, List<int>> pyqChapterMap = {};
 List<String> pyqChapterIds = const [];
+final Map<String, String> pyqChapterNames = {}; // names of the chapters that have no chapter-test list (Hindi)
 bool pyqChapterMapLoaded = false;
 
 Future<void> loadPyqChapterMap() async {
@@ -366,6 +367,12 @@ Future<void> loadPyqChapterMap() async {
   try {
     final d = jsonDecode(await rootBundle.loadString('assets/pyq_chapters.json')) as Map;
     pyqChapterIds = [for (final c in d['ch'] as List) '$c'];
+    final n = d['n'];
+    if (n is List) {
+      for (var i = 0; i < n.length && i < pyqChapterIds.length; i++) {
+        if ('${n[i]}'.isNotEmpty) pyqChapterNames[pyqChapterIds[i]] = '${n[i]}';
+      }
+    }
     (d['p'] as Map).forEach((k, v) => pyqChapterMap['$k'] = [for (final i in v as List) (i as num).toInt()]);
   } catch (_) {}
   pyqChapterMapLoaded = true;
@@ -439,6 +446,8 @@ const otherTopics = 'Other topics';
 Map<String, List<ChStat>> chaptersBySubject(List<Att> list) {
   final m = <String, Map<String, ChStat>>{};
   final official = chapterNames.isNotEmpty;
+  // subjects that have a chapter list; a topic of any other subject (Hindi, ...) keeps its own name
+  final listed = {for (final id in chapterNames.keys) _chPrefix[id.split('.').first]};
   for (final a in list) {
     final own = subjName[skey(s(a['subject']))];
     for (final x in answersOf(a)) {
@@ -451,7 +460,7 @@ Map<String, List<ChStat>> chaptersBySubject(List<Att> list) {
           own ??
           _chPrefix[pre] ??
           (s(x['s']).isEmpty || s(x['s']) == 'General' ? 'Other' : s(x['s']));
-      final name = id != null ? (chapterNames[id] ?? chapterLabel(id)) : (official ? otherTopics : cleanChapter(raw));
+      final name = id != null ? (chapterNames[id] ?? chapterLabel(id)) : (official && listed.contains(sub) ? otherTopics : cleanChapter(raw));
       final st = (m[sub] ??= {}).putIfAbsent(name, () => ChStat(name, chapterNames.containsKey(id) ? id : null));
       st.n++;
       if (x['r'] == 'c') {

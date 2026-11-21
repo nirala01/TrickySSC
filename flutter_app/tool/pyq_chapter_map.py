@@ -4,7 +4,7 @@ chapter-wise PYQ lists (pyq-chapters/all/*.json). The app uses it for chapter an
 
 Run by .github/workflows/build-flutter.yml (never by hand):
     pyq_chapter_map.py <repo root> <output json>
-Output: {"ch": [chapter ids], "p": {"<paper id without _en/_hi>": [chapter index per question number, -1 = none]}}
+Output: {"ch": [chapter ids], "n": [their names], "p": {"<paper id without _en/_hi>": [chapter index per question number, -1 = none]}}
 """
 import glob
 import json
@@ -13,7 +13,7 @@ import re
 import sys
 
 root, out = sys.argv[1], sys.argv[2]
-chs, papers = [], {}
+chs, names, papers = [], {}, {}
 for f in sorted(glob.glob(os.path.join(root, 'pyq-chapters', 'all', '*.json'))):
     try:
         d = json.load(open(f, encoding='utf-8'))
@@ -24,6 +24,7 @@ for f in sorted(glob.glob(os.path.join(root, 'pyq-chapters', 'all', '*.json'))):
     if cid not in chs:
         chs.append(cid)
     ci = chs.index(cid)
+    names[cid] = (d.get('name') or '').strip()
     for st in d.get('sets') or []:
         for q in st.get('qs') or []:
             m = re.match(r'^(.*)_(?:en|hi)_q(\d+)$', q.get('en') or q.get('hi') or '')
@@ -39,5 +40,5 @@ for f in sorted(glob.glob(os.path.join(root, 'pyq-chapters', 'all', '*.json'))):
 if not papers and os.path.exists(out):
     print('::warning::No chapter-wise PYQ lists found; keeping the bundled file.')
     sys.exit(0)
-json.dump({'ch': chs, 'p': papers}, open(out, 'w', encoding='utf-8'), separators=(',', ':'))
+json.dump({'ch': chs, 'n': [names.get(c, '') for c in chs], 'p': papers}, open(out, 'w', encoding='utf-8'), separators=(',', ':'))
 print('pyq_chapters.json: %d chapters, %d papers, %d questions' % (len(chs), len(papers), sum(1 for r in papers.values() for v in r if v >= 0)))
