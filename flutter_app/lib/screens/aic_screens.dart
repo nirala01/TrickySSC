@@ -5,6 +5,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../aic.dart';
 import '../aic_io.dart';
@@ -213,9 +214,10 @@ class AicStatusCard extends StatefulWidget {
   final Exam exam;
   final VoidCallback? onOpen;
   final bool popup;
-  final bool compact; // Home: a short card (the Home screen does not scroll)
+  final bool compact; // a short one-row card
+  final bool inPopup; // inside the app-open popup: a button press closes nothing, the chevron is hidden
   final VoidCallback? onChanged; // after a registration or a test
-  const AicStatusCard({super.key, required this.user, required this.exam, this.onOpen, this.popup = false, this.compact = false, this.onChanged});
+  const AicStatusCard({super.key, required this.user, required this.exam, this.onOpen, this.popup = false, this.compact = false, this.inPopup = false, this.onChanged});
 
   @override
   State<AicStatusCard> createState() => _AicStatusCardState();
@@ -499,7 +501,7 @@ class _AicStatusCardState extends State<AicStatusCard> with WidgetsBindingObserv
                 const Expanded(
                   child: Text('SSC CGL TIER-2 · ALL INDIA CHALLENGE', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Color(0xFFFDE68A), fontSize: 11.5, letterSpacing: .4, fontWeight: FontWeight.w800)),
                 ),
-                if (widget.onOpen != null) const Icon(Icons.chevron_right_rounded, color: Colors.white70),
+                if (widget.onOpen != null && !widget.inPopup) const Icon(Icons.chevron_right_rounded, color: Colors.white70),
               ]),
               if (AicClock.synced && v.resultsRound > 0) ...[
                 const SizedBox(height: 8),
@@ -535,23 +537,56 @@ class _AicStatusCardState extends State<AicStatusCard> with WidgetsBindingObserv
   }
 }
 
-/// Home: the challenge banner. Tapping it opens the Challenge screen.
-class AicBanner extends StatelessWidget {
-  final User user;
-  final Exam exam;
-  const AicBanner({super.key, required this.user, required this.exam});
+/// The All India Challenge popup, shown when the app opens: once a day, and again whenever the state changes
+/// (registration open, live on Sunday, submitted, results out). It carries the whole card with its buttons.
+Future<void> maybeShowAicPopup(BuildContext context, User user, Exam exam) async {
+  if (!aicConfig.on) return;
+  try {
+    if (!await AicClock.sync() || !AicClock.synced) return;
+    final now = AicClock.now;
+    final up = aicUpRound(now);
+    final me = await aicLoadMe(user.uid, [if (up > 0) up, if (up > 1) up - 1]);
+    final v = aicView(now: now, regAt: me.regAt, submitted: me.submitted);
+    if (v.state == AicState.off && v.resultsRound == 0) return;
+    // once a day for the same state; a new state (or a new day) shows it again
+    final p = await SharedPreferences.getInstance();
+    final day = DateTime.fromMillisecondsSinceEpoch(now, isUtc: true).add(const Duration(hours: 5, minutes: 30)).toIso8601String().substring(0, 10);
+    final mark = '$day|${v.state.name}|${v.round}|${v.resultsRound}';
+    final key = 'tssc_aic_popup_${user.uid}';
+    if (p.getString(key) == mark) return;
+    await p.setString(key, mark);
+    if (!context.mounted) return;
+    void open(BuildContext c) {
+      Navigator.of(c).pop();
+      Navigator.of(context).push(MaterialPageRoute(builder: (_) => ChallengeScreen(user: user, exam: exam)));
+    }
 
-  @override
-  Widget build(BuildContext context) {
-    final cgl = _cgl(exam);
-    return AicStatusCard(
-      user: user,
-      exam: cgl,
-      popup: true,
-      compact: true,
-      onOpen: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ChallengeScreen(user: user, exam: cgl))),
+    await showDialog<void>(
+      context: context,
+      builder: (c) => Dialog(
+        backgroundColor: Colors.white,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(14, 6, 14, 10),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Row(children: [
+              const SizedBox(width: 6),
+              Expanded(child: Text('All India Challenge', style: baloo(20))),
+              IconButton(onPressed: () => Navigator.pop(c), icon: const Icon(Icons.close, color: softMuted)),
+            ]),
+            AicStatusCard(user: user, exam: exam, inPopup: true, onOpen: () => open(c)),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(6, 0, 6, 4),
+              child: Text('Free SSC CGL Tier-2 mock every Sunday · 150 questions · All India rank on Tuesday.',
+                  textAlign: TextAlign.center, style: TextStyle(fontSize: 13, height: 1.35, color: softMuted, fontWeight: FontWeight.w600)),
+            ),
+            TextButton(onPressed: () => open(c), child: Text('How it works and past results ›', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: exam.c1))),
+          ]),
+        ),
+      ),
     );
-  }
+  } catch (_) {}
 }
 
 /// SSC CGL > Mocks > Tier 2: the entry that opens the Challenge screen.

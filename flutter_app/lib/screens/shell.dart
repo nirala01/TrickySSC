@@ -168,27 +168,16 @@ class _AppShellState extends State<AppShell> {
   Future<void> _welcome(Set<String> owned) async {
     if (_welcomed == widget.user.uid) return;
     _welcomed = widget.user.uid;
-    // the All India Challenge strip on top of the offers popup, as on the website
-    Widget Function(BuildContext)? strip;
-    if (aicConfig.on) {
-      strip = (c) => AicStatusCard(
-            user: widget.user,
-            exam: examById('ssc-cgl') ?? widget.exam,
-            compact: true,
-            onOpen: () {
-              Navigator.of(c).pop();
-              if (mounted) Navigator.of(context).push(MaterialPageRoute(builder: (_) => ChallengeScreen(user: widget.user, exam: examById('ssc-cgl') ?? widget.exam)));
-            },
-          );
-    }
     if (owned.isEmpty) {
-      await Billing.I.showFullAccessPopup(context, top: strip, onExplore: () {
+      await Billing.I.showFullAccessPopup(context, onExplore: () {
         if (mounted) setState(() => _tab = 1);
       });
     } else if (!exams.every((e) => owned.contains(e.pass))) {
       final q = await Billing.I.quote();
-      if (mounted && q != null && q.offer) await Billing.I.showUpgradeSheet(context, widget.exam, q, top: strip);
+      if (mounted && q != null && q.offer) await Billing.I.showUpgradeSheet(context, widget.exam, q);
     }
+    // then the All India Challenge popup (once a day, and again when its state changes)
+    if (mounted) await maybeShowAicPopup(context, widget.user, examById('ssc-cgl') ?? widget.exam);
   }
 
   void _buy() => Billing.I.showBuySheet(context, widget.exam);
@@ -741,8 +730,6 @@ class _HomeTab extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // SSC CGL Tier-2 All India Challenge Mock (every Sunday): its banner
-          if (aicConfig.on) AicBanner(user: user, exam: exam), // on every exam's home, like the website's home page
           _PassCard(
             exam: exam,
             hasPass: hasPass,
