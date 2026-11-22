@@ -408,12 +408,30 @@ body.aic-pop-open #tsscMP{display:none!important}
 .aicPast-lb td:first-child{width:38px;font-family:'Rajdhani',sans-serif;font-weight:800;color:#7C3AED}
 .aicPast-lb td:last-child{text-align:right;font-weight:700;color:#1A202C;white-space:nowrap}
 .aicPast-btns{display:flex;flex-wrap:wrap;gap:8px}
-.aicPap-chip{display:inline-block;border-radius:100px;padding:1px 10px;font-family:'Rajdhani',sans-serif;font-weight:800;font-size:.74rem;letter-spacing:.5px;text-transform:uppercase;background:#EDE9FE;color:#5B21B6}
-.aicPap-chip.live{background:#DC2626;color:#fff}
-.aicPap-chip.wait{background:#FEF3C7;color:#92400E}
-.aicPap-line{font-size:.9rem;color:#475569;line-height:1.55;margin:6px 0 10px}
-.aicPap-line b{color:#1A202C}
-.aicPast-btns .lock{display:inline-flex;align-items:center;min-height:38px;padding:7px 13px;border-radius:10px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.9rem;border:1.5px dashed #CBD5E1;color:#64748B;background:#F8FAFC}
+.aicPap-list{display:grid;gap:14px}
+.aicPap{position:relative;overflow:hidden;border-radius:18px;padding:20px 20px 18px;color:#fff;background:linear-gradient(125deg,#1E1B4B 0%,#4C1D95 52%,#BE185D 100%);box-shadow:0 12px 30px rgba(76,29,149,.28);border:2px solid transparent}
+.aicPap::after{content:'🏆';position:absolute;right:-6px;top:-14px;font-size:92px;opacity:.1;pointer-events:none}
+.aicPap.live{background:linear-gradient(125deg,#7F1D1D 0%,#B91C1C 45%,#EA580C 100%);border-color:#FDE68A;box-shadow:0 14px 34px rgba(220,38,38,.35)}
+.aicPap.wait{background:linear-gradient(125deg,#1E293B 0%,#334155 60%,#475569 100%);box-shadow:0 10px 24px rgba(15,23,42,.22)}
+.aicPap.later{padding:15px 18px 14px;box-shadow:0 6px 16px rgba(76,29,149,.18)}
+.aicPap-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;position:relative;z-index:1}
+.aicPap-chip{display:inline-flex;align-items:center;gap:6px;border-radius:100px;padding:2px 11px;font-family:'Rajdhani',sans-serif;font-weight:800;font-size:.78rem;letter-spacing:.8px;text-transform:uppercase;background:#FDE68A;color:#4C1D95}
+.aicPap.live .aicPap-chip{background:#fff;color:#B91C1C}
+.aicPap.live .aicPap-chip i{width:8px;height:8px;border-radius:50%;background:#DC2626;animation:aicPulse 1.1s infinite}
+@keyframes aicPulse{0%,100%{opacity:1}50%{opacity:.25}}
+.aicPap-name{font-size:.86rem;font-weight:700;color:#E9D5FF;letter-spacing:.2px}
+.aicPap-h{font-family:'Baloo 2','Rajdhani',sans-serif;font-weight:800;font-size:clamp(1.45rem,5.6vw,2rem);line-height:1.15;margin:8px 0 2px;position:relative;z-index:1}
+.aicPap.later .aicPap-h{font-size:clamp(1.15rem,4.4vw,1.4rem)}
+.aicPap-h em{font-style:normal;color:#FDE68A}
+.aicPap-when{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:clamp(1.05rem,4.2vw,1.3rem);color:#fff;position:relative;z-index:1}
+.aicPap .aicPap-line{font-size:.95rem;color:#F5F3FF!important;line-height:1.55;margin:10px 0 12px!important;position:relative;z-index:1}
+.aicPap .aicPap-line b{color:#FDE68A!important}
+.aicPap-btns{display:flex;flex-wrap:wrap;gap:9px;align-items:center;position:relative;z-index:1}
+.aicPap-btns .aicB-btn{min-height:48px;font-size:1.08rem;padding:10px 22px}
+.aicPap-btns .lock{display:inline-flex;align-items:center;min-height:44px;padding:8px 16px;border-radius:12px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1rem;border:1.5px dashed rgba(255,255,255,.5);color:#fff;background:rgba(255,255,255,.1)}
+.aicPap .aicB-cd{margin:10px 0 2px;position:relative;z-index:1}
+.aicPap .aicB-cd span{min-width:58px;font-size:1.3rem;padding:6px 8px}
+.aicPap .aicPap-cdl{font-size:.8rem;color:#F5F3FF!important;font-weight:600;margin:3px 0 0!important;position:relative;z-index:1}
 .aicPast-btns a{display:inline-flex;align-items:center;min-height:38px;padding:7px 13px;border-radius:10px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.9rem;text-decoration:none;border:1.5px solid #DDD6FE;color:#5B21B6!important;background:#F5F3FF}
 .aicPast-btns a.go{background:linear-gradient(135deg,#FF6B00,#FF8C38);border-color:#FF6B00;color:#fff!important}
 .aicPast-empty{background:#fff;border:1px dashed #CBD5E1;border-radius:14px;padding:14px 16px;color:#64748B;font-size:.9rem}
@@ -670,35 +688,43 @@ async function paintPapers(el) {
   if (!list.length) { el.innerHTML = ''; el.hidden = true; return; }
   const reg = uid ? await S.regAt(uid) : 0;
   let nextFlip = 0;
+  let firstUpcoming = true;
   const cards = await Promise.all(list.map(async n => {
     const r = S.round(n), w = S.words(r);
-    let chip, cls = '', line, btns;
+    let chip, cls = '', head, when, line, btns, cd = '';
     if (t < r.start) {
       nextFlip = nextFlip ? Math.min(nextFlip, r.start) : r.start;
-      chip = 'Live on ' + fmtShort(r.start) + ' · 9 am';
-      line = 'Goes live on <b>' + fmtDay(r.start) + ' at 9 am</b> and stays open till 12 midnight (last entry ' + w.last + '). '
-        + (reg && reg < r.regClose ? 'You are registered for this paper.' : (t < r.regClose ? 'Register free before ' + w.regDay + ' midnight to take it.' : 'Registration for this paper is closed.'));
-      btns = '<span class="lock">🔒 Opens ' + fmtShort(r.start) + ', 9 am</span>';
+      const big = firstUpcoming; firstUpcoming = false; if (!big) cls = ' later';
+      chip = 'Upcoming'; head = 'Live on <em>' + fmtDay(r.start) + '</em>'; when = '9 am to 12 midnight · last entry ' + w.last;
+      const mine = reg && reg < r.regClose;
+      line = mine ? 'You are registered. The Start button appears here at 9 am on ' + w.day + '.' : (t < r.regClose ? 'Free. Register before <b>' + w.regDay + ' midnight</b> to take this paper.' : 'Registration for this paper is closed.');
+      btns = (mine || t >= r.regClose ? '' : regBtnHtml(D.key, 'Register free →')) + '<span class="lock">🔒 Opens ' + fmtShort(r.start) + ', 9 am</span>';
+      if (big) cd = cdHtml(r.start) + '<p class="aicPap-cdl">Goes live in</p>';
     } else if (t < r.end) {
       nextFlip = nextFlip ? Math.min(nextFlip, r.end) : r.end;
-      chip = 'Live now'; cls = ' live';
+      chip = '<i></i>Live now'; cls = ' live'; head = 'The paper is <em>live now</em>'; when = 'Open till 12 midnight · last entry ' + w.last;
       const done = uid ? await S.participated(n, uid) : null;
-      if (done) { line = 'Your test is submitted. Result and All India rank on <b>' + fmtDay(r.resultAt) + ', 9 am</b>.'; btns = '<span class="lock">✓ Submitted</span>'; }
+      if (done) { line = 'Your test has been submitted successfully. Result and All India rank on <b>' + fmtDay(r.resultAt) + ', 9 am</b>.'; btns = '<span class="lock">✓ Test submitted</span>'; }
       else if (reg && reg < r.regClose) {
-        line = 'Open till <b>12 midnight</b> (last entry ' + w.last + '). ' + D.paperLine;
+        line = D.paperLine + ' The test cannot be paused.';
         const hi = await S.hasLang(n, 'hi');
-        btns = '<a class="go" href="' + S.testUrl(n, 'en') + '">Start in English →</a>' + (hi ? '<a href="' + S.testUrl(n, 'hi') + '">हिंदी में शुरू करें</a>' : '');
+        btns = '<a class="aicB-btn" href="' + S.testUrl(n, 'en') + '">Start in English →</a>' + (hi ? '<a class="aicB-btn ghost" href="' + S.testUrl(n, 'hi') + '">हिंदी में शुरू करें</a>' : '');
+        if (t < r.lastEntry) cd = cdHtml(r.lastEntry) + '<p class="aicPap-cdl">Last entry closes in</p>';
       } else { line = 'Today\'s paper is for students who registered before ' + w.regDay + ' midnight. It opens for everyone as a free mock on <b>' + fmtDay(r.resultAt) + ', 9 am</b>.'; btns = '<span class="lock">🔒 Registered students only</span>'; }
     } else {
       nextFlip = nextFlip ? Math.min(nextFlip, r.resultAt) : r.resultAt;
-      chip = 'Result ' + fmtShort(r.resultAt) + ' · 9 am'; cls = ' wait';
-      line = 'The paper is over. Result, All India rank and solutions open on <b>' + fmtDay(r.resultAt) + ' at 9 am</b>; from then it is a free mock for everyone.';
+      chip = 'Paper over'; cls = ' wait'; head = 'Result on <em>' + fmtDay(r.resultAt) + '</em>'; when = '9 am · marks, All India rank and solutions';
+      const done = uid ? await S.participated(n, uid) : null;
+      line = (done ? 'Your test is submitted. ' : '') + 'The result opens by itself at 9 am. From then this paper is a free mock for everyone.';
       btns = '<span class="lock">🕘 Result ' + fmtShort(r.resultAt) + ', 9 am</span>';
+      cd = cdHtml(r.resultAt) + '<p class="aicPap-cdl">Result in</p>';
     }
-    return '<div class="aicPast-card"><div class="aicPast-top"><h3>All India Challenge Mock ' + n + '</h3><span class="aicPap-chip' + cls + '">' + chip + '</span></div>'
-      + '<p class="aicPap-line">' + line + '</p><div class="aicPast-btns">' + btns + '</div></div>';
+    return '<div class="aicB aicPap' + cls + '" style="margin:0"><div class="aicPap-top"><span class="aicPap-chip">' + chip + '</span><span class="aicPap-name">' + D.name + ' · All India Challenge Mock ' + n + '</span></div>'
+      + '<div class="aicPap-h">' + head + '</div><div class="aicPap-when">' + when + '</div>' + cd
+      + '<p class="aicPap-line">' + line + '</p><div class="aicPap-btns">' + btns + '</div><div class="aicB-err" data-aic-err hidden></div></div>';
   }));
-  el.innerHTML = '<div class="aicPast">' + cards.join('') + '</div>'; el.hidden = false;
+  el.innerHTML = '<div class="aicPap-list">' + cards.join('') + '</div>'; el.hidden = false;
+  bindRegister(el); tickCd();
   /* unlock by itself: paint again when the next card changes state */
   if (nextFlip && nextFlip - t < 20 * 24 * H) { clearTimeout(_papTimer); _papTimer = setTimeout(render, Math.max(1500, nextFlip - now() + 1500)); }
 }
@@ -827,9 +853,22 @@ function maybePopup(list) {
   popShell(popHtml(list));
 }
 
+/* Any element with data-aic-open opens the challenge pop-up (the "Challenge Mock" tab on the home page). */
+export async function openPop() {
+  injectCss();
+  const list = [];
+  for (const k of ORDER) { try { const st = await SERIES[k].buildState(); if (st) list.push(st); } catch (e) {} }
+  if (!list.length) { location.href = CFG.page; return; }
+  _popDecided = true; popSignal('open'); popShell(popHtml(list));
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest && e.target.closest('[data-aic-open]'); if (!b) return;
+  e.preventDefault(); openPop();
+});
+
 /* ───────────────────────── start ───────────────────────── */
 window.tsscAic = { SERIES, seriesByKey, seriesOfMock, CFG, round, nextRound, isAicId, roundOfMock, testUrl, now, syncClock, regAt, register, participated,
-  markStarted, markDone, startedAt, resultUrl, gate, render, fmtDay };
+  markStarted, markDone, startedAt, resultUrl, gate, render, fmtDay, openPop };
 function boot() {
   if (!document.querySelector('[data-aic]') && !document.body.hasAttribute('data-aic-popup')) return;
   syncClock().then(render);
