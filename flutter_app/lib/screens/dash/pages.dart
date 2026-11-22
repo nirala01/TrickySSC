@@ -363,7 +363,7 @@ class _CutoffPageState extends State<CutoffPage> {
             return KV('$k (${n1(c.cut[k]!)})', '${g >= 0 ? '+' : '−'}${n1(g.abs())}', color: g >= 0 ? cGood : cBad);
           }),
       ]),
-      if (c.merit) Note('Tier II merit counts Section I + II only (Computer is qualifying), so this compares your Maths + Reasoning + English + GA marks out of 390.${noSubj ? ' This attempt has no section split, so its total (incl. Computer) is used.' : ''}'),
+      if (c.merit) Note('Tier II merit counts Maths, Reasoning, English and GA only (Computer is qualifying), so this compares your Maths + Reasoning + English + GA marks out of 390.${noSubj ? ' This attempt has no section split, so its total (incl. Computer) is used.' : ''}'),
       if (c.prev != null) Note('${c.prevLabel} cut-off for $_cat was ${n1(c.prev![_cat]!)}. Cut-offs are normalised scores published by SSC; marks here are raw.'),
     ]);
   }

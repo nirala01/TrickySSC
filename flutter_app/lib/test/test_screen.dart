@@ -37,6 +37,7 @@ class _TestFlowState extends State<TestFlow> {
   String? _error;
   bool _starting = false;
   bool _timed = true;
+  bool _stale = false; // a paper paused under the old timing: it starts fresh
 
   @override
   void initState() {
@@ -50,10 +51,19 @@ class _TestFlowState extends State<TestFlow> {
       final p = widget.loader != null ? await widget.loader!() : await loadPaper(widget.mockId, widget.lang, partD: widget.partD, title: isPyqId(widget.mockId) ? widget.title : '');
       p.aic = widget.aic;
       final s = await loadProgress(widget.user.uid, widget.mockId, p.partD);
+      // TSSC-T2TIMING-V1: a CGL Tier 2 mock paused under the old three-section timing cannot be resumed
+      // on the five timed parts: the saved state is dropped and the paper starts fresh
+      final stale = s != null && s.remaining.length != p.units.length;
+      if (stale) {
+        try {
+          await clearProgress(widget.user.uid, widget.mockId, p.partD);
+        } catch (_) {}
+      }
       if (!mounted) return;
       setState(() {
         _paper = p;
-        _saved = (s != null && s.remaining.length == p.units.length) ? s : null;
+        _saved = (s != null && !stale) ? s : null;
+        _stale = stale && p.rules.aicParts;
       });
     } catch (e) {
       if (mounted) setState(() => _error = e is String ? e : 'Could not load this test. Check your internet and try again.');
@@ -198,6 +208,15 @@ class _TestFlowState extends State<TestFlow> {
     return Column(children: [
       Expanded(
         child: ListView(padding: const EdgeInsets.all(14), children: [
+          if (p.rules.aicParts) ...[const TimingNote(box: true), const SizedBox(height: 12)],
+          if (_stale) ...[
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: const Color(0xFFDBEAFE), borderRadius: BorderRadius.circular(14)),
+              child: const Text('You had paused this mock under the old timing. It now starts fresh on the new 2026 timing.', style: TextStyle(fontSize: 14, height: 1.35, color: Color(0xFF1E3A8A), fontWeight: FontWeight.w700)),
+            ),
+            const SizedBox(height: 12),
+          ],
           Row(children: [
             fact('${p.questions.length}', 'Questions'),
             const SizedBox(width: 8),
@@ -214,7 +233,7 @@ class _TestFlowState extends State<TestFlow> {
               const SizedBox(height: 10),
               line(Icons.timer_outlined, p.rules.timingLine(p.units.length)),
               line(Icons.calculate_outlined, p.rules.markingLine()),
-              line(Icons.grid_view, 'Use the question palette to jump between questions of the open ${p.units.length > 1 ? (p.rules.mts ? 'session' : 'section') : 'paper'}.'),
+              line(Icons.grid_view, 'Use the question palette to jump between questions of the open ${p.units.length > 1 ? (p.rules.aicParts ? 'part' : (p.rules.mts ? 'session' : 'section')) : 'paper'}.'),
               line(Icons.bookmark_outline, 'Mark a question for review to come back to it. A marked question that has an answer is counted.'),
               if (p.aic?.live == true) ...[
                 line(Icons.block, 'One attempt only. There is no pause: the test ends ${p.aic!.series.hardStopMin} minutes after you start, and never later than 12:30 am.'),
@@ -254,7 +273,7 @@ class _TestFlowState extends State<TestFlow> {
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(p.units.length > 1 ? (p.rules.mts ? 'Sessions' : 'Sections') : 'Paper', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+              Text(p.units.length > 1 ? (p.rules.aicParts ? 'Parts' : (p.rules.mts ? 'Sessions' : 'Sections')) : 'Paper', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
               const SizedBox(height: 8),
               for (final u in p.units)
                 Padding(
@@ -451,7 +470,7 @@ class _TestScreenState extends State<TestScreen> with WidgetsBindingObserver {
     _qStart = DateTime.now();
   }
 
-  String get _unitWord => p.rules.ntpc ? 'test' : (p.rules.mts ? 'session' : 'section');
+  String get _unitWord => p.rules.aicParts ? 'part' : (p.rules.ntpc ? 'test' : (p.rules.mts ? 'session' : 'section'));
   bool get _lastUnit => pr.unit >= p.units.length - 1;
 
   void _unitTimeUp() {

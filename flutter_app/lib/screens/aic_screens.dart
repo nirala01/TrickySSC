@@ -445,6 +445,7 @@ class _AicStatusCardState extends State<AicStatusCard> with WidgetsBindingObserv
                 Text(body, style: const TextStyle(color: Color(0xF2FFFFFF), fontSize: 13.5, height: 1.35, fontWeight: FontWeight.w600)),
               ],
               if (actions.isNotEmpty) Wrap(children: actions),
+              if (se.parts && AicClock.synced) const Padding(padding: EdgeInsets.only(top: 8), child: TimingNote()),
               if (showCount)
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
@@ -909,6 +910,7 @@ class _ScheduleCard extends StatelessWidget {
         _line(Icons.emoji_events_outlined, 'Result', aicWhen(res)),
         const SizedBox(height: 6),
         win,
+        if (se.parts && now < res) const Padding(padding: EdgeInsets.only(top: 6), child: TimingNote()),
         if (note != null)
           Padding(
             padding: const EdgeInsets.only(top: 4),

@@ -188,7 +188,8 @@ class TestRow extends StatelessWidget {
   final Color accent;
   final VoidCallback onTap;
   final VoidCallback? onAction; // the button; defaults to the row tap
-  const TestRow({super.key, this.tags = const [], required this.title, this.sub = '', this.meta = const [], required this.state, this.score, required this.accent, required this.onTap, this.onAction});
+  final Widget? note; // full-width notice under the row (the CGL Tier 2 timing)
+  const TestRow({super.key, this.tags = const [], required this.title, this.sub = '', this.meta = const [], required this.state, this.score, required this.accent, required this.onTap, this.onAction, this.note});
 
   @override
   Widget build(BuildContext context) {
@@ -247,8 +248,10 @@ class TestRow extends StatelessWidget {
             onTap: onTap,
             child: Padding(
               padding: const EdgeInsets.fromLTRB(12, 11, 12, 11),
-              child: IntrinsicHeight(
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+              IntrinsicHeight(
                 child: Row(children: [
+
                   Container(
                     width: 46,
                     height: 46,
@@ -304,6 +307,8 @@ class TestRow extends StatelessWidget {
                   ),
                 ]),
               ),
+              if (note != null) Padding(padding: const EdgeInsets.only(top: 8), child: note),
+              ]),
             ),
           ),
         ),

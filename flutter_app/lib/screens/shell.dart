@@ -1170,6 +1170,8 @@ class _MockRow extends StatelessWidget {
       accent: exam.c1,
       onTap: () => onStart(m),
       onAction: state == RowState.done ? () => onRetake(m) : null,
+      // TSSC-T2TIMING-V1: SSC CGL Tier 2 mocks run on the 2026 timing (five timed parts)
+      note: exam.id == 'ssc-cgl' && m.tier == 2 ? const TimingNote() : null,
     );
   }
 }

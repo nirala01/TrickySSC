@@ -27,3 +27,28 @@ BoxDecoration softWell({double radius = 16}) => BoxDecoration(
 
 TextStyle baloo(double size, {Color color = softInk, FontWeight weight = FontWeight.w800, double height = 1.1}) =>
     GoogleFonts.baloo2(fontSize: size, fontWeight: weight, color: color, height: height);
+
+/// TSSC-T2TIMING-V1: SSC CGL Tier 2 mocks and the CGL All India Challenge run on the SSC CGL 2026 timing.
+const cglT2Timing = 'New 2026 timing: Maths 30 · Reasoning 30 · English 40 · GA 20 · Computer 15 min. Each part locks when its time ends.';
+
+/// The amber timing notice: a slim strip under a Start button, or ([box]) a highlighted box on the start screen.
+class TimingNote extends StatelessWidget {
+  final bool box;
+  const TimingNote({super.key, this.box = false});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: double.infinity,
+        padding: EdgeInsets.symmetric(horizontal: box ? 14 : 10, vertical: box ? 12 : 7),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFEF3C7),
+          borderRadius: BorderRadius.circular(box ? 14 : 10),
+          border: Border.all(color: const Color(0xFFF59E0B), width: box ? 1.5 : 1),
+        ),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Icon(Icons.timer_outlined, size: box ? 20 : 15, color: const Color(0xFF92400E)),
+          SizedBox(width: box ? 10 : 6),
+          Expanded(child: Text(cglT2Timing, style: TextStyle(fontSize: box ? 14.5 : 12, height: 1.35, color: const Color(0xFF78350F), fontWeight: FontWeight.w700))),
+        ]),
+      );
+}
