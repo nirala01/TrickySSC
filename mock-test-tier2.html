@@ -1317,8 +1317,8 @@ body.aic-hold #aicDoneCard{text-align:center}</style>
     <div style="font-size:13px;color:#94A3B8;margin-top:2px;" id="scorePctLabel"></div>
     <div id="resultVerdict" class="result-verdict" style="display:none;"></div>
     <div class="stats">
-      <div class="stat"><div class="stat-val" style="color:#22C55E" id="statCorrect">0</div><div class="stat-lbl">Correct<br><span style="font-size:9px;color:#94A3B8;">+3 each</span></div></div>
-      <div class="stat"><div class="stat-val" style="color:#EF4444" id="statWrong">0</div><div class="stat-lbl">Wrong<br><span style="font-size:9px;color:#94A3B8;">−1 each</span></div></div>
+      <div class="stat"><div class="stat-val" style="color:#22C55E" id="statCorrect">0</div><div class="stat-lbl">Correct<br><span id="statCorrectEach" style="font-size:9px;color:#94A3B8;">+3 each</span></div></div>
+      <div class="stat"><div class="stat-val" style="color:#EF4444" id="statWrong">0</div><div class="stat-lbl">Wrong<br><span id="statWrongEach" style="font-size:9px;color:#94A3B8;">−1 each</span></div></div>
       <div class="stat"><div class="stat-val" style="color:#EAB308" id="statSkip">0</div><div class="stat-lbl">Skipped</div></div>
       <div class="stat" style="background:#FFF7ED;border-color:#FED7AA;"><div class="stat-val" style="color:#FF6B00;" id="statMarks">0</div><div class="stat-lbl">Marks</div></div>
     </div>
@@ -1460,6 +1460,7 @@ function tsscApplyPaperMode(){
   if(!subs.length||!subs.every(x=>T2_PAPER_SUBJECTS[x])) return;
   T2_PAPER_MODE=T2_PAPER_SUBJECTS[subs[0]];
   MARK_CORRECT=2; MARK_WRONG=0.5;
+  try{ document.getElementById('statCorrectEach').textContent='+2 each'; document.getElementById('statWrongEach').textContent='−0.5 each'; }catch(_){}   /* result card labels follow the +2 / -0.5 marking */
   const vals=document.querySelectorAll('.instr-mark-val');
   if(vals[0]) vals[0].textContent='+2.00';
   if(vals[1]) vals[1].innerHTML='&minus;0.50';
@@ -1811,6 +1812,7 @@ const AICT1_NOTE='<span style="display:block;background:#FEF3C7;border:1.5px sol
 function aicT1Mode(){
   if(!TG_IS_AICT1) return;
   MARK_CORRECT=2; MARK_WRONG=0.5;
+  try{ document.getElementById('statCorrectEach').textContent='+2 each'; document.getElementById('statWrongEach').textContent='−0.5 each'; }catch(_){}   /* result card labels follow the +2 / -0.5 marking */
   const vals=document.querySelectorAll('.instr-mark-val');
   if(vals[0]) vals[0].textContent='+2.00';
   if(vals[1]) vals[1].innerHTML='&minus;0.50';
@@ -2212,6 +2214,14 @@ async function loadTest(){
           const snap=await getDoc(doc(db,'mock_tests',loadId));
           if(snap.exists()) mockMeta=snap.data();
         }catch(e){}
+        /* TSSC-AICTITLE-V1: the card can fail to load on a weak connection; the paper must still carry its own name
+           (it is shown on the test and saved with the attempt). Try the REST door, then name a challenge paper from its id. */
+        if(!mockMeta){ try{
+          const _mr=await fetch('https://firestore.googleapis.com/v1/projects/'+PROJECT+'/databases/(default)/documents/mock_tests/'+encodeURIComponent(loadId)+'?key='+APIKEY);
+          if(_mr.ok){ const _mj=await _mr.json(); if(_mj&&_mj.fields){ const _mm={}; Object.keys(_mj.fields).forEach(k=>{ _mm[k]=parseField(_mj.fields[k]); }); mockMeta=_mm; } }
+        }catch(e){} }
+        if(TG_IS_AIC&&!(mockMeta&&mockMeta.title)){ const _an=(String(loadId).match(/_aic_mock(\d+)/i)||[])[1];
+          if(_an) mockMeta=Object.assign({},mockMeta||{},{title:(TG_IS_AICT1?'SSC CHSL Tier I':'SSC CGL Tier II')+' \u2014 All India Challenge Mock '+_an}); }
       }
       console.log('[TrickySSC] Fetched',allDocs.length,'raw docs');
       if(!allDocs.length){
