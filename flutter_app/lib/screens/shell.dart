@@ -801,6 +801,9 @@ class _HomeTab extends StatelessWidget {
               ),
             ),
           ),
+          // TSSC-AIC-HOME-V1: Challenge Mock card on SSC CGL and SSC CHSL
+          if (exam.id == 'ssc-cgl' && aicCgl.on) ...[const SizedBox(height: 8), AicHomeCard(user: user, exam: exam, series: aicCgl)],
+          if (exam.id == 'ssc-chsl' && aicChsl.on) ...[const SizedBox(height: 8), AicHomeCard(user: user, exam: exam, series: aicChsl)],
           const SizedBox(height: 8),
           Expanded(
             child: Column(children: [

@@ -681,7 +681,13 @@ class _ChallengeScreenState extends State<ChallengeScreen> {
     await AicClock.sync();
     try {
       final a = await loadAttempts(widget.user.uid);
-      final me = await aicCached(_se, widget.user.uid);
+      var me = await aicCached(_se, widget.user.uid);
+      if (AicClock.synced) {
+        final r = _rows(AicClock.now);
+        try {
+          me = await aicLoadMe(_se, widget.user.uid, [for (final n in r) if (AicClock.now >= _se.start(n)) n]);
+        } catch (_) {}
+      }
       if (mounted) {
         setState(() {
           _atts = a;
@@ -690,6 +696,21 @@ class _ChallengeScreenState extends State<ChallengeScreen> {
         });
       }
     } catch (_) {}
+  }
+
+  /// TSSC-AICTABLE-V1 (same as the website): from three rounds back to four ahead, at most 8 rows.
+  List<int> _rows(int now) {
+    final se = _se;
+    var cur = se.upRound(now);
+    if (cur < 1) {
+      final d = se.finished(now);
+      cur = d.isEmpty ? 1 : d.reduce((a, b) => a > b ? a : b) + 1;
+    }
+    final out = <int>[];
+    for (var n = cur - 3 < 1 ? 1 : cur - 3; out.length < 8 && se.exists(n) && n < cur + 5; n++) {
+      out.add(n);
+    }
+    return out;
   }
 
   /// This student's attempt of round [n] whose result may be shown: the live one first, else the latest free mock.
@@ -709,9 +730,9 @@ class _ChallengeScreenState extends State<ChallengeScreen> {
     final exam = widget.exam, se = _se;
     final now = AicClock.now;
     final synced = AicClock.synced;
-    final up = synced ? se.upRound(now) : 0;
     final done = synced ? se.finished(now) : const <int>[];
     final lastE = aicClockText(se.lastEntry(1));
+    final rows = synced ? _rows(now) : const <int>[];
     Widget how(String t) => Padding(
           padding: const EdgeInsets.only(bottom: 8),
           child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -723,32 +744,25 @@ class _ChallengeScreenState extends State<ChallengeScreen> {
     return DashPage(exam: exam, title: '${se.short} Challenge', onRefresh: _load, children: [
       AicStatusCard(key: ValueKey('aic-card-${se.key}-$_v'), user: widget.user, exam: exam, series: se, onChanged: _load),
       if (!synced) emptyNote('Connect to the internet to see the schedule and the results.'),
-      if (up > 0)
-        PCard(title: 'Next ${se.day}s', sub: 'Every ${se.day}, 9 am to $lastE', children: [
-          for (var n = up; n < up + 4 && se.exists(n); n++)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6),
-              child: Row(children: [
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('Challenge Mock $n', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: softInk)),
-                    Text('${aicDay(se.start(n))} · result ${aicDay(se.resultAt(n))}', style: const TextStyle(fontSize: 12.5, color: softMuted, fontWeight: FontWeight.w600)),
-                  ]),
-                ),
-                Builder(builder: (_) {
-                  final inIt = se.inRound(n, _me.regAt);
-                  final closed = now >= se.regClose(n);
-                  final label = _me.submitted.contains(n) ? 'Submitted' : (inIt ? 'You are in' : (closed ? 'Closed' : 'Register by ${aicDay(se.regClose(n) - 60000).split(' ').first}'));
-                  final c = inIt || _me.submitted.contains(n) ? cGood : (closed ? softMuted : exam.c1);
-                  return Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                    decoration: BoxDecoration(color: c.withValues(alpha: .1), borderRadius: BorderRadius.circular(20)),
-                    child: Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: c)),
-                  );
-                }),
-              ]),
-            ),
-        ]),
+      if (synced && rows.isNotEmpty)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 6, 4, 8),
+          child: Text('Schedule', style: baloo(19)),
+        ),
+      if (synced)
+        for (final n in rows)
+          _ScheduleCard(
+            key: ValueKey('aic-sched-${se.key}-$n-$_v'),
+            user: widget.user,
+            exam: exam,
+            series: se,
+            round: n,
+            now: now,
+            regAt: _me.regAt,
+            submitted: _me.submitted.contains(n) || (_attempt(n) != null && aicLiveAtt(_attempt(n)!)),
+            attempt: _attempt(n),
+            onReturn: _load,
+          ),
       PCard(title: 'How it works', children: [
         how('Free for everyone. Register once and you are in for every ${se.day} after that. This registration is only for ${se.short}.'),
         how('Registration for a ${se.day} closes at midnight the day before. Register later and you are in from the next ${se.day}.'),
@@ -760,6 +774,7 @@ class _ChallengeScreenState extends State<ChallengeScreen> {
         if (se.lastRound > 0) how('Last round: Challenge Mock ${se.lastRound} on ${aicDay(se.start(se.lastRound))}.'),
       ]),
       for (final n in done)
+        if (!rows.contains(n))
         _RoundCard(
           key: ValueKey('aic-round-${se.key}-$n-$_v'),
           user: widget.user,
@@ -771,6 +786,185 @@ class _ChallengeScreenState extends State<ChallengeScreen> {
           onReturn: _load,
         ),
     ]);
+  }
+}
+
+/// One round of the schedule, as on the website's table: registration close, mock window with its
+/// "Attempt test" button, result time with its "Check rank & leaderboard" button.
+class _ScheduleCard extends StatelessWidget {
+  final User user;
+  final Exam exam;
+  final AicSeries series;
+  final int round, now;
+  final int? regAt;
+  final bool submitted;
+  final Map<String, dynamic>? attempt;
+  final VoidCallback onReturn;
+  const _ScheduleCard({super.key, required this.user, required this.exam, required this.series, required this.round, required this.now, required this.regAt, required this.submitted, required this.attempt, required this.onReturn});
+
+  Widget _btn(String text, {VoidCallback? onTap, Color? color, bool done = false}) {
+    final c = color ?? exam.c1;
+    if (done) {
+      return Container(
+        height: 44,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(color: const Color(0xFFDDF5EA), borderRadius: BorderRadius.circular(12)),
+        child: Text(text, style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF0B6B49))),
+      );
+    }
+    return FilledButton(
+      onPressed: onTap,
+      style: FilledButton.styleFrom(
+        backgroundColor: c,
+        disabledBackgroundColor: const Color(0xFFE2E8F0),
+        disabledForegroundColor: const Color(0xFF64748B),
+        minimumSize: const Size.fromHeight(44),
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+      child: Text(onTap == null ? text : '$text →', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800)),
+    );
+  }
+
+  Widget _line(IconData ic, String label, String value) => Padding(
+        padding: const EdgeInsets.only(bottom: 5),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Icon(ic, size: 16, color: softMuted),
+          const SizedBox(width: 6),
+          SizedBox(width: 118, child: Text(label, style: const TextStyle(fontSize: 13, color: softMuted, fontWeight: FontWeight.w700))),
+          Expanded(child: Text(value, style: const TextStyle(fontSize: 13.5, color: softInk, fontWeight: FontWeight.w700))),
+        ]),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    final se = series, n = round;
+    final start = se.start(n), end = se.windowEnd(n), res = se.resultAt(n);
+    final live = now >= start && now < end;
+    Widget win;
+    String? note;
+    Future<void> go(bool isLive) async {
+      await startAic(context, user, exam, se, n, live: isLive);
+      onReturn();
+    }
+
+    if (now < start) {
+      win = _btn('Attempt test');
+      note = 'Opens ${aicWhen(start)}';
+    } else if (live) {
+      if (submitted) {
+        win = _btn('✓ Submitted', done: true);
+      } else if (se.inRound(n, regAt)) {
+        win = _btn('Attempt test', onTap: () => go(true));
+        note = 'Live now · last entry ${aicClockText(se.lastEntry(n))}';
+      } else {
+        win = _btn('Attempt test');
+        note = 'Registered students only · free mock from ${aicDay(res)}';
+      }
+    } else if (now < res) {
+      if (submitted) {
+        win = _btn('✓ Submitted', done: true);
+      } else {
+        win = _btn('Attempt free test');
+        note = 'Free test from ${aicWhen(res)}';
+      }
+    } else {
+      win = _btn(attempt != null && !aicLiveAtt(attempt!) ? 'Attempt again' : 'Attempt free test', onTap: () => go(false), color: const Color(0xFF0B7A55));
+    }
+    final a = attempt;
+    final rank = now < res
+        ? _btn('Check rank & leaderboard')
+        : _btn('Check rank & leaderboard', onTap: () {
+            if (a != null) {
+              Navigator.of(context).push(MaterialPageRoute(builder: (_) => TestAnalysisPage(x: DashCtx(user, exam, [a], scopeOf(a), 'GEN'), a: a)));
+            } else {
+              Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => DashPage(exam: exam, title: 'Challenge Mock $n', children: [
+                  _RoundCard(user: user, exam: exam, series: se, round: n, auto: true, attempt: null, onReturn: onReturn),
+                ]),
+              ));
+            }
+          });
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      decoration: softCard(radius: 18),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(children: [
+          Expanded(child: Text('Challenge Mock $n', style: baloo(17.5))),
+          if (live)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+              decoration: BoxDecoration(color: const Color(0xFFFEE2E2), borderRadius: BorderRadius.circular(20)),
+              child: const Text('● Live now', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFFB91C1C))),
+            ),
+        ]),
+        const SizedBox(height: 8),
+        _line(Icons.how_to_reg_outlined, 'Registration closes', '${aicDay(se.regClose(n) - 60000)}, 11:59 pm'),
+        _line(Icons.schedule_rounded, 'Mock window', '${aicDay(start)}, 9 am – 12 midnight'),
+        _line(Icons.emoji_events_outlined, 'Result', aicWhen(res)),
+        const SizedBox(height: 6),
+        win,
+        if (note != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(note, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12, color: softMuted, fontWeight: FontWeight.w600)),
+          ),
+        const SizedBox(height: 8),
+        rank,
+      ]),
+    );
+  }
+}
+
+/// Home (SSC CGL, SSC CHSL): the card that opens the Challenge screen.
+class AicHomeCard extends StatelessWidget {
+  final User user;
+  final Exam exam;
+  final AicSeries series;
+  const AicHomeCard({super.key, required this.user, required this.exam, required this.series});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: Ink(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          gradient: const LinearGradient(colors: [Color(0xFFF59E0B), Color(0xFFDC2626)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+          boxShadow: const [BoxShadow(color: Color(0x40DC2626), blurRadius: 12, offset: Offset(0, 5))],
+        ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ChallengeScreen(user: user, exam: _examOf(series, exam), series: series))),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
+            child: Row(children: [
+              Container(
+                width: 40,
+                height: 40,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(color: const Color(0x3DFFFFFF), borderRadius: BorderRadius.circular(12)),
+                child: const Icon(Icons.emoji_events_rounded, color: Colors.white, size: 24),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                  Text('All India Challenge Mock', maxLines: 1, overflow: TextOverflow.ellipsis, style: baloo(17, color: Colors.white)),
+                  Text('Every ${series.day} · free · All India rank', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5, color: Colors.white, fontWeight: FontWeight.w700)),
+                ]),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(color: const Color(0xFFC9F5DC), borderRadius: BorderRadius.circular(999)),
+                child: const Text('FREE', style: TextStyle(color: Color(0xFF0B5E3F), fontSize: 11.5, fontWeight: FontWeight.w800)),
+              ),
+              const Icon(Icons.chevron_right_rounded, color: Colors.white),
+            ]),
+          ),
+        ),
+      ),
+    );
   }
 }
 
