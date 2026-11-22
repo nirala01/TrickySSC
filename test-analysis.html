@@ -1973,6 +1973,8 @@ function renderScopeSel(){
   sel.onchange=()=>{ SCOPE=sel.value; PERF_SEL=''; paintTop(); renderAll(); const a=scopeAtt()[0]; const k=a?lbKey(a):''; if(OWNED&&k&&!LB[k]) fetchRanks([a]).then(()=>{ renderAll(); paintTableRanks(); }).catch(()=>{}); };
 }
 function testUrl(a){
+  /* TSSC-AICREVIEW-V1: an All India Challenge paper (CGL Tier 2 or CHSL Tier 1) runs on the challenge engine, so its solutions and re-attempt open there too */
+  { const _am=String(a.mockId||a.paperId||'').match(/^ssc-(cgl|chsl)_aic_mock(\d+)_(en|hi)$/i); if(_am){ const _ch=_am[1].toLowerCase()==='chsl'; return 'mock-test-tier2.html?exam='+(_ch?'ssc-chsl':'ssc-cgl')+'&tier='+(_ch?'tier1':'tier2')+'&series='+_am[2]+'&lang='+_am[3].toLowerCase()+'&mockId='+encodeURIComponent(a.mockId||a.paperId); } }
   if(isChapter(a)) return (a.type==='pyq-chapter'?'pyq-chapter-test.html':'chapterwise-test.html')+'?exam='+(a.exam||'ssc-cgl')+(a.type==='pyq-chapter'&&a.tier?'&tier='+encodeURIComponent(a.tier):'')+'&subject='+encodeURIComponent(a.subject||'')+'&chapter='+encodeURIComponent(a.chapterId||a.chapter||'')+(a.type==='pyq-chapter'&&a.testNum?'&test='+encodeURIComponent(a.testNum):'');   /* TSSC-PYQCH-V1 */
   if(isMock(a)){
     if(a.testKind==='mock-subject' && a.subjectKey){ const mid=a.baseMockId||String(a.mockId||'').replace(/__[a-z]+$/i,''); return (isTier2(a)?'mock-test-tier2-subject.html':'mock-test-subject.html')+'?exam='+(a.exam||'')+'&mockId='+encodeURIComponent(mid)+'&lang='+(mid.endsWith('_hi')?'hi':'en')+'&subject='+encodeURIComponent(a.subjectKey); }   /* TSSC-SUBJECT-MOCK-V1 */
@@ -2189,6 +2191,8 @@ function bcell(v,of,col){ const w=of>0?Math.max(0,Math.min(100,v/of*100)):0; ret
 function renderNavCards(a, full){
   const sub=$('sideSub'); if(sub) sub.textContent=scopeLabel(SCOPE, full[0]);
   renderTiles(a); renderHeroRank(a); renderBreak(a); renderTimeTbl(a); renderDiff(a); renderGrid(a);
+  /* TSSC-LBLINK-V1: on the analysis of one test, the top-bar Leaderboard opens that test's own board */
+  try{ if(PAGE==='analysis'){ const _k=lbKey(a); if(_k) document.querySelectorAll('.topbar-right a[href^="rank.html"]').forEach(x=>{ x.href='rank.html?paper='+encodeURIComponent(_k)+(isChapter(a)?'&name='+encodeURIComponent(testName(a)):''); }); } }catch(e){}
   const sb=$('anSolBtn'); if(sb){ if(a.id&&answersOf(a).length&&!String(a.id).startsWith('sample')){ const u=testUrl(a); sb.href=u+(u.includes('?')?'&':'?')+'review='+encodeURIComponent(a.id); sb.style.display=''; } else sb.style.display='none'; }
 }
 function renderHeroRank(a){
