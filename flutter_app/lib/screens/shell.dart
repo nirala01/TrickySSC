@@ -172,6 +172,10 @@ class _AppShellState extends State<AppShell> {
   Future<void> _welcome(Set<String> owned) async {
     if (_welcomed == widget.user.uid) return;
     _welcomed = widget.user.uid;
+    // TSSC-INAPPUPDATE-V2: a waiting app update comes first, as a popup
+    final upd = await AppUpdater.check().timeout(const Duration(seconds: 6), onTimeout: () => false);
+    if (upd && mounted) await showUpdatePopup(context);
+    if (!mounted) return;
     if (owned.isEmpty) {
       await Billing.I.showFullAccessPopup(context, onExplore: () {
         if (mounted) setState(() => _tab = 1);

@@ -83,6 +83,58 @@ class AppUpdater {
   }
 }
 
+/// On opening the app: a popup, like the plans popup, while a newer version is waiting. Once per app open.
+Future<void> showUpdatePopup(BuildContext context) async {
+  if (_shownThisOpen) return;
+  final v = AppUpdater.available.value;
+  if (v == null) return;
+  _shownThisOpen = true;
+  await showDialog<void>(
+    context: context,
+    builder: (c) => Dialog(
+      backgroundColor: Colors.white,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 22, vertical: 24),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(18, 8, 18, 14),
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Align(alignment: Alignment.centerRight, child: IconButton(onPressed: () => Navigator.pop(c), icon: const Icon(Icons.close, color: Color(0xFF64748B)))),
+          Center(
+            child: Container(
+              width: 72,
+              height: 72,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(color: const Color(0xFFDCFCE7), borderRadius: BorderRadius.circular(22)),
+              child: const Icon(Icons.system_update_rounded, size: 40, color: Color(0xFF16A34A)),
+            ),
+          ),
+          const SizedBox(height: 12),
+          const Text('New version available', textAlign: TextAlign.center, style: TextStyle(fontSize: 23, fontWeight: FontWeight.w900, color: Color(0xFF1E1B4B))),
+          const SizedBox(height: 4),
+          Text(v > 0 ? 'Version 2.0.$v · you have $appVersion' : 'You have $appVersion',
+              textAlign: TextAlign.center, style: const TextStyle(fontSize: 13.5, color: Color(0xFF64748B), fontWeight: FontWeight.w700)),
+          const SizedBox(height: 12),
+          const Text('Update now to get the latest features and fixes. It takes less than a minute and your tests, scores and pass stay as they are.',
+              textAlign: TextAlign.center, style: TextStyle(fontSize: 14.5, height: 1.4, color: Color(0xFF334155), fontWeight: FontWeight.w600)),
+          const SizedBox(height: 16),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(c);
+              AppUpdater.update(context);
+            },
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xFF16A34A), minimumSize: const Size.fromHeight(52), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+            child: const Text('Update now', style: TextStyle(fontSize: 16.5, fontWeight: FontWeight.w900)),
+          ),
+          const SizedBox(height: 4),
+          TextButton(onPressed: () => Navigator.pop(c), child: const Text('Later', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Color(0xFF64748B)))),
+        ]),
+      ),
+    ),
+  );
+}
+
+bool _shownThisOpen = false;
+
 /// Home: a slim strip shown only while an update is waiting.
 class UpdateStrip extends StatelessWidget {
   const UpdateStrip({super.key});
