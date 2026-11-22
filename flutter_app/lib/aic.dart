@@ -182,11 +182,17 @@ final List<AicSeries> aicAll = [aicChsl, aicCgl];
 /// True when at least one series is switched on.
 bool get aicAnyOn => aicAll.any((s) => s.on);
 
+/// TSSC-AICAPP-PRACTICE-V1: the live challenge (registration, the challenge-day test) runs on the website only.
+/// The app offers each paper for practice from its result time. catalog.json "aicLiveInApp": true brings the
+/// live flow back without an app update.
+bool aicAppLive = false;
+
 /// catalog.json: "aic" is the CGL Tier 2 series, "aicChsl" the CHSL Tier 1 one.
 void aicApplyCatalog(dynamic j) {
   if (j is! Map) return;
   aicCgl.apply(j['aic']);
   aicChsl.apply(j['aicChsl']);
+  aicAppLive = j['aicLiveInApp'] == true;
 }
 
 final _idRe = RegExp(r'^(ssc-cgl|ssc-chsl)_aic_mock(\d+)(?:_|$)');

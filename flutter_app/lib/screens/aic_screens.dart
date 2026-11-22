@@ -501,12 +501,53 @@ class _AicStatusCardState extends State<AicStatusCard> with WidgetsBindingObserv
     widget.onChanged?.call();
   }
 
+  /// Practice mode (the live challenge is on the website): what the section offers and when the next paper opens.
+  Widget _practice(AicSeries se, int now) {
+    var next = 0;
+    if (AicClock.synced) {
+      for (var n = 1; se.exists(n) && n < 400; n++) {
+        if (now < se.resultAt(n)) {
+          next = n;
+          break;
+        }
+      }
+    }
+    final chsl = se.key == 'chsl';
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          gradient: LinearGradient(colors: chsl ? const [Color(0xFF7C2D12), Color(0xFFEA580C)] : const [Color(0xFF312E81), Color(0xFF6D28D9)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            const Text('🏆', style: TextStyle(fontSize: 20)),
+            const SizedBox(width: 8),
+            Expanded(child: Text('${se.name.toUpperCase()} · CHALLENGE MOCKS', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Color(0xFFFDE68A), fontSize: 11.5, letterSpacing: .4, fontWeight: FontWeight.w800))),
+          ]),
+          const SizedBox(height: 8),
+          Text('Practise the Challenge Mock papers', style: baloo(20, color: Colors.white)),
+          const SizedBox(height: 2),
+          Text(
+            'Free, with full solutions. Each paper opens here two days after its challenge day.${next > 0 ? ' Challenge Mock $next opens on ${aicWhen(se.resultAt(next))}.' : ''}',
+            style: const TextStyle(color: Color(0xF2FFFFFF), fontSize: 13.5, height: 1.35, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 6),
+          Text('The live test with All India rank is on trickyssc.com every ${se.day}.', style: const TextStyle(color: Color(0xFFFDE68A), fontSize: 12.5, fontWeight: FontWeight.w700)),
+        ]),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (!_se.on) return const SizedBox.shrink();
     final exam = widget.exam;
     final se = _se;
     final now = AicClock.now;
+    if (!aicAppLive) return _practice(se, now);
     final v = se.view(now: now, regAt: _me.regAt, submitted: _me.submitted, inProgress: _inProg);
     if (v.state == AicState.off && v.resultsRound == 0) return const SizedBox.shrink();
     final left = v.countdownTo > 0 ? aicCountdown(v.countdownTo - now) : '';
@@ -637,7 +678,7 @@ class _AicStatusCardState extends State<AicStatusCard> with WidgetsBindingObserv
 /// (registration open, live, submitted, results out). Both challenges are on it (CHSL Tier 1 and CGL Tier 2),
 /// each with its own Register button, and "Register for both" while neither is registered.
 Future<void> maybeShowAicPopup(BuildContext context, User user, Exam exam) async {
-  if (!aicAnyOn) return;
+  if (!aicAnyOn || !aicAppLive) return;
   try {
     if (!await AicClock.sync() || !AicClock.synced) return;
     final now = AicClock.now;
@@ -792,8 +833,8 @@ class AicEntryCard extends StatelessWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('All India Challenge Mock', style: baloo(17.5)),
-                    Text('Every ${series.day} · free · All India rank', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13.5, color: exam.c1, fontWeight: FontWeight.w800)),
+                    Text(aicAppLive ? 'All India Challenge Mock' : 'Challenge Mock Papers', style: baloo(17.5)),
+                    Text(aicAppLive ? 'Every ${series.day} · free · All India rank' : 'Challenge papers · free · with solutions', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13.5, color: exam.c1, fontWeight: FontWeight.w800)),
                   ]),
                 ),
                 Icon(Icons.chevron_right_rounded, color: exam.c1),
@@ -877,6 +918,12 @@ class _ChallengeScreenState extends State<ChallengeScreen> {
   /// TSSC-AICTABLE-V1 (same as the website): from three rounds back to four ahead, at most 8 rows.
   List<int> _rows(int now) {
     final se = _se;
+    if (!aicAppLive) {
+      // practice mode: the paper that opens next, then the open papers, newest first
+      final done = se.finished(now);
+      final next = done.isEmpty ? 1 : done.first + 1;
+      return [if (se.exists(next)) next, ...done];
+    }
     var cur = se.upRound(now);
     if (cur < 1) {
       final d = se.finished(now);
@@ -939,6 +986,15 @@ class _ChallengeScreenState extends State<ChallengeScreen> {
             attempt: _attempt(n),
             onReturn: _load,
           ),
+      if (!aicAppLive)
+        PCard(title: 'How it works', children: [
+          how('Every Challenge Mock paper opens here two days after its challenge day, at 9 am. Free for everyone.'),
+          how(se.paperLine),
+          how('Attempt it any number of times. Score, solutions and analysis come right after you submit.'),
+          how('Took the live test on trickyssc.com? Sign in with the same account to see your performance in it here.'),
+          how('The live test with All India rank is on the website, every ${se.day} from 9 am. Register there, free.'),
+        ]),
+      if (aicAppLive)
       PCard(title: 'How it works', children: [
         how('Free for everyone. Register once and you are in for every ${se.day} after that. This registration is only for ${se.short}.'),
         how('Registration for a ${se.day} closes at midnight the day before. Register later and you are in from the next ${se.day}.'),
@@ -1012,11 +1068,62 @@ class _ScheduleCard extends StatelessWidget {
         ]),
       );
 
+  /// Practice mode: the paper opens at its result time; no live attempt from the app.
+  Widget _practice(BuildContext context, Map<String, dynamic>? a, int start, int res) {
+    final se = series, n = round;
+    final open = now >= res;
+    final liveDone = a != null && aicLiveAtt(a);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      decoration: softCard(radius: 18),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(children: [
+          Expanded(child: Text('Challenge Mock $n', style: baloo(17.5))),
+          if (liveDone)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+              decoration: BoxDecoration(color: const Color(0xFFDDF5EA), borderRadius: BorderRadius.circular(20)),
+              child: const Text('✓ Taken live', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF0B6B49))),
+            ),
+        ]),
+        const SizedBox(height: 8),
+        _line(Icons.schedule_rounded, 'Challenge day', aicDay(start)),
+        _line(Icons.lock_open_rounded, open ? 'Open since' : 'Opens here', aicWhen(res)),
+        const SizedBox(height: 6),
+        open
+            ? _btn(a != null ? 'Attempt again' : 'Attempt test', color: const Color(0xFF0B7A55), onTap: () async {
+                await startAic(context, user, exam, se, n, live: false);
+                onReturn();
+              })
+            : _btn('Attempt test'),
+        if (!open)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text('Opens ${aicWhen(res)}', textAlign: TextAlign.center, style: const TextStyle(fontSize: 12, color: softMuted, fontWeight: FontWeight.w600)),
+          ),
+        if (open && a != null) ...[
+          const SizedBox(height: 8),
+          _btn('Performance analysis', color: const Color(0xFF1552C4), onTap: () {
+            Navigator.of(context).push(MaterialPageRoute(builder: (_) => TestAnalysisPage(x: DashCtx(user, exam, [a], scopeOf(a), 'GEN'), a: a)));
+          }),
+        ],
+        if (open && liveDone) ...[
+          const SizedBox(height: 8),
+          _btn('All India rank list', onTap: () {
+            Navigator.of(context).push(MaterialPageRoute(builder: (_) => LeaderboardScreen(exam: exam, base: se.board(n), title: se.title(n), uid: user.uid)));
+          }),
+        ],
+      ]),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final se = series, n = round;
     final a = attempt;
     final start = se.start(n), end = se.windowEnd(n), res = se.resultAt(n);
+    if (!aicAppLive) return _practice(context, a, start, res);
     final live = now >= start && now < end;
     Widget win;
     String? note;
@@ -1137,8 +1244,8 @@ class AicHomeCard extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                  Text('All India Challenge Mock', maxLines: 1, overflow: TextOverflow.ellipsis, style: baloo(17, color: Colors.white)),
-                  Text('Every ${series.day} · free · All India rank', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5, color: Colors.white, fontWeight: FontWeight.w700)),
+                  Text(aicAppLive ? 'All India Challenge Mock' : 'Challenge Mock Papers', maxLines: 1, overflow: TextOverflow.ellipsis, style: baloo(17, color: Colors.white)),
+                  Text(aicAppLive ? 'Every ${series.day} · free · All India rank' : 'Challenge papers · free · with solutions', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5, color: Colors.white, fontWeight: FontWeight.w700)),
                 ]),
               ),
               Container(
