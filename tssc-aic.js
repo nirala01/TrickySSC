@@ -110,9 +110,11 @@ export function isAicAdmin() { return ADMIN_EMAILS.includes(_admEmail()); }
 function _admShift() { if (!isAicAdmin()) return 0; try { const v = parseInt(localStorage.getItem('tssc_aic_adm') || '', 10); return isFinite(v) ? v : 0; } catch (e) { return 0; } }
 export const adminPreview = () => _admShift() !== 0;
 export const now = () => Date.now() + _skew + _admShift();
-export function syncClock() {
-  if (_skewP) return _skewP;
-  try { if (sessionStorage.getItem('tssc_aic_skew') !== null) return (_skewP = Promise.resolve(_skew)); } catch (e) {}
+/* fresh=true (used by the gate that opens a paper) always asks the server again, so a value put into this tab's
+   storage by hand cannot open a paper early */
+export function syncClock(fresh) {
+  if (_skewP && !fresh) return _skewP;
+  if (!fresh) { try { if (sessionStorage.getItem('tssc_aic_skew') !== null) return (_skewP = Promise.resolve(_skew)); } catch (e) {} }
   _skewP = (async () => {
     try {
       const t0 = Date.now();
@@ -283,7 +285,7 @@ function makeSeries(D) {
   /* ── the gate (used by mock-test-tier2.html) ──
      → { ok:true, mode:'live'|'practice', round, r, api }  or  { ok:false, screen:{ icon, title, body, cta, href } } */
   async function gate(uid, mockId) {
-    await syncClock();
+    await syncClock(true);
     const n = roundOfMock(mockId), t = now();
     const back = { cta: 'Open the All India Challenge page', href: D.page };
     if (!hasRound(n)) return { ok: false, screen: Object.assign({ icon: '📭', title: 'This challenge mock is not available', body: 'Please open the All India Challenge page for the current schedule.' }, back) };
@@ -813,6 +815,7 @@ async function paintSchedule() {
         : '<span class="aicT-btn off" title="Opens ' + fmtShort(r.start) + ', 9 am">Attempt test</span><small>Opens ' + fmtShort(r.start) + ', 9 am</small>';
       else if (live) {
         if (done) win = '<span class="aicT-btn done">✓ Submitted</span>';
+        else if (reg && reg < r.regClose && t > r.lastEntry && !S.startedAt(n, uid)) win = '<span class="aicT-btn off">Attempt test</span><small>Entry closed at ' + S.words(r).last + ' · free test from ' + fmtShort(r.resultAt) + '</small>';   /* too late to start today */
         else if (reg && reg < r.regClose) win = '<a class="aicT-btn" href="' + S.testUrl(n, 'en') + '">Attempt test →</a><small>Live now · last entry ' + S.words(r).last + '</small>';
         else win = '<span class="aicT-btn off">Attempt test</span><small>Registered students only · free mock from ' + fmtShort(r.resultAt) + '</small>';
       } else if (t < r.resultAt) win = done ? '<span class="aicT-btn done">✓ Submitted</span>' : '<span class="aicT-btn off">Attempt free test</span><small>Free test from ' + fmtShort(r.resultAt) + ', 9 am</small>';
