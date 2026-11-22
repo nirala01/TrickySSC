@@ -352,6 +352,7 @@ export const round = SERIES.cgl.round, hasRound = SERIES.cgl.hasRound, nextRound
    Any page can carry these empty holders; this file fills them. Add data-aic-series="chsl" for the CHSL series
    (without it a holder shows the CGL Tier 2 series):
      <div data-aic="hub"></div>      the big status card (challenge page)
+     <div data-aic="papers"></div>   one card per paper: live date and time, unlocks by itself (challenge page)
      <div data-aic="past"></div>     finished rounds with leaderboard and free-mock links (challenge page)
      <tbody data-aic="schedule">     the coming rounds
      <span data-aic-count>           how many students have registered
@@ -407,6 +408,12 @@ body.aic-pop-open #tsscMP{display:none!important}
 .aicPast-lb td:first-child{width:38px;font-family:'Rajdhani',sans-serif;font-weight:800;color:#7C3AED}
 .aicPast-lb td:last-child{text-align:right;font-weight:700;color:#1A202C;white-space:nowrap}
 .aicPast-btns{display:flex;flex-wrap:wrap;gap:8px}
+.aicPap-chip{display:inline-block;border-radius:100px;padding:1px 10px;font-family:'Rajdhani',sans-serif;font-weight:800;font-size:.74rem;letter-spacing:.5px;text-transform:uppercase;background:#EDE9FE;color:#5B21B6}
+.aicPap-chip.live{background:#DC2626;color:#fff}
+.aicPap-chip.wait{background:#FEF3C7;color:#92400E}
+.aicPap-line{font-size:.9rem;color:#475569;line-height:1.55;margin:6px 0 10px}
+.aicPap-line b{color:#1A202C}
+.aicPast-btns .lock{display:inline-flex;align-items:center;min-height:38px;padding:7px 13px;border-radius:10px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.9rem;border:1.5px dashed #CBD5E1;color:#64748B;background:#F8FAFC}
 .aicPast-btns a{display:inline-flex;align-items:center;min-height:38px;padding:7px 13px;border-radius:10px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.9rem;text-decoration:none;border:1.5px solid #DDD6FE;color:#5B21B6!important;background:#F5F3FF}
 .aicPast-btns a.go{background:linear-gradient(135deg,#FF6B00,#FF8C38);border-color:#FF6B00;color:#fff!important}
 .aicPast-empty{background:#fff;border:1px dashed #CBD5E1;border-radius:14px;padding:14px 16px;color:#64748B;font-size:.9rem}
@@ -646,6 +653,56 @@ async function paintPast(el) {
   el.innerHTML = '<div class="aicPast">' + cards.join('') + '</div>';
 }
 
+/* <div data-aic="papers"> — TSSC-AICPAPERS-V1 (2026-11-22): one card per challenge paper.
+   The coming paper always has a card; a later paper gets its card as soon as it is uploaded. A card shows the
+   date and time it goes live and unlocks by itself at that time (Start for registered students), then shows
+   the result time. After the result the paper moves to the results block below. */
+async function isUploaded(S, n) {
+  const k = 'tssc_aic_' + S.def.tag + 'up_' + n; const c = ssGet(k, MIN5); if (c) return !!c.v;
+  try { const x = await getDoc(doc(db, 'mock_tests', S.round(n).mockId('en'))); ssSet(k, x.exists() ? 1 : 0); return x.exists(); } catch (e) { return false; }
+}
+let _papTimer = 0;
+async function paintPapers(el) {
+  const S = holderSeries(el), D = S.def, t = now(), cur = S.nextRound(t), uid = currentUid();
+  const list = [];
+  if (cur > 1 && S.hasRound(cur - 1) && t < S.round(cur - 1).resultAt) list.push(cur - 1);
+  for (let i = 0; i < 6 && S.hasRound(cur + i); i++) if (i === 0 || await isUploaded(S, cur + i)) list.push(cur + i);
+  if (!list.length) { el.innerHTML = ''; el.hidden = true; return; }
+  const reg = uid ? await S.regAt(uid) : 0;
+  let nextFlip = 0;
+  const cards = await Promise.all(list.map(async n => {
+    const r = S.round(n), w = S.words(r);
+    let chip, cls = '', line, btns;
+    if (t < r.start) {
+      nextFlip = nextFlip ? Math.min(nextFlip, r.start) : r.start;
+      chip = 'Live on ' + fmtShort(r.start) + ' · 9 am';
+      line = 'Goes live on <b>' + fmtDay(r.start) + ' at 9 am</b> and stays open till 12 midnight (last entry ' + w.last + '). '
+        + (reg && reg < r.regClose ? 'You are registered for this paper.' : (t < r.regClose ? 'Register free before ' + w.regDay + ' midnight to take it.' : 'Registration for this paper is closed.'));
+      btns = '<span class="lock">🔒 Opens ' + fmtShort(r.start) + ', 9 am</span>';
+    } else if (t < r.end) {
+      nextFlip = nextFlip ? Math.min(nextFlip, r.end) : r.end;
+      chip = 'Live now'; cls = ' live';
+      const done = uid ? await S.participated(n, uid) : null;
+      if (done) { line = 'Your test is submitted. Result and All India rank on <b>' + fmtDay(r.resultAt) + ', 9 am</b>.'; btns = '<span class="lock">✓ Submitted</span>'; }
+      else if (reg && reg < r.regClose) {
+        line = 'Open till <b>12 midnight</b> (last entry ' + w.last + '). ' + D.paperLine;
+        const hi = await S.hasLang(n, 'hi');
+        btns = '<a class="go" href="' + S.testUrl(n, 'en') + '">Start in English →</a>' + (hi ? '<a href="' + S.testUrl(n, 'hi') + '">हिंदी में शुरू करें</a>' : '');
+      } else { line = 'Today\'s paper is for students who registered before ' + w.regDay + ' midnight. It opens for everyone as a free mock on <b>' + fmtDay(r.resultAt) + ', 9 am</b>.'; btns = '<span class="lock">🔒 Registered students only</span>'; }
+    } else {
+      nextFlip = nextFlip ? Math.min(nextFlip, r.resultAt) : r.resultAt;
+      chip = 'Result ' + fmtShort(r.resultAt) + ' · 9 am'; cls = ' wait';
+      line = 'The paper is over. Result, All India rank and solutions open on <b>' + fmtDay(r.resultAt) + ' at 9 am</b>; from then it is a free mock for everyone.';
+      btns = '<span class="lock">🕘 Result ' + fmtShort(r.resultAt) + ', 9 am</span>';
+    }
+    return '<div class="aicPast-card"><div class="aicPast-top"><h3>All India Challenge Mock ' + n + '</h3><span class="aicPap-chip' + cls + '">' + chip + '</span></div>'
+      + '<p class="aicPap-line">' + line + '</p><div class="aicPast-btns">' + btns + '</div></div>';
+  }));
+  el.innerHTML = '<div class="aicPast">' + cards.join('') + '</div>'; el.hidden = false;
+  /* unlock by itself: paint again when the next card changes state */
+  if (nextFlip && nextFlip - t < 20 * 24 * H) { clearTimeout(_papTimer); _papTimer = setTimeout(render, Math.max(1500, nextFlip - now() + 1500)); }
+}
+
 /* <tbody data-aic="schedule"> — the coming rounds (the rows typed in the page are only the no-JavaScript fallback) */
 function paintSchedule() {
   document.querySelectorAll('[data-aic="schedule"]').forEach(el => {
@@ -695,6 +752,7 @@ export function render() {
         if (st && st.kind === 'live') SERIES[k].hasLang(st.n, 'hi').then(ok => { if (!ok) document.querySelectorAll('[data-aic-hi="' + k + '"]').forEach(a => a.remove()); }); });
       document.querySelectorAll('[data-aic="past"]').forEach(el => paintPast(el).catch(() => {}));
       paintSchedule();
+      document.querySelectorAll('[data-aic="papers"]').forEach(el => paintPapers(el).catch(() => {}));
       paintCount();
       if (wantPop) maybePopup(ORDER.map(k => states[k]).filter(Boolean));
     } catch (e) { console.warn('[aic] render:', e); if (_authKnown && !_popDecided && document.body.hasAttribute('data-aic-popup')) { _popDecided = true; popSignal('none'); } }
