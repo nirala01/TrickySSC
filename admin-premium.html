@@ -87,6 +87,8 @@ font-size:.87rem;font-family:'Plus Jakarta Sans',sans-serif;outline:none;}
 .fld input:focus,.fld select:focus{border-color:#FF6B00;}
 .dlg-row{display:flex;gap:.5rem;margin-top:1rem;}
 .dlg-row button{flex:1;padding:.6rem;font-size:.9rem;}
+.daybar{font-size:.8rem;color:#475569;margin:.2rem 0 .6rem;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;}
+.daybar .act{font-weight:700;}
 .empty{color:#94A3B8;text-align:center;padding:2rem 1rem;font-size:.9rem;line-height:1.7;}
 @media(max-width:860px){table,thead,tbody,th,td,tr{display:block;}thead{display:none;}
 tr{border:1px solid #E2E8F0;border-radius:10px;padding:.55rem;margin-bottom:.6rem;}
@@ -138,6 +140,7 @@ letter-spacing:.04em;color:#94A3B8;}}
       </select>
       <select id="fCourse"><option value="">All courses</option></select>
     </div>
+    <div class="daybar" id="payDay"></div>   <!-- TSSC-TODAYONLY-V1 -->
     <table>
       <thead><tr>
         <th data-s="name">Candidate</th>
@@ -167,7 +170,8 @@ letter-spacing:.04em;color:#94A3B8;}}
       </div>
       <button class="btn" id="intentCsv">Export CSV</button>
     </div>
-    <table style="margin-top:.8rem;">
+    <div class="daybar" id="intDay" style="margin-top:.8rem;"></div>   <!-- TSSC-TODAYONLY-V1 -->
+    <table>
       <thead><tr>
         <th>Candidate</th><th>Course</th><th>Got as far as</th>
         <th>Tries</th><th>Last seen</th><th>Actions</th>
@@ -329,6 +333,16 @@ let KEYLABELS = {};       // moduleKey -> label (TSSC-ADMINKEYS-V1)
 let INTENTS = [];         // people who opened checkout
 let GRANT_TARGET = null;  // {uid, email} when granting from a row
 
+/* TSSC-TODAYONLY-V1 (2026-11-22) — both tables open on TODAY only (India time):
+   purchase rows by paid/created date, checkout rows by last seen. "Load full"
+   shows everything. The per-student profile reads (users/{uid}) are the slow
+   part of loading, so they are done for today's rows first and for the rest
+   only when Load full is pressed. The stat cards always count everything. */
+let SHOW_ALL = false;
+const TD_OFF = 330 * 60 * 1000, TD_DAY = 86400000;
+const todayStartIST = () => Math.floor((Date.now() + TD_OFF) / TD_DAY) * TD_DAY - TD_OFF;
+const rowDay = r => r.paidAt || r.createdAt || 0;
+
 /* ------------------------------------------------------------------ auth */
 $('signin').onclick = async () => {
   try { await signInWithPopup(auth, new GoogleAuthProvider()); }
@@ -437,19 +451,8 @@ async function load(force) {
        users/{uid}.name. Read that once per buyer and flag anyone whose profile
        is missing a name or still holds the "Student" placeholder. */
     try {
-      const uids = [...new Set(ROWS.map(r => r.uid).filter(Boolean))];
-      const prof = {};
-      await Promise.all(uids.map(async uid => {
-        try {
-          const u = (await getDoc(doc(db, 'users', uid))).data() || {};
-          prof[uid] = String(u.name || '').trim();
-        } catch (e) { prof[uid] = null; }             // unreadable: don't flag
-      }));
-      ROWS.forEach(r => {
-        const n = prof[r.uid];
-        r.profileName    = n || '';
-        r.profileStudent = n !== null && n !== undefined && (!n || n === 'Student');
-      });
+      const T0 = todayStartIST();                    /* TSSC-TODAYONLY-V1 */
+      await enrichProfiles(SHOW_ALL ? ROWS : ROWS.filter(r => rowDay(r) >= T0));
     } catch (e) { console.warn('users profile check skipped:', e.message); }
 
     /* TSSC-ADMINGRANT-V1 — checkout intents are a separate, small collection */
@@ -473,19 +476,8 @@ async function load(force) {
       /* TSSC-INTENT-PROFILE-V1 (2026-09-06) — an intent written from a
          phone-OTP session (or before the profile loaded) has no name/email/
          mobile. Fill the gaps from users/{uid}, which the admin may read. */
-      await Promise.all(INTENTS.map(async i => {
-        try {
-          const u = (await getDoc(doc(db, 'users', i.uid))).data();
-          if (!u) return;
-          i.name   = i.name   || u.name || u.displayName || '';
-          i.email  = i.email  || u.email || '';
-          i.mobile = i.mobile || u.phone || u.mobile || u.phoneNumber || '';
-          i.place  = i.place  || u.place || u.city || '';
-          i.review = isGoogleReview(i.email, u);
-          i.loginType = u.loginType || u.provider || u.authProvider ||
-                        (u.email ? '' : (i.mobile ? 'phone' : ''));
-        } catch (e) { /* leave the row as the intent wrote it */ }
-      }));
+      const T0 = todayStartIST();                    /* TSSC-TODAYONLY-V1 */
+      await enrichIntents(SHOW_ALL ? INTENTS : INTENTS.filter(i => (i.lastAt || 0) >= T0));
     } catch (e) {
       INTENTS = [];
       console.warn('checkoutIntents unreadable:', e.message);
@@ -505,6 +497,75 @@ async function load(force) {
   }
 }
 $('reload').onclick = () => load(true);
+
+/* TSSC-STUDENTFLAG-V1 (2026-09-24) — the name on a payment row is what the
+   buyer typed at checkout; the name they SEE on the site comes from
+   users/{uid}.name. Read that once per buyer and flag anyone whose profile
+   is missing a name or still holds the "Student" placeholder.
+   TSSC-TODAYONLY-V1 — only for the rows given, and only once per buyer
+   (profileStudent stays undefined until checked). */
+async function enrichProfiles(rows) {
+  const uids = [...new Set(rows.filter(r => r.uid && r.profileStudent === undefined).map(r => r.uid))];
+  if (!uids.length) return;
+  const prof = {};
+  await Promise.all(uids.map(async uid => {
+    try {
+      const u = (await getDoc(doc(db, 'users', uid))).data() || {};
+      prof[uid] = String(u.name || '').trim();
+    } catch (e) { prof[uid] = null; }             // unreadable: don't flag
+  }));
+  ROWS.forEach(r => {
+    if (!Object.prototype.hasOwnProperty.call(prof, r.uid)) return;
+    const n = prof[r.uid];
+    r.profileName    = n || '';
+    r.profileStudent = n !== null && (!n || n === 'Student');
+  });
+}
+
+/* TSSC-INTENT-PROFILE-V1 (2026-09-06) — an intent written from a
+   phone-OTP session (or before the profile loaded) has no name/email/
+   mobile. Fill the gaps from users/{uid}, which the admin may read.
+   TSSC-TODAYONLY-V1 — only for the intents given, once each. */
+async function enrichIntents(list) {
+  await Promise.all(list.filter(i => !i.enriched).map(async i => {
+    try {
+      const u = (await getDoc(doc(db, 'users', i.uid))).data();
+      if (!u) return;
+      i.name   = i.name   || u.name || u.displayName || '';
+      i.email  = i.email  || u.email || '';
+      i.mobile = i.mobile || u.phone || u.mobile || u.phoneNumber || '';
+      i.place  = i.place  || u.place || u.city || '';
+      i.review = isGoogleReview(i.email, u);
+      i.loginType = u.loginType || u.provider || u.authProvider ||
+                    (u.email ? '' : (i.mobile ? 'phone' : ''));
+    } catch (e) { /* leave the row as the intent wrote it */ }
+    finally { i.enriched = true; }
+  }));
+}
+
+/* TSSC-TODAYONLY-V1 — "Load full" / "Today only" under each table */
+function dayBar(id, shownN, totalN, what) {
+  const el = $(id); if (!el) return;
+  const older = totalN - shownN;
+  el.innerHTML = SHOW_ALL
+    ? `Showing all ${totalN} ${what}. <button class="act" data-showall="0">Today only</button>`
+    : `Showing <b>today</b> only — ${shownN} ${what}` +
+      (older > 0 ? ` · ${older} older hidden. <button class="act" data-showall="1">Load full</button>` : '.');
+}
+document.addEventListener('click', async e => {
+  const b = e.target && e.target.closest && e.target.closest('[data-showall]');
+  if (!b) return;
+  const on = b.getAttribute('data-showall') === '1';
+  if (!on) { SHOW_ALL = false; render(); return; }
+  document.querySelectorAll('[data-showall]').forEach(x => { x.disabled = true; x.textContent = 'Loading…'; });
+  try {
+    await enrichProfiles(ROWS);
+    await enrichIntents(INTENTS);
+    try { sessionStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), rows: ROWS })); } catch (e2) {}
+  } catch (e2) { console.warn('load full:', e2.message); }
+  SHOW_ALL = true;
+  render();
+});
 
 function afterLoad(cached) {
   const courses = [...new Set(ROWS.map(r => r.productLabel).filter(Boolean))].sort();
@@ -582,7 +643,10 @@ function whyUnpaid(r, paidUids) {
 }
 
 function render() {
-  const rows = filtered();
+  const allRows = filtered();
+  const T0 = todayStartIST();                      /* TSSC-TODAYONLY-V1 */
+  const rows = SHOW_ALL ? allRows : allRows.filter(r => rowDay(r) >= T0);
+  dayBar('payDay', rows.length, allRows.length, 'purchase record' + (allRows.length === 1 ? '' : 's'));
   const paid = ROWS.filter(r => r.status === 'paid');
   const live = paid.filter(r => r.mode === 'live');
   const now = Date.now();
@@ -623,9 +687,9 @@ function render() {
 
   $('empty').hidden = rows.length > 0;
   if (!rows.length) {
-    $('empty').textContent = ROWS.length
-      ? 'No rows match those filters.'
-      : 'Nothing here yet.';
+    $('empty').textContent = !ROWS.length ? 'Nothing here yet.'
+      : (!SHOW_ALL && allRows.length) ? 'No purchases or orders today yet — press Load full to see older ones.'
+      : 'No rows match those filters.';
   }
 
   const DAY = 86400000;
@@ -718,16 +782,21 @@ function isGoogleReview(email, u, extra) {
 }
 function renderIntents() {
   const withOrders = new Set(ROWS.map(r => r.uid).filter(Boolean));
-  const revN = INTENTS.filter(i => !withOrders.has(i.uid) && (i.review || isGoogleReview(i.email, {}))).length;
-  const rows = INTENTS
-    .filter(i => !withOrders.has(i.uid))
+  /* TSSC-TODAYONLY-V1 — today only (by last seen) until Load full */
+  const T0 = todayStartIST();
+  const pool = INTENTS.filter(i => !withOrders.has(i.uid) && (SHOW_ALL || (i.lastAt || 0) >= T0));
+  const revN = pool.filter(i => i.review || isGoogleReview(i.email, {})).length;
+  const rows = pool
     .filter(i => SHOW_REVIEW || !(i.review || isGoogleReview(i.email, {})))
     .sort((a, b) => (b.lastAt || 0) - (a.lastAt || 0));
+  const allN = INTENTS.filter(i => !withOrders.has(i.uid) && (SHOW_REVIEW || !(i.review || isGoogleReview(i.email, {})))).length;
+  dayBar('intDay', rows.length, allN, allN === 1 ? 'student' : 'students');
 
   const box = document.getElementById('intentEmpty');
   box.hidden = rows.length > 0;
   if (!rows.length) {
-    box.textContent = INTENTS.length
+    box.textContent = (!SHOW_ALL && allN) ? 'No one reached checkout without paying today — press Load full to see older ones.'
+      : INTENTS.length
       ? 'Everyone who opened checkout also has an order — nothing stuck here.'
       : 'No one has opened the unlock popup yet.';
   }
@@ -1409,9 +1478,10 @@ $('fuSave').onclick = () => {
 };
 
 /* ---- intents csv ---- */
-$('intentCsv').onclick = () => {
+$('intentCsv').onclick = async () => {
   const withOrders = new Set(ROWS.map(x => x.uid).filter(Boolean));
   const rows = INTENTS.filter(i => !withOrders.has(i.uid));
+  await enrichIntents(rows);                       /* TSSC-TODAYONLY-V1: older rows may not have names yet */
   const head = ['Name','Email','Mobile','Place','Course','Stage','Failed at','Last error','Build','Tries','Last seen','UID'];
   const cell = v => `"${String(v == null ? '' : v).replace(/"/g, '""')}"`;
   const body = rows.map(i => [i.name, i.email, i.mobile, i.place, i.courseId,
