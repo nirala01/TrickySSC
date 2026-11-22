@@ -210,8 +210,17 @@ class AicRun {
   final bool live;
   const AicRun(this.series, this.round, this.live);
   int get resultAt => series.resultAt(round);
-  Map<String, dynamic> toAttempt() => live ? {'round': round, 'live': true, 'resultAt': resultAt} : {'round': round, 'live': false};
+  Map<String, dynamic> toAttempt() => live ? {'round': round, 'live': true, 'resultAt': resultAt, if (aicPreviewOn) 'preview': true} : {'round': round, 'live': false};
 }
+
+// ------------------------------------------------------------------ the owner's test clock
+// TSSC-AICADMIN-V1 (same as the website): the owner's login may move the challenge clock on this phone to walk
+// through a round. A test taken with the clock moved is a preview: no leaderboard row, no statistics, no rating row.
+const aicAdminEmails = {'nirala01@gmail.com'};
+
+/// Milliseconds added to the server time (0 = the real date). Set only by AicClock, only for the owner's login.
+int aicAdminShift = 0;
+bool get aicPreviewOn => aicAdminShift != 0;
 
 // ------------------------------------------------------------------ hold back
 

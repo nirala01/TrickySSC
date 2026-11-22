@@ -280,10 +280,13 @@ class _AicFeedbackState extends State<AicFeedback> {
         } catch (_) {}
       }
       final id = '${p.rules.mockId}_${u.uid}';
-      try {
-        await addWithApp('mock_ratings', {...base, ...extra}, id: id);
-      } on FirebaseException catch (_) {
-        await addWithApp('mock_ratings', base, id: id); // rules that refuse the extra answers
+      if (!aicPreviewOn) {
+        // the owner's test run leaves no rating row
+        try {
+          await addWithApp('mock_ratings', {...base, ...extra}, id: id);
+        } on FirebaseException catch (_) {
+          await addWithApp('mock_ratings', base, id: id); // rules that refuse the extra answers
+        }
       }
       if (mounted) setState(() => _done = true);
     } catch (_) {
@@ -918,6 +921,7 @@ class _ChallengeScreenState extends State<ChallengeScreen> {
           ]),
         );
     return DashPage(exam: exam, title: '${se.short} Challenge', onRefresh: _load, children: [
+      if (AicClock.isAdmin) _AdminTestCard(series: se, onChanged: _load), // TSSC-AICADMIN-V1: the owner's test clock
       AicStatusCard(key: ValueKey('aic-card-${se.key}-$_v'), user: widget.user, exam: exam, series: se, onChanged: _load),
       if (!synced) emptyNote('Connect to the internet to see the schedule and the results.'),
       if (synced && rows.isNotEmpty)
@@ -935,7 +939,7 @@ class _ChallengeScreenState extends State<ChallengeScreen> {
             round: n,
             now: now,
             regAt: _me.regAt,
-            submitted: _me.submitted.contains(n) || (_attempt(n) != null && aicLiveAtt(_attempt(n)!)),
+            submitted: _me.submitted.contains(n) || (!AicClock.isForgot(se, n) && _attempt(n) != null && aicLiveAtt(_attempt(n)!)),
             attempt: _attempt(n),
             onReturn: _load,
           ),
@@ -1263,6 +1267,116 @@ class _RoundCardState extends State<_RoundCard> {
           ),
         ]),
       ],
+    );
+  }
+}
+
+/// TSSC-AICADMIN-V1 (same as the website's Admin test panel): only the owner's login sees this card.
+/// It moves the challenge clock on this phone, so a round can be walked through before its real day.
+class _AdminTestCard extends StatefulWidget {
+  final AicSeries series;
+  final Future<void> Function() onChanged;
+  const _AdminTestCard({required this.series, required this.onChanged});
+
+  @override
+  State<_AdminTestCard> createState() => _AdminTestCardState();
+}
+
+class _AdminTestCardState extends State<_AdminTestCard> {
+  late int _n;
+  bool _open = false, _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final up = widget.series.upRound(AicClock.realNow);
+    _n = up < 1 ? 1 : up;
+  }
+
+  Future<void> _set(int? target) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    await AicClock.setAdminTarget(target);
+    await widget.onChanged();
+    if (mounted) setState(() => _busy = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final se = widget.series;
+    final on = aicPreviewOn;
+    const ink = Color(0xFF7C2D12);
+    Widget b(String t, VoidCallback f) => Padding(
+          padding: const EdgeInsets.only(right: 8, bottom: 8),
+          child: OutlinedButton(
+            onPressed: _busy ? null : f,
+            style: OutlinedButton.styleFrom(
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              foregroundColor: ink,
+              side: const BorderSide(color: Color(0xFFFDBA74)),
+            ),
+            child: Text(t, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
+          ),
+        );
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+      decoration: BoxDecoration(
+        color: on ? const Color(0xFFFFF7ED) : const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: on ? const Color(0xFFFDBA74) : const Color(0xFFE2E8F0)),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        InkWell(
+          onTap: () => setState(() => _open = !_open),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(children: [
+              const Icon(Icons.build_rounded, size: 16, color: Color(0xFFB45309)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  on ? 'Admin test: clock at ${aicWhen(AicClock.now)}' : 'Admin test (only you see this)',
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: ink),
+                ),
+              ),
+              Icon(_open ? Icons.expand_less_rounded : Icons.expand_more_rounded, color: ink),
+            ]),
+          ),
+        ),
+        if (_open) ...[
+          Row(children: [
+            Text('${se.short} · Challenge Mock', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: ink)),
+            IconButton(
+              onPressed: _n > 1 ? () => setState(() => _n--) : null,
+              icon: const Icon(Icons.remove_circle_outline_rounded, size: 20),
+              visualDensity: VisualDensity.compact,
+            ),
+            Text('$_n', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: ink)),
+            IconButton(
+              onPressed: se.exists(_n + 1) ? () => setState(() => _n++) : null,
+              icon: const Icon(Icons.add_circle_outline_rounded, size: 20),
+              visualDensity: VisualDensity.compact,
+            ),
+          ]),
+          Wrap(children: [
+            b('1. Registration open', () => _set(se.start(_n) - 3 * 86400000)),
+            b('2. Challenge day, 9:05 am', () => _set(se.start(_n) + 5 * 60000)),
+            b('3. Day after', () => _set(se.windowEnd(_n) + 9 * 3600000)),
+            b('4. Result day, 9:05 am', () => _set(se.resultAt(_n) + 5 * 60000)),
+            b('Forget my attempt', () async {
+              await AicClock.setForgot(se, _n, true);
+              await _set(aicPreviewOn ? AicClock.now : null);
+            }),
+            b('Real date', () => _set(null)),
+          ]),
+          const Text(
+            'Tests taken with the clock moved are previews: no rank, no board entry, no statistics.',
+            style: TextStyle(fontSize: 11.5, color: ink, height: 1.35),
+          ),
+        ],
+      ]),
     );
   }
 }
