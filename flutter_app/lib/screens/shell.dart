@@ -696,6 +696,7 @@ class _HomeTab extends StatelessWidget {
       }
     }
     final resumeNext = next != null && resuming(next);
+    final hasAic = (exam.id == 'ssc-cgl' && aicCgl.on) || (exam.id == 'ssc-chsl' && aicChsl.on);
     String num(int v) => loaded ? '$v' : '–';
     // "View details" on each card: what is inside, in plain words
     final passLine = hasPass ? 'Your pass is active, so every one of them is open for you.' : 'Mocks 1 to ${exam.free} are free. The ${exam.name} pass opens all of them for 1 year.';
@@ -764,7 +765,9 @@ class _HomeTab extends StatelessWidget {
             const SizedBox(width: 8),
             _Stat('Attempted ›', num(done), exam, onTap: onDashboard, color: const Color(0xFFC21A55)),
           ]),
-          const SizedBox(height: 8),
+          // TSSC-AIC-HOME-V2: the Challenge Mock card takes the place of the "Start Mock" card
+          if (!hasAic) const SizedBox(height: 8),
+          if (!hasAic)
           Material(
             color: Colors.transparent,
             child: Ink(
