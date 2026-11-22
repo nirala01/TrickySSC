@@ -786,15 +786,19 @@ async function paintSchedule() {
       const r = S.round(n), live = t >= r.start && t < r.end;
       const done = (uid && t >= r.start) ? await S.participated(n, uid) : null;
       let win, res;
+      /* the Hindi paper, wherever a row offers the test (only when it is uploaded) */
+      const _adm = t < r.start && isAicAdmin();
+      const _hiOn = (_adm || (live && !done && reg && reg < r.regClose) || t >= r.resultAt) ? await S.hasLang(n, 'hi') : false;
+      const _hiA = extra => _hiOn ? '<a ' + extra + ' style="display:block;margin:6px 0 0;font-size:.85rem;font-weight:700;color:#6D28D9;text-decoration:underline;">हिंदी में दें →</a>' : '';
       if (t < r.start) win = isAicAdmin()
-        ? '<a class="aicT-btn" href="#" data-adm-go="' + S.def.key + ':' + n + '">Attempt test (admin preview) →</a><small>Only you see this · students: opens ' + fmtShort(r.start) + ', 9 am</small>'   /* TSSC-AICADMIN-V1 */
+        ? '<a class="aicT-btn" href="#" data-adm-go="' + S.def.key + ':' + n + '">Attempt test (admin preview) →</a>' + _hiA('href="#" data-adm-go="' + S.def.key + ':' + n + ':hi"') + '<small>Only you see this · students: opens ' + fmtShort(r.start) + ', 9 am</small>'   /* TSSC-AICADMIN-V1 */
         : '<span class="aicT-btn off" title="Opens ' + fmtShort(r.start) + ', 9 am">Attempt test</span><small>Opens ' + fmtShort(r.start) + ', 9 am</small>';
       else if (live) {
         if (done) win = '<span class="aicT-btn done">✓ Submitted</span>';
-        else if (reg && reg < r.regClose) win = '<a class="aicT-btn" href="' + S.testUrl(n, 'en') + '">Attempt test →</a><small>Live now · last entry ' + S.words(r).last + '</small>';
+        else if (reg && reg < r.regClose) win = '<a class="aicT-btn" href="' + S.testUrl(n, 'en') + '">Attempt test →</a>' + _hiA('href="' + S.testUrl(n, 'hi') + '"') + '<small>Live now · last entry ' + S.words(r).last + '</small>';
         else win = '<span class="aicT-btn off">Attempt test</span><small>Registered students only · free mock from ' + fmtShort(r.resultAt) + '</small>';
       } else if (t < r.resultAt) win = done ? '<span class="aicT-btn done">✓ Submitted</span>' : '<span class="aicT-btn off">Attempt free test</span><small>Free test from ' + fmtShort(r.resultAt) + ', 9 am</small>';
-      else win = '<a class="aicT-btn alt" href="' + S.testUrl(n, 'en') + '">Attempt free test →</a>';
+      else win = '<a class="aicT-btn alt" href="' + S.testUrl(n, 'en') + '">Attempt free test →</a>' + _hiA('href="' + S.testUrl(n, 'hi') + '"');
       if (t < r.resultAt) res = '<span class="aicT-btn off">Check rank &amp; leaderboard</span>';
       else res = '<a class="aicT-btn" href="' + (done ? S.resultUrl(n, done) : '/rank.html?paper=' + encodeURIComponent(r.board) + '&name=' + encodeURIComponent(S.def.name + ' All India Challenge Mock ' + n)) + '">Check rank &amp; leaderboard →</a>';
       rows.push('<tr><td><b>Challenge Mock ' + n + '</b>' + (live ? ' <span style="color:#DC2626;font-weight:700;">· live now</span>' : '') + '</td>'
@@ -990,7 +994,7 @@ document.addEventListener('click', e => {
   lsSet('tssc_aic_adm', String(Math.round(S.round(n).start + 5 * 60000 - (Date.now() + _skew))));
   lsSet('tssc_aic_adm_sel', JSON.stringify({ s: S.def.key, n }));
   try { localStorage.removeItem(K + 'done_' + n + '_' + uid); localStorage.removeItem(K + 'start_' + n + '_' + uid); } catch (e2) {}
-  location.href = S.testUrl(n, 'en');
+  location.href = S.testUrl(n, p[2] === 'hi' ? 'hi' : 'en');
 });
 authReady.then(() => { const go = () => adminBar(); if (document.body) go(); else document.addEventListener('DOMContentLoaded', go); });
 try { onAuthStateChanged(auth, () => { if (document.body) adminBar(); }); } catch (e) {}
