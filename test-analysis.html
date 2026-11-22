@@ -2027,7 +2027,7 @@ window.tsscProInit = async function(attempts, uid){
   ATT = (attempts||[]).slice().sort((a,b)=>tsOf(b)-tsOf(a));
   UID = uid||'';
   /* TSSC-DASHSCOPE-V1: analyse the exam the student took LAST (chapter, subject-wise or full) */
-  if(PAGE==='analysis' && !SEL_ID){ const _aq=new URLSearchParams(location.search).get('aic'), _as=(new URLSearchParams(location.search).get('aics')||'cgl').toLowerCase(); const _ax=_aq?ATT.find(a=>a.aic&&a.aic.live&&String(a.aic.round)===_aq&&((/^ssc-chsl_/i.test(String(a.mockId||''))?'chsl':'cgl')===_as)):null; if(_ax) SEL_ID=_ax.id; }   /* TSSC-AIC-V1 */
+  if(PAGE==='analysis' && !SEL_ID){ const _aq=new URLSearchParams(location.search).get('aic'), _as=(new URLSearchParams(location.search).get('aics')||'cgl').toLowerCase(); const _ax=_aq?ATT.find(a=>a.aic&&a.aic.live&&String(a.aic.round)===_aq&&((/^ssc-chsl_/i.test(String(a.mockId||''))?'chsl':'cgl')===_as)):null; if(_ax) SEL_ID=_ax.id; else if(_aq&&/^\d+$/.test(_aq)&&!(window.__aicHeld||[]).some(h=>h&&h.aic&&String(h.aic.round)===_aq)){ location.replace('rank.html?paper='+encodeURIComponent('ssc-'+(_as==='chsl'?'chsl':'cgl')+'_aic_mock'+_aq)); } }   /* TSSC-AIC-V1 — no attempt of that round on this account: show the round's leaderboard instead */
   if(PAGE==='analysis' && ATT.length){ if(!ATT.some(a=>a.id===SEL_ID)) SEL_ID=ATT[0].id; SCOPE=scopeOf(cur()); }
   else if(!SCOPE || !ATT.some(a=>scopeOf(a)===SCOPE)) SCOPE = ATT.length ? scopeOf(ATT[0]) : '';
   renderScopeSel();

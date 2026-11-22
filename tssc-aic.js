@@ -776,7 +776,7 @@ async function paintPapers(el) {
 /* <tbody data-aic="schedule"> — the coming rounds (the rows typed in the page are only the no-JavaScript fallback) */
 /* TSSC-AICTABLE-V1 (2026-11-22): every row carries its own buttons.
    Mock window: "Attempt test" — live for students registered in time; blurred for everyone else; after the paper
-   it turns into "Attempt free test" from the result time. Result: "Check rank & leaderboard", blurred until 9 am. */
+   it turns into "Attempt free test" from the result time. Result: "View complete analysis", blurred until 9 am. */
 async function paintSchedule() {
   for (const el of document.querySelectorAll('[data-aic="schedule"]')) {
     const S = holderSeries(el), t = now(), cur = S.nextRound(t), uid = currentUid();
@@ -795,8 +795,10 @@ async function paintSchedule() {
         else win = '<span class="aicT-btn off">Attempt test</span><small>Registered students only · free mock from ' + fmtShort(r.resultAt) + '</small>';
       } else if (t < r.resultAt) win = done ? '<span class="aicT-btn done">✓ Submitted</span>' : '<span class="aicT-btn off">Attempt free test</span><small>Free test from ' + fmtShort(r.resultAt) + ', 9 am</small>';
       else win = '<a class="aicT-btn alt" href="' + S.testUrl(n, 'en') + '">Attempt free test →</a>';
-      if (t < r.resultAt) res = '<span class="aicT-btn off">Check rank &amp; leaderboard</span>';
-      else res = '<a class="aicT-btn" href="' + (done ? S.resultUrl(n, done) : '/rank.html?paper=' + encodeURIComponent(r.board) + '&name=' + encodeURIComponent(S.def.name + ' All India Challenge Mock ' + n)) + '">Check rank &amp; leaderboard →</a>';
+      if (t < r.resultAt) res = '<span class="aicT-btn off">View complete analysis</span>';
+      /* a logged-in candidate always goes to the analysis of this round (it sends anyone who did not take the round on to the
+         leaderboard) — the attempt may have been made on another device, where this browser has no record of it */
+      else res = '<a class="aicT-btn" href="' + (uid ? S.resultUrl(n, done) : '/rank.html?paper=' + encodeURIComponent(r.board) + '&name=' + encodeURIComponent(S.def.name + ' All India Challenge Mock ' + n)) + '">View complete analysis →</a>';
       rows.push('<tr><td><b>Challenge Mock ' + n + '</b>' + (live ? ' <span style="color:#DC2626;font-weight:700;">· live now</span>' : '') + '</td>'
         + '<td>' + fmtShort(r.regClose - 60000) + ', 11:59 pm</td>'
         + '<td class="aicT-cell">' + fmtShort(r.start) + ', 9 am – 12 midnight<br>' + win + (S.def.key === 'cgl' ? '<span class="aicT-time">⏱ 30 · 30 · 40 · 20 · 15 min, part by part</span>' : (S.def.key === 'chsl' ? '<span class="aicT-time">⏱ 15 · 15 · 15 · 15 min, part by part</span>' : '')) + '</td>'
