@@ -786,7 +786,9 @@ async function paintSchedule() {
       const r = S.round(n), live = t >= r.start && t < r.end;
       const done = (uid && t >= r.start) ? await S.participated(n, uid) : null;
       let win, res;
-      if (t < r.start) win = '<span class="aicT-btn off" title="Opens ' + fmtShort(r.start) + ', 9 am">Attempt test</span><small>Opens ' + fmtShort(r.start) + ', 9 am</small>';
+      if (t < r.start) win = isAicAdmin()
+        ? '<a class="aicT-btn" href="#" data-adm-go="' + S.def.key + ':' + n + '">Attempt test (admin preview) →</a><small>Only you see this · students: opens ' + fmtShort(r.start) + ', 9 am</small>'   /* TSSC-AICADMIN-V1 */
+        : '<span class="aicT-btn off" title="Opens ' + fmtShort(r.start) + ', 9 am">Attempt test</span><small>Opens ' + fmtShort(r.start) + ', 9 am</small>';
       else if (live) {
         if (done) win = '<span class="aicT-btn done">✓ Submitted</span>';
         else if (reg && reg < r.regClose) win = '<a class="aicT-btn" href="' + S.testUrl(n, 'en') + '">Attempt test →</a><small>Live now · last entry ' + S.words(r).last + '</small>';
@@ -980,6 +982,16 @@ function adminBar() {
     });
   } catch (e) { console.warn('[aic] admin bar', e && e.message); }
 }
+/* the schedule's "Attempt test (admin preview)" button: set the clock to that round's challenge morning and open the paper */
+document.addEventListener('click', e => {
+  const b = e.target.closest && e.target.closest('[data-adm-go]'); if (!b || !isAicAdmin()) return;
+  e.preventDefault();
+  const p = String(b.getAttribute('data-adm-go')).split(':'), S = SERIES[p[0]] || SERIES.cgl, n = parseInt(p[1], 10) || 1, uid = currentUid(), K = 'tssc_aic_' + S.def.tag;
+  lsSet('tssc_aic_adm', String(Math.round(S.round(n).start + 5 * 60000 - (Date.now() + _skew))));
+  lsSet('tssc_aic_adm_sel', JSON.stringify({ s: S.def.key, n }));
+  try { localStorage.removeItem(K + 'done_' + n + '_' + uid); localStorage.removeItem(K + 'start_' + n + '_' + uid); } catch (e2) {}
+  location.href = S.testUrl(n, 'en');
+});
 authReady.then(() => { const go = () => adminBar(); if (document.body) go(); else document.addEventListener('DOMContentLoaded', go); });
 try { onAuthStateChanged(auth, () => { if (document.body) adminBar(); }); } catch (e) {}
 
