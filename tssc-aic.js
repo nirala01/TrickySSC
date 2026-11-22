@@ -101,7 +101,15 @@ const DEFS = {
    changing the date. If the check fails the device clock is used as it is. */
 let _skew = 0, _skewP = null;
 try { const s = parseInt(sessionStorage.getItem('tssc_aic_skew') || '', 10); if (isFinite(s)) _skew = s; } catch (e) {}
-export const now = () => Date.now() + _skew;
+/* TSSC-AICADMIN-V1 — admin test mode. The owner's login may move the challenge clock (this browser only) to walk
+   through the whole cycle of any uploaded round: registration, challenge day, the wait, result day. A test taken
+   this way is a PREVIEW: it is never written to the All India board, the paper's statistics or the ratings. */
+const ADMIN_EMAILS = ['nirala01@gmail.com'];
+function _admEmail() { try { return String((auth.currentUser && auth.currentUser.email) || (JSON.parse(localStorage.getItem('tssc_user') || 'null') || {}).email || '').toLowerCase(); } catch (e) { return ''; } }
+export function isAicAdmin() { return ADMIN_EMAILS.includes(_admEmail()); }
+function _admShift() { if (!isAicAdmin()) return 0; try { const v = parseInt(localStorage.getItem('tssc_aic_adm') || '', 10); return isFinite(v) ? v : 0; } catch (e) { return 0; } }
+export const adminPreview = () => _admShift() !== 0;
+export const now = () => Date.now() + _skew + _admShift();
 export function syncClock() {
   if (_skewP) return _skewP;
   try { if (sessionStorage.getItem('tssc_aic_skew') !== null) return (_skewP = Promise.resolve(_skew)); } catch (e) {}
@@ -921,6 +929,60 @@ document.addEventListener('click', e => {
 });
 
 /* ───────────────────────── start ───────────────────────── */
+/* ───────────────────────── admin test bar (TSSC-AICADMIN-V1) ───────────────────────── */
+function adminBar() {
+  try {
+    if (!isAicAdmin() || document.getElementById('aicAdm')) return;
+    const mid = new URLSearchParams(location.search).get('mockId') || '';
+    let sk = 'cgl', rn = 0;
+    try { const o = JSON.parse(lsGet('tssc_aic_adm_sel') || 'null'); if (o && SERIES[o.s]) { sk = o.s; rn = parseInt(o.n, 10) || 0; } } catch (e) {}
+    if (isAicId(mid)) { sk = /^ssc-chsl_/i.test(mid) ? 'chsl' : 'cgl'; rn = roundOfMock(mid); }
+    else if (!rn && /chsl/i.test(location.pathname)) sk = 'chsl';
+    if (!rn) rn = SERIES[sk].nextRound(Date.now() + _skew);
+    const on = adminPreview();
+    const el = document.createElement('div'); el.id = 'aicAdm';
+    el.style.cssText = 'position:fixed;left:10px;bottom:10px;z-index:2147483000;font:600 12px/1.4 system-ui,Segoe UI,Arial,sans-serif;color:#fff;';
+    const fmt = ms => new Date(ms).toLocaleString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' });
+    const btn = (k, t) => '<button data-adm="' + k + '" style="display:block;width:100%;margin:4px 0 0;padding:7px 9px;border:0;border-radius:7px;background:#334155;color:#fff;font:600 12px system-ui;text-align:left;cursor:pointer;">' + t + '</button>';
+    el.innerHTML = '<button data-adm="toggle" style="padding:7px 11px;border:0;border-radius:999px;background:' + (on ? '#B45309' : '#0F172A') + ';color:#fff;font:700 12px system-ui;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.3);">&#128736; Admin test' + (on ? ': clock at ' + fmt(now()) : '') + '</button>'
+      + '<div data-adm-panel style="display:none;margin-top:6px;width:250px;padding:10px;border-radius:12px;background:#0F172A;box-shadow:0 8px 24px rgba(0,0,0,.35);">'
+      + '<div style="font-weight:700;margin-bottom:6px;">Walk through a challenge round</div>'
+      + '<div style="display:flex;gap:6px;align-items:center;"><select data-adm-s style="flex:1;padding:5px;border-radius:6px;border:0;font:600 12px system-ui;"><option value="cgl"' + (sk === 'cgl' ? ' selected' : '') + '>CGL Tier 2</option><option value="chsl"' + (sk === 'chsl' ? ' selected' : '') + '>CHSL Tier 1</option></select>'
+      + '<span>Mock</span><input data-adm-n type="number" min="1" value="' + rn + '" style="width:52px;padding:5px;border-radius:6px;border:0;font:600 12px system-ui;"></div>'
+      + btn('reg', '1. Registration open (3 days before)')
+      + btn('live', '2. Challenge day, 9:05 am')
+      + btn('wait', '3. Day after (waiting for result)')
+      + btn('result', '4. Result day, 9:05 am')
+      + btn('paper', 'Open the paper (English)')
+      + btn('paperhi', 'Open the paper (Hindi)')
+      + btn('page', 'Open the challenge page')
+      + btn('reset', 'Forget my test attempt of this mock')
+      + btn('real', 'Back to the real date')
+      + '<div style="margin-top:7px;font-weight:500;color:#CBD5E1;">Only your login sees this. Tests taken with the clock moved are previews: no rank, no board entry, no statistics.</div></div>';
+    document.body.appendChild(el);
+    const panel = el.querySelector('[data-adm-panel]');
+    const sel = () => { const s = el.querySelector('[data-adm-s]').value, n = Math.max(1, parseInt(el.querySelector('[data-adm-n]').value, 10) || 1); lsSet('tssc_aic_adm_sel', JSON.stringify({ s, n })); return { S: SERIES[s], n, r: SERIES[s].round(n) }; };
+    const setClock = t => { lsSet('tssc_aic_adm', String(Math.round(t - (Date.now() + _skew)))); try { sessionStorage.removeItem('tssc_aic_skew'); } catch (e) {} };
+    el.addEventListener('click', e => {
+      const b = e.target.closest('[data-adm]'); if (!b) return; const k = b.getAttribute('data-adm');
+      if (k === 'toggle') { panel.style.display = panel.style.display === 'none' ? 'block' : 'none'; return; }
+      const c = sel(), uid = currentUid(), K = 'tssc_aic_' + c.S.def.tag;
+      if (k === 'reg') setClock(c.r.start - 3 * 24 * H);
+      else if (k === 'live') setClock(c.r.start + 5 * 60000);
+      else if (k === 'wait') setClock(c.r.end + 9 * H);
+      else if (k === 'result') setClock(c.r.resultAt + 5 * 60000);
+      else if (k === 'real') { try { localStorage.removeItem('tssc_aic_adm'); } catch (e2) {} }
+      else if (k === 'reset') { try { localStorage.removeItem(K + 'done_' + c.n + '_' + uid); localStorage.removeItem(K + 'start_' + c.n + '_' + uid); } catch (e2) {} }
+      else if (k === 'paper' || k === 'paperhi') { location.href = c.S.testUrl(c.n, k === 'paperhi' ? 'hi' : 'en'); return; }
+      else if (k === 'page') { location.href = c.S.def.page; return; }
+      try { Object.keys(sessionStorage).forEach(x => { if (/^tssc_aic_/.test(x)) sessionStorage.removeItem(x); }); } catch (e2) {}
+      location.reload();
+    });
+  } catch (e) { console.warn('[aic] admin bar', e && e.message); }
+}
+authReady.then(() => { const go = () => adminBar(); if (document.body) go(); else document.addEventListener('DOMContentLoaded', go); });
+try { onAuthStateChanged(auth, () => { if (document.body) adminBar(); }); } catch (e) {}
+
 window.tsscAic = { SERIES, seriesByKey, seriesOfMock, CFG, round, nextRound, isAicId, roundOfMock, testUrl, now, syncClock, regAt, register, participated,
   markStarted, markDone, startedAt, resultUrl, gate, render, fmtDay, openPop };
 function boot() {

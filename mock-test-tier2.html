@@ -1786,7 +1786,7 @@ async function aicAllowed(uid){
     const mod=await import('./tssc-aic.js');
     const g=await mod.gate(uid,new URLSearchParams(location.search).get('mockId')||'');
     if(!g.ok){ aicScreen(g.screen); return false; }
-    AIC_CTX={mode:g.mode,round:g.round,r:g.r,mod:g.api||mod};   /* g.api = this paper's series (CGL or CHSL) */
+    AIC_CTX={mode:g.mode,round:g.round,r:g.r,mod:g.api||mod,preview:!!(mod.adminPreview&&mod.adminPreview())};   /* TSSC-AICADMIN-V1: preview = the owner's test run with the clock moved */   /* g.api = this paper's series (CGL or CHSL) */
     return true;
   }catch(e){
     console.warn('[aic] gate failed:',e&&e.message);
@@ -2723,10 +2723,11 @@ window.submitRating=async function(){
     if(_fb){
       /* the attempt record is the store of record; mock_ratings gets the extra answers too when its rules accept them */
       try{ if(lastResultPayload&&lastResultPayload.attemptId) setDoc(doc(db,'attempts',lastResultPayload.attemptId),{uid:currentUser.uid,feedback:{stars:_rateStars,difficulty:_rateDiff||'',..._fb,at:new Date().toISOString()}},{merge:true}).catch(()=>{}); }catch(_){}
+      if(!(AIC_CTX&&AIC_CTX.preview)){   /* TSSC-AICADMIN-V1 */
       try{ await setDoc(doc(db,'mock_ratings',rid),{..._rBase,..._fb},{merge:true}); }
-      catch(e1){ await setDoc(doc(db,'mock_ratings',rid),_rBase,{merge:true}); }
+      catch(e1){ await setDoc(doc(db,'mock_ratings',rid),_rBase,{merge:true}); } }
       const fbEl=document.getElementById('aicFb'); if(fbEl) fbEl.style.display='none';
-    }else
+    }else if(!(AIC_CTX&&AIC_CTX.preview))
     await setDoc(doc(db,'mock_ratings',rid),_rBase,{merge:true});
     const sn=document.getElementById('rcStars'); if(sn) sn.style.display='none';
     const dn=document.getElementById('rcDiff'); if(dn) dn.style.display='none';
@@ -3225,6 +3226,7 @@ window.submitTest=async()=>{
   const maxMarks = questions.length * MARK_CORRECT;
   const pct = parseFloat(((parseFloat(marks)/maxMarks)*100).toFixed(1));
   const _aicLive=!!(AIC_CTX&&AIC_CTX.mode==='live'&&!REVIEW_ID), _aicPractice=!!(AIC_CTX&&AIC_CTX.mode==='practice'&&!REVIEW_ID);   /* TSSC-AIC-V1 */
+  const _aicPreview=!!(AIC_CTX&&AIC_CTX.preview);   /* TSSC-AICADMIN-V1: nothing of a preview run reaches the board, the statistics or the ratings */
   if(_aicLive){ try{ aicHoldScreen(); }catch(e){ console.warn('[aic] hold',e); } }
   document.getElementById('testScreen').style.display='none';
   document.getElementById('resultScreen').style.display='block';
@@ -3358,6 +3360,7 @@ window.imgFail = function (el) {
   /* TSSC-AIC-V1 — live: the attempt is held back on the dashboard and analysis page until resultAt.
      practice (after the result): a normal free-mock attempt that is NOT added to the All India rank. */
   if(_aicLive) payload.aic={round:AIC_CTX.round,live:true,resultAt:AIC_CTX.r.resultAt};
+  if(_aicPreview&&payload.aic) payload.aic.preview=true;
   else if(_aicPractice) payload.aic={round:AIC_CTX.round,live:false};
   // Leaderboard: record best score for this paper (non-blocking) + reveal Rank button
   const _lbId=_pid||_mid;
@@ -3365,7 +3368,7 @@ window.imgFail = function (el) {
   // same paper/mock share ONE ranking (drop a trailing hi/en/hindi/english).
   const _lbBase=String(_lbId||'').replace(/([_\-])(hi|en|hindi|english)$/i,'');
   if(_lbId){
-    if(!_aicPractice) recordScore({uid:currentUser.uid,displayName:currentUser?.displayName,paperId:_lbBase,paperName:_examLabel,marks:parseFloat(marks),maxMarks:maxMarks,accuracy:pct,subjectMarks:_subjMarks,timeUsed:_timeUsed}).catch(()=>{});   /* TSSC-AIC-V1: the challenge board holds live attempts only */
+    if(!_aicPractice&&!_aicPreview) recordScore({uid:currentUser.uid,displayName:currentUser?.displayName,paperId:_lbBase,paperName:_examLabel,marks:parseFloat(marks),maxMarks:maxMarks,accuracy:pct,subjectMarks:_subjMarks,timeUsed:_timeUsed}).catch(()=>{});   /* TSSC-AIC-V1: the challenge board holds live attempts only */
     const _rb=document.getElementById('viewRankBtn');
     if(_rb){_rb.dataset.rgHref='rank.html?paper='+encodeURIComponent(_lbBase)+'&from=test';}   /* TSSC-RANKGATE-V1: shown by rgApply() */
   }
@@ -3382,11 +3385,11 @@ window.imgFail = function (el) {
   /* TSSC-QSTATS-V1 — per-question tallies for the dashboard's 'My performance' card:
      qstats/{paper} = { n: candidates, q: { <qNum>: { a: attempted, c: correct, ts: total seconds, tn: timed candidates } } }.
      One merged write per submit, never awaited, errors ignored (needs a qstats rule). */
-  try{ if(_lbBase){ const _qs={}; _ansLog.forEach(x=>{ const _t=Math.max(0,Math.round(Number(x.t)||0)); _qs['q'+x.q]={a:increment(x.r==='k'?0:1),c:increment(x.r==='c'?1:0),ts:increment(_t),tn:increment(_t>0?1:0)}; });   /* TSSC-QTIME-V1: ts = total seconds, tn = candidates who spent time on it (avg = ts/tn) */
+  try{ if(_lbBase&&!_aicPreview){ const _qs={}; _ansLog.forEach(x=>{ const _t=Math.max(0,Math.round(Number(x.t)||0)); _qs['q'+x.q]={a:increment(x.r==='k'?0:1),c:increment(x.r==='c'?1:0),ts:increment(_t),tn:increment(_t>0?1:0)}; });   /* TSSC-QTIME-V1: ts = total seconds, tn = candidates who spent time on it (avg = ts/tn) */
     setDoc(doc(db,'qstats',_lbBase),{n:increment(1),total:questions.length,updatedAt:serverTimestamp(),q:_qs},{merge:true}).catch(()=>{}); } }catch(e){}
   /* TSSC-TOPPER-V1 — qstats/{paper}.top = the best attempt so far (higher marks, then less time): per question
      r + seconds ("c43", "w12", "k0") for the solutions screen's Topper row. Separate write, never awaited. */
-  try{ if(_lbBase&&!_aicPractice){ const _tm=parseFloat(marks)||0, _tu=Number(_timeUsed)||0, _tl=_ansLog.slice();   /* TSSC-AIC-V1: the topper is a live candidate */
+  try{ if(_lbBase&&!_aicPractice&&!_aicPreview){ const _tm=parseFloat(marks)||0, _tu=Number(_timeUsed)||0, _tl=_ansLog.slice();   /* TSSC-AIC-V1: the topper is a live candidate */
     getDoc(doc(db,'qstats',_lbBase)).then(sn=>{ const tp=sn.exists()?((sn.data()||{}).top||null):null;
       if(tp&&(Number(tp.m)>_tm||(Number(tp.m)===_tm&&Number(tp.tu)>0&&Number(tp.tu)<=_tu))) return;
       const tq={}; _tl.forEach(x=>{ tq['q'+x.q]=String(x.r||'k')+Math.max(0,Math.round(Number(x.t)||0)); });

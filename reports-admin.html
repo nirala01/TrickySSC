@@ -544,7 +544,7 @@ window.loadAicFeedback = async function(){
     let found=0, added=0;
     for(const id of ids){
       const sn=await getDocs(query(collection(db,'attempts'), where('mockId','==',id)));
-      sn.forEach(d=>{ const a=d.data(), f=a.feedback; if(!f) return; found++;
+      sn.forEach(d=>{ const a=d.data(), f=a.feedback; if(!f||(a.aic&&a.aic.preview)) return; found++;   /* an owner's preview run is not student feedback */
         const row=RATINGS.find(r=>r.mockId===id && r.uid===a.uid);
         if(row){ ['hardPart','timeShort','issue','comment','aicRound'].forEach(k=>{ if(row[k]==null||row[k]===''||(Array.isArray(row[k])&&!row[k].length)) row[k]=f[k]; }); }
         else{ RATINGS.push({id:'attempt:'+d.id, mockId:id, uid:a.uid||'', name:a.userName||a.name||'', stars:f.stars||0, difficulty:f.difficulty||'', testName:a.examName||'',
