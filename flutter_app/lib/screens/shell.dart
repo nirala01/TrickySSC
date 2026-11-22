@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import '../billing.dart';
@@ -350,6 +351,18 @@ class _AppShellState extends State<AppShell> {
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 0,
         automaticallyImplyLeading: false,
+        // TSSC-HOME-TILES-V1: purple header on the Home tab
+        foregroundColor: _tab == 0 ? Colors.white : null,
+        iconTheme: _tab == 0 ? const IconThemeData(color: Colors.white) : null,
+        systemOverlayStyle: _tab == 0 ? SystemUiOverlayStyle.light : null,
+        flexibleSpace: _tab == 0
+            ? Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(colors: [Color(0xFF6D28D9), Color(0xFF4C1D95)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                  borderRadius: BorderRadius.vertical(bottom: Radius.circular(22)),
+                ),
+              )
+            : null,
         leading: IconButton(
           tooltip: _tab == 0 ? 'Change exam' : 'Back',
           icon: const Icon(Icons.arrow_back_rounded),
@@ -365,9 +378,9 @@ class _AppShellState extends State<AppShell> {
             child: Row(mainAxisSize: MainAxisSize.min, children: [
               Icon3D(exam.icon3d, size: 32),
               const SizedBox(width: 8),
-              Flexible(child: Text(exam.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: baloo(_tab == 0 ? 21 : 24))),
+              Flexible(child: Text(exam.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: _tab == 0 ? baloo(21, color: Colors.white) : baloo(24))),
               const SizedBox(width: 2),
-              Icon(Icons.expand_more, size: 24, color: exam.c1),
+              Icon(Icons.expand_more, size: 24, color: _tab == 0 ? Colors.white : exam.c1),
             ]),
           ),
         ),
@@ -580,18 +593,21 @@ class _PassCard extends StatelessWidget {
   final String title;
   final String sub;
   final VoidCallback onTap;
-  const _PassCard({required this.exam, required this.hasPass, required this.price, required this.title, required this.sub, required this.onTap});
+  final bool plain;
+  const _PassCard({required this.exam, required this.hasPass, required this.price, required this.title, required this.sub, required this.onTap, this.plain = false});
 
   @override
   Widget build(BuildContext context) {
     return Material(
       color: Colors.transparent,
       child: Ink(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24),
-          gradient: LinearGradient(colors: [Color.lerp(exam.c1, Colors.white, 0.22)!, exam.c1], begin: Alignment.topLeft, end: Alignment.bottomRight),
-          boxShadow: [BoxShadow(color: exam.c1.withValues(alpha: .28), blurRadius: 22, offset: const Offset(0, 10))],
-        ),
+        decoration: plain
+            ? softCard(radius: 20, glow: const Color(0xFF6D28D9))
+            : BoxDecoration(
+                borderRadius: BorderRadius.circular(24),
+                gradient: LinearGradient(colors: [Color.lerp(exam.c1, Colors.white, 0.22)!, exam.c1], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                boxShadow: [BoxShadow(color: exam.c1.withValues(alpha: .28), blurRadius: 22, offset: const Offset(0, 10))],
+              ),
         child: InkWell(
           borderRadius: BorderRadius.circular(24),
           onTap: onTap,
@@ -600,16 +616,16 @@ class _PassCard extends StatelessWidget {
             child: Row(children: [
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: baloo(20, color: Colors.white)),
+                  Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: plain ? baloo(19) : baloo(20, color: Colors.white)),
                   const SizedBox(height: 2),
-                  Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Color(0xEEFFFFFF), fontSize: 14, fontWeight: FontWeight.w600)),
+                  Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: plain ? softMuted : const Color(0xEEFFFFFF), fontSize: 14, fontWeight: FontWeight.w600)),
                 ]),
               ),
               const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
-                child: Text(hasPass ? '✓ Active' : (price == null ? 'Unlock' : 'Unlock ₹$price'), style: TextStyle(color: exam.c1, fontWeight: FontWeight.w900, fontSize: 14.5)),
+                decoration: BoxDecoration(color: !plain ? Colors.white : (hasPass ? const Color(0xFFDDF5EA) : const Color(0xFF6D28D9)), borderRadius: BorderRadius.circular(plain ? 999 : 14)),
+                child: Text(hasPass ? '✓ Active' : (price == null ? 'Unlock' : 'Unlock ₹$price'), style: TextStyle(color: !plain ? exam.c1 : (hasPass ? const Color(0xFF0B6B49) : Colors.white), fontWeight: FontWeight.w900, fontSize: 14.5)),
               ),
             ]),
           ),
@@ -738,14 +754,15 @@ class _HomeTab extends StatelessWidget {
             title: '${exam.name} Mock Pass',
             sub: '${exam.mocks} · Hindi & English · valid 1 year',
             onTap: () => hasPass ? onMocks() : onSoon('Buying a pass'),
+            plain: true,
           ),
           const SizedBox(height: 8),
           Row(children: [
-            _Stat('Mocks live', num(live), exam),
+            _Stat('Mocks live', num(live), exam, color: const Color(0xFF1552C4)),
             const SizedBox(width: 8),
-            _Stat(hasPass ? 'Unlocked' : 'Free for you', num(open), exam),
+            _Stat(hasPass ? 'Unlocked' : 'Free for you', num(open), exam, color: const Color(0xFF0B7A55)),
             const SizedBox(width: 8),
-            _Stat('Attempted ›', num(done), exam, onTap: onDashboard),
+            _Stat('Attempted ›', num(done), exam, onTap: onDashboard, color: const Color(0xFFC21A55)),
           ]),
           const SizedBox(height: 8),
           Material(
@@ -789,17 +806,17 @@ class _HomeTab extends StatelessWidget {
             child: Column(children: [
               Expanded(
                 child: Row(children: [
-                  _Tile('target', 'Mock tests', exam.mocks, exam.c1, onMocks, details: dMocks, tag: hasPass ? const SoftTag.premium() : SoftTag('${exam.free} FREE', const Color(0xFF047857), const Color(0xFFD1FAE5))),
+                  _Tile('target', 'Mock tests', exam.mocks, const Color(0xFF1552C4), onMocks, details: dMocks, glyph: Icons.track_changes_rounded, g1: const Color(0xFF2F7BEA), g2: const Color(0xFF1552C4), tag: hasPass ? const SoftTag('PREMIUM', Color(0xFF6B4A00), Color(0xFFFDE68A)) : SoftTag('${exam.free} FREE', const Color(0xFF0B5E3F), const Color(0xFFC9F5DC))),
                   const SizedBox(width: 8),
-                  _Tile('paper', 'Previous year papers', 'Real exam papers', exam.c1, onPyq, details: dPyq, tag: const SoftTag.free()),
+                  _Tile('paper', 'PYQs', 'Real exam papers', const Color(0xFF5B2BD1), onPyq, details: dPyq, glyph: Icons.description_outlined, g1: const Color(0xFF8B5CF6), g2: const Color(0xFF5B2BD1), tag: const SoftTag('FREE', Color(0xFF0B5E3F), Color(0xFFC9F5DC))),
                 ]),
               ),
               const SizedBox(height: 8),
               Expanded(
                 child: Row(children: [
-                  _Tile('book', 'Chapter tests', '2 levels', exam.c1, onChapters, details: dChap, tag: const SoftTag.free()),
+                  _Tile('book', 'Chapter tests', '2 levels', const Color(0xFFD2560A), onChapters, details: dChap, glyph: Icons.layers_outlined, g1: const Color(0xFFF58A1F), g2: const Color(0xFFD2560A), tag: const SoftTag('FREE', Color(0xFF0B5E3F), Color(0xFFC9F5DC))),
                   const SizedBox(width: 8),
-                  _Tile('folder', 'Chapter PYQs', 'Real questions', exam.c1, onChapterPyq, details: dChapPyq, tag: const SoftTag.free()),
+                  _Tile('folder', 'Chapter PYQs', 'Real questions', const Color(0xFF0B7A55), onChapterPyq, details: dChapPyq, glyph: Icons.menu_book_rounded, g1: const Color(0xFF19A974), g2: const Color(0xFF0B7A55), tag: const SoftTag('FREE', Color(0xFF0B5E3F), Color(0xFFC9F5DC))),
                 ]),
               ),
               const SizedBox(height: 8),
@@ -807,10 +824,10 @@ class _HomeTab extends StatelessWidget {
                 child: Row(children: [
                   // TSSC-SM-APP-V1: an exam with no subject mocks (RRB Station Master) shows no Subject mocks tile
                   if (exam.hasSubjectMocks) ...[
-                    _Tile('puzzle', 'Subject mocks', 'Sectional', exam.c1, onSubjects, details: dSub, tag: hasPass ? const SoftTag.premium() : SoftTag('${exam.free} FREE', const Color(0xFF047857), const Color(0xFFD1FAE5))),
+                    _Tile('puzzle', 'Subject mocks', 'Sectional', const Color(0xFFC21A55), onSubjects, details: dSub, glyph: Icons.dashboard_customize_outlined, g1: const Color(0xFFF0477B), g2: const Color(0xFFC21A55), tag: hasPass ? const SoftTag('PREMIUM', Color(0xFF6B4A00), Color(0xFFFDE68A)) : SoftTag('${exam.free} FREE', const Color(0xFF0B5E3F), const Color(0xFFC9F5DC))),
                     const SizedBox(width: 8),
                   ],
-                  _Tile('news', 'Current affairs', 'Daily · Topic-wise', exam.c1, onCa, details: dCa, tag: const SoftTag.free()),
+                  _Tile('news', 'Current affairs', 'Daily · Topic-wise', const Color(0xFF4A22B3), onCa, details: dCa, glyph: Icons.emoji_events_outlined, g1: const Color(0xFF7C4DE8), g2: const Color(0xFF4A22B3), tag: const SoftTag('FREE', Color(0xFF0B5E3F), Color(0xFFC9F5DC))),
                 ]),
               ),
             ]),
@@ -826,7 +843,8 @@ class _Stat extends StatelessWidget {
   final String value;
   final Exam exam;
   final VoidCallback? onTap;
-  const _Stat(this.label, this.value, this.exam, {this.onTap});
+  final Color? color;
+  const _Stat(this.label, this.value, this.exam, {this.onTap, this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -835,7 +853,7 @@ class _Stat extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
         decoration: softCard(radius: 18),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(value, style: baloo(25, color: exam.c1)),
+          Text(value, style: baloo(25, color: color ?? exam.c1)),
           Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13.5, color: softMuted, fontWeight: FontWeight.w700)),
         ]),
       )),
@@ -851,7 +869,9 @@ class _Tile extends StatelessWidget {
   final VoidCallback onTap;
   final Widget? tag;
   final List<String>? details;
-  const _Tile(this.icon, this.title, this.sub, this.accent, this.onTap, {this.tag, this.details});
+  final IconData glyph;
+  final Color g1, g2;
+  const _Tile(this.icon, this.title, this.sub, this.accent, this.onTap, {this.tag, this.details, required this.glyph, required this.g1, required this.g2});
 
   void _showDetails(BuildContext context) {
     showModalBottomSheet<void>(
@@ -866,7 +886,7 @@ class _Tile extends StatelessWidget {
             Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: const Color(0xFFE2E8F0), borderRadius: BorderRadius.circular(4)))),
             const SizedBox(height: 14),
             Row(children: [
-              Container(width: 48, height: 48, alignment: Alignment.center, decoration: softWell(), child: Icon3D(icon, size: 36)),
+              Container(width: 48, height: 48, alignment: Alignment.center, decoration: BoxDecoration(borderRadius: BorderRadius.circular(14), gradient: LinearGradient(colors: [g1, g2], begin: Alignment.topLeft, end: Alignment.bottomRight)), child: Icon(glyph, color: Colors.white, size: 28)),
               const SizedBox(width: 12),
               Expanded(child: Text(title, style: baloo(21))),
               if (tag != null) tag!,
@@ -901,37 +921,55 @@ class _Tile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // TSSC-HOME-TILES-V1: colour tile, white icon in a soft box, white text
     return Expanded(
       child: Material(
         color: Colors.transparent,
         child: Ink(
-          decoration: softCard(radius: 22),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(22),
+            gradient: LinearGradient(colors: [g1, g2], begin: Alignment.topLeft, end: Alignment.bottomRight),
+            boxShadow: [BoxShadow(color: g2.withValues(alpha: .28), blurRadius: 14, offset: const Offset(0, 6))],
+          ),
           child: InkWell(
             borderRadius: BorderRadius.circular(22),
             onTap: onTap,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Container(width: 56, height: 56, alignment: Alignment.center, decoration: softWell(), child: Icon3D(icon, size: 42)),
-                  const Spacer(),
-                  if (tag != null) tag!,
-                ]),
-                const Spacer(),
-                Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: baloo(18)),
-                const SizedBox(height: 2),
-                Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                  Expanded(child: Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 14, color: accent, fontWeight: FontWeight.w800))),
-                  if (details != null)
-                    InkWell(
-                      borderRadius: BorderRadius.circular(8),
-                      onTap: () => _showDetails(context),
-                      child: const Padding(
-                        padding: EdgeInsets.fromLTRB(6, 4, 0, 0),
-                        child: Text('View details ›', style: TextStyle(fontSize: 12, color: softMuted, fontWeight: FontWeight.w800, decoration: TextDecoration.underline)),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(22),
+              child: Stack(children: [
+                Positioned(
+                  right: -28,
+                  bottom: -28,
+                  child: Container(width: 100, height: 100, decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0x1FFFFFFF))),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 12, 12, 10),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Container(
+                        width: 48,
+                        height: 48,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(color: const Color(0x3DFFFFFF), borderRadius: BorderRadius.circular(14)),
+                        child: Icon(glyph, color: Colors.white, size: 28),
                       ),
-                    ),
-                ]),
+                      const Spacer(),
+                      if (tag != null) tag!,
+                    ]),
+                    const Spacer(),
+                    Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: baloo(18, color: Colors.white)),
+                    Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13.5, color: Colors.white, fontWeight: FontWeight.w700)),
+                    if (details != null)
+                      InkWell(
+                        borderRadius: BorderRadius.circular(8),
+                        onTap: () => _showDetails(context),
+                        child: const Padding(
+                          padding: EdgeInsets.fromLTRB(0, 3, 8, 2),
+                          child: Text('View details ›', style: TextStyle(fontSize: 12.5, color: Colors.white, fontWeight: FontWeight.w800)),
+                        ),
+                      ),
+                  ]),
+                ),
               ]),
             ),
           ),
