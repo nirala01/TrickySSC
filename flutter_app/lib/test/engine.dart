@@ -885,8 +885,7 @@ Future<void> saveResult(User u, Exam exam, Paper p, Progress pr, Result r) async
   // leaderboard: best score only. All India Challenge: the board is live attempts only, so the free mock
   // taken after the result writes no row; a live attempt tries three times, because that row is the proof of "submitted".
   final aicFree = p.aic != null && !p.aic!.live;
-  final aicPrev = p.aic != null && aicPreviewOn; // the owner's test run: nothing goes to the board or the statistics
-  if (!aicFree && !aicPrev) {
+  if (!aicFree) {
     String name = 'Student';
     try {
       final us = await db.collection('users').doc(u.uid).get();
@@ -925,7 +924,7 @@ Future<void> saveResult(User u, Exam exam, Paper p, Progress pr, Result r) async
   }
 
   // per-question tallies and the topper row
-  if (!aicPrev) try {
+  try {
     final qs = <String, dynamic>{};
     for (final x in log) {
       final t = (x['t'] as int);

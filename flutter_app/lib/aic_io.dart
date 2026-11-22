@@ -21,59 +21,10 @@ class AicClock {
   static Future<bool>? _busy;
 
   /// Server time now, or null when it has not been read yet.
-  static int? get nowOrNull => _base == null ? null : _base! + _sw.elapsedMilliseconds + aicAdminShift;
-
-  // ---- TSSC-AICADMIN-V1: the owner's test clock ----
-  static const _admKey = 'tssc_aic_adm_shift', _forgotKey = 'tssc_aic_adm_forgot';
-  static bool _admLoaded = false;
-
-  /// Rounds whose preview attempts the owner asked to forget ("chsl:1"), so the round can be taken again.
-  static final Set<String> forgot = {};
-
-  static bool get isAdmin => aicAdminEmails.contains((FirebaseAuth.instance.currentUser?.email ?? '').toLowerCase());
-
-  /// The server time without the owner's shift.
-  static int get realNow => now - aicAdminShift;
-
-  static Future<void> loadAdmin({bool again = false}) async {
-    if (_admLoaded && !again) return;
-    _admLoaded = true;
-    aicAdminShift = 0;
-    forgot.clear();
-    if (!isAdmin) return;
-    try {
-      final p = await SharedPreferences.getInstance();
-      aicAdminShift = p.getInt(_admKey) ?? 0;
-      forgot.addAll(p.getStringList(_forgotKey) ?? const <String>[]);
-    } catch (_) {}
-  }
-
-  /// Moves the clock to [targetMs] (null = back to the real date). Does nothing for any other login.
-  static Future<void> setAdminTarget(int? targetMs) async {
-    if (!isAdmin) return;
-    aicAdminShift = targetMs == null ? 0 : targetMs - realNow;
-    try {
-      final p = await SharedPreferences.getInstance();
-      if (aicAdminShift == 0) {
-        await p.remove(_admKey);
-      } else {
-        await p.setInt(_admKey, aicAdminShift);
-      }
-    } catch (_) {}
-  }
-
-  static Future<void> setForgot(AicSeries se, int round, bool on) async {
-    final k = '${se.key}:$round';
-    if (on ? !forgot.add(k) : !forgot.remove(k)) return;
-    try {
-      await (await SharedPreferences.getInstance()).setStringList(_forgotKey, forgot.toList());
-    } catch (_) {}
-  }
-
-  static bool isForgot(AicSeries se, int round) => forgot.contains('${se.key}:$round');
+  static int? get nowOrNull => _base == null ? null : _base! + _sw.elapsedMilliseconds;
 
   /// Server time when it is known; the phone's clock only until the first reading arrives.
-  static int get now => nowOrNull ?? DateTime.now().millisecondsSinceEpoch + aicAdminShift;
+  static int get now => nowOrNull ?? DateTime.now().millisecondsSinceEpoch;
 
   static bool get synced => _base != null;
 
@@ -84,7 +35,6 @@ class AicClock {
   }
 
   static Future<bool> _read() async {
-    await loadAdmin();
     if (_fake.isNotEmpty) {
       final f = DateTime.tryParse(_fake);
       if (f != null) {
@@ -160,7 +110,7 @@ Future<AicMe> aicCached(AicSeries se, String uid) async {
     final p = await SharedPreferences.getInstance();
     final r = p.getInt(_regKey(se, uid));
     final s = {for (final x in (p.getStringList(_subKey(se, uid)) ?? const <String>[])) int.tryParse(x) ?? 0}..remove(0);
-    return AicMe(r, {...s, ...liveR}..removeWhere((n) => AicClock.isForgot(se, n)));
+    return AicMe(r, {...s, ...liveR});
   } catch (_) {
     return AicMe(null, {...liveR});
   }
@@ -198,13 +148,11 @@ Future<AicMe> aicLoadMe(AicSeries se, String uid, List<int> rounds) async {
     }
     await p.setStringList(_subKey(se, uid), [for (final n in sub) '$n']);
   } catch (_) {}
-  sub.removeWhere((n) => AicClock.isForgot(se, n)); // the owner asked to take this round again
   return AicMe(reg, sub);
 }
 
 /// Marks a round as submitted on this phone at once (the leaderboard row is the proof for other devices).
 Future<void> aicMarkSubmitted(AicSeries se, String uid, int round) async {
-  await AicClock.setForgot(se, round, false);
   (aicLiveRounds[se.key] ??= {}).add(round);
   try {
     final p = await SharedPreferences.getInstance();
