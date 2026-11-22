@@ -1611,6 +1611,10 @@ const TG_IS_AIC      = /^ssc-(cgl|chsl)_aic_mock\d+/i.test(new URLSearchParams(l
 /* TSSC-AIC-V2 (2026-11-21) — the SSC CHSL Tier 1 All India Challenge paper (ssc-chsl_aic_mockN) also runs here: real Tier 1
    pattern, ONE 60-minute clock for the whole paper (no sectional timing), +2 / -0.5. */
 const TG_IS_AICT1    = /^ssc-chsl_aic_mock\d+/i.test(new URLSearchParams(location.search).get('mockId')||'');
+/* TSSC-T2TIME-V1 (2026-11-22) — the regular SSC CGL Tier II mocks (ssc-cgl_tier2_mockN) now run on the SSC CGL 2026 timing too:
+   five separately timed parts, 30-30-40-20-15, in paper order, no going back. CHSL Tier 2 and Paper II / III are unchanged. */
+const TG_IS_CGLT2    = /^ssc-cgl_tier2_mock\d+/i.test(new URLSearchParams(location.search).get('mockId')||'');
+const T2_FIVE        = TG_IS_CGLT2 || (TG_IS_AIC && !TG_IS_AICT1);
 const AIC_NAME       = TG_IS_AICT1 ? 'SSC CHSL Tier 1' : 'SSC CGL Tier 2';
 const AIC_PAGE       = TG_IS_AICT1 ? 'ssc-chsl-tier-1-all-india-challenge-mock.html' : 'ssc-cgl-tier-2-all-india-challenge-mock.html';
 let AIC_CTX=null;    /* { mode:'live'|'practice', round, r, mod } once the challenge gate has let the student in */
@@ -1814,6 +1818,21 @@ function aicT1Mode(){
   if(li4) li4.innerHTML='All four parts are open from the start; nothing is locked.';
   const li2=[...document.querySelectorAll('.instr-list li')].find(x=>/timed sections/.test(x.textContent));
   if(li2) li2.innerHTML='SSC CHSL Tier 1 pattern: <strong>'+questions.length+' questions, '+(questions.length*2)+' marks, 60 minutes</strong>, 25 questions in each of the four parts.';
+}
+/* TSSC-T2TIME-V1: instructions for every paper on the 30-30-40-20-15 timing (regular CGL Tier II mocks and the CGL challenge) */
+function t2FiveApplyUi(){
+  if(!T2_FIVE) return;
+  const lis=[...document.querySelectorAll('.instr-list li')];
+  const l0=lis.find(x=>/sectional test/.test(x.textContent));
+  if(l0) l0.innerHTML='<span style="display:block;background:#FEF3C7;border:1.5px solid #F59E0B;border-radius:8px;padding:8px 10px;color:#78350F;"><strong>&#9201; New SSC CGL 2026 timing.</strong> Five separate clocks, in this order: <strong>Maths 30 min</strong>, <strong>Reasoning 30 min</strong>, <strong>English 40 min</strong>, <strong>General Awareness 20 min</strong>, <strong>Computer 15 min</strong> &mdash; <strong>135 minutes</strong> in total. Time saved in one part is <strong>not</strong> carried to the next.</span>';
+  const l1=lis.find(x=>/Submit Section/.test(x.textContent));
+  if(l1) l1.innerHTML='You can move freely <strong>within the open part</strong>. Once you click <strong>Submit Section</strong> (or its clock reaches zero), that part is <strong>locked permanently</strong> and the next part opens. You cannot go back.';
+  const li=lis.find(x=>/timed sections/.test(x.textContent));
+  if(li) li.innerHTML='This paper follows the <strong>new SSC CGL 2026 Tier II sectional timing</strong>: <strong>Maths 30 min</strong>, <strong>Reasoning 30 min</strong>, <strong>English 40 min</strong>, <strong>General Awareness 20 min</strong> and <strong>Computer 15 min</strong>. Each part has its own clock; when its time is over the next part opens and you cannot go back.';
+  const li2=lis.find(x=>/within the active section/.test(x.textContent));
+  if(li2) li2.innerHTML='Only <strong>one part is open at a time</strong>. Parts you have not reached, and parts already submitted, are <strong>locked</strong> (shown with 🔒).';
+  const qn=document.querySelector('#tsscQS .tqs-note');
+  if(qn&&!TG_IS_AIC) qn.innerHTML='<strong style="color:#B45309;">&#9201; New SSC CGL 2026 timing:</strong> Maths 30 &middot; Reasoning 30 &middot; English 40 &middot; GA 20 &middot; Computer 15 min. You cannot go back to a part.';
 }
 function aicApplyUi(){
   if(!TG_IS_AIC) return;
@@ -2200,6 +2219,7 @@ async function loadTest(){
     tsscApplyPaperMode();   /* TSSC-T2PAPER-V1 */
     try{ aicT1Mode(); }catch(_){}   /* TSSC-AIC-V2 */
     buildSections();buildTimedSections();buildSectionBar();buildGrid();
+    try{ t2FiveApplyUi(); }catch(_){}   /* TSSC-T2TIME-V1 */
     try{ aicApplyUi(); }catch(_){}   /* TSSC-AIC-V1 */
     document.getElementById('qNumTotal').textContent=questions.length;
     document.getElementById('qNumCurrent').textContent='1';
@@ -2798,11 +2818,11 @@ function buildTimedSections(){
   let cur=null;
   sections.forEach(s=>{
     let ph=SUBJECT_PHASE[s.name];
-    if(TG_IS_AIC&&!TG_IS_AICT1){ ph=AIC_MODULES.findIndex(m=>m.re.test((s.name||'')+' '+(s.label||''))); if(ph<0) ph=undefined; }   /* TSSC-AIC-V1: 30-30-40-20-15 */
+    if(T2_FIVE){ ph=AIC_MODULES.findIndex(m=>m.re.test((s.name||'')+' '+(s.label||''))); if(ph<0) ph=undefined; }   /* TSSC-AIC-V1: 30-30-40-20-15 */
     if(TG_IS_AICT1) ph=0;   /* TSSC-AIC-V2: CHSL Tier 1 = one clock for the whole paper */
     if(ph===undefined) ph=(cur?cur.phase:timedSections.length); // unknown subject joins current phase
     if(!cur||cur.phase!==ph){
-      const meta=(TG_IS_AICT1?{name:'Full paper',dur:60*60}:(TG_IS_AIC?AIC_MODULES[ph]:PHASE_META[ph]))||{name:'Section '+(timedSections.length+1),dur:60*60};
+      const meta=(TG_IS_AICT1?{name:'Full paper',dur:60*60}:(T2_FIVE?AIC_MODULES[ph]:PHASE_META[ph]))||{name:'Section '+(timedSections.length+1),dur:60*60};
       cur={phase:ph,from:s.from,to:s.to,name:meta.name,dur:meta.dur};
       timedSections.push(cur);
     }else{

@@ -140,7 +140,7 @@ class Rules {
         gd = ex?.partD ?? false,
         tier2 = mockId.contains('_tier2_') || mockId.startsWith('ssc-cgl_aic_'),
         aic = mockId.contains('_aic_'),
-        aicParts = mockId.startsWith('ssc-cgl_aic_'),
+        aicParts = mockId.startsWith('ssc-cgl_aic_') || (RegExp(r'^ssc-cgl_tier2_mock\d').hasMatch(mockId) && !mockId.contains('__')),   // from 22 Nov 2026 the regular CGL Tier 2 mocks too
         paper = mockId.contains('_paper2_') || mockId.contains('_paper3_');
 
   static String _n(double v) => v == v.roundToDouble() ? '${v.round()}' : ((v * 3 - 1).abs() < 1e-9 ? '1/3' : v.toStringAsFixed(2));
@@ -162,7 +162,7 @@ class Rules {
     if (mockId.startsWith('cw_') || mockId.startsWith('cwp_')) return 'One chapter test of 25 questions. Choose a 15-minute clock or untimed practice below.';
     if (paper) return 'One paper on a single 2-hour clock. Move freely between the parts.';
     if (aic && !aicParts) return 'One 60-minute clock for the whole paper. Move freely between the sections.';
-    if (aicParts) return 'Five separately timed parts, in order: Maths 30 min, Reasoning 30, English 40, General Awareness 20, Computer 15. You cannot go back to a finished part.';
+    if (aicParts) return 'New SSC CGL 2026 timing. Five separately timed parts, in order: Maths 30 min, Reasoning 30, English 40, General Awareness 20, Computer 15. You cannot go back to a finished part.';
     if (tier2) return 'Section I (Maths + Reasoning) 60 min, Section II (English + GA) 60 min, Section III (Computer) 15 min. Move freely inside the open section.';
     final note = (ex?.timingNote ?? '').isEmpty ? '' : ' ${ex!.timingNote}';
     final min = ex?.unitMin ?? 15;

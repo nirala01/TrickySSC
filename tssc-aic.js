@@ -417,6 +417,9 @@ body.aic-pop-open #tsscMP{display:none!important}
 .aicPap-side .aicB-ok{min-height:46px;font-size:1rem}
 .aicPap-side .aicB-btn.ghost{min-height:42px;font-size:.92rem}
 .aicPap-side .aicPap-note{font-size:.8rem;color:#F5F3FF;text-align:center;line-height:1.4;margin:0}
+.aicPap-time{margin:.55rem 0 0;padding:.45rem .65rem;background:#FEF3C7;border:1.5px solid #F59E0B;border-radius:8px;color:#78350F;font-size:.84rem;line-height:1.45;font-weight:600}
+.aicPap-time b{color:#B45309}
+.aicT-time{display:block;margin-top:.3rem;color:#B45309;font-weight:700;font-size:.74rem;line-height:1.3}
 @media(max-width:720px){.aicPap-row{flex-direction:column;gap:12px}.aicPap-side{flex:0 0 auto}}
 .aicT-btn{box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;margin-top:6px;width:210px;max-width:100%;height:36px;padding:0 10px;border-radius:9px;font-family:'Rajdhani',sans-serif;font-weight:800;font-size:.9rem;text-decoration:none;white-space:nowrap;border:0;background:linear-gradient(135deg,#FF6B00,#FF8C38);color:#fff!important;box-shadow:0 4px 12px rgba(255,107,0,.25)}
 .aicT-btn.alt{background:linear-gradient(135deg,#6D28D9,#8B5CF6);box-shadow:0 4px 12px rgba(109,40,217,.25)}
@@ -748,10 +751,12 @@ async function paintPapers(el) {
       cd = cdHtml(r.resultAt) + '<p class="aicPap-cdl">Result in</p>';
       sideHtml = done ? '<span class="aicB-ok">✓ Test submitted</span>' : side(n, r);
     }
+    /* TSSC-T2TIME-V1: say the timing right at the Start / Register button of the CGL Tier 2 paper */
+    const timeHtml = D.key === 'cgl' ? '<p class="aicPap-time">⏱ <b>New SSC CGL 2026 timing:</b> Maths 30 · Reasoning 30 · English 40 · GA 20 · Computer 15 min. Each part has its own clock and locks when its time ends. You cannot go back.</p>' : '';
     return '<div class="aicB aicPap' + cls + '" style="margin:0"><div class="aicPap-row"><div class="aicPap-main">'
       + '<div class="aicPap-top"><span class="aicPap-chip">' + chip + '</span><span class="aicPap-name">' + D.name + ' · All India Challenge Mock ' + n + '</span></div>'
       + '<div class="aicPap-h">' + head + '</div><div class="aicPap-when">' + when + '</div>' + cd
-      + '<p class="aicPap-line">' + line + '</p>' + (lock ? '<div class="aicPap-btns">' + lock + '</div>' : '') + '</div>'
+      + '<p class="aicPap-line">' + line + '</p>' + timeHtml + (lock ? '<div class="aicPap-btns">' + lock + '</div>' : '') + '</div>'
       + '<div class="aicPap-side">' + sideHtml + '</div></div></div>';
   }));
   el.innerHTML = '<div class="aicPap-list">' + cards.join('') + '</div>'; el.hidden = false;
@@ -784,7 +789,7 @@ async function paintSchedule() {
       else res = '<a class="aicT-btn" href="' + (done ? S.resultUrl(n, done) : '/rank.html?paper=' + encodeURIComponent(r.board) + '&name=' + encodeURIComponent(S.def.name + ' All India Challenge Mock ' + n)) + '">Check rank &amp; leaderboard →</a>';
       rows.push('<tr><td><b>Challenge Mock ' + n + '</b>' + (live ? ' <span style="color:#DC2626;font-weight:700;">· live now</span>' : '') + '</td>'
         + '<td>' + fmtShort(r.regClose - 60000) + ', 11:59 pm</td>'
-        + '<td class="aicT-cell">' + fmtShort(r.start) + ', 9 am – 12 midnight<br>' + win + '</td>'
+        + '<td class="aicT-cell">' + fmtShort(r.start) + ', 9 am – 12 midnight<br>' + win + (S.def.key === 'cgl' ? '<span class="aicT-time">⏱ 30 · 30 · 40 · 20 · 15 min, part by part</span>' : '') + '</td>'
         + '<td class="aicT-cell">' + fmtShort(r.resultAt) + ', 9 am<br>' + res + '</td></tr>');
     }
     if (rows.length) el.innerHTML = rows.join('');
