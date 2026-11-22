@@ -11,6 +11,7 @@ import '../aic.dart';
 import '../aic_io.dart';
 import '../data.dart';
 import '../test/engine.dart';
+import '../test/leaderboard.dart';
 import '../test/test_screen.dart';
 import '../ui/soft.dart';
 import 'dash/analysis.dart';
@@ -839,6 +840,7 @@ class _ScheduleCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final se = series, n = round;
+    final a = attempt;
     final start = se.start(n), end = se.windowEnd(n), res = se.resultAt(n);
     final live = now >= start && now < end;
     Widget win;
@@ -871,20 +873,22 @@ class _ScheduleCard extends StatelessWidget {
     } else {
       win = _btn(attempt != null && !aicLiveAtt(attempt!) ? 'Attempt again' : 'Attempt free test', onTap: () => go(false), color: const Color(0xFF0B7A55));
     }
-    final a = attempt;
+    // TSSC-AICTABLE-V2: rank and leaderboard on one button, the student's own analysis on another
     final rank = now < res
         ? _btn('Check rank & leaderboard')
         : _btn('Check rank & leaderboard', onTap: () {
-            if (a != null) {
-              Navigator.of(context).push(MaterialPageRoute(builder: (_) => TestAnalysisPage(x: DashCtx(user, exam, [a], scopeOf(a), 'GEN'), a: a)));
-            } else {
-              Navigator.of(context).push(MaterialPageRoute(
-                builder: (_) => DashPage(exam: exam, title: 'Challenge Mock $n', children: [
-                  _RoundCard(user: user, exam: exam, series: se, round: n, auto: true, attempt: null, onReturn: onReturn),
-                ]),
-              ));
-            }
+            Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => LeaderboardScreen(exam: exam, base: se.board(n), title: se.title(n), uid: user.uid),
+            ));
           });
+    final perf = now < res || a == null
+        ? _btn('Performance analysis')
+        : _btn('Performance analysis', color: const Color(0xFF1552C4), onTap: () {
+            Navigator.of(context).push(MaterialPageRoute(builder: (_) => TestAnalysisPage(x: DashCtx(user, exam, [a], scopeOf(a), 'GEN'), a: a)));
+          });
+    final perfNote = now < res
+        ? 'Analysis and solutions from ${aicWhen(res)}'
+        : (a == null ? 'Attempt the test to see your analysis' : null);
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
@@ -912,6 +916,13 @@ class _ScheduleCard extends StatelessWidget {
           ),
         const SizedBox(height: 8),
         rank,
+        const SizedBox(height: 8),
+        perf,
+        if (perfNote != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(perfNote, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12, color: softMuted, fontWeight: FontWeight.w600)),
+          ),
       ]),
     );
   }
