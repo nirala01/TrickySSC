@@ -2673,68 +2673,91 @@ function renderPerf(full){
 /* ───────── shareable report card (PNG) ───────── */
 /* ───────── TSSC-ANCH-V1 — "Share my scorecard": an image of ONE test (test-analysis.html) ─────────
    Phones get the share sheet (WhatsApp, Telegram …) through navigator.share; elsewhere the PNG is downloaded. */
+/* TSSC-CARDMODAL-V1 — a scorecard / report-card image opens in a preview with Download and (on phones) Share buttons.
+   Nothing is downloaded or shared until the candidate presses a button. */
+function cardModal(c,fname,title,text){
+  let url=''; try{ url=c.toDataURL('image/png'); }catch(e){ return; }
+  const old=document.getElementById('cardModal'); if(old) old.remove();
+  const m=document.createElement('div'); m.id='cardModal';
+  m.style.cssText='position:fixed;inset:0;z-index:9000;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:14px;';
+  const btn='font-family:Rajdhani,sans-serif;font-weight:700;font-size:1rem;border-radius:10px;padding:.6rem 1.1rem;cursor:pointer;';
+  m.innerHTML='<div style="background:#fff;border-radius:18px;max-width:440px;width:100%;max-height:96vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(15,23,42,.35);">'
+    +'<div style="display:flex;align-items:center;justify-content:space-between;padding:.75rem 1rem;border-bottom:1px solid #F1F5F9;"><b style="font-family:Rajdhani,sans-serif;font-size:1.1rem;color:#1A202C;">'+title+'</b><button type="button" data-cm="x" aria-label="Close" style="border:0;background:#F1F5F9;border-radius:50%;width:30px;height:30px;font-size:1.1rem;cursor:pointer;color:#475569;">&times;</button></div>'
+    +'<div style="padding:.8rem 1rem;overflow:auto;background:#F8FAFC;text-align:center;"><img alt="'+title+'" src="'+url+'" style="max-width:100%;height:auto;border-radius:12px;border:1px solid #E2E8F0;"></div>'
+    +'<div style="display:flex;gap:.6rem;flex-wrap:wrap;justify-content:center;padding:.8rem 1rem;border-top:1px solid #F1F5F9;">'
+    +'<button type="button" data-cm="dl" style="'+btn+'border:0;background:linear-gradient(135deg,#FF6B00,#FF8C38);color:#fff;">Download image</button>'
+    +'<button type="button" data-cm="sh" style="'+btn+'border:1.5px solid #FFD9B8;background:#fff;color:#FF6B00;display:none;">Share</button>'
+    +'<button type="button" data-cm="x" style="'+btn+'border:1.5px solid #E2E8F0;background:#fff;color:#475569;">Close</button></div></div>';
+  document.body.appendChild(m);
+  const close=()=>m.remove();
+  const save=()=>{ const l=document.createElement('a'); l.download=fname; l.href=url; document.body.appendChild(l); l.click(); l.remove(); };
+  let file=null;
+  try{ c.toBlob(b=>{ try{ file=b&&window.File?new File([b],fname,{type:'image/png'}):null;
+      if(file&&navigator.canShare&&navigator.canShare({files:[file]})&&matchMedia('(pointer:coarse)').matches){ const s=m.querySelector('[data-cm="sh"]'); if(s) s.style.display=''; } }catch(e){} },'image/png'); }catch(e){}
+  m.addEventListener('click',e=>{ const b=e.target.closest('[data-cm]'); const k=b&&b.getAttribute('data-cm');
+    if(k==='x'||e.target===m){ close(); return; }
+    if(k==='dl'){ save(); return; }
+    if(k==='sh'&&file){ try{ navigator.share({files:[file],title:title,text:text}).catch(()=>{}); }catch(e2){ save(); } } });
+}
 function scoreCard(a){
   const c=document.createElement('canvas'); c.width=1080; c.height=1350; const g=c.getContext('2d');
   const rr=(x,y,w,h,r)=>{ g.beginPath(); if(g.roundRect) g.roundRect(x,y,w,h,r); else g.rect(x,y,w,h); g.fill(); };
-  g.fillStyle='#0F172A'; g.fillRect(0,0,1080,1350);
+  g.fillStyle='#FFFBF5'; g.fillRect(0,0,1080,1350);
   const grd=g.createLinearGradient(0,0,1080,0); grd.addColorStop(0,'#FF6B00'); grd.addColorStop(1,'#FF8C38'); g.fillStyle=grd; g.fillRect(0,0,1080,14);
   const name=($('profileName')?.textContent||'Student'); const L=lostBreakdown(a); const mx=maxOf(a); const v=LB[lbKey(a)]; const r=rankOf(v);
-  g.fillStyle='#fff'; g.font='bold 54px "Baloo 2", sans-serif'; g.fillText('TrickySSC scorecard',60,108);
-  g.fillStyle='#FDBA74'; g.font='bold 32px Rajdhani, sans-serif'; g.fillText(name+(tsOf(a)?'  ·  '+new Date(tsOf(a)).toLocaleDateString('en-IN',{day:'numeric',month:'long',year:'numeric'}):''),60,160);
+  g.fillStyle='#1A202C'; g.font='bold 54px "Baloo 2", sans-serif'; g.fillText('TrickySSC scorecard',60,108);
+  g.fillStyle='#C2410C'; g.font='bold 32px Rajdhani, sans-serif'; g.fillText(name+(tsOf(a)?'  ·  '+new Date(tsOf(a)).toLocaleDateString('en-IN',{day:'numeric',month:'long',year:'numeric'}):''),60,160);
   /* test name, wrapped to two lines */
-  g.fillStyle='#E2E8F0'; g.font='bold 38px Rajdhani, sans-serif'; const words=fullTestName(a).split(' '); const lines=['']; words.forEach(w=>{ const t=(lines[lines.length-1]+' '+w).trim(); if(g.measureText(t).width>960&&lines[lines.length-1]){ lines.push(w); } else lines[lines.length-1]=t; });
+  g.fillStyle='#334155'; g.font='bold 38px Rajdhani, sans-serif'; const words=fullTestName(a).split(' '); const lines=['']; words.forEach(w=>{ const t=(lines[lines.length-1]+' '+w).trim(); if(g.measureText(t).width>960&&lines[lines.length-1]){ lines.push(w); } else lines[lines.length-1]=t; });
   let y=232; lines.slice(0,2).forEach(t=>{ g.fillText(t,60,y); y+=48; });
   /* score */
-  y+=20; g.fillStyle='#1E293B'; rr(60,y,960,230,28);
-  g.fillStyle='#FF8C38'; g.font='bold 150px "Baloo 2", sans-serif'; const ms=n1(marksOf(a)); g.fillText(ms,96,y+160); const mw=g.measureText(ms).width;
-  g.fillStyle='#94A3B8'; g.font='bold 52px "Baloo 2", sans-serif'; g.fillText('/ '+mx,96+mw+18,y+160);
+  y+=20; g.fillStyle='#FFF1E6'; rr(60,y,960,230,28);
+  g.fillStyle='#FF6B00'; g.font='bold 150px "Baloo 2", sans-serif'; const ms=n1(marksOf(a)); g.fillText(ms,96,y+160); const mw=g.measureText(ms).width;
+  g.fillStyle='#64748B'; g.font='bold 52px "Baloo 2", sans-serif'; g.fillText('/ '+mx,96+mw+18,y+160);
   g.textAlign='right';
-  if(r){ g.fillStyle='#fff'; g.font='bold 60px "Baloo 2", sans-serif'; g.fillText(((a.aic&&a.aic.live)?'AIR #':'Rank #')+r,984,y+96); g.fillStyle='#94A3B8'; g.font='600 30px Rajdhani, sans-serif'; g.fillText('of '+v.total+'  ·  '+pctile(v)+' percentile',984,y+146); }
-  else { g.fillStyle='#fff'; g.font='bold 60px "Baloo 2", sans-serif'; g.fillText((L.attempted?Math.round(L.acc*100):0)+'%',984,y+96); g.fillStyle='#94A3B8'; g.font='600 30px Rajdhani, sans-serif'; g.fillText('accuracy',984,y+146); }
+  if(r){ g.fillStyle='#1A202C'; g.font='bold 60px "Baloo 2", sans-serif'; g.fillText(((a.aic&&a.aic.live&&!a.aic.preview)?'AIR #':'Rank #')+r,984,y+96); g.fillStyle='#64748B'; g.font='600 30px Rajdhani, sans-serif'; g.fillText('of '+v.total+'  ·  '+pctile(v)+' percentile',984,y+146); }
+  else { g.fillStyle='#1A202C'; g.font='bold 60px "Baloo 2", sans-serif'; g.fillText((L.attempted?Math.round(L.acc*100):0)+'%',984,y+96); g.fillStyle='#64748B'; g.font='600 30px Rajdhani, sans-serif'; g.fillText('accuracy',984,y+146); }
   g.textAlign='left'; y+=262;
   const ct=isFullPaper(a)?CUTOFFS[examTier(a)]:null;
-  if(ct){ const gap=meritMarks(a)-ct.cut[CAT]; g.fillStyle=gap>=0?'#86EFAC':'#FCA5A5'; g.font='bold 32px Rajdhani, sans-serif'; g.fillText((gap>=0?'Above ':'Below ')+'last year\'s '+CAT+' cut-off ('+n1(ct.cut[CAT])+') by '+n1(Math.abs(gap))+' marks',60,y+8); y+=58; }
+  if(ct){ const gap=meritMarks(a)-ct.cut[CAT]; g.fillStyle=gap>=0?'#15803D':'#B91C1C'; g.font='bold 32px Rajdhani, sans-serif'; g.fillText((gap>=0?'Above ':'Below ')+'last year\'s '+CAT+' cut-off ('+n1(ct.cut[CAT])+') by '+n1(Math.abs(gap))+' marks',60,y+8); y+=58; }
   /* four boxes */
   const secs=Number(a.timeUsed)>0?Number(a.timeUsed):answersOf(a).reduce((t,x)=>t+(Number(x.t)||0),0);
-  const box=(i,label,val)=>{ const x=60+i*245; g.fillStyle='#1E293B'; rr(x,y,225,140,20); g.fillStyle='#fff'; let fs=50; g.font='bold '+fs+'px "Baloo 2", sans-serif'; while(fs>30&&g.measureText(val).width>185){ fs-=2; g.font='bold '+fs+'px "Baloo 2", sans-serif'; } g.fillText(val,x+20,y+78); g.fillStyle='#94A3B8'; g.font='600 24px Rajdhani, sans-serif'; g.fillText(label,x+20,y+116); };
+  const box=(i,label,val)=>{ const x=60+i*245; g.fillStyle='#FFF1E6'; rr(x,y,225,140,20); g.fillStyle='#1A202C'; let fs=50; g.font='bold '+fs+'px "Baloo 2", sans-serif'; while(fs>30&&g.measureText(val).width>185){ fs-=2; g.font='bold '+fs+'px "Baloo 2", sans-serif'; } g.fillText(val,x+20,y+78); g.fillStyle='#64748B'; g.font='600 24px Rajdhani, sans-serif'; g.fillText(label,x+20,y+116); };
   box(0,'Attempted',L.attempted+'/'+L.total); box(1,'Correct',String(L.c)); box(2,'Wrong',String(L.w)); box(3,r?'Accuracy':'Time taken', r?((L.attempted?Math.round(L.acc*100):0)+'%'):(secs>0?navDur(secs):'—'));
   y+=190;
   /* subjects */
   const rows=subjRows(a);
-  if(rows.length){ g.fillStyle='#fff'; g.font='bold 34px Rajdhani, sans-serif'; g.fillText('Subject-wise',60,y); y+=34;
-    rows.slice(0,6).forEach(s=>{ const acc=s.n?s.c/s.n:0; g.fillStyle='#1E293B'; rr(60,y,960,58,12); g.fillStyle='#334155'; rr(60,y+50,960,8,4); g.fillStyle=s.col; rr(60,y+50,Math.max(8,Math.round(960*Math.max(0,acc))),8,4); rr(80,y+16,18,18,5);
-      g.fillStyle='#fff'; g.font='bold 28px Rajdhani, sans-serif'; g.fillText(s.name,110,y+36); g.textAlign='right'; g.fillText(n1(s.marks)+' / '+s.max+'   ·   '+s.c+' of '+s.n+' correct',1000,y+36); g.textAlign='left'; y+=72; }); }
-  g.fillStyle='#64748B'; g.font='26px Hind, sans-serif'; g.fillText('trickyssc.com · free PYQs, mocks and chapter tests',60,1300);
-  const fname='trickyssc-scorecard.png';
-  const save=()=>{ const l=document.createElement('a'); l.download=fname; l.href=c.toDataURL('image/png'); document.body.appendChild(l); l.click(); l.remove(); };
-  try{
-    c.toBlob(b=>{ try{ const f=b&&window.File?new File([b],fname,{type:'image/png'}):null;
-        if(f&&navigator.canShare&&navigator.canShare({files:[f]})){ navigator.share({files:[f],title:'My TrickySSC scorecard',text:'My score in '+fullTestName(a)+': '+n1(marksOf(a))+' / '+mx+' — trickyssc.com'}).catch(e=>{ if(!e||e.name!=='AbortError') save(); }); }
-        else save(); }catch(e){ save(); } },'image/png');
-  }catch(e){ save(); }
+  if(rows.length){ g.fillStyle='#1A202C'; g.font='bold 34px Rajdhani, sans-serif'; g.fillText('Subject-wise',60,y); y+=34;
+    rows.slice(0,6).forEach(s=>{ const acc=s.n?s.c/s.n:0; g.fillStyle='#FFF1E6'; rr(60,y,960,58,12); g.fillStyle='#FDE6D2'; rr(60,y+50,960,8,4); g.fillStyle=s.col; rr(60,y+50,Math.max(8,Math.round(960*Math.max(0,acc))),8,4); rr(80,y+16,18,18,5);
+      g.fillStyle='#1A202C'; g.font='bold 28px Rajdhani, sans-serif'; g.fillText(s.name,110,y+36); g.textAlign='right'; g.fillText(n1(s.marks)+' / '+s.max+'   ·   '+s.c+' of '+s.n+' correct',1000,y+36); g.textAlign='left'; y+=72; }); }
+  /* footer, then crop the card to its content so no empty band is left under it */
+  const H=Math.min(1350,Math.max(900,Math.round(y+110)));
+  g.fillStyle='#64748B'; g.font='26px Hind, sans-serif'; g.fillText('trickyssc.com · free PYQs, mocks and chapter tests',60,H-44);
+  const out=document.createElement('canvas'); out.width=1080; out.height=H; out.getContext('2d').drawImage(c,0,0,1080,H,0,0,1080,H);
+  cardModal(out,'trickyssc-scorecard.png','My TrickySSC scorecard','My score in '+fullTestName(a)+': '+n1(marksOf(a))+' / '+mx+' — trickyssc.com');
 }
 function reportCard(full){
   const c=document.createElement('canvas'); c.width=1080; c.height=1350; const g=c.getContext('2d');
-  g.fillStyle='#0F172A'; g.fillRect(0,0,c.width,c.height);
+  g.fillStyle='#FFFBF5'; g.fillRect(0,0,c.width,c.height);
   const grd=g.createLinearGradient(0,0,1080,0); grd.addColorStop(0,'#FF6B00'); grd.addColorStop(1,'#FF8C38'); g.fillStyle=grd; g.fillRect(0,0,1080,14);
   const name=($('profileName')?.textContent||'Student');
-  g.fillStyle='#fff'; g.font='bold 54px "Baloo 2", sans-serif'; g.fillText('TrickySSC report card',60,110);
-  g.fillStyle='#FDBA74'; g.font='bold 34px Rajdhani, sans-serif'; g.fillText(name+' · '+new Date().toLocaleDateString('en-IN',{day:'numeric',month:'long',year:'numeric'}),60,165);
+  g.fillStyle='#1A202C'; g.font='bold 54px "Baloo 2", sans-serif'; g.fillText('TrickySSC report card',60,110);
+  g.fillStyle='#C2410C'; g.font='bold 34px Rajdhani, sans-serif'; g.fillText(name+' · '+new Date().toLocaleDateString('en-IN',{day:'numeric',month:'long',year:'numeric'}),60,165);
   const marks=full.map(marksOf); const avg=marks.reduce((x,y)=>x+y,0)/marks.length; const best=Math.max(...marks);
-  const box=(x,y,label,val)=>{ g.fillStyle='#1E293B'; g.beginPath(); g.roundRect(x,y,300,150,20); g.fill(); g.fillStyle='#fff'; g.font='bold 64px "Baloo 2", sans-serif'; g.fillText(val,x+24,y+88); g.fillStyle='#94A3B8'; g.font='600 26px Rajdhani, sans-serif'; g.fillText(label,x+24,y+128); };
+  const box=(x,y,label,val)=>{ g.fillStyle='#FFF1E6'; g.beginPath(); g.roundRect(x,y,300,150,20); g.fill(); g.fillStyle='#1A202C'; g.font='bold 64px "Baloo 2", sans-serif'; g.fillText(val,x+24,y+88); g.fillStyle='#64748B'; g.font='600 26px Rajdhani, sans-serif'; g.fillText(label,x+24,y+128); };
   box(60,220,isChapter(full[0])?'Chapter tests':'Tests analysed',String(full.length)); box(390,220,'Average marks',n1(avg)); box(720,220,'Best score',n1(best));
   let y=440; const latest=full[0]; const v=LB[lbKey(latest)];
-  g.fillStyle='#fff'; g.font='bold 36px Rajdhani, sans-serif'; g.fillText('Latest: '+testName(latest).slice(0,40),60,y); y+=50;
-  g.fillStyle='#CBD5E1'; g.font='30px Hind, sans-serif'; g.fillText(n1(marksOf(latest))+' / '+maxOf(latest)+' marks'+(rankOf(v)?'  ·  Rank #'+rankOf(v)+' of '+v.total+'  ·  '+pctile(v)+' percentile':''),60,y); y+=70;
-  const ct=isFullPaper(latest)?CUTOFFS[examTier(latest)]:null; if(ct){ const gap=meritMarks(latest)-ct.cut[CAT]; g.fillStyle=gap>=0?'#86EFAC':'#FCA5A5'; g.font='bold 30px Rajdhani, sans-serif'; g.fillText((gap>=0?'Above ':'Below ')+CAT+' cut-off ('+n1(ct.cut[CAT])+') by '+n1(Math.abs(gap))+' marks',60,y); y+=70; }
+  g.fillStyle='#1A202C'; g.font='bold 36px Rajdhani, sans-serif'; g.fillText('Latest: '+testName(latest).slice(0,40),60,y); y+=50;
+  g.fillStyle='#475569'; g.font='30px Hind, sans-serif'; g.fillText(n1(marksOf(latest))+' / '+maxOf(latest)+' marks'+(rankOf(v)?'  ·  Rank #'+rankOf(v)+' of '+v.total+'  ·  '+pctile(v)+' percentile':''),60,y); y+=70;
+  const ct=isFullPaper(latest)?CUTOFFS[examTier(latest)]:null; if(ct){ const gap=meritMarks(latest)-ct.cut[CAT]; g.fillStyle=gap>=0?'#15803D':'#B91C1C'; g.font='bold 30px Rajdhani, sans-serif'; g.fillText((gap>=0?'Above ':'Below ')+CAT+' cut-off ('+n1(ct.cut[CAT])+') by '+n1(Math.abs(gap))+' marks',60,y); y+=70; }
   const ch=chapterStats(full).filter(x=>x.name!=='Untagged'&&x.n>=3);
   const weak=ch.filter(x=>x.acc<0.7).sort((a,b)=>a.acc-b.acc).slice(0,4), strong=ch.filter(x=>x.acc>=0.7).sort((a,b)=>b.acc-a.acc).slice(0,4);
-  const col=(x,title,items,color)=>{ let yy=y; g.fillStyle='#fff'; g.font='bold 34px Rajdhani, sans-serif'; g.fillText(title,x,yy); yy+=48; g.font='28px Hind, sans-serif'; if(!items.length){ g.fillStyle='#64748B'; g.fillText('— after a few more tests',x,yy); } items.forEach(i=>{ g.fillStyle=color; g.fillText(i.name.slice(0,22)+'  '+Math.round(i.acc*100)+'%',x,yy); yy+=42; }); };
-  col(60,'Weak chapters',weak,'#FCA5A5'); col(560,'Strong chapters',strong,'#86EFAC'); y+=280;
-  const sub=subjectAcc(full.slice(0,5)); g.fillStyle='#fff'; g.font='bold 34px Rajdhani, sans-serif'; g.fillText('Subjects (last 5 tests)',60,y); y+=50;
-  sub.forEach(s=>{ g.fillStyle='#1E293B'; g.fillRect(60,y-26,960,34); g.fillStyle=s.acc>=0.7?'#00A86B':s.acc>=0.5?'#D97706':'#DC2626'; g.fillRect(60,y-26,Math.round(960*s.acc),34); g.fillStyle='#fff'; g.font='bold 26px Rajdhani, sans-serif'; g.fillText(s.name+'  '+Math.round(s.acc*100)+'%',72,y); y+=52; });
+  const col=(x,title,items,color)=>{ let yy=y; g.fillStyle='#1A202C'; g.font='bold 34px Rajdhani, sans-serif'; g.fillText(title,x,yy); yy+=48; g.font='28px Hind, sans-serif'; if(!items.length){ g.fillStyle='#64748B'; g.fillText('— after a few more tests',x,yy); } items.forEach(i=>{ g.fillStyle=color; g.fillText(i.name.slice(0,22)+'  '+Math.round(i.acc*100)+'%',x,yy); yy+=42; }); };
+  col(60,'Weak chapters',weak,'#B91C1C'); col(560,'Strong chapters',strong,'#15803D'); y+=280;
+  const sub=subjectAcc(full.slice(0,5)); g.fillStyle='#1A202C'; g.font='bold 34px Rajdhani, sans-serif'; g.fillText('Subjects (last 5 tests)',60,y); y+=50;
+  sub.forEach(s=>{ g.fillStyle='#F1F5F9'; g.fillRect(60,y-26,960,34); g.fillStyle=s.acc>=0.7?'#00A86B':s.acc>=0.5?'#D97706':'#DC2626'; g.fillRect(60,y-26,Math.round(960*s.acc),34); g.fillStyle='#1A202C'; g.font='bold 26px Rajdhani, sans-serif'; g.fillText(s.name+'  '+Math.round(s.acc*100)+'%',72,y); y+=52; });
   g.fillStyle='#64748B'; g.font='26px Hind, sans-serif'; g.fillText('trickyssc.com · free PYQs, mocks and chapter tests for SSC',60,1300);
-  const a=document.createElement('a'); a.download='trickyssc-report-card.png'; a.href=c.toDataURL('image/png'); a.click();
+  cardModal(c,'trickyssc-report-card.png','My TrickySSC report card','My TrickySSC report card — trickyssc.com');
 }
 
 </script>
