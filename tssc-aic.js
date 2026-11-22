@@ -713,7 +713,7 @@ async function paintPast(el) {
     return '<div class="aicPast-card"><div class="aicPast-top"><h3>All India Challenge Mock ' + n + '</h3><span>' + fmtDate(r.start) + (total ? ' · ' + total.toLocaleString('en-IN') + ' students' : '') + '</span></div>' + lb
       + '<div class="aicPast-btns">' + (done ? '<a class="go" href="' + S.resultUrl(n, done) + '">My result and rank</a>' : '')
       + '<a href="/rank.html?paper=' + encodeURIComponent(r.board) + '&name=' + encodeURIComponent(D.name + ' All India Challenge Mock ' + n) + '">Full leaderboard</a>'
-      + '<a' + (done ? '' : ' class="go"') + ' href="' + S.testUrl(n, 'en') + '">Attempt as free mock</a>' + '</div></div>';
+      + '<a' + (done ? '' : ' class="go"') + ' href="' + S.testUrl(n, 'en') + '">' + (done ? 'Attempt again' : 'Attempt as free mock') + '</a>' + '</div></div>';
   }));
   el.innerHTML = '<div class="aicPast">' + cards.join('') + '</div>';
 }
@@ -816,7 +816,7 @@ async function paintSchedule() {
         else if (reg && reg < r.regClose) win = '<a class="aicT-btn" href="' + S.testUrl(n, 'en') + '">Attempt test →</a><small>Live now · last entry ' + S.words(r).last + '</small>';
         else win = '<span class="aicT-btn off">Attempt test</span><small>Registered students only · free mock from ' + fmtShort(r.resultAt) + '</small>';
       } else if (t < r.resultAt) win = done ? '<span class="aicT-btn done">✓ Submitted</span>' : '<span class="aicT-btn off">Attempt free test</span><small>Free test from ' + fmtShort(r.resultAt) + ', 9 am</small>';
-      else win = '<a class="aicT-btn alt" href="' + S.testUrl(n, 'en') + '">Attempt free test →</a>';
+      else win = '<a class="aicT-btn alt" href="' + S.testUrl(n, 'en') + '">' + (done ? 'Attempt again →' : 'Attempt free test →') + '</a>';   /* a candidate who took it live is re-attempting */
       if (t < r.resultAt) res = '<span class="aicT-btn off">View complete analysis</span>';
       /* a logged-in candidate always goes to the analysis of this round (it sends anyone who did not take the round on to the
          leaderboard) — the attempt may have been made on another device, where this browser has no record of it */
@@ -1027,12 +1027,15 @@ function adminBar() {
     const el = document.createElement('div'); el.id = 'aicAdm';
     const small = window.innerWidth <= 640;
     el.style.cssText = 'position:fixed;left:' + (small ? 6 : 10) + 'px;bottom:' + (small ? 6 : 10) + 'px;z-index:2147483000;font:600 12px/1.4 system-ui,Segoe UI,Arial,sans-serif;color:#fff;max-width:calc(100vw - 12px);';
-    if (small) { try { document.body.style.paddingBottom = '46px'; } catch (e) {} }   /* room for the pill under the page */
     const fmt = ms => new Date(ms).toLocaleString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' });
     const btn = (k, t) => '<button data-adm="' + k + '" style="display:block;width:100%;margin:4px 0 0;padding:7px 9px;border:0;border-radius:7px;background:#334155;color:#fff;font:600 12px system-ui;text-align:left;cursor:pointer;">' + t + '</button>';
-    el.innerHTML = '<button data-adm="toggle" style="padding:' + (small ? '4px 9px' : '7px 11px') + ';border:0;border-radius:999px;background:' + (on ? '#B45309' : '#0F172A') + ';color:#fff;font:700 ' + (small ? 10.5 : 12) + 'px system-ui;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.3);opacity:' + (small ? '.92' : '1') + ';">&#128736; ' + (small ? (on ? fmt(now()) : 'Admin') : 'Admin test' + (on ? ': clock at ' + fmt(now()) : '')) + '</button>'
+    /* phones: a small round tool button (amber while the clock is moved) — the pretend date is shown inside the panel */
+    el.innerHTML = (small
+        ? '<button data-adm="toggle" aria-label="Admin test" style="width:34px;height:34px;padding:0;border:0;border-radius:50%;background:' + (on ? '#B45309' : '#0F172A') + ';color:#fff;font:700 15px system-ui;cursor:pointer;box-shadow:0 3px 10px rgba(0,0,0,.3);opacity:.9;">&#128736;</button>'
+        : '<button data-adm="toggle" style="padding:7px 11px;border:0;border-radius:999px;background:' + (on ? '#B45309' : '#0F172A') + ';color:#fff;font:700 12px system-ui;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.3);">&#128736; Admin test' + (on ? ': clock at ' + fmt(now()) : '') + '</button>')
       + '<div data-adm-panel style="display:none;margin-top:6px;width:250px;padding:10px;border-radius:12px;background:#0F172A;box-shadow:0 8px 24px rgba(0,0,0,.35);">'
-      + '<div style="font-weight:700;margin-bottom:6px;">Walk through a challenge round</div>'
+      + '<div style="font-weight:700;margin-bottom:2px;">Walk through a challenge round</div>'
+      + '<div style="margin-bottom:6px;font-weight:600;color:' + (on ? '#FDBA74' : '#94A3B8') + ';">' + (on ? 'Clock moved to ' + fmt(now()) : 'Showing the real date') + '</div>'
       + '<div style="display:flex;gap:6px;align-items:center;"><select data-adm-s style="flex:1;padding:5px;border-radius:6px;border:0;font:600 12px system-ui;"><option value="cgl"' + (sk === 'cgl' ? ' selected' : '') + '>CGL Tier 2</option><option value="chsl"' + (sk === 'chsl' ? ' selected' : '') + '>CHSL Tier 1</option></select>'
       + '<span>Mock</span><input data-adm-n type="number" min="1" value="' + rn + '" style="width:52px;padding:5px;border-radius:6px;border:0;font:600 12px system-ui;"></div>'
       + btn('reg', '1. Registration open (3 days before)')
