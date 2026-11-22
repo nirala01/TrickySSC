@@ -19,6 +19,8 @@ import 'report_issue.dart';
 import 'about.dart';
 import 'aic_screens.dart';
 import '../aic.dart';
+import '../app_update.dart';
+import '../profile.dart' show appVersion;
 import '../ui/icons3d.dart';
 import '../ui/soft.dart';
 import '../ui/soft_list.dart';
@@ -148,6 +150,7 @@ class _AppShellState extends State<AppShell> {
     });
     _loadAtt();
     _loadResume();
+    AppUpdater.check(); // TSSC-INAPPUPDATE-V1
     loadPrice(widget.exam).then((p) {
       if (mounted) setState(() => _price = p);
     });
@@ -513,13 +516,23 @@ class _AppShellState extends State<AppShell> {
         indicatorColor: Color.lerp(Colors.white, exam.c1, 0.16),
         selectedIndex: _tab,
         onDestinationSelected: (i) => setState(() => _tab = i),
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Home'),
-          NavigationDestination(icon: Icon(Icons.workspace_premium_outlined), selectedIcon: Icon(Icons.workspace_premium), label: 'Plans'),
-          NavigationDestination(icon: Icon(Icons.track_changes_outlined), selectedIcon: Icon(Icons.track_changes), label: 'Mocks'),
-          NavigationDestination(icon: Icon(Icons.insights_outlined), selectedIcon: Icon(Icons.insights), label: 'Dashboard'),
-          NavigationDestination(icon: Icon(Icons.description_outlined), selectedIcon: Icon(Icons.description), label: 'PYQs'),
-          NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: 'Me'),
+        destinations: [
+          const NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Home'),
+          const NavigationDestination(icon: Icon(Icons.workspace_premium_outlined), selectedIcon: Icon(Icons.workspace_premium), label: 'Plans'),
+          const NavigationDestination(icon: Icon(Icons.track_changes_outlined), selectedIcon: Icon(Icons.track_changes), label: 'Mocks'),
+          const NavigationDestination(icon: Icon(Icons.insights_outlined), selectedIcon: Icon(Icons.insights), label: 'Dashboard'),
+          const NavigationDestination(icon: Icon(Icons.description_outlined), selectedIcon: Icon(Icons.description), label: 'PYQs'),
+          NavigationDestination(
+            icon: ValueListenableBuilder<int?>(
+              valueListenable: AppUpdater.available,
+              builder: (_, v, __) => Badge(isLabelVisible: v != null, child: const Icon(Icons.person_outline)),
+            ),
+            selectedIcon: ValueListenableBuilder<int?>(
+              valueListenable: AppUpdater.available,
+              builder: (_, v, __) => Badge(isLabelVisible: v != null, child: const Icon(Icons.person)),
+            ),
+            label: 'Me',
+          ),
         ],
       ),
     ))),
@@ -748,6 +761,7 @@ class _HomeTab extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          const UpdateStrip(),
           _PassCard(
             exam: exam,
             hasPass: hasPass,
@@ -1275,6 +1289,17 @@ class _MeTab extends StatelessWidget {
         if (u != null)
           row(const Text('🐞', style: TextStyle(fontSize: 22)), 'Report an issue', 'Something not working in the app? Tell us',
               () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ReportIssuePage(user: u, exam: exam)))),
+        // TSSC-INAPPUPDATE-V1: App updates, with a red dot while a newer version is waiting
+        ValueListenableBuilder<int?>(
+          valueListenable: AppUpdater.available,
+          builder: (_, v, __) => row(
+            Badge(isLabelVisible: v != null, child: const Icon(Icons.system_update_rounded, color: Color(0xFF16A34A), size: 26)),
+            v != null ? 'Update available' : 'App updates',
+            v != null ? 'Tap to install the new version' : 'Version $appVersion · tap to check',
+            () => v != null ? AppUpdater.update(context) : AppUpdater.checkNow(context),
+            color: v != null ? const Color(0xFF15803D) : null,
+          ),
+        ),
         row(const Text('🏛️', style: TextStyle(fontSize: 22)), 'Disclaimer & official sources', 'Not a government app · ssc.gov.in, rrbapply.gov.in',
             () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => AboutPage(color: exam.c1)))),
         row(const Text('✉️', style: TextStyle(fontSize: 22)), 'Help', 'Write to contact@trickyssc.com', () {
