@@ -1018,10 +1018,13 @@ function adminBar() {
   try {
     if (!isAicAdmin() || document.getElementById('aicAdm')) return;
     const mid = new URLSearchParams(location.search).get('mockId') || '';
-    let sk = 'cgl', rn = 0;
-    try { const o = JSON.parse(lsGet('tssc_aic_adm_sel') || 'null'); if (o && SERIES[o.s]) { sk = o.s; rn = parseInt(o.n, 10) || 0; } } catch (e) {}
-    if (isAicId(mid)) { sk = /^ssc-chsl_/i.test(mid) ? 'chsl' : 'cgl'; rn = roundOfMock(mid); }
-    else if (!rn && /chsl/i.test(location.pathname)) sk = 'chsl';
+    /* the exam in the panel follows the page being viewed (a CHSL page always starts on CHSL); the last choice is
+       remembered only for its mock number, and for pages that belong to neither exam */
+    let sk = 'cgl', rn = 0, saved = null;
+    try { saved = JSON.parse(lsGet('tssc_aic_adm_sel') || 'null'); } catch (e) {}
+    const pageKey = isAicId(mid) ? (/^ssc-chsl_/i.test(mid) ? 'chsl' : 'cgl') : (/chsl/i.test(location.pathname) ? 'chsl' : (/cgl/i.test(location.pathname) ? 'cgl' : ''));
+    if (pageKey) { sk = pageKey; rn = isAicId(mid) ? roundOfMock(mid) : ((saved && saved.s === pageKey) ? (parseInt(saved.n, 10) || 0) : 0); }
+    else if (saved && SERIES[saved.s]) { sk = saved.s; rn = parseInt(saved.n, 10) || 0; }
     if (!rn) rn = SERIES[sk].nextRound(Date.now() + _skew);
     const on = adminPreview();
     const el = document.createElement('div'); el.id = 'aicAdm';
