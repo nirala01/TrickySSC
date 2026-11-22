@@ -2319,9 +2319,20 @@ function tsscReviewFail(msg){
 async function tsscEnterReview(){
   setLoaderMsg('Loading your attempt...');
   let snap=null;
-  try{ snap=await getDoc(doc(db,'attempts',REVIEW_ID)); }
-  catch(e){ console.warn('[review] read failed',e); tsscReviewFail('Could not load this attempt. Check your connection and try again.'); return; }
-  const d=(snap&&snap.exists())?snap.data():null;
+  /* TSSC-RVREST-V1: the live connection can take long to come up ("client is offline"); after 4 seconds, or on an
+     error, the attempt is read over REST with the candidate's own sign-in instead, so the solutions still open. */
+  let d=null, _got=false;
+  try{ snap=await Promise.race([getDoc(doc(db,'attempts',REVIEW_ID)), new Promise((_,rej)=>setTimeout(()=>rej(new Error('slow')),4000))]); d=(snap&&snap.exists())?snap.data():null; _got=true; }
+  catch(e){ console.warn('[review] read failed, trying REST',e&&e.message); }
+  if(!_got){
+    try{
+      const _fv=v=>{ if(!v||typeof v!=='object') return null; if('stringValue' in v) return v.stringValue; if('integerValue' in v) return Number(v.integerValue); if('doubleValue' in v) return Number(v.doubleValue); if('booleanValue' in v) return v.booleanValue; if('timestampValue' in v){ const _d=new Date(v.timestampValue); return {toDate:()=>_d}; } if('arrayValue' in v) return (v.arrayValue.values||[]).map(_fv); if('mapValue' in v){ const o={}, f=v.mapValue.fields||{}; Object.keys(f).forEach(k=>{ o[k]=_fv(f[k]); }); return o; } return null; };
+      const _tk=currentUser?await currentUser.getIdToken():'';
+      const _r=await fetch('https://firestore.googleapis.com/v1/projects/trickyssc-17bb3/databases/(default)/documents/attempts/'+encodeURIComponent(REVIEW_ID),{headers:_tk?{Authorization:'Bearer '+_tk}:{}});
+      if(_r.ok){ const _j=await _r.json(); d=_fv({mapValue:{fields:(_j&&_j.fields)||{}}}); }
+      else if(_r.status!==404) throw new Error('rest '+_r.status);
+    }catch(e2){ console.warn('[review] REST read failed',e2); tsscReviewFail('Could not load this attempt. Check your connection and try again.'); return; }
+  }
   if(!d||!currentUser||d.uid!==currentUser.uid){ tsscReviewFail('This attempt was not found on your account.'); return; }
   if(!Array.isArray(d.answers)||!d.answers.length){ tsscReviewFail('This attempt was made before answer review was added, so its solutions cannot be reopened. Every attempt from now on can be reviewed from the dashboard.'); return; }
   REVIEW_DOC=d;
