@@ -216,7 +216,9 @@
               <option value="1">★ 1 only</option>
             </select>
             <button class="btn btn-ghost" onclick="downloadCsv('ratings')">Download CSV</button>
+            <button class="btn btn-ghost" id="aicFbBtn" onclick="loadAicFeedback()" title="Reads the questionnaire answers saved inside the attempts of the All India Challenge papers">Load Challenge feedback</button>
           </div>
+          <div id="aicFbMsg" class="muted" style="margin:-4px 0 8px;"></div>
           <h2>Ratings by test</h2>
           <div id="ratingAgg" class="muted">Loading…</div>
         </div>
@@ -520,6 +522,40 @@ window.renderReports = function(){
 const whoOf   = r => (r.name || r.userName || r.displayName || r.email || '').trim() || (r.uid ? 'uid:'+String(r.uid).slice(0,8) : 'Anonymous');
 const starStr = n => { const s=Math.max(0,Math.min(5,Math.round(Number(n)||0))); return '★'.repeat(s)+'☆'.repeat(5-s); };
 
+/* TSSC-AICFB-V1 (2026-11-22) — All India Challenge questionnaire: hardest part, time per part, wrong question, note.
+   The answers ride on the mock_ratings doc and, as the store of record, inside attempts/{id}.feedback. */
+const fbExtra = r => { const b=[];
+  if(r.hardPart) b.push('Hardest: <b>'+esc(r.hardPart)+'</b>');
+  if(Array.isArray(r.timeShort)&&r.timeShort.length) b.push('Time: '+esc(r.timeShort.map(x=>x==='Enough'?'enough':'short for '+x).join(', ')));
+  if(r.issue) b.push('<span style="color:#B91C1C">Wrong Q: '+esc(r.issue)+'</span>');
+  if(r.comment) b.push('Note: '+esc(r.comment));
+  return b.length?'<div class="muted" style="font-size:12px;margin-top:3px;line-height:1.45">'+b.join('<br>')+'</div>':''; };
+const fbSummary = list => { const h={},t={}; let iss=0,n=0;
+  list.forEach(r=>{ if(r.hardPart||(r.timeShort&&r.timeShort.length)||r.issue||r.comment) n++; if(r.hardPart) h[r.hardPart]=(h[r.hardPart]||0)+1;
+    (Array.isArray(r.timeShort)?r.timeShort:[]).forEach(x=>{ t[x]=(t[x]||0)+1; }); if(r.issue) iss++; });
+  if(!n) return '';
+  const pills=(o,pre)=>Object.entries(o).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<span class="pill b" style="background:#FEF3C7;color:#78350F">${pre(k)}: ${v}</span>`).join(' ');
+  return `<div style="margin-top:6px;font-size:12px;line-height:1.9"><b>Challenge feedback (${n})</b><br>Hardest part: ${pills(h,k=>esc(k))||'—'}<br>Time: ${pills(t,k=>k==='Enough'?'Enough for all':'Short for '+esc(k))||'—'}<br>Wrong-question notes: <b>${iss}</b></div>`; };
+window.loadAicFeedback = async function(){
+  const msg=$('aicFbMsg'), btn=$('aicFbBtn'); btn.disabled=true; msg.textContent='Reading the challenge attempts…';
+  try{
+    const ids=new Set(RATINGS.map(r=>r.mockId).filter(x=>/_aic_mock\d+/i.test(x||'')));
+    for(const ex of ['ssc-cgl','ssc-chsl']) for(let n=1;n<=12;n++) for(const l of ['en','hi']) ids.add(`${ex}_aic_mock${n}_${l}`);
+    let found=0, added=0;
+    for(const id of ids){
+      const sn=await getDocs(query(collection(db,'attempts'), where('mockId','==',id)));
+      sn.forEach(d=>{ const a=d.data(), f=a.feedback; if(!f) return; found++;
+        const row=RATINGS.find(r=>r.mockId===id && r.uid===a.uid);
+        if(row){ ['hardPart','timeShort','issue','comment','aicRound'].forEach(k=>{ if(row[k]==null||row[k]===''||(Array.isArray(row[k])&&!row[k].length)) row[k]=f[k]; }); }
+        else{ RATINGS.push({id:'attempt:'+d.id, mockId:id, uid:a.uid||'', name:a.userName||a.name||'', stars:f.stars||0, difficulty:f.difficulty||'', testName:a.examName||'',
+                createdAt:f.at||a.clientSubmittedAt||'', hardPart:f.hardPart||'', timeShort:f.timeShort||[], issue:f.issue||'', comment:f.comment||'', aicRound:f.aicRound, source:'aic'}); added++; }
+      });
+    }
+    msg.textContent=`Challenge feedback: ${found} answer${found===1?'':'s'} found in attempts`+(added?`, ${added} not yet in the ratings list were added below.`:'.');
+    renderRatings();
+  }catch(e){ msg.textContent='Could not read the attempts: '+((e&&e.code)||e); }
+  btn.disabled=false;
+};
 window.renderRatings = function(){
   const f  = ($('ratingFilter').value||'').toLowerCase();
   const sf = (($('ratingStarFilter')||{}).value)||'';
@@ -570,7 +606,7 @@ window.renderRatings = function(){
         .map(r=>`<tr>
           <td class="who2">${nameHtml(r, whoOf(r))}${appPill(r)}${contactBox(r, false)}</td>
           <td style="white-space:nowrap"><span class="stars">${starStr(r.stars)}</span> ${esc(Number(r.stars)||0)}</td>
-          <td>${esc(r.difficulty||'—')}</td>
+          <td>${esc(r.difficulty||'—')}${fbExtra(r)}</td>
           <td class="muted">${esc(fmtTime(r.createdAt))}</td>
           <td><button class="del" data-act="delone" data-id="${esc(r.id)}" title="Delete this rating">🗑</button></td>
         </tr>`).join('');
@@ -582,7 +618,7 @@ window.renderRatings = function(){
           <details class="cands"><summary>${v.count} candidate${v.count===1?'':'s'} — show names</summary>
             <table class="inner"><tr><th>Candidate</th><th>Stars</th><th>Difficulty</th><th>When</th><th></th></tr>${people}</table>
           </details></td>
-        <td><div class="diffbar">${bar}</div><div style="margin-top:4px;">${legend}</div></td>
+        <td><div class="diffbar">${bar}</div><div style="margin-top:4px;">${legend}</div>${fbSummary(v.list)}</td>
         <td><button class="del" data-act="delt" data-mockid="${esc(k)}" title="Delete all ratings for this test">🗑 Clear ${v.count}</button></td></tr>`;
     }).join('') + `</table>`
     : `<div class="muted">No ratings${(f||sf)?' match this filter':''}.</div>`;
@@ -595,7 +631,7 @@ window.renderRatings = function(){
       <td class="who2">${nameHtml(r, whoOf(r))}${contactBox(r, false)}${r.uid?`<div class="muted" style="font-size:11px">${esc(r.uid)}</div>`:''}</td>
       <td><code>${esc(r.mockId||'(none)')}</code>${r.testName?`<div class="muted">${esc(r.testName)}</div>`:''}</td>
       <td style="white-space:nowrap"><span class="stars">${starStr(r.stars)}</span> ${esc(Number(r.stars)||0)}</td>
-      <td>${esc(r.difficulty||'—')}</td>
+      <td>${esc(r.difficulty||'—')}${fbExtra(r)}</td>
       <td><button class="del" data-act="delone" data-id="${esc(r.id)}" title="Delete this rating">🗑</button></td>
     </tr>`).join('') + `</table>`
     : `<div class="muted">No ratings${(f||sf)?' match this filter':''}.</div>`;
@@ -2388,9 +2424,9 @@ window.downloadCsv = function(which){
       rows.push([fmtTime(r.createdAt),(r.source||'mock')+(r.platform==='app'?' (app)':''),tgtOf(r),r.mockId,r.qNum,r.position,r.subject,r.reason,r.note,r.name,r.uid,r.testName,c.phone||'',c.email||'']); });
   } else {
     name='mock_ratings.csv';
-    rows=[['when','mockId','testName','candidate','stars','difficulty','uid','mobile','email']];
+    rows=[['when','mockId','testName','candidate','stars','difficulty','uid','mobile','email','hardestPart','timeShort','wrongQuestion','note']];
     RATINGS.slice().sort((a,b)=>tsMs(b)-tsMs(a)).forEach(r=>{ const c = contactOf(r) || {};   /* TSSC-REPORTCONTACT-V2 */
-      rows.push([fmtTime(r.createdAt),r.mockId,r.testName,whoOf(r),r.stars,r.difficulty,r.uid,c.phone||'',c.email||'']); });
+      rows.push([fmtTime(r.createdAt),r.mockId,r.testName,whoOf(r),r.stars,r.difficulty,r.uid,c.phone||'',c.email||'',r.hardPart||'',(Array.isArray(r.timeShort)?r.timeShort.join(' | '):''),r.issue||'',r.comment||'']); });
   }
   const csv = rows.map(r=>r.map(q).join(',')).join('\n');
   const blob = new Blob([csv],{type:'text/csv'});

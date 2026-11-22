@@ -1899,7 +1899,48 @@ function aicHoldScreen(){
     +'<a href="'+_mocksUrl+'" class="btn btn-next" style="padding:12px 22px;text-decoration:none;">'+_mocksLbl+' &rarr;</a>'
     +'<a href="https://trickyssc.com/'+AIC_PAGE+'" style="padding:12px 22px;border-radius:10px;background:#FFF3E8;color:#FF6B00;font-weight:700;font-size:14px;text-decoration:none;border:1.5px solid #FFD9B8;">All India Challenge page</a></div>';
   rs.insertBefore(c,rs.firstChild);
+  try{ aicFeedbackUi(); }catch(_){}
   window.scrollTo(0,0);
+}
+/* TSSC-AICFB-V1 (2026-11-22) — short questionnaire on the "submitted" screen of a live challenge attempt. It reuses the
+   rating card (stars + level -> mock_ratings, as every test) and adds: hardest part, time per part, wrong question, a note.
+   The answers are saved in mock_ratings and inside the student's attempt record (attempts/{id}.feedback). Optional. */
+function aicFeedbackUi(){
+  const rc=document.getElementById('rateCard'); if(!rc||document.getElementById('aicFb')) return;
+  rc.style.display='';
+  const h=rc.querySelector('h3'); if(h) h.textContent='Help us improve the next Challenge Mock';
+  const subs=rc.querySelectorAll('.rc-sub');
+  if(subs[0]) subs[0].textContent='It takes 20 seconds and is optional. Tap the stars to rate this paper.';
+  if(subs[1]) subs[1].textContent='Compared with the real SSC exam, the level was:';
+  const lab={'Same as CGL':'About the same','Easy':'Easier','Difficult':'Harder','Very Difficult':'Much harder'};
+  rc.querySelectorAll('#rcDiff .rc-chip').forEach(b=>{ const d=b.getAttribute('data-d'); if(lab[d]) b.textContent=lab[d]; });
+  const parts=TG_IS_AICT1?['English','Reasoning','Maths','General Awareness']:['Maths','Reasoning','English','General Awareness','Computer'];
+  const sub='font-size:12px;color:#94A3B8;text-align:center;margin:16px 0 10px;', row='display:flex;gap:8px;justify-content:center;flex-wrap:wrap;';
+  const inp='display:block;width:100%;box-sizing:border-box;margin-top:10px;padding:10px 12px;border:1.5px solid #E2E8F0;border-radius:10px;font:inherit;font-size:13.5px;color:#1E293B;';
+  const fb=document.createElement('div'); fb.id='aicFb';
+  fb.innerHTML='<div style="'+sub+'">Which part was the hardest?</div><div id="aicFbHard" style="'+row+'">'
+    +parts.map(x=>'<button type="button" class="rc-chip" data-v="'+x+'">'+x+'</button>').join('')+'</div>'
+    +'<div style="'+sub+'">Was the time enough for each part? (you can pick more than one)</div><div id="aicFbTime" style="'+row+'">'
+    +'<button type="button" class="rc-chip" data-v="Enough">Enough for all</button>'
+    +parts.map(x=>'<button type="button" class="rc-chip" data-v="'+x+'">Short for '+x+'</button>').join('')+'</div>'
+    +'<div style="'+sub+'margin-bottom:0;">Did you find a wrong question, a wrong answer or an unclear figure?</div>'
+    +'<input id="aicFbIssue" maxlength="300" placeholder="Question number and what was wrong (optional)" style="'+inp+'">'
+    +'<input id="aicFbNote" maxlength="300" placeholder="Anything else we should change? (optional)" style="'+inp+'margin-bottom:14px;">';
+  const sb=document.getElementById('rcSubmit'); rc.insertBefore(fb,sb); if(sb) sb.textContent='Submit feedback';
+  fb.addEventListener('click',function(e){
+    const b=e.target.closest('.rc-chip'); if(!b) return;
+    if(b.parentNode.id==='aicFbHard'){ fb.querySelectorAll('#aicFbHard .rc-chip').forEach(x=>x.classList.toggle('sel',x===b)); return; }
+    const en=b.getAttribute('data-v')==='Enough';
+    if(en){ fb.querySelectorAll('#aicFbTime .rc-chip').forEach(x=>x.classList.toggle('sel',x===b)); }
+    else{ b.classList.toggle('sel'); const e0=fb.querySelector('#aicFbTime .rc-chip[data-v="Enough"]'); if(e0) e0.classList.remove('sel'); }
+  });
+}
+function aicFeedbackRead(){
+  const fb=document.getElementById('aicFb'); if(!fb||!AIC_CTX) return null;
+  const h=fb.querySelector('#aicFbHard .rc-chip.sel');
+  return { hardPart:h?h.getAttribute('data-v'):'', timeShort:[...fb.querySelectorAll('#aicFbTime .rc-chip.sel')].map(x=>x.getAttribute('data-v')),
+    issue:(document.getElementById('aicFbIssue').value||'').trim().slice(0,300), comment:(document.getElementById('aicFbNote').value||'').trim().slice(0,300),
+    aicRound:AIC_CTX.round, source:'aic' };
 }
 function aicSaveUi(state,msg){
   const l=document.getElementById('aicSaveLine'), b=document.getElementById('aicRetryBtn'); if(!l) return;
@@ -2659,7 +2700,7 @@ window.submitRating=async function(){
   const sb=document.getElementById('rcSubmit'); if(sb){sb.disabled=true;sb.textContent='Submitting…';}
   try{
     const rid=(_reportTestId||'test')+'_'+((currentUser&&currentUser.uid)||('anon_'+Date.now()));
-    await setDoc(doc(db,'mock_ratings',rid),{
+    const _rBase={
       mockId: _reportTestId,
       uid: (currentUser&&currentUser.uid)||'',
       name: (currentUser&&currentUser.displayName)||'',
@@ -2667,7 +2708,16 @@ window.submitRating=async function(){
       difficulty: _rateDiff||'',
       testName: (mockMeta&&mockMeta.title)||exam||'',
       createdAt: serverTimestamp()
-    },{merge:true});
+    };
+    let _fb=null; try{ _fb=aicFeedbackRead(); }catch(_){}   /* TSSC-AICFB-V1 */
+    if(_fb){
+      /* the attempt record is the store of record; mock_ratings gets the extra answers too when its rules accept them */
+      try{ if(lastResultPayload&&lastResultPayload.attemptId) setDoc(doc(db,'attempts',lastResultPayload.attemptId),{uid:currentUser.uid,feedback:{stars:_rateStars,difficulty:_rateDiff||'',..._fb,at:new Date().toISOString()}},{merge:true}).catch(()=>{}); }catch(_){}
+      try{ await setDoc(doc(db,'mock_ratings',rid),{..._rBase,..._fb},{merge:true}); }
+      catch(e1){ await setDoc(doc(db,'mock_ratings',rid),_rBase,{merge:true}); }
+      const fbEl=document.getElementById('aicFb'); if(fbEl) fbEl.style.display='none';
+    }else
+    await setDoc(doc(db,'mock_ratings',rid),_rBase,{merge:true});
     const sn=document.getElementById('rcStars'); if(sn) sn.style.display='none';
     const dn=document.getElementById('rcDiff'); if(dn) dn.style.display='none';
     if(sb) sb.style.display='none';

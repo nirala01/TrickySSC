@@ -12,6 +12,7 @@ import '../aic_io.dart';
 import '../data.dart';
 import '../test/engine.dart';
 import '../test/leaderboard.dart';
+import '../test/report.dart' show addWithApp;
 import '../test/test_screen.dart';
 import '../ui/soft.dart';
 import 'dash/analysis.dart';
@@ -161,7 +162,7 @@ class _AicSubmitScreenState extends State<AicSubmitScreen> {
         backgroundColor: const Color(0xFFEEF2FF),
         appBar: AppBar(automaticallyImplyLeading: false, title: Text('${_se.short} Challenge Mock $_n', style: const TextStyle(fontWeight: FontWeight.w800))),
         body: Center(
-          child: Padding(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),
             child: _saving
                 ? const Column(mainAxisSize: MainAxisSize.min, children: [
@@ -192,7 +193,9 @@ class _AicSubmitScreenState extends State<AicSubmitScreen> {
                         const SizedBox(height: 10),
                         Text('Result, All India rank and solutions on ${aicWhen(_se.resultAt(_n))}.',
                             textAlign: TextAlign.center, style: const TextStyle(fontSize: 16, height: 1.4, fontWeight: FontWeight.w600, color: Color(0xFF334155))),
-                        const SizedBox(height: 22),
+                        const SizedBox(height: 18),
+                        AicFeedback(user: widget.user, exam: exam, paper: widget.paper, attemptId: widget.result.attemptId),
+                        const SizedBox(height: 16),
                         FilledButton(
                           onPressed: () => Navigator.of(context).pop(),
                           style: FilledButton.styleFrom(backgroundColor: exam.c1, minimumSize: const Size(200, 50), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
@@ -202,6 +205,177 @@ class _AicSubmitScreenState extends State<AicSubmitScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+// ============================================================ questionnaire on the "submitted" screen
+
+/// Short optional questionnaire after a live challenge attempt (same answers as the website): stars, level against
+/// the real exam, hardest part, time per part, a wrong question, a note. Saved in mock_ratings (as every rating)
+/// and inside the student's attempt record (attempts/{id}.feedback).
+class AicFeedback extends StatefulWidget {
+  final User user;
+  final Exam exam;
+  final Paper paper;
+  final String? attemptId;
+  const AicFeedback({super.key, required this.user, required this.exam, required this.paper, this.attemptId});
+
+  @override
+  State<AicFeedback> createState() => _AicFeedbackState();
+}
+
+class _AicFeedbackState extends State<AicFeedback> {
+  static const _diffs = {'Easy': 'Easier', 'Same as CGL': 'About the same', 'Difficult': 'Harder', 'Very Difficult': 'Much harder'};
+  int _stars = 0;
+  String _diff = '', _hard = '';
+  final Set<String> _time = {};
+  final _issue = TextEditingController(), _note = TextEditingController();
+  bool _busy = false, _done = false;
+  String _err = '';
+
+  List<String> get _parts =>
+      widget.paper.rules.tier2 ? const ['Maths', 'Reasoning', 'English', 'General Awareness', 'Computer'] : const ['English', 'Reasoning', 'Maths', 'General Awareness'];
+
+  @override
+  void dispose() {
+    _issue.dispose();
+    _note.dispose();
+    super.dispose();
+  }
+
+  Future<void> _send() async {
+    if (_stars < 1 || _busy) return;
+    setState(() {
+      _busy = true;
+      _err = '';
+    });
+    final u = widget.user, p = widget.paper;
+    final extra = <String, dynamic>{
+      'hardPart': _hard,
+      'timeShort': _time.toList(),
+      'issue': _issue.text.trim(),
+      'comment': _note.text.trim(),
+      'aicRound': p.aic?.round,
+      'source': 'aic',
+    };
+    final base = <String, dynamic>{
+      'mockId': p.rules.mockId,
+      'uid': u.uid,
+      'name': u.displayName ?? '',
+      'stars': _stars,
+      'difficulty': _diff,
+      'testName': p.title,
+      'createdAt': FieldValue.serverTimestamp(),
+    };
+    final db = FirebaseFirestore.instance;
+    try {
+      // the attempt record is the store of record
+      if (widget.attemptId != null) {
+        try {
+          await db.collection('attempts').doc(widget.attemptId).set({
+            'uid': u.uid,
+            'feedback': {'stars': _stars, 'difficulty': _diff, ...extra, 'at': DateTime.now().toUtc().toIso8601String(), 'platform': 'app'},
+          }, SetOptions(merge: true));
+        } catch (_) {}
+      }
+      final id = '${p.rules.mockId}_${u.uid}';
+      try {
+        await addWithApp('mock_ratings', {...base, ...extra}, id: id);
+      } on FirebaseException catch (_) {
+        await addWithApp('mock_ratings', base, id: id); // rules that refuse the extra answers
+      }
+      if (mounted) setState(() => _done = true);
+    } catch (_) {
+      if (mounted) setState(() => _err = 'Could not send. Please try again.');
+    }
+    if (mounted) setState(() => _busy = false);
+  }
+
+  Widget _q(String t) => Padding(
+        padding: const EdgeInsets.only(top: 12, bottom: 4),
+        child: Text(t, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: Color(0xFF64748B))),
+      );
+
+  Widget _chip(String label, bool on, VoidCallback tap) => ChoiceChip(
+        label: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+        selected: on,
+        visualDensity: VisualDensity.compact,
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        selectedColor: widget.exam.c1.withValues(alpha: .18),
+        onSelected: _busy ? null : (_) => setState(tap),
+      );
+
+  InputDecoration _dec(String hint) => InputDecoration(
+        hintText: hint,
+        hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
+        isDense: true,
+        filled: true,
+        fillColor: const Color(0xFFF8FAFC),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 420),
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFE2E8F0))),
+      child: _done
+          ? const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: Text('✓ Thanks for your feedback!', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF16A34A))),
+            )
+          : Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              const Text('Help us improve the next Challenge Mock', textAlign: TextAlign.center, style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.w900)),
+              const Text('20 seconds · optional', textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8), fontWeight: FontWeight.w600)),
+              const SizedBox(height: 6),
+              Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                for (var i = 1; i <= 5; i++)
+                  InkResponse(
+                    onTap: _busy ? null : () => setState(() => _stars = i),
+                    radius: 22,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      child: Icon(i <= _stars ? Icons.star_rounded : Icons.star_outline_rounded, size: 34, color: i <= _stars ? const Color(0xFFF59E0B) : const Color(0xFF94A3B8)),
+                    ),
+                  ),
+              ]),
+              _q('Compared with the real SSC exam, the level was:'),
+              Wrap(alignment: WrapAlignment.center, spacing: 6, runSpacing: 2, children: [
+                for (final d in _diffs.keys) _chip(_diffs[d]!, _diff == d, () => _diff = d),
+              ]),
+              _q('Which part was the hardest?'),
+              Wrap(alignment: WrapAlignment.center, spacing: 6, runSpacing: 2, children: [
+                for (final x in _parts) _chip(x, _hard == x, () => _hard = x),
+              ]),
+              _q('Was the time enough for each part? (pick any)'),
+              Wrap(alignment: WrapAlignment.center, spacing: 6, runSpacing: 2, children: [
+                _chip('Enough for all', _time.contains('Enough'), () {
+                  _time
+                    ..clear()
+                    ..add('Enough');
+                }),
+                for (final x in _parts)
+                  _chip('Short for $x', _time.contains(x), () {
+                    _time.remove('Enough');
+                    if (!_time.remove(x)) _time.add(x);
+                  }),
+              ]),
+              _q('Any wrong question, wrong answer or unclear figure?'),
+              TextField(controller: _issue, maxLength: 300, enabled: !_busy, style: const TextStyle(fontSize: 13.5), decoration: _dec('Question number and what was wrong (optional)').copyWith(counterText: '')),
+              const SizedBox(height: 8),
+              TextField(controller: _note, maxLength: 300, enabled: !_busy, style: const TextStyle(fontSize: 13.5), decoration: _dec('Anything else we should change? (optional)').copyWith(counterText: '')),
+              if (_err.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 6), child: Text(_err, textAlign: TextAlign.center, style: const TextStyle(color: Color(0xFFDC2626), fontWeight: FontWeight.w700))),
+              const SizedBox(height: 10),
+              FilledButton(
+                onPressed: _stars < 1 || _busy ? null : _send,
+                style: FilledButton.styleFrom(backgroundColor: widget.exam.c1, minimumSize: const Size(160, 44), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                child: Text(_busy ? 'Sending…' : (_stars < 1 ? 'Tap the stars to rate' : 'Submit feedback'), style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w800)),
+              ),
+            ]),
     );
   }
 }
