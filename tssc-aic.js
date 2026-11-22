@@ -551,7 +551,7 @@ function stateHtml(st, size) {
     case 'live':
       tag = '<i></i>Live now';
       body = 'The paper is open until <b>12 midnight</b> (last entry ' + w.last + '). ' + D.paperLine;
-      act = '<a class="aicB-btn" href="' + S.testUrl(n, 'en') + '">Start in English →</a><a class="aicB-btn ghost" data-aic-hi="' + D.key + '" href="' + S.testUrl(n, 'hi') + '">हिंदी में शुरू करें</a>';
+      act = '<a class="aicB-btn" href="' + S.testUrl(n, 'en') + '">Start the test →</a>';
       extra = cdHtml(r.lastEntry, 'Last entry closes in'); break;
     case 'missed':
       tag = 'Entry closed at ' + w.last;
@@ -609,7 +609,7 @@ function cardHtml(st) {
       line = 'This ' + w.day + '\'s registration had closed, so this is your first paper.'; act = '<span class="aicB-ok">✓ Registered</span>' + more; break;
     case 'live':
       chip = 'Live now'; chipCls = ' live'; when = 'Open till 12 midnight · last entry ' + w.last; line = D.paperLine;
-      act = '<a class="aicB-btn" href="' + S.testUrl(n, 'en') + '">Start in English →</a><a class="aicB-btn ghost" data-aic-hi="' + D.key + '" href="' + S.testUrl(n, 'hi') + '">हिंदी</a>'; break;
+      act = '<a class="aicB-btn" href="' + S.testUrl(n, 'en') + '">Start the test →</a>'; break;
     case 'missed':
       line = 'Entry closed at ' + w.last + '. Free mock from ' + shortDay(r.resultAt) + ', 9 am.' + (nx ? ' You are in for Mock ' + (n + 1) + '.' : ''); act = more; break;
     case 'live-next':
@@ -691,7 +691,7 @@ async function paintPast(el) {
     return '<div class="aicPast-card"><div class="aicPast-top"><h3>All India Challenge Mock ' + n + '</h3><span>' + fmtDate(r.start) + (total ? ' · ' + total.toLocaleString('en-IN') + ' students' : '') + '</span></div>' + lb
       + '<div class="aicPast-btns">' + (done ? '<a class="go" href="' + S.resultUrl(n, done) + '">My result and rank</a>' : '')
       + '<a href="/rank.html?paper=' + encodeURIComponent(r.board) + '&name=' + encodeURIComponent(D.name + ' All India Challenge Mock ' + n) + '">Full leaderboard</a>'
-      + '<a' + (done ? '' : ' class="go"') + ' href="' + S.testUrl(n, 'en') + '">Attempt as free mock</a>' + (hi ? '<a href="' + S.testUrl(n, 'hi') + '">हिंदी में</a>' : '') + '</div></div>';
+      + '<a' + (done ? '' : ' class="go"') + ' href="' + S.testUrl(n, 'en') + '">Attempt as free mock</a>' + '</div></div>';
   }));
   el.innerHTML = '<div class="aicPast">' + cards.join('') + '</div>';
 }
@@ -744,7 +744,7 @@ async function paintPapers(el) {
       else if (reg && reg < r.regClose) {
         line = D.paperLine + ' The test cannot be paused.';
         const hi = await S.hasLang(n, 'hi');
-        sideHtml = '<a class="aicB-btn" href="' + S.testUrl(n, 'en') + '">Start in English →</a>' + (hi ? '<a class="aicB-btn ghost" href="' + S.testUrl(n, 'hi') + '">हिंदी में शुरू करें</a>' : '');
+        sideHtml = '<a class="aicB-btn" href="' + S.testUrl(n, 'en') + '">Start the test →</a>';
         if (t < r.lastEntry) cd = cdHtml(r.lastEntry) + '<p class="aicPap-cdl">Last entry closes in</p>';
       } else {
         line = 'Today\'s paper is for students who registered before ' + w.regDay + ' midnight. It opens for everyone as a free mock on <b>' + fmtDay(r.resultAt) + ', 9 am</b>.';
@@ -786,19 +786,15 @@ async function paintSchedule() {
       const r = S.round(n), live = t >= r.start && t < r.end;
       const done = (uid && t >= r.start) ? await S.participated(n, uid) : null;
       let win, res;
-      /* the Hindi paper, wherever a row offers the test (only when it is uploaded) */
-      const _adm = t < r.start && isAicAdmin();
-      const _hiOn = (_adm || (live && !done && reg && reg < r.regClose) || t >= r.resultAt) ? await S.hasLang(n, 'hi') : false;
-      const _hiA = extra => _hiOn ? '<a ' + extra + ' style="display:block;margin:6px 0 0;font-size:.85rem;font-weight:700;color:#6D28D9;text-decoration:underline;">हिंदी में दें →</a>' : '';
       if (t < r.start) win = isAicAdmin()
-        ? '<a class="aicT-btn" href="#" data-adm-go="' + S.def.key + ':' + n + '">Attempt test (admin preview) →</a>' + _hiA('href="#" data-adm-go="' + S.def.key + ':' + n + ':hi"') + '<small>Only you see this · students: opens ' + fmtShort(r.start) + ', 9 am</small>'   /* TSSC-AICADMIN-V1 */
+        ? '<a class="aicT-btn" href="#" data-adm-go="' + S.def.key + ':' + n + '">Attempt test (admin preview) →</a><small>Only you see this · students: opens ' + fmtShort(r.start) + ', 9 am</small>'   /* TSSC-AICADMIN-V1 */
         : '<span class="aicT-btn off" title="Opens ' + fmtShort(r.start) + ', 9 am">Attempt test</span><small>Opens ' + fmtShort(r.start) + ', 9 am</small>';
       else if (live) {
         if (done) win = '<span class="aicT-btn done">✓ Submitted</span>';
-        else if (reg && reg < r.regClose) win = '<a class="aicT-btn" href="' + S.testUrl(n, 'en') + '">Attempt test →</a>' + _hiA('href="' + S.testUrl(n, 'hi') + '"') + '<small>Live now · last entry ' + S.words(r).last + '</small>';
+        else if (reg && reg < r.regClose) win = '<a class="aicT-btn" href="' + S.testUrl(n, 'en') + '">Attempt test →</a><small>Live now · last entry ' + S.words(r).last + '</small>';
         else win = '<span class="aicT-btn off">Attempt test</span><small>Registered students only · free mock from ' + fmtShort(r.resultAt) + '</small>';
       } else if (t < r.resultAt) win = done ? '<span class="aicT-btn done">✓ Submitted</span>' : '<span class="aicT-btn off">Attempt free test</span><small>Free test from ' + fmtShort(r.resultAt) + ', 9 am</small>';
-      else win = '<a class="aicT-btn alt" href="' + S.testUrl(n, 'en') + '">Attempt free test →</a>' + _hiA('href="' + S.testUrl(n, 'hi') + '"');
+      else win = '<a class="aicT-btn alt" href="' + S.testUrl(n, 'en') + '">Attempt free test →</a>';
       if (t < r.resultAt) res = '<span class="aicT-btn off">Check rank &amp; leaderboard</span>';
       else res = '<a class="aicT-btn" href="' + (done ? S.resultUrl(n, done) : '/rank.html?paper=' + encodeURIComponent(r.board) + '&name=' + encodeURIComponent(S.def.name + ' All India Challenge Mock ' + n)) + '">Check rank &amp; leaderboard →</a>';
       rows.push('<tr><td><b>Challenge Mock ' + n + '</b>' + (live ? ' <span style="color:#DC2626;font-weight:700;">· live now</span>' : '') + '</td>'
@@ -935,6 +931,64 @@ document.addEventListener('click', e => {
 });
 
 /* ───────────────────────── start ───────────────────────── */
+/* ───────────────────────── language pop-up (TSSC-AICLANG-V1) ─────────────────────────
+   Every button that opens a challenge paper asks "English or Hindi?" first, with the same pop-up as the SSC CGL and
+   SSC CHSL mock pages. If the Hindi paper of that round is not uploaded, the English paper opens straight away. */
+function langCss() {
+  if (document.getElementById('aicLcCss')) return;
+  const st = document.createElement('style'); st.id = 'aicLcCss';
+  st.textContent = '#aicLc{display:none;position:fixed;inset:0;z-index:2147483200;background:rgba(15,23,42,.55);backdrop-filter:blur(4px)}'
+    + '#aicLc .lc-card{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(400px,92vw);background:#fff;border-radius:22px;box-shadow:0 30px 80px rgba(15,23,42,.4);overflow:hidden}'
+    + '#aicLc .lc-head{padding:1.6rem 1.5rem .9rem;text-align:center;background:linear-gradient(180deg,#FBFCFE 0%,#fff 100%);border-bottom:1px solid #F1F5F9}'
+    + '#aicLc .lc-icon{width:54px;height:54px;border-radius:16px;background:linear-gradient(135deg,#0EA5E9,#6366F1);display:flex;align-items:center;justify-content:center;font-size:1.6rem;margin:0 auto .8rem}'
+    + "#aicLc .lc-title{font-family:'Rajdhani',sans-serif;font-weight:800;font-size:1.3rem;color:#1A202C;line-height:1.2}"
+    + '#aicLc .lc-sub{font-size:.8rem;color:#94A3B8;margin-top:.35rem;line-height:1.35;font-weight:600}'
+    + '#aicLc .lc-body{padding:1.2rem 1.4rem 1.5rem;display:flex;flex-direction:column;gap:.75rem}'
+    + "#aicLc .lc-opt{display:flex;align-items:center;gap:.95rem;width:100%;border:1.5px solid #EBEFF4;background:#fff;border-radius:15px;padding:.85rem 1rem;cursor:pointer;text-align:left;transition:all .16s ease;font-family:'Rajdhani',sans-serif}"
+    + '#aicLc .lc-opt.en:hover{border-color:#6366F1;background:#F6F7FF}#aicLc .lc-opt.hi:hover{border-color:#FF6B00;background:#FFF8F2}'
+    + "#aicLc .lc-badge{width:48px;height:48px;border-radius:14px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-family:'Rajdhani',sans-serif;font-weight:800;font-size:1.55rem;color:#fff;line-height:1}"
+    + '#aicLc .lc-opt.en .lc-badge{background:linear-gradient(135deg,#0EA5E9,#6366F1)}#aicLc .lc-opt.hi .lc-badge{background:linear-gradient(135deg,#FF6B00,#FF8C38)}'
+    + '#aicLc .lc-opt-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:.12rem}#aicLc .lc-opt-name{font-weight:800;font-size:1.08rem;color:#1A202C;line-height:1.2}'
+    + '#aicLc .lc-opt-desc{font-size:.74rem;color:#94A3B8;font-weight:600;margin-top:.1rem}'
+    + '#aicLc .lc-arrow{flex-shrink:0;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#F1F5F9;color:#94A3B8;font-size:.95rem;font-weight:800}'
+    + "#aicLc .lc-cancel{margin-top:.15rem;background:none;border:none;color:#94A3B8;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.85rem;cursor:pointer;padding:.55rem;border-radius:8px}";
+  document.head.appendChild(st);
+}
+let _lcBusy = false;
+async function askLang(S, n) {
+  if (_lcBusy) return; _lcBusy = true;
+  const en = S.testUrl(n, 'en'), hi = S.testUrl(n, 'hi');
+  let hasHi = false; try { hasHi = await S.hasLang(n, 'hi'); } catch (e) {}
+  _lcBusy = false;
+  if (!hasHi) { location.href = en; return; }
+  langCss();
+  let el = document.getElementById('aicLc');
+  if (!el) {
+    el = document.createElement('div'); el.id = 'aicLc';
+    el.innerHTML = '<div class="lc-card"><div class="lc-head"><div class="lc-icon">&#127760;</div><div class="lc-title">Choose Your Language</div><div class="lc-sub"></div></div>'
+      + '<div class="lc-body"><button class="lc-opt en" data-lc="en"><span class="lc-badge">A</span><span class="lc-opt-main"><span class="lc-opt-name">English</span><span class="lc-opt-desc">Attempt the mock in English</span></span><span class="lc-arrow">&rarr;</span></button>'
+      + '<button class="lc-opt hi" data-lc="hi"><span class="lc-badge">&#2309;</span><span class="lc-opt-main"><span class="lc-opt-name">&#2361;&#2367;&#2306;&#2342;&#2368; / Hindi</span><span class="lc-opt-desc">&#2350;&#2377;&#2325; &#2361;&#2367;&#2306;&#2342;&#2368; &#2350;&#2375;&#2306; &#2361;&#2354; &#2325;&#2352;&#2375;&#2306;</span></span><span class="lc-arrow">&rarr;</span></button>'
+      + '<button class="lc-cancel" data-lc="x">Cancel</button></div></div>';
+    document.body.appendChild(el);
+    el.addEventListener('click', e => {
+      const b = e.target.closest('[data-lc]'), k = b && b.getAttribute('data-lc');
+      if (k === 'en' || k === 'hi') { location.href = el.getAttribute('data-' + k); return; }
+      if (k === 'x' || e.target === el) { el.style.display = 'none'; document.body.style.overflow = ''; }
+    });
+  }
+  el.setAttribute('data-en', en); el.setAttribute('data-hi', hi);
+  el.querySelector('.lc-sub').textContent = S.def.name + ' · All India Challenge Mock ' + n;
+  el.style.display = 'block'; document.body.style.overflow = 'hidden';
+}
+/* any link to a challenge paper on a page that carries this file */
+document.addEventListener('click', e => {
+  const a = e.target.closest && e.target.closest('a[href*="_aic_mock"]'); if (!a || a.closest('#aicLc')) return;
+  let mid = ''; try { mid = new URL(a.href, location.href).searchParams.get('mockId') || ''; } catch (e2) {}
+  if (!isAicId(mid) || !/mock-test/i.test(a.getAttribute('href') || '')) return;
+  e.preventDefault(); e.stopPropagation();
+  askLang(seriesOfMock(mid), roundOfMock(mid));
+}, true);
+
 /* ───────────────────────── admin test bar (TSSC-AICADMIN-V1) ───────────────────────── */
 function adminBar() {
   try {
@@ -959,8 +1013,7 @@ function adminBar() {
       + btn('live', '2. Challenge day, 9:05 am')
       + btn('wait', '3. Day after (waiting for result)')
       + btn('result', '4. Result day, 9:05 am')
-      + btn('paper', 'Open the paper (English)')
-      + btn('paperhi', 'Open the paper (Hindi)')
+      + btn('paper', 'Open the paper')
       + btn('page', 'Open the challenge page')
       + btn('reset', 'Forget my test attempt of this mock')
       + btn('real', 'Back to the real date')
@@ -979,7 +1032,7 @@ function adminBar() {
       else if (k === 'result') setClock(c.r.resultAt + 5 * 60000);
       else if (k === 'real') { try { localStorage.removeItem('tssc_aic_adm'); } catch (e2) {} }
       else if (k === 'reset') { try { localStorage.removeItem(K + 'done_' + c.n + '_' + uid); localStorage.removeItem(K + 'start_' + c.n + '_' + uid); } catch (e2) {} }
-      else if (k === 'paper' || k === 'paperhi') { location.href = c.S.testUrl(c.n, k === 'paperhi' ? 'hi' : 'en'); return; }
+      else if (k === 'paper') { askLang(c.S, c.n); return; }
       else if (k === 'page') { location.href = c.S.def.page; return; }
       try { Object.keys(sessionStorage).forEach(x => { if (/^tssc_aic_/.test(x)) sessionStorage.removeItem(x); }); } catch (e2) {}
       location.reload();
@@ -994,7 +1047,7 @@ document.addEventListener('click', e => {
   lsSet('tssc_aic_adm', String(Math.round(S.round(n).start + 5 * 60000 - (Date.now() + _skew))));
   lsSet('tssc_aic_adm_sel', JSON.stringify({ s: S.def.key, n }));
   try { localStorage.removeItem(K + 'done_' + n + '_' + uid); localStorage.removeItem(K + 'start_' + n + '_' + uid); } catch (e2) {}
-  location.href = S.testUrl(n, p[2] === 'hi' ? 'hi' : 'en');
+  askLang(S, n);
 });
 authReady.then(() => { const go = () => adminBar(); if (document.body) go(); else document.addEventListener('DOMContentLoaded', go); });
 try { onAuthStateChanged(auth, () => { if (document.body) adminBar(); }); } catch (e) {}
