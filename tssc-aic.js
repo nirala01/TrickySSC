@@ -409,6 +409,20 @@ body.aic-pop-open #tsscMP{display:none!important}
 .aicPast-lb td:last-child{text-align:right;font-weight:700;color:#1A202C;white-space:nowrap}
 .aicPast-btns{display:flex;flex-wrap:wrap;gap:8px}
 .aicPap-list{display:grid;gap:14px}
+.aicPap-row{display:flex;gap:18px;align-items:stretch;position:relative;z-index:1}
+.aicPap-main{flex:1 1 auto;min-width:0}
+.aicPap-side{flex:0 0 270px;display:flex;flex-direction:column;justify-content:center;gap:9px}
+.aicPap-side .aicB-btn,.aicPap-side .aicB-ok{width:100%;justify-content:center;text-align:center}
+.aicPap-side .aicB-btn{min-height:50px;font-size:1.08rem}
+.aicPap-side .aicB-ok{min-height:46px;font-size:1rem}
+.aicPap-side .aicB-btn.ghost{min-height:42px;font-size:.92rem}
+.aicPap-side .aicPap-note{font-size:.8rem;color:#F5F3FF;text-align:center;line-height:1.4;margin:0}
+@media(max-width:720px){.aicPap-row{flex-direction:column;gap:12px}.aicPap-side{flex:0 0 auto}}
+.aicT-btn{box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;margin-top:6px;width:210px;max-width:100%;height:36px;padding:0 10px;border-radius:9px;font-family:'Rajdhani',sans-serif;font-weight:800;font-size:.9rem;text-decoration:none;white-space:nowrap;border:0;background:linear-gradient(135deg,#FF6B00,#FF8C38);color:#fff!important;box-shadow:0 4px 12px rgba(255,107,0,.25)}
+.aicT-btn.alt{background:linear-gradient(135deg,#6D28D9,#8B5CF6);box-shadow:0 4px 12px rgba(109,40,217,.25)}
+.aicT-btn.off{filter:blur(1.4px) grayscale(.6);opacity:.55;pointer-events:none;box-shadow:none;user-select:none}
+.aicT-btn.done{background:#DCFCE7;color:#15803D!important;box-shadow:none;pointer-events:none}
+.aicT-cell small{display:block;font-size:.72rem;color:#64748B;margin-top:3px}
 .aicPap{position:relative;overflow:hidden;border-radius:18px;padding:20px 20px 18px;color:#fff;background:linear-gradient(125deg,#1E1B4B 0%,#4C1D95 52%,#BE185D 100%);box-shadow:0 12px 30px rgba(76,29,149,.28);border:2px solid transparent}
 .aicPap::after{content:'🏆';position:absolute;right:-6px;top:-14px;font-size:92px;opacity:.1;pointer-events:none}
 .aicPap.live{background:linear-gradient(125deg,#7F1D1D 0%,#B91C1C 45%,#EA580C 100%);border-color:#FDE68A;box-shadow:0 14px 34px rgba(220,38,38,.35)}
@@ -689,39 +703,56 @@ async function paintPapers(el) {
   const reg = uid ? await S.regAt(uid) : 0;
   let nextFlip = 0;
   let firstUpcoming = true;
+  const nx = n => S.hasRound(n + 1) ? S.round(n + 1) : null;
+  /* the right-hand column: is this student in for this paper, and if not, the Register button */
+  function side(n, r) {
+    const w = S.words(r), inTime = reg && reg < r.regClose, n2 = nx(n);
+    const invite = '<a class="aicB-btn ghost" target="_blank" rel="noopener" href="' + S.waShare(n) + '">Invite friends on WhatsApp</a>';
+    if (inTime) return '<span class="aicB-ok">✓ You are registered</span><p class="aicPap-note">For all ' + D.short + ' challenge mocks</p>' + invite;
+    if (reg) return '<span class="aicB-ok">✓ You are registered</span><p class="aicPap-note">' + (n2 ? 'Your first paper is Mock ' + (n + 1) + ' on ' + fmtShort(n2.start) : 'Registration for this paper had closed') + '</p>' + invite;
+    if (t < r.regClose) return regBtnHtml(D.key, 'Register free →') + '<p class="aicPap-note">One time. Closes ' + w.regDay + ' midnight.</p><div class="aicB-err" data-aic-err hidden></div>';
+    if (n2) return regBtnHtml(D.key, 'Register for Mock ' + (n + 1) + ' →') + '<p class="aicPap-note">Registration for this paper is closed.</p><div class="aicB-err" data-aic-err hidden></div>';
+    return '<p class="aicPap-note">Registration for this paper is closed.</p>';
+  }
   const cards = await Promise.all(list.map(async n => {
     const r = S.round(n), w = S.words(r);
-    let chip, cls = '', head, when, line, btns, cd = '';
+    let chip, cls = '', head, when, line, lock = '', cd = '', sideHtml;
     if (t < r.start) {
       nextFlip = nextFlip ? Math.min(nextFlip, r.start) : r.start;
       const big = firstUpcoming; firstUpcoming = false; if (!big) cls = ' later';
       chip = 'Upcoming'; head = 'Live on <em>' + fmtDay(r.start) + '</em>'; when = '9 am to 12 midnight · last entry ' + w.last;
-      const mine = reg && reg < r.regClose;
-      line = mine ? 'You are registered. The Start button appears here at 9 am on ' + w.day + '.' : (t < r.regClose ? 'Free. Register before <b>' + w.regDay + ' midnight</b> to take this paper.' : 'Registration for this paper is closed.');
-      btns = (mine || t >= r.regClose ? '' : regBtnHtml(D.key, 'Register free →')) + '<span class="lock">🔒 Opens ' + fmtShort(r.start) + ', 9 am</span>';
+      line = (reg && reg < r.regClose) ? 'The Start button appears here at 9 am on ' + w.day + '.' : D.paperLine;
+      lock = '<span class="lock">🔒 Opens ' + fmtShort(r.start) + ', 9 am</span>';
       if (big) cd = cdHtml(r.start) + '<p class="aicPap-cdl">Goes live in</p>';
+      sideHtml = side(n, r);
     } else if (t < r.end) {
       nextFlip = nextFlip ? Math.min(nextFlip, r.end) : r.end;
       chip = '<i></i>Live now'; cls = ' live'; head = 'The paper is <em>live now</em>'; when = 'Open till 12 midnight · last entry ' + w.last;
       const done = uid ? await S.participated(n, uid) : null;
-      if (done) { line = 'Your test has been submitted successfully. Result and All India rank on <b>' + fmtDay(r.resultAt) + ', 9 am</b>.'; btns = '<span class="lock">✓ Test submitted</span>'; }
+      if (done) { line = 'Your test has been submitted successfully. Result and All India rank on <b>' + fmtDay(r.resultAt) + ', 9 am</b>.'; sideHtml = '<span class="aicB-ok">✓ Test submitted</span>'; }
       else if (reg && reg < r.regClose) {
         line = D.paperLine + ' The test cannot be paused.';
         const hi = await S.hasLang(n, 'hi');
-        btns = '<a class="aicB-btn" href="' + S.testUrl(n, 'en') + '">Start in English →</a>' + (hi ? '<a class="aicB-btn ghost" href="' + S.testUrl(n, 'hi') + '">हिंदी में शुरू करें</a>' : '');
+        sideHtml = '<a class="aicB-btn" href="' + S.testUrl(n, 'en') + '">Start in English →</a>' + (hi ? '<a class="aicB-btn ghost" href="' + S.testUrl(n, 'hi') + '">हिंदी में शुरू करें</a>' : '');
         if (t < r.lastEntry) cd = cdHtml(r.lastEntry) + '<p class="aicPap-cdl">Last entry closes in</p>';
-      } else { line = 'Today\'s paper is for students who registered before ' + w.regDay + ' midnight. It opens for everyone as a free mock on <b>' + fmtDay(r.resultAt) + ', 9 am</b>.'; btns = '<span class="lock">🔒 Registered students only</span>'; }
+      } else {
+        line = 'Today\'s paper is for students who registered before ' + w.regDay + ' midnight. It opens for everyone as a free mock on <b>' + fmtDay(r.resultAt) + ', 9 am</b>.';
+        lock = '<span class="lock">🔒 Registered students only</span>'; sideHtml = side(n, r);
+      }
     } else {
       nextFlip = nextFlip ? Math.min(nextFlip, r.resultAt) : r.resultAt;
       chip = 'Paper over'; cls = ' wait'; head = 'Result on <em>' + fmtDay(r.resultAt) + '</em>'; when = '9 am · marks, All India rank and solutions';
       const done = uid ? await S.participated(n, uid) : null;
       line = (done ? 'Your test is submitted. ' : '') + 'The result opens by itself at 9 am. From then this paper is a free mock for everyone.';
-      btns = '<span class="lock">🕘 Result ' + fmtShort(r.resultAt) + ', 9 am</span>';
+      lock = '<span class="lock">🕘 Result ' + fmtShort(r.resultAt) + ', 9 am</span>';
       cd = cdHtml(r.resultAt) + '<p class="aicPap-cdl">Result in</p>';
+      sideHtml = done ? '<span class="aicB-ok">✓ Test submitted</span>' : side(n, r);
     }
-    return '<div class="aicB aicPap' + cls + '" style="margin:0"><div class="aicPap-top"><span class="aicPap-chip">' + chip + '</span><span class="aicPap-name">' + D.name + ' · All India Challenge Mock ' + n + '</span></div>'
+    return '<div class="aicB aicPap' + cls + '" style="margin:0"><div class="aicPap-row"><div class="aicPap-main">'
+      + '<div class="aicPap-top"><span class="aicPap-chip">' + chip + '</span><span class="aicPap-name">' + D.name + ' · All India Challenge Mock ' + n + '</span></div>'
       + '<div class="aicPap-h">' + head + '</div><div class="aicPap-when">' + when + '</div>' + cd
-      + '<p class="aicPap-line">' + line + '</p><div class="aicPap-btns">' + btns + '</div><div class="aicB-err" data-aic-err hidden></div></div>';
+      + '<p class="aicPap-line">' + line + '</p>' + (lock ? '<div class="aicPap-btns">' + lock + '</div>' : '') + '</div>'
+      + '<div class="aicPap-side">' + sideHtml + '</div></div></div>';
   }));
   el.innerHTML = '<div class="aicPap-list">' + cards.join('') + '</div>'; el.hidden = false;
   bindRegister(el); tickCd();
@@ -730,16 +761,34 @@ async function paintPapers(el) {
 }
 
 /* <tbody data-aic="schedule"> — the coming rounds (the rows typed in the page are only the no-JavaScript fallback) */
-function paintSchedule() {
-  document.querySelectorAll('[data-aic="schedule"]').forEach(el => {
-    const S = holderSeries(el);
-    const t = now(); const n = S.nextRound(t); const rows = [];
-    for (let i = 0; i < 5 && S.hasRound(n + i); i++) {
-      const r = S.round(n + i), live = t >= r.start && t < r.end;
-      rows.push('<tr><td><b>Challenge Mock ' + r.n + '</b>' + (live ? ' <span style="color:#DC2626;font-weight:700;">· live now</span>' : '') + '</td><td>' + fmtShort(r.regClose - 60000) + ', 11:59 pm</td><td>' + fmtShort(r.start) + ', 9 am – 12 midnight</td><td>' + fmtShort(r.resultAt) + ', 9 am</td></tr>');
+/* TSSC-AICTABLE-V1 (2026-11-22): every row carries its own buttons.
+   Mock window: "Attempt test" — live for students registered in time; blurred for everyone else; after the paper
+   it turns into "Attempt free test" from the result time. Result: "Check rank & leaderboard", blurred until 9 am. */
+async function paintSchedule() {
+  for (const el of document.querySelectorAll('[data-aic="schedule"]')) {
+    const S = holderSeries(el), t = now(), cur = S.nextRound(t), uid = currentUid();
+    const reg = uid ? await S.regAt(uid) : 0;
+    const from = Math.max(1, cur - 3), rows = [];
+    for (let n = from; rows.length < 8 && S.hasRound(n) && n < cur + 5; n++) {
+      const r = S.round(n), live = t >= r.start && t < r.end;
+      const done = (uid && t >= r.start) ? await S.participated(n, uid) : null;
+      let win, res;
+      if (t < r.start) win = '<span class="aicT-btn off" title="Opens ' + fmtShort(r.start) + ', 9 am">Attempt test</span><small>Opens ' + fmtShort(r.start) + ', 9 am</small>';
+      else if (live) {
+        if (done) win = '<span class="aicT-btn done">✓ Submitted</span>';
+        else if (reg && reg < r.regClose) win = '<a class="aicT-btn" href="' + S.testUrl(n, 'en') + '">Attempt test →</a><small>Live now · last entry ' + S.words(r).last + '</small>';
+        else win = '<span class="aicT-btn off">Attempt test</span><small>Registered students only · free mock from ' + fmtShort(r.resultAt) + '</small>';
+      } else if (t < r.resultAt) win = done ? '<span class="aicT-btn done">✓ Submitted</span>' : '<span class="aicT-btn off">Attempt free test</span><small>Free test from ' + fmtShort(r.resultAt) + ', 9 am</small>';
+      else win = '<a class="aicT-btn alt" href="' + S.testUrl(n, 'en') + '">Attempt free test →</a>';
+      if (t < r.resultAt) res = '<span class="aicT-btn off">Check rank &amp; leaderboard</span>';
+      else res = '<a class="aicT-btn" href="' + (done ? S.resultUrl(n, done) : '/rank.html?paper=' + encodeURIComponent(r.board) + '&name=' + encodeURIComponent(S.def.name + ' All India Challenge Mock ' + n)) + '">Check rank &amp; leaderboard →</a>';
+      rows.push('<tr><td><b>Challenge Mock ' + n + '</b>' + (live ? ' <span style="color:#DC2626;font-weight:700;">· live now</span>' : '') + '</td>'
+        + '<td>' + fmtShort(r.regClose - 60000) + ', 11:59 pm</td>'
+        + '<td class="aicT-cell">' + fmtShort(r.start) + ', 9 am – 12 midnight<br>' + win + '</td>'
+        + '<td class="aicT-cell">' + fmtShort(r.resultAt) + ', 9 am<br>' + res + '</td></tr>');
     }
     if (rows.length) el.innerHTML = rows.join('');
-  });
+  }
 }
 
 async function paintCount() {
@@ -777,7 +826,7 @@ export function render() {
       Object.keys(states).forEach(k => { const st = states[k];
         if (st && st.kind === 'live') SERIES[k].hasLang(st.n, 'hi').then(ok => { if (!ok) document.querySelectorAll('[data-aic-hi="' + k + '"]').forEach(a => a.remove()); }); });
       document.querySelectorAll('[data-aic="past"]').forEach(el => paintPast(el).catch(() => {}));
-      paintSchedule();
+      paintSchedule().catch(() => {});
       document.querySelectorAll('[data-aic="papers"]').forEach(el => paintPapers(el).catch(() => {}));
       paintCount();
       if (wantPop) maybePopup(ORDER.map(k => states[k]).filter(Boolean));
@@ -881,7 +930,7 @@ function boot() {
     const q = new URLSearchParams(location.search).get('register');
     if (q) authReady.then(async () => {
       if (!auth.currentUser) return;
-      const hub = document.querySelector('[data-aic="hub"]');
+      const hub = document.querySelector('[data-aic="hub"],[data-aic="papers"]');
       const keys = q === '1' ? [hub ? holderSeries(hub).key : 'cgl'] : q.split(',').filter(k => SERIES[k]);
       for (const k of keys) await SERIES[k].register();
       render();
