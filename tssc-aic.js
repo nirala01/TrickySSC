@@ -434,6 +434,19 @@ body.aic-pop-open #tsscMP{display:none!important}
 .aicT-btn.off{filter:blur(1.4px) grayscale(.6);opacity:.55;pointer-events:none;box-shadow:none;user-select:none}
 .aicT-btn.done{background:#DCFCE7;color:#15803D!important;box-shadow:none;pointer-events:none}
 .aicT-cell small{display:block;font-size:.72rem;color:#64748B;margin-top:3px}
+/* TSSC-AICMOB-V1 — phones: the schedule becomes one card per round (no sideways scrolling to reach the Result button) */
+@media(max-width:640px){
+.ac-tblw{overflow:visible}
+.ac-tbl{display:block;min-width:0!important;background:transparent!important}
+.ac-tbl thead{display:none}
+.ac-tbl tbody[data-aic="schedule"]{display:block}
+.ac-tbl tbody[data-aic="schedule"] tr{display:block;background:#fff;border:1px solid #E2E8F0;border-radius:14px;padding:.75rem .85rem;margin:0 0 .75rem;box-shadow:0 2px 8px rgba(15,23,42,.04)}
+.ac-tbl tbody[data-aic="schedule"] td{display:block;border:0!important;background:transparent!important;padding:.15rem 0!important}
+.ac-tbl tbody[data-aic="schedule"] td[data-label]::before{content:attr(data-label);display:block;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.68rem;letter-spacing:.6px;text-transform:uppercase;color:#64748B;margin-top:.45rem}
+.ac-tbl tbody[data-aic="schedule"] td[data-label="Round"]::before{display:none}
+.ac-tbl tbody[data-aic="schedule"] td[data-label="Round"]{font-size:1.08rem;color:#1A202C}
+.ac-tbl tbody[data-aic="schedule"] .aicT-btn{width:100%;height:40px}
+}
 .aicPap{position:relative;overflow:hidden;border-radius:18px;padding:20px 20px 18px;color:#fff;background:linear-gradient(125deg,#1E1B4B 0%,#4C1D95 52%,#BE185D 100%);box-shadow:0 12px 30px rgba(76,29,149,.28);border:2px solid transparent}
 .aicPap::after{content:'🏆';position:absolute;right:-6px;top:-14px;font-size:92px;opacity:.1;pointer-events:none}
 .aicPap.live{background:linear-gradient(125deg,#7F1D1D 0%,#B91C1C 45%,#EA580C 100%);border-color:#FDE68A;box-shadow:0 14px 34px rgba(220,38,38,.35)}
@@ -799,10 +812,10 @@ async function paintSchedule() {
       /* a logged-in candidate always goes to the analysis of this round (it sends anyone who did not take the round on to the
          leaderboard) — the attempt may have been made on another device, where this browser has no record of it */
       else res = '<a class="aicT-btn" href="' + (uid ? S.resultUrl(n, done) : '/rank.html?paper=' + encodeURIComponent(r.board) + '&name=' + encodeURIComponent(S.def.name + ' All India Challenge Mock ' + n)) + '">View complete analysis →</a>';
-      rows.push('<tr><td><b>Challenge Mock ' + n + '</b>' + (live ? ' <span style="color:#DC2626;font-weight:700;">· live now</span>' : '') + '</td>'
-        + '<td>' + fmtShort(r.regClose - 60000) + ', 11:59 pm</td>'
-        + '<td class="aicT-cell">' + fmtShort(r.start) + ', 9 am – 12 midnight<br>' + win + (S.def.key === 'cgl' ? '<span class="aicT-time">⏱ 30 · 30 · 40 · 20 · 15 min, part by part</span>' : (S.def.key === 'chsl' ? '<span class="aicT-time">⏱ 15 · 15 · 15 · 15 min, part by part</span>' : '')) + '</td>'
-        + '<td class="aicT-cell">' + fmtShort(r.resultAt) + ', 9 am<br>' + res + '</td></tr>');
+      rows.push('<tr><td data-label="Round"><b>Challenge Mock ' + n + '</b>' + (live ? ' <span style="color:#DC2626;font-weight:700;">· live now</span>' : '') + '</td>'
+        + '<td data-label="Registration closes">' + fmtShort(r.regClose - 60000) + ', 11:59 pm</td>'
+        + '<td class="aicT-cell" data-label="Mock window">' + fmtShort(r.start) + ', 9 am – 12 midnight<br>' + win + (S.def.key === 'cgl' ? '<span class="aicT-time">⏱ 30 · 30 · 40 · 20 · 15 min, part by part</span>' : (S.def.key === 'chsl' ? '<span class="aicT-time">⏱ 15 · 15 · 15 · 15 min, part by part</span>' : '')) + '</td>'
+        + '<td class="aicT-cell" data-label="Result">' + fmtShort(r.resultAt) + ', 9 am<br>' + res + '</td></tr>');
     }
     if (rows.length) el.innerHTML = rows.join('');
   }
