@@ -2101,8 +2101,9 @@ function tsscReviewFinish(){
     if(t&&!isNaN(t)) when=t.toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'});
   }catch(_){}
   setSaveUi('saved','📖 Reviewing your attempt'+(when?' of '+when:'')+' — nothing is saved or counted again.');
-  window.__tsscAfter='https://trickyssc.com/dashboard.html';   /* TSSC-SPLIT-V1: review mode still goes back to the dashboard */
-  const go=document.getElementById('goDashboardBtn'); if(go) go.textContent='← Back to Dashboard';
+  /* TSSC-RVBACK-V1: from the solutions, Back returns to this test's analysis (the tab the candidate came from, when known) */
+  { let _bk='https://trickyssc.com/test-analysis.html?id='+encodeURIComponent(REVIEW_ID); try{ const _rf=document.referrer||''; if(/\/test-analysis\.html/.test(_rf)&&_rf.indexOf('id='+encodeURIComponent(REVIEW_ID))>0) _bk=_rf.split('#')[0]; }catch(_){} window.__tsscAfter=_bk+'#perf'; }   /* opens on Performance Analysis */
+  const go=document.getElementById('goDashboardBtn'); if(go) go.textContent='← Back to Test Analysis';
   document.querySelectorAll('#resultScreen .rc-card,#resultScreen .rate-card,#resultScreen #rateCard').forEach(el=>{ el.style.display='none'; });
   try{ document.title='Review · '+(document.getElementById('examTitle')?.textContent||'Attempt'); }catch(_){}
   try{ window.scrollTo(0,0); }catch(_){}
