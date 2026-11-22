@@ -799,7 +799,7 @@ async function paintSchedule() {
       const r = S.round(n), live = t >= r.start && t < r.end;
       const done = (uid && t >= r.start) ? await S.participated(n, uid) : null;
       let win, res;
-      if (t < r.start) win = isAicAdmin()
+      if (t < r.start) win = (isAicAdmin() && !adminPreview())   /* the shortcut shows only at the real date; with the test clock moved the owner sees exactly what students see */
         ? '<a class="aicT-btn" href="#" data-adm-go="' + S.def.key + ':' + n + '">Attempt test (admin preview) →</a><small>Only you see this · students: opens ' + fmtShort(r.start) + ', 9 am</small>'   /* TSSC-AICADMIN-V1 */
         : '<span class="aicT-btn off" title="Opens ' + fmtShort(r.start) + ', 9 am">Attempt test</span><small>Opens ' + fmtShort(r.start) + ', 9 am</small>';
       else if (live) {
