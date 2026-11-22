@@ -101,6 +101,8 @@ class _AppShellState extends State<AppShell> {
   void dispose() {
     homeRequest.removeListener(_toHome);
     Billing.I.unlocked.removeListener(_onUnlocked);
+    AppUpdater.available.removeListener(_onUpdate);
+    _life?.dispose();
     Billing.I
       ..onMessage = null
       ..onGranted = null;
@@ -150,7 +152,11 @@ class _AppShellState extends State<AppShell> {
     });
     _loadAtt();
     _loadResume();
-    AppUpdater.check(); // TSSC-INAPPUPDATE-V1
+    // TSSC-INAPPUPDATE-V3: the update popup no longer waits for the account to load; it shows as soon as
+    // Play says a newer version exists, and the check runs again each time the app comes back to the front
+    AppUpdater.available.addListener(_onUpdate);
+    _life = AppLifecycleListener(onResume: () => AppUpdater.check());
+    AppUpdater.check();
     loadPrice(widget.exam).then((p) {
       if (mounted) setState(() => _price = p);
     });
@@ -166,6 +172,15 @@ class _AppShellState extends State<AppShell> {
   }
 
   static String? _welcomed; // once per app open, per student
+
+  AppLifecycleListener? _life;
+
+  void _onUpdate() {
+    if (AppUpdater.available.value == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) showUpdatePopup(context);
+    });
+  }
 
   /// On entering the app: a student with no pass sees Full Access (with a link to every other pass);
   /// a paid student sees only their upgrade; full access sees nothing.

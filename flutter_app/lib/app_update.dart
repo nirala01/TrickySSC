@@ -20,17 +20,22 @@ class AppUpdater {
   static AppUpdateInfo? _info;
   static bool _busy = false;
 
+  /// Why the last check found nothing: null = Play answered; otherwise Play's error (shown in Me > App updates).
+  static String? lastError;
+
   /// Asks Play whether a newer version exists. Quiet: any error means "nothing to show".
   static Future<bool> check() async {
     if (kIsWeb || !Platform.isAndroid || kDebugMode) return false;
     try {
       final i = await InAppUpdate.checkForUpdate();
       _info = i;
+      lastError = null;
       final has = i.updateAvailability == UpdateAvailability.updateAvailable ||
           i.updateAvailability == UpdateAvailability.developerTriggeredUpdateInProgress;
       available.value = has ? (i.availableVersionCode ?? 0) : null;
       return has;
-    } catch (_) {
+    } catch (e) {
+      lastError = e.toString();
       return false;
     }
   }
@@ -78,7 +83,13 @@ class AppUpdater {
     if (has) {
       await update(context);
     } else {
-      msg?.showSnackBar(SnackBar(content: Text('You have the latest version ($appVersion).')));
+      final e = lastError;
+      msg?.showSnackBar(SnackBar(
+        duration: const Duration(seconds: 8),
+        content: Text(e == null
+            ? 'You have the latest version ($appVersion).'
+            : 'Google Play could not check for updates on this phone (version $appVersion). ${e.length > 160 ? e.substring(0, 160) : e}'),
+      ));
     }
   }
 }
