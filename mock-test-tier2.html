@@ -1608,8 +1608,9 @@ const TG_IS_PAPER    = /^ssc-cgl_paper[23]_/i.test(new URLSearchParams(location.
    pass: /tssc-aic.js decides who may open one and when (registered students in the Sunday window, everyone as a
    free mock from the result time). Every AIC line in this file is behind TG_IS_AIC, so no other mock is touched. */
 const TG_IS_AIC      = /^ssc-(cgl|chsl)_aic_mock\d+/i.test(new URLSearchParams(location.search).get('mockId')||'');
-/* TSSC-AIC-V2 (2026-11-21) — the SSC CHSL Tier 1 All India Challenge paper (ssc-chsl_aic_mockN) also runs here: real Tier 1
-   pattern, ONE 60-minute clock for the whole paper (no sectional timing), +2 / -0.5. */
+/* TSSC-AIC-V2 (2026-11-21) — the SSC CHSL Tier 1 All India Challenge paper (ssc-chsl_aic_mockN) also runs here, +2 / -0.5.
+   TSSC-AIC-V3 (2026-11-22) — SSC CHSL 2026 timing: FOUR separately timed parts of 15 minutes each, in paper order
+   (English, Reasoning, Maths, General Awareness), no going back. Was one 60-minute clock. */
 const TG_IS_AICT1    = /^ssc-chsl_aic_mock\d+/i.test(new URLSearchParams(location.search).get('mockId')||'');
 /* TSSC-T2TIME-V1 (2026-11-22) — the regular SSC CGL Tier II mocks (ssc-cgl_tier2_mockN) now run on the SSC CGL 2026 timing too:
    five separately timed parts, 30-30-40-20-15, in paper order, no going back. CHSL Tier 2 and Paper II / III are unchanged. */
@@ -1800,6 +1801,13 @@ const AIC_MODULES=[
   {re:/aware|\bgk\b|जागरूक|सामान्य ज्ञान/i,        name:'Sec II · Gen. Awareness',dur:20*60},
   {re:/computer|कंप्यूटर/i,                         name:'Sec III · Computer',     dur:15*60}
 ];
+const AICT1_MODULES=[
+  {re:/english|comprehension|अंग्रे/i,              name:'English',           dur:15*60},
+  {re:/reason|intelligence|बुद्धि|तर्क/i,           name:'Reasoning',         dur:15*60},
+  {re:/quant|math|aptitude|गणित|मात्रात्मक|अभियोग्यता/i, name:'Maths',        dur:15*60},
+  {re:/aware|\bgk\b|जागरूक|सामान्य ज्ञान/i,        name:'General Awareness', dur:15*60}
+];
+const AICT1_NOTE='<span style="display:block;background:#FEF3C7;border:1.5px solid #F59E0B;border-radius:8px;padding:8px 10px;color:#78350F;"><strong>&#9201; New SSC CHSL 2026 timing.</strong> Four separate clocks of <strong>15 minutes each</strong>, in this order: <strong>English</strong>, <strong>Reasoning</strong>, <strong>Maths</strong>, <strong>General Awareness</strong> &mdash; <strong>60 minutes</strong> in total. Time saved in one part is <strong>not</strong> carried to the next.</span>';
 function aicT1Mode(){
   if(!TG_IS_AICT1) return;
   MARK_CORRECT=2; MARK_WRONG=0.5;
@@ -1809,15 +1817,18 @@ function aicT1Mode(){
   const note=document.querySelector('.instr-marking-note');
   if(note) note.innerHTML='Total marks = (Correct &times; 2) &minus; (Wrong &times; 0.5) &nbsp;&bull;&nbsp; Maximum marks: <strong id="instrMaxMarks">'+(questions.length*2)+'</strong>';
   const li0=[...document.querySelectorAll('.instr-list li')].find(x=>/60 minutes each/.test(x.textContent));
-  if(li0) li0.innerHTML='This paper has <strong>one clock of 60 minutes</strong> for all '+questions.length+' questions, exactly like SSC CHSL Tier 1. There is <strong>no sectional timing</strong>.';
+  if(li0) li0.innerHTML=AICT1_NOTE;
+  const lS=[...document.querySelectorAll('.instr-list li')].find(x=>/sectional test/.test(x.textContent));
+  if(lS&&lS!==li0){ if(li0) lS.style.display='none'; else lS.innerHTML=AICT1_NOTE; }
+  if(lSub) lSub.innerHTML='Once you click <strong>Submit Section</strong> (or its 15-minute clock reaches zero), that part is <strong>locked permanently</strong> and the next part opens. You cannot go back.';
   const li1=[...document.querySelectorAll('.instr-list li')].find(x=>/within the active section/.test(x.textContent));
-  if(li1) li1.innerHTML='You can move freely between all four parts (English, Reasoning, Quantitative Aptitude, General Awareness) with the tabs at the top, and change any answer until you submit.';
+  if(li1) li1.innerHTML='You can move freely and change answers <strong>within the open part</strong>. Once you click <strong>Submit Section</strong> (or its 15-minute clock reaches zero), that part is <strong>locked permanently</strong> and the next part opens. You cannot go back.';
   const li3=[...document.querySelectorAll('.instr-list li')].find(x=>/On the last section/.test(x.textContent));
-  if(li3) li3.innerHTML='Press <strong>Submit Test</strong> when you are done. The paper is also submitted on its own when the 60 minutes are over.';
+  if(li3) li3.innerHTML='On the last part (General Awareness) press <strong>Submit Test</strong> when you are done. The paper is also submitted on its own when its 15 minutes are over.';
   const li4=[...document.querySelectorAll('.instr-list li')].find(x=>/switch between the subjects within the active section/.test(x.textContent));
-  if(li4) li4.innerHTML='All four parts are open from the start; nothing is locked.';
+  if(li4) li4.innerHTML='Each part has <strong>25 questions and 15 minutes</strong> &mdash; about 36 seconds a question.';
   const li2=[...document.querySelectorAll('.instr-list li')].find(x=>/timed sections/.test(x.textContent));
-  if(li2) li2.innerHTML='SSC CHSL Tier 1 pattern: <strong>'+questions.length+' questions, '+(questions.length*2)+' marks, 60 minutes</strong>, 25 questions in each of the four parts.';
+  if(li2) li2.innerHTML='SSC CHSL Tier 1 pattern: <strong>'+questions.length+' questions, '+(questions.length*2)+' marks, 60 minutes</strong>, 25 questions in each of the four parts, <strong>15 minutes for each part</strong> (new SSC CHSL 2026 sectional timing).';
 }
 /* TSSC-T2TIME-V1: instructions for every paper on the 30-30-40-20-15 timing (regular CGL Tier II mocks and the CGL challenge) */
 function t2FiveApplyUi(){
@@ -1839,7 +1850,7 @@ function aicApplyUi(){
   const live=!!(AIC_CTX&&AIC_CTX.mode==='live');
   if(TG_IS_AICT1){   /* TSSC-AIC-V2: CHSL Tier 1 challenge paper */
     const qn1=document.querySelector('#tsscQS .tqs-note');
-    if(qn1) qn1.innerHTML=(live?'<strong style="color:#4C1D95;">All India Challenge &mdash; one attempt, no pause.</strong> Result on '+AIC_CTX.mod.fmtDay(AIC_CTX.r.resultAt)+', 9 am.':'SSC CHSL Tier 1 pattern &middot; one 60-minute clock.');
+    if(qn1) qn1.innerHTML=(live?'<strong style="color:#4C1D95;">All India Challenge &mdash; one attempt, no pause.</strong> Result on '+AIC_CTX.mod.fmtDay(AIC_CTX.r.resultAt)+', 9 am.<br>':'')+'<strong style="color:#B45309;">&#9201; New SSC CHSL 2026 timing:</strong> English 15 &middot; Reasoning 15 &middot; Maths 15 &middot; GA 15 min. You cannot go back to a part.';
     if(live){
       const pb1=document.getElementById('pauseBtn'); if(pb1) pb1.style.display='none';
       const ol1=document.querySelector('.instr-list');
@@ -2819,10 +2830,10 @@ function buildTimedSections(){
   sections.forEach(s=>{
     let ph=SUBJECT_PHASE[s.name];
     if(T2_FIVE){ ph=AIC_MODULES.findIndex(m=>m.re.test((s.name||'')+' '+(s.label||''))); if(ph<0) ph=undefined; }   /* TSSC-AIC-V1: 30-30-40-20-15 */
-    if(TG_IS_AICT1) ph=0;   /* TSSC-AIC-V2: CHSL Tier 1 = one clock for the whole paper */
+    if(TG_IS_AICT1){ ph=AICT1_MODULES.findIndex(m=>m.re.test((s.name||'')+' '+(s.label||''))); if(ph<0) ph=undefined; }   /* TSSC-AIC-V3: 15-15-15-15 */
     if(ph===undefined) ph=(cur?cur.phase:timedSections.length); // unknown subject joins current phase
     if(!cur||cur.phase!==ph){
-      const meta=(TG_IS_AICT1?{name:'Full paper',dur:60*60}:(T2_FIVE?AIC_MODULES[ph]:PHASE_META[ph]))||{name:'Section '+(timedSections.length+1),dur:60*60};
+      const meta=(TG_IS_AICT1?AICT1_MODULES[ph]:(T2_FIVE?AIC_MODULES[ph]:PHASE_META[ph]))||{name:'Section '+(timedSections.length+1),dur:60*60};
       cur={phase:ph,from:s.from,to:s.to,name:meta.name,dur:meta.dur};
       timedSections.push(cur);
     }else{

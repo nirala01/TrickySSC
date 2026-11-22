@@ -24,7 +24,7 @@ class AicSeries {
   final String tag; // part of the keys saved on the phone
   final int paperMin; // length of the paper; the last entry is midnight minus this
   final int hardStopMin; // the live test ends this long after its first start
-  final bool parts; // five separately timed parts (CGL Tier 2); false = one clock
+  final bool parts; // separately timed parts (CGL Tier 2: five, CHSL Tier 1: four); false = one clock
   final String paperLine;
   bool on;
   int firstMs;
@@ -171,8 +171,8 @@ final AicSeries aicChsl = AicSeries(
   tag: 'chsl_',
   paperMin: 60,
   hardStopMin: 70,
-  parts: false,
-  paperLine: '100 questions, +2 / −0.5, one 60-minute clock (the real exam pattern).',
+  parts: true,
+  paperLine: '100 questions, +2 / −0.5, four timed parts of 15 minutes (English, Reasoning, Maths, General Awareness).',
   firstMs: DateTime.utc(2026, 11, 28, 3, 30).millisecondsSinceEpoch, // Saturday 28 Nov 2026, 9:00 am IST
   lastRound: 5, // 28 Nov, 5, 12, 19 and 26 Dec 2026
 );
