@@ -41,7 +41,7 @@
 
 import { getApps, getApp, initializeApp }
   from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, doc, getDoc, setDoc, serverTimestamp, collection, query, orderBy, limit,
+import { getFirestore, doc, getDoc, setDoc, serverTimestamp, collection, query, where, orderBy, limit,
          getDocs, getCountFromServer }
   from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { getAuth, onAuthStateChanged }
@@ -254,6 +254,15 @@ function makeSeries(D) {
       const s = await getDoc(doc(db, 'leaderboards', round(n).board, 'scores', uid));
       if (s.exists()) { let id = ''; try { id = (JSON.parse(lsGet(doneKey(n, uid)) || 'null') || {}).id || ''; } catch (e) {}
         const o = { id, at: tsMs((s.data() || {}).submittedAt) || 0 }; lsSet(doneKey(n, uid), JSON.stringify(o)); return o; }
+      /* TSSC-AICADMIN-V2: the owner's preview runs are not on the board — find the latest one among his own attempts,
+         so a test taken on the computer shows as submitted on the phone too. "Forget my test attempt" hides older ones. */
+      if (!fresh && isAicAdmin()) { try {
+        const forgot = parseInt(lsGet(K + 'forget_' + n + '_' + uid) || '0', 10) || 0; let best = null;
+        const qs = await getDocs(query(collection(db, 'attempts'), where('uid', '==', uid), where('mockId', 'in', [round(n).mockId('en'), round(n).mockId('hi')])));
+        qs.forEach(d => { const x = d.data() || {}; if (!(x.aic && x.aic.live)) return; const at = tsMs(x.timestamp) || Date.parse(x.clientSubmittedAt || '') || 0;
+          if (at > forgot && (!best || at > best.at)) best = { id: d.id, at }; });
+        if (best) { lsSet(doneKey(n, uid), JSON.stringify(best)); return best; }
+      } catch (e) {} }
       ssSet(K + 'np_' + n + '_' + uid, 1);
     } catch (e) { try { return JSON.parse(lsGet(doneKey(n, uid)) || 'null'); } catch (_) {} }
     return null;
@@ -1016,10 +1025,12 @@ function adminBar() {
     if (!rn) rn = SERIES[sk].nextRound(Date.now() + _skew);
     const on = adminPreview();
     const el = document.createElement('div'); el.id = 'aicAdm';
-    el.style.cssText = 'position:fixed;left:10px;bottom:10px;z-index:2147483000;font:600 12px/1.4 system-ui,Segoe UI,Arial,sans-serif;color:#fff;';
+    const small = window.innerWidth <= 640;
+    el.style.cssText = 'position:fixed;left:' + (small ? 6 : 10) + 'px;bottom:' + (small ? 6 : 10) + 'px;z-index:2147483000;font:600 12px/1.4 system-ui,Segoe UI,Arial,sans-serif;color:#fff;max-width:calc(100vw - 12px);';
+    if (small) { try { document.body.style.paddingBottom = '46px'; } catch (e) {} }   /* room for the pill under the page */
     const fmt = ms => new Date(ms).toLocaleString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' });
     const btn = (k, t) => '<button data-adm="' + k + '" style="display:block;width:100%;margin:4px 0 0;padding:7px 9px;border:0;border-radius:7px;background:#334155;color:#fff;font:600 12px system-ui;text-align:left;cursor:pointer;">' + t + '</button>';
-    el.innerHTML = '<button data-adm="toggle" style="padding:7px 11px;border:0;border-radius:999px;background:' + (on ? '#B45309' : '#0F172A') + ';color:#fff;font:700 12px system-ui;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.3);">&#128736; Admin test' + (on ? ': clock at ' + fmt(now()) : '') + '</button>'
+    el.innerHTML = '<button data-adm="toggle" style="padding:' + (small ? '4px 9px' : '7px 11px') + ';border:0;border-radius:999px;background:' + (on ? '#B45309' : '#0F172A') + ';color:#fff;font:700 ' + (small ? 10.5 : 12) + 'px system-ui;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.3);opacity:' + (small ? '.92' : '1') + ';">&#128736; ' + (small ? (on ? fmt(now()) : 'Admin') : 'Admin test' + (on ? ': clock at ' + fmt(now()) : '')) + '</button>'
       + '<div data-adm-panel style="display:none;margin-top:6px;width:250px;padding:10px;border-radius:12px;background:#0F172A;box-shadow:0 8px 24px rgba(0,0,0,.35);">'
       + '<div style="font-weight:700;margin-bottom:6px;">Walk through a challenge round</div>'
       + '<div style="display:flex;gap:6px;align-items:center;"><select data-adm-s style="flex:1;padding:5px;border-radius:6px;border:0;font:600 12px system-ui;"><option value="cgl"' + (sk === 'cgl' ? ' selected' : '') + '>CGL Tier 2</option><option value="chsl"' + (sk === 'chsl' ? ' selected' : '') + '>CHSL Tier 1</option></select>'
@@ -1046,7 +1057,7 @@ function adminBar() {
       else if (k === 'wait') setClock(c.r.end + 9 * H);
       else if (k === 'result') setClock(c.r.resultAt + 5 * 60000);
       else if (k === 'real') { try { localStorage.removeItem('tssc_aic_adm'); } catch (e2) {} }
-      else if (k === 'reset') { try { localStorage.removeItem(K + 'done_' + c.n + '_' + uid); localStorage.removeItem(K + 'start_' + c.n + '_' + uid); } catch (e2) {} }
+      else if (k === 'reset') { try { localStorage.removeItem(K + 'done_' + c.n + '_' + uid); localStorage.removeItem(K + 'start_' + c.n + '_' + uid); lsSet(K + 'forget_' + c.n + '_' + uid, String(Date.now())); } catch (e2) {} }
       else if (k === 'paper') { askLang(c.S, c.n); return; }
       else if (k === 'page') { location.href = c.S.def.page; return; }
       try { Object.keys(sessionStorage).forEach(x => { if (/^tssc_aic_/.test(x)) sessionStorage.removeItem(x); }); } catch (e2) {}
@@ -1061,7 +1072,7 @@ document.addEventListener('click', e => {
   const p = String(b.getAttribute('data-adm-go')).split(':'), S = SERIES[p[0]] || SERIES.cgl, n = parseInt(p[1], 10) || 1, uid = currentUid(), K = 'tssc_aic_' + S.def.tag;
   lsSet('tssc_aic_adm', String(Math.round(S.round(n).start + 5 * 60000 - (Date.now() + _skew))));
   lsSet('tssc_aic_adm_sel', JSON.stringify({ s: S.def.key, n }));
-  try { localStorage.removeItem(K + 'done_' + n + '_' + uid); localStorage.removeItem(K + 'start_' + n + '_' + uid); } catch (e2) {}
+  try { localStorage.removeItem(K + 'done_' + n + '_' + uid); localStorage.removeItem(K + 'start_' + n + '_' + uid); lsSet(K + 'forget_' + n + '_' + uid, String(Date.now())); } catch (e2) {}
   askLang(S, n);
 });
 authReady.then(() => { const go = () => adminBar(); if (document.body) go(); else document.addEventListener('DOMContentLoaded', go); });
