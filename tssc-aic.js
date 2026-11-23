@@ -2,7 +2,7 @@
    tssc-aic.js — ALL INDIA CHALLENGE MOCKS                          TSSC-AIC-V2
    ----------------------------------------------------------------------------
    Two free weekly challenge series run from this one file:
-     cgl   SSC CGL Tier 2    every Sunday    from 29 Nov 2026 (no end date yet)
+     cgl   SSC CGL Tier 2    every Sunday    from 29 Nov 2026 to 17 Jan 2027
      chsl  SSC CHSL Tier 1   every Saturday  from 28 Nov 2026 to 26 Dec 2026
    Everything on the site that belongs to a challenge reads its dates and rules
    from THIS file, and every state (register / registered / mock is live /
@@ -66,7 +66,7 @@ const DEFS = {
     key: 'cgl', exam: 'ssc-cgl', name: 'SSC CGL Tier 2', short: 'CGL Tier 2',
     first: Date.UTC(2026, 10, 29, 3, 30, 0),   // Sunday 29 Nov 2026, 9:00 am IST — Challenge Mock 1
     week: 7 * 24 * H,
-    lastRound: 0,                              // 0 = every week with no end; set to N to make round N the last
+    lastRound: 8,                              // Sundays 29 Nov 2026 to 17 Jan 2027 (0 = every week with no end; N = round N is the last)
     page: '/ssc-cgl-tier-2-all-india-challenge-mock.html',
     mocks: '/ssc-cgl-tier-2-mock-test.html', mocksLabel: 'Practise Tier 2 mocks',
     regBoard: 'aic-registered', regField: 'aic',
