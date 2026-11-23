@@ -168,6 +168,18 @@ MOCK_PROMO = r"""
 .tsscMP-cb.tsscMP-rail .nm{color:#1E3A8A;}
 .tsscMP-cb.tsscMP-rail .now{color:#1D4ED8;}
 .tsscMP-cb.tsscMP-rail .sv{background:#1D4ED8;}
+/* TSSC-RAILMAIN-V1 (2026-11-22) — RRB Station Master and RRB NTPC Graduate banners on the first
+   screen, right under the SSC CGL + SSC CHSL combo (their small tiles left "Explore all plans"). */
+.tsscMP-cb.tsscMP-rb{margin:.8rem 0 .3rem;padding:.5rem .7rem .45rem;}
+.tsscMP-cb.tsscMP-rb .nm{font-size:1rem;}
+.tsscMP-cb.tsscMP-rb .now{font-size:1.45rem;}
+.tsscMP-cb.tsscMP-rb.sm{background:linear-gradient(#fff,#fff) padding-box,linear-gradient(120deg,#0E7490,#06B6D4) border-box;}
+.tsscMP-cb.tsscMP-rb.sm:hover{box-shadow:0 8px 22px rgba(14,116,144,.2);}
+.tsscMP-cb.tsscMP-rb.sm .tag{background:linear-gradient(120deg,#0E7490,#06B6D4);}
+.tsscMP-cb.tsscMP-rb.sm .nm{color:#164E63;}
+.tsscMP-cb.tsscMP-rb.sm .now{color:#0E7490;}
+.tsscMP-cb.tsscMP-rb.sm .sv{background:#0E7490;}
+[data-mp-main] .tsscMP-rb + .tsscMP-singles,[data-mp-main] .tsscMP-rb ~ .tsscMP-singles{margin-top:.8rem;}
 /* combo rows */
 .tsscMP-cb{position:relative;display:flex;align-items:center;gap:.6rem;text-decoration:none;color:#1A202C;
   text-align:left;border-radius:12px;padding:.65rem .7rem .6rem;margin:0 0 .5rem;
@@ -214,19 +226,32 @@ MOCK_PROMO = r"""
 [data-mp-main] .tsscMP-all .ct,[data-mp-main] .tsscMP-all .up{font-size:.78rem;}
 [data-mp-main] .tsscMP-all .now{font-size:1.65rem;}
 [data-mp-main][hidden],[data-mp-rest][hidden],.tsscMP-singles[hidden]{display:none;}
-.tsscMP-more{display:block;width:100%;margin:.55rem 0 0;padding:.5rem .7rem .55rem;border:1.5px dashed #CBD5E1;border-radius:11px;
-  background:#F8FAFC;cursor:pointer;text-align:center;font-family:inherit;transition:background .15s,border-color .15s;}
-.tsscMP-more:hover{background:#F1F5F9;border-color:#94A3B8;}
+/* TSSC-MOREBTN-V2 (2026-11-22) — "Explore all plans" as a bold gradient button with a moving shine */
+.tsscMP-more{display:block;position:relative;overflow:hidden;width:100%;margin:.7rem 0 0;padding:.6rem .8rem .55rem;
+  border:0;border-radius:12px;cursor:pointer;text-align:center;font-family:inherit;
+  background:linear-gradient(120deg,#6D28D9,#DB2777,#F59E0B,#DB2777,#6D28D9);background-size:300% 100%;
+  box-shadow:0 6px 18px rgba(219,39,119,.32);transition:transform .15s,box-shadow .15s;
+  animation:tsscMPflow 6s linear infinite;}
+.tsscMP-more::after{content:"";position:absolute;top:0;bottom:0;left:-60%;width:45%;pointer-events:none;
+  background:linear-gradient(100deg,transparent,rgba(255,255,255,.45),transparent);transform:skewX(-20deg);
+  animation:tsscMPshine 2.8s ease-in-out infinite;}
+.tsscMP-more:hover{transform:translateY(-2px) scale(1.01);box-shadow:0 10px 26px rgba(219,39,119,.42);}
+.tsscMP-more:active{transform:scale(.98);}
 .tsscMP-more[hidden]{display:none;}
-.tsscMP-more .t{display:block;font-weight:800;font-size:.95rem;color:#4C1D95;letter-spacing:.2px;}
-.tsscMP-more .t b{display:inline-block;transition:transform .2s;}
+.tsscMP-more[aria-expanded="true"]{animation:none;background-position:0 0;box-shadow:0 3px 10px rgba(109,40,217,.25);}
+.tsscMP-more[aria-expanded="true"]::after{display:none;}
+.tsscMP-more .t{display:block;font-family:'Baloo 2',sans-serif;font-weight:800;font-size:1.15rem;line-height:1.15;
+  color:#fff;letter-spacing:.3px;text-shadow:0 1px 2px rgba(0,0,0,.18);}
+.tsscMP-more .t b{display:inline-block;margin-left:.15rem;transition:transform .2s;}
 .tsscMP-more[aria-expanded="true"] .t b{transform:rotate(180deg);}
-.tsscMP-more .e{display:block;font-weight:600;font-size:.76rem;color:#64748B;line-height:1.35;margin-top:.1rem;}
+.tsscMP-more .e{display:block;font-weight:700;font-size:.76rem;color:#FFF1F7;line-height:1.35;margin-top:.1rem;letter-spacing:.2px;}
+@keyframes tsscMPflow{from{background-position:0 0}to{background-position:300% 0}}
+@keyframes tsscMPshine{0%,55%{left:-60%}100%{left:130%}}
 [data-mp-rest]{margin-top:1rem;}
 [data-mp-rest] .tsscMP-singles .tsscMP-sg{flex:1 1 0;}
 @media(max-width:360px){.tsscMP-big{font-size:1.75rem}.tsscMP-cb .nm{font-size:.98rem}.tsscMP-cb .now{font-size:1.45rem}
   .tsscMP-sg .p{font-size:1.15rem}}
-@media(prefers-reduced-motion:reduce){#tsscMP.on,.tsscMP-box{animation:none}.tsscMP-cb,.tsscMP-sg{transition:none}}
+@media(prefers-reduced-motion:reduce){#tsscMP.on,.tsscMP-box,.tsscMP-more{animation:none}.tsscMP-more::after{display:none}.tsscMP-cb,.tsscMP-sg,.tsscMP-more{transition:none}}
 </style>
 
 <div id="tsscMP" role="dialog" aria-modal="true" aria-labelledby="tsscMPh">
@@ -258,6 +283,23 @@ MOCK_PROMO = r"""
         </span>
         <span class="pr"><span class="was">&#8377;98</span><span class="now">&#8377;79</span><span class="sv">SAVE &#8377;19</span></span>
       </a>
+      <!-- TSSC-RAILMAIN-V1 (2026-11-22): RRB Station Master, then RRB NTPC Graduate, under the CGL + CHSL combo -->
+      <a class="tsscMP-cb tsscMP-rb sm" data-mp-grants="rrb-sm-mocks" href="https://trickyssc.com/rrb-station-master-mock-test.html">
+        <span class="tag">&#128646; NEW &middot; RAILWAY</span>
+        <span class="who">
+          <span class="nm">RRB Station Master</span>
+          <span class="ct">60 mocks &middot; new 2026 pattern</span>
+        </span>
+        <span class="pr"><span class="now">&#8377;49</span><span class="sv">1 YEAR</span></span>
+      </a>
+      <a class="tsscMP-cb tsscMP-rail tsscMP-rb" data-mp-grants="rrb-ntpc-mocks" href="https://trickyssc.com/rrb-ntpc-mock-test.html">
+        <span class="tag">&#128646; RAILWAY &middot; GRADUATE LEVEL</span>
+        <span class="who">
+          <span class="nm">RRB NTPC Graduate</span>
+          <span class="ct">60 mocks &middot; CBT-1</span>
+        </span>
+        <span class="pr"><span class="now">&#8377;49</span><span class="sv">1 YEAR</span></span>
+      </a>
       <div class="tsscMP-singles">
         <a class="tsscMP-sg cgl" data-mp-grants="ssc-cgl-mocks" data-mp-addon-if="ssc-chsl-mocks" href="https://trickyssc.com/ssc-cgl-mock-test.html">
           <span class="n">SSC CGL</span><span class="c">100 mocks</span><span class="c t">50 Tier 1 + 50 Tier 2</span><span class="p">&#8377;49</span>
@@ -269,13 +311,13 @@ MOCK_PROMO = r"""
       </div>
 
       <button type="button" class="tsscMP-more" data-mp-more aria-expanded="false" aria-controls="tsscMPrest">
-        <span class="t">Explore all plans <b aria-hidden="true">&#9662;</b></span>
-        <span class="e">SSC GD &middot; SSC MTS &middot; RRB NTPC &middot; Station Master</span>
+        <span class="t">&#127873; Explore all plans <b aria-hidden="true">&#9662;</b></span>
+        <span class="e">SSC GD &middot; SSC MTS &middot; Railway combo</span>
       </button>
       <div id="tsscMPrest" data-mp-rest hidden>
       <!-- TSSC-NTPCMAIN-V1: RRB NTPC as a main row, seen without scrolling -->
       <!-- TSSC-RRBCOMBO-V1 (2026-11-18): the railway block — the 2-exam combo first, then each pass -->
-      <a class="tsscMP-cb tsscMP-rail" data-mp-grants="rrb-ntpc-mocks rrb-sm-mocks" href="https://trickyssc.com/rrb-station-master-mock-test.html?combo=1" style="margin-bottom:.5rem">
+      <a class="tsscMP-cb tsscMP-rail" data-mp-grants="rrb-ntpc-mocks rrb-sm-mocks" href="https://trickyssc.com/rrb-station-master-mock-test.html?combo=1" style="margin-bottom:.8rem">
         <span class="tag">&#128646; NEW &middot; RAILWAY COMBO</span>
         <span class="who">
           <span class="nm">RRB NTPC <i>+</i> Station Master</span>
@@ -283,15 +325,6 @@ MOCK_PROMO = r"""
         </span>
         <span class="pr"><span class="was">&#8377;98</span><span class="now">&#8377;79</span><span class="sv">SAVE &#8377;19</span></span>
       </a>
-      <div class="tsscMP-singles tsscMP-rails" style="margin-bottom:.8rem">
-        <a class="tsscMP-sg ntpc" data-mp-grants="rrb-ntpc-mocks" href="https://trickyssc.com/rrb-ntpc-mock-test.html" style="background:#DBEAFE;color:#1E3A8A">
-          <span class="n">RRB NTPC</span><span class="c">60 mocks &middot; Graduate</span><span class="p">&#8377;49</span>
-        </a>
-        <a class="tsscMP-sg sm" data-mp-grants="rrb-sm-mocks" href="https://trickyssc.com/rrb-station-master-mock-test.html" style="background:#CFFAFE;color:#164E63">
-          <span class="n">Station Master</span><span class="c">60 mocks &middot; new pattern</span><span class="p">&#8377;49</span>
-        </a>
-      </div>
-
       <div class="tsscMP-lbl" data-mp-lbl="combo">&#128293; More combo offers</div>
       <a class="tsscMP-cb" data-mp-grants="ssc-chsl-mocks ssc-gd-mocks" href="https://trickyssc.com/ssc-gd-mock-test.html?combo=1">
         <span class="tag">NEW</span>
@@ -411,7 +444,7 @@ MOCK_PROMO = r"""
     else if(!restOn) moreBtn.hidden=true;
     moreBtn.addEventListener('click',function(){
       var open=restEl.hidden; restEl.hidden=!open; moreBtn.setAttribute('aria-expanded',open?'true':'false');
-      var t=moreBtn.querySelector('.t'); if(t) t.firstChild.nodeValue=open?'Show fewer plans ':'Explore all plans ';
+      var t=moreBtn.querySelector('.t'); if(t) t.firstChild.nodeValue=open?'Show fewer plans ':'\uD83C\uDF81 Explore all plans ';
       if(open){ try{ restEl.scrollIntoView({behavior:'smooth',block:'nearest'}); }catch(e){} }
     });
   }
