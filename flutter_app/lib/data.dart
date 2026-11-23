@@ -167,7 +167,7 @@ const List<Exam> _builtIn = [
       pyqPages: ['app-ssc-cgl-pyq.html', 'app-ssc-cgl-tier-2-pyq.html'],
       chExtra: ['computer', 'finance', 'statistics'],
       passName: 'SSC CGL Mock Test Series'),
-  Exam('chsl', 'ssc-chsl', 'SSC CHSL', '10+2 level', '📋', 'ssc-chsl-mocks', '80 mocks', 2, Color(0xFF0369A1), Color(0xFF38BDF8), '100 Qs · 60 min', true,
+  Exam('chsl', 'ssc-chsl', 'SSC CHSL', '10+2 level', '📋', 'ssc-chsl-mocks', '90 mocks', 2, Color(0xFF0369A1), Color(0xFF38BDF8), '100 Qs · 60 min', true,
       bands: {'english': [1, 25], 'reasoning': [26, 50], 'quant': [51, 75], 'gk': [76, 100]},
       pyqPages: ['app-ssc-chsl-pyq.html'],
       chExtra: ['computer'],

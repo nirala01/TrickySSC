@@ -21,7 +21,7 @@
 (function () {
   window.TSSC_CHSL_REFRESHER = {
     tier1: {
-      from: 31, to: 40,
+      from: 31, to: 50,   /* Mock 41-50 added 24 Nov 2026 (challenge-level refresher papers) */
       opensAt:   '2026-11-06T00:00:00+05:30',   /* opened early on 6 Nov 2026 — Mock 31-40 live */
       examLabel: '30 Nov \u2013 31 Dec 2026',
       caLabel:   'current affairs updated to November 2026'
