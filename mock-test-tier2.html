@@ -1415,6 +1415,7 @@ window.__tsscResumeAdapter={
   id:()=>'',
   count:()=>questions.length,
   busy:()=>!!isSubmitting,
+  noRestart:()=>!!(AIC_CTX&&AIC_CTX.mode==='live'&&!AIC_CTX.preview),   /* TSSC-AICFIX-V1: a live challenge attempt can only be resumed, not started again with fresh clocks */
   snap:()=>({a:answers,m:markedForReview,q:currentQ,ts:curTS,tr:tsRemaining,sb:tsSubmitted,qt:_qtime}),
   restore:(s)=>{
     if(!Array.isArray(s.tr)||s.tr.length!==tsRemaining.length) return false;
@@ -1811,6 +1812,7 @@ const AICT1_MODULES=[
 const AICT1_NOTE='<span style="display:block;background:#FEF3C7;border:1.5px solid #F59E0B;border-radius:8px;padding:8px 10px;color:#78350F;"><strong>&#9201; New SSC CHSL 2026 timing.</strong> Four separate clocks of <strong>15 minutes each</strong>, in this order: <strong>English</strong>, <strong>Reasoning</strong>, <strong>Maths</strong>, <strong>General Awareness</strong> &mdash; <strong>60 minutes</strong> in total. Time saved in one part is <strong>not</strong> carried to the next.</span>';
 function aicT1Mode(){
   if(!TG_IS_AICT1) return;
+  try{ const _c0=document.querySelector('.rc-chip[data-d="Same as CGL"]'); if(_c0) _c0.textContent='Same as CHSL'; }catch(_){}   /* TSSC-AICFIX-V1: the rating chip of a CHSL paper */
   MARK_CORRECT=2; MARK_WRONG=0.5;
   try{ document.getElementById('statCorrectEach').textContent='+2 each'; document.getElementById('statWrongEach').textContent='−0.5 each'; }catch(_){}   /* result card labels follow the +2 / -0.5 marking */
   const vals=document.querySelectorAll('.instr-mark-val');
@@ -1822,7 +1824,6 @@ function aicT1Mode(){
   if(li0) li0.innerHTML=AICT1_NOTE;
   const lS=[...document.querySelectorAll('.instr-list li')].find(x=>/sectional test/.test(x.textContent));
   if(lS&&lS!==li0){ if(li0) lS.style.display='none'; else lS.innerHTML=AICT1_NOTE; }
-  if(lSub) lSub.innerHTML='Once you click <strong>Submit Section</strong> (or its 15-minute clock reaches zero), that part is <strong>locked permanently</strong> and the next part opens. You cannot go back.';
   const li1=[...document.querySelectorAll('.instr-list li')].find(x=>/within the active section/.test(x.textContent));
   if(li1) li1.innerHTML='You can move freely and change answers <strong>within the open part</strong>. Once you click <strong>Submit Section</strong> (or its 15-minute clock reaches zero), that part is <strong>locked permanently</strong> and the next part opens. You cannot go back.';
   const li3=[...document.querySelectorAll('.instr-list li')].find(x=>/On the last section/.test(x.textContent));
@@ -3165,6 +3166,18 @@ async function persistAttempt(payload,attemptId){
   }
 }
 
+/* TSSC-AICFIX-V1 (2026-11-23) — the All India rank row of a LIVE challenge attempt must not be lost to a network blip:
+   it is written with retries and checked, kept in this browser until it is confirmed (tssc-aic.js sends it again on the
+   next visit), and "Retry Save" sends it again too. */
+async function aicBoardSave(o){
+  try{ localStorage.setItem('tssc_aic_board_pending',JSON.stringify(o)); }catch(_){}
+  for(let i=0;i<4;i++){
+    try{ await recordScore(o); const sn=await getDoc(doc(db,'leaderboards',o.paperId,'scores',o.uid)); if(sn.exists()){ try{ localStorage.removeItem('tssc_aic_board_pending'); }catch(_){} return true; } }catch(e){}
+    await new Promise(r=>setTimeout(r,700*(i+1)));
+  }
+  return false;
+}
+const AIC_BOARD_MSG='⚠️ Your answers are saved, but your rank entry could not be sent. Check internet and tap Retry Save.';
 async function persistWithRetry(payload,attemptId,retries=3){
   let lastErr;
   for(let i=1;i<=retries;i++){try{await persistAttempt(payload,attemptId);return;}catch(e){lastErr=e;await new Promise(r=>setTimeout(r,600*i));}}
@@ -3174,7 +3187,9 @@ async function persistWithRetry(payload,attemptId,retries=3){
 window.retrySaveResult=async()=>{
   if(!lastResultPayload){setSaveUi('error','⚠️ Nothing to retry.');return;}
   setSaveUi('saving','⏳ Retrying save...');
-  try{await persistWithRetry(lastResultPayload.payload,lastResultPayload.attemptId,3);localStorage.removeItem('pending_attempt_'+lastResultPayload.attemptId);setSaveUi('saved','✅ Result saved successfully.');}
+  try{await persistWithRetry(lastResultPayload.payload,lastResultPayload.attemptId,3);localStorage.removeItem('pending_attempt_'+lastResultPayload.attemptId);
+    if(window.__aicBoard&&!(await aicBoardSave(window.__aicBoard))){ setSaveUi('error',AIC_BOARD_MSG); return; }   /* TSSC-AICFIX-V1 */
+    setSaveUi('saved','✅ Result saved successfully.');}
   catch(e){console.warn('Retry failed:',e);localStorage.setItem('pending_attempt_'+lastResultPayload.attemptId,JSON.stringify(lastResultPayload));setSaveUi('error','⚠️ Save failed. Check internet and tap Retry.');}
 };
 
@@ -3380,7 +3395,8 @@ window.imgFail = function (el) {
   // same paper/mock share ONE ranking (drop a trailing hi/en/hindi/english).
   const _lbBase=String(_lbId||'').replace(/([_\-])(hi|en|hindi|english)$/i,'');
   if(_lbId){
-    if(!_aicPractice&&!_aicPreview) recordScore({uid:currentUser.uid,displayName:currentUser?.displayName,paperId:_lbBase,paperName:_examLabel,marks:parseFloat(marks),maxMarks:maxMarks,accuracy:pct,subjectMarks:_subjMarks,timeUsed:_timeUsed}).catch(()=>{});   /* TSSC-AIC-V1: the challenge board holds live attempts only */
+    if(_aicLive&&!_aicPreview){ window.__aicBoard={uid:currentUser.uid,displayName:currentUser?.displayName,paperId:_lbBase,paperName:_examLabel,marks:parseFloat(marks),maxMarks:maxMarks,accuracy:pct,subjectMarks:_subjMarks,timeUsed:_timeUsed}; window.__aicBoardP=aicBoardSave(window.__aicBoard); }   /* TSSC-AICFIX-V1: checked and retried */
+    else if(!_aicPractice&&!_aicPreview) recordScore({uid:currentUser.uid,displayName:currentUser?.displayName,paperId:_lbBase,paperName:_examLabel,marks:parseFloat(marks),maxMarks:maxMarks,accuracy:pct,subjectMarks:_subjMarks,timeUsed:_timeUsed}).catch(()=>{});   /* TSSC-AIC-V1: the challenge board holds live attempts only */
     const _rb=document.getElementById('viewRankBtn');
     if(_rb){_rb.dataset.rgHref='rank.html?paper='+encodeURIComponent(_lbBase)+'&from=test';}   /* TSSC-RANKGATE-V1: shown by rgApply() */
   }
@@ -3408,8 +3424,11 @@ window.imgFail = function (el) {
       return setDoc(doc(db,'qstats',_lbBase),{top:{m:_tm,tu:_tu,q:tq,at:serverTimestamp()}},{mergeFields:['top']});
     }).catch(()=>{}); } }catch(e){}
   if(_aicLive){ try{ AIC_CTX.mod.markDone(AIC_CTX.round,currentUser.uid,attemptId); }catch(_){} }   /* TSSC-AIC-V1 */
-  try{await persistWithRetry(payload,attemptId,3);localStorage.removeItem('pending_attempt_'+attemptId);setSaveUi('saved','✅ Result saved successfully.');}
+  if(_aicLive&&!_aicPreview){ try{ localStorage.setItem('pending_attempt_'+attemptId,JSON.stringify(lastResultPayload)); }catch(_){} }   /* TSSC-AICFIX-V1: kept until the save is confirmed, so a closed tab cannot lose the one live attempt */
+  let _savedOk=false;
+  try{await persistWithRetry(payload,attemptId,3);localStorage.removeItem('pending_attempt_'+attemptId);_savedOk=true;setSaveUi('saved','✅ Result saved successfully.');}
   catch(e){console.warn('Save failed:',e);localStorage.setItem('pending_attempt_'+attemptId,JSON.stringify(lastResultPayload));setSaveUi('error','⚠️ Could not save. Check internet and tap Retry Save.');}
+  if(_savedOk&&window.__aicBoardP&&_aicLive){ try{ if(!(await window.__aicBoardP)) setSaveUi('error',AIC_BOARD_MSG); }catch(_){} }   /* TSSC-AICFIX-V1 */
   if(_aicLive){ isSubmitting=false; return; }   /* TSSC-AIC-V1: no result snapshot — Back must not bring the score up */
   // Snapshot the finished result screen so returning via Back restores it (no restart)
   try{

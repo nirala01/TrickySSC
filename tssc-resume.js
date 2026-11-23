@@ -130,6 +130,8 @@
       + '<button type="button" id="tsscResumeNo" style="display:block;width:100%;border:1.5px solid #CBD5E1;border-radius:12px;background:#fff;color:#334155;font-family:Rajdhani,Inter,sans-serif;font-weight:700;font-size:1rem;padding:10px;cursor:pointer;">Start again from Question 1</button>'
       + '</div>';
     document.body.appendChild(bg);
+    /* TSSC-AICFIX-V1: a live All India Challenge attempt can only be resumed */
+    try { if (a.noRestart && a.noRestart()) { var nb = document.getElementById('tsscResumeNo'); if (nb) nb.style.display = 'none'; } } catch (e) {}
     function close() { dialogOpen = false; if (bg.parentNode) bg.parentNode.removeChild(bg); }
 
     document.getElementById('tsscResumeYes').onclick = function () {

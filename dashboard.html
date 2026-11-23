@@ -2020,7 +2020,7 @@ window.tsscProInit = async function(attempts, uid){
   ATT = (attempts||[]).slice().sort((a,b)=>tsOf(b)-tsOf(a));
   UID = uid||'';
   /* TSSC-DASHSCOPE-V1: analyse the exam the student took LAST (chapter, subject-wise or full) */
-  if(PAGE==='analysis' && !SEL_ID){ const _aq=new URLSearchParams(location.search).get('aic'), _as=(new URLSearchParams(location.search).get('aics')||'cgl').toLowerCase(); const _ax=_aq?ATT.find(a=>a.aic&&a.aic.live&&String(a.aic.round)===_aq&&((/^ssc-chsl_/i.test(String(a.mockId||''))?'chsl':'cgl')===_as)):null; if(_ax) SEL_ID=_ax.id; else if(_aq&&/^\d+$/.test(_aq)&&!(window.__aicHeld||[]).some(h=>h&&h.aic&&String(h.aic.round)===_aq)){ location.replace('rank.html?paper='+encodeURIComponent('ssc-'+(_as==='chsl'?'chsl':'cgl')+'_aic_mock'+_aq)); } }   /* TSSC-AIC-V1 — no attempt of that round on this account: show the round's leaderboard instead */
+  if(PAGE==='analysis' && !SEL_ID){ const _aq=new URLSearchParams(location.search).get('aic'), _as=(new URLSearchParams(location.search).get('aics')||'cgl').toLowerCase(); const _am2=a=>a.aic&&String(a.aic.round)===_aq&&((/^ssc-chsl_/i.test(String(a.mockId||''))?'chsl':'cgl')===_as); const _ax=_aq?(ATT.find(a=>_am2(a)&&a.aic.live)||ATT.find(_am2)||null):null;   /* TSSC-AICFIX-V1: else the student's own free-mock attempt of that round */ if(_ax) SEL_ID=_ax.id; else if(_aq&&/^\d+$/.test(_aq)&&!(window.__aicHeld||[]).some(h=>h&&h.aic&&String(h.aic.round)===_aq)){ location.replace('rank.html?paper='+encodeURIComponent('ssc-'+(_as==='chsl'?'chsl':'cgl')+'_aic_mock'+_aq)); } }   /* TSSC-AIC-V1 — no attempt of that round on this account: show the round's leaderboard instead */
   if(PAGE==='analysis' && ATT.length){ if(!ATT.some(a=>a.id===SEL_ID)) SEL_ID=ATT[0].id; SCOPE=scopeOf(cur()); }
   else if(!SCOPE || !ATT.some(a=>scopeOf(a)===SCOPE)) SCOPE = ATT.length ? scopeOf(ATT[0]) : '';
   renderScopeSel();
@@ -2119,7 +2119,8 @@ async function fetchRanks(full){
       ]);
       /* TSSC-AIC-V1: a challenge paper taken later as a free mock has no row on the board (the board is the live
          challenge only) — place that attempt among the live candidates instead of showing "no entry". */
-      const _aicA=(!meSnap.exists()&&/_aic_mock\d+$/i.test(k)) ? (full.find(a=>lbKey(a)===k&&a.aic&&(!a.aic.live||a.aic.preview))||null) : null;
+      const _aicA=(!meSnap.exists()&&/_aic_mock\d+$/i.test(k)) ? (full.find(a=>lbKey(a)===k&&a.aic)||null) : null;   /* TSSC-AICFIX-V1: also a LIVE attempt whose rank row never reached the board */
+      if(_aicA&&_aicA.aic.live&&!_aicA.aic.preview){ try{ import('./leaderboard.js').then(m=>m.recordScore({uid:UID,paperId:k,paperName:_aicA.examName||'',marks:marksOf(_aicA),maxMarks:maxOf(_aicA),accuracy:Number(_aicA.percentage),subjectMarks:_aicA.subjectMarks||{},timeUsed:_aicA.timeUsed})).catch(()=>{}); }catch(e){} }
       if(!meSnap.exists() && !_aicA) { LB[k]={none:true}; return; }
       const md=_aicA ? {marks:marksOf(_aicA),maxMarks:maxOf(_aicA),subjectMarks:_aicA.subjectMarks||{}} : meSnap.data(); const my=Number(md.marks)||0;
       const rows=[]; boardSnap.forEach(d=>rows.push(d.data()||{}));

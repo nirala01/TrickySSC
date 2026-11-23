@@ -166,6 +166,37 @@ async function ensureLogin(backTo) {
   return await window.tsscLogin.require();
 }
 
+/* TSSC-AICFIX-V1 (2026-11-23) — a live attempt whose save did not get through (connection dropped at Submit, tab closed)
+   is kept in this browser by mock-test-tier2.html and sent again here on the student's next visit:
+     tssc_aic_board_pending   the All India rank row        pending_attempt_<id>   the attempt itself */
+let _flushP = null;
+export function flushPending(uid) {
+  if (_flushP) return _flushP;
+  _flushP = (async () => {
+    uid = uid || currentUid(); if (!uid) return;
+    try {
+      const o = JSON.parse(lsGet('tssc_aic_board_pending') || 'null');
+      if (o && o.uid === uid && isAicId(o.paperId)) {
+        const ref = doc(db, 'leaderboards', String(o.paperId), 'scores', uid);
+        let ok = (await getDoc(ref)).exists();
+        if (!ok) { const lb = await import('/leaderboard.js'); await lb.recordScore(o); ok = (await getDoc(ref)).exists(); }
+        if (ok) { try { localStorage.removeItem('tssc_aic_board_pending'); } catch (e) {} }
+      }
+    } catch (e) { console.warn('[aic] pending rank row:', e && e.message); }
+    try {
+      const keys = []; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.indexOf('pending_attempt_') === 0) keys.push(k); }
+      for (const k of keys) {
+        const x = JSON.parse(lsGet(k) || 'null'), p = x && x.payload;
+        if (!x || !x.attemptId || !p || p.uid !== uid || !(p.aic && p.aic.live) || p.aic.preview) continue;
+        const ref = doc(db, 'attempts', x.attemptId);
+        if (!(await getDoc(ref)).exists()) await setDoc(ref, Object.assign({}, p, { timestamp: serverTimestamp() }), { merge: true });
+        try { localStorage.removeItem(k); } catch (e) {}
+      }
+    } catch (e) { console.warn('[aic] pending attempt:', e && e.message); }
+  })().finally(() => { _flushP = null; });
+  return _flushP;
+}
+
 /* ───────────────────────── one series ───────────────────────── */
 function makeSeries(D) {
   const K = 'tssc_aic_' + D.tag;               // storage key prefix of this series
@@ -258,6 +289,8 @@ function makeSeries(D) {
         const o = { id, at: tsMs((s.data() || {}).submittedAt) || 0 }; lsSet(doneKey(n, uid), JSON.stringify(o)); return o; }
       /* TSSC-AICADMIN-V2: the owner's preview runs are not on the board — find the latest one among his own attempts,
          so a test taken on the computer shows as submitted on the phone too. "Forget my test attempt" hides older ones. */
+      /* TSSC-AICFIX-V1: this browser submitted the round but the rank row is not on the board (the write failed) — it still counts as submitted here */
+      if (fresh) { try { const o = JSON.parse(lsGet(doneKey(n, uid)) || 'null'); if (o) return o; } catch (e) {} }
       if (!fresh && isAicAdmin()) { try {
         const forgot = parseInt(lsGet(K + 'forget_' + n + '_' + uid) || '0', 10) || 0; let best = null;
         const qs = await getDocs(query(collection(db, 'attempts'), where('uid', '==', uid), where('mockId', 'in', [round(n).mockId('en'), round(n).mockId('hi')])));
@@ -286,6 +319,7 @@ function makeSeries(D) {
      → { ok:true, mode:'live'|'practice', round, r, api }  or  { ok:false, screen:{ icon, title, body, cta, href } } */
   async function gate(uid, mockId) {
     await syncClock(true);
+    try { await flushPending(uid); } catch (e) {}   /* TSSC-AICFIX-V1 */
     const n = roundOfMock(mockId), t = now();
     const back = { cta: 'Open the All India Challenge page', href: D.page };
     if (!hasRound(n)) return { ok: false, screen: Object.assign({ icon: '📭', title: 'This challenge mock is not available', body: 'Please open the All India Challenge page for the current schedule.' }, back) };
@@ -1111,7 +1145,7 @@ window.tsscAic = { SERIES, seriesByKey, seriesOfMock, CFG, round, nextRound, isA
 function boot() {
   if (!document.querySelector('[data-aic]') && !document.body.hasAttribute('data-aic-popup')) return;
   syncClock().then(render);
-  authReady.then(async () => { _authKnown = true; await render(); if (!_popDecided) await render(); });
+  authReady.then(async () => { _authKnown = true; try { await flushPending(); } catch (e) {} await render(); if (!_popDecided) await render(); });
   try { onAuthStateChanged(auth, () => render()); } catch (e) {}
   window.addEventListener('tssc:login', () => render());
   setInterval(tickCd, 1000);
