@@ -1308,7 +1308,35 @@ window.imgFail = function (el) {
 </style>
 <style>/* TSSC-AIC-V1 — live challenge attempt: only the "submitted" card and the rating card are shown */
 body.aic-hold #resultScreen > *:not(#aicDoneCard):not(#rateCard){display:none!important}
-body.aic-hold #aicDoneCard{text-align:center}</style>
+body.aic-hold #aicDoneCard{text-align:center}
+/* TSSC-AICFBPOP-V1 (2026-11-23) — after a live challenge submit the rating + questionnaire open as a glass pop-up */
+#aicFbBg{position:fixed;inset:0;z-index:9000;display:none;background:radial-gradient(circle at 20% 15%,rgba(190,24,93,.45),transparent 55%),radial-gradient(circle at 85% 85%,rgba(76,29,149,.55),transparent 55%),rgba(15,23,42,.55);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+body.aic-fb-open{overflow:hidden}
+body.aic-fb-open #aicFbBg{display:block;animation:aicFbFade .25s ease}
+body.aic-hold #rateCard{display:none!important}
+body.aic-hold.aic-fb-open #rateCard{display:block!important;position:fixed;z-index:9001;left:50%;top:50%;transform:translate(-50%,-50%);box-sizing:border-box;width:min(540px,calc(100vw - 20px));max-height:calc(100vh - 24px);max-height:calc(100dvh - 24px);overflow-y:auto;overscroll-behavior:contain;margin:0;padding:0 20px 18px;border:1px solid rgba(255,255,255,.7);border-radius:24px;background:linear-gradient(180deg,rgba(255,255,255,.96),rgba(250,245,255,.93));backdrop-filter:blur(22px) saturate(1.4);-webkit-backdrop-filter:blur(22px) saturate(1.4);box-shadow:0 30px 90px rgba(76,29,149,.5),0 0 0 6px rgba(255,255,255,.12);animation:aicFbIn .4s cubic-bezier(.16,1,.3,1)}
+@keyframes aicFbIn{from{opacity:0;transform:translate(-50%,-44%) scale(.94)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+@keyframes aicFbFade{from{opacity:0}to{opacity:1}}
+@media(prefers-reduced-motion:reduce){body.aic-hold.aic-fb-open #rateCard,body.aic-fb-open #aicFbBg{animation:none}}
+body.aic-hold #rateCard>h3,body.aic-hold #rateCard>.rc-sub:first-of-type{display:none}
+#aicFbHead{position:relative;margin:0 -20px 16px;padding:22px 46px 18px;text-align:center;color:#fff;border-radius:24px 24px 0 0;overflow:hidden;background:linear-gradient(120deg,#1E1B4B 0%,#4C1D95 50%,#BE185D 100%)}
+#aicFbHead::after{content:"";position:absolute;right:-50px;top:-60px;width:190px;height:190px;border-radius:50%;background:radial-gradient(circle,rgba(253,230,138,.35),transparent 68%);pointer-events:none}
+#aicFbHead .fh-ic{font-size:34px;line-height:1}
+#aicFbHead .fh-t{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:21px;line-height:1.2;margin-top:6px}
+#aicFbHead .fh-t em{font-style:normal;color:#FDE68A}
+#aicFbHead .fh-s{font-size:12.5px;color:#E9D5FF;margin-top:5px;line-height:1.45}
+#aicFbX{position:absolute;top:10px;right:10px;z-index:2;width:32px;height:32px;border:0;border-radius:50%;background:rgba(255,255,255,.2);color:#fff;font-size:19px;line-height:1;cursor:pointer}
+#aicFbX:hover{background:rgba(255,255,255,.32)}
+body.aic-hold #rateCard .rc-sub{color:#5B21B6!important;font-weight:700;font-size:12.5px!important}
+body.aic-hold #rateCard .rc-star{font-size:40px}
+body.aic-hold #rateCard .rc-star.on{color:#F59E0B;text-shadow:0 0 16px rgba(245,158,11,.55)}
+body.aic-hold #rateCard .rc-chip{background:rgba(255,255,255,.75);border-color:#DDD6FE;color:#3B0764}
+body.aic-hold #rateCard .rc-chip.sel{background:linear-gradient(135deg,#6D28D9,#BE185D);border-color:transparent;color:#fff;box-shadow:0 4px 12px rgba(109,40,217,.3)}
+body.aic-hold #rateCard .rc-submit{width:100%;padding:13px;border-radius:13px;font-size:15px;background:linear-gradient(135deg,#F59E0B,#FDE68A);color:#3B0764;box-shadow:0 6px 18px rgba(245,158,11,.4)}
+body.aic-hold #rateCard .rc-done{padding:26px 0 10px;font-size:17px}
+#aicFbSkip{display:block;margin:10px auto 0;background:none;border:0;color:#7C3AED;font-weight:700;font-size:13px;cursor:pointer;padding:6px 10px}
+#aicFbOpen{margin-top:14px;padding:10px 18px;border-radius:999px;border:1.5px solid #DDD6FE;background:#F5F3FF;color:#5B21B6;font-weight:700;font-size:13.5px;cursor:pointer}
+</style>
 <div id="resultScreen">
   <div class="result-card">
     <div style="font-family:'Rajdhani';font-size:22px;font-weight:700;color:#1E293B;margin-bottom:14px;" id="resultExamName"></div>
@@ -1937,6 +1965,28 @@ function aicFeedbackUi(){
     if(en){ fb.querySelectorAll('#aicFbTime .rc-chip').forEach(x=>x.classList.toggle('sel',x===b)); }
     else{ b.classList.toggle('sel'); const e0=fb.querySelector('#aicFbTime .rc-chip[data-v="Enough"]'); if(e0) e0.classList.remove('sel'); }
   });
+  /* TSSC-AICFBPOP-V1: the same card, shown as a pop-up over the "submitted" screen */
+  try{
+    const bg=document.createElement('div'); bg.id='aicFbBg'; document.body.appendChild(bg);
+    const hd=document.createElement('div'); hd.id='aicFbHead';
+    hd.innerHTML='<button type="button" id="aicFbX" aria-label="Close">&times;</button><div class="fh-ic">&#127942;</div><div class="fh-t">Well done! <em>How was Challenge Mock '+AIC_CTX.round+'?</em></div><div class="fh-s">Your answers are submitted. 20 seconds of feedback helps us make the next paper better. It is optional.</div>';
+    rc.insertBefore(hd,rc.firstChild);
+    if(subs[0]){ subs[0].textContent='Tap the stars to rate this paper'; subs[0].style.textAlign='center'; }
+    rc.querySelectorAll('#aicFb > div[style]').forEach(x=>{ if(!x.id){ x.style.color='#5B21B6'; x.style.fontWeight='700'; x.style.fontSize='12.5px'; } });
+    const sk=document.createElement('button'); sk.type='button'; sk.id='aicFbSkip'; sk.textContent='Skip for now'; rc.appendChild(sk);
+    rc.setAttribute('role','dialog'); rc.setAttribute('aria-modal','true'); rc.setAttribute('aria-label','Rate this Challenge Mock');
+    const dc=document.getElementById('aicDoneCard'); let ob=null;
+    if(dc){ ob=document.createElement('button'); ob.type='button'; ob.id='aicFbOpen'; ob.innerHTML='&#11088; Rate this paper'; ob.style.display='none'; dc.appendChild(ob); }
+    let sent=false;
+    const open=()=>{ if(sent) return; document.body.classList.add('aic-fb-open'); rc.scrollTop=0; if(ob) ob.style.display='none'; };
+    const close=()=>{ document.body.classList.remove('aic-fb-open'); if(ob&&!sent) ob.style.display='inline-block'; };
+    hd.querySelector('#aicFbX').addEventListener('click',close); sk.addEventListener('click',close); bg.addEventListener('click',close);
+    if(ob) ob.addEventListener('click',open);
+    document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&document.body.classList.contains('aic-fb-open')) close(); });
+    const dn=document.getElementById('rcDone');
+    if(dn) new MutationObserver(()=>{ if(dn.style.display!=='none'&&!sent){ sent=true; sk.style.display='none'; dn.innerHTML='&#127881; Thank you! Your feedback is saved.'; setTimeout(close,1700); } }).observe(dn,{attributes:true,attributeFilter:['style']});
+    setTimeout(open,900);
+  }catch(_){ document.body.classList.remove('aic-fb-open'); }
 }
 function aicFeedbackRead(){
   const fb=document.getElementById('aicFb'); if(!fb||!AIC_CTX) return null;
