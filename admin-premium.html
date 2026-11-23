@@ -1178,6 +1178,9 @@ const fuTpl = key => Object.assign({}, FU_TEMPLATES[key], FU_SET.edits[key] || {
 
 /* 10-digit Indian mobile -> 91XXXXXXXXXX; anything that is not clearly a
    mobile number gets no WhatsApp button rather than a wrong chat. */
+/* TSSC-WAMOBILE-V1 — phone or tablet: send WhatsApp through the app, not WhatsApp Web */
+const FU_MOBILE = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '') ||
+                  (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent || ''));
 function waNumber(m) {
   let d = String(m || '').replace(/\D/g, '');
   if (d.length === 11 && d[0] === '0') d = d.slice(1);
@@ -1353,7 +1356,9 @@ function fcOpen(ch, kind, rec) {
                     gmail: 'Send opens Gmail compose with everything filled in.',
                     mailto: 'Send opens your mail app with everything filled in.' };
   $('fcSub').innerHTML = (wa
-    ? 'Send opens WhatsApp Web on this student\'s chat with the message typed. Press <b>Enter</b> there to send.'
+    ? (FU_MOBILE
+        ? 'Send opens the WhatsApp app on this student\'s chat with the message typed. Tap the <b>send arrow</b> there.'
+        : 'Send opens WhatsApp Web on this student\'s chat with the message typed. Press <b>Enter</b> there to send.')
     : (mailHow[FU_SET.mode] || mailHow.direct)) + ' Edit anything first if you like.';
   $('fcToLbl').textContent = wa ? 'WhatsApp number' : 'To';
   $('fcTo').value = wa ? ('+' + waNumber(rec.mobile)) : String(rec.email || '').trim();
@@ -1398,11 +1403,18 @@ $('fcSend').onclick = async () => {
   if (ch === 'wa') {
     const num = waNumber($('fcTo').value);
     if (!num) { fcSay('That does not look like a 10-digit Indian mobile number.', 'err'); return; }
-    /* one named tab, reused — WhatsApp Web only works in one tab at a time */
-    window.open('https://web.whatsapp.com/send?phone=' + num + '&text=' + encodeURIComponent(text), 'tssc_wa');
+    /* TSSC-WAMOBILE-V1 (2026-11-23) — on a phone, WhatsApp Web does not work:
+       open the WhatsApp app itself (wa.me opens the installed app with the chat
+       and message ready; with both WhatsApp and WhatsApp Business installed,
+       the phone asks which one). On a computer, keep one named WhatsApp Web
+       tab, reused — WhatsApp Web only works in one tab at a time. */
+    const waUrl = FU_MOBILE
+      ? 'https://wa.me/' + num + '?text=' + encodeURIComponent(text)
+      : 'https://web.whatsapp.com/send?phone=' + num + '&text=' + encodeURIComponent(text);
     fuMark(rec, kind, 'wa');
     fcClose();
-    say('WhatsApp opened for ' + esc(rec.name || num) + ' — press Enter there to send.', 'ok');
+    if (FU_MOBILE) location.href = waUrl; else window.open(waUrl, 'tssc_wa');
+    say('WhatsApp opened for ' + esc(rec.name || num) + ' — press ' + (FU_MOBILE ? 'the send arrow' : 'Enter') + ' there to send.', 'ok');
     return;
   }
 
@@ -1485,6 +1497,17 @@ const AUTO_WAIT = 150 * 1000;
 const AUTO_WINDOW = 24 * 3600 * 1000;
 const AUTO_DAY_CAP = 40;
 function autoOn() { try { return localStorage.getItem(AUTO_KEY) === '1'; } catch (e) { return false; } }
+/* TSSC-AUTOMAIL-V3 (2026-11-23) — only NEW arrivals: activity (or a payment)
+   after the moment Auto-email was switched ON on this device. Students already
+   in the lists when it is switched on are never mailed automatically. */
+const AUTO_SINCE_KEY = 'tssc_automail_since';
+function autoSince() {
+  try {
+    let t = Number(localStorage.getItem(AUTO_SINCE_KEY)) || 0;
+    if (!t && autoOn()) { t = Date.now(); localStorage.setItem(AUTO_SINCE_KEY, String(t)); }
+    return t || Date.now();
+  } catch (e) { return Date.now(); }
+}
 let AUTO_DUE = {};                 /* person -> when their mail is due (shown under the Email button) */
 let AUTO_SKIP = {};                /* person -> why it was left for manual, this session */
 let AUTO_BUSY = false, AUTO_TIMER = null, LIVE = null, AUTO_NOTE = '', AUTO_STOP = '';
@@ -1517,8 +1540,18 @@ function sentStart(uid) {
     const remote = (snap.data() || {}).followupSent || {};
     if (!SENT_MIGRATED) {                      /* first time: ticks made before the sync was added */
       SENT_MIGRATED = true;
+      /* every tick of this browser that the account does not have yet (or has
+         older) is copied up — per channel, so nothing on either side is lost */
       const local = fuLoad(FU_SENT_KEY, {}), add = {};
-      Object.keys(local).forEach(w => { if (!remote[w]) add[w] = local[w]; });
+      Object.keys(local).forEach(w => {
+        const l = local[w] || {}, r = remote[w] || {};
+        Object.keys(l).forEach(k => {
+          if (typeof l[k] === 'number' && !(typeof r[k] === 'number' && r[k] >= l[k])) (add[w] = add[w] || {})[k] = l[k];
+          else if (k === 'wOrders' && isObj(l[k])) Object.keys(l[k]).forEach(o => {
+            if (!(r.wOrders || {})[o]) { add[w] = add[w] || {}; (add[w].wOrders = add[w].wOrders || {})[o] = l[k][o]; }
+          });
+        });
+      });
       if (Object.keys(add).length) sentWrite(add);
       FU_SENT = deepMerge(remote, add);
     } else {
@@ -1642,7 +1675,7 @@ function autoCandidates() {
   return out.filter(c => {
     /* TSSC-AUTOMAIL-V2 — one mail per drop: skip if mailed AFTER their last activity */
     const who = fuPerson(c.rec), m = (FU_SENT[who] || {}).ml;
-    return who && String(c.rec.email || '').trim() && c.last && now - c.last <= AUTO_WINDOW &&
+    return who && String(c.rec.email || '').trim() && c.last && now - c.last <= AUTO_WINDOW && c.last > autoSince() &&
            !(m && m >= c.last) && !(AUTO_SKIP[who] && AUTO_SKIP[who] >= c.last);
   });
 }
@@ -1652,7 +1685,7 @@ function welcomeCandidates() {
   const now = Date.now();
   return ROWS.filter(r => {
     const t = r.paidAt || r.createdAt;
-    if (r.status !== 'paid' || r.mode === 'test' || !r.uid || !t || now - t > AUTO_WINDOW) return false;
+    if (r.status !== 'paid' || r.mode === 'test' || !r.uid || !t || now - t > AUTO_WINDOW || t <= autoSince()) return false;
     if (!String(r.email || '').trim() || isGoogleReview(r.email, {})) return false;
     if (!(r.courseActive || fuHeld(r.uid).all)) return false;      /* wait until it is unlocked */
     const s = FU_SENT[fuPerson(r)] || {};
@@ -1739,7 +1772,7 @@ function autoShow() {
   if (!autoOn()) { box.className = 'msg'; box.innerHTML = ''; return; }
   const waiting = Object.keys(AUTO_DUE).length, n = autoToday(), w = welcomesToday();
   box.className = 'msg ' + (AUTO_STOP ? 'warn' : 'ok');
-  box.innerHTML = '<b>⚡ Auto-email is ON</b> — one mail per drop, 150 s after the student\'s last checkout activity; Welcome mail at once on payment. Keep this tab open.' +
+  box.innerHTML = '<b>⚡ Auto-email is ON</b> since ' + istTime(autoSince()) + ' (only students who arrive after that) — one mail per drop, 150 s after the student\'s last checkout activity; Welcome mail at once on payment. Keep this tab open.' +
     ' Today: <b>' + n + '</b> follow-up' + (n === 1 ? '' : 's') + ', <b>' + w + '</b> welcome' + (w === 1 ? '' : 's') + (waiting ? ' · waiting: <b>' + waiting + '</b>' : '') +
     (SENT_SYNC_OK ? '' : '<br>Ticks are not reaching your account right now — other devices may not see them.') +
     (AUTO_STOP ? '<br>' + AUTO_STOP : '') + (AUTO_NOTE ? '<br>' + AUTO_NOTE : '');
@@ -1763,7 +1796,10 @@ function autoApply() {
 $('autoBtn').title = 'One mail per drop, 150 s after the last checkout activity; Welcome mail at once on payment';
 $('autoBtn').onclick = () => {
   const on = !autoOn();
-  try { localStorage.setItem(AUTO_KEY, on ? '1' : '0'); } catch (e) {}
+  try {
+    localStorage.setItem(AUTO_KEY, on ? '1' : '0');
+    if (on) localStorage.setItem(AUTO_SINCE_KEY, String(Date.now())); else localStorage.removeItem(AUTO_SINCE_KEY);
+  } catch (e) {}
   autoApply();
 };
 
