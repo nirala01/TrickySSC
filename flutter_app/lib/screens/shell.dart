@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
+import '../app_rating.dart';
 import '../billing.dart';
 import '../data.dart';
 import '../test/engine.dart';
@@ -347,6 +348,7 @@ class _AppShellState extends State<AppShell> {
 
   void _afterTest() {
     _loadAtt();
+    if (mounted) AppRating.maybeAsk(context, widget.exam.id); // TSSC-APPRATING-V1
     _loadResume();
     if (mounted) setState(() => _version++);
   }
@@ -1312,6 +1314,8 @@ class _MeTab extends StatelessWidget {
         if (u != null)
           row(const Text('🐞', style: TextStyle(fontSize: 22)), 'Report an issue', 'Something not working in the app? Tell us',
               () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ReportIssuePage(user: u, exam: exam)))),
+        if (u != null)
+          row(const Text('⭐', style: TextStyle(fontSize: 22)), 'Rate this app', 'Stars and a suggestion, both optional', () => AppRating.show(context, exam.id)),
         // TSSC-INAPPUPDATE-V1: App updates, with a red dot while a newer version is waiting
         ValueListenableBuilder<int?>(
           valueListenable: AppUpdater.available,

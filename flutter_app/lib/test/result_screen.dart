@@ -1,3 +1,4 @@
+import '../app_rating.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -70,6 +71,7 @@ class _ResultScreenState extends State<ResultScreen> {
     try {
       await saveResult(widget.user, widget.exam, widget.paper, widget.progress, r);
       if (first) await countDailyTest(widget.user);
+      if (first) AppRating.testFinished();
       await clearProgress(widget.user.uid, widget.paper.rules.mockId, widget.paper.partD);
       Map<String, dynamic>? att;
       try {
