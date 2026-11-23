@@ -775,11 +775,28 @@ class _HomeTab extends StatelessWidget {
       'Covers the questions asked in the GK section of the exam.',
       'Free for everyone.',
     ];
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
+    // TSSC-TABLET-V1: the six tiles, laid out 2 per row on phones and 3 per row on wide screens
+    final tiles = <Widget>[
+          _Tile('target', 'Mock tests', exam.mocks, const Color(0xFF1552C4), onMocks, details: dMocks, glyph: Icons.track_changes_rounded, g1: const Color(0xFF2F7BEA), g2: const Color(0xFF1552C4), tag: hasPass ? const SoftTag('PREMIUM', Color(0xFF6B4A00), Color(0xFFFDE68A)) : SoftTag('${exam.free} FREE', const Color(0xFF0B5E3F), const Color(0xFFC9F5DC))),
+          _Tile('paper', 'PYQs', 'Real exam papers', const Color(0xFF5B2BD1), onPyq, details: dPyq, glyph: Icons.description_outlined, g1: const Color(0xFF8B5CF6), g2: const Color(0xFF5B2BD1), tag: const SoftTag('FREE', Color(0xFF0B5E3F), Color(0xFFC9F5DC))),
+          _Tile('book', 'Chapter tests', '2 levels', const Color(0xFFD2560A), onChapters, details: dChap, glyph: Icons.layers_outlined, g1: const Color(0xFFF58A1F), g2: const Color(0xFFD2560A), tag: const SoftTag('FREE', Color(0xFF0B5E3F), Color(0xFFC9F5DC))),
+          _Tile('folder', 'Chapter PYQs', 'Real questions', const Color(0xFF0B7A55), onChapterPyq, details: dChapPyq, glyph: Icons.menu_book_rounded, g1: const Color(0xFF19A974), g2: const Color(0xFF0B7A55), tag: const SoftTag('FREE', Color(0xFF0B5E3F), Color(0xFFC9F5DC))),
+          if (exam.hasSubjectMocks)
+            _Tile('puzzle', 'Subject mocks', 'Sectional', const Color(0xFFC21A55), onSubjects, details: dSub, glyph: Icons.dashboard_customize_outlined, g1: const Color(0xFFF0477B), g2: const Color(0xFFC21A55), tag: hasPass ? const SoftTag('PREMIUM', Color(0xFF6B4A00), Color(0xFFFDE68A)) : SoftTag('${exam.free} FREE', const Color(0xFF0B5E3F), const Color(0xFFC9F5DC))),
+          _Tile('news', 'Current affairs', 'Daily · Topic-wise', const Color(0xFF4A22B3), onCa, details: dCa, glyph: Icons.emoji_events_outlined, g1: const Color(0xFF7C4DE8), g2: const Color(0xFF4A22B3), tag: const SoftTag('FREE', Color(0xFF0B5E3F), Color(0xFFC9F5DC))),
+    ];
+    return LayoutBuilder(builder: (context, bc) {
+      final cols = bc.maxWidth >= 840 ? 3 : 2;
+      final rows = <List<Widget>>[];
+      for (var i = 0; i < tiles.length; i += cols) {
+        rows.add(tiles.sublist(i, i + cols > tiles.length ? tiles.length : i + cols));
+      }
+      Widget row(List<Widget> r) => Row(children: [
+            for (var i = 0; i < r.length; i++) ...[if (i > 0) const SizedBox(width: 8), r[i]],
+          ]);
+      // a short screen (a phone or tablet held sideways) cannot fit everything: it scrolls
+      final scroll = bc.maxHeight < 300 + rows.length * 112;
+      final top = <Widget>[
           const UpdateStrip(),
           _PassCard(
             exam: exam,
@@ -841,39 +858,26 @@ class _HomeTab extends StatelessWidget {
           if (exam.id == 'ssc-cgl' && aicCgl.on) ...[const SizedBox(height: 8), AicHomeCard(user: user, exam: exam, series: aicCgl)],
           if (exam.id == 'ssc-chsl' && aicChsl.on) ...[const SizedBox(height: 8), AicHomeCard(user: user, exam: exam, series: aicChsl)],
           const SizedBox(height: 8),
-          Expanded(
-            child: Column(children: [
-              Expanded(
-                child: Row(children: [
-                  _Tile('target', 'Mock tests', exam.mocks, const Color(0xFF1552C4), onMocks, details: dMocks, glyph: Icons.track_changes_rounded, g1: const Color(0xFF2F7BEA), g2: const Color(0xFF1552C4), tag: hasPass ? const SoftTag('PREMIUM', Color(0xFF6B4A00), Color(0xFFFDE68A)) : SoftTag('${exam.free} FREE', const Color(0xFF0B5E3F), const Color(0xFFC9F5DC))),
-                  const SizedBox(width: 8),
-                  _Tile('paper', 'PYQs', 'Real exam papers', const Color(0xFF5B2BD1), onPyq, details: dPyq, glyph: Icons.description_outlined, g1: const Color(0xFF8B5CF6), g2: const Color(0xFF5B2BD1), tag: const SoftTag('FREE', Color(0xFF0B5E3F), Color(0xFFC9F5DC))),
-                ]),
-              ),
-              const SizedBox(height: 8),
-              Expanded(
-                child: Row(children: [
-                  _Tile('book', 'Chapter tests', '2 levels', const Color(0xFFD2560A), onChapters, details: dChap, glyph: Icons.layers_outlined, g1: const Color(0xFFF58A1F), g2: const Color(0xFFD2560A), tag: const SoftTag('FREE', Color(0xFF0B5E3F), Color(0xFFC9F5DC))),
-                  const SizedBox(width: 8),
-                  _Tile('folder', 'Chapter PYQs', 'Real questions', const Color(0xFF0B7A55), onChapterPyq, details: dChapPyq, glyph: Icons.menu_book_rounded, g1: const Color(0xFF19A974), g2: const Color(0xFF0B7A55), tag: const SoftTag('FREE', Color(0xFF0B5E3F), Color(0xFFC9F5DC))),
-                ]),
-              ),
-              const SizedBox(height: 8),
-              Expanded(
-                child: Row(children: [
-                  // TSSC-SM-APP-V1: an exam with no subject mocks (RRB Station Master) shows no Subject mocks tile
-                  if (exam.hasSubjectMocks) ...[
-                    _Tile('puzzle', 'Subject mocks', 'Sectional', const Color(0xFFC21A55), onSubjects, details: dSub, glyph: Icons.dashboard_customize_outlined, g1: const Color(0xFFF0477B), g2: const Color(0xFFC21A55), tag: hasPass ? const SoftTag('PREMIUM', Color(0xFF6B4A00), Color(0xFFFDE68A)) : SoftTag('${exam.free} FREE', const Color(0xFF0B5E3F), const Color(0xFFC9F5DC))),
-                    const SizedBox(width: 8),
-                  ],
-                  _Tile('news', 'Current affairs', 'Daily · Topic-wise', const Color(0xFF4A22B3), onCa, details: dCa, glyph: Icons.emoji_events_outlined, g1: const Color(0xFF7C4DE8), g2: const Color(0xFF4A22B3), tag: const SoftTag('FREE', Color(0xFF0B5E3F), Color(0xFFC9F5DC))),
-                ]),
-              ),
-            ]),
-          ),
+      ];
+      final body = Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: scroll ? MainAxisSize.min : MainAxisSize.max,
+        children: [
+          ...top,
+          if (scroll)
+            for (var i = 0; i < rows.length; i++) ...[if (i > 0) const SizedBox(height: 8), SizedBox(height: 150, child: row(rows[i]))]
+          else
+            Expanded(
+              child: Column(children: [
+                for (var i = 0; i < rows.length; i++) ...[if (i > 0) const SizedBox(height: 8), Expanded(child: row(rows[i]))],
+              ]),
+            ),
         ],
-      ),
-    );
+      );
+      return scroll
+          ? SingleChildScrollView(padding: const EdgeInsets.fromLTRB(12, 10, 12, 10), child: body)
+          : Padding(padding: const EdgeInsets.fromLTRB(12, 10, 12, 10), child: body);
+    });
   }
 }
 

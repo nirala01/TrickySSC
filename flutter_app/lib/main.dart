@@ -43,7 +43,50 @@ class TrickyApp extends StatelessWidget {
         scaffoldBackgroundColor: const Color(0xFFEEF2FF),
         appBarTheme: const AppBarTheme(backgroundColor: Color(0xFFEEF2FF), surfaceTintColor: Color(0xFFEEF2FF), elevation: 0, scrolledUnderElevation: 0),
       ),
+      builder: (context, child) => LargeScreen(child: child ?? const SizedBox.shrink()),
       home: FbConfig.ready ? const AuthGate() : const _SetupMissing(),
+    );
+  }
+}
+
+/// TSSC-TABLET-V1: tablets and unfolded foldables.
+/// The app is drawn for a phone-sized canvas; on a large screen that canvas is scaled up to fill the whole
+/// display, so text, buttons and cards grow with the screen and nothing sits small in one corner.
+/// Phones (shortest side under 600) are untouched.
+class LargeScreen extends StatelessWidget {
+  final Widget child;
+  const LargeScreen({super.key, required this.child});
+
+  static double scaleFor(Size z) {
+    if (z.shortestSide < 600) return 1;
+    final s = z.height >= z.width ? z.width / 480 : z.height / 640;
+    return s < 1 ? 1 : (s > 1.8 ? 1.8 : s);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final mq = MediaQuery.of(context);
+    final s = scaleFor(mq.size);
+    if (s <= 1.02) return child;
+    return SizedBox.expand(
+      child: FittedBox(
+        fit: BoxFit.fill,
+        alignment: Alignment.topLeft,
+        child: SizedBox(
+          width: mq.size.width / s,
+          height: mq.size.height / s,
+          child: MediaQuery(
+            data: mq.copyWith(
+              size: mq.size / s,
+              padding: mq.padding / s,
+              viewPadding: mq.viewPadding / s,
+              viewInsets: mq.viewInsets / s,
+              devicePixelRatio: mq.devicePixelRatio * s,
+            ),
+            child: child,
+          ),
+        ),
+      ),
     );
   }
 }
