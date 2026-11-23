@@ -116,6 +116,7 @@ letter-spacing:.04em;color:#94A3B8;}}
       <span class="sub" id="who"></span>
       <button class="btn-p" id="grantBtn" style="padding:.55rem 1rem;font-size:.85rem;">+ Grant access</button>
       <button class="btn" id="fuEdit">✎ Messages</button>
+      <button class="btn" id="autoBtn" title="Mail every unpaid student automatically, 150 s after their last checkout activity">⚡ Auto-email: off</button>   <!-- TSSC-AUTOMAIL-V1 -->
       <button class="btn" id="reload">↻ Refresh</button>
       <button class="btn" id="csv">Export CSV</button>
       <button class="btn" id="signout">Sign out</button>
@@ -123,6 +124,7 @@ letter-spacing:.04em;color:#94A3B8;}}
   </div>
 
   <div class="msg" id="msg"></div>
+  <div class="msg" id="autoMsg"></div>   <!-- TSSC-AUTOMAIL-V1 -->
   <div class="cards" id="stats"></div>
 
   <div class="card">
@@ -290,7 +292,8 @@ letter-spacing:.04em;color:#94A3B8;}}
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut }
   from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-import { getFirestore, collection, getDocs, doc, getDoc }
+import { getFirestore, collection, getDocs, doc, getDoc, setDoc,
+         onSnapshot, query, where, orderBy, limit }      /* TSSC-AUTOMAIL-V1/V2 */
   from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 const app = initializeApp({
@@ -360,6 +363,7 @@ onAuthStateChanged(auth, async user => {
   $('gate').hidden = true; $('app').hidden = false;
   $('who').textContent = user.email;
   await loadCatalog();                             /* TSSC-ADMINGRANT-V1 */
+  sentStart(user.uid);                             /* TSSC-AUTOMAIL-V2: Mailed marks from the admin account */
   await load(false);
 });
 
@@ -374,9 +378,78 @@ const ts = v => {
 const fmt = t => t ? new Date(t).toLocaleDateString('en-IN',
   { day:'numeric', month:'short', year:'numeric', timeZone: IST }) : '—';
 
+/* TSSC-AUTOMAIL-V1 — one payment doc -> one table row (used by load and by live updates) */
+function payRow(p) {
+  const mods = (ENTS[p.uid] || {}).modules || {};
+  /* TSSC-ADMINKEYS-V1 (2026-10-05) — judge access by THIS course's keys only.
+     The old code fell back to "any key on the doc", so a buyer holding just
+     Dashboard Pro showed a live date (and a Revoke button) on an unpaid
+     mock-series row. Now: the keys this purchase should grant come from the
+     order (grantedKeys) or the catalog; the row is "unlocked" only if every
+     one of them is active and unexpired. Other active keys are listed
+     separately so the admin can see what the person actually holds. */
+  const keyLive = m => { if (!m || m.active !== true) return false; const t = ts(m.expiresAt); return !t || t > Date.now(); };
+  /* TSSC-ADMINKEYS-V1.1 — judge by the course's PRIMARY key (product id minus
+     the "p-" prefix, e.g. p-ssc-cgl-mocks -> ssc-cgl-mocks). A combo product
+     such as the CGL series also grants Dashboard Pro, and grants made before
+     that key existed lack it, so "every key" wrongly read a paid buyer's
+     abandoned second order as not unlocked. If the product has no such key
+     (a pure combo), fall back to requiring all of its grants. */
+  const grantsFor = (Array.isArray(p.grantedKeys) && p.grantedKeys.length) ? p.grantedKeys : modulesFor(p.courseId || '');
+  const primaryKey = String(p.courseId || '').replace(/^p-/, '');
+  const courseKeys = grantsFor.includes(primaryKey) ? [primaryKey] : grantsFor;
+  const courseActive = courseKeys.length > 0 && courseKeys.every(k => keyLive(mods[k]));
+  let until = null;
+  if (courseActive) courseKeys.forEach(k => { const t = ts(mods[k].expiresAt); if (t && (!until || t > until)) until = t; });
+  const otherLive = Object.keys(mods)
+    .filter(k => !courseKeys.includes(k) && keyLive(mods[k]))
+    .map(k => ({ key: k, label: KEYLABELS[k] || k, until: ts(mods[k].expiresAt) }));
+  return {
+    orderId: p.orderId || p.id,
+    uid: p.uid || '',
+    name: p.name || '',
+    email: p.email || '',
+    mobile: p.mobile || '',
+    place: p.place || '',
+    courseId: p.courseId || '',
+    productLabel: p.productLabel || p.courseId || '',
+    amount: Number(p.amount) || 0,
+    status: p.status || 'created',
+    mode: p.mode || 'live',
+    paymentId: p.paymentId || '',
+    gateway: p.gateway || 'razorpay',                    /* TSSC-PLAYPAY-V1: google-play = bought in the Android app */
+    /* Login method: a Google account carries an email on the payment doc;
+       a mobile-OTP account has none, so the mobile is the only identifier. */
+    loginMethod: (p.email && String(p.email).trim()) ? 'google' : 'phone',
+    loginId: (p.email && String(p.email).trim())
+               ? String(p.email).trim()
+               : (p.mobile || ''),
+    createdAt: ts(p.createdAt),
+    paidAt: ts(p.paidAt),
+    expiresAt: until,
+    courseKeys, courseActive, otherLive                 /* TSSC-ADMINKEYS-V1 */
+  };
+}
+
+function intentRow(d) {
+  const v = d.data() || {};
+  return {
+    uid: d.id,
+    email: v.email || '', name: v.name || '', mobile: v.mobile || '',
+    place: v.place || '', courseId: v.courseId || '',
+    stage: v.stage || 'opened',
+    clicks: Number(v.clicks) || 1,
+    lastAt: ts(v.lastAt),
+    failedAt: v.failedAt || '',            /* TSSC-INTENT-V2 */
+    lastError: v.lastError || '',
+    build: v.build || '',
+    loginType: ''
+  };
+}
+
 async function load(force) {
   say('Loading…', 'ok');
-  if (!force) {
+  if (!force && !autoOn()) {                      /* TSSC-AUTOMAIL-V1: auto needs fresh intents */
     try {
       const c = JSON.parse(sessionStorage.getItem(CACHE_KEY) || 'null');
       if (c && Date.now() - c.ts < CACHE_TTL) {
@@ -395,57 +468,7 @@ async function load(force) {
     entSnap.docs.forEach(d => { ents[d.id] = d.data() || {}; });
     ENTS = ents;                                   /* TSSC-ADMINGRANT-V1 */
 
-    ROWS = pays.map(p => {
-      const mods = (ents[p.uid] || {}).modules || {};
-      /* TSSC-ADMINKEYS-V1 (2026-10-05) — judge access by THIS course's keys only.
-         The old code fell back to "any key on the doc", so a buyer holding just
-         Dashboard Pro showed a live date (and a Revoke button) on an unpaid
-         mock-series row. Now: the keys this purchase should grant come from the
-         order (grantedKeys) or the catalog; the row is "unlocked" only if every
-         one of them is active and unexpired. Other active keys are listed
-         separately so the admin can see what the person actually holds. */
-      const keyLive = m => { if (!m || m.active !== true) return false; const t = ts(m.expiresAt); return !t || t > Date.now(); };
-      /* TSSC-ADMINKEYS-V1.1 — judge by the course's PRIMARY key (product id minus
-         the "p-" prefix, e.g. p-ssc-cgl-mocks -> ssc-cgl-mocks). A combo product
-         such as the CGL series also grants Dashboard Pro, and grants made before
-         that key existed lack it, so "every key" wrongly read a paid buyer's
-         abandoned second order as not unlocked. If the product has no such key
-         (a pure combo), fall back to requiring all of its grants. */
-      const grantsFor = (Array.isArray(p.grantedKeys) && p.grantedKeys.length) ? p.grantedKeys : modulesFor(p.courseId || '');
-      const primaryKey = String(p.courseId || '').replace(/^p-/, '');
-      const courseKeys = grantsFor.includes(primaryKey) ? [primaryKey] : grantsFor;
-      const courseActive = courseKeys.length > 0 && courseKeys.every(k => keyLive(mods[k]));
-      let until = null;
-      if (courseActive) courseKeys.forEach(k => { const t = ts(mods[k].expiresAt); if (t && (!until || t > until)) until = t; });
-      const otherLive = Object.keys(mods)
-        .filter(k => !courseKeys.includes(k) && keyLive(mods[k]))
-        .map(k => ({ key: k, label: KEYLABELS[k] || k, until: ts(mods[k].expiresAt) }));
-      return {
-        orderId: p.orderId || p.id,
-        uid: p.uid || '',
-        name: p.name || '',
-        email: p.email || '',
-        mobile: p.mobile || '',
-        place: p.place || '',
-        courseId: p.courseId || '',
-        productLabel: p.productLabel || p.courseId || '',
-        amount: Number(p.amount) || 0,
-        status: p.status || 'created',
-        mode: p.mode || 'live',
-        paymentId: p.paymentId || '',
-        gateway: p.gateway || 'razorpay',                    /* TSSC-PLAYPAY-V1: google-play = bought in the Android app */
-        /* Login method: a Google account carries an email on the payment doc;
-           a mobile-OTP account has none, so the mobile is the only identifier. */
-        loginMethod: (p.email && String(p.email).trim()) ? 'google' : 'phone',
-        loginId: (p.email && String(p.email).trim())
-                   ? String(p.email).trim()
-                   : (p.mobile || ''),
-        createdAt: ts(p.createdAt),
-        paidAt: ts(p.paidAt),
-        expiresAt: until,
-        courseKeys, courseActive, otherLive                 /* TSSC-ADMINKEYS-V1 */
-      };
-    });
+    ROWS = pays.map(payRow);                       /* TSSC-AUTOMAIL-V1 */
     /* TSSC-STUDENTFLAG-V1 (2026-09-24) — the name on a payment row is what the
        buyer typed at checkout; the name they SEE on the site comes from
        users/{uid}.name. Read that once per buyer and flag anyone whose profile
@@ -458,21 +481,7 @@ async function load(force) {
     /* TSSC-ADMINGRANT-V1 — checkout intents are a separate, small collection */
     try {
       const inSnap = await getDocs(collection(db, 'checkoutIntents'));
-      INTENTS = inSnap.docs.map(d => {
-        const v = d.data() || {};
-        return {
-          uid: d.id,
-          email: v.email || '', name: v.name || '', mobile: v.mobile || '',
-          place: v.place || '', courseId: v.courseId || '',
-          stage: v.stage || 'opened',
-          clicks: Number(v.clicks) || 1,
-          lastAt: ts(v.lastAt),
-          failedAt: v.failedAt || '',            /* TSSC-INTENT-V2 */
-          lastError: v.lastError || '',
-          build: v.build || '',
-          loginType: ''
-        };
-      });
+      INTENTS = inSnap.docs.map(intentRow);         /* TSSC-AUTOMAIL-V1 */
       /* TSSC-INTENT-PROFILE-V1 (2026-09-06) — an intent written from a
          phone-OTP session (or before the profile loaded) has no name/email/
          mobile. Fill the gaps from users/{uid}, which the admin may read. */
@@ -583,6 +592,7 @@ function afterLoad(cached) {
         stu ? 'warn' : 'ok');
   }
   render();
+  if (autoOn() && !AUTO_TIMER) autoApply();       /* TSSC-AUTOMAIL-V1 */
 }
 
 /* --------------------------------------------------------------- render */
@@ -1288,17 +1298,23 @@ function followCell(src, key, rec, kind) {
   const w = kind === 'welcome';
   const b = (ch, cls, label) => {
     const t = sent[(w ? 'w' : '') + ch];
+    /* TSSC-AUTOMAIL-V1 — a sent email reads "Mailed"; automatic ones say so on hover */
+    const shown = (t && ch === 'ml') ? (w ? 'Welcome · Mailed' : 'Mailed') : label;
+    const how = (!w && ch === 'ml' && t && sent.mlAuto === t) ? 'Mailed automatically on ' : 'Sent on ';
     return `<button class="act ${cls}${t ? ' done' : ''}" data-fu="${ch}" data-kind="${kind}" data-src="${src}" data-key="${esc(key)}"` +
-           ` title="${t ? 'Sent on ' + day(t) + ' — click to open again' : ''}">${t ? '✓ ' : ''}${label}${t ? ' · ' + day(t) : ''}</button>`;
+           ` title="${t ? how + day(t) + ' ' + istTime(t) + ' — click to open again' : ''}">${t ? '✓ ' : ''}${shown}${t ? ' · ' + day(t) : ''}</button>`;
   };
+  const dueAt = (!w && em) ? AUTO_DUE[fuPerson(rec)] : 0;
   return '<div class="fu">' + (ph ? b('wa', 'wa', w ? 'Welcome · WhatsApp' : 'WhatsApp') : '') +
-                              (em ? b('ml', 'ml', w ? 'Welcome · Email' : 'Email') : '') + '</div>';
+                              (em ? b('ml', 'ml', w ? 'Welcome · Email' : 'Email') : '') + '</div>' +
+         (dueAt ? `<div class="em" style="color:#1D4ED8;margin-top:.2rem">⏳ auto-mail at ${istTime(dueAt)}</div>` : '');
 }
 function fuMark(rec, kind, ch) {
   const who = fuPerson(rec);
   if (!who) return;
-  FU_SENT[who] = Object.assign({}, FU_SENT[who], { [(kind === 'welcome' ? 'w' : '') + ch]: Date.now() });
-  fuStore(FU_SENT_KEY, FU_SENT);
+  const patch = { [(kind === 'welcome' ? 'w' : '') + ch]: Date.now() };
+  if (kind === 'welcome' && ch === 'ml' && rec.orderId) patch.wOrders = { [rec.orderId]: patch.wml };
+  sentWrite({ [who]: patch });                     /* TSSC-AUTOMAIL-V2: saved to the admin account */
   render();
 }
 async function fuCopy(text) {
@@ -1416,18 +1432,11 @@ $('fcSend').onclick = async () => {
     $('fuPanel').classList.add('on');
     window.open(/^https:\/\/mail\.hostinger\.com\//.test(FU_SET.box || '') ? FU_SET.box : HOSTINGER_INBOX, 'tssc_mail');
   } else {
-    const user = auth.currentUser;
-    if (!user) { fcSay('Session expired — sign in again.', 'err'); return; }
+    if (!auth.currentUser) { fcSay('Session expired — sign in again.', 'err'); return; }
     const btn = $('fcSend');
     btn.disabled = true; btn.textContent = 'Sending…'; fcSay('');
     try {
-      const res = await fetch(MAIL_API + '/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idToken: await user.getIdToken(), to, subject: sub, text })
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.ok) throw new Error(data.error || ('Request failed (' + res.status + ')'));
+      await mailSend(to, sub, text);                 /* TSSC-AUTOMAIL-V1: same path as the automatic mails */
     } catch (err) {
       btn.disabled = false; btn.textContent = 'Send email';
       fcSay('Could not send: ' + esc(err.message || err) +
@@ -1441,6 +1450,321 @@ $('fcSend').onclick = async () => {
   }
   fuMark(rec, kind, 'ml');
   fcClose();
+};
+
+/* =========================================== TSSC-AUTOMAIL-V1 (2026-11-23)
+   Automatic follow-up email. With "⚡ Auto-email" ON, every student in either
+   list — an unpaid order (purchases table) or "opened the popup / Razorpay"
+   without an order (checkout table) — gets the same follow-up the Email
+   button would send, 150 seconds after their LAST checkout activity, so a
+   student who is still trying is not mailed mid-payment. Then the button
+   turns into "✓ Mailed".
+     - Runs only while this page is open (a background tab is fine). Leave it
+       ON in ONE browser only: the "Mailed" ticks live in this browser.
+     - Live updates: a listener on the 30 most recent checkoutIntents; for each
+       student that changes, only their entitlements / payments / profile are
+       read again — never the whole collections.
+     - Just before sending, that student is read again; anyone who has paid or
+       been granted the course by then is skipped.
+     - TSSC-AUTOMAIL-V2: ONE mail per drop. A student who was mailed is not
+       mailed again — unless they come back and open the pay popup again or
+       create an order AFTER that mail (a new drop), which gets one more mail.
+       A manual Email counts too. Activity from the last 24 hours only; at most
+       40 automatic follow-ups a day.
+     - TSSC-AUTOMAIL-V2: a paid order gets its Welcome mail at once (no wait),
+       once per order, as soon as its access is unlocked.
+     - TSSC-AUTOMAIL-V2: every "Mailed" / "Sent" tick is saved on the admin's
+       own users/{uid} doc (field followupSent — the same place admin-testers
+       keeps its settings, so no rule change), so phone and laptop show the
+       same ticks live. Before an automatic mail, the sending device claims
+       the student there, so two devices with Auto-email ON never both send.
+     - Needs "Send from this page" picked in ✎ Messages. Edited wording there
+       is what goes out. A pass whose price is missing is left for manual. */
+const AUTO_KEY = 'tssc_automail_on';
+const AUTO_WAIT = 150 * 1000;
+const AUTO_WINDOW = 24 * 3600 * 1000;
+const AUTO_DAY_CAP = 40;
+function autoOn() { try { return localStorage.getItem(AUTO_KEY) === '1'; } catch (e) { return false; } }
+let AUTO_DUE = {};                 /* person -> when their mail is due (shown under the Email button) */
+let AUTO_SKIP = {};                /* person -> why it was left for manual, this session */
+let AUTO_BUSY = false, AUTO_TIMER = null, LIVE = null, AUTO_NOTE = '', AUTO_STOP = '';
+const istDay = () => new Date(Date.now() + 330 * 60000).toISOString().slice(0, 10);
+const istTime = t => new Date(t).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', timeZone: IST });
+/* follow-ups sent automatically today (India time), counted from the synced ticks */
+function autoToday() {
+  const t0 = todayStartIST();
+  return Object.values(FU_SENT).filter(x => x && x.mlAuto && x.mlAuto >= t0).length;
+}
+function welcomesToday() {
+  const t0 = todayStartIST();
+  return Object.values(FU_SENT).filter(x => x && x.wmlAuto && x.wmlAuto >= t0).length;
+}
+
+/* ---- TSSC-AUTOMAIL-V2: ticks synced through the admin's users/{uid} doc ---- */
+let ME_UID = null, SENT_LIVE = null, SENT_MIGRATED = false, SENT_SYNC_OK = true, SENT_READY = false;
+const DEVICE = (() => { try { let d = localStorage.getItem('tssc_device_id'); if (!d) { d = Math.random().toString(36).slice(2, 10); localStorage.setItem('tssc_device_id', d); } return d; } catch (e) { return Math.random().toString(36).slice(2, 10); } })();
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const isObj = v => v && typeof v === 'object' && !Array.isArray(v);
+function deepMerge(a, b) {
+  const o = Object.assign({}, a);
+  Object.keys(b || {}).forEach(k => { o[k] = (isObj(o[k]) && isObj(b[k])) ? deepMerge(o[k], b[k]) : b[k]; });
+  return o;
+}
+function sentStart(uid) {
+  ME_UID = uid;
+  if (SENT_LIVE) return;
+  SENT_LIVE = onSnapshot(doc(db, 'users', uid), snap => {
+    const remote = (snap.data() || {}).followupSent || {};
+    if (!SENT_MIGRATED) {                      /* first time: ticks made before the sync was added */
+      SENT_MIGRATED = true;
+      const local = fuLoad(FU_SENT_KEY, {}), add = {};
+      Object.keys(local).forEach(w => { if (!remote[w]) add[w] = local[w]; });
+      if (Object.keys(add).length) sentWrite(add);
+      FU_SENT = deepMerge(remote, add);
+    } else {
+      FU_SENT = remote;
+    }
+    fuStore(FU_SENT_KEY, FU_SENT);
+    const first = !SENT_READY; SENT_READY = true;
+    if (ROWS.length || INTENTS.length) render();
+    if (autoOn()) { autoShow(); if (first) autoRun(); }
+  }, err => { SENT_SYNC_OK = false; SENT_READY = true; console.warn('ticks not synced:', err.message); });
+}
+async function sentWrite(patch) {
+  FU_SENT = deepMerge(FU_SENT, patch);
+  fuStore(FU_SENT_KEY, FU_SENT);
+  if (!ME_UID) return;
+  try { await setDoc(doc(db, 'users', ME_UID), { followupSent: patch }, { merge: true }); SENT_SYNC_OK = true; }
+  catch (e) { SENT_SYNC_OK = false; say('Tick saved on this device only — could not save it to your account: ' + esc(e.message), 'warn'); }
+}
+/* Claim one automatic mail so no other device sends it too. */
+async function sentClaim(who, what) {
+  if (!ME_UID) return true;
+  const read = async () => (((await getDoc(doc(db, 'users', ME_UID))).data() || {}).followupSent || {})[who] || {};
+  try {
+    const cur = await read(), c = cur.claim;
+    if (c && c.what === what && c.by !== DEVICE && Date.now() - c.at < 60000) return false;
+    await setDoc(doc(db, 'users', ME_UID), { followupSent: { [who]: { claim: { what, by: DEVICE, at: Date.now() } } } }, { merge: true });
+    await sleep(1500);
+    const again = (await read()).claim;
+    return !again || (again.what === what && again.by === DEVICE);
+  } catch (e) { return true; }                /* cannot check: this device is the only sender we know of */
+}
+
+async function mailSend(to, subject, text) {
+  const user = auth.currentUser;
+  if (!user) throw new Error('Session expired — sign in again.');
+  const res = await fetch(MAIL_API + '/send', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ idToken: await user.getIdToken(), to, subject, text })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.ok) throw new Error(data.error || ('Request failed (' + res.status + ')'));
+  return data;
+}
+
+/* ---- live updates ---- */
+function liveStart() {
+  if (LIVE) return;
+  LIVE = onSnapshot(query(collection(db, 'checkoutIntents'), orderBy('lastAt', 'desc'), limit(30)),
+    snap => liveApply(snap.docChanges().filter(c => c.type !== 'removed').map(c => c.doc)),
+    err => { LIVE = null; AUTO_NOTE = 'Live updates stopped: ' + esc(err.message) + ' — press ↻ Refresh.'; autoShow(); });
+  /* TSSC-AUTOMAIL-V2 — newly paid orders (app purchases write no web breadcrumb) */
+  LIVE_PAID = onSnapshot(query(collection(db, 'payments'), orderBy('paidAt', 'desc'), limit(10)),
+    async snap => {
+      const uids = snap.docChanges().filter(c => c.type !== 'removed').map(c => (c.doc.data() || {}).uid);
+      if (!uids.length) return;
+      await liveRefresh(uids); render(); autoRun();
+    },
+    err => console.warn('paid-orders listener:', err.message));
+}
+let LIVE_PAID = null;
+function liveStop() { if (LIVE) { LIVE(); LIVE = null; } if (LIVE_PAID) { LIVE_PAID(); LIVE_PAID = null; } }
+async function liveApply(docs) {
+  if (!docs.length) return;
+  const uids = [];
+  docs.forEach(d => {
+    const n = intentRow(d), k = INTENTS.findIndex(i => i.uid === n.uid);
+    if (k >= 0 && INTENTS[k].enriched) {
+      const o = INTENTS[k];
+      ['name', 'email', 'mobile', 'place', 'loginType'].forEach(f => { if (!n[f]) n[f] = o[f]; });
+      n.review = o.review; n.enriched = true;
+    }
+    if (k >= 0) INTENTS[k] = n; else INTENTS.push(n);
+    uids.push(n.uid);
+  });
+  await liveRefresh(uids);
+  render();
+  autoRun();
+}
+/* Read ONE student again: entitlements, their payment rows, profile. */
+async function liveRefresh(uids) {
+  uids = [...new Set(uids.filter(Boolean))];
+  if (!uids.length) return;
+  await Promise.all(uids.map(async uid => {
+    try {
+      const e = await getDoc(doc(db, 'entitlements', uid));
+      if (e.exists()) ENTS[uid] = e.data() || {}; else delete ENTS[uid];
+    } catch (e) {}
+    try {
+      const ps = await getDocs(query(collection(db, 'payments'), where('uid', '==', uid)));
+      const old = ROWS.filter(r => r.uid === uid);
+      const fresh = ps.docs.map(d => payRow({ id: d.id, ...(d.data() || {}) }));
+      fresh.forEach(r => {
+        const o = old.find(x => x.orderId === r.orderId);
+        if (o && o.profileStudent !== undefined) { r.profileName = o.profileName; r.profileStudent = o.profileStudent; }
+      });
+      ROWS = ROWS.filter(r => r.uid !== uid).concat(fresh);
+    } catch (e) { console.warn('live: payments not read for', uid, e.message); }
+  }));
+  await enrichIntents(INTENTS.filter(i => uids.includes(i.uid)));
+  await enrichProfiles(ROWS.filter(r => uids.includes(r.uid)));
+}
+
+/* ---- who should get a mail ----
+   Same people who get a follow-up Email button in the two tables. */
+function autoCandidates() {
+  const now = Date.now(), out = [];
+  const paidUidCourse = new Set(ROWS.filter(r => r.status === 'paid' && r.uid).map(r => r.uid + '|' + r.courseId));
+  const withOrders = new Set(ROWS.map(r => r.uid).filter(Boolean));
+  ROWS.forEach(r => {                                            /* unpaid orders */
+    if (r.status === 'paid' || r.mode === 'test' || r.courseActive || !r.uid) return;
+    if (paidUidCourse.has(r.uid + '|' + r.courseId) || fuHeld(r.uid).all) return;
+    const i = INTENTS.find(x => x.uid === r.uid);
+    if ((i && (i.stage === 'paid' || i.review)) || isGoogleReview(r.email, {})) return;
+    out.push({ rec: r, last: Math.max(r.createdAt || 0, (i && i.lastAt) || 0) });
+  });
+  INTENTS.forEach(i => {                                         /* popup / Razorpay, no order */
+    if (withOrders.has(i.uid) || i.stage === 'paid' || !fuWants(i) || i.review || isGoogleReview(i.email, {})) return;
+    out.push({ rec: i, last: i.lastAt || 0 });
+  });
+  return out.filter(c => {
+    /* TSSC-AUTOMAIL-V2 — one mail per drop: skip if mailed AFTER their last activity */
+    const who = fuPerson(c.rec), m = (FU_SENT[who] || {}).ml;
+    return who && String(c.rec.email || '').trim() && c.last && now - c.last <= AUTO_WINDOW &&
+           !(m && m >= c.last) && !(AUTO_SKIP[who] && AUTO_SKIP[who] >= c.last);
+  });
+}
+
+/* TSSC-AUTOMAIL-V2 — paid orders (last 24 h) whose Welcome mail has not gone out */
+function welcomeCandidates() {
+  const now = Date.now();
+  return ROWS.filter(r => {
+    const t = r.paidAt || r.createdAt;
+    if (r.status !== 'paid' || r.mode === 'test' || !r.uid || !t || now - t > AUTO_WINDOW) return false;
+    if (!String(r.email || '').trim() || isGoogleReview(r.email, {})) return false;
+    if (!(r.courseActive || fuHeld(r.uid).all)) return false;      /* wait until it is unlocked */
+    const s = FU_SENT[fuPerson(r)] || {};
+    return !(s.wOrders || {})[r.orderId] && !(s.wml && s.wml >= t) && !AUTO_SKIP['w:' + r.orderId];
+  });
+}
+
+async function autoRun() {
+  if (!autoOn()) return;
+  if (AUTO_BUSY) { AUTO_AGAIN = true; return; }   /* TSSC-AUTOMAIL-V2: run again straight after */
+  AUTO_BUSY = true; AUTO_AGAIN = false;
+  try {
+    if (navigator.locks && navigator.locks.request) await navigator.locks.request('tssc-automail', autoPass);
+    else await autoPass();
+  } catch (e) { AUTO_NOTE = 'Auto-email error: ' + esc(e.message || e); }
+  finally { AUTO_BUSY = false; autoShow(); if (AUTO_AGAIN) setTimeout(autoRun, 0); }
+}
+let AUTO_AGAIN = false;
+async function autoPass() {
+  if (!SENT_READY) return;                         /* TSSC-AUTOMAIL-V2: never mail before the synced ticks are in */
+  if (FU_SET.mode !== 'direct') { AUTO_STOP = 'Auto-email needs <b>Send from this page</b> picked under "Email button opens" in ✎ Messages.'; return; }
+  AUTO_STOP = '';
+  const due = {};
+  autoCandidates().forEach(c => { const w = fuPerson(c.rec); due[w] = Math.max(due[w] || 0, c.last + AUTO_WAIT); });
+  const changed = JSON.stringify(due) !== JSON.stringify(AUTO_DUE);
+  AUTO_DUE = due;
+  if (changed) render();
+
+  /* TSSC-AUTOMAIL-V2 — Welcome mails first, at once */
+  for (const r0 of welcomeCandidates()) {
+    await liveRefresh([r0.uid]);
+    const r = ROWS.find(x => x.orderId === r0.orderId);
+    if (!r || !welcomeCandidates().includes(r)) continue;
+    const who = fuPerson(r);
+    if (!(await sentClaim(who, 'w:' + r.orderId))) continue;
+    const key = fuPick(r, 'welcome'), t = fuTpl(key), v = fuVars(key, r);
+    const sub = fuFill(t.sub, v), text = fuFill(t.body, v), to = String(r.email).trim(), nm = esc(r.name || to);
+    try { await mailSend(to, sub, text); }
+    catch (err) {
+      const m = String(err.message || err);
+      if (/limit/i.test(m)) { AUTO_STOP = 'Email service limit reached: ' + esc(m); return; }
+      AUTO_SKIP['w:' + r.orderId] = 1; AUTO_NOTE = 'Could not send the Welcome mail to ' + nm + ': ' + esc(m) + ' — use the Welcome · Email button.';
+      continue;
+    }
+    const now = Date.now();
+    await sentWrite({ [who]: { wml: now, wmlAuto: now, wOrders: { [r.orderId]: now } } });
+    AUTO_NOTE = 'Welcome mail sent to ' + nm + ' at ' + istTime(now) + '.';
+    render();
+    autoShow();
+  }
+
+  const ready = Object.keys(due).filter(w => Date.now() >= due[w]).sort((a, b) => due[a] - due[b]);
+  for (const who of ready) {
+    if (autoToday() >= AUTO_DAY_CAP) { AUTO_STOP = 'Daily limit of ' + AUTO_DAY_CAP + ' automatic mails reached — the rest wait for tomorrow (or use the Email button).'; break; }
+    /* read this student again right before sending */
+    const first = autoCandidates().find(c => fuPerson(c.rec) === who);
+    if (first && first.rec.uid) await liveRefresh([first.rec.uid]);
+    const c = autoCandidates().find(x => fuPerson(x.rec) === who && Date.now() >= x.last + AUTO_WAIT);
+    if (!c) { delete AUTO_DUE[who]; continue; }   /* paid, granted, or active again */
+    const rec = c.rec, key = fuPick(rec, 'follow'), t = fuTpl(key), v = fuVars(key, rec);
+    const sub = fuFill(t.sub, v), text = fuFill(t.body, v), to = String(rec.email).trim();
+    const nm = esc(rec.name || to);
+    if (/___/.test(sub + text)) { AUTO_SKIP[who] = c.last; AUTO_NOTE = nm + ' left for manual: price not in the price list.'; continue; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) { AUTO_SKIP[who] = c.last; continue; }
+    if (!(await sentClaim(who, 'f:' + c.last))) { delete AUTO_DUE[who]; continue; }   /* another device has it */
+    try {
+      await mailSend(to, sub, text);
+    } catch (err) {
+      const m = String(err.message || err);
+      if (/limit/i.test(m)) { AUTO_STOP = 'Email service limit reached: ' + esc(m); break; }
+      AUTO_SKIP[who] = c.last; AUTO_NOTE = 'Could not auto-mail ' + nm + ': ' + esc(m) + ' — use the Email button.';
+      continue;
+    }
+    const now = Date.now();
+    await sentWrite({ [who]: { ml: now, mlAuto: now } });
+    delete AUTO_DUE[who];
+    AUTO_NOTE = 'Auto-mailed ' + nm + ' (' + esc(FU_TEMPLATES[key].label.replace(/^\d+\.\s*/, '')) + ') at ' + istTime(now) + '.';
+    render();
+    autoShow();
+  }
+}
+function autoShow() {
+  const box = $('autoMsg');
+  if (!autoOn()) { box.className = 'msg'; box.innerHTML = ''; return; }
+  const waiting = Object.keys(AUTO_DUE).length, n = autoToday(), w = welcomesToday();
+  box.className = 'msg ' + (AUTO_STOP ? 'warn' : 'ok');
+  box.innerHTML = '<b>⚡ Auto-email is ON</b> — one mail per drop, 150 s after the student\'s last checkout activity; Welcome mail at once on payment. Keep this tab open.' +
+    ' Today: <b>' + n + '</b> follow-up' + (n === 1 ? '' : 's') + ', <b>' + w + '</b> welcome' + (w === 1 ? '' : 's') + (waiting ? ' · waiting: <b>' + waiting + '</b>' : '') +
+    (SENT_SYNC_OK ? '' : '<br>Ticks are not reaching your account right now — other devices may not see them.') +
+    (AUTO_STOP ? '<br>' + AUTO_STOP : '') + (AUTO_NOTE ? '<br>' + AUTO_NOTE : '');
+}
+function autoApply() {
+  const on = autoOn(), b = $('autoBtn');
+  b.textContent = on ? '⚡ Auto-email: ON' : '⚡ Auto-email: off';
+  b.style.cssText = on ? 'border-color:#22C55E;color:#15803D;background:#F0FDF4;font-weight:800' : '';
+  if (on) {
+    liveStart();
+    if (!AUTO_TIMER) AUTO_TIMER = setInterval(autoRun, 20000);
+    autoRun();
+  } else {
+    liveStop();
+    clearInterval(AUTO_TIMER); AUTO_TIMER = null;
+    AUTO_DUE = {}; AUTO_NOTE = ''; AUTO_STOP = '';
+    render();
+  }
+  autoShow();
+}
+$('autoBtn').title = 'One mail per drop, 150 s after the last checkout activity; Welcome mail at once on payment';
+$('autoBtn').onclick = () => {
+  const on = !autoOn();
+  try { localStorage.setItem(AUTO_KEY, on ? '1' : '0'); } catch (e) {}
+  autoApply();
 };
 
 /* ---- template editor (✎ Messages) ---- */
