@@ -509,6 +509,10 @@ body.aic-pop-open #tsscMP{display:none!important}
 .aicC-line{font-size:.8rem;color:#E9D5FF;line-height:1.45;margin-top:3px}
 .aicC-line b{color:#fff}
 .aicC-line a{color:#FDE68A;font-weight:700}
+.aicCdl{display:inline-flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:5px;margin-top:8px;padding:5px 11px;border-radius:10px;background:rgba(253,230,138,.15);border:1px solid rgba(253,230,138,.55);color:#FEF3C7;font-size:.8rem;font-weight:700;line-height:1.3;position:relative;z-index:1}
+.aicCdl b{font-family:'Rajdhani',sans-serif;font-weight:800;font-size:1.02rem;color:#FDE68A;letter-spacing:.3px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.aicC .aicCdl{display:flex;justify-content:flex-start}
+.aicB.slim .aicCdl{margin-top:5px;padding:3px 9px;font-size:.76rem}
 .aicC-act{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin-top:9px}
 .aicC-act .aicB-btn{min-height:38px;font-size:.95rem;padding:7px 14px;flex:1 1 auto}
 .aicC-act .aicB-ok{min-height:36px;font-size:.9rem;flex:1 1 auto}
@@ -522,7 +526,18 @@ function cdHtml(target, label) {
   return '<div class="aicB-cd" data-aic-cd="' + target + '"><span><b data-d>0</b><small>days</small></span><span><b data-h>00</b><small>hrs</small></span><span><b data-m>00</b><small>min</small></span><span><b data-s>00</b><small>sec</small></span></div>'
     + (label ? '<p class="aicB-note" style="margin-top:4px">' + label + '</p>' : '');
 }
+/* TSSC-AICCD-V1 (2026-11-23) — one-line countdown for small places (pop-up cards, slim strips):
+   "⏳ Your Challenge Mock 2 starts in 6d 14h 22m 05s" */
+function cdLine(target, label) {
+  return '<div class="aicCdl">⏳ <span>' + label + '</span> <b data-aic-cdt="' + target + '">…</b></div>';
+}
 function tickCd() {
+  document.querySelectorAll('[data-aic-cdt]').forEach(el => {
+    const d = Math.max(0, parseInt(el.getAttribute('data-aic-cdt'), 10) - now());
+    if (d <= 0 && !el.dataset.fired) { el.dataset.fired = '1'; setTimeout(render, 1200); }
+    const s = Math.floor(d / 1000), p = v => String(v).padStart(2, '0'), dd = Math.floor(s / 86400);
+    el.textContent = (dd ? dd + 'd ' : '') + p(Math.floor(s % 86400 / 3600)) + 'h ' + p(Math.floor(s % 3600 / 60)) + 'm ' + p(s % 60) + 's';
+  });
   document.querySelectorAll('[data-aic-cd]').forEach(el => {
     let d = Math.max(0, parseInt(el.getAttribute('data-aic-cd'), 10) - now());
     if (d <= 0 && !el.dataset.fired) { el.dataset.fired = '1'; setTimeout(render, 1200); }
@@ -554,41 +569,43 @@ function stateHtml(st, size) {
     else prevLine = 'Challenge Mock ' + (n - 1) + ' results are out. <a href="' + (st.prevDone ? S.resultUrl(n - 1, st.prevDone) : D.page + '#results') + '">' + (st.prevDone ? 'Check your result and rank' : 'See the leaderboard') + '</a>';
   }
   let tag = 'Free · Every ' + w.day, head = title, body = '', act = '', extra = '';
+  let cdAt = 0, cdLabel = '';   /* TSSC-AICCD-V1: the countdown of this state (big boxes, or one line in a slim strip) */
+  const cd = (at, label) => { cdAt = at; cdLabel = label; };
   switch (st.kind) {
     case 'open':
       tag = 'Free · Registration open';
       body = when + '. ' + D.pitch + ' Registration closes <b>' + w.regDay + ' midnight</b>.';
-      act = regBtn('Register free →') + more; extra = cdHtml(r.regClose, 'Time left to register for this ' + w.day); break;
+      act = regBtn('Register now for Mock ' + n + ' →') + more; cd(r.regClose, 'Time left to register for Challenge Mock ' + n); break;
     case 'closed':
       tag = 'Registration closed for this ' + w.day;
       body = 'Challenge Mock ' + n + ' is on ' + when + ' for registered students. Register now and you are in from <b>' + nxLine + '</b>.';
-      act = regBtn('Register for Mock ' + (n + 1) + ' →') + more; break;
+      act = regBtn('Register now for Mock ' + (n + 1) + ' →') + more; if (nx) cd(nx.regClose, 'Registration for Challenge Mock ' + (n + 1) + ' closes in'); break;
     case 'registered':
       tag = 'You are registered';
       body = 'Your paper opens on ' + when + ' (last entry ' + w.last + '). One attempt. Result on <b>' + fmtDay(r.resultAt) + ', 9 am</b>.';
       act = '<span class="aicB-ok">✓ Registered for all ' + D.short + ' challenge mocks</span><a class="aicB-btn ghost" target="_blank" rel="noopener" href="' + S.waShare(n) + '">Invite friends on WhatsApp</a>';
-      extra = cdHtml(r.start, 'Mock opens in'); break;
+      cd(r.start, 'Your Challenge Mock ' + n + ' starts in'); break;
     case 'registered-next':
       tag = 'You are registered'; head = nextTitle;
       body = 'Registration for this ' + w.day + ' had closed, so your first paper is <b>' + nxLine + '</b>, 9 am to 12 midnight.';
-      act = '<span class="aicB-ok">✓ Registered from Mock ' + (n + 1) + '</span>' + more; extra = cdHtml(nx.start, 'Your mock opens in'); break;
+      act = '<span class="aicB-ok">✓ Registered from Mock ' + (n + 1) + '</span>' + more; cd(nx.start, 'Your Challenge Mock ' + (n + 1) + ' starts in'); break;
     case 'live':
       tag = '<i></i>Live now';
       body = 'The paper is open until <b>12 midnight</b> (last entry ' + w.last + '). ' + D.paperLine;
       act = '<a class="aicB-btn" href="' + S.testUrl(n, 'en') + '">Start the test →</a>';
-      extra = cdHtml(r.lastEntry, 'Last entry closes in'); break;
+      cd(r.lastEntry, 'Challenge Mock ' + n + ' · last entry closes in'); break;
     case 'missed':
       tag = 'Entry closed at ' + w.last;
       body = 'This paper ' + freeOn + '.' + (nx ? ' You are already in for <b>' + nxLine + '</b>.' : '');
-      act = (nx ? '<span class="aicB-ok">✓ Registered for Mock ' + (n + 1) + '</span>' : '') + more; break;
+      act = (nx ? '<span class="aicB-ok">✓ Registered for Mock ' + (n + 1) + '</span>' : '') + more; if (nx) cd(nx.start, 'Your Challenge Mock ' + (n + 1) + ' starts in'); break;
     case 'live-next':
       tag = 'You are registered'; head = nextTitle;
       body = 'Today\'s paper is for students who registered before ' + w.regDay + ' midnight. Your first paper is on <b>' + fmtDay(nx.start) + '</b>; today\'s ' + freeOn.replace(/<\/?b>/g, '') + '.';
-      act = '<span class="aicB-ok">✓ Registered from Mock ' + (n + 1) + '</span>' + more; break;
+      act = '<span class="aicB-ok">✓ Registered from Mock ' + (n + 1) + '</span>' + more; cd(nx.start, 'Your Challenge Mock ' + (n + 1) + ' starts in'); break;
     case 'live-closed':
       tag = '<i></i>Challenge Mock ' + n + ' is live';
       body = 'Today\'s paper is open only to students who registered before ' + w.regDay + ' midnight. Register now and you are in from <b>' + nxLine + '</b>.';
-      act = regBtn('Register for Mock ' + (n + 1) + ' →') + more; break;
+      act = regBtn('Register now for Mock ' + (n + 1) + ' →') + more; if (nx) cd(nx.regClose, 'Registration for Challenge Mock ' + (n + 1) + ' closes in'); break;
     case 'last-closed':
       tag = 'Final challenge of this series';
       body = 'Challenge Mock ' + n + ' on ' + when + ' is for students who registered before ' + w.regDay + ' midnight. It ' + freeOn + ' for everyone.';
@@ -597,7 +614,7 @@ function stateHtml(st, size) {
       tag = 'Submitted';
       body = 'Your test has been submitted successfully. Result, All India rank and solutions on <b>' + fmtDay(r.resultAt) + ', 9 am</b>.' + (nx ? ' You are already in for ' + nxLine + '.' : '');
       act = '<span class="aicB-ok">✓ Test submitted</span><a class="aicB-btn ghost" href="' + D.mocks + '">' + D.mocksLabel + '</a>';
-      extra = cdHtml(r.resultAt, 'Result in'); break;
+      cd(r.resultAt, 'Challenge Mock ' + n + ' result in'); break;
     case 'wait-final':
       body = st.done ? 'Your test has been submitted successfully. Result on <b>' + fmtDay(r.resultAt) + ', 9 am</b>.' : 'The last challenge is over. Results on <b>' + fmtDay(r.resultAt) + ', 9 am</b>.';
       act = more; break;
@@ -606,6 +623,7 @@ function stateHtml(st, size) {
       body = 'Challenge Mock ' + n + ' results are out.';
       act = '<a class="aicB-btn" href="' + (st.done ? S.resultUrl(n, st.done) : D.page + '#results') + '">' + (st.done ? 'Check your result →' : 'See the leaderboard →') + '</a>'; break;
   }
+  if (cdAt) extra = size === 'slim' ? cdLine(cdAt, cdLabel) : cdHtml(cdAt, cdLabel);
   const note = (prevLine && st.kind !== 'wait-final' && st.kind !== 'result-final') ? '<p class="aicB-note">' + prevLine + '</p>' : '';
   return '<div class="aicB' + (size === 'slim' ? ' slim' : size === 'big' ? ' big' : '') + '"><div class="aicB-row"><div class="aicB-main">'
     + '<span class="aicB-tag">' + tag + '</span><div class="aicB-h">' + head + '</div><p class="aicB-p">' + body + '</p>' + extra + '</div>'
@@ -617,35 +635,36 @@ const CAN_REGISTER = { open: 1, closed: 1, 'live-closed': 1 };
 function cardHtml(st) {
   const S = st.S, D = S.def, n = st.n, r = st.r, nx = st.nx, w = S.words(r);
   const shortDay = ms => fmtShort(ms);
-  let chip = 'Mock ' + n, chipCls = '', when = shortDay(r.start) + ' · 9 am to 12 midnight', line = '', act = '';
+  let chip = 'Mock ' + n, chipCls = '', when = shortDay(r.start) + ' · 9 am to 12 midnight', line = '', act = '', cd = '';
   const more = '<a class="aicC-more" href="' + D.page + '">Details</a>';
   const reg = label => regBtnHtml(D.key, label);
   switch (st.kind) {
     case 'open':
-      line = 'Free. Register by <b>' + w.regDay + ' midnight</b>.'; act = reg('Register for ' + D.short) + more; break;
+      line = 'Free. Register by <b>' + w.regDay + ' midnight</b>.'; act = reg('Register now for Mock ' + n + ' →') + more; break;
     case 'closed':
       line = 'Registration for this ' + w.day + ' is closed. Register now for <b>Mock ' + (n + 1) + ' on ' + shortDay(nx.start) + '</b>.';
-      act = reg('Register for ' + D.short) + more; break;
+      act = reg('Register now for Mock ' + (n + 1) + ' →') + more; break;
     case 'registered':
-      line = 'You are in. Last entry ' + w.last + ', result ' + shortDay(r.resultAt) + ', 9 am.'; act = '<span class="aicB-ok">✓ Registered</span>' + more; break;
+      line = 'You are in. Last entry ' + w.last + ', result ' + shortDay(r.resultAt) + ', 9 am.'; cd = cdLine(r.start, 'Your Challenge Mock ' + n + ' starts in'); act = '<span class="aicB-ok">✓ Registered</span>' + more; break;
     case 'registered-next':
       chip = 'Mock ' + (n + 1); when = shortDay(nx.start) + ' · 9 am to 12 midnight';
-      line = 'This ' + w.day + '\'s registration had closed, so this is your first paper.'; act = '<span class="aicB-ok">✓ Registered</span>' + more; break;
+      line = 'This ' + w.day + '\'s registration had closed, so this is your first paper.'; cd = cdLine(nx.start, 'Your Challenge Mock ' + (n + 1) + ' starts in'); act = '<span class="aicB-ok">✓ Registered</span>' + more; break;
     case 'live':
       chip = 'Live now'; chipCls = ' live'; when = 'Open till 12 midnight · last entry ' + w.last; line = D.paperLine;
-      act = '<a class="aicB-btn" href="' + S.testUrl(n, 'en') + '">Start the test →</a>'; break;
+      cd = cdLine(r.lastEntry, 'Challenge Mock ' + n + ' · last entry closes in'); act = '<a class="aicB-btn" href="' + S.testUrl(n, 'en') + '">Start the test →</a>'; break;
     case 'missed':
-      line = 'Entry closed at ' + w.last + '. Free mock from ' + shortDay(r.resultAt) + ', 9 am.' + (nx ? ' You are in for Mock ' + (n + 1) + '.' : ''); act = more; break;
+      line = 'Entry closed at ' + w.last + '. Free mock from ' + shortDay(r.resultAt) + ', 9 am.' + (nx ? ' You are in for Mock ' + (n + 1) + '.' : '');
+      if (nx) cd = cdLine(nx.start, 'Your Challenge Mock ' + (n + 1) + ' starts in'); act = more; break;
     case 'live-next':
       chip = 'Mock ' + (n + 1); when = shortDay(nx.start) + ' · 9 am to 12 midnight';
-      line = 'Today\'s paper is for students who registered earlier. This is your first paper.'; act = '<span class="aicB-ok">✓ Registered</span>' + more; break;
+      line = 'Today\'s paper is for students who registered earlier. This is your first paper.'; cd = cdLine(nx.start, 'Your Challenge Mock ' + (n + 1) + ' starts in'); act = '<span class="aicB-ok">✓ Registered</span>' + more; break;
     case 'live-closed':
       chip = 'Live now'; chipCls = ' live';
-      line = 'Today\'s paper is for registered students. Register now for <b>Mock ' + (n + 1) + ' on ' + shortDay(nx.start) + '</b>.'; act = reg('Register for ' + D.short) + more; break;
+      line = 'Today\'s paper is for registered students. Register now for <b>Mock ' + (n + 1) + ' on ' + shortDay(nx.start) + '</b>.'; act = reg('Register now for Mock ' + (n + 1) + ' →') + more; break;
     case 'last-closed':
       line = 'Final round, for registered students. Free mock for everyone from ' + shortDay(r.resultAt) + ', 9 am.'; act = more; break;
     case 'submitted':
-      chip = 'Submitted'; line = 'Your test is submitted. Result and All India rank on <b>' + shortDay(r.resultAt) + ', 9 am</b>.'; act = '<span class="aicB-ok">✓ Test submitted</span>' + more; break;
+      chip = 'Submitted'; line = 'Your test is submitted. Result and All India rank on <b>' + shortDay(r.resultAt) + ', 9 am</b>.'; cd = cdLine(r.resultAt, 'Challenge Mock ' + n + ' result in'); act = '<span class="aicB-ok">✓ Test submitted</span>' + more; break;
     case 'wait-final':
       line = st.done ? 'Your test is submitted. Result on <b>' + shortDay(r.resultAt) + ', 9 am</b>.' : 'The last challenge is over. Results on <b>' + shortDay(r.resultAt) + ', 9 am</b>.'; act = more; break;
     case 'result-final':
@@ -655,7 +674,7 @@ function cardHtml(st) {
   if (st.prev && st.prevPhase === 'out' && st.kind !== 'result-final')
     line += ' <span style="display:block;margin-top:3px">Mock ' + (n - 1) + ' results are out: <a href="' + (st.prevDone ? S.resultUrl(n - 1, st.prevDone) : D.page + '#results') + '">' + (st.prevDone ? 'check your result and rank' : 'see the leaderboard') + '</a></span>';
   return '<div class="aicC" data-aic-card="' + D.key + '"><div class="aicC-top"><b>' + D.name + '</b><span class="aicC-chip' + chipCls + '">' + chip + '</span></div>'
-    + '<div class="aicC-when">' + when + '</div><div class="aicC-line">' + line + '</div><div class="aicC-act">' + act + '</div></div>';
+    + '<div class="aicC-when">' + when + '</div><div class="aicC-line">' + line + '</div>' + cd + '<div class="aicC-act">' + act + '</div></div>';
 }
 /* Both challenges in one pop-up: a card each, and "Register for both" while both can still be joined. */
 function duoHtml(list) {
@@ -745,8 +764,8 @@ async function paintPapers(el) {
     const invite = '<a class="aicB-btn ghost" target="_blank" rel="noopener" href="' + S.waShare(n) + '">Invite friends on WhatsApp</a>';
     if (inTime) return '<span class="aicB-ok">✓ You are registered</span><p class="aicPap-note">For all ' + D.short + ' challenge mocks</p>' + invite;
     if (reg) return '<span class="aicB-ok">✓ You are registered</span><p class="aicPap-note">' + (n2 ? 'Your first paper is Mock ' + (n + 1) + ' on ' + fmtShort(n2.start) : 'Registration for this paper had closed') + '</p>' + invite;
-    if (t < r.regClose) return regBtnHtml(D.key, 'Register free →') + '<p class="aicPap-note">One time. Closes ' + w.regDay + ' midnight.</p><div class="aicB-err" data-aic-err hidden></div>';
-    if (n2) return regBtnHtml(D.key, 'Register for Mock ' + (n + 1) + ' →') + '<p class="aicPap-note">Registration for this paper is closed.</p><div class="aicB-err" data-aic-err hidden></div>';
+    if (t < r.regClose) return regBtnHtml(D.key, 'Register now for Mock ' + n + ' →') + '<p class="aicPap-note">One time. Closes ' + w.regDay + ' midnight.</p><div class="aicB-err" data-aic-err hidden></div>';
+    if (n2) return regBtnHtml(D.key, 'Register now for Mock ' + (n + 1) + ' →') + '<p class="aicPap-note">Registration for this paper is closed. You will be in from Mock ' + (n + 1) + '.</p><div class="aicB-err" data-aic-err hidden></div>';
     return '<p class="aicPap-note">Registration for this paper is closed.</p>';
   }
   const cards = await Promise.all(list.map(async n => {
@@ -758,7 +777,7 @@ async function paintPapers(el) {
       chip = 'Upcoming'; head = 'Live on <em>' + fmtDay(r.start) + '</em>'; when = '9 am to 12 midnight · last entry ' + w.last;
       line = (reg && reg < r.regClose) ? 'The Start button appears here at 9 am on ' + w.day + '.' : D.paperLine;
       lock = '<span class="lock">🔒 Opens ' + fmtShort(r.start) + ', 9 am</span>';
-      if (big) cd = cdHtml(r.start) + '<p class="aicPap-cdl">Goes live in</p>';
+      if (big) cd = cdHtml(r.start) + '<p class="aicPap-cdl">' + ((reg && reg < r.regClose) ? 'Your Challenge Mock ' + n + ' starts in' : 'Challenge Mock ' + n + ' goes live in') + '</p>';
       sideHtml = side(n, r);
     } else if (t < r.end) {
       nextFlip = nextFlip ? Math.min(nextFlip, r.end) : r.end;
@@ -915,9 +934,9 @@ function resultsHtml(st) {
   return '<div class="aicB"><div class="aicB-row"><div class="aicB-main">'
     + '<span class="aicB-tag">Results out</span><div class="aicB-h">' + D.name + ' Challenge Mock ' + p + ' <em>results are out</em></div>'
     + '<p class="aicB-p">' + (st.prevDone ? 'Your All India rank, percentile, topper comparison and full solutions are ready.' : 'See who topped, and attempt the paper as a free mock with full solutions.') + '</p>'
-    + '<p class="aicB-p" style="margin-top:8px">' + nextLine + '</p></div><div class="aicB-act">'
+    + '<p class="aicB-p" style="margin-top:8px">' + nextLine + '</p>' + (st.reg ? cdLine(st.r.start, 'Your Challenge Mock ' + st.n + ' starts in') : '') + '</div><div class="aicB-act">'
     + '<a class="aicB-btn" href="' + (st.prevDone ? S.resultUrl(p, st.prevDone) : D.page + '#results') + '">' + (st.prevDone ? 'Check your result →' : 'See the leaderboard →') + '</a>'
-    + (st.reg ? '' : regBtnHtml(D.key, 'Register for Challenge Mock ' + st.n, 'ghost') + '<div class="aicB-err" data-aic-err hidden></div>')
+    + (st.reg ? '' : regBtnHtml(D.key, 'Register now for Mock ' + st.n + ' →', 'ghost') + '<div class="aicB-err" data-aic-err hidden></div>')
     + '</div></div></div>';
 }
 const resultsOut = st => !!(st.prev && st.prevPhase === 'out' && st.t < st.r.start);
