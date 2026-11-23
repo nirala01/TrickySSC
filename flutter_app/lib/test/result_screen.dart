@@ -517,41 +517,8 @@ class _SolutionsScreenState extends State<SolutionsScreen> {
           Expanded(child: Text(_section(i), overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)))),
           if (secs > 0) Text('⏱ ${secs ~/ 60}:${(secs % 60).toString().padLeft(2, '0')}', style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
         ]),
-        if (_cmp != null)
-          Builder(builder: (_) {
-            final row = _cmp!.row(i);
-            return Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: Material(
-                color: const Color(0xFFFEF3C7),
-                borderRadius: BorderRadius.circular(10),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(10),
-                  onTap: () => showModalBottomSheet(
-                    context: context,
-                    backgroundColor: Colors.transparent,
-                    builder: (c) => SafeArea(
-                      child: Container(
-                        margin: const EdgeInsets.all(10),
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18)),
-                        child: examTheme(c, widget.exam, CompareStrip(row)),
-                      ),
-                    ),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                    child: Row(children: [
-                      const Text('👑 You vs Topper', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: Color(0xFF92400E))),
-                      const Spacer(),
-                      Text('${row.pc}% got it right', style: const TextStyle(fontSize: 12.5, color: Color(0xFF92400E))),
-                      const Icon(Icons.chevron_right, size: 18, color: Color(0xFF92400E)),
-                    ]),
-                  ),
-                ),
-              ),
-            );
-          }),
+        // TSSC-CMP-INLINE-V1: You vs Topper is shown in full for every question (compact), no tap needed
+        if (_cmp != null) CompareStrip(_cmp!.row(i), compact: true),
         if ('${q.raw['_month'] ?? ''}'.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 6),

@@ -275,7 +275,8 @@ String fmtT(int s) => s <= 0 ? '—' : (s < 60 ? '$s s' : '${s ~/ 60}m ${s % 60}
 
 class CompareStrip extends StatelessWidget {
   final CmpRow r;
-  const CompareStrip(this.r, {super.key});
+  final bool compact; // the slim form shown inside every solution card
+  const CompareStrip(this.r, {super.key, this.compact = false});
 
   static const _c = {'correct': Color(0xFF22C55E), 'wrong': Color(0xFFEF4444), 'skip': Color(0xFFCBD5E1), 'avg': Color(0xFF60A5FA)};
   static const _ic = {'correct': '✓', 'wrong': '✕', 'skip': '–'};
@@ -283,13 +284,14 @@ class CompareStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final mx = [r.topT, r.youT, r.avgT, 1].reduce((a, b) => a > b ? a : b);
+    final k = compact;
     Widget bar(String who, String ico, String res, int t, String? mark) => Padding(
-          padding: const EdgeInsets.symmetric(vertical: 3),
+          padding: EdgeInsets.symmetric(vertical: k ? 1 : 3),
           child: Row(children: [
-            SizedBox(width: 92, child: Text('$ico $who', style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700))),
+            SizedBox(width: k ? 80 : 92, child: Text('$ico $who', style: TextStyle(fontSize: k ? 12 : 13.5, fontWeight: FontWeight.w700))),
             Expanded(
               child: Container(
-                height: 10,
+                height: k ? 7 : 10,
                 decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(6)),
                 alignment: Alignment.centerLeft,
                 child: FractionallySizedBox(
@@ -298,29 +300,29 @@ class CompareStrip extends StatelessWidget {
                 ),
               ),
             ),
-            SizedBox(width: 58, child: Text(fmtT(t), textAlign: TextAlign.right, style: const TextStyle(fontSize: 12.5, color: Color(0xFF475569)))),
+            SizedBox(width: k ? 52 : 58, child: Text(fmtT(t), textAlign: TextAlign.right, style: TextStyle(fontSize: k ? 11.5 : 12.5, color: const Color(0xFF475569)))),
             SizedBox(
-              width: 22,
-              child: mark == null ? null : Text(_ic[mark]!, textAlign: TextAlign.right, style: TextStyle(fontWeight: FontWeight.w900, color: mark == 'skip' ? const Color(0xFF94A3B8) : _c[mark])),
+              width: k ? 18 : 22,
+              child: mark == null ? null : Text(_ic[mark]!, textAlign: TextAlign.right, style: TextStyle(fontSize: k ? 12.5 : null, fontWeight: FontWeight.w900, color: mark == 'skip' ? const Color(0xFF94A3B8) : _c[mark])),
             ),
           ]),
         );
     return Container(
-      margin: const EdgeInsets.only(top: 8, bottom: 2),
-      padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
-      decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFE2E8F0))),
+      margin: EdgeInsets.only(top: k ? 6 : 8, bottom: 2),
+      padding: k ? const EdgeInsets.fromLTRB(9, 5, 9, 5) : const EdgeInsets.fromLTRB(10, 8, 10, 8),
+      decoration: BoxDecoration(color: k ? const Color(0xFFFFFBEB) : const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(12), border: Border.all(color: k ? const Color(0xFFFDE68A) : const Color(0xFFE2E8F0))),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          const Expanded(child: Text('How you compare', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800))),
-          Text('${r.pc}%', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Color(0xFF2563EB))),
-          const Text(' got it right', style: TextStyle(fontSize: 12.5, color: Color(0xFF64748B))),
+          Expanded(child: Text(k ? '👑 You vs Topper' : 'How you compare', style: TextStyle(fontSize: k ? 12.5 : 14, fontWeight: FontWeight.w800, color: k ? const Color(0xFF92400E) : null))),
+          Text('${r.pc}%', style: TextStyle(fontSize: k ? 12.5 : 14, fontWeight: FontWeight.w900, color: const Color(0xFF2563EB))),
+          Text(' got it right', style: TextStyle(fontSize: k ? 11.5 : 12.5, color: const Color(0xFF64748B))),
         ]),
-        const SizedBox(height: 4),
+        SizedBox(height: k ? 2 : 4),
         bar('Topper', '👑', r.topR, r.topT, r.topR),
         bar('You', '🙋', r.youR, r.youT, r.youR),
         bar('Average', '👥', 'avg', r.avgT, null),
-        const SizedBox(height: 4),
-        Text(r.tip, style: const TextStyle(fontSize: 13, color: Color(0xFF334155), fontWeight: FontWeight.w600)),
+        SizedBox(height: k ? 2 : 4),
+        Text(r.tip, style: TextStyle(fontSize: k ? 12 : 13, color: const Color(0xFF334155), fontWeight: FontWeight.w600)),
       ]),
     );
   }
