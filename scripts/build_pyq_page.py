@@ -1177,13 +1177,15 @@ def render(ordered):
       <p style="color:#4A5568;margin:0;font-size:0.9rem;line-height:1.6;">Consistent practice and performance analysis often contribute more to success than repeatedly studying new topics.</p>
     </div>"""
 
+    # Titles lead with the words people actually search ("SSC CGL PYQ",
+    # "previous year question paper", "with solution") - Search Console, Nov 2026.
     desc = (
-        f"Attempt SSC CGL {LY} Tier 1 question papers shift-wise and "
-        f"{total_papers}+ SSC CGL PYQs in all, free online in English & Hindi "
-        f"with answer keys and step-by-step solutions."
+        f"SSC CGL PYQ: {total_papers}+ previous year question papers "
+        f"({oldest_year}–{LY}), Tier 1 & Tier 2, every shift as a free online "
+        f"test in English & Hindi with answer key and step-by-step solutions."
     )
-    page_title = (f"SSC CGL {LY} Tier 1 Question Papers & PYQ Tests Free "
-                  f"| All Shifts (Hindi & English)")
+    page_title = (f"SSC CGL PYQ – Previous Year Question Paper "
+                  f"{oldest_year}–{LY} Free with Solution")
     keywords = (
         f"SSC CGL {LY} Tier 1 paper, SSC CGL {LY} question paper, "
         f"SSC CGL {LY} Tier 1 question paper, SSC CGL {LY} answer key, "
