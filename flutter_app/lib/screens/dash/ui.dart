@@ -17,13 +17,14 @@ class DashPage extends StatelessWidget {
   final String title;
   final List<Widget> children;
   final Future<void> Function()? onRefresh;
-  const DashPage({super.key, required this.exam, required this.title, required this.children, this.onRefresh});
+  final String? sub; // a line in a pill under the title
+  const DashPage({super.key, required this.exam, required this.title, required this.children, this.onRefresh, this.sub});
 
   @override
   Widget build(BuildContext context) {
     final list = ListView(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: EdgeInsets.fromLTRB(14, 8, 14, 20 + MediaQuery.of(context).padding.bottom),
+      padding: EdgeInsets.fromLTRB(14, 12, 14, 20 + MediaQuery.of(context).padding.bottom),
       children: children,
     );
     return examTheme(
@@ -33,13 +34,7 @@ class DashPage extends StatelessWidget {
         decoration: softBg,
         child: Scaffold(
           backgroundColor: Colors.transparent,
-          appBar: AppBar(
-            backgroundColor: Colors.transparent,
-            surfaceTintColor: Colors.transparent,
-            scrolledUnderElevation: 0,
-            actions: const [HomeButton()],
-            title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: baloo(21)),
-          ),
+          appBar: softAppBar(title, sub: sub),
           body: onRefresh == null ? list : RefreshIndicator(onRefresh: onRefresh!, child: list),
         ),
       ),

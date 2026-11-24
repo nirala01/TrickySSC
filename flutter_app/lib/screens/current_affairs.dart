@@ -185,7 +185,7 @@ class _CurrentAffairsScreenState extends State<CurrentAffairsScreen> {
       context,
       exam,
       Scaffold(
-        appBar: AppBar(actions: const [HomeButton()], title: Text('Current affairs', style: TextStyle(fontWeight: FontWeight.w800, color: exam.ink))),
+        appBar: softAppBar('Current affairs'),
         body: Container(
           decoration: softBg,
           child: RefreshIndicator(
@@ -413,7 +413,7 @@ class _CaTopicTestsScreenState extends State<CaTopicTestsScreen> {
       context,
       exam,
       Scaffold(
-        appBar: AppBar(actions: const [HomeButton()], title: Text(widget.topic.name, style: TextStyle(fontWeight: FontWeight.w800, color: exam.ink))),
+        appBar: softAppBar(widget.topic.name),
         body: Container(
           decoration: softBg,
           child: _failed
@@ -444,6 +444,8 @@ class _CaTopicTestsScreenState extends State<CaTopicTestsScreen> {
                             final span = _span(t);
                             return SoftRow(
                               badge: '${t.num}',
+                              badgeSub: 'Test',
+                              tone: t.num,
                               title: 'Test ${t.num}',
                               tags: [done ? const SoftTag.done() : const SoftTag.free()],
                               meta: '${span.isEmpty ? '' : '$span · '}${t.count} Qs${t.hi.isNotEmpty && t.en.isNotEmpty ? ' · EN · हिंदी' : ''}',
@@ -514,7 +516,7 @@ class _CaTopicNotesScreenState extends State<CaTopicNotesScreen> {
       exam,
       Scaffold(
         backgroundColor: const Color(0xFFEEF2FF),
-        appBar: AppBar(actions: const [HomeButton()], title: Text(widget.topic.name, style: TextStyle(fontWeight: FontWeight.w800, color: exam.ink))),
+        appBar: softAppBar(widget.topic.name),
         body: _failed
             ? Center(
                 child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -596,7 +598,7 @@ class _CaDailyScreenState extends State<CaDailyScreen> {
       exam,
       Scaffold(
         backgroundColor: const Color(0xFFEEF2FF),
-        appBar: AppBar(actions: const [HomeButton()], title: Text('Daily current affairs', style: TextStyle(fontWeight: FontWeight.w800, color: exam.ink))),
+        appBar: softAppBar('Daily current affairs'),
         body: _failed
             ? Center(
                 child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -778,7 +780,7 @@ class _CaDayScreenState extends State<CaDayScreen> {
       exam,
       Scaffold(
         backgroundColor: const Color(0xFFEEF2FF),
-        appBar: AppBar(actions: const [HomeButton()], title: Text('${d.day} ${_months[d.month - 1]} ${d.year}', style: TextStyle(fontWeight: FontWeight.w800, color: exam.ink))),
+        appBar: softAppBar('${d.day} ${_months[d.month - 1]} ${d.year}'),
         body: _failed
             ? Center(
                 child: Column(mainAxisSize: MainAxisSize.min, children: [

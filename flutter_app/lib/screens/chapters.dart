@@ -184,7 +184,7 @@ class ChapterSubjectsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final list = subjectsFor(exam);
-    return DashPage(exam: exam, title: 'Chapter tests', children: [
+    return DashPage(exam: exam, title: 'Chapter Tests', sub: 'Practise Chapter by Chapter · FREE', children: [
       SoftSummary(
         icon: 'book',
         title: 'Practise chapter by chapter',
@@ -193,35 +193,15 @@ class ChapterSubjectsScreen extends StatelessWidget {
         accent: exam.c1,
       ),
       const SizedBox(height: 12),
-      for (final s in list)
-        Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: Material(
-            color: Colors.transparent,
-            child: Ink(
-              decoration: softCard(radius: 20),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(20),
-                onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) => SubjectChaptersScreen(user: user, exam: exam, subject: s, paid: paid, attempted: attempted, onReturn: onReturn),
-                )),
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Row(children: [
-                    Container(width: 54, height: 54, alignment: Alignment.center, decoration: softWell(), child: Icon3D(_icon3d[s.key] ?? 'book', size: 40)),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(s.name, style: baloo(18)),
-                        _SubjectCount(subject: s, color: exam.c1),
-                      ]),
-                    ),
-                    Icon(Icons.chevron_right_rounded, color: exam.c1),
-                  ]),
-                ),
-              ),
-            ),
-          ),
+      for (final (i, s) in list.indexed)
+        SubjectCard(
+          icon3d: _icon3d[s.key] ?? 'book',
+          title: s.name,
+          tone: i,
+          line: _SubjectCount(subject: s, color: exam.c1),
+          onTap: () => Navigator.of(context).push(MaterialPageRoute(
+            builder: (_) => SubjectChaptersScreen(user: user, exam: exam, subject: s, paid: paid, attempted: attempted, onReturn: onReturn),
+          )),
         ),
     ]);
   }
@@ -238,7 +218,7 @@ class _SubjectCount extends StatefulWidget {
 }
 
 class _SubjectCountState extends State<_SubjectCount> {
-  String? _text;
+  int _ch = 0, _tests = 0;
   bool _failed = false;
 
   @override
@@ -256,7 +236,8 @@ class _SubjectCountState extends State<_SubjectCount> {
       if (!mounted) return;
       setState(() {
         if (tests > 0) {
-          _text = '$live chapter${live == 1 ? '' : 's'} · $tests test${tests == 1 ? '' : 's'}';
+          _ch = live;
+          _tests = tests;
         } else {
           _failed = true;
         }
@@ -268,17 +249,10 @@ class _SubjectCountState extends State<_SubjectCount> {
 
   @override
   Widget build(BuildContext context) {
-    final t = _text;
-    if (t == null) {
-      return Padding(
-        padding: const EdgeInsets.only(top: 3),
-        child: _failed ? const SoftTag.free() : const Text('Counting tests…', style: TextStyle(fontSize: 13, color: softMuted, fontWeight: FontWeight.w700)),
-      );
+    if (_tests == 0) {
+      return _failed ? const SoftTag.free() : const Text('Counting tests…', style: TextStyle(fontSize: 13, color: softMuted, fontWeight: FontWeight.w700));
     }
-    return Wrap(spacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [
-      Text(t, style: TextStyle(fontSize: 13.5, color: widget.color, fontWeight: FontWeight.w800)),
-      const SoftTag.free(),
-    ]);
+    return SubjectCounts(_ch, _tests);
   }
 }
 
@@ -328,7 +302,7 @@ class _SubjectChaptersScreenState extends State<SubjectChaptersScreen> {
     final n = _n ?? const <String, int>{};
     final live = chs == null ? <ChChapter>[] : chs.where((c) => (n[c.id] ?? 0) > 0).toList();
     final soon = chs == null || _n == null ? <ChChapter>[] : chs.where((c) => (n[c.id] ?? 0) == 0).toList();
-    return DashPage(exam: exam, title: s.name, onRefresh: _load, children: [
+    return DashPage(exam: exam, title: s.name, sub: 'Chapter-wise Practice Tests', onRefresh: _load, children: [
       if (_failed)
         Padding(
           padding: const EdgeInsets.all(24),
@@ -341,25 +315,27 @@ class _SubjectChaptersScreenState extends State<SubjectChaptersScreen> {
         const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator()))
       else ...[
         if (_n == null) const Padding(padding: EdgeInsets.only(bottom: 10), child: LinearProgressIndicator()),
-        for (final c in (_n == null ? chs : live)) _row(c, n[c.id]),
+        for (final (i, c) in (_n == null ? chs : live).indexed) _row(c, n[c.id], i),
         if (soon.isNotEmpty) ...[
           const Padding(padding: EdgeInsets.fromLTRB(4, 8, 4, 8), child: Text('Coming soon', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: softMuted))),
-          for (final c in soon) _row(c, 0),
+          for (final (i, c) in soon.indexed) _row(c, 0, i),
         ],
       ],
     ]);
   }
 
-  Widget _row(ChChapter c, int? tests) {
+  Widget _row(ChChapter c, int? tests, int i) {
     final exam = widget.exam, s = widget.subject;
     final soon = tests == 0;
     final done = tests == null || tests == 0 ? 0 : _attemptedIn(c.id);
     return SoftRow(
-      badge: c.icon.isNotEmpty ? c.icon : '${c.name.isEmpty ? '?' : c.name[0]}',
+      badge: tests == null ? '…' : (soon ? '–' : '$tests'),
+      badgeSub: tests == 1 ? 'Test' : 'Tests',
+      emoji: c.icon,
+      tone: i,
       title: c.name,
       tags: [
         if (!soon) const SoftTag.free(),
-        if (tests != null && !soon) SoftTag('$tests test${tests == 1 ? '' : 's'}', exam.c1, Color.lerp(Colors.white, exam.c1, .12)!),
         if (done > 0) SoftTag.done(text: '✓ $done DONE'),
       ],
       action: soon ? null : 'Open',

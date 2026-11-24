@@ -26,6 +26,8 @@ const _subjects = [
   ('hindi', 'Hindi', 'paper'),
 ];
 
+const _tagFg = [Color(0xFF1D4ED8), Color(0xFFBE185D), Color(0xFF15803D)];
+const _tagBg = [Color(0xFFDBEAFE), Color(0xFFFCE7F3), Color(0xFFDCFCE7)];
 const _examShort = {'ssc-cgl': 'CGL', 'ssc-chsl': 'CHSL', 'ssc-gd': 'GD', 'ssc-mts': 'MTS', 'ssc-rrb-ntpc': 'NTPC', 'rrb-ntpc': 'NTPC', 'rrb-sm': 'Station Master'};
 
 class _Ch {
@@ -106,7 +108,7 @@ class _ChapterPyqScreenState extends State<ChapterPyqScreen> {
       context,
       exam,
       Scaffold(
-        appBar: AppBar(actions: const [HomeButton()], title: Text('Chapter PYQs', style: baloo(22))),
+        appBar: softAppBar('Chapter PYQs', sub: 'Previous Year Questions by Chapter'),
         body: _failed
             ? Center(
                 child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -118,7 +120,7 @@ class _ChapterPyqScreenState extends State<ChapterPyqScreen> {
                 ? const Center(child: CircularProgressIndicator())
                 : RefreshIndicator(
                     onRefresh: () => _load(force: true),
-                    child: ListView(padding: EdgeInsets.fromLTRB(16, 8, 16, 16 + MediaQuery.of(context).padding.bottom), children: [
+                    child: ListView(padding: EdgeInsets.fromLTRB(16, 12, 16, 16 + MediaQuery.of(context).padding.bottom), children: [
                       Builder(builder: (_) {
                         var tests = 0, qs = 0;
                         for (final l in idx.values) {
@@ -136,39 +138,20 @@ class _ChapterPyqScreenState extends State<ChapterPyqScreen> {
                         );
                       }),
                       const SizedBox(height: 12),
-                      for (final s in _subjects)
-                        if ((idx[s.$1] ?? const []).isNotEmpty)
+                      for (var si = 0; si < _subjects.length; si++)
+                        if ((idx[_subjects[si].$1] ?? const []).isNotEmpty)
                           Builder(builder: (_) {
+                            final s = _subjects[si];
                             final list = idx[s.$1]!;
                             final tests = list.fold<int>(0, (a, c) => a + c.tests);
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 10),
-                              child: Material(
-                                color: Colors.transparent,
-                                child: Ink(
-                                  decoration: softCard(radius: 20),
-                                  child: InkWell(
-                                    borderRadius: BorderRadius.circular(20),
-                                    onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                                      builder: (_) => _ChaptersScreen(user: widget.user, exam: exam, title: s.$2, chapters: list, paid: widget.paid, attempted: widget.attempted, onReturn: widget.onReturn),
-                                    )),
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(12),
-                                      child: Row(children: [
-                                        Container(width: 54, height: 54, alignment: Alignment.center, decoration: softWell(), child: Icon3D(s.$3, size: 40)),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                            Text(s.$2, style: baloo(18)),
-                                            Text('${list.length} chapters · $tests tests', style: TextStyle(fontSize: 13.5, color: exam.c1, fontWeight: FontWeight.w800)),
-                                          ]),
-                                        ),
-                                        Icon(Icons.chevron_right_rounded, color: exam.c1),
-                                      ]),
-                                    ),
-                                  ),
-                                ),
-                              ),
+                            return SubjectCard(
+                              icon3d: s.$3,
+                              title: s.$2,
+                              tone: si,
+                              line: SubjectCounts(list.length, tests),
+                              onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                                builder: (_) => _ChaptersScreen(user: widget.user, exam: exam, title: s.$2, chapters: list, paid: widget.paid, attempted: widget.attempted, onReturn: widget.onReturn),
+                              )),
                             );
                           }),
                     ]),
@@ -196,12 +179,14 @@ class _ChaptersScreen extends StatelessWidget {
     final soon = chapters.where((c) => c.tests == 0).toList();
     Widget row(_Ch c, int i) => SoftRow(
           badge: c.tests > 0 ? '${c.tests}' : '–',
+          badgeSub: c.tests == 1 ? 'Test' : 'Tests',
+          tone: i,
           title: c.name,
           tags: [
-            for (final e in (c.exams.entries.toList()..sort((a, b) => b.value.compareTo(a.value))).take(3))
-              SoftTag('${_examShort[e.key] ?? e.key} ${e.value}', exam.c1, Color.lerp(Colors.white, exam.c1, .12)!),
+            for (final (k, e) in (c.exams.entries.toList()..sort((a, b) => b.value.compareTo(a.value))).take(3).indexed)
+              SoftTag('${_examShort[e.key] ?? e.key} ${e.value}', _tagFg[k % 3], _tagBg[k % 3]),
           ],
-          meta: '${c.count} questions · ${c.tests} test${c.tests == 1 ? '' : 's'}${c.hi ? ' · EN, हिंदी' : ''}',
+          meta: '${c.count} questions${c.hi ? ' · EN, हिंदी' : ''}',
           action: c.tests > 0 ? 'Open' : null,
           accent: exam.c1,
           onTap: c.tests == 0
@@ -214,8 +199,8 @@ class _ChaptersScreen extends StatelessWidget {
       context,
       exam,
       Scaffold(
-        appBar: AppBar(actions: const [HomeButton()], title: Text(title, style: baloo(21))),
-        body: ListView(padding: EdgeInsets.fromLTRB(16, 8, 16, 16 + MediaQuery.of(context).padding.bottom), children: [
+        appBar: softAppBar(title, sub: 'Chapter-wise PYQs'),
+        body: ListView(padding: EdgeInsets.fromLTRB(16, 12, 16, 16 + MediaQuery.of(context).padding.bottom), children: [
           for (var i = 0; i < live.length; i++) row(live[i], i),
           if (soon.isNotEmpty) ...[
             const Padding(padding: EdgeInsets.fromLTRB(4, 8, 4, 8), child: Text('Collecting questions', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: softMuted))),
@@ -338,7 +323,7 @@ class _TestsScreenState extends State<_TestsScreen> {
       context,
       exam,
       Scaffold(
-        appBar: AppBar(actions: const [HomeButton()], title: Text(ch.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: baloo(20))),
+        appBar: softAppBar(ch.name),
         body: _failed
             ? Center(
                 child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -348,7 +333,7 @@ class _TestsScreenState extends State<_TestsScreen> {
               )
             : sets == null
                 ? const Center(child: CircularProgressIndicator())
-                : ListView(padding: EdgeInsets.fromLTRB(16, 8, 16, 16 + MediaQuery.of(context).padding.bottom), children: [
+                : ListView(padding: EdgeInsets.fromLTRB(16, 12, 16, 16 + MediaQuery.of(context).padding.bottom), children: [
                     SoftSummary(
                       icon: 'folder',
                       title: '$done of ${sets.length} done',
@@ -358,13 +343,15 @@ class _TestsScreenState extends State<_TestsScreen> {
                     ),
                     const SizedBox(height: 12),
                     if (sets.isEmpty) const Padding(padding: EdgeInsets.all(30), child: Center(child: Text('No tests in this chapter yet.'))),
-                    for (final s in sets)
+                    for (final (si, s) in sets.indexed)
                       Builder(builder: (_) {
                         final isDone = _attempted.contains(_key(s.$1));
                         final first = s.$2.isEmpty ? '' : s.$2.first.paper.split('·').first.trim();
                         final last = s.$2.isEmpty ? '' : s.$2.last.paper.split('·').first.trim();
                         return SoftRow(
                           badge: '${s.$1}',
+                          badgeSub: 'Test',
+                          tone: si,
                           title: 'Test ${s.$1}',
                           tags: [const SoftTag.free(), if (isDone) const SoftTag.done()],
                           meta: '${s.$2.length} Qs · ${first == last ? first : '$first → $last'}',

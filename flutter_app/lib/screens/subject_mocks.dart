@@ -178,7 +178,7 @@ class _SubjectMocksScreenState extends State<SubjectMocksScreen> {
       exam,
       Scaffold(
         backgroundColor: softBgTop,
-        appBar: AppBar(backgroundColor: softBgTop, surfaceTintColor: softBgTop, actions: const [HomeButton()], title: Text('Subject mocks', style: TextStyle(fontWeight: FontWeight.w800, color: exam.ink))),
+        appBar: softAppBar('Subject Mocks'),
         body: list,
       ),
     );

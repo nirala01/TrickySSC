@@ -9,7 +9,7 @@ class SoftTag extends StatelessWidget {
   final Color fg, bg;
   const SoftTag(this.text, this.fg, this.bg, {super.key});
   const SoftTag.free({super.key}) : text = 'FREE', fg = const Color(0xFF047857), bg = const Color(0xFFD1FAE5);
-  const SoftTag.premium({super.key}) : text = 'PREMIUM', fg = const Color(0xFF92400E), bg = const Color(0xFFFEF3C7);
+  const SoftTag.premium({super.key}) : text = '👑 PREMIUM', fg = const Color(0xFF92400E), bg = const Color(0xFFFEF3C7);
   const SoftTag.paused({super.key}) : text = 'PAUSED', fg = const Color(0xFFB45309), bg = const Color(0xFFFEF3C7);
   const SoftTag.done({super.key, this.text = '✓ DONE'}) : fg = const Color(0xFF1D4ED8), bg = const Color(0xFFDBEAFE);
 
@@ -106,9 +106,53 @@ class SoftSummary extends StatelessWidget {
       );
 }
 
-/// One row of a test list: raised number badge, title with tags, and an action button (or a lock).
+/// TSSC-LISTUI-V3 colours: one per card, in turn.
+const softTones = [Color(0xFF7C3AED), Color(0xFF0891B2), Color(0xFFF97316), Color(0xFF16A34A), Color(0xFFDB2777), Color(0xFF2563EB)];
+Color softTone(int i) => softTones[i % softTones.length];
+const _blue1 = Color(0xFF2F7BEA), _blue2 = Color(0xFF1552C4);
+
+/// A white (or tinted) card with a colour edge on its left.
+BoxDecoration softEdgeCard(Color edge, {double radius = 20, Color? tint}) => BoxDecoration(
+      borderRadius: BorderRadius.circular(radius),
+      gradient: LinearGradient(colors: [edge, edge, Colors.white, tint ?? Colors.white], stops: const [0, .016, .016, 1]),
+      boxShadow: [BoxShadow(color: edge.withValues(alpha: .14), blurRadius: 18, offset: const Offset(0, 8))],
+    );
+
+/// The blue pill button ("Open ›", "Start ›").
+class SoftPill extends StatelessWidget {
+  final String text;
+  final List<Color> colors;
+  final double height;
+  final IconData? lead;
+  const SoftPill(this.text, {super.key, this.colors = const [_blue1, _blue2], this.height = 38, this.lead});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        height: height,
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(999),
+          gradient: LinearGradient(colors: colors, begin: Alignment.topCenter, end: Alignment.bottomCenter),
+          boxShadow: [BoxShadow(color: colors.last.withValues(alpha: .30), blurRadius: 10, offset: const Offset(0, 4))],
+        ),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            if (lead != null) ...[Icon(lead, size: 16, color: const Color(0xFFFDE68A)), const SizedBox(width: 4)],
+            Text(text, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 14)),
+            const Icon(Icons.chevron_right_rounded, size: 18, color: Colors.white),
+          ]),
+        ),
+      );
+}
+
+/// One row of a chapter / test list: colour badge ("36 Tests"), title with tags, a line of detail, and a pill button (or a lock).
 class SoftRow extends StatelessWidget {
   final String badge;
+  final String? badgeSub; // small word under the badge number ("Tests")
+  final String? emoji; // chapter picture, in a pale circle after the badge
+  final int? tone; // which colour of softTones; null = the exam colour
   final String title;
   final List<Widget> tags;
   final String meta;
@@ -116,70 +160,168 @@ class SoftRow extends StatelessWidget {
   final bool resume;
   final Color accent;
   final VoidCallback onTap;
-  const SoftRow({super.key, required this.badge, required this.title, this.tags = const [], this.meta = '', required this.action, this.resume = false, required this.accent, required this.onTap});
+  const SoftRow({super.key, required this.badge, this.badgeSub, this.emoji, this.tone, required this.title, this.tags = const [], this.meta = '', required this.action, this.resume = false, required this.accent, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final locked = action == null;
-    final badgeColors = locked ? const [Color(0xFFE2E8F0), Color(0xFFCBD5E1)] : [Color.lerp(accent, Colors.white, .38)!, accent];
+    final c = locked ? const Color(0xFF94A3B8) : (tone == null ? accent : softTone(tone!));
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Opacity(
-        opacity: locked ? .78 : 1,
+        opacity: locked ? .8 : 1,
         child: Material(
           color: Colors.transparent,
           child: Ink(
-            decoration: softCard(radius: 20),
+            decoration: softEdgeCard(c),
             child: InkWell(
               borderRadius: BorderRadius.circular(20),
               onTap: onTap,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+                padding: const EdgeInsets.fromLTRB(16, 11, 12, 11),
                 child: Row(children: [
                   Container(
-                    width: 48,
-                    height: 48,
+                    width: 52,
+                    height: 56,
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(15),
-                      gradient: LinearGradient(colors: badgeColors, begin: Alignment.topCenter, end: Alignment.bottomCenter),
-                      boxShadow: [BoxShadow(color: badgeColors.last.withValues(alpha: .35), blurRadius: 8, offset: const Offset(0, 3))],
+                      gradient: LinearGradient(colors: [Color.lerp(c, Colors.white, .22)!, Color.lerp(c, Colors.black, .12)!], begin: Alignment.topCenter, end: Alignment.bottomCenter),
+                      boxShadow: [BoxShadow(color: c.withValues(alpha: .35), blurRadius: 8, offset: const Offset(0, 3))],
                     ),
-                    child: Text(badge, style: baloo(badge.length > 2 ? 15 : 21, color: Colors.white)),
+                    child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                      FittedBox(fit: BoxFit.scaleDown, child: Text(badge, style: baloo(badgeSub == null ? 21 : 20, color: Colors.white, height: 1))),
+                      if (badgeSub != null) Text(badgeSub!, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w800, height: 1.1)),
+                    ]),
                   ),
-                  const SizedBox(width: 12),
+                  if (emoji != null && emoji!.isNotEmpty) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      width: 40,
+                      height: 40,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(shape: BoxShape.circle, color: Color.lerp(Colors.white, c, .12)),
+                      child: Text(emoji!, style: const TextStyle(fontSize: 21)),
+                    ),
+                  ],
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: baloo(17.5)),
+                      Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: baloo(16.5)),
                       const SizedBox(height: 2),
                       if (tags.isNotEmpty) Wrap(spacing: 5, runSpacing: 4, children: tags),
                       if (meta.isNotEmpty) ...[
-                        if (tags.isNotEmpty) const SizedBox(height: 3),
-                        Text(meta, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, color: softMuted, fontWeight: FontWeight.w700)),
+                        if (tags.isNotEmpty) const SizedBox(height: 4),
+                        Row(children: [
+                          const Icon(Icons.help_outline_rounded, size: 15, color: softMuted),
+                          const SizedBox(width: 4),
+                          Flexible(child: Text(meta, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5, color: Color(0xFF475569), fontWeight: FontWeight.w700))),
+                        ]),
                       ],
                     ]),
                   ),
                   const SizedBox(width: 8),
                   if (locked)
-                    const SizedBox(width: 86, height: 40, child: Icon(Icons.lock_outline_rounded, color: Color(0xFF94A3B8), size: 23))
+                    const SizedBox(width: 78, height: 38, child: Icon(Icons.lock_outline_rounded, color: Color(0xFF94A3B8), size: 23))
                   else
-                    Container(
-                      width: 86,
-                      height: 40,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(13),
-                        gradient: LinearGradient(
-                          colors: resume ? const [Color(0xFFFBBF24), Color(0xFFD97706)] : [Color.lerp(accent, Colors.white, .25)!, accent],
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                        ),
-                        boxShadow: [BoxShadow(color: (resume ? const Color(0xFFD97706) : accent).withValues(alpha: .28), blurRadius: 10, offset: const Offset(0, 5))],
-                      ),
-                      child: Text(action!, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 15)),
-                    ),
+                    SizedBox(width: 82, child: SoftPill(action!, colors: resume ? const [Color(0xFFFBBF24), Color(0xFFD97706)] : const [_blue1, _blue2])),
                 ]),
               ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// "35 Chapters | 319 Tests" with small icons (subject cards).
+class SubjectCounts extends StatelessWidget {
+  final int chapters, tests;
+  const SubjectCounts(this.chapters, this.tests, {super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    Widget part(IconData ic, int n, String word) => Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(ic, size: 16, color: softInk),
+          const SizedBox(width: 4),
+          Text('$n', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Color(0xFF4C1D95))),
+          Text(' $word${n == 1 ? '' : 's'}', style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: Color(0xFF334155))),
+        ]);
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: Alignment.centerLeft,
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        part(Icons.layers_outlined, chapters, 'Chapter'),
+        const Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: Text('|', style: TextStyle(color: Color(0xFF94A3B8)))),
+        part(Icons.article_outlined, tests, 'Test'),
+      ]),
+    );
+  }
+}
+
+/// A subject card: tinted, colour edge, icon, name, a line under it, and a round arrow.
+class SubjectCard extends StatelessWidget {
+  final String icon3d;
+  final String title;
+  final Widget line;
+  final int tone;
+  final VoidCallback onTap;
+  const SubjectCard({super.key, required this.icon3d, required this.title, required this.line, required this.tone, required this.onTap});
+
+  static const _tones = [
+    (Color(0xFFE11D48), Color(0xFFFCE7F3)),
+    (Color(0xFF2563EB), Color(0xFFDBEAFE)),
+    (Color(0xFFF59E0B), Color(0xFFFEF3C7)),
+    (Color(0xFF16A34A), Color(0xFFDCFCE7)),
+    (Color(0xFF7C3AED), Color(0xFFEDE9FE)),
+    (Color(0xFF0284C7), Color(0xFFE0F2FE)),
+    (Color(0xFF0D9488), Color(0xFFCCFBF1)),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final t = _tones[tone % _tones.length];
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Material(
+        color: Colors.transparent,
+        child: Ink(
+          decoration: softEdgeCard(t.$1, radius: 22, tint: t.$2),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(22),
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(18, 14, 14, 14),
+              child: Row(children: [
+                Container(
+                  width: 60,
+                  height: 60,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18), boxShadow: [BoxShadow(color: t.$1.withValues(alpha: .16), blurRadius: 10, offset: const Offset(0, 4))]),
+                  child: Icon3D(icon3d, size: 44),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: baloo(19)),
+                    const SizedBox(height: 4),
+                    line,
+                  ]),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: const LinearGradient(colors: [Color(0xFF8B5CF6), Color(0xFF5B21B6)], begin: Alignment.topCenter, end: Alignment.bottomCenter),
+                    border: Border.all(color: Colors.white, width: 2),
+                    boxShadow: const [BoxShadow(color: Color(0x405B21B6), blurRadius: 8, offset: Offset(0, 3))],
+                  ),
+                  child: const Icon(Icons.chevron_right_rounded, color: Colors.white, size: 22),
+                ),
+              ]),
             ),
           ),
         ),
@@ -215,34 +357,30 @@ class TestRow extends StatelessWidget {
     };
     Widget button() {
       const ts = TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5);
-      final chev = Icon(Icons.chevron_right_rounded, size: 17, color: state == RowState.done ? accent : Colors.white);
+      const chev = Icon(Icons.chevron_right_rounded, size: 17, color: Colors.white);
       switch (state) {
         case RowState.done:
           return Container(
             height: 38,
             alignment: Alignment.center,
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: accent, width: 2)),
-            child: FittedBox(fit: BoxFit.scaleDown, child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.replay_rounded, size: 16, color: accent), const SizedBox(width: 3), Text('Re-attempt', style: ts.copyWith(color: accent))])),
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(999), border: Border.all(color: _blue2, width: 2)),
+            child: FittedBox(fit: BoxFit.scaleDown, child: Row(mainAxisSize: MainAxisSize.min, children: [const Icon(Icons.replay_rounded, size: 16, color: _blue2), const SizedBox(width: 3), Text('Re-attempt', style: ts.copyWith(color: _blue2))])),
           );
         case RowState.locked:
           return Container(
             height: 38,
             alignment: Alignment.center,
-            decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(12)),
-            child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              Icon(Icons.lock_outline_rounded, size: 15, color: Color(0xFF64748B)),
-              SizedBox(width: 4),
-              Text('Unlock', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5, color: Color(0xFF64748B))),
-            ]),
+            decoration: const BoxDecoration(),
+            child: const SoftPill('Unlock', colors: [Color(0xFF9F67F5), Color(0xFF6D28D9)], lead: Icons.workspace_premium_rounded),
           );
         default:
           final prog = state == RowState.progress;
-          final g = prog ? const [Color(0xFFFBBF24), Color(0xFFD97706)] : [Color.lerp(accent, Colors.white, .3)!, accent];
+          final g = prog ? const [Color(0xFFFBBF24), Color(0xFFD97706)] : const [_blue1, _blue2];
           return Container(
             height: 38,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(999),
               gradient: LinearGradient(colors: g, begin: Alignment.topCenter, end: Alignment.bottomCenter),
               boxShadow: [BoxShadow(color: g.last.withValues(alpha: .28), blurRadius: 10, offset: const Offset(0, 4))],
             ),
@@ -256,16 +394,15 @@ class TestRow extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: Ink(
-          decoration: softCard(radius: 20),
+          decoration: bar == null ? softCard(radius: 20) : softEdgeCard(bar!),
           child: InkWell(
             borderRadius: BorderRadius.circular(20),
             onTap: onTap,
             child: Padding(
-              padding: EdgeInsets.fromLTRB(bar != null ? 8 : 12, 11, 12, 11),
+              padding: EdgeInsets.fromLTRB(bar != null ? 16 : 12, 11, 12, 11),
               child: Column(mainAxisSize: MainAxisSize.min, children: [
               IntrinsicHeight(
                 child: Row(children: [
-                  if (bar != null) Container(width: 4, height: double.infinity, margin: const EdgeInsets.only(right: 9), decoration: BoxDecoration(color: bar, borderRadius: BorderRadius.circular(4))),
                   Container(
                     width: 46,
                     height: 46,
@@ -296,7 +433,7 @@ class TestRow extends StatelessWidget {
                         ),
                     ]),
                   ),
-                  const SizedBox(width: 8),
+                  const VerticalDivider(width: 16, thickness: 1, color: Color(0xFFE2E8F0)),
                   SizedBox(
                     width: 108,
                     child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -334,7 +471,7 @@ class TestRow extends StatelessWidget {
 // TSSC-LISTUI-V2: the test-list look shared by Mock tests and PYQs - big tab buttons, subject tiles,
 // year chips with counts, a colour strip on every card.
 
-const _rowBars = [Color(0xFFEA580C), Color(0xFF2563EB), Color(0xFF16A34A), Color(0xFF7C3AED)];
+const _rowBars = [Color(0xFF2563EB), Color(0xFF16A34A), Color(0xFF7C3AED), Color(0xFFDB2777), Color(0xFFF97316)];
 Color rowBar(int i) => _rowBars[i % _rowBars.length];
 
 /// Big tab buttons (Tier 1 / Tier 2 …): two share the width, more scroll sideways.
@@ -430,9 +567,9 @@ class SubjectTiles extends StatelessWidget {
                       width: w,
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(18),
-                        gradient: LinearGradient(colors: [Colors.white, lk.$3], begin: Alignment.topLeft, end: Alignment.bottomRight),
-                        border: Border.all(color: on ? accent : Colors.white, width: on ? 2.2 : 1.5),
-                        boxShadow: [BoxShadow(color: lk.$2.withValues(alpha: on ? .26 : .12), blurRadius: 12, offset: const Offset(0, 5))],
+                        gradient: LinearGradient(colors: on ? const [_blue1, _blue2] : [Colors.white, lk.$3], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                        border: Border.all(color: on ? const Color(0xFF93C5FD) : Colors.white, width: 1.5),
+                        boxShadow: [BoxShadow(color: (on ? _blue2 : lk.$2).withValues(alpha: on ? .30 : .12), blurRadius: 12, offset: const Offset(0, 5))],
                       ),
                       child: InkWell(
                         borderRadius: BorderRadius.circular(18),
@@ -440,9 +577,9 @@ class SubjectTiles extends StatelessWidget {
                         child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 4),
                           child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                            Icon(lk.$1, size: 28, color: lk.$2),
+                            Icon(lk.$1, size: 28, color: on ? Colors.white : lk.$2),
                             const SizedBox(height: 4),
-                            FittedBox(fit: BoxFit.scaleDown, child: Text(_short(it.$2), maxLines: 1, style: baloo(14.5))),
+                            FittedBox(fit: BoxFit.scaleDown, child: Text(_short(it.$2), maxLines: 1, style: baloo(14.5, color: on ? Colors.white : softInk))),
                           ]),
                         ),
                       ),

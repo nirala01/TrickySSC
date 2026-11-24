@@ -96,7 +96,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
       exam,
       Scaffold(
         backgroundColor: const Color(0xFFEEF2FF),
-        appBar: AppBar(actions: const [HomeButton()], title: Text('Leaderboard', style: TextStyle(fontWeight: FontWeight.w800, color: exam.ink))),
+        appBar: softAppBar('Leaderboard'),
         body: _failed
             ? Center(
                 child: Column(mainAxisSize: MainAxisSize.min, children: [
