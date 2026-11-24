@@ -386,11 +386,23 @@ String twinId(String mockId, String lang) =>
 /// Loads a mock and builds its sections and timed units.
 /// [partD] (GD only): take Q61-80 from the other-language paper when it differs from [lang].
 /// Subject mocks (website: mock-test-subject.html): one subject's band of a Tier 1 mock.
-const subjectMockShort = {'quant': 'Quant', 'reasoning': 'Reasoning', 'gk': 'Gen. Awareness', 'english': 'English'};
+const subjectMockShort = {'quant': 'Quant', 'reasoning': 'Reasoning', 'gk': 'Gen. Awareness', 'english': 'English', 'computer': 'Computer'};
 
-List<int> _subjectBand(String mockId, String subject) => examOfPaper(mockId)?.bands[subject] ?? const [0, 0];
+// TSSC-T2-SUBJ-V1: Tier 2 section tests, as on the website (mock-test-tier2-subject.html):
+// each subject's share of the paper's time, its question range as the fallback, +3 / -1.
+const _t2Min = {'quant': 30, 'reasoning': 30, 'english': 40, 'gk': 20, 'computer': 15};
+const _t2BandCgl = {'quant': [1, 30], 'reasoning': [31, 60], 'english': [61, 105], 'gk': [106, 130], 'computer': [131, 150]};
+const _t2BandChsl = {'quant': [1, 30], 'reasoning': [31, 60], 'english': [61, 100], 'gk': [101, 120], 'computer': [121, 135]};
 
-int subjectMockMinutes(String mockId, String subject) => examOfPaper(mockId)?.secTest(subject)?.min ?? examOfPaper(mockId)?.subjMin[subject] ?? 15;
+List<int> _subjectBand(String mockId, String subject) {
+  if (mockId.contains('_tier2_')) return (mockId.startsWith('ssc-chsl_') ? _t2BandChsl : _t2BandCgl)[subject] ?? const [0, 0];
+  return examOfPaper(mockId)?.bands[subject] ?? const [0, 0];
+}
+
+int subjectMockMinutes(String mockId, String subject) {
+  if (mockId.contains('_tier2_')) return _t2Min[subject] ?? 15;
+  return examOfPaper(mockId)?.secTest(subject)?.min ?? examOfPaper(mockId)?.subjMin[subject] ?? 15;
+}
 
 Future<Paper> loadPaper(String mockId, String lang, {String? partD, String title = '', String? subject}) async {
   final rules = Rules(subject == null ? mockId : '${mockId}__$subject');

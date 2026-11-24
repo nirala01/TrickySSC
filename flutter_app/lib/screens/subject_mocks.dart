@@ -26,6 +26,18 @@ List<(String, String, IconData, Color)> subjectChoices(Exam e) {
   return [for (final s in all) if (e.subjects.contains(s.$1)) s];
 }
 
+/// TSSC-T2-SUBJ-V1: the sections of a Tier 2 mock (SSC CGL / CHSL), in paper order.
+const tier2Choices = [
+  ('quant', 'Quant', Icons.calculate, Color(0xFFEA580C)),
+  ('reasoning', 'Reasoning', Icons.psychology, Color(0xFF7C3AED)),
+  ('english', 'English', Icons.menu_book, Color(0xFF0369A1)),
+  ('gk', 'Gen. Awareness', Icons.public, Color(0xFF047857)),
+  ('computer', 'Computer', Icons.computer, Color(0xFF0E7490)),
+];
+
+/// Section choices for one tier: Tier 2 has its own five; Paper II / III (Statistics, AAO) have none.
+List<(String, String, IconData, Color)> subjectChoicesFor(Exam e, int tier) => tier == 2 && e.tier2 ? tier2Choices : (tier == 1 ? subjectChoices(e) : const []);
+
 /// Subject-wise mocks: one subject section of each Tier 1 mock (website: mock-test-subject.html).
 class SubjectMocksScreen extends StatefulWidget {
   final User user;
@@ -40,13 +52,16 @@ class SubjectMocksScreen extends StatefulWidget {
   final bool embedded;
   final String initialSubject;
   final VoidCallback? onFull;
-  const SubjectMocksScreen({super.key, this.embedded = false, this.initialSubject = '', this.onFull, required this.user, required this.exam, required this.mocks, required this.hasPass, required this.paid, required this.attempted, required this.onReturn, required this.onBuy});
+  final int tier; // 1 or 2 (SSC CGL / CHSL Tier 2)
+  final void Function(int)? onTier; // tier changed with the tabs on this screen
+  const SubjectMocksScreen({super.key, this.embedded = false, this.initialSubject = '', this.onFull, this.tier = 1, this.onTier, required this.user, required this.exam, required this.mocks, required this.hasPass, required this.paid, required this.attempted, required this.onReturn, required this.onBuy});
 
   @override
   State<SubjectMocksScreen> createState() => _SubjectMocksScreenState();
 }
 
 class _SubjectMocksScreenState extends State<SubjectMocksScreen> {
+  late int _tier = widget.exam.tier2 && widget.tier == 2 ? 2 : 1;
   late String _subject = _subjects.any((s) => s.$1 == widget.initialSubject) ? widget.initialSubject : (_subjects.isEmpty ? '' : _subjects.first.$1); // TSSC-SM-APP-V1: no subjects, no crash
   late Set<String> _attempted = widget.attempted;
   Map<String, Map<String, dynamic>> _last = {};
@@ -70,7 +85,7 @@ class _SubjectMocksScreenState extends State<SubjectMocksScreen> {
     } catch (_) {}
   }
 
-  List<(String, String, IconData, Color)> get _subjects => subjectChoices(widget.exam);
+  List<(String, String, IconData, Color)> get _subjects => subjectChoicesFor(widget.exam, _tier);
 
   Map<String, List<String>> _paused = {}; // sections left half-way: "<base>__<subject>" -> [lang, partD]
   void _loadPaused() => loadInProgress(widget.user.uid).then((r) {
@@ -104,7 +119,7 @@ class _SubjectMocksScreenState extends State<SubjectMocksScreen> {
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
             child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              Text('Mock ${m.n} · ${_label()}', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: exam.ink)),
+              Text('${tierWord(m.tier)}Mock ${m.n} · ${_label()}', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: exam.ink)),
               const SizedBox(height: 12),
               Row(children: [
                 for (final l in const [('en', 'English'), ('hi', 'हिंदी')]) ...[
@@ -133,8 +148,8 @@ class _SubjectMocksScreenState extends State<SubjectMocksScreen> {
         mockId: '${full}__$_subject',
         lang: lang,
         paid: widget.paid,
-        title: '${exam.name} Mock ${m.n} · ${_label()}',
-        loader: () => loadPaper(full, lang, subject: _subject, title: '${exam.name} Mock ${m.n}'),
+        title: '${exam.name} ${tierWord(m.tier)}Mock ${m.n} · ${_label()}',
+        loader: () => loadPaper(full, lang, subject: _subject, title: '${exam.name} ${tierWord(m.tier)}Mock ${m.n}'),
       ),
     ));
     widget.onReturn();
@@ -149,9 +164,9 @@ class _SubjectMocksScreenState extends State<SubjectMocksScreen> {
   @override
   Widget build(BuildContext context) {
     final exam = widget.exam;
-    final mocks = widget.mocks.where((m) => m.tier == 1).toList();
+    final mocks = widget.mocks.where((m) => m.tier == _tier).toList();
     final subj = _subjects.firstWhere((s) => s.$1 == _subject);
-    final mins = mocks.isEmpty ? 15 : subjectMockMinutes('${exam.id}_', _subject);
+    final mins = mocks.isEmpty ? 15 : subjectMockMinutes(_minKey, _subject);
     final done = mocks.where(_done).length;
     final list = ListView(padding: widget.embedded ? const EdgeInsets.fromLTRB(16, 8, 16, 14) : EdgeInsets.fromLTRB(12, 10, 12, 16 + MediaQuery.of(context).padding.bottom), children: [
           SoftSummary(
@@ -163,6 +178,22 @@ class _SubjectMocksScreenState extends State<SubjectMocksScreen> {
             pct: true,
           ),
           const SizedBox(height: 12),
+          // TSSC-T2-SUBJ-V1: Tier 1 / Tier 2 on the section tests too
+          if (exam.tier2) ...[
+            SoftTabs(
+              items: [('Tier 1 (${widget.mocks.where((m) => m.tier == 1).length})', Icons.emoji_events_outlined), ('Tier 2 (${widget.mocks.where((m) => m.tier == 2).length})', Icons.layers_outlined)],
+              index: _tier - 1,
+              accent: exam.c1,
+              onTap: (i) {
+                setState(() {
+                  _tier = i + 1;
+                  if (!_subjects.any((x) => x.$1 == _subject)) _subject = _subjects.first.$1;
+                });
+                widget.onTier?.call(_tier);
+              },
+            ),
+            const SizedBox(height: 12),
+          ],
           SubjectTiles(
             items: [if (widget.embedded) ('', 'Full Mock'), for (final s in _subjects) (s.$1, s.$2)],
             selected: _subject,
@@ -184,14 +215,16 @@ class _SubjectMocksScreenState extends State<SubjectMocksScreen> {
     );
   }
 
+  String get _minKey => _tier == 2 ? '${widget.exam.id}_tier2_' : '${widget.exam.id}_';
+
   Widget _row(MockItem m, int i) {
     final exam = widget.exam;
     final open = _open(m), done = _done(m), free = m.n <= exam.free;
     final a = _last['${mockBase(exam, m)}__$_subject'];
     final state = !open ? RowState.locked : (_isPaused(m) ? RowState.progress : (done ? RowState.done : RowState.todo));
-    final mins = subjectMockMinutes('${exam.id}_', _subject);
+    final mins = subjectMockMinutes(_minKey, _subject);
     final langs = [if (m.en) 'EN', if (m.hi) 'हिंदी'].join(', ');
-    final title = 'Mock ${m.n.toString().padLeft(2, '0')} · ${_label()}';
+    final title = '${tierWord(m.tier)}Mock ${m.n.toString().padLeft(2, '0')} · ${_label()}';
     return TestRow(
       tags: [if (free) const SoftTag.free() else const SoftTag.premium()],
       title: title,

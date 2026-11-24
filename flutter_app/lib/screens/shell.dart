@@ -480,12 +480,14 @@ class _AppShellState extends State<AppShell> {
             onSoon: _soon,
           ),
           PlansTab(exam: exam, owned: _owned),
-          if (_mockSub.isNotEmpty && _tier == 1 && _mocks != null)
+          if (_mockSub.isNotEmpty && (_tier == 1 || _tier == 2) && _mocks != null)
             // Mocks tab, one subject picked: the subject-wise list, with a "Full mock" chip to come back
             SubjectMocksScreen(
               key: ValueKey('mock-sub-${exam.id}'),
               embedded: true,
               initialSubject: _mockSub,
+              tier: _tier,
+              onTier: (t) => setState(() => _tier = t),
               onFull: () => setState(() => _mockSub = ''),
               user: widget.user,
               exam: exam,
@@ -1134,10 +1136,10 @@ class _MocksTab extends StatelessWidget {
         }),
       if (tier == 2 && top2 != null) top2!,
       if (tier != 2 && top1 != null) top1!,
-      // subject-wise mocks: the same chips as the PYQ tab (Tier 1 only)
-      if (tier == 1 && list.isNotEmpty && subjectChoices(exam).isNotEmpty)
+      // subject-wise mocks: Tier 1 and Tier 2 (CGL Paper II / III stay full papers only)
+      if (list.isNotEmpty && subjectChoicesFor(exam, tier).isNotEmpty)
         SubjectTiles(
-          items: [('', 'Full Mock'), for (final s in subjectChoices(exam)) (s.$1, s.$2)],
+          items: [('', 'Full Mock'), for (final s in subjectChoicesFor(exam, tier)) (s.$1, s.$2)],
           selected: '',
           accent: exam.c1,
           onTap: (k) {

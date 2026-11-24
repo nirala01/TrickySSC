@@ -543,6 +543,7 @@ class SubjectTiles extends StatelessWidget {
     'reasoning': (Icons.psychology_rounded, Color(0xFF7C3AED), Color(0xFFEDE9FE)),
     'gk': (Icons.layers_rounded, Color(0xFF16A34A), Color(0xFFDCFCE7)),
     'english': (Icons.menu_book_rounded, Color(0xFFD97706), Color(0xFFFEF3C7)),
+    'computer': (Icons.computer_rounded, Color(0xFF0E7490), Color(0xFFCFFAFE)),
   };
   static const _more = [(Icons.calculate_rounded, Color(0xFF2563EB), Color(0xFFDBEAFE)), (Icons.bar_chart_rounded, Color(0xFF0E7490), Color(0xFFCFFAFE)), (Icons.psychology_rounded, Color(0xFF7C3AED), Color(0xFFEDE9FE)), (Icons.extension_rounded, Color(0xFF16A34A), Color(0xFFDCFCE7))];
   static String _short(String l) => l == 'Gen. Awareness' ? 'Gen. Aw.' : l == 'English / Hindi' ? 'Eng / Hindi' : l;
