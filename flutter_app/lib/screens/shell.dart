@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -41,6 +42,17 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   int _tab = 0;
+  int _seenTab = 0; // the tab the last build showed: a change to 3 is one Dashboard open
+
+  /// Dashboard tab opened: the same stamp as the website's dashboard.html (TSSC-DASHVISIT-V1),
+  /// so the admin Candidates page counts app dashboard users too. appDashLastOpened = opened in the app.
+  void _stampDashOpen() {
+    FirebaseFirestore.instance.collection('users').doc(widget.user.uid).set({
+      'dashboardLastOpened': FieldValue.serverTimestamp(),
+      'dashboardOpens': FieldValue.increment(1),
+      'appDashLastOpened': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true)).catchError((_) {});
+  }
   int _tier = 1;
   String _mockSub = ''; // Mocks tab: the subject picked ('' = full mocks)
   String _name = 'Student';
@@ -355,6 +367,10 @@ class _AppShellState extends State<AppShell> {
 
   @override
   Widget build(BuildContext context) {
+    if (_tab != _seenTab) {
+      if (_tab == 3) _stampDashOpen();
+      _seenTab = _tab;
+    }
     final exam = widget.exam;
     final first = _name.split(' ').first;
     final mocks = _mocks ?? const <MockItem>[];
