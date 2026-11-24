@@ -160,18 +160,17 @@ class _SubjectMocksScreenState extends State<SubjectMocksScreen> {
             progress: mocks.isEmpty ? 0 : done / mocks.length,
             sub: 'The ${subj.$2} section of each mock · $mins min',
             accent: exam.c1,
+            pct: true,
           ),
-          const SizedBox(height: 10),
-          SizedBox(
-            height: 46,
-            child: ListView(scrollDirection: Axis.horizontal, children: [
-              if (widget.embedded) SoftChip('Full mock', false, exam.c1, () => widget.onFull?.call()),
-              for (final s in _subjects) SoftChip(s.$2, _subject == s.$1, exam.c1, () => setState(() => _subject = s.$1)),
-            ]),
+          const SizedBox(height: 12),
+          SubjectTiles(
+            items: [if (widget.embedded) ('', 'Full Mock'), for (final s in _subjects) (s.$1, s.$2)],
+            selected: _subject,
+            accent: exam.c1,
+            onTap: (k) => k.isEmpty ? widget.onFull?.call() : setState(() => _subject = k),
           ),
-          const SizedBox(height: 10),
           if (mocks.isEmpty) const Padding(padding: EdgeInsets.all(30), child: Center(child: Text('Mocks are loading or not released yet.'))),
-          for (final m in mocks) _row(m, subj.$4),
+          for (var i = 0; i < mocks.length; i++) _row(mocks[i], i),
         ]);
     if (widget.embedded) return list;
     return examTheme(
@@ -185,7 +184,7 @@ class _SubjectMocksScreenState extends State<SubjectMocksScreen> {
     );
   }
 
-  Widget _row(MockItem m, Color c) {
+  Widget _row(MockItem m, int i) {
     final exam = widget.exam;
     final open = _open(m), done = _done(m), free = m.n <= exam.free;
     final a = _last['${mockBase(exam, m)}__$_subject'];
@@ -204,6 +203,7 @@ class _SubjectMocksScreenState extends State<SubjectMocksScreen> {
       state: state,
       score: state == RowState.done && a != null ? '${n1(marksOf(a))} / ${n1(maxOf(a))}' : null,
       accent: exam.c1,
+      bar: rowBar(i),
       onTap: () => state == RowState.done ? showDoneSheet(context, user: widget.user, exam: exam, a: a, title: '${exam.name} $title', onRetake: () => _start(m)) : _start(m),
       onAction: state == RowState.done ? () => _start(m) : null,
     );

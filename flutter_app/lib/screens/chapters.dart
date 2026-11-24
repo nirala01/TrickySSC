@@ -213,8 +213,7 @@ class ChapterSubjectsScreen extends StatelessWidget {
                     Expanded(
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Text(s.name, style: baloo(18)),
-                        const SizedBox(height: 3),
-                        const SoftTag.free(),
+                        _SubjectCount(subject: s, color: exam.c1),
                       ]),
                     ),
                     Icon(Icons.chevron_right_rounded, color: exam.c1),
@@ -224,6 +223,61 @@ class ChapterSubjectsScreen extends StatelessWidget {
             ),
           ),
         ),
+    ]);
+  }
+}
+
+/// TSSC-LISTUI-V2: "35 chapters · 319 tests · FREE" under a subject, as on the Chapter PYQs screen.
+class _SubjectCount extends StatefulWidget {
+  final ChSubject subject;
+  final Color color;
+  const _SubjectCount({required this.subject, required this.color});
+
+  @override
+  State<_SubjectCount> createState() => _SubjectCountState();
+}
+
+class _SubjectCountState extends State<_SubjectCount> {
+  String? _text;
+  bool _failed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final chs = await _loadChapters(widget.subject);
+      final n = await _loadCounts(chs, widget.subject.key);
+      final live = chs.where((c) => (n[c.id] ?? 0) > 0).length;
+      final tests = n.values.fold<int>(0, (a, b) => a + b);
+      if (!mounted) return;
+      setState(() {
+        if (tests > 0) {
+          _text = '$live chapter${live == 1 ? '' : 's'} · $tests test${tests == 1 ? '' : 's'}';
+        } else {
+          _failed = true;
+        }
+      });
+    } catch (_) {
+      if (mounted) setState(() => _failed = true);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = _text;
+    if (t == null) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 3),
+        child: _failed ? const SoftTag.free() : const Text('Counting tests…', style: TextStyle(fontSize: 13, color: softMuted, fontWeight: FontWeight.w700)),
+      );
+    }
+    return Wrap(spacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [
+      Text(t, style: TextStyle(fontSize: 13.5, color: widget.color, fontWeight: FontWeight.w800)),
+      const SoftTag.free(),
     ]);
   }
 }

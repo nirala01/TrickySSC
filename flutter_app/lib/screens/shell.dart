@@ -735,10 +735,21 @@ class _HomeTab extends StatelessWidget {
     // "View details" on each card: what is inside, in plain words
     final passLine = hasPass ? 'Your pass is active, so every one of them is open for you.' : 'Mocks 1 to ${exam.free} are free. The ${exam.name} pass opens all of them for 1 year.';
     final subj = subjectChoices(exam).map((x) => x.$2).join(', ');
+    // TSSC-LISTUI-V2: the exact number of mocks in each part, counted from the live list
+    int tc(int t) => mocks.where((m) => m.tier == t).length;
+    final tierParts = [
+      if (tc(1) > 0) '${tc(1)} Tier 1',
+      if (tc(2) > 0) '${tc(2)} Tier 2',
+      if (tc(3) > 0) '${tc(3)} Statistics (JSO)',
+      if (tc(4) > 0) '${tc(4)} Finance (AAO)',
+    ];
+    final split = loaded && exam.tier2 && tierParts.length > 1;
+    final mocksSub = split ? '${tc(1)} Tier 1 + ${tc(2)} Tier 2' : exam.mocks;
     final dMocks = [
-      '${exam.mocks}, full length, on the latest ${exam.name} pattern.',
-      if (exam.meta.isNotEmpty) 'Each mock: ${exam.meta}, the same as the real exam.',
-      if (loaded) '$live mocks are live now; new ones keep being added.',
+      if (split) '$live mocks in all: ${tierParts.join(' + ')}.' else '${exam.mocks}, full length, on the latest ${exam.name} pattern.',
+      if (split) 'Full length, on the latest ${exam.name} pattern.',
+      if (exam.meta.isNotEmpty) 'Each ${split ? 'Tier 1 ' : ''}mock: ${exam.meta}, the same as the real exam.',
+      if (loaded && !split) '$live mocks are live now; new ones keep being added.',
       passLine,
       'Hindi and English, with a solution for every question.',
       'After each test: your score, accuracy, time taken and section-wise analysis.',
@@ -779,7 +790,7 @@ class _HomeTab extends StatelessWidget {
     ];
     // TSSC-TABLET-V1: the six tiles, laid out 2 per row on phones and 3 per row on wide screens
     final tiles = <Widget>[
-          _Tile('target', 'Mock tests', exam.mocks, const Color(0xFF1552C4), onMocks, details: dMocks, glyph: Icons.track_changes_rounded, g1: const Color(0xFF2F7BEA), g2: const Color(0xFF1552C4), tag: hasPass ? const SoftTag('PREMIUM', Color(0xFF6B4A00), Color(0xFFFDE68A)) : SoftTag('${exam.free} FREE', const Color(0xFF0B5E3F), const Color(0xFFC9F5DC))),
+          _Tile('target', 'Mock tests', mocksSub, const Color(0xFF1552C4), onMocks, details: dMocks, glyph: Icons.track_changes_rounded, g1: const Color(0xFF2F7BEA), g2: const Color(0xFF1552C4), tag: hasPass ? const SoftTag('PREMIUM', Color(0xFF6B4A00), Color(0xFFFDE68A)) : SoftTag('${exam.free} FREE', const Color(0xFF0B5E3F), const Color(0xFFC9F5DC))),
           _Tile('paper', 'PYQs', 'Real exam papers', const Color(0xFF5B2BD1), onPyq, details: dPyq, glyph: Icons.description_outlined, g1: const Color(0xFF8B5CF6), g2: const Color(0xFF5B2BD1), tag: const SoftTag('FREE', Color(0xFF0B5E3F), Color(0xFFC9F5DC))),
           _Tile('book', 'Chapter tests', '2 levels', const Color(0xFFD2560A), onChapters, details: dChap, glyph: Icons.layers_outlined, g1: const Color(0xFFF58A1F), g2: const Color(0xFFD2560A), tag: const SoftTag('FREE', Color(0xFF0B5E3F), Color(0xFFC9F5DC))),
           _Tile('folder', 'Chapter PYQs', 'Real questions', const Color(0xFF0B7A55), onChapterPyq, details: dChapPyq, glyph: Icons.menu_book_rounded, g1: const Color(0xFF19A974), g2: const Color(0xFF0B7A55), tag: const SoftTag('FREE', Color(0xFF0B5E3F), Color(0xFFC9F5DC))),
@@ -1075,6 +1086,7 @@ class _MocksTab extends StatelessWidget {
     final open = list.where(isOpen).length;
     final rows = <Widget>[];
     var offered = hasPass;
+    var ri = 0;
     for (final m in list) {
       if (!offered && !isOpen(m)) {
         offered = true;
@@ -1090,7 +1102,7 @@ class _MocksTab extends StatelessWidget {
           ),
         ));
       }
-      rows.add(_MockRow(exam: exam, m: m, open: isOpen(m), free: m.n <= freeMocks(exam, m), premium: hasPass && m.n > freeMocks(exam, m), done: isAttempted(attempted, exam, m), resume: resuming(m), last: last[mockBase(exam, m)], onStart: onStart, onRetake: onRetake));
+      rows.add(_MockRow(exam: exam, m: m, open: isOpen(m), free: m.n <= freeMocks(exam, m), premium: hasPass && m.n > freeMocks(exam, m), done: isAttempted(attempted, exam, m), resume: resuming(m), last: last[mockBase(exam, m)], onStart: onStart, onRetake: onRetake, bar: rowBar(ri++)));
     }
     final doneN = list.where((m) => isAttempted(attempted, exam, m)).length;
     final head = <Widget>[
@@ -1100,39 +1112,37 @@ class _MocksTab extends StatelessWidget {
         progress: list.isEmpty ? 0 : doneN / list.length,
         sub: hasPass ? 'All ${list.length} unlocked · Hindi & English' : '$open free · ${list.length - open} locked',
         accent: exam.c1,
+        pct: true,
       ),
       const SizedBox(height: 12),
+      // TSSC-LISTUI-V2: big tier buttons with the number of mocks in each
       if (exam.tier2)
-        Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: Row(children: [
-            Expanded(
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                clipBehavior: Clip.none,
-                child: Row(children: [
-                  SoftChip('Tier 1', tier == 1, exam.c1, () => onTier(1)),
-                  SoftChip('Tier 2', tier == 2, exam.c1, () => onTier(2)),
-                  if (all.any((m) => m.tier == 3)) SoftChip('Statistics (JSO)', tier == 3, exam.c1, () => onTier(3)),
-                  if (all.any((m) => m.tier == 4)) SoftChip('Finance (AAO)', tier == 4, exam.c1, () => onTier(4)),
-                ]),
-              ),
+        Builder(builder: (_) {
+          int cnt(int t) => all.where((m) => m.tier == t).length;
+          final tiers = [1, 2, if (cnt(3) > 0) 3, if (cnt(4) > 0) 4];
+          const names = {1: 'Tier 1', 2: 'Tier 2', 3: 'Statistics (JSO)', 4: 'Finance (AAO)'};
+          const icons = {1: Icons.emoji_events_outlined, 2: Icons.layers_outlined, 3: Icons.bar_chart_rounded, 4: Icons.account_balance_outlined};
+          return Padding(
+            padding: EdgeInsets.only(bottom: tiers.length <= 2 ? 12 : 0),
+            child: SoftTabs(
+              items: [for (final t in tiers) ('${names[t]} (${cnt(t)})', icons[t]!)],
+              index: tiers.indexOf(tier) < 0 ? 0 : tiers.indexOf(tier),
+              accent: exam.c1,
+              onTap: (i) => onTier(tiers[i]),
             ),
-          ]),
-        ),
+          );
+        }),
       if (tier == 2 && top2 != null) top2!,
       if (tier != 2 && top1 != null) top1!,
       // subject-wise mocks: the same chips as the PYQ tab (Tier 1 only)
       if (tier == 1 && list.isNotEmpty && subjectChoices(exam).isNotEmpty)
-        Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: SizedBox(
-            height: 46,
-            child: ListView(scrollDirection: Axis.horizontal, children: [
-              SoftChip('Full mock', true, exam.c1, () {}),
-              for (final s in subjectChoices(exam)) SoftChip(s.$2, false, exam.c1, () => onSubject(s.$1)),
-            ]),
-          ),
+        SubjectTiles(
+          items: [('', 'Full Mock'), for (final s in subjectChoices(exam)) (s.$1, s.$2)],
+          selected: '',
+          accent: exam.c1,
+          onTap: (k) {
+            if (k.isNotEmpty) onSubject(k);
+          },
         ),
     ];
     if (list.isEmpty) {
@@ -1184,7 +1194,8 @@ class _MockRow extends StatelessWidget {
   final Map<String, dynamic>? last;
   final void Function(MockItem) onStart;
   final void Function(MockItem) onRetake;
-  const _MockRow({required this.onRetake, required this.exam, required this.m, required this.open, required this.free, required this.premium, required this.done, required this.resume, required this.last, required this.onStart});
+  final Color? bar;
+  const _MockRow({this.bar, required this.onRetake, required this.exam, required this.m, required this.open, required this.free, required this.premium, required this.done, required this.resume, required this.last, required this.onStart});
 
   @override
   Widget build(BuildContext context) {
@@ -1207,6 +1218,7 @@ class _MockRow extends StatelessWidget {
       state: state,
       score: state == RowState.done && a != null ? '${n1(marksOf(a))} / ${n1(maxOf(a))}' : null,
       accent: exam.c1,
+      bar: bar,
       onTap: () => onStart(m),
       onAction: state == RowState.done ? () => onRetake(m) : null,
       // TSSC-T2TIMING-V1: SSC CGL Tier 2 mocks run on the 2026 timing (five timed parts)

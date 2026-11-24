@@ -341,8 +341,6 @@ class _PyqTabState extends State<PyqTab> {
     final list = tierList.where((p) => _year.isEmpty || p.year == _year).toList();
     final done = tierList.where(_done).length;
 
-    Widget chip(String label, bool on, VoidCallback tap) => SoftChip(label, on, exam.c1, tap);
-
     return RefreshIndicator(
       onRefresh: () => _load(force: true),
       child: ListView(padding: EdgeInsets.fromLTRB(16, 8, 16, 16 + MediaQuery.of(context).padding.bottom), children: [
@@ -352,38 +350,37 @@ class _PyqTabState extends State<PyqTab> {
           progress: tierList.isEmpty ? 0 : done / tierList.length,
           sub: _sub ? 'Only the $_subLabel section of each paper · ${subjectMockMinutes('${exam.id}_', _subject)} min' : 'Real exam shifts · Hindi & English',
           accent: exam.c1,
+          pct: true,
         ),
-        const SizedBox(height: 10),
-        if (hasT2)
-          SizedBox(
-            height: 46,
-            child: ListView(scrollDirection: Axis.horizontal, children: [
-              chip('Tier 1', _tier == 1, () => setState(() => _tier = 1)),
-              chip('Tier 2', _tier == 2, () => setState(() => _tier = 2)),
-            ]),
+        const SizedBox(height: 12),
+        // TSSC-LISTUI-V2
+        if (hasT2) ...[
+          SoftTabs(
+            items: [('Tier 1 (${all.where((p) => p.tier == 1).length})', Icons.emoji_events_outlined), ('Tier 2 (${all.where((p) => p.tier == 2).length})', Icons.layers_outlined)],
+            index: _tier == 2 ? 1 : 0,
+            accent: exam.c1,
+            onTap: (i) => setState(() => _tier = i + 1),
           ),
-        if (hasT2) const SizedBox(height: 8),
-        if (_tier == 1 && _subjects.isNotEmpty) ...[
-          SizedBox(
-            height: 46,
-            child: ListView(scrollDirection: Axis.horizontal, children: [
-              chip('Full paper', _subject.isEmpty, () => setState(() => _subject = '')),
-              for (final s in _subjects) chip(s.$2, _subject == s.$1, () => setState(() => _subject = s.$1)),
-            ]),
-          ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
         ],
+        if (_tier == 1 && _subjects.isNotEmpty)
+          SubjectTiles(
+            items: [('', 'Full Paper'), for (final s in _subjects) (s.$1, s.$2)],
+            selected: _subject,
+            accent: exam.c1,
+            onTap: (k) => setState(() => _subject = k),
+          ),
         if (years.length > 1)
           SizedBox(
             height: 46,
             child: ListView(scrollDirection: Axis.horizontal, children: [
-              chip('All years', _year.isEmpty, () => setState(() => _year = '')),
-              for (final y in years) chip(y, _year == y, () => setState(() => _year = y)),
+              SoftChip('All Years (${tierList.length})', _year.isEmpty, exam.c1, () => setState(() => _year = ''), icon: Icons.calendar_month_outlined),
+              for (final y in years) SoftChip('$y (${tierList.where((p) => p.year == y).length})', _year == y, exam.c1, () => setState(() => _year = y), icon: Icons.calendar_today_outlined),
             ]),
           ),
         const SizedBox(height: 8),
         if (list.isEmpty) const Padding(padding: EdgeInsets.all(30), child: Center(child: Text('No papers here yet.'))),
-        for (final p in list) _row(p),
+        for (var i = 0; i < list.length; i++) _row(list[i], i),
       ]),
     );
   }
@@ -402,7 +399,7 @@ class _PyqTabState extends State<PyqTab> {
         ),
       );
 
-  Widget _row(PyqPaper p) {
+  Widget _row(PyqPaper p, int i) {
     final exam = widget.exam;
     final done = _done(p), paused = _paused(p);
     final langs = [if (p.en.isNotEmpty) 'EN', if (p.hi.isNotEmpty) 'हिंदी'].join(', ');
@@ -424,6 +421,7 @@ class _PyqTabState extends State<PyqTab> {
       state: state,
       score: state == RowState.done && a != null ? '${n1(marksOf(a))} / ${n1(maxOf(a))}' : null,
       accent: exam.c1,
+      bar: rowBar(i),
       onTap: () => state == RowState.done ? showDoneSheet(context, user: widget.user, exam: exam, a: a, title: _sub ? '${p.title} · $_subLabel' : p.title, onRetake: () => _start(p)) : _start(p),
       onAction: state == RowState.done ? () => _start(p) : null,
     );
