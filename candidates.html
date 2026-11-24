@@ -136,6 +136,25 @@ body{font-family:'Noto Sans',sans-serif;background:var(--bg);color:var(--text);m
 .drill-tag.chapter{background:rgba(78,142,255,0.15);color:var(--blue);}
 .drill-tag.pyqch{background:rgba(168,85,247,0.18);color:#C084FC;}   /* TSSC-PYQCH-V1: chapter-wise PYQ */
 .stat-val.purple{color:#C084FC;}
+/* TSSC-COURSEMOCK-V1: full-width card — today's mock takers per course (new / paid / free) */
+.course-card{grid-column:1/-1;}
+.course-card .stat-head{display:flex;justify-content:space-between;align-items:baseline;gap:1rem;flex-wrap:wrap;}
+.course-tbl{width:100%;border-collapse:collapse;margin-top:0.6rem;font-size:0.85rem;}
+.course-tbl th{font-size:0.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;font-weight:600;text-align:right;padding:0.35rem 0.5rem;border-bottom:1px solid var(--border);}
+.course-tbl th:first-child,.course-tbl td:first-child{text-align:left;}
+.course-tbl td{padding:0.45rem 0.5rem;border-bottom:1px dashed var(--border);text-align:right;font-family:'JetBrains Mono',monospace;font-size:0.8rem;}
+.course-tbl td:first-child{font-family:'Noto Sans',sans-serif;font-weight:600;color:var(--text);}
+.course-tbl tbody tr{cursor:pointer;}
+.course-tbl tbody tr:hover td{background:rgba(255,107,0,0.06);}
+.course-tbl tbody tr:hover td:first-child{color:var(--orange);}
+.course-tbl tfoot td{border-bottom:none;border-top:1px solid var(--border);font-weight:700;color:var(--text);}
+.course-tbl .c-tot{font-family:'Rajdhani',sans-serif;font-size:1rem;font-weight:700;color:var(--green);}
+.course-tbl .c-new{color:var(--blue);}
+.course-tbl .c-paid{color:var(--orange);}
+.course-tbl .c-free{color:#9CA3AF;}
+.course-tbl .c-att{color:var(--muted);}
+.course-empty{font-size:0.8rem;color:var(--muted);font-style:italic;margin-top:0.6rem;}
+.course-scroll{overflow-x:auto;}
 .drill-tag.paid{background:rgba(255,107,0,0.22);color:var(--orange);}
 .drill-tag.free{background:rgba(107,114,128,0.25);color:#9CA3AF;}
 .drill-new{
@@ -356,6 +375,35 @@ body{font-family:'Noto Sans',sans-serif;background:var(--bg);color:var(--text);m
       <div class="stat-val" id="newUsersYesterday">—</div>
       <div class="stat-sub" id="newUsersYesterdaySub">—</div>
     </div>
+    <!-- TSSC-APPWEB-V1: today's / yesterday's signups split by where they signed up — the Android app or the website -->
+    <div class="stat-card clickable" tabindex="0" onclick="showDrill('new','app')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();showDrill('new','app');}">
+      <div class="stat-label">📲 New App Users Today</div>
+      <div class="stat-val green" id="newAppToday">—</div>
+      <div class="stat-sub" id="newAppTodaySub">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">📲 New App Users Yesterday</div>
+      <div class="stat-val" id="newAppYday">—</div>
+      <div class="stat-sub" id="newAppYdaySub">—</div>
+    </div>
+    <div class="stat-card clickable" tabindex="0" onclick="showDrill('new','web')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();showDrill('new','web');}">
+      <div class="stat-label">🌐 New Web Users Today</div>
+      <div class="stat-val blue" id="newWebToday">—</div>
+      <div class="stat-sub" id="newWebTodaySub">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">🌐 New Web Users Yesterday</div>
+      <div class="stat-val" id="newWebYday">—</div>
+      <div class="stat-sub" id="newWebYdaySub">—</div>
+    </div>
+    <!-- TSSC-COURSEMOCK-V1: mock tests today, course by course — candidates, of whom new / paid / free -->
+    <div class="stat-card course-card">
+      <div class="stat-head">
+        <div class="stat-label" style="margin-bottom:0;">📚 Mock Tests by Course Today</div>
+        <div class="stat-sub" id="courseMockSub" style="margin-top:0;">—</div>
+      </div>
+      <div class="course-scroll" id="courseMockBody"><div class="course-empty">Loading…</div></div>
+    </div>
   </div>
 
   <!-- Controls (revealed once the candidate list is actually loaded) -->
@@ -558,6 +606,78 @@ function mockPlan(a){
   // TSSC-CHSLPAY-V1 — the CHSL series has its own free band (Mock 1-2).
   const isChsl = /ssc[-_]?chsl/i.test([a.exam, a.mockId, a.mockName, a.examName, a.testName].filter(Boolean).join(' '));
   return n <= (isChsl ? FREE_MOCK_MAX_CHSL : FREE_MOCK_MAX) ? 'free' : 'paid';
+}
+
+// ── TSSC-COURSEMOCK-V1: which course a mock attempt belongs to ──────────────
+// Read from the mockId prefix the players write (ssc-cgl_tier1_mock5_en,
+// ssc-chsl_tier2_mock3_hi, rrb-ntpc_cbt1_mock2_en, subject mocks add __quant…),
+// falling back to the exam field. `module` is the entitlement key of that
+// course's pass — a candidate holding it (or All Access / all-mocks) is "paid".
+// A new series only needs one line here.
+const MOCK_COURSES = [
+  { key:'cgl-aic',  label:'SSC CGL Tier-2 All India Challenge', re:/^ssc-cgl_aic_/i,    module:'ssc-cgl-mocks' },
+  { key:'chsl-aic', label:'SSC CHSL Tier-1 All India Challenge', re:/^ssc-chsl_aic_/i,  module:'ssc-chsl-mocks' },
+  { key:'cgl-t1',   label:'SSC CGL Tier 1',                re:/^ssc-cgl_tier1_/i,       module:'ssc-cgl-mocks' },
+  { key:'cgl-t2',   label:'SSC CGL Tier 2',                re:/^ssc-cgl_tier2_/i,       module:'ssc-cgl-mocks' },
+  { key:'cgl-p2',   label:'SSC CGL Paper II (JSO Statistics)', re:/^ssc-cgl_paper2_/i,  module:'ssc-cgl-mocks' },
+  { key:'cgl-p3',   label:'SSC CGL Paper III (AAO)',       re:/^ssc-cgl_paper3_/i,      module:'ssc-cgl-mocks' },
+  { key:'chsl-t1',  label:'SSC CHSL Tier 1',               re:/^ssc-chsl_tier1_/i,      module:'ssc-chsl-mocks' },
+  { key:'chsl-t2',  label:'SSC CHSL Tier 2',               re:/^ssc-chsl_tier2_/i,      module:'ssc-chsl-mocks' },
+  { key:'gd',       label:'SSC GD',                        re:/^ssc-gd_/i,              module:'ssc-gd-mocks' },
+  { key:'mts',      label:'SSC MTS',                       re:/^ssc-mts_/i,             module:'ssc-mts-mocks' },
+  { key:'cpo',      label:'SSC CPO',                       re:/^ssc-cpo_/i,             module:'ssc-cpo-mocks' },
+  { key:'ntpc',     label:'RRB NTPC',                      re:/^rrb-ntpc_/i,            module:'rrb-ntpc-mocks' },
+  { key:'sm',       label:'RRB Station Master',            re:/^rrb-sm_/i,              module:'rrb-sm-mocks' },
+  { key:'groupd',   label:'RRB Group D',                   re:/^rrb-(group-?d|grpd)_/i, module:'rrb-group-d-mocks' }
+];
+const COURSE_BY_KEY = Object.fromEntries(MOCK_COURSES.map(c => [c.key, c]));
+const COURSE_EXAM_FALLBACK = { 'ssc-cgl':'cgl-t1', 'ssc-chsl':'chsl-t1', 'ssc-gd':'gd', 'ssc-mts':'mts', 'ssc-cpo':'cpo', 'rrb-ntpc':'ntpc', 'rrb-sm':'sm' };
+
+function mockCourse(a){
+  const id = String(a.baseMockId || a.mockId || '').trim();
+  if(id){ const c = MOCK_COURSES.find(c => c.re.test(id)); if(c) return c; }
+  const ex = String(a.exam || '').toLowerCase().trim();
+  let key = COURSE_EXAM_FALLBACK[ex];
+  if(key && /^ssc-(cgl|chsl)$/.test(ex) && String(a.tier || '').toLowerCase() === 'tier2') key = key.replace('-t1','-t2');
+  if(key) return COURSE_BY_KEY[key];
+  return { key:'other', label:'Other / untagged', module:null };
+}
+
+// ── TSSC-APPWEB-V1: app vs website ─────────────────────────────────────────
+// The Android app stamps users/{uid} with appUser, lastAppOpen / lastAppSeen
+// (every open / resume), lastAppTest (every test) and, on sign-up,
+// signupVia:'android-app'; its Dashboard tab also writes dashboardLastOpened
+// like dashboard.html does, plus appDashLastOpened. Attempts from both land in
+// the same attempts collection, so every test card already counts both.
+const _istDate = d => new Date(d.getTime() + 5.5*3600*1000).toISOString().slice(0,10);
+// Signed up in the app. Builds older than the signupVia field are caught by the
+// first app day being the sign-up day.
+function isAppSignup(u){
+  if(!u) return false;
+  if(u.signupVia) return u.signupVia === 'android-app';
+  const c = u.createdAt && u.createdAt.toDate ? u.createdAt.toDate() : null;
+  return !!(u.appUser && c && Array.isArray(u.appDays) && u.appDays.length && String(u.appDays[0]) === _istDate(c));
+}
+// uids / doc ids of everyone who used the app inside the current report window.
+let appTodayIds = new Set();
+let drillSrc = '';   // '' | 'app' | 'web' — narrows the 'new' drill to one sign-up source
+
+// Entitlement docs (entitlements/{uid}) of today's mock takers — filled by loadStats().
+let entByUid = new Map();
+let entReadFailed = false;
+function _grantOn(g){
+  if(!g || g.active !== true) return false;
+  const e = g.expiresAt;
+  if(!e) return true;
+  const ms = e.toDate ? e.toDate().getTime() : (e.seconds ? e.seconds*1000 : Date.parse(e));
+  return !isFinite(ms) || ms > Date.now();
+}
+// true = this candidate holds an active pass that opens this course's paid mocks.
+function hasCoursePass(uid, course){
+  const d = entByUid.get(uid);
+  if(!d) return false;
+  const m = d.modules || {};
+  return _grantOn(d.allAccess) || _grantOn(m['all-mocks']) || (!!course.module && _grantOn(m[course.module]));
 }
 
 // Readable name for a single attempt — the paper the candidate actually sat.
@@ -777,14 +897,17 @@ window.loadStats = async () => {
     // TSSC-DASHVISIT-V1 — dashboardLastOpened is stamped by dashboard.html on
     // every open; users who never opened it have no such field and are skipped
     // by the range filter, so the ">= epoch" count = everyone who ever opened it.
-    const [uCount, aCount, activeSnap, joinSnap, attSnap, dashSnap, dashEverCount] = await Promise.all([
+    // TSSC-APPWEB-V1 — appSnap: everyone the app saw since the range start
+    // (lastAppSeen is stamped on every app open / resume).
+    const [uCount, aCount, activeSnap, joinSnap, attSnap, dashSnap, dashEverCount, appSnap] = await Promise.all([
       getCountFromServer(usersCol),
       getCountFromServer(attCol),
       getDocs(query(usersCol, where('lastActive','>=', rangeStart))),
       getDocs(query(usersCol, where('createdAt','>=', rangeStart))),
       getDocs(query(attCol,   where('timestamp','>=', reportStart))),
       getDocs(query(usersCol, where('dashboardLastOpened','>=', rangeStart))),
-      getCountFromServer(query(usersCol, where('dashboardLastOpened','>=', new Date(0))))
+      getCountFromServer(query(usersCol, where('dashboardLastOpened','>=', new Date(0)))),
+      getDocs(query(usersCol, where('lastAppSeen','>=', rangeStart))).catch(e => { console.warn('[stats] app query failed:', e.message); return { forEach(){} }; })
     ]);
 
     totalUsersCount    = uCount.data().count;
@@ -792,11 +915,28 @@ window.loadStats = async () => {
 
     // Keep the list itself, not just the count — the Active Today card opens it.
     const activeUsersToday = [];
+    const _activeSeen = new Set();
+    const usedAppToday = u => [u.lastAppSeen, u.lastAppOpen, u.lastAppTest].map(_td).some(inDay);
+    appTodayIds = new Set();
+    const _addActive = u => { const k = u.uid || u.id; if(!_activeSeen.has(k)){ _activeSeen.add(k); activeUsersToday.push(u); } };
     activeSnap.forEach(d => {
       const u = {id:d.id, ...d.data()};
       cacheUser(u);
-      if(inDay(_td(u.lastActive))) activeUsersToday.push(u);
+      if(inDay(_td(u.lastActive))) _addActive(u);
     });
+    // TSSC-APPWEB-V1 — app users count as active the moment they open the app,
+    // test or no test (lastActive is only written after a test).
+    appSnap.forEach(d => {
+      const u = {id:d.id, ...d.data()};
+      cacheUser(u);
+      if(usedAppToday(u)){
+        if(u.id)  appTodayIds.add(u.id);
+        if(u.uid) appTodayIds.add(u.uid);
+        _addActive(u);
+      }
+    });
+    activeUsersToday.forEach(u => { if(usedAppToday(u)){ if(u.id) appTodayIds.add(u.id); if(u.uid) appTodayIds.add(u.uid); } });
+    const onApp = u => appTodayIds.has(u.uid || u.id);
 
     // Candidates who opened dashboard.html inside the report window, plus the
     // all-time count of distinct candidates who have ever opened it.
@@ -816,7 +956,7 @@ window.loadStats = async () => {
     let newUsersYesterday = 0, futureJoins = 0;
     // Keep the joined-today candidates themselves, not just a tally — every
     // "N new" figure below is a membership test against this set.
-    const newUsersTodayList = [];
+    const newUsersTodayList = [], newUsersYdayList = [];
     newTodayIds = new Set();
     joinSnap.forEach(d => {
       const u = {id:d.id, ...d.data()};
@@ -828,7 +968,7 @@ window.loadStats = async () => {
         if(u.id)  newTodayIds.add(u.id);
         if(u.uid) newTodayIds.add(u.uid);
       }
-      else if(inYday(c)) newUsersYesterday++;
+      else if(inYday(c)){ newUsersYesterday++; newUsersYdayList.push(u); }
     });
     const newUsersToday = newUsersTodayList.length;
     const isNew = id => !!id && newTodayIds.has(id);
@@ -843,7 +983,7 @@ window.loadStats = async () => {
     // no mark and cannot be counted. Same Mobile/Google rule as the table below.
     const isMobileAcct = u => !(u.loginMethod === 'google' || u.email);
     const mobileSeen = new Map();   // id → user, every doc the three range queries returned
-    [activeSnap, joinSnap, dashSnap].forEach(snap => snap.forEach(d => {
+    [activeSnap, joinSnap, dashSnap, appSnap].forEach(snap => snap.forEach(d => {
       const u = {id:d.id, ...d.data()};
       cacheUser(u);
       mobileSeen.set(u.uid || u.id, u);
@@ -851,7 +991,7 @@ window.loadStats = async () => {
     const mobileTodayList = [], mobileMonthList = [];
     mobileSeen.forEach(u => {
       if(!isMobileAcct(u)) return;
-      const whens = [u.lastActive, u.dashboardLastOpened, u.createdAt].map(_td);
+      const whens = [u.lastActive, u.dashboardLastOpened, u.createdAt, u.lastAppOpen, u.lastAppSeen].map(_td);
       if(whens.some(inDay))   mobileTodayList.push(u);
       if(whens.some(inMonth)) mobileMonthList.push(u);
     });
@@ -885,29 +1025,41 @@ window.loadStats = async () => {
     // Names for anyone who sat a test today but isn't in the active-today slice.
     await resolveUsers(todaysAttempts.map(a => a.uid));
 
+    // TSSC-COURSEMOCK-V1 — pass status of today's mock takers (30 docs per request).
+    await loadMockEntitlements(todaysAttempts.filter(a => attemptType(a) === 'mock').map(a => a.uid));
+
     // Hand the same numbers to the drill-down panels.
     todayCtx = { attempts: todaysAttempts, activeUsers: activeUsersToday, newUsers: newUsersTodayList, dashUsers: dashUsersToday, mobileUsers: mobileTodayList, reportStart, reportEnd };
     if(document.getElementById('drillModal').classList.contains('open')) renderDrill();
 
     // "N new" = of the candidates counted on this card, how many signed up today.
+    // TSSC-APPWEB-V1 — "📲 N app": of the card's candidates, how many sat a test in the
+    // app today (lastAppTest); the rest tested on the website.
+    const appTestIn = set => [...set].filter(id => { const u = userCache.get(id); return !!u && inDay(_td(u.lastAppTest)); }).length;
+    const appWeb = (nApp, nAll) => '<br><span style="color:var(--green);">📲 '+nApp+' app</span> · <span style="color:var(--blue);">🌐 '+(nAll-nApp)+' web</span>';
     const subLine = (attempts, users) =>
-      attempts+' attempt'+(attempts===1?'':'s')+' · <span class="nu">'+newIn(users)+' new</span>';
+      attempts+' attempt'+(attempts===1?'':'s')+' · <span class="nu">'+newIn(users)+' new</span>' + appWeb(appTestIn(users), users.size);
     const newActive  = activeUsersToday.filter(u => isNew(u.uid || u.id)).length;
     const newTesting = newIn(testTakersToday);   // joined today AND sat at least one test
 
     document.getElementById('totalUsers').textContent = detailsLoaded ? allUsers.length    : totalUsersCount;
     document.getElementById('totalTests').textContent = detailsLoaded ? allAttempts.length : totalAttemptsCount;
     document.getElementById('activeToday').textContent = activeUsersToday.length;
-    document.getElementById('activeTodaySub').innerHTML = '<span class="nu">'+newActive+' new</span> · '+testTakersToday.size+' sat a test';
+    const appActive = activeUsersToday.filter(onApp).length;
+    document.getElementById('activeTodaySub').innerHTML = '<span class="nu">'+newActive+' new</span> · '+testTakersToday.size+' sat a test'
+      + appWeb(appActive, activeUsersToday.length);
     const newDash = dashUsersToday.filter(u => isNew(u.uid || u.id)).length;
     document.getElementById('dashToday').textContent = dashUsersToday.length;
+    const appDash = dashUsersToday.filter(u => inDay(_td(u.appDashLastOpened))).length;
     document.getElementById('dashTodaySub').innerHTML = '<span class="nu">'+newDash+' new</span> · '
+      + '<span style="color:var(--green);">📲 '+appDash+' app</span> · <span style="color:var(--blue);">🌐 '+(dashUsersToday.length-appDash)+' web</span> · '
       + dashEver + ' ever opened it'
       + (totalUsersCount ? ' <span style="opacity:0.7;">(' + Math.round(dashEver*100/totalUsersCount) + '% of all)</span>' : '');
     const newMobile = mobileTodayList.filter(u => isNew(u.uid || u.id)).length;
     document.getElementById('mobileToday').textContent = mobileTodayList.length;
     document.getElementById('mobileTodaySub').innerHTML = '<span class="nu">'+newMobile+' new</span> · '
       + (mobileTodayList.length - newMobile) + ' existing'
+      + ' · <span style="color:var(--green);">📲 ' + mobileTodayList.filter(onApp).length + ' app</span>'
       + '<br><span style="color:var(--green);font-weight:600;">' + mobileMonthList.length + ' this month</span>'
       + ' <span style="opacity:0.7;">(' + mobileNewMonth + ' new · ' + (mobileMonthList.length - mobileNewMonth) + ' existing · since 7 AM ' + _dLabel(monthStart) + ')</span>';
     document.getElementById('pyqToday').textContent = pyqUsersToday.size;
@@ -928,6 +1080,19 @@ window.loadStats = async () => {
       + '<span style="color:var(--muted);font-weight:600;">'+(newUsersToday-newTesting)+' did not</span>';
     document.getElementById('newUsersYesterday').textContent = newUsersYesterday;
     document.getElementById('newUsersYesterdaySub').textContent = '7 AM '+_dLabel(ydayStart)+' → 7 AM '+_dLabel(reportStart);
+    // TSSC-APPWEB-V1 — sign-ups split by source; app + web = the New Users card.
+    const appNewToday = newUsersTodayList.filter(isAppSignup), webNewToday = newUsersTodayList.filter(u => !isAppSignup(u));
+    const appNewYday  = newUsersYdayList.filter(isAppSignup).length;
+    const tested = list => list.filter(u => testTakersToday.has(u.uid) || testTakersToday.has(u.id)).length;
+    const testLine = list => { const t = tested(list); return '<span style="color:var(--green);font-weight:600;">'+t+' gave a test</span> · <span style="color:var(--muted);font-weight:600;">'+(list.length-t)+' did not</span>'; };
+    document.getElementById('newAppToday').textContent = appNewToday.length;
+    document.getElementById('newAppTodaySub').innerHTML = testLine(appNewToday);
+    document.getElementById('newWebToday').textContent = webNewToday.length;
+    document.getElementById('newWebTodaySub').innerHTML = testLine(webNewToday);
+    document.getElementById('newAppYday').textContent = appNewYday;
+    document.getElementById('newWebYday').textContent = newUsersYesterday - appNewYday;
+    document.getElementById('newAppYdaySub').textContent = document.getElementById('newWebYdaySub').textContent = '7 AM '+_dLabel(ydayStart)+' → 7 AM '+_dLabel(reportStart);
+    renderCourseCard();
     stamp.textContent = 'Updated: '+new Date().toLocaleTimeString('en-IN',{timeZone:IST_TZ})+' IST · report day 7 AM–7 AM IST'
       + (futureJoins ? ' · ⚠ '+futureJoins+' future-dated join'+(futureJoins===1?'':'s') : '');
 
@@ -936,6 +1101,66 @@ window.loadStats = async () => {
     stamp.textContent = '⚠ Stats error: ' + e.message;
   }
 };
+
+// ── TSSC-COURSEMOCK-V1: entitlements of today's mock takers ────────────────
+// Only the uids that sat a mock today are read (documentId 'in', 30 at a time),
+// so the card costs a handful of reads, not the whole entitlements collection.
+async function loadMockEntitlements(uids){
+  entByUid = new Map();
+  entReadFailed = false;
+  const want = [...new Set(uids.filter(Boolean))];
+  const col = collection(db,'entitlements');
+  for(let i=0; i<want.length; i+=30){
+    try{
+      const snap = await getDocs(query(col, where(documentId(),'in', want.slice(i,i+30))));
+      snap.forEach(d => entByUid.set(d.id, d.data() || {}));
+    }catch(e){ entReadFailed = true; console.warn('[course card] entitlements read failed:', e.message); return; }
+  }
+}
+
+// Course rows: unique candidates who sat a mock of that course today, and of
+// them how many joined today (new), hold that course's pass (paid) or not (free).
+// New overlaps paid/free; paid + free = candidates.
+function courseStats(){
+  const rows = new Map();
+  todayCtx.attempts.forEach(a => {
+    if(attemptType(a) !== 'mock') return;
+    const c = mockCourse(a);
+    if(!rows.has(c.key)) rows.set(c.key, { course:c, uids:new Set(), attempts:0 });
+    const r = rows.get(c.key);
+    r.attempts++;
+    if(a.uid) r.uids.add(a.uid);
+  });
+  return [...rows.values()].map(r => {
+    const uids = [...r.uids];
+    const paid = uids.filter(u => hasCoursePass(u, r.course)).length;
+    return { ...r, total: uids.length, newC: uids.filter(u => newTodayIds.has(u)).length, paid, free: uids.length - paid };
+  }).sort((a,b) => b.total - a.total || b.attempts - a.attempts || a.course.label.localeCompare(b.course.label));
+}
+
+function renderCourseCard(){
+  const body = document.getElementById('courseMockBody');
+  const sub  = document.getElementById('courseMockSub');
+  if(!body) return;
+  const rows = courseStats();
+  const allMockUids = new Set();
+  todayCtx.attempts.forEach(a => { if(attemptType(a) === 'mock' && a.uid) allMockUids.add(a.uid); });
+  sub.innerHTML = rows.length + ' course' + (rows.length===1?'':'s') + ' · ' + allMockUids.size + ' unique candidate' + (allMockUids.size===1?'':'s')
+    + (entReadFailed ? ' · <span style="color:var(--red);">⚠ pass status not readable — paid shows 0</span>' : '');
+  if(!rows.length){ body.innerHTML = '<div class="course-empty">No mock test attempted yet in this report window</div>'; return; }
+  const sum = k => rows.reduce((n,r) => n + r[k], 0);
+  body.innerHTML = `<table class="course-tbl">
+    <thead><tr><th>Course</th><th>Candidates</th><th>New</th><th>Paid</th><th>Free</th><th>Attempts</th></tr></thead>
+    <tbody>${rows.map(r => `<tr tabindex="0" onclick="showDrill('course:${r.course.key}')" onkeydown="if(event.key==='Enter'){showDrill('course:${r.course.key}');}" title="View candidates">
+      <td>${esc(r.course.label)}</td>
+      <td class="c-tot">${r.total}</td>
+      <td class="c-new">${r.newC}</td>
+      <td class="c-paid">${r.paid}</td>
+      <td class="c-free">${r.free}</td>
+      <td class="c-att">${r.attempts}</td></tr>`).join('')}</tbody>
+    ${rows.length > 1 ? `<tfoot><tr><td>Total (a candidate in 2 courses counts in both)</td><td>${sum('total')}</td><td>${sum('newC')}</td><td>${sum('paid')}</td><td>${sum('free')}</td><td>${sum('attempts')}</td></tr></tfoot>` : ''}
+  </table>`;
+}
 
 // ── HEAVY LOAD: every candidate + every attempt, on demand only ────────────
 window.loadCandidates = async () => {
@@ -1084,17 +1309,32 @@ const DRILL_TITLES = {
   mobile:'Mobile (OTP) logins today'
 };
 
+// Today's sign-ups, narrowed to the app or the website when a split card was opened.
+function drillNewUsers(){
+  if(drillSrc === 'app') return todayCtx.newUsers.filter(isAppSignup);
+  if(drillSrc === 'web') return todayCtx.newUsers.filter(u => !isAppSignup(u));
+  return todayCtx.newUsers;
+}
+
 function dayLabel(dt){ return dt ? dt.toLocaleDateString('en-IN',{day:'numeric',month:'short',timeZone:IST_TZ}) : '—'; }
 
 // The attempts this drill is about. 'active' shows everything done today so the
 // list explains what each active candidate was actually up to.
 function drillAttempts(){
+  // TSSC-COURSEMOCK-V1: one course row from the "Mock Tests by Course" card
+  if(drillKind.startsWith('course:')){
+    const k = drillKind.slice(7);
+    return todayCtx.attempts.filter(a => attemptType(a) === 'mock' && mockCourse(a).key === k);
+  }
   if(drillKind === 'pyq')     return todayCtx.attempts.filter(a => attemptType(a) === 'pyq');
   if(drillKind === 'mock')    return todayCtx.attempts.filter(a => attemptType(a) === 'mock');
   if(drillKind === 'chapter') return todayCtx.attempts.filter(a => attemptType(a) === 'chapter');
   if(drillKind === 'pyqch')   return todayCtx.attempts.filter(a => attemptType(a) === 'pyqch');
   // Everything today's signups attempted, whichever kind of paper it was.
-  if(drillKind === 'new')     return todayCtx.attempts.filter(a => newTodayIds.has(a.uid));
+  if(drillKind === 'new'){
+    const ids = new Set(); drillNewUsers().forEach(u => { if(u.uid) ids.add(u.uid); if(u.id) ids.add(u.id); });
+    return todayCtx.attempts.filter(a => ids.has(a.uid));
+  }
   // Whatever today's dashboard visitors attempted, so the list shows if a
   // dashboard visit went with a test or was just a look at old results.
   if(drillKind === 'dashboard'){
@@ -1128,7 +1368,12 @@ function typeTag(a){
 // Badge for a candidate who signed up inside the current report window.
 function newTag(u){
   const id = u ? (u.uid || u.id) : null;
-  return id && newTodayIds.has(id) ? '<span class="drill-new">NEW</span>' : '';
+  const isNew = id && newTodayIds.has(id);
+  // TSSC-APPWEB-V1: where the candidate came from today — 📲 app or 🌐 web
+  const src = !id ? '' : (isNew ? isAppSignup(u) : appTodayIds.has(id))
+    ? '<span class="drill-new" style="background:rgba(0,196,122,0.15);color:var(--green);">📲 APP</span>'
+    : (isNew ? '<span class="drill-new" style="background:rgba(107,114,128,0.22);color:#9CA3AF;">🌐 WEB</span>' : '');
+  return (isNew ? '<span class="drill-new">NEW</span>' : '') + src;
 }
 
 // " · 6 paid · 3 free" for a set of attempts, empty when none of them are mocks.
@@ -1138,8 +1383,9 @@ function planNote(atts){
   return (paid || free) ? ` · ${paid} paid · ${free} free` : '';
 }
 
-window.showDrill = (kind) => {
+window.showDrill = (kind, src) => {
   drillKind = kind;
+  drillSrc = src || '';
   drillView = 'candidate';
   document.getElementById('drillSearch').value = '';
   renderDrill();
@@ -1159,7 +1405,10 @@ window.renderDrill = () => {
   const atts = drillAttempts();
   const body = document.getElementById('drillBody');
 
-  document.getElementById('drillTitle').textContent = DRILL_TITLES[drillKind];
+  const _ck = drillKind.startsWith('course:') ? (COURSE_BY_KEY[drillKind.slice(7)] || { label:'Other / untagged' }) : null;
+  document.getElementById('drillTitle').textContent = _ck ? _ck.label + ' — mock tests today'
+    : (drillKind === 'new' && drillSrc) ? (drillSrc === 'app' ? '📲 New app candidates today' : '🌐 New website candidates today')
+    : DRILL_TITLES[drillKind];
   document.getElementById('drillNote').textContent =
     'Report window: 7 AM ' + dayLabel(todayCtx.reportStart) + ' → 7 AM ' + dayLabel(todayCtx.reportEnd) + ' IST';
   document.getElementById('tabCandidate').classList.toggle('on', drillView === 'candidate');
@@ -1178,7 +1427,7 @@ window.renderDrill = () => {
     if(drillKind === 'active') todayCtx.activeUsers.forEach(u => { touch(u.uid || u.id).user = u; });
     // Same for today's signups — a new candidate who attempted nothing is the
     // most useful row on that card, so they must not be dropped.
-    if(drillKind === 'new') todayCtx.newUsers.forEach(u => { touch(u.uid || u.id).user = u; });
+    if(drillKind === 'new') drillNewUsers().forEach(u => { touch(u.uid || u.id).user = u; });
     // Dashboard visitors with no attempt today are the whole point of that card.
     if(drillKind === 'dashboard') todayCtx.dashUsers.forEach(u => { touch(u.uid || u.id).user = u; });
     // Mobile sign-ins who did nothing after logging in are the point of that card too.
@@ -1209,6 +1458,9 @@ window.renderDrill = () => {
     if(drillKind === 'new') notRows.sort((a,b) => joinedAt(b) - joinedAt(a) || candidateName(a.user).localeCompare(candidateName(b.user)));
     if(drillKind === 'new'){
       html += `<div class="drill-note">${rows.length} joined today · <span style="color:var(--green);">${didRows.length} attempted a test</span> · ${notRows.length} did not · ${totalAtt} attempt${totalAtt===1?'':'s'}${planNote(atts)}</div>`;
+    } else if(_ck){
+      const paidRows = rows.filter(g => hasCoursePass(g.uid, _ck)).length;
+      html += `<div class="drill-note">${rows.length} candidate${rows.length===1?'':'s'} · ${newRows} new · <span style="color:var(--orange);">${paidRows} paid</span> · ${rows.length-paidRows} free · ${totalAtt} attempt${totalAtt===1?'':'s'}</div>`;
     } else {
       html += `<div class="drill-note">${rows.length} candidate${rows.length===1?'':'s'} · ${totalAtt} attempt${totalAtt===1?'':'s'} · ${newRows} joined today${planNote(atts)}</div>`;
     }
@@ -1223,7 +1475,7 @@ window.renderDrill = () => {
       const meta = [u && u.phone ? esc(u.phone) : null, u && u.email ? esc(u.email) : null, joined, 'last active ' + last, dash]
         .filter(Boolean).join(' · ');
       const nameHtml = u
-        ? `<div class="drill-name" onclick="openCandidate('${u.id}')">${esc(candidateName(u))}${newTag(u)}</div>`
+        ? `<div class="drill-name" onclick="openCandidate('${u.id}')">${esc(candidateName(u))}${newTag(u)}${_ck ? (hasCoursePass(g.uid, _ck) ? ' <span class="drill-tag paid">PAID</span>' : ' <span class="drill-tag free">FREE</span>') : ''}</div>`
         : `<div class="drill-name" style="cursor:default;color:var(--muted);">${esc(candidateName(null))}</div>`;
       const idleText = drillKind === 'dashboard' ? 'Opened the dashboard — no test attempted in this window'
                      : drillKind === 'mobile'    ? 'Mobile-OTP account seen today — no test attempted in this window'
@@ -1340,7 +1592,7 @@ window.exportDrill = () => {
   // put them in the sheet too, one row each with the test columns blank.
   if(drillKind === 'new' || drillKind === 'mobile'){
     const tested = new Set(drillAttempts().map(a => a.uid));
-    (drillKind === 'new' ? todayCtx.newUsers : todayCtx.mobileUsers).forEach(u => {
+    (drillKind === 'new' ? drillNewUsers() : todayCtx.mobileUsers).forEach(u => {
       const uid = u.uid || u.id;
       if(tested.has(uid)) return;
       if(q){
@@ -1357,7 +1609,7 @@ window.exportDrill = () => {
   const csv = rows.map(r => r.map(x => `"${String(x).replace(/"/g,'""')}"`).join(',')).join('\n');
   const a = document.createElement('a');
   a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
-  a.download = 'TrickySSC_' + drillKind + '_today_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.download = 'TrickySSC_' + drillKind.replace(':','-') + (drillKind === 'new' && drillSrc ? '-' + drillSrc : '') + '_today_' + new Date().toISOString().slice(0,10) + '.csv';
   a.click();
 };
 
