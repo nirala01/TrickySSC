@@ -137,7 +137,7 @@
       '<a class="rp-all" href="' + H + 'ssc-chsl-mock-test.html?pass=all">' +
         '<span class="rp-who"><span class="rp-tag">ALL ACCESS PASS</span>' +
           '<span class="rp-nm">All Mocks Pass \u00B7 1 year</span>' +
-          '<span class="rp-ct">SSC CGL + CHSL + GD + MTS + RRB NTPC + Station Master \u00B7 430 mocks</span>' +
+          '<span class="rp-ct">SSC CGL + CHSL + GD + MTS + RRB NTPC + Station Master \u00B7 440 mocks</span>' +
           '<span class="rp-up">New mock series join automatically</span></span>' +
         '<span class="rp-pr"><span class="rp-was">' + R + '294</span><span class="rp-now">' + R + '99</span>' +
           '<span class="rp-sv">SAVE ' + R + '195</span></span>' +
@@ -155,13 +155,13 @@
       '</div>' +
       '<div class="rp-lbl" data-rp-lbl="combo">COMBO OFFERS \u00B7 2 EXAMS</div>' +
       '<div class="rp-cbs" data-rp-group="combo">' +
-        combo('ssc-cgl-mocks ssc-chsl-mocks', 'ssc-chsl-mock-test.html?combo=1', 'SSC CGL + SSC CHSL', '190 mocks \u00B7 100 CGL + 90 CHSL') +
+        combo('ssc-cgl-mocks ssc-chsl-mocks', 'ssc-chsl-mock-test.html?combo=1', 'SSC CGL + SSC CHSL', '200 mocks \u00B7 110 CGL + 90 CHSL') +
         combo('ssc-chsl-mocks ssc-gd-mocks', 'ssc-gd-mock-test.html?combo=1', 'SSC CHSL + SSC GD', '150 mocks \u00B7 90 CHSL + 60 GD') +
         combo('ssc-mts-mocks ssc-gd-mocks', 'ssc-mts-mock-test.html?combo=1', 'SSC MTS + SSC GD', '120 mocks \u00B7 60 MTS + 60 GD') +
       '</div>' +
       '<div class="rp-lbl" data-rp-lbl="single">SINGLE EXAM PASS \u00B7 1 YEAR</div>' +
       '<div class="rp-sgs" data-rp-group="single">' +
-        single('cgl', 'ssc-cgl-mocks', 'ssc-chsl-mocks', 'ssc-cgl-mock-test.html', 'SSC CGL', '100 mocks') +
+        single('cgl', 'ssc-cgl-mocks', 'ssc-chsl-mocks', 'ssc-cgl-mock-test.html', 'SSC CGL', '110 mocks') +
         single('chsl', 'ssc-chsl-mocks', 'ssc-cgl-mocks', 'ssc-chsl-mock-test.html', 'SSC CHSL', '90 mocks') +
         single('gd', 'ssc-gd-mocks', 'ssc-chsl-mocks', 'ssc-gd-mock-test.html', 'SSC GD', '60 mocks') +
         single('mts', 'ssc-mts-mocks', '', 'ssc-mts-mock-test.html', 'SSC MTS', '60 mocks') +

@@ -162,7 +162,7 @@ class SecTest {
 
 /// The exams built into this build. [exams] starts as this list and is replaced by catalog.json (see [Catalog]).
 const List<Exam> _builtIn = [
-  Exam('cgl', 'ssc-cgl', 'SSC CGL', 'Graduate level', '🎯', 'ssc-cgl-mocks', '100 mocks', 4, Color(0xFFEA580C), Color(0xFFFDA047), '100 Qs · 60 min', true,
+  Exam('cgl', 'ssc-cgl', 'SSC CGL', 'Graduate level', '🎯', 'ssc-cgl-mocks', '110 mocks', 4, Color(0xFFEA580C), Color(0xFFFDA047), '100 Qs · 60 min', true,
       bands: {'reasoning': [1, 25], 'gk': [26, 50], 'quant': [51, 75], 'english': [76, 100]},
       pyqPages: ['app-ssc-cgl-pyq.html', 'app-ssc-cgl-tier-2-pyq.html'],
       chExtra: ['computer', 'finance', 'statistics'],

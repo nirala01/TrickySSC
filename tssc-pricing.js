@@ -59,7 +59,7 @@
         price: 49,   /* TSSC-DUSSEHRA-V1: price not increased */
         mrp: 199, durationDays: 365,
         live: true, order: 1,
-        blurb: 'All 50 Tier I + all 50 Tier II mocks, including every mock released during the year.' }
+        blurb: 'All 50 Tier I + all 60 Tier II mocks, including every mock released during the year.' }
     ]
   };
 
