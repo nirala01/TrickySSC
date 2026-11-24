@@ -500,8 +500,7 @@ class _AppShellState extends State<AppShell> {
             )
           else
           _MocksTab(
-            top2: exam.id == 'ssc-cgl' && aicCgl.on ? AicEntryCard(user: widget.user, exam: exam, series: aicCgl) : null,
-            top1: exam.id == 'ssc-chsl' && aicChsl.on ? AicEntryCard(user: widget.user, exam: exam, series: aicChsl) : null,
+            // the Challenge Mock card is on Home only (not on the Mocks tab)
             onSubject: (k) => setState(() => _mockSub = k),
             exam: exam,
             mocks: _mocks,
