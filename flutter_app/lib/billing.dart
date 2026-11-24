@@ -437,12 +437,62 @@ class Billing with WidgetsBindingObserver {
   }
 
   /// Opens the "choose a pass" sheet for this exam.
+  // TSSC-PLANS-LOADING-V1: a "Loading plans…" box from the tap until the plans sheet opens, so the
+  // lock button gives an instant response and a second tap does nothing.
+  bool _opening = false;
   Future<void> showBuySheet(BuildContext context, Exam exam) async {
+    if (_opening) return;
+    _opening = true;
+    final nav = Navigator.of(context, rootNavigator: true);
+    var loading = true;
+    showDialog<void>(
+      context: context,
+      useRootNavigator: true,
+      barrierDismissible: false,
+      barrierColor: Colors.black38,
+      builder: (_) => PopScope(
+        canPop: false,
+        child: Center(
+          child: Material(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            child: const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 18),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.6, color: Color(0xFF6D28D9))),
+                SizedBox(width: 14),
+                Text('Loading plans…', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Color(0xFF1E293B))),
+              ]),
+            ),
+          ),
+        ),
+      ),
+    );
+    void closeLoad() {
+      if (!loading) return;
+      loading = false;
+      _opening = false;
+      try {
+        nav.pop();
+      } catch (_) {}
+    }
+
+    try {
+      await _buySheet(context, exam, closeLoad);
+    } finally {
+      closeLoad();
+    }
+  }
+
+  Future<void> _buySheet(BuildContext context, Exam exam, VoidCallback closeLoad) async {
     final u = FirebaseAuth.instance.currentUser;
     if (u == null) return;
     final q = await quote();
     if (!context.mounted) return;
-    if (q != null && q.offer) return showUpgradeSheet(context, exam, q);
+    if (q != null && q.offer) {
+      closeLoad();
+      return showUpgradeSheet(context, exam, q);
+    }
     // combos that include this exam, from admin-pricing
     final combos = <String, String>{}; // play id -> label
     // TSSC-SM-PRICING-V1: as on the website, this exam's own pass is sold only while a live admin-pricing
@@ -469,6 +519,7 @@ class Billing with WidgetsBindingObserver {
       }
     } catch (_) {}
     if (!context.mounted) return;
+    closeLoad();
     ProductDetails? find(String id) {
       for (final d in products) {
         if (d.id == id) return d;
