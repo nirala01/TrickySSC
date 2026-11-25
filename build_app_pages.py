@@ -38,6 +38,10 @@ PAGES = {
     'rrb-ntpc-gk-mock-test.html': 'mocks',
     'rrb-ntpc-maths-mock-test.html': 'mocks',
     'rrb-ntpc-reasoning-mock-test.html': 'mocks',
+    'rrb-ntpc-ug-mock-test.html': 'mocks',   # TSSC-NTPCUG-V1
+    'rrb-ntpc-ug-gk-mock-test.html': 'mocks',   # TSSC-NTPCUG-V1
+    'rrb-ntpc-ug-maths-mock-test.html': 'mocks',   # TSSC-NTPCUG-V1
+    'rrb-ntpc-ug-reasoning-mock-test.html': 'mocks',   # TSSC-NTPCUG-V1
     'ssc-cgl-computer-mock-test.html': 'mocks',
     'ssc-cgl-english-mock-test.html': 'mocks',
     'ssc-cgl-gk-mock-test.html': 'mocks',
@@ -69,6 +73,9 @@ PAGES = {
     'rrb-ntpc-gk-previous-year-questions.html': 'pyq',
     'rrb-ntpc-maths-previous-year-questions.html': 'pyq',
     'rrb-ntpc-reasoning-previous-year-questions.html': 'pyq',
+    'rrb-ntpc-ug-gk-previous-year-questions.html': 'pyq',
+    'rrb-ntpc-ug-maths-previous-year-questions.html': 'pyq',
+    'rrb-ntpc-ug-reasoning-previous-year-questions.html': 'pyq',
     'ssc-cgl-english-previous-year-questions.html': 'pyq',
     'ssc-cgl-gk-previous-year-questions.html': 'pyq',
     'ssc-cgl-quant-previous-year-questions.html': 'pyq',
@@ -94,6 +101,7 @@ PAGES = {
     'ssc-chsl-pyq.html': 'pyq',
     'ssc-gd-pyq.html': 'pyq',
     'rrb-ntpc-pyq.html': 'pyq',
+    'rrb-ntpc-ug-pyq.html': 'pyq',
     'ssc-pyq-chapterwise.html': 'chapters',   # chapter-wise PYQs: subject list only
     'login.html': 'login',          # sign-in screen: no tabs, no back bar
 }

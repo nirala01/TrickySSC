@@ -55,6 +55,8 @@ EXAMS = {
     "ssc-cpo":  {"name": "SSC CPO",  "tiered": True,  "hub": "ssc-cpo-pyq.html",  "mock": "",                        "cw": ""},
     # TSSC-NTPC-PYQ-V1 (2026-11-13): RRB NTPC papers join the same chapter pages, labelled "RRB NTPC <year> · <date> · <shift>"
     "rrb-ntpc": {"name": "RRB NTPC", "tiered": False, "hub": "rrb-ntpc-pyq.html", "mock": "rrb-ntpc-mock-test.html", "cw": ""},
+    # TSSC-NTPCUG-V1 (2026-11-25): the Undergraduate (10+2) papers are their own exam id, labelled "RRB NTPC UG <year> · <date> · <shift>"
+    "rrb-ntpc-ug": {"name": "RRB NTPC UG", "tiered": False, "hub": "rrb-ntpc-ug-pyq.html", "mock": "rrb-ntpc-ug-mock-test.html", "cw": ""},
     # TSSC-SM-PYQ-V1 (2026-11-18): exam id rrb-sm holds the RRB Section Controller CBT 2026 papers shown on the Station Master PYQ page
     "rrb-sm":   {"name": "RRB Section Controller", "tiered": False, "hub": "rrb-station-master-pyq.html", "mock": "rrb-station-master-mock-test.html", "cw": ""},
 }
@@ -144,6 +146,7 @@ def norm_shift(v):
 
 def norm_exam(v):
     v = str(v or "").strip().lower().replace("_", "-").replace(" ", "-")
+    if v in ("ntpc-ug", "rrb-ntpc-ug", "rrbntpcug", "ntpcug"): return "rrb-ntpc-ug"   # TSSC-NTPCUG-V1
     if v in ("ntpc", "rrb-ntpc", "rrbntpc"): return "rrb-ntpc"          # TSSC-NTPC-PYQ-V1: not an SSC exam — never prefix it
     return v if v.startswith(("ssc-", "rrb-")) else ("ssc-" + v if v else "")
 

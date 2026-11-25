@@ -35,7 +35,7 @@ import argparse, json, os, re, sys, urllib.request
 PROJECT = "trickyssc-17bb3"
 API_KEY = "AIzaSyC4kjEYEZ6Zit9su9V5xpUhMd7vLhE90zA"   # public web key, same as the pages use
 COLLECTION = "mock_tests"
-NAME_RE = re.compile(r"(ssc-[a-z]+|rrb-ntpc|rrb-sm)_(tier[12]|cbt1|paper[23])_mock(\d+)", re.I)   # TSSC-T2PAPER-V1: CGL Paper II / III ids are ssc-cgl_paper2_mockN / ssc-cgl_paper3_mockN   # TSSC-NTPC-MOCKLIVE-V1: NTPC ids are rrb-ntpc_cbt1_mockN
+NAME_RE = re.compile(r"(ssc-[a-z]+|rrb-ntpc-ug|rrb-ntpc|rrb-sm)_(tier[12]|cbt1|paper[23])_mock(\d+)", re.I)   # TSSC-T2PAPER-V1: CGL Paper II / III ids are ssc-cgl_paper2_mockN / ssc-cgl_paper3_mockN   # TSSC-NTPC-MOCKLIVE-V1: NTPC ids are rrb-ntpc_cbt1_mockN
 
 # (exam, tier) -> pages that carry that series' cards
 SERIES = {
@@ -56,6 +56,9 @@ SERIES = {
     # TSSC-NTPC-MOCKLIVE-V1: NTPC CBT-1 is one paper stored as tier1/cbt1; its cards are data-mock="rrb-ntpc_cbt1_mockN"
     ("rrb-ntpc", "tier1"): ["rrb-ntpc-mock-test.html", "rrb-ntpc-maths-mock-test.html", "rrb-ntpc-reasoning-mock-test.html",
                             "rrb-ntpc-gk-mock-test.html"],
+    # TSSC-NTPCUG-V1: RRB NTPC Undergraduate CBT-1, same shape as the Graduate series; cards are data-mock="rrb-ntpc-ug_cbt1_mockN"
+    ("rrb-ntpc-ug", "tier1"): ["rrb-ntpc-ug-mock-test.html", "rrb-ntpc-ug-maths-mock-test.html", "rrb-ntpc-ug-reasoning-mock-test.html",
+                               "rrb-ntpc-ug-gk-mock-test.html"],
     # TSSC-SM-MOCK-V1: RRB Station Master CBT, one paper stored as tier1/cbt1; cards are data-mock="rrb-sm_cbt1_mockN"
     ("rrb-sm", "tier1"):   ["rrb-station-master-mock-test.html",   # TSSC-SM-SUBJMOCK-V1: + the four section-wise pages
                             "rrb-station-master-maths-science-mock-test.html", "rrb-station-master-data-interpretation-mock-test.html",
@@ -72,6 +75,8 @@ BAR_PAGES = {
                  "ssc-mts-gk-mock-test.html", "ssc-mts-english-mock-test.html"],
     "rrb-ntpc": ["rrb-ntpc-mock-test.html", "rrb-ntpc-maths-mock-test.html", "rrb-ntpc-reasoning-mock-test.html",
                  "rrb-ntpc-gk-mock-test.html"],
+    "rrb-ntpc-ug": ["rrb-ntpc-ug-mock-test.html", "rrb-ntpc-ug-maths-mock-test.html", "rrb-ntpc-ug-reasoning-mock-test.html",
+                    "rrb-ntpc-ug-gk-mock-test.html"],
     "rrb-sm":   ["rrb-station-master-mock-test.html",
                  "rrb-station-master-maths-science-mock-test.html", "rrb-station-master-data-interpretation-mock-test.html",
                  "rrb-station-master-logical-capability-mock-test.html", "rrb-station-master-mental-reasoning-mock-test.html"],
@@ -93,7 +98,7 @@ PAID_TAG = ('\n  <div class="mc-lock mc-paid-tag">'
             '\n  <button class="mc-locktag" type="button" '
             'aria-label="Premium mock — unlock to attempt">'
             '<i>&#128274;</i>Unlock</button>')
-FREE_UPTO = {"ssc-cgl": 4, "ssc-chsl": 2, "ssc-gd": 2, "ssc-mts": 2, "rrb-ntpc": 3, "rrb-sm": 3}   # TSSC-NTPC-MOCKLIVE-V1: NTPC Mock 1-3 free   # TSSC-MTS-MOCK-V1: MTS Mock 1-2 free   # TSSC-GDFREE-V1: GD Mock 1-2 free (all free till 7 Nov 2026, then the Rs 49 pass)
+FREE_UPTO = {"ssc-cgl": 4, "ssc-chsl": 2, "ssc-gd": 2, "ssc-mts": 2, "rrb-ntpc": 3, "rrb-ntpc-ug": 3, "rrb-sm": 3}   # TSSC-NTPC-MOCKLIVE-V1: NTPC Mock 1-3 free   # TSSC-MTS-MOCK-V1: MTS Mock 1-2 free   # TSSC-GDFREE-V1: GD Mock 1-2 free (all free till 7 Nov 2026, then the Rs 49 pass)
 
 
 # ----------------------------------------------------------------- Firestore
@@ -148,7 +153,7 @@ def fetch_published():
 
 
 # --------------------------------------------------------------------- pages
-CARD_TIER = {"rrb-ntpc": "cbt1", "rrb-sm": "cbt1"}   # TSSC-NTPC-MOCKLIVE-V1: the tier word used in an exam's card ids
+CARD_TIER = {"rrb-ntpc": "cbt1", "rrb-ntpc-ug": "cbt1", "rrb-sm": "cbt1"}   # TSSC-NTPC-MOCKLIVE-V1: the tier word used in an exam's card ids
 
 
 def flip_cards(s, exam, tier, nums):

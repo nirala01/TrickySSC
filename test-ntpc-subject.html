@@ -1484,7 +1484,7 @@ const NTPC_SECTION_MIN={quant:27,reasoning:27,gk:36};
 if(SUBJ&&NTPC_SECTION_MIN[subjectKey]) SECTION_DUR=NTPC_SECTION_MIN[subjectKey]*60;
 (function(){ try{ const li=document.getElementById('instrTimeLi'); const b=li&&li.querySelectorAll('strong')[1]; if(b) b.textContent=Math.round(SECTION_DUR/60)+'-minute'; }catch(_){} })();
 const SUBJ_PID_SUFFIX=SUBJ?('__'+subjectKey):'';
-const SUBJ_PAGE={quant:'rrb-ntpc-maths-previous-year-questions.html',reasoning:'rrb-ntpc-reasoning-previous-year-questions.html',gk:'rrb-ntpc-gk-previous-year-questions.html'};
+const SUBJ_PAGE=(/^rrb-ntpc-ug$/i.test(new URLSearchParams(location.search).get('exam')||''))?{quant:'rrb-ntpc-ug-maths-previous-year-questions.html',reasoning:'rrb-ntpc-ug-reasoning-previous-year-questions.html',gk:'rrb-ntpc-ug-gk-previous-year-questions.html'}:{quant:'rrb-ntpc-maths-previous-year-questions.html',reasoning:'rrb-ntpc-reasoning-previous-year-questions.html',gk:'rrb-ntpc-gk-previous-year-questions.html'};   /* TSSC-NTPCUG-V1: the Undergraduate papers (exam=rrb-ntpc-ug) go back to their own subject pages */
 const SUBJ_PAGE_T2=SUBJ_PAGE;   /* GD: single CBE */
 (function(){ const b=document.getElementById('subjBackBtn'); if(b&&SUBJ){ b.href='https://trickyssc.com/'+(IS_TIER2?SUBJ_PAGE_T2:SUBJ_PAGE)[subjectKey]; b.textContent='← More '+SUBJ.short+' PYQ tests'; b.style.display='inline-block'; } })();
 (function(){
@@ -1604,7 +1604,7 @@ function tsscRenderPlans(){
     +'<div class="cwo-upg"><b>Already have a CGL or CHSL pass?</b> Existing users can upgrade — add the other series for just <b>₹29</b>. '
       +'Click any plan: we check your pass first and show you only what you still need. <span lang="hi">पहले से पास है? दूसरी सीरीज़ सिर्फ़ ₹29 में जोड़ें।</span></div>'
     +'<p class="cwo-foot">All mocks in Hindi &amp; English with solutions, rank and analysis · one payment, nothing more to pay as new mocks release · previous year papers and chapter tests stay free.</p>'
-    +'<p class="cwo-foot">Preparing for RRB NTPC? <a href="'+H+'rrb-ntpc-mock-test.html">Free RRB NTPC mock tests →</a></p>'
+    +((/^rrb-ntpc-ug$/i.test(new URLSearchParams(location.search).get('exam')||''))?'<p class="cwo-foot">Preparing for RRB NTPC UG? <a href="'+H+'rrb-ntpc-ug-mock-test.html">Free RRB NTPC UG mock tests →</a></p>':'<p class="cwo-foot">Preparing for RRB NTPC? <a href="'+H+'rrb-ntpc-mock-test.html">Free RRB NTPC mock tests →</a></p>')   /* TSSC-NTPCUG-V1 */
     +'</div>';
   box.querySelectorAll('[data-plan]').forEach(a=>a.addEventListener('click',tsscPlanClick));
 }
@@ -2066,7 +2066,7 @@ async function loadTest(){
     }
 
     // ── Build title ──
-    const examNames={'ssc-cgl':'SSC CGL','ssc-chsl':'SSC CHSL','ssc-mts':'SSC MTS','ssc-cpo':'SSC CPO','ssc-gd':'SSC GD Constable','rrb-ntpc':'RRB NTPC','ssc-je':'SSC JE','ssc-jht':'SSC JHT'};
+    const examNames={'ssc-cgl':'SSC CGL','ssc-chsl':'SSC CHSL','ssc-mts':'SSC MTS','ssc-cpo':'SSC CPO','ssc-gd':'SSC GD Constable','rrb-ntpc':'RRB NTPC','rrb-ntpc-ug':'RRB NTPC UG','ssc-je':'SSC JE','ssc-jht':'SSC JHT'};
     const tierLabels={'tier1':'Tier I','tier-1':'Tier I','tier2':'Tier II','tier-2':'Tier II'};
     const eName=mockMeta?.title||(examNames[exam]||(exam||'').toUpperCase().replace(/-/g,' '));
     const tLabel=tier?(tierLabels[tier.toLowerCase()]||tier):'';
@@ -2451,7 +2451,7 @@ window.submitReport=async function(){
   if(!_reportReason){ alert('Please choose what is wrong with this question.'); return; }
   const sb=document.getElementById('reportSubmitBtn'); if(sb){sb.disabled=true;sb.textContent='Submitting…';}
   const q=questions[_reportQIdx]||{};
-  const _examNamesR={'ssc-cgl':'SSC CGL','ssc-chsl':'SSC CHSL','ssc-mts':'SSC MTS','ssc-cpo':'SSC CPO','ssc-gd':'SSC GD','rrb-ntpc':'RRB NTPC','ssc-je':'SSC JE','ssc-jht':'SSC JHT'};
+  const _examNamesR={'ssc-cgl':'SSC CGL','ssc-chsl':'SSC CHSL','ssc-mts':'SSC MTS','ssc-cpo':'SSC CPO','ssc-gd':'SSC GD','rrb-ntpc':'RRB NTPC','rrb-ntpc-ug':'RRB NTPC UG','ssc-je':'SSC JE','ssc-jht':'SSC JHT'};
   const _tName=(mockMeta&&mockMeta.title)||((_examNamesR[exam]||(exam||'').toUpperCase().replace(/-/g,' '))+(year?(' '+year):''));
   try{
     await setDoc(doc(collection(db,'question_reports')),{
@@ -3049,7 +3049,7 @@ window.submitTest=async()=>{
   if((correct+wrong)===0){ setSaveUi('saved','ℹ️ No question was attempted, so this result is not saved.'); isSubmitting=false; return; }
   const attemptId=`${currentUser.uid}_${exam||'exam'}_${year||'na'}_${Date.now()}`;
   // Build a readable exam name for dashboard display
-  const _examNames={'ssc-cgl':'SSC CGL','ssc-chsl':'SSC CHSL','ssc-mts':'SSC MTS','ssc-cpo':'SSC CPO','ssc-gd':'SSC GD','rrb-ntpc':'RRB NTPC','ssc-jht':'SSC JHT','ssc-je':'SSC JE'};
+  const _examNames={'ssc-cgl':'SSC CGL','ssc-chsl':'SSC CHSL','ssc-mts':'SSC MTS','ssc-cpo':'SSC CPO','ssc-gd':'SSC GD','rrb-ntpc':'RRB NTPC','rrb-ntpc-ug':'RRB NTPC UG','ssc-jht':'SSC JHT','ssc-je':'SSC JE'};
   const _examLabel = mockMeta?.title || ((_examNames[exam]||(exam||'').toUpperCase().replace(/-/g,' '))+(year?' '+year:'')+(SUBJ?' · '+SUBJ.short+' PYQ':''));
   const _basePid=new URLSearchParams(window.location.search).get('paperId')||'';
   // Subject attempts are stored under `<paperId>__<subject>` so they never mark

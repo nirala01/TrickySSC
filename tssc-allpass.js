@@ -39,6 +39,7 @@
   function mainPage() {
     var p = location.pathname;
     if (/rrb-station-master/.test(p)) return 'rrb-station-master-mock-test.html';
+    if (/rrb-ntpc-ug/.test(p)) return 'rrb-ntpc-ug-mock-test.html';   /* TSSC-NTPCUG-V1 */
     if (/rrb-ntpc/.test(p)) return 'rrb-ntpc-mock-test.html';
     if (/ssc-mts/.test(p))  return 'ssc-mts-mock-test.html';
     if (/ssc-gd/.test(p))   return 'ssc-gd-mock-test.html';

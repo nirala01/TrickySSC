@@ -1,0 +1,68 @@
+# .github/workflows/build-ntpc-ug-pyq.yml
+#
+# Rebuilds the static RRB NTPC UG PYQ list (hub + the three subject-wise
+# pages) so newly uploaded NTPC UG papers become crawlable HTML links. Mirrors the
+# CHSL build but reads the small `papers` cards, not the questions collection.
+# Before the first NTPC UG paper is uploaded every run is a harmless no-op.
+
+name: Build RRB NTPC UG PYQ page
+
+on:
+  schedule:
+    - cron: '20 21 * * 6'     # once a week: Sunday 2:50 AM IST (press Run workflow after an upload)
+  workflow_dispatch:            # rebuild by hand right after an upload
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-ntpc-ug-pyq
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Bake the paper list into rrb-ntpc-ug-pyq.html and the three subject-wise NTPC UG PYQ pages
+        run: |
+          python build_ntpc_ug_pyq_page.py \
+            --page rrb-ntpc-ug-pyq.html \
+            --sitemap sitemap-ntpc-ug-pyq.xml
+
+      - name: Commit if anything changed
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for f in rrb-ntpc-ug-pyq.html sitemap-ntpc-ug-pyq.xml \
+            rrb-ntpc-ug-maths-previous-year-questions.html rrb-ntpc-ug-reasoning-previous-year-questions.html \
+            rrb-ntpc-ug-gk-previous-year-questions.html; do
+            [ -f "$f" ] && git add "$f"
+          done
+          if git diff --cached --quiet; then
+            echo "No NTPC UG paper changes — nothing to commit."
+            exit 0
+          fi
+
+          # NO [skip ci] HERE. GitHub Pages publishes via the `pages build and
+          # deployment` workflow and [skip ci] suppresses it — the commit lands on
+          # main and the site keeps serving the old file (that is what hid 8 CHSL
+          # papers on 2026-08-20). This workflow runs only on schedule/dispatch,
+          # never on push, so there is no loop to guard against.
+          git commit -m "chore: rebuild RRB NTPC UG PYQ list"
+
+          for i in 1 2 3; do
+            if git push; then
+              echo "pushed on attempt $i"
+              exit 0
+            fi
+            echo "push rejected — rebasing onto origin/main and retrying"
+            git pull --rebase --autostash origin main
+          done
+          echo "::error::could not push after 3 attempts"
+          exit 1

@@ -1682,7 +1682,7 @@ const MTS_TIMED=/^ssc-mts_/i.test(new URLSearchParams(location.search).get('mock
 /* TSSC-NTPC-MOCK-V1 — RRB NTPC Graduate CBT-1: ONE mixed section of 100 questions on a single
    90-minute clock (GA 40, Maths 30, Reasoning 30 interleaved, as in the real paper). The whole
    paper is one timed unit and one section tab; subjects are read from each question. */
-const NTPC_TIMED=/^rrb-ntpc_/i.test(new URLSearchParams(location.search).get('mockId')||'');
+const NTPC_TIMED=/^rrb-ntpc(-ug)?_/i.test(new URLSearchParams(location.search).get('mockId')||'');
 /* TSSC-SM-MOCK-V1 — RRB Station Master (CEN 08/2026) CBT: 100 questions on ONE 120-minute clock,
    shown as three section tabs with free movement between them (Q1-60 Basic Science, Mathematical and
    Analytical Capability; Q61-80 Logical Capability; Q81-100 Mental Reasoning). +1 / −1/3. */
@@ -1845,14 +1845,15 @@ const TG_IS_GD       = /^ssc-gd_/i.test(new URLSearchParams(location.search).get
      Session II = General Awareness Q41-65 + English Q66-90                  — −1 per wrong answer
    The Hindi paper is Q1-65 in Hindi; Q66-90 are the same English questions. */
 const TG_IS_MTS      = /^ssc-mts_/i.test(new URLSearchParams(location.search).get('mockId')||'');
-const TG_IS_NTPC     = /^rrb-ntpc_/i.test(new URLSearchParams(location.search).get('mockId')||'');   /* TSSC-NTPC-MOCK-V1: mockId rrb-ntpc_cbt1_mockN_<lang>, pass key rrb-ntpc-mocks, Mock 1-3 free, +1 / −1/3 */
+const TG_IS_NTPCUG   = /^rrb-ntpc-ug_/i.test(new URLSearchParams(location.search).get('mockId')||'');   /* TSSC-NTPCUG-V1 (2026-11-25): RRB NTPC Undergraduate, mockId rrb-ntpc-ug_cbt1_mockN_<lang>, pass key rrb-ntpc-ug-mocks, Mock 1-3 free, +1 / −1/3; same paper shape as the Graduate CBT-1 */
+const TG_IS_NTPC     = /^rrb-ntpc(-ug)?_/i.test(new URLSearchParams(location.search).get('mockId')||'');   /* TSSC-NTPC-MOCK-V1: mockId rrb-ntpc_cbt1_mockN_<lang>, pass key rrb-ntpc-mocks, Mock 1-3 free, +1 / −1/3 */
 const TG_IS_SM       = /^rrb-sm_/i.test(new URLSearchParams(location.search).get('mockId')||'');     /* TSSC-SM-MOCK-V1: mockId rrb-sm_cbt1_mockN_<lang>, pass key rrb-sm-mocks, Mock 1-3 free, +1 / −1/3 */
 const TG_POS         = (TG_IS_NTPC||TG_IS_SM) ? 1 : TG_IS_MTS ? 3 : 2;               /* marks for a correct answer */
 const TG_NEG         = (TG_IS_NTPC||TG_IS_SM) ? (1/3) : TG_IS_MTS ? 1 : (TG_IS_GD ? 0.25 : 0.5);   /* marks lost per wrong answer (MTS: Session II only) */
 window.TSSC_MK       = [TG_POS, TG_NEG];                 /* read by the review panel below */
 /* TSSC-MTS-MOCK-V1 — negative marks for one question: MTS Session I (Q1-40) carries none */
 function tgNegFor(q,i){ if(!TG_IS_MTS) return TG_NEG; const n=parseInt(q&&q.qNum,10)||(i+1); return n>40?1:0; }
-const TG_MODULE      = TG_IS_SM ? 'rrb-sm-mocks' : TG_IS_NTPC ? 'rrb-ntpc-mocks' : TG_IS_MTS ? 'ssc-mts-mocks' : (TG_IS_GD ? 'ssc-gd-mocks' : (TG_IS_CHSL ? 'ssc-chsl-mocks' : 'ssc-cgl-mocks'));
+const TG_MODULE      = TG_IS_SM ? 'rrb-sm-mocks' : TG_IS_NTPC ? (TG_IS_NTPCUG ? 'rrb-ntpc-ug-mocks' : 'rrb-ntpc-mocks') : TG_IS_MTS ? 'ssc-mts-mocks' : (TG_IS_GD ? 'ssc-gd-mocks' : (TG_IS_CHSL ? 'ssc-chsl-mocks' : 'ssc-cgl-mocks'));
 /* CHSL FREE PERIOD (Sep 2026): every CHSL mock is free while Tier 1 is being released.
    To switch the CHSL pass on, set TG_CHSL_FREE_ALL to false (Mock 1-2 stay free). */
 const TG_CHSL_FREE_ALL = false;   /* TSSC-CHSLPAY-V1 2026-10-05: CHSL pass ON, Mock 1-2 free */
@@ -1860,7 +1861,7 @@ const TG_GD_FREE_ALL   = false;   /* TSSC-GDFREE-V1 2026-11-04: Mock 1-2 free, M
 const TG_MTS_FREE_ALL  = false;   /* TSSC-MTS-MOCK-V1: Mock 1-2 free, Mock 3+ need the SSC MTS pass. Set true to open every MTS mock. */
 const TG_FREE_UP_TO  = (TG_IS_NTPC||TG_IS_SM) ? 3 : TG_IS_MTS ? (TG_MTS_FREE_ALL ? 999 : 2) : (TG_IS_GD ? (TG_GD_FREE_ALL ? 999 : 2) : (TG_IS_CHSL ? (TG_CHSL_FREE_ALL ? 999 : 2) : 4));
 const TG_ENFORCE_FROM= (TG_IS_GD || TG_IS_MTS || TG_IS_NTPC || TG_IS_SM) ? null : (TG_IS_CHSL ? null : '2026-08-25T00:00:00+05:30');   // null = enforce now; TSSC-GDPAY-NOW-V1: GD pass live from 7 Nov 2026
-const TG_BUY_URL     = TG_IS_SM ? 'rrb-station-master-mock-test.html' : TG_IS_NTPC ? 'rrb-ntpc-mock-test.html' : TG_IS_MTS ? 'ssc-mts-mock-test.html' : TG_IS_GD ? 'ssc-gd-mock-test.html' : (TG_IS_CHSL ? 'ssc-chsl-mock-test.html' : 'ssc-cgl-mock-test.html');
+const TG_BUY_URL     = TG_IS_SM ? 'rrb-station-master-mock-test.html' : TG_IS_NTPC ? (TG_IS_NTPCUG ? 'rrb-ntpc-ug-mock-test.html' : 'rrb-ntpc-mock-test.html') : TG_IS_MTS ? 'ssc-mts-mock-test.html' : TG_IS_GD ? 'ssc-gd-mock-test.html' : (TG_IS_CHSL ? 'ssc-chsl-mock-test.html' : 'ssc-cgl-mock-test.html');
 
 /* TSSC-GD-MOCK-V1 — the instruction sheet and result card are written for −0.5;
    repaint the three static strings when a GD mock is open. */
@@ -1894,7 +1895,7 @@ if (TG_IS_NTPC) { try {
   document.querySelectorAll('.instr-marking-note').forEach(el => { el.innerHTML = el.innerHTML.replace(/Total marks = \(Correct &times; 2\) &minus; \(Wrong &times; 0\.5\)/, 'Total marks = Correct &minus; (Wrong &times; 1/3)'); });
   const w = document.querySelector('#statWrong + .stat-lbl span'); if (w) w.textContent = '−1/3 each';
   document.querySelectorAll('.instr-list li').forEach(li => {
-    if (/4 sections/.test(li.textContent)) li.innerHTML = 'This test is <strong>one section of 100 questions</strong>, as in the real RRB NTPC Graduate CBT-1: General Awareness 40, Mathematics 30 and General Intelligence &amp; Reasoning 30, mixed together. There are no separate section tabs.';
+    if (/4 sections/.test(li.textContent)) li.innerHTML = 'This test is <strong>one section of 100 questions</strong>, as in the real RRB NTPC '+(TG_IS_NTPCUG?'Undergraduate':'Graduate')+' CBT-1: General Awareness 40, Mathematics 30 and General Intelligence &amp; Reasoning 30, mixed together. There are no separate section tabs.';
     else if (/15-minute/.test(li.textContent)) li.innerHTML = 'This test runs on a <strong>single 90-minute timer</strong> for all 100 questions, as in the real RRB NTPC exam. There is no sectional timing.';
     else if (/When a section/.test(li.textContent)) li.innerHTML = 'When the timer reaches zero, the test is submitted automatically.';
     else if (/Submit Section/.test(li.textContent)) li.innerHTML = 'You can finish early with the <strong>Submit Test</strong> button.';
@@ -2010,7 +2011,7 @@ function tgShowLocked(mockNum){
     +'margin-bottom:0.6rem;">Mock Test '+mockNum+' is part of Premium</div>'
     +'<div style="font-size:0.9rem;opacity:0.9;line-height:1.65;margin-bottom:1.5rem;">'
     +'Mock 1 to '+TG_FREE_UP_TO+' are free to attempt. Unlock the full series &mdash; '
-    +(TG_IS_SM?'all 60 RRB Station Master mocks &mdash; with one payment.':TG_IS_NTPC?'all 60 RRB NTPC mocks and every subject-wise test &mdash; with one payment.':TG_IS_MTS?'all 60 SSC MTS mocks and every subject-wise test &mdash; with one payment.':TG_IS_GD?'all 60 SSC GD mocks and every subject-wise test &mdash; for &#8377;49 a year.':'all Tier I and Tier II mocks &mdash; with one payment.')+'</div>'
+    +(TG_IS_SM?'all 60 RRB Station Master mocks &mdash; with one payment.':TG_IS_NTPC?(TG_IS_NTPCUG?'all 40 RRB NTPC UG mocks and every subject-wise test &mdash; with one payment.':'all 60 RRB NTPC mocks and every subject-wise test &mdash; with one payment.'):TG_IS_MTS?'all 60 SSC MTS mocks and every subject-wise test &mdash; with one payment.':TG_IS_GD?'all 60 SSC GD mocks and every subject-wise test &mdash; for &#8377;49 a year.':'all Tier I and Tier II mocks &mdash; with one payment.')+'</div>'
     +'<a href="'+TG_BUY_URL+'" style="display:inline-block;background:white;color:#FF6B00;'
     +'font-family:\'Rajdhani\',sans-serif;font-weight:700;font-size:1rem;padding:0.7rem 2rem;'
     +'border-radius:10px;text-decoration:none;margin-bottom:1rem;">Unlock all mocks &rarr;</a><br>'
@@ -2425,7 +2426,7 @@ async function loadTest(){
     }
 
     // ── Build title ──
-    const examNames={'ssc-cgl':'SSC CGL','ssc-chsl':'SSC CHSL','ssc-mts':'SSC MTS','rrb-ntpc':'RRB NTPC','rrb-sm':'RRB Station Master','ssc-cpo':'SSC CPO','ssc-gd':'SSC GD Constable','ssc-je':'SSC JE','ssc-jht':'SSC JHT'};
+    const examNames={'ssc-cgl':'SSC CGL','ssc-chsl':'SSC CHSL','ssc-mts':'SSC MTS','rrb-ntpc':'RRB NTPC','rrb-ntpc-ug':'RRB NTPC UG','rrb-sm':'RRB Station Master','ssc-cpo':'SSC CPO','ssc-gd':'SSC GD Constable','ssc-je':'SSC JE','ssc-jht':'SSC JHT'};
     const tierLabels={'tier1':'Tier I','tier-1':'Tier I','tier2':'Tier II','tier-2':'Tier II'};
     const eName=mockMeta?.title||(examNames[exam]||(exam||'').toUpperCase().replace(/-/g,' '));
     const tLabel=tier?(tierLabels[tier.toLowerCase()]||tier):'';
@@ -3045,7 +3046,7 @@ function buildSections(){
   }
   if(NTPC_TIMED&&questions.length>0){   /* TSSC-NTPC-MOCK-V1: one section, one 90-minute unit */
     sections=[{name:'',label:'All Questions',from:0,to:questions.length-1}];
-    SESSIONS=[{name:'Paper',label:'RRB NTPC Paper',from:0,to:questions.length-1}];
+    SESSIONS=[{name:'Paper',label:(TG_IS_NTPCUG?'RRB NTPC UG Paper':'RRB NTPC Paper'),from:0,to:questions.length-1}];
   }
   if(SM_TIMED&&questions.length>0){   /* TSSC-SM-MOCK-V1: three section tabs, one 120-minute unit */
     const _qn=(q,i)=>parseInt(q.qNum,10)||(i+1);
@@ -3484,7 +3485,7 @@ window.imgFail = function (el) {
   if((correct+wrong)===0){ setSaveUi('saved','ℹ️ No question was attempted, so this result is not saved.'); isSubmitting=false; return; }
   const attemptId=`${currentUser.uid}_${exam||'exam'}_${year||'na'}_${Date.now()}`;
   // Build a readable exam name for dashboard display
-  const _examNames={'ssc-cgl':'SSC CGL','ssc-chsl':'SSC CHSL','ssc-mts':'SSC MTS','rrb-ntpc':'RRB NTPC','rrb-sm':'RRB Station Master','ssc-cpo':'SSC CPO','ssc-gd':'SSC GD','ssc-jht':'SSC JHT','ssc-je':'SSC JE'};
+  const _examNames={'ssc-cgl':'SSC CGL','ssc-chsl':'SSC CHSL','ssc-mts':'SSC MTS','rrb-ntpc':'RRB NTPC','rrb-ntpc-ug':'RRB NTPC UG','rrb-sm':'RRB Station Master','ssc-cpo':'SSC CPO','ssc-gd':'SSC GD','ssc-jht':'SSC JHT','ssc-je':'SSC JE'};
   const _examLabel = mockMeta?.title || ((_examNames[exam]||(exam||'').toUpperCase().replace(/-/g,' '))+(year?' '+year:''));
   const _pid=new URLSearchParams(window.location.search).get('paperId')||'';
   const _mid=new URLSearchParams(window.location.search).get('mockId')||'';
