@@ -2009,6 +2009,10 @@ function testUrl(a){
   if(isMock(a)){
     if(a.testKind==='mock-subject' && a.subjectKey){ const mid=a.baseMockId||String(a.mockId||'').replace(/__[a-z]+$/i,''); return (isTier2(a)?'mock-test-tier2-subject.html':'mock-test-subject.html')+'?exam='+(a.exam||'')+'&mockId='+encodeURIComponent(mid)+'&lang='+(mid.endsWith('_hi')?'hi':'en')+'&subject='+encodeURIComponent(a.subjectKey); }   /* TSSC-SUBJECT-MOCK-V1 */
     const mid=a.mockId||a.paperId||''; return (isTier2(a)?'mock-test-tier2.html':'mock-test.html')+'?exam='+(a.exam||'')+'&mockId='+encodeURIComponent(mid)+'&lang='+(mid.endsWith('_hi')?'hi':'en'); }
+  /* TSSC-SUBJREVIEW-V1: a subject-wise PYQ set (e.g. only Reasoning of a paper) opens on that exam's subject engine with the base paper id — the full-paper engine cannot find '<paper>__reasoning' and timed out */
+  if(a.testKind==='pyq-subject' && a.subjectKey){ const _bp=a.basePaperId||String(a.paperId||'').replace(/__[a-z]+$/i,''); const _se=a.exam==='ssc-gd'?'test-gd-subject.html':a.exam==='ssc-chsl'?'test-chsl-subject.html':a.exam==='rrb-ntpc'?'test-ntpc-subject.html':a.exam==='rrb-sm'?'test-sm-subject.html':'test-subject.html';
+    return _se+'?exam='+(a.exam||'')+(a.year?'&year='+a.year:'')+(_bp?'&paperId='+encodeURIComponent(_bp):'')+(/(_|-)(hi|hindi)$/i.test(_bp)?'&lang=hi':'')+'&subject='+encodeURIComponent(a.subjectKey); }
+  if(a.exam==='rrb-ntpc'||a.exam==='rrb-sm') return (a.exam==='rrb-ntpc'?'test-ntpc.html':'test-sm.html')+'?exam='+a.exam+(a.year?'&year='+a.year:'')+(a.paperId?'&paperId='+encodeURIComponent(a.paperId):'')+(/(_|-)(hi|hindi)$/i.test(String(a.paperId||''))?'&lang=hi':'');   /* NTPC / Station Master PYQs run on their own engines */
   return (a.exam==='ssc-gd'?'test-gd.html':a.exam==='ssc-chsl'?(isTier2(a)?'test-chsl-tier2.html':'test-chsl.html'):(isTier2(a)?'test-tier2.html':'test.html'))+'?exam='+(a.exam||'')+(a.year?'&year='+a.year:'')+(a.paperId?'&paperId='+encodeURIComponent(a.paperId):'');   /* TSSC-GD-MOCK-V1 */
 }
 /** subject marks map {Q:..,R:..} from subjectMarks or subjectStats */
