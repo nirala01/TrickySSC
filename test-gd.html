@@ -2848,7 +2848,7 @@ async function persistAttempt(payload,attemptId){
 
 async function persistWithRetry(payload,attemptId,retries=3){
   let lastErr;
-  for(let i=1;i<=retries;i++){try{await persistAttempt(payload,attemptId);return;}catch(e){lastErr=e;await new Promise(r=>setTimeout(r,600*i));}}
+  for(let i=1;i<=retries;i++){try{await Promise.race([persistAttempt(payload,attemptId),new Promise((_,rj)=>setTimeout(()=>rj(Object.assign(new Error('save timed out'),{tsscTimeout:1})),15000))]);return;}catch(e){lastErr=e;if(e&&e.tsscTimeout)break;await new Promise(r=>setTimeout(r,600*i));}}   /* TSSC-SAVESAFE-V1: a save that hangs (no internet) stops after 15 s and shows Retry */
   throw lastErr;
 }
 
@@ -3070,6 +3070,7 @@ window.submitTest=async()=>{
       const tq={}; _tl.forEach(x=>{ tq['q'+x.q]=String(x.r||'k')+Math.max(0,Math.round(Number(x.t)||0)); });
       return setDoc(doc(db,'qstats',_lbBase),{top:{m:_tm,tu:_tu,q:tq,at:serverTimestamp()}},{mergeFields:['top']});
     }).catch(()=>{}); } }catch(e){}
+  try{ localStorage.setItem('pending_attempt_'+attemptId,JSON.stringify(lastResultPayload)); }catch(_){}   /* TSSC-SAVESAFE-V1: backup kept until the save is confirmed; the dashboard re-sends it */
   try{await persistWithRetry(payload,attemptId,3);localStorage.removeItem('pending_attempt_'+attemptId);setSaveUi('saved','✅ Result saved successfully.');}
   catch(e){console.warn('Save failed:',e);localStorage.setItem('pending_attempt_'+attemptId,JSON.stringify(lastResultPayload));setSaveUi('error','⚠️ Could not save. Check internet and tap Retry Save.');}
   // Snapshot the finished result screen so returning via Back restores it (no restart)
