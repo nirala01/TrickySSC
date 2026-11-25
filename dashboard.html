@@ -1374,6 +1374,43 @@ async function loadDashboard(user) {
       profileAv.textContent = profileFirst[0].toUpperCase();
     }
 
+    // TSSC-PENDSAVE-V1 — a test whose save failed at Submit (connection dropped, page closed before
+    // Retry) is kept in this browser as pending_attempt_<id> by the test pages. Send it now, so the
+    // attempt and its analysis appear. Live All India Challenge attempts are left to tssc-aic.js.
+    if (effectiveUid === user.uid) {
+      try {
+        const _pk = [];
+        for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.indexOf('pending_attempt_') === 0) _pk.push(k); }
+        for (const k of _pk) {
+          try {
+            const x = JSON.parse(localStorage.getItem(k) || 'null'), p = x && x.payload;
+            if (!x || !x.attemptId || !p || p.uid !== user.uid) continue;
+            if (p.aic && (p.aic.live || p.aic.preview)) continue;
+            const ref = doc(db, 'attempts', x.attemptId);
+            if (!(await getDoc(ref)).exists()) {
+              await setDoc(ref, Object.assign({}, p, { timestamp: serverTimestamp() }), { merge: true });
+              // its leaderboard row too, if that also never got through
+              const _lb = String(p.paperId || p.mockId || '').replace(/([_\-])(hi|en|hindi|english)$/i, '');
+              if (_lb && p.type !== 'chapterwise' && p.type !== 'pyq-chapter') {
+                try {
+                  if (!(await getDoc(doc(db, 'leaderboards', _lb, 'scores', user.uid))).exists()) {
+                    const _t = Number(p.total) || 0;
+                    const lbm = await import('/leaderboard.js');
+                    await lbm.recordScore({ uid: user.uid, displayName: user.displayName, paperId: _lb, paperName: p.examName || '',
+                      marks: Number(p.marks) || 0, maxMarks: /^rrb-/i.test(String(p.exam || '')) ? _t : _t * 2,
+                      accuracy: p.percentage, subjectMarks: p.subjectMarks, timeUsed: p.timeUsed });
+                  }
+                } catch (e) { console.warn('[Dashboard] pending rank row:', e && e.message); }
+              }
+              try { sessionStorage.removeItem('tssc_attempts_' + user.uid); } catch (e) {}
+              console.log('[Dashboard] re-sent unsaved attempt', x.attemptId);
+            }
+            localStorage.removeItem(k);
+          } catch (e) { console.warn('[Dashboard] pending attempt not sent yet:', e && e.message); }
+        }
+      } catch (e) {}
+    }
+
     // Load attempts
     // No orderBy — avoids needing composite index; sort in JS instead
     const q = query(
