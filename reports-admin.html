@@ -160,6 +160,22 @@
   .vchk.ok{background:#DCFCE7;color:#14532D;}
   .vchk.bad{background:#FEE2E2;color:#7F1D1D;font-weight:600;}
   .vchk.na{background:#F1F5F9;color:#475569;}
+  /* ── TSSC-REVIEWALL-V1 ── */
+  .rv-item{border:1.5px solid #E2E8F0;border-radius:12px;padding:11px 13px;margin-bottom:10px;background:#fff;}
+  .rv-item.fixn{border-color:#FED7AA;background:#FFFBF5;}
+  .rv-item.okq{border-color:#BBF7D0;}
+  .rv-head{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px;}
+  .rv-head .sp{margin-left:auto;display:flex;gap:0;flex-wrap:wrap;}
+  .rv-diag{font-size:12.5px;line-height:1.55;color:#334155;margin:7px 0 4px;}
+  .rv-rep{border-top:1px dashed #E2E8F0;margin-top:8px;padding-top:8px;font-size:12.5px;line-height:1.5;}
+  .rv-rep .who{font-weight:700;color:#0F172A;}
+  .rv-draft{white-space:pre-wrap;font-size:12.5px;line-height:1.55;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:9px;padding:9px 11px;margin-top:6px;max-height:300px;overflow:auto;color:#1E293B;}
+  .rv-rep summary{cursor:pointer;font-size:12px;font-weight:700;color:#4338CA;margin-top:4px;}
+  .rv-tag{display:inline-block;font-size:11px;font-weight:800;padding:1px 8px;border-radius:99px;}
+  .rv-tag.fix{background:#FFEDD5;color:#9A3412;} .rv-tag.ok{background:#DCFCE7;color:#166534;} .rv-tag.un{background:#F1F5F9;color:#475569;} .rv-tag.err{background:#FEE2E2;color:#B91C1C;} .rv-tag.wait{background:#EEF2FF;color:#4338CA;}
+  .rv-bar{height:6px;background:#EEF2FF;border-radius:99px;overflow:hidden;flex:1;min-width:120px;}
+  .rvre{background:#EEF2FF;color:#4338CA;border:1.5px solid #C7D2FE;border-radius:8px;font-size:12px;font-weight:700;padding:6px 10px;cursor:pointer;}
+  .rv-bar i{display:block;height:100%;background:#4338CA;width:0;transition:width .3s;}
 </style>
 </head>
 <body>
@@ -192,6 +208,7 @@
               <option value="solution">Solution reports only</option>
             </select>
             <button class="btn btn-ghost" onclick="downloadCsv('reports')">Download CSV</button>
+            <button class="btn btn-indigo" id="revAllBtn" onclick="openReviewAll()" title="Claude Opus checks every reported question and drafts a reply to each student who reported it">🤖 Review all</button>
           </div>
           <h2>Most-flagged questions &amp; solutions</h2>
           <div id="reportAgg" class="muted">Loading…</div>
@@ -227,6 +244,19 @@
           <div id="ratingList" class="muted">Loading…</div>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- TSSC-REVIEWALL-V1: AI review of every reported question + a drafted reply to each reporter -->
+  <div id="revModal" class="modal hidden">
+    <div class="sheet" style="max-width:980px">
+      <div class="sheet-head">
+        <span class="t">🤖 Review all reports</span>
+        <span class="muted" id="revSub" style="margin-left:6px"></span>
+        <button class="x" onclick="closeReviewAll()">×</button>
+      </div>
+      <div class="sheet-body" id="revBody"></div>
+      <div class="sheet-foot" id="revFoot"></div>
     </div>
   </div>
 
@@ -461,6 +491,7 @@ async function loadAll(){
     RATINGS = []; qs.forEach(d=>RATINGS.push({id:d.id, ...d.data()}));
     renderReports(); renderRatings();
     resolveContacts();   /* TSSC-REPORTCONTACT-V2: fills mobile / email under each name afterwards */
+    revPlans();          /* TSSC-REVIEWALL-V1: current plans for the drafted replies */
   }catch(e){
     $('app').innerHTML = `<div class="card" style="color:#DC2626;">Couldn't read the collections: ${esc(e.message||e)}<br>
       <span class="muted">If this is a permissions error, update your Firestore rules so admins can read <code>question_reports</code> and <code>mock_ratings</code> (see the notes I shared).</span></div>`;
@@ -690,18 +721,18 @@ document.addEventListener('click', async (e)=>{
 
 /* ══════════════════════════════════════════════════════════════════
    AI AUTO-CORRECT
-   Locate the flagged question doc(s) → send to the AI (OpenAI) with the
+   Locate the flagged question doc(s) → send to the AI (Claude Opus) with the
    candidate's complaint → preview an editable field-level diff →
    approve → write to Firestore + audit log.
    ══════════════════════════════════════════════════════════════════ */
 
 // ── Config: adjust these if your worker/collections differ ──
-// TSSC-OPENAI-V1 (2026-10-27): moved from Claude (trickyssc-ai worker) to OpenAI via the
-// trickyssc-openai worker, which holds the OpenAI key and only answers signed-in admins.
-const AI_ENDPOINT   = "https://trickyssc-openai.nirala01.workers.dev";
-const AI_MODEL      = "gpt-6.1-sol";  // must be in the worker's ALLOWED_MODELS (gpt-6-astra = stronger, gpt-6.1-terra = cheaper)
-const AI_EFFORT     = "medium";       // reasoning effort: low | medium | high | xhigh
-// OpenAI counts its hidden reasoning inside the output cap, so these are set higher than the Claude values were.
+// TSSC-CLAUDE-V2 (2026-11-25): back on Claude — Claude Opus through the trickyssc-ai worker
+// (Anthropic Messages API; the worker holds the Anthropic key). Was OpenAI (TSSC-OPENAI-V1, 2026-10-27).
+const AI_ENDPOINT   = "https://trickyssc-ai.nirala01.workers.dev/";
+const AI_MODEL      = "claude-opus-5-5";   // Claude Opus. A cheaper option: "claude-sonnet-5-5"
+const AI_THINKING   = true;                // let Opus think before it answers (dropped automatically if the API refuses it)
+// The thinking is counted inside the output cap, so the caps stay generous.
 // You are only billed for tokens actually used, not for the cap.
 const AI_MAX_TOKENS  = 16000;        // correctness pass — short reply
 const SOL_MAX_TOKENS = 32000;        // solution rewrite — one document per call
@@ -905,6 +936,15 @@ async function locateDocs(baseId, qn){
   return found;
 }
 
+// One lookup at a time: locateDocs resets a shared chapter cache, and Review all
+// may be scanning while an AI Fix or 👁 Open is asked for.
+let LOC_LOCK = Promise.resolve();
+function locateLocked(baseId, qn){
+  const p = LOC_LOCK.then(() => locateDocs(baseId, qn));
+  LOC_LOCK = p.catch(() => {});
+  return p;
+}
+
 /* ══════════════════════════════════════════════════════════════════
    TSSC-QREWRITE-V1 (2026-10-05) — the AI may now change the QUESTION
    itself (text + options), not only the key and the solution.
@@ -1087,7 +1127,7 @@ window.openFix = async function(mockId, qNum){
     <div class="muted" style="margin-top:10px;">Finding the question in Firestore…</div></div>`;
 
   try{
-    FIX.docs = await locateDocs(mockId, qNum);
+    FIX.docs = await locateLocked(mockId, qNum);
   }catch(e){
     return fail('Lookup failed: '+(e.message||e));
   }
@@ -1488,35 +1528,34 @@ function parseAI(raw){
 // stop_reason, so never rely on it alone.
 const looksCut = raw => !/}\s*$/.test(stripFences(raw));
 
-// ── One API call (OpenAI Responses API through the trickyssc-openai worker) ──
+// ── One API call (Anthropic Messages API through the trickyssc-ai worker) ──
+let AI_THINK_OK = AI_THINKING;
 async function callAI(prompt, maxTokens){
-  const user = auth.currentUser;
-  if(!user) throw new Error('Not signed in — sign in again and retry.');
-  const token = await user.getIdToken();          // the worker checks this is an admin
-  const res = await fetch(AI_ENDPOINT, {
-    method:'POST',
-    headers:{'Content-Type':'application/json', 'Authorization':'Bearer '+token},
-    body: JSON.stringify({ model: AI_MODEL, max_output_tokens: maxTokens,
-      reasoning:{effort: AI_EFFORT}, input: prompt })
-  });
-  const j = await res.json().catch(()=>null);
-  if(!res.ok){
-    const m = j?.error?.message || j?.error || JSON.stringify(j||'');
-    throw new Error(`HTTP ${res.status} — ${String(m).slice(0,300)}`);
+  if(!auth.currentUser) throw new Error('Not signed in — sign in again and retry.');
+  const post = async think => {
+    const body = { model: AI_MODEL, max_tokens: maxTokens, messages:[{role:'user', content: prompt}] };
+    if(think) body.thinking = {type:'adaptive'};
+    const res = await fetch(AI_ENDPOINT, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    return {res, j: await res.json().catch(()=>null)};
+  };
+  const errOf = j => (j && (j.error || (j.type==='error' ? j : null))) || null;
+  let {res, j} = await post(AI_THINK_OK);
+  // the API (or the worker) does not take the thinking setting — carry on without it from now on
+  if(AI_THINK_OK && (!res.ok || errOf(j)) && /thinking/i.test(JSON.stringify(j||''))){
+    AI_THINK_OK = false;
+    ({res, j} = await post(false));
   }
-  // Collect the assistant text; if the model labels a final answer, use only that.
-  const msgs = Array.isArray(j?.output) ? j.output.filter(o => o && o.type==='message') : [];
-  const fin  = msgs.filter(o => o.phase==='final_answer');
-  const raw  = msgs.length
-    ? (fin.length ? fin : msgs).flatMap(o => o.content||[])
-        .filter(c => c && (c.type==='output_text' || c.type==='text')).map(c => c.text).join('\n')
-    : (typeof j?.output_text==='string' ? j.output_text : '');
-  const stop = (j?.status==='incomplete' && /max_output_tokens/.test(j?.incomplete_details?.reason||''))
-    ? 'max_tokens' : String(j?.status || '');
-  return {raw, stop};
+  const err = errOf(j);
+  if(!res.ok || err){
+    const m = (err && (err.message || (err.error && err.error.message))) || err || JSON.stringify(j||'');
+    throw new Error(`HTTP ${res.status} — ${String(typeof m==='string' ? m : JSON.stringify(m)).slice(0,300)}`);
+  }
+  // only the answer text — thinking blocks are left out
+  const raw = (Array.isArray(j?.content) ? j.content : []).filter(c => c && c.type==='text').map(c => c.text).join('\n');
+  return {raw, stop: String(j?.stop_reason || '')};
 }
 
-const aiFailMsg = e => `AI request failed: ${esc(e.message||e)}<br><span class="muted">Check that <code>${esc(AI_ENDPOINT)}</code> is deployed with the OPENAI_API_KEY secret, that it allows <code>${esc(AI_MODEL)}</code>, and that your OpenAI account has credit.</span>`;
+const aiFailMsg = e => `AI request failed: ${esc(e.message||e)}<br><span class="muted">Check that the <code>${esc(AI_ENDPOINT)}</code> worker is live, that its Anthropic API key is valid and has credit, and that it allows the model <code>${esc(AI_MODEL)}</code>.</span>`;
 
 function busyPane(stepLabel, line, sub){
   $('fixBody').innerHTML = `<div class="steps">1 · Located → <b>2 · ${stepLabel}</b> → 3 · Review → 4 · Publish</div>
@@ -2081,6 +2120,7 @@ async function applyFix(){
       });
     }catch(e){ console.warn('audit log failed', e); }
 
+    revMarkFixed(FIX.mockId, FIX.qNum);   /* TSSC-REVIEWALL-V1 */
     let cleared = 0;
     if($('alsoClear')?.checked){
       const ids = FIX.reports.map(r=>r.id);
@@ -2194,7 +2234,7 @@ window.openView = async function(mockId, qNum){
   $('viewFoot').innerHTML = `<button class="btn btn-ghost" onclick="closeView()">Close</button>`;
   $('viewBody').innerHTML = `<div style="text-align:center;padding:30px;"><div class="spin"></div><div class="muted" style="margin-top:10px;">Loading the question…</div></div>`;
   let docs;
-  try{ docs = await locateDocs(mockId, qNum); }
+  try{ docs = await locateLocked(mockId, qNum); }
   catch(e){ if(my!==VIEW_TOKEN) return; $('viewBody').innerHTML = `<div class="verdict v-fix">Lookup failed: ${esc(e.message||e)}</div>`; return; }
   if(my!==VIEW_TOKEN) return;   // closed or another question opened meanwhile
   const rep = reports.map(r =>
@@ -2326,13 +2366,20 @@ $('fcX').onclick = fcClose; $('fcCancel').onclick = fcClose;
 
 function fcFill(key){
   if(!FC) return;
+  if(key === 'ai' && FC.draft){   /* TSSC-REVIEWALL-V1: the reply drafted by Review all */
+    $('fcSubj').value = FC.draft.sub;
+    $('fcText').value = FC.ch === 'wa' ? '*' + FC.draft.sub + '*\n\n' + FC.draft.body : FC.draft.body;
+    fcSay(FC.draft.warn || '', 'warn');
+    return;
+  }
   const t = MSG_TEMPLATES[key], v = msgVars(FC.rec);
   $('fcSubj').value = msgFill(t.sub, v);
   $('fcText').value = msgFill(t.body, v);
   fcSay(/___/.test($('fcText').value) ? 'Replace <b>___</b> with your explanation before sending.' : '', 'warn');
 }
-function fcOpen(ch, rk, rec){
-  FC = { ch, rk, rec };
+function fcOpen(ch, rk, rec, draft){
+  if(!draft && rk === 'r') draft = revDraftFor(rec);   /* an AI-reviewed report opens on its drafted reply */
+  FC = { ch, rk, rec, draft: draft || null };
   const wa = ch === 'wa', c = contactOf(rec) || {};
   $('fcTitle').textContent = (rk === 't' ? 'Rating — ' : 'Report — ') + (wa ? 'WhatsApp' : 'Email');
   $('fcSub').innerHTML = (wa ? 'Send opens WhatsApp Web on this student\'s chat with the message typed. Press <b>Enter</b> there to send.'
@@ -2342,7 +2389,8 @@ function fcOpen(ch, rk, rec){
   $('fcSubjFld').style.display = wa ? 'none' : '';
   $('fcTpl').innerHTML = MSG_KEYS.filter(k => MSG_TEMPLATES[k].for === rk)
     .map(k => `<option value="${k}">${esc(MSG_TEMPLATES[k].label)}</option>`).join('');
-  const key = msgPick(rec, rk);
+  if(FC.draft) $('fcTpl').insertAdjacentHTML('afterbegin', '<option value="ai">★ AI review reply (drafted by Claude)</option>');
+  const key = FC.draft ? 'ai' : msgPick(rec, rk);
   $('fcTpl').value = key;
   fcFill(key);
   $('fcSend').disabled = false;
@@ -2357,6 +2405,7 @@ function msgMark(rk, rec, ch){
   MSG_SENT[k] = Object.assign({}, MSG_SENT[k], { [ch]: Date.now() });
   try { localStorage.setItem(MSG_SENT_KEY, JSON.stringify(MSG_SENT)); } catch(_){}
   paintContacts();
+  revPaint();
 }
 
 document.addEventListener('click', (e) => {
@@ -2405,6 +2454,339 @@ $('fcSend').onclick = async () => {
   msgMark(rk, rec, 'ml');
   fcClose();
 };
+
+/* ============================================ TSSC-REVIEWALL-V1 (2026-11-25)
+   🤖 Review all — Claude Opus checks EVERY reported question (one call per
+   question) and drafts a reply to each student who reported it.
+     Question / solution WRONG → verdict + "✨ Correct it", which is the same
+                                 AI Fix flow as before (nothing is written until
+                                 you approve). The reply tells the student it
+                                 was a mistake and has been corrected.
+     Question RIGHT            → the reply explains the question in detail.
+   Every reply has the subject "Your report on Q.. of <test>" and ends with the
+   current plans, read live from config/pricing. Email / WhatsApp open the usual
+   compose window with the draft filled in — you read, edit and press Send.
+   Results are remembered in this browser, so pressing Review all again costs
+   nothing for questions already reviewed. */
+const REV_KEY        = 'tssc_reviewall_v1';
+const REV_PARALLEL   = 3;        // questions sent to the AI at the same time
+const REV_MAX_TOKENS = 12000;
+const REV_KEEP_DAYS  = 21;       // a reviewed question is remembered this long
+const REV_SITE       = 'https://trickyssc.com';
+
+let REV = {};     // "mockId|qNum" → { mockId, qNum, reports:[…], state, res, fixed, live, err, t }
+let REV_RUN = null;   // { stop, total, done, fail, msg } while a scan is running
+try {
+  const saved = JSON.parse(localStorage.getItem(REV_KEY) || '{}') || {}, now = Date.now();
+  Object.keys(saved).forEach(k => { const it = saved[k];
+    if(it && it.state === 'done' && it.res && now - (it.t || 0) < REV_KEEP_DAYS * 864e5){ it.live = false; REV[k] = it; } });
+} catch(_){ REV = {}; }
+
+function revSave(){
+  try {
+    const keep = {};
+    Object.keys(REV).forEach(k => { const it = REV[k];
+      if(it.state === 'done') keep[k] = { mockId:it.mockId, qNum:it.qNum, reports:it.reports, state:'done', res:it.res, fixed:!!it.fixed, t:it.t }; });
+    localStorage.setItem(REV_KEY, JSON.stringify(keep));
+  } catch(_){}
+}
+/* what the reply needs from a report — kept so a reply can still be sent after the report is cleared */
+const revSnap = r => ({ id:r.id, uid:r.uid || '', name:rawName(r), mockId:r.mockId, qNum:r.qNum, testName:r.testName || '',
+  reason:r.reason || '', note:r.note || '', target:tgtOf(r), ms:tsMs(r) || r.ms || 0 });
+
+/* bring REV in line with the reports on the page */
+function revSync(){
+  const g = {};
+  REPORTS.forEach(r => { const k = r.mockId + '|' + r.qNum;
+    (g[k] = g[k] || { mockId:r.mockId, qNum:r.qNum, reports:[] }).reports.push(revSnap(r)); });
+  Object.keys(g).forEach(k => {
+    g[k].reports.sort((a,b) => a.ms - b.ms);
+    const it = REV[k];
+    const covered = it && it.state === 'done' && it.res && g[k].reports.every(r => it.res.lines && it.res.lines[r.id]);
+    if(covered){ it.reports = g[k].reports; it.live = true; }
+    else REV[k] = { mockId:g[k].mockId, qNum:g[k].qNum, reports:g[k].reports, state:'new', res:null, fixed:false, live:true };
+  });
+  Object.keys(REV).forEach(k => { if(!g[k]){ if(REV[k].state === 'done') REV[k].live = false; else delete REV[k]; } });
+}
+
+/* ── current plans, from the same document the site charges from ── */
+let REV_PLANS = null;
+async function revPlans(){
+  if(REV_PLANS !== null) return REV_PLANS;
+  try {
+    const c = (await getDoc(doc(db, 'config', 'pricing'))).data() || {};
+    const live = (Array.isArray(c.products) ? c.products : []).filter(p => p && p.live !== false && Number(p.price) > 0 && p.label);
+    if(live.length){
+      const n = p => (p.grants || []).length;
+      live.sort((a,b) => (n(b) - n(a)) || ((a.order || 0) - (b.order || 0)));
+      const top = live[0], rest = live.slice(1).sort((a,b) => (a.order || 0) - (b.order || 0));
+      const line = p => `• ${String(p.label).trim()} — ₹${Number(p.price)}${Number(p.durationDays) === 365 ? ' for 1 year' : ''}`;
+      const shown = [top].concat(rest.slice(0, 5));
+      REV_PLANS = 'Our current plans:\n' + shown.map(line).join('\n') +
+        (live.length > shown.length ? '\n• …and more' : '') + '\nSee all plans: ' + REV_SITE;
+    }
+  } catch(_){}
+  return REV_PLANS;
+}
+const revPlansText = () => REV_PLANS || ('You can see our current mock test plans here: ' + REV_SITE);
+
+/* ── the prompt: one question, all of its reports ── */
+function buildReviewPrompt(it, docs){
+  const L = [];
+  L.push("You are a senior SSC exam content reviewer for TrickySSC, an SSC exam-prep platform.");
+  L.push("Candidates have reported a question, or its solution. Do two things: (1) decide whether the stored content is actually wrong, and (2) write the material for a reply to each candidate who reported it.");
+  L.push("Each report says which part it is about: PART=question (raised on the question/options while attempting) or PART=solution (raised on the explanation shown in the review screen).");
+  L.push("");
+  L.push("### Candidate reports");
+  it.reports.forEach((r,i) => L.push(`R${i+1} | PART: ${r.target} | Reason: ${r.reason || '—'} | Note: ${r.note || '(none)'}`));
+  L.push("");
+  L.push(`### Test: ${it.mockId} · Question number ${it.qNum}`);
+  L.push("");
+  L.push("### Stored documents");
+  docs.forEach((d,i) => {
+    L.push(`D${i+1} (${d.coll}/${d.id}, language=${d.lang}):`);
+    L.push("```json");
+    L.push(JSON.stringify(d.data, null, 1));
+    L.push("```");
+  });
+  L.push("");
+  L.push("### How to judge");
+  L.push("1. SOLVE THE QUESTION YOURSELF from first principles before reading the stored answer. Do not assume the candidates are right — they are often wrong. Do not assume the stored key is right either.");
+  L.push("2. If the question text carries a passage (comprehension or cloze), check that the question is answerable from the passage and that the keyed option is supported by it.");
+  L.push("3. verdict = \"fix_needed\" when anything stored is really wrong: the question text, an option, the answer key, or the solution (a wrong step, a wrong figure, a solution that derives a different option, a mistake a student would notice). Check every document above, English and Hindi.");
+  L.push("4. verdict = \"no_change\" when the stored question, key and solution are all correct and the candidates are mistaken.");
+  L.push("5. verdict = \"unclear\" when you cannot be sure — in particular when the question depends on a figure (imageUrl / optionImages are set) that you cannot see.");
+  L.push("6. Do NOT write corrected field values here. The correction itself is made in a separate step.");
+  L.push("");
+  L.push("### The reply material");
+  L.push("\"explanation\" is written TO the student and goes into an email / WhatsApp message.");
+  L.push("- With \"no_change\": explain the question in detail — what is asked, the rule or concept behind it, the working step by step, why the keyed option is right and, where it helps, why the option students usually pick instead is wrong. 120 to 260 words.");
+  L.push("- With \"fix_needed\": say plainly what was wrong in our content, then give the correct answer with its full working. 80 to 220 words.");
+  L.push("- With \"unclear\": an empty string.");
+  L.push("- PLAIN TEXT ONLY: no HTML, no markdown, no KaTeX / LaTeX, no [BR]. Type maths the way a person types it (x^2, 3/4, √, ×, ÷, %). One step per line, a blank line between parts.");
+  L.push("- Simple, friendly English that a Hindi-medium student follows easily. Quote Hindi words of the question in Hindi where needed.");
+  L.push("- Do not greet, do not sign off, do not mention plans, prices or AI, and do not say that anything \"has been corrected\" — the page adds all of that around your text.");
+  L.push("\"replies\" has one entry per report (R1, R2 …): \"right\" says whether THAT candidate was right, and \"line\" is one or two sentences that answer that candidate's own reason / note directly — for example why the option they expected is not the answer, or confirming exactly what they spotted. If the note is empty, go by the reason.");
+  L.push("");
+  L.push("### Output");
+  L.push("Return ONLY a JSON object, no markdown fences, no commentary before or after:");
+  L.push('{');
+  L.push('  "verdict": "fix_needed" | "no_change" | "unclear",');
+  L.push('  "confidence": "high" | "medium" | "low",');
+  L.push('  "correct_answer": "the option letter you independently derived, or null",');
+  L.push('  "diagnosis": "for the admin, 2-4 sentences: what you worked out and what exactly is wrong (or why the reports are mistaken)",');
+  L.push('  "explanation": "the text for the student, as described above",');
+  L.push('  "replies": [ { "r": "R1", "right": "yes" | "partly" | "no", "line": "…" } ]');
+  L.push('}');
+  return L.join("\n");
+}
+
+/* ── the reply to one reporter ── */
+const revLine = (it, i) => (it.res && it.res.lines && it.res.lines[it.reports[i].id]) || null;
+function revDraft(it, i){
+  const res = it.res, r = it.reports[i];
+  if(it.state !== 'done' || !res || !r) return null;
+  const fix = res.verdict === 'fix_needed';
+  if(!fix && res.verdict !== 'no_change') return null;
+  if(!fix && it.fixed) return null;                    // edited by hand after a "correct" verdict — the draft no longer holds
+  const v = msgVars(r), ln = revLine(it, i) || {}, line = String(ln.line || '').trim(), ex = String(res.explanation || '').trim();
+  const P = [];
+  P.push(`Hi ${v.name},`);
+  P.push(`Greetings from Team TrickySSC. Thank you for reporting Q${v.q} of ${v.test}.`);
+  if(fix){
+    P.push((ln.right === 'no' ? 'We checked it and did find a mistake in this question.' : 'You were right — there was a mistake in this question.') + (line ? ' ' + line : ''));
+    P.push('We have corrected it, and the updated version is live now.');
+    if(ex) P.push('What was wrong, and the correct solution:\n\n' + ex);
+    P.push('Reports like yours help every student practise with accurate questions. Please keep pointing out anything that looks wrong.');
+  } else {
+    P.push(`We checked the ${v.part} carefully and it is correct as given.` + (line ? ' ' + line : ''));
+    if(ex) P.push('Here is the detailed explanation:\n\n' + ex);
+    P.push('If you still feel something is wrong, reply with your reasoning and we will look at it again.');
+  }
+  P.push(revPlansText());
+  return { sub: `Your report on Q${v.q} of ${v.test}`, body: P.join('\n\n') + MSG_SIGN,
+    warn: (fix && !it.fixed) ? 'This reply says the question <b>has been corrected</b> — publish the correction first (✨ Correct it).' : '' };
+}
+/* used by the Email / WhatsApp buttons in the report tables */
+function revDraftFor(rec){
+  const it = REV[rec.mockId + '|' + rec.qNum];
+  if(!it) return null;
+  const i = it.reports.findIndex(r => String(r.id) === String(rec.id));
+  return i < 0 ? null : revDraft(it, i);
+}
+function revMarkFixed(mockId, qNum){
+  const k = mockId + '|' + qNum, it = REV[k];
+  if(!it || it.state !== 'done') return;
+  it.fixed = true; revSave(); revPaintItem(k); revPaintHead();
+}
+
+/* ── the scan ── */
+async function revScan(keys){
+  if(REV_RUN || !keys.length) return;
+  REV_RUN = { stop:false, total:keys.length, done:0, fail:0, msg:'' };
+  keys.forEach(k => { if(REV[k]){ REV[k].prev = REV[k].state; REV[k].state = 'queued'; REV[k].err = ''; } });
+  revPaint();
+  await revPlans();
+  const live = new Set();
+  for(const k of keys){
+    if(REV_RUN.stop) break;
+    const it = REV[k];
+    if(!it){ REV_RUN.done++; continue; }
+    it.state = 'busy'; revPaintItem(k);
+    let docs = null;
+    try { docs = await locateLocked(it.mockId, it.qNum); } catch(e){ it.err = 'Lookup failed: ' + (e.message || e); }
+    if(!docs || !docs.length){
+      it.state = 'error'; it.err = it.err || 'Could not find this question in Firestore — use 👁 Open to check the test id.';
+      REV_RUN.done++; revPaintItem(k); revPaintHead(); continue;
+    }
+    const job = (async () => {
+      try {
+        const r = await callAI(buildReviewPrompt(it, docs), REV_MAX_TOKENS);
+        const p = parseAI(r.raw), ai = p && p.ai;
+        if(!ai || !ai.verdict) throw new Error(r.stop === 'max_tokens' || looksCut(r.raw) ? 'The AI reply was cut off — press ↻ to try again.' : 'The AI reply could not be read — press ↻ to try again.');
+        const lines = {};
+        it.reports.forEach((rep, i) => {
+          const x = (Array.isArray(ai.replies) ? ai.replies : []).find(y => y && parseInt(String(y.r || '').replace(/\D/g, ''), 10) === i + 1) || (ai.replies || [])[i] || {};
+          lines[rep.id] = { right: String(x.right || '').toLowerCase(), line: String(x.line || '') };
+        });
+        it.res = { verdict: String(ai.verdict), confidence: String(ai.confidence || ''), correct_answer: ai.correct_answer || '',
+                   diagnosis: String(ai.diagnosis || ''), explanation: String(ai.explanation || ''), lines };
+        it.state = 'done'; it.fixed = false; it.t = Date.now(); it.err = '';
+        if(REV_RUN) REV_RUN.fail = 0;
+      } catch(e){
+        it.state = 'error'; it.err = String(e.message || e);
+        // three failures in a row is the API itself (key, credit, model) — stop instead of failing the whole list
+        if(REV_RUN && /HTTP|fetch/i.test(it.err) && ++REV_RUN.fail >= 3){ REV_RUN.stop = true; REV_RUN.msg = aiFailMsg(e); }
+      }
+      if(REV_RUN) REV_RUN.done++;
+      revSave(); revPaintItem(k); revPaintHead();
+    })();
+    live.add(job); job.finally(() => live.delete(job));
+    if(live.size >= REV_PARALLEL) await Promise.race(live);
+  }
+  await Promise.all([...live]);
+  const msg = REV_RUN.msg;
+  Object.values(REV).forEach(it => { if(it.state === 'queued' || it.state === 'busy') it.state = (it.prev === 'done' && it.res) ? 'done' : 'new'; });
+  REV_RUN = null;
+  revPaint(msg);
+}
+
+/* contacts for reports that are no longer on the page (cleared after a fix) */
+async function revContacts(){
+  const need = [...new Set(Object.values(REV).flatMap(it => it.reports.map(r => r.uid ? String(r.uid) : '')).filter(Boolean))].filter(u => !CONTACT[u]);
+  if(!need.length) return;
+  need.forEach(u => { CONTACT[u] = { loading:true }; });
+  await Promise.all(need.map(async u => {
+    try { CONTACT[u] = await lookupContact(u); } catch(_){ CONTACT[u] = { name:'', phone:'', email:'', err:true }; }
+  }));
+  saveContacts(); revPaint();
+}
+
+/* ── painting ── */
+const revOpen = () => !$('revModal').classList.contains('hidden');
+const revRank = it => it.state !== 'done' ? (it.state === 'error' ? 2 : 3)
+  : (it.res.verdict === 'fix_needed' ? (it.fixed ? 4 : 0) : (it.res.verdict === 'no_change' ? 5 : 1));
+
+function revItemHtml(k){
+  const it = REV[k], res = it.res || {}, done = it.state === 'done';
+  const fix = done && res.verdict === 'fix_needed', ok = done && res.verdict === 'no_change';
+  let tag;
+  if(it.state === 'queued')     tag = '<span class="rv-tag wait">Queued</span>';
+  else if(it.state === 'busy')  tag = '<span class="rv-tag wait">Reviewing…</span>';
+  else if(it.state === 'error') tag = '<span class="rv-tag err">Failed</span>';
+  else if(!done)                tag = '<span class="rv-tag un">Not reviewed yet</span>';
+  else if(fix)                  tag = it.fixed ? '<span class="rv-tag ok">✓ Was wrong — corrected</span>' : '<span class="rv-tag fix">⚠ Wrong — needs correction</span>';
+  else if(ok)                   tag = it.fixed ? '<span class="rv-tag un">Edited after the review — press ↻ to redraft the replies</span>' : '<span class="rv-tag ok">✓ Question is correct</span>';
+  else                          tag = '<span class="rv-tag un">? Unclear — needs your eyes</span>';
+  const qa = `data-mockid="${esc(it.mockId)}" data-qnum="${esc(it.qNum)}"`;
+  const reps = it.reports.map((r, i) => {
+    const c = contactOf(r) || {}, ln = done ? revLine(it, i) : null, d = revDraft(it, i), sent = MSG_SENT['r:' + r.id] || {};
+    const who = realName(r.name) || c.name || 'Student';
+    const con = [c.phone, c.email].filter(Boolean).join(' · ') || (r.uid ? 'no mobile or email saved' : 'not signed in — no contact');
+    const btn = (ch, label, can) => can ? `<button class="msgb ${ch}${sent[ch] ? ' done' : ''}" data-rev="${esc(k)}" data-ri="${i}" data-ch="${ch}" title="${sent[ch] ? 'Sent on ' + new Date(sent[ch]).toLocaleDateString('en-IN') + ' — click to open again' : 'Open the drafted reply — edit, then Send'}">${sent[ch] ? '✓ ' : ''}${label}</button>` : '';
+    const rt = ln && ln.right ? (ln.right === 'yes' ? '<b style="color:#15803D">Reporter is right.</b> ' : ln.right === 'partly' ? '<b style="color:#B45309">Reporter is partly right.</b> ' : '<b style="color:#B91C1C">Reporter is mistaken.</b> ') : '';
+    return `<div class="rv-rep"><span class="who">${esc(who)}</span> <span class="muted">${esc(con)}</span>
+      <div style="margin-top:3px">${tgtPill(r)}<span class="pill">${esc(r.reason || '—')}</span><span class="muted">${esc(r.note || '(no note)')}</span></div>
+      ${ln ? `<div style="margin-top:3px">${rt}${esc(ln.line)}</div>` : ''}
+      ${d ? `<div style="margin-top:6px"><span class="muted" style="font-weight:700">Reply:</span>${btn('ml', 'Email', !!c.email)}${btn('wa', 'WhatsApp', waNumber(c.phone).length === 12)}${(!c.email && waNumber(c.phone).length !== 12) ? ' <span class="muted">no contact to send to</span>' : ''}</div>
+        <details><summary>Show the drafted reply</summary><div class="rv-draft"><b>Subject:</b> ${esc(d.sub)}\n\n${esc(d.body)}</div></details>` : ''}
+    </div>`;
+  }).join('');
+  return `<div class="rv-item${fix && !it.fixed ? ' fixn' : (ok ? ' okq' : '')}" data-k="${esc(k)}">
+    <div class="rv-head"><code>${esc(it.mockId)}</code> <b>Q${esc(it.qNum)}</b> ${tag}
+      ${done && res.correct_answer ? `<span class="muted">AI's answer: <b>${esc(res.correct_answer)}</b></span>` : ''}
+      ${done && res.confidence ? `<span class="muted">confidence: ${esc(res.confidence)}</span>` : ''}
+      ${it.live === false ? '<span class="rv-tag un">reports cleared</span>' : ''}
+      <span class="sp"><button class="view" ${qa} title="Open the question, options, key and solution">👁 Open</button><button class="fix" ${qa} title="The same AI correction as before — preview, approve, publish">${fix && !it.fixed ? '✨ Correct it' : '✨ AI Fix'}</button><button class="rvre" data-rev-re="${esc(k)}" title="Review this question again">↻</button></span></div>
+    ${it.state === 'error' ? `<div class="rv-diag" style="color:#B91C1C">${esc(it.err || 'Failed')}</div>` : ''}
+    ${done && res.diagnosis ? `<div class="rv-diag">${esc(res.diagnosis)}</div>` : ''}
+    ${fix && !it.fixed ? '<div class="muted" style="color:#B45309">Publish the correction first (✨ Correct it), then send the replies — they say it has been corrected.</div>' : ''}
+    ${reps}</div>`;
+}
+function revPaintItem(k){
+  if(!revOpen() || !REV[k]) return;
+  const el = [...document.querySelectorAll('#revList .rv-item')].find(x => x.dataset.k === k);
+  if(el) el.outerHTML = revItemHtml(k);
+}
+function revPaintHead(msg){
+  if(!revOpen()) return;
+  const all = Object.values(REV), n = f => all.filter(f).length, dn = it => it.state === 'done';
+  const wrong = n(it => dn(it) && it.res.verdict === 'fix_needed' && !it.fixed), corr = n(it => dn(it) && it.res.verdict === 'fix_needed' && it.fixed),
+        right = n(it => dn(it) && it.res.verdict === 'no_change'), uncl = n(it => dn(it) && !/^(fix_needed|no_change)$/.test(it.res.verdict)),
+        bad = n(it => it.state === 'error'), todo = n(it => it.state === 'new' || it.state === 'queued' || it.state === 'busy');
+  let drafts = 0, sent = 0;
+  all.forEach(it => it.reports.forEach((r, i) => { if(revDraft(it, i)){ drafts++; const s = MSG_SENT['r:' + r.id]; if(s && (s.ml || s.wa)) sent++; } }));
+  $('revSub').textContent = `${all.length} question${all.length === 1 ? '' : 's'} · ${AI_MODEL}`;
+  $('revSum').innerHTML = `<div style="margin-bottom:10px">
+      <span class="rv-tag fix">Wrong: ${wrong}</span> <span class="rv-tag ok">Corrected: ${corr}</span> <span class="rv-tag ok">Correct as given: ${right}</span>
+      <span class="rv-tag un">Unclear: ${uncl}</span> ${bad ? `<span class="rv-tag err">Failed: ${bad}</span>` : ''} ${todo ? `<span class="rv-tag wait">To review: ${todo}</span>` : ''}
+      <span class="muted" style="margin-left:6px">Replies sent: ${sent} of ${drafts} drafted</span></div>
+    ${msg ? `<div class="verdict v-fix">${msg}</div>` : ''}`;
+  const pend = Object.keys(REV).filter(k => REV[k].state === 'new' || REV[k].state === 'error');
+  $('revFoot').innerHTML = REV_RUN
+    ? `<span class="muted" style="font-weight:700">Reviewing ${Math.min(REV_RUN.done + 1, REV_RUN.total)} of ${REV_RUN.total}…</span>
+       <div class="rv-bar"><i style="width:${Math.round(REV_RUN.done / REV_RUN.total * 100)}%"></i></div>
+       <button class="btn btn-ghost" id="revStop">${REV_RUN.stop ? 'Stopping…' : 'Stop'}</button>
+       <button class="btn btn-ghost" onclick="closeReviewAll()">Hide (keeps running)</button>`
+    : `${pend.length ? `<button class="btn btn-indigo" id="revGo">▶ Review ${pend.length} remaining</button>` : ''}
+       ${all.length ? '<button class="btn btn-ghost" id="revRedo" title="Send every question to the AI again">↻ Re-scan all</button>' : ''}
+       <button class="btn btn-ghost" onclick="closeReviewAll()">Close</button>
+       <span class="muted" style="margin-left:auto;">Nothing is sent or changed until you approve it.</span>`;
+  const b = id => $(id);
+  if(b('revStop')) b('revStop').onclick = () => { if(REV_RUN){ REV_RUN.stop = true; revPaintHead(); } };
+  if(b('revGo'))   b('revGo').onclick   = () => revScan(pend);
+  if(b('revRedo')) b('revRedo').onclick = () => { if(confirm(`Send all ${all.length} questions to Claude Opus again? Each one is a paid API call.`)) revScan(Object.keys(REV).filter(k => REV[k].live !== false)); };
+}
+function revPaint(msg){
+  if(!revOpen()) return;
+  const keys = Object.keys(REV).sort((a,b) => (revRank(REV[a]) - revRank(REV[b])) || (REV[b].reports.length - REV[a].reports.length));
+  $('revBody').innerHTML = `<div id="revSum"></div><div id="revList">${keys.length ? keys.map(revItemHtml).join('') : '<div class="muted">There are no question reports to review.</div>'}</div>`;
+  revPaintHead(msg);
+}
+
+window.openReviewAll = function(){
+  if(!REV_RUN) revSync();
+  $('revModal').classList.remove('hidden');
+  revPaint();
+  revContacts();
+  // straight into the scan: everything not reviewed yet
+  if(!REV_RUN) revScan(Object.keys(REV).filter(k => REV[k].state === 'new'));
+};
+window.closeReviewAll = function(){ $('revModal').classList.add('hidden'); };
+
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-rev]');
+  if(b){
+    const it = REV[b.dataset.rev], i = parseInt(b.dataset.ri, 10), d = it && revDraft(it, i);
+    if(d) fcOpen(b.dataset.ch, 'r', it.reports[i], d);
+    return;
+  }
+  const re = e.target.closest('button[data-rev-re]');
+  if(re){
+    if(REV_RUN) return alert('A review is running — wait for it to finish, or press Stop first.');
+    revScan([re.dataset.revRe]);
+  }
+});
 document.addEventListener('keydown', (e) => { if(e.key === 'Escape' && !$('fcModal').classList.contains('hidden')) fcClose(); });
 
 window.showTab = function(t){
