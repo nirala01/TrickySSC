@@ -7,7 +7,9 @@ Get it at the start of every chat (git clone works from the shell; github.io / r
     # kit = /home/claude/tssc-kit/pyq-kits/gd2026
 
 At the end of every chat: mark the shift `done` in SHIFTS.md, add its line under "## Done" below, and (Ashish's
-standing yes, if given) commit + push ONLY pyq-kits/gd2026/ to main. Scripts: example-05-may-shift-3 is the newest (figure shift with
+standing yes, if given) commit + push ONLY pyq-kits/gd2026/ to main. Scripts: example-06-may-shift-1 is the newest (figure shift with TWO figure Qs Q9, Q10 — 10 images laid out in one 1130×264 region,
+one zoom save_to_disk, threshold 200; FIXED_STEM for a nested root; RC passage Q76–80 with the generic instruction line dropped;
+HPD_STEM/HPD_OPT for Hindi Part D fixes); example-05-may-shift-3 is the one before (figure shift with
 FOUR figure Qs Q11, Q12, Q18, Q19 — 20 images laid out in one 1060×505 region, one zoom save_to_disk; Q2 option images typed via
 FIXED_OPTS; RC passage Q76–80 (comp, all five identical); HI Part D passage Q76–Q80; run the scripts WITHOUT python -I, or base.py
 cannot be imported — only the source data is untrusted and it is read as JSON); example-05-may-shift-2 is the one before (figure shift with
@@ -264,6 +266,23 @@ Questions CSV header: `qNum,subject,chapterId,exam,year,text,option_A,option_B,o
   distractor; key 1.1 times = 1 ÷ 0.9), Q55 "employee are matriculates", Q60 "Rs." in options, Q76 option "Was", HI Q61–Q63 underlined शुद्ध,
   HI Q72 अभियोजन दोष (the only prosecution-specific term). Q20 (ages) sits in Reasoning but is tagged quant.ages. 10 hindi.other (Q64, Q65,
   Q68–Q75).
+
+- 06 May 2026 Shift 1 — built 2026-11-26 (figure Qs Q9, Q10 — stem + 4 options each, all clean, threshold 200, native size, no padding).
+  All 80 EN and 20 HI Part D keys agreed with my own solving (en/hi cidx = gu cidx on all 100; Testbook's solution line for Q4 says
+  "Option 3" but BF is option 2 and all three keys say B — carried B). Corrections: Q46 stem \( \sqrt{108900 + \sqrt{12321}} \) (= 330.17,
+  no option fits) → \( \sqrt{\sqrt{108900} + \sqrt{12321}} \) = √441 = 21 (EN + HI; key A kept); Q26 stem "largest contributor to urban
+  PM2.5 in India" → "According to source-apportionment studies of Delhi's air, … the largest overall contributor to PM2.5" (EN + HI;
+  nationally the answer varies by study and city; CEEW's comparison of Delhi studies puts transport first; key C vehicle exhaust kept);
+  Q33 statement II "Other Backward Caste" → "Other Backward Classes" (EN; HI already अन्य पिछड़ा वर्ग); Q8 option D "s" → "S" (as in HI);
+  Q18 missing comma "UQL162 WUR243" → "UQL162, WUR243" (EN + HI); Q39/Q51 statement II moved to its own line (EN + HI); Q4/Q5 series
+  split with ||; B1 wraps Q11–Q14, Q52, Q54, Q55; Q44/Q45/Q48 KaTeX rebuilt (\frac → \dfrac, "....." → \ldots), Q45/Q58 options and Q57
+  "1/5" as \dfrac, Q55 option "7:13" padded and wrapped; Q63 had TWO correctly spelt words (Sanguine and spurious) — option D "spurious" →
+  "spurrious" so only the key B is correct; Q66 option D "Āō" (garbage in EN/HI/GU) → "Aid" (a synonym; key impede kept); Q70 option A
+  "Each wal" → "Each wall"; Q72 and Q75 underlines restored; RC passage instruction line dropped. HI Part D: Q72 "क्या होगा:" → "क्या होगी?";
+  Q74 option D "नज़र के अंतर्गत बंद करना" (also describes custody) → "ज़मानत पर रिहा करना" (key C किसी को निगरानी में रखना). Hindi Part D passage is
+  Q76–Q80 (Q75 standalone); Q61–Q63 are karak-error items (all key A कारक, as in the source). Carried verbatim: Q42 "18 of 1" / "18 का 1",
+  Q47 "is build", Q50 "join", Q58 "A and B both the left", Q33 "is a target groups", Q64 option casing, Q77 key "these pathogens" (best
+  fit), HI Q72 option "non governmental organization". 10 hindi.other (Q64–Q66, Q69–Q75); Q67/Q68 tagged hindi.shabd-bhed.
 
 ## Checker notes (fixed in example-04-may-shift-1 on 2026-11-25)
 - checks.py: the word "times" in prose ("3 times as efficient") is no longer flagged; bare `times` is checked only inside \( \).
