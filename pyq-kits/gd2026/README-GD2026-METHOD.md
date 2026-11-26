@@ -7,7 +7,10 @@ Get it at the start of every chat (git clone works from the shell; github.io / r
     # kit = /home/claude/tssc-kit/pyq-kits/gd2026
 
 At the end of every chat: mark the shift `done` in SHIFTS.md, add its line under "## Done" below, and (Ashish's
-standing yes, if given) commit + push ONLY pyq-kits/gd2026/ to main. Scripts: example-07-may-shift-1 is the newest (figure shift with
+standing yes, if given) commit + push ONLY pyq-kits/gd2026/ to main. Scripts: example-07-may-shift-2 is the newest (figure shift with
+TWO figure Qs Q9, Q10 — 10 images, fetched same-origin and laid out at natural size, one zoom save_to_disk, threshold 200; the HI Part D
+Q76–Q80 passage is MISSING in the source again — build_txt.HPD_PASSAGE holds our own; EN RC instruction line stripped via INSTR;
+Q3 option A image typed via OPT_FIX_EN/HI '#A'; controls.py anchors retargeted to this paper); example-07-may-shift-1 is the one before (figure shift with
 FOUR figure Qs Q11, Q12, Q18, Q19 — 20 images + the Q66 option image; FASTER FIGURE ROUTE: open one cdn.testbook.com image URL in
 Chrome, fetch() every image same-origin into data URLs, lay them out at natural size (dpr 1), one zoom save_to_disk after moving the
 mouse away, crop by the logged positions, threshold 200; English RC passage Q76–80 and HI Part D passage Q76–Q80 both come from comp
@@ -351,6 +354,25 @@ Questions CSV header: `qNum,subject,chapterId,exam,year,text,option_A,option_B,o
   comprehension passage (no instruction line); Hindi Part D passage is Q76–Q80 (Q75 standalone). Carried verbatim: Q27 "duration … including
   breaks, in terms of innings", Q41 "(18 of 2)" / "(18 का 2)", Q58 "a another train", Q53/Q54 "Rs.", Q62/Q65 option casing, Q31 option A
   "Gukesh". Q20 (ages) sits in Reasoning but is tagged quant.ages; Q66 (sea/see/scene) tagged eng.homonyms. 10 hindi.other (Q64, Q65, Q68–Q75).
+
+- 07 May 2026 Shift 2 — built 2026-11-26 (figure Qs Q9, Q10 — stem + 4 options each, all clean, threshold 200, native size, no padding).
+  All 80 EN and 20 HI Part D keys agreed with my own solving (en/hi cidx = gu cidx on all 100). Source image typed as text: Q3 option A
+  "HI" (EN + HI). HI PART D PASSAGE: the source has NO passage for HI Q76–Q80 (comp empty in all three languages) — our own passage written
+  (data from many sources → comparative study for analysis and identification → patterns of suspicious activity → strategy made in advance,
+  not mere reaction → data as a strategic resource → pre-planning-based security thinking) so every official key A/B/C/D/A is the only right
+  answer. Corrections: Q32 stem "Which act gave representation to Indians in the Central Legislative Assembly for the first time?" →
+  "Which act, for the first time, provided for the election of Indian members to the Imperial (Central) Legislative Council and introduced
+  separate electorates for Muslims?" (EN + HI) — the Central Legislative Assembly was created only by the GoI Act 1919, so the old stem
+  fitted option D; key C 1909 kept; Q64 option "Carefu" → "Careful"; Q71 option "ïn" → "in"; Q37 statement II moved to its own line
+  (EN + HI); RC passage instruction line dropped; B1 wraps Q11–Q14; Q44/Q45/Q46/Q48 stems rebuilt as KaTeX (\frac → \dfrac, ^2 → ^{2},
+  × → \times), Q56 "45/20" and Q57 "1/4", "1/2" → \dfrac, Q51 option "A/3" → \dfrac{A}{3}; HI Q58 "8/5 गुना अधिक कार्यकुशल" → "8/5 गुना
+  कार्यकुशल" (as in EN "times as efficient"). HI Part D: Q61 "चिन्ह" → "चिह्न" (twice); Q62/Q63 restructured to "नीचे दिए गए वाक्य में कौन-सी
+  अशुद्धि है?||<sentence>।"; Q65 stem → "…अचानक आए किसी निजी काम के लिए एक-दो दिन की छुट्टी…" (विश्राम fitted "एक दिन की छुट्टी"; key
+  आकस्मिक अवकाश); Q69 stem → "किसी संज्ञेय अपराध की सूचना मिलने पर पुलिस थाने में सबसे पहले दर्ज की जाने वाली आधिकारिक सूचना…" (option
+  रिपोर्ट fitted "आधिकारिक रिपोर्ट"; key प्राथमिकी); Q72 "<u>सही</u> … क्या होगा:" → plain "सही … क्या होगी?". Carried verbatim: Q22 "union
+  territory has", Q37 "religious group … Christian", Q54/Q55 "Rs." in options, Q66 option "ordinary" (lower case), Q67 option "Tetratlon",
+  Q70 error segment, Q76–80 passage "need poor segment to participate", HI Q63 "रखियेगा", HI Q75 "का हिंदी में अर्थ". Q61 (कोष्ठक चिह्न)
+  tagged hindi.vyakaran; Q67/Q68 (तत्सम/तद्भव) tagged hindi.shabd-bhed. 10 hindi.other (Q64–Q66, Q69–Q75).
 
 ## Checker notes (fixed in example-04-may-shift-1 on 2026-11-25)
 - checks.py: the word "times" in prose ("3 times as efficient") is no longer flagged; bare `times` is checked only inside \( \).
