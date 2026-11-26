@@ -7,7 +7,10 @@ Get it at the start of every chat (git clone works from the shell; github.io / r
     # kit = /home/claude/tssc-kit/pyq-kits/gd2026
 
 At the end of every chat: mark the shift `done` in SHIFTS.md, add its line under "## Done" below, and (Ashish's
-standing yes, if given) commit + push ONLY pyq-kits/gd2026/ to main. Scripts: example-30-apr-shift-3 is the newest
+standing yes, if given) commit + push ONLY pyq-kits/gd2026/ to main. Scripts: example-04-may-shift-2 is the newest
+(figure shift; REP_EN / REP_HI for language-specific stem anchors such as a source KaTeX fraction that only one language has;
+checks.py exempts SSC bilingual HI options like 'आदित्य-एल1 (Aditya-L1)' from the digit-set test and knows \overline / \ldots);
+example-30-apr-shift-3 is the one before
 (figure shift, paths relative to the script folder; HPD_OPT keyed by option INDEX; hi_sol_4 maps option keys through NFC so
 composed/decomposed nukta letters in the source never break opt_bullets); example-30-apr-shift-2 is the one before; example-30-apr-shift-1 adds KEY_FIX (key override), HPD_OPT (Hindi
 Part D option fix) and the cloze-passage blank rebuild; example-04-may-shift-1 is the first one.
@@ -159,6 +162,22 @@ Questions CSV header: `qNum,subject,chapterId,exam,year,text,option_A,option_B,o
   zero-width space removed from option C; Q80 option "व्यापार बढाना" → "बढ़ाना"; passage "रहता है है कि" → "रहता है कि". Hindi Part D passage is
   Q76–Q80 (Q75 standalone). Carried verbatim: Q42 "(24 of 1)" / "(24 का 1)", Q39 "did … ultimately annexed", Q46 "One of the diagonal", option
   casing in Q63/Q65/Q67/Q68. 6 hindi.other (Q65, Q68–Q72).
+- 04 May 2026 Shift 2 — built 2026-11-26 (figure Qs Q10, Q11 — stem + 4 options each, all clean, threshold 200, native size, no padding).
+  All 80 EN and 20 HI Part D keys agreed (en/hi cidx = gu cidx on all 100). Source images typed as text: Q1 option D "PC" (EN + HI),
+  Q69 option B "in". Corrections: Q35 stem "artificial intelligence action plan launched … in 2025" → "national artificial intelligence
+  mission approved by the Union Cabinet in March 2024" (EN + HI; IndiaAI Mission was approved on 7 Mar 2024; key A kept); Q37 stem
+  "provides" → "provided … until 2020" (EN + HI; MEIS was withdrawn from 1 Jan 2021); Q39 stem "fight with the British in Jhansi" →
+  "Rani Lakshmi Bai of Jhansi fight against the British in 1857–58" (EN + HI; "with" was ambiguous); Q50 "5 times more than B" → "6 times B"
+  (EN + HI; 80% fitted the other reading; key 83.33% kept); Q44 EN stem "0.63̅" → \( 0.6\overline{3} \) and EN options A/D "0.64"/"0.69" →
+  recurring \( 0.6\overline{4} \) / \( 0.6\overline{9} \) as in the HI paper; Q47 EN option "4:3" padded and KaTeX-wrapped like the other
+  three; Q61 missing blank inserted ("leave his friend to _____."); Q65 EN option "Valedictory" → "Validictory" (the HI/GU copies keep the
+  misspelling the key intends; EN had all four correct); Q70 stem "stiches" → "stitches"; Q73 and Q75 underlines restored; Q76–80 passage
+  blanks rebuilt as ___A___ … ___E___ (all five copies identical). HI Part D: Q64 option A "बीबी" (an accepted variant of बीवी) → "बीवि" so only
+  the key B is correct; Q66/Q67 stray space in 'अस्वस्थ ' / 'आजाद '; Q72 "होगाः" → "होगी?"; Q74 stem "किसी क्षेत्र की स्थिति का निरीक्षण
+  करना क्या कहलाता है?" (gave away the key) → "पुलिस अधिकारी द्वारा किसी थाने, चौकी या क्षेत्र की व्यवस्था को मौके पर जाकर जाँचना-परखना क्या
+  कहलाता है?" (key निरीक्षण). Hindi Part D passage is Q76–Q80 (Q75 standalone). Carried verbatim: Q42 "(28 of 2)", Q46/Q47 "One of the
+  diagonal", Q57 "A car cover", Q62 option "The lightening open", Q64 option "complain", Q33 key Visvesvaraya, HI Q5 masculine verbs for
+  girls, HI Q70 option "आपरेशन". 4 hindi.other (Q65, Q70–Q72).
 
 ## Checker notes (fixed in example-04-may-shift-1 on 2026-11-25)
 - checks.py: the word "times" in prose ("3 times as efficient") is no longer flagged; bare `times` is checked only inside \( \).
