@@ -7,7 +7,10 @@ Get it at the start of every chat (git clone works from the shell; github.io / r
     # kit = /home/claude/tssc-kit/pyq-kits/gd2026
 
 At the end of every chat: mark the shift `done` in SHIFTS.md, add its line under "## Done" below, and (Ashish's
-standing yes, if given) commit + push ONLY pyq-kits/gd2026/ to main. Scripts: example-08-may-shift-2 is the newest (figure shift with FOUR figure Qs Q11, Q12, Q18, Q19 — 20 images + the Q3 option C
+standing yes, if given) commit + push ONLY pyq-kits/gd2026/ to main. Scripts: example-08-may-shift-3 is the newest (figure shift with
+TWO figure Qs Q9, Q10 — 10 images fetched same-origin, laid out at natural size in one 1000×240 region, one zoom save_to_disk after moving the
+mouse away, threshold 200, no padding; EN RC passage instruction line stripped via INSTR; HI Part D passage is Q73–Q77 (Q78–Q80 standalone);
+HPD_OPT used to replace arguable Hindi Part D options; controls.py anchors retargeted); example-08-may-shift-2 is the one before (figure shift with FOUR figure Qs Q11, Q12, Q18, Q19 — 20 images + the Q3 option C
 image (typed "FA") fetched same-origin, laid out at natural size in one 1200×530 region, one zoom save_to_disk after moving the mouse away,
 threshold 200, no padding; EN RC passage Q76–80 has no instruction line; HI Part D passage is Q76–Q80 (Q61–Q75 standalone); Step headings
 with pairs like "LI : HD" trip the solution B1 check — write "LI → HD"; controls.py anchors retargeted); example-08-may-shift-1 is the one before (figure shift with
@@ -438,6 +441,22 @@ Questions CSV header: `qNum,subject,chapterId,exam,year,text,option_A,option_B,o
   Festival). Carried verbatim: Q8 hyphen minus signs, Q41 "38 of 1", Q52 "Rs." in options, Q60 "sold it a price", Q61 option "crossed the boarder",
   Q65 stem without full stop, Q75 option "changeable" (lower case), HI Q61/Q62 "दिए गये". Q20 (ages) sits in Reasoning but is tagged quant.ages.
   7 hindi.other (Q64–Q67, Q70–Q72); Q61–Q63 hindi.vakya-shuddhi, Q68/Q69 hindi.shabd-bhed, Q73/Q74 hindi.paryayvachi, Q75 hindi.anek-shabd.
+- 08 May 2026 Shift 3 — built 2026-11-26 (figure Qs Q9, Q10 — stem + 4 options each, all clean, threshold 200, native size, no padding).
+  en/hi/gu cidx agree on all 100, and all 80 EN and 20 HI Part D keys agreed with my own solving. Corrections: Q35 stem "has only _____" →
+  "has only about _____" (EN) / "केवल _____" → "केवल लगभग _____" (HI) — Rajasthan had 5.66% of India's population in 2011, key 5.5% kept;
+  Q39 EN option "Dada Bhai Naurauji" → "Dadabhai Naoroji"; Q65 had NO misspelt word (all four correct) — EN option A "Criticism" → "Critisism"
+  (the GU copy keeps the misspelling the key intends); Q76 stem "according to the descriptions given below" → "according to the passage";
+  Q76–80 RC passage instruction line dropped; B1 wraps Q11–Q14 stems, Q52 "3 : 7" and Q46/Q60 options; Q44/Q48 stems rebuilt as KaTeX
+  (\frac → \dfrac), Q57 "1/3" and Q58 options → \dfrac, Q49 options normalised to \( 7\sqrt{8} \) etc. HI Part D: Q61 "चिन्ह … है-" →
+  "चिह्न … है?"; Q62 sentence "लड़की ने जोर से हँस दी" (the real error was ने with intransitive हँसना — a कारक error, not among the options) →
+  "लड़की जोर से हँस दिया" and option D क्रिया → वचन (key लिंग); Q63 option B सर्वनाम (सब is a pronoun, arguable) → क्रिया (key वचन); Q64
+  "का सही तकनीकी शब्द है:" → "का सही तकनीकी (अंग्रेज़ी) शब्द क्या है?"; Q69 stem "सुरक्षा व्यवस्था की पूर्व योजना" (आकस्मिक योजना also fitted) →
+  "सुरक्षा व्यवस्था के लक्ष्य और उपाय पहले से तय करने वाली समग्र योजना" (key रणनीति); Q72 "<u>सही</u> … क्या होगा:" → plain "सही … क्या होगी?";
+  Q78 stem adds "आवागमन … अस्थायी" and option D रुकावट (a plain synonym of अवरोधक) → पहरा (key बैरिकेड); Q79 stem "भविष्य की कार्य योजना" (gave
+  the key away) → "भविष्य में किए जाने वाले कार्यों की पहले से बनाई गई रूपरेखा" (key योजना). Hindi Part D passage is Q73–Q77 (Q78–Q80
+  standalone); English Q76–80 is an RC passage (Act East Policy). Carried verbatim: Q37 "did … won", Q38 "recently is located", Q42 "(27 of 2)" /
+  "18 of 2", Q49 "4 times of its breadth", Q64 option "LOSS", option casing in Q65/Q66/Q67, HI Q66 option "पराक". 9 hindi.other (Q64, Q65,
+  Q68, Q69, Q71, Q72, Q78–Q80); Q61 hindi.vyakaran, Q62/Q63 hindi.vakya-shuddhi, Q66/Q67 hindi.upsarg-pratyay, Q70 hindi.sandhi.
 
 ## Checker notes (fixed in example-04-may-shift-1 on 2026-11-25)
 - checks.py: the word "times" in prose ("3 times as efficient") is no longer flagged; bare `times` is checked only inside \( \).
