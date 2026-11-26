@@ -7,7 +7,11 @@ Get it at the start of every chat (git clone works from the shell; github.io / r
     # kit = /home/claude/tssc-kit/pyq-kits/gd2026
 
 At the end of every chat: mark the shift `done` in SHIFTS.md, add its line under "## Done" below, and (Ashish's
-standing yes, if given) commit + push ONLY pyq-kits/gd2026/ to main. Scripts: example-06-may-shift-2 is the newest (figure shift with
+standing yes, if given) commit + push ONLY pyq-kits/gd2026/ to main. Scripts: example-06-may-shift-3 is the newest (figure shift with
+TWO figure Qs Q9, Q10 — 10 images + Q71 option image laid out in one 1000×240 region, one zoom save_to_disk after moving the mouse away,
+threshold 200; the HI Part D Q76–Q80 passage is MISSING in the source (comp empty in en/hi/gu) — build_txt.HPD_PASSAGE holds our own;
+EN passage instruction line stripped via INSTR; checks.py needs PROMPT-5-chapter-tagging-addendum.md copied into the script folder);
+example-06-may-shift-2 is the one before (figure shift with
 FOUR figure Qs Q11, Q12, Q18, Q19 — 20 images laid out in one 1366×540 region, one zoom save_to_disk after moving the mouse away,
 threshold 200; source option images Q2 A / Q3 D typed via OPT_FIX keyed '' / '#D'; Hindi Part D passage is Q74–Q78; English RC passage
 has no instruction line; checks.py whitelist adds \sin); example-06-may-shift-1 is the one before (figure shift with TWO figure Qs Q9, Q10 — 10 images laid out in one 1130×264 region,
@@ -305,6 +309,25 @@ Questions CSV header: `qNum,subject,chapterId,exam,year,text,option_A,option_B,o
   standalone); English Q76–80 is a reading-comprehension passage with no instruction line. Carried verbatim: Q31 option "Shubhman Gill",
   Q47 options B and D equal in value (15√15/50 = 3√15/10, both wrong), Q61 option "the sweets is made", option casing in Q62/Q68, HI Q62/Q63
   underlined शुद्ध/अशुद्धि. Q20 (ages) sits in Reasoning but is tagged quant.ages. 10 hindi.other (Q64–66, Q69–73, Q79, Q80).
+
+- 06 May 2026 Shift 3 — built 2026-11-26 (figure Qs Q9, Q10 — stem + 4 options each, all clean, threshold 200, native size, no padding).
+  All 80 EN and 20 HI Part D keys agreed with my own solving (en/hi cidx = gu cidx = source solution line on all 100). Source image typed as
+  text: Q71 option A "in". HI PART D PASSAGE: the source has NO passage for HI Q76–Q80 (comp empty in all three languages; the five items
+  only make sense with one) — our own passage written (community awareness → change in thinking → personal responsibility → durable,
+  participation-based security) so every official key C/C/D/C/A is the only right answer; listed in the delivery report. Corrections:
+  Q16 option C "TFIX T" → "TFIXT" (EN + HI); Q40 stem "The QUAD leader's summit-2025 will be held in ____." → "Which country was chosen to
+  host the Quad Leaders' Summit due in 2025?" (EN) / "2025 में होने वाले क्वाड (QUAD) नेताओं के शिखर सम्मेलन की मेजबानी के लिए किस देश को चुना
+  गया था?" (HI) — India was the host but no leaders' summit was held in 2025; key India kept; Q63 EN option A "Incipient" → "Incepient" (the
+  HI/GU copies keep the misspelling the key intends; EN had two correct spellings); Q65 option D "Laure" → "Laurel"; Q66 option A
+  "Additiona" → "Additional"; Q76–80 passage instruction line dropped and "'eminent'" → "'immanent'" (Husserl's term); B1 wraps Q11–Q14
+  and Q55 options; Q41/Q44/Q46 KaTeX rebuilt, Q45 "\rm" removed, Q53/Q56/Q58 stem and Q57 option fractions → \dfrac; HI Q39 option
+  "सब्सिडी (सब्सिडी)" → "सब्सिडी". HI Part D: Q61/Q63 "<u>अशुद्धि</u> है:" → "अशुद्धि है?" ("गये" → "गए"); Q62 restructured to "नीचे दिए गए
+  वाक्य में कौन-सी अशुद्धि है?||इस विषय पर एक भी अच्छी पुस्तकें नहीं है।"; Q64/Q72 "<u>सही</u> … :" → plain "सही … ?" ("क्या होगा" → "क्या
+  होगी"); Q65 stem → "वर्दी में ड्यूटी करने का आदेश होने पर भी जब कोई सुरक्षा कर्मी बिना वर्दी के ड्यूटी पर आता है, तो यह क्या है?" (गुप्त ड्यूटी
+  fitted the bare stem; key अनुशासनहीनता); Q70 option B completed ("… नियंत्रण हो"); Q71 option D "परिवहन की निगरानी हेतु" (also a use of
+  surveillance) → "वाहनों की मरम्मत हेतु" (key C). Carried verbatim: Q42 "42 of 1" / "42 का 1", Q48 "is build", Q50 "One of the diagonal",
+  Q52 "is to tiled", Q47 "number is", Q54 options "Rs.1680"/"Rs. 1620", option casing in Q64/Q66/Q67. Q67/Q68 (तत्सम) tagged hindi.shabd-bhed.
+  10 hindi.other (Q64–66, Q69–75).
 
 ## Checker notes (fixed in example-04-may-shift-1 on 2026-11-25)
 - checks.py: the word "times" in prose ("3 times as efficient") is no longer flagged; bare `times` is checked only inside \( \).
