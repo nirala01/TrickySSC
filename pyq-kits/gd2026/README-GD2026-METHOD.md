@@ -7,7 +7,10 @@ Get it at the start of every chat (git clone works from the shell; github.io / r
     # kit = /home/claude/tssc-kit/pyq-kits/gd2026
 
 At the end of every chat: mark the shift `done` in SHIFTS.md, add its line under "## Done" below, and (Ashish's
-standing yes, if given) commit + push ONLY pyq-kits/gd2026/ to main. Scripts: example-07-may-shift-3 is the newest (figure shift with
+standing yes, if given) commit + push ONLY pyq-kits/gd2026/ to main. Scripts: example-08-may-shift-1 is the newest (figure shift with
+TWO figure Qs Q9, Q10 — 10 images fetched same-origin, laid out at natural size in one 640×520 region, one zoom save_to_disk after moving the
+mouse away, threshold 200, no padding; EN RC passage instruction line stripped via INSTR; HI Part D passage is Q75–Q79 (Q80 standalone);
+checks.py whitelist adds \pm; controls.py anchors retargeted to this paper); example-07-may-shift-3 is the one before (figure shift with
 FOUR figure Qs Q11, Q12, Q18, Q19 — 20 images + 6 small text-option images (Q2 A/C/D, Q4 C, Q5 A, Q66 D) laid out in one 960×480 region,
 fetched same-origin, one zoom save_to_disk, threshold 200; OPT_FIX now merges into OPT_FIX_EN/HI ('#A'-style keys work in both);
 FIXED_STEM_L for a stem that needs its own KaTeX in each language; ratio options "a : b" auto-wrapped (B1); HI Part D passage from comp;
@@ -397,6 +400,25 @@ Questions CSV header: `qNum,subject,chapterId,exam,year,text,option_A,option_B,o
   Q62/Q65/Q78 option casing, Q75 "with one foot limping", Q60 "Rs. X", Q24 key Jupiter ("stormy planet"), HI Q28 "नरेंद्र सिंह कपानी".
   Q20 (ages) sits in Reasoning but is tagged quant.ages; Q66 (lord/lured/load/laud) tagged eng.homonyms; Q65/Q66/Q73 tagged hindi.paryayvachi.
   9 hindi.other (Q64, Q67–Q72, Q74, Q75).
+
+- 08 May 2026 Shift 1 — built 2026-11-26 (figure Qs Q9, Q10 — stem + 4 options each, all clean, threshold 200, native size, no padding).
+  en/hi/gu cidx agree on all 100, and all 80 EN and 20 HI Part D keys agreed with my own solving. KEY NOTE: Q71 ("affectionate ____ all our
+  family members") — cidx B "with" in all three languages, but Testbook's solution line says "to"; "affectionate to/towards" is also standard
+  usage, so option C "to" → "at" and key B carried. Corrections: Q17 option "0X414" (zero) → "OX414" (EN + HI, as in the stem); Q22 EN option
+  "Vijayakalakshmi Pandit" → "Vijaya Lakshmi Pandit" (HI already विजया लक्ष्मी पंडित); Q34 stem "5th Marine Census in the "Coastal state fisheries
+  conference 2025"" → "5th Marine Fisheries Census at the "Coastal States Fisheries Meet 2025"" (EN) / "समुद्री जनगणना" → "समुद्री मत्स्य जनगणना" (HI)
+  — Mumbai, 28 Apr 2025, key kept; Q63 (correctly spelt) had THREE correct words — EN "Gregarious"/"Gluttony" → "Gregarous"/"Glutony" (the HI/GU
+  copies keep the misspellings the key intends; key D Gaffe); Q49 options normalised to "P − 14" etc.; Q76–80 RC passage instruction line dropped,
+  "higher- income" → "higher-income"; B1 wraps Q11–Q14 and Q47 options; Q44/Q45/Q46/Q50 stems rebuilt as KaTeX (\frac → \dfrac, \rm removed,
+  "......" → \ldots), Q57 "2/3" and Q60 options → \dfrac; HI Q57 "4 गुना अधिक कार्यकुशल" → "4 गुना कार्यकुशल" (as in EN "4 times as efficient").
+  HI Part D: Q61–Q63 "चिन्ह" → "चिह्न" and "है-[BR]" → "है?||"; Q62 option C "पूर्ण विराम" (the sentence "हाँ, लिख सकता हूँ।" also ends with one)
+  → "विस्मयादिबोधक चिह्न" (key A अल्पविराम); Q64 "का सही तकनीकी शब्द है:" → "का सही तकनीकी (अंग्रेज़ी) शब्द क्या है?"; Q65 stem "किसी महत्वपूर्ण सूचना
+  को दीवार पर लगाने के लिए क्या उपयोग किया जाता है?" (पोस्टर also fitted) → "कार्यालय या थाने में … दीवार पर स्थायी रूप से लगाया गया बोर्ड क्या कहलाता
+  है?" (key सूचना पट्ट); Q69 option B "जप्ती" → "जब्ती"; Q72 "क्या होगा:" → "क्या होगी?"; Q79 option D "केंद्रकृत" → "केंद्रीकृत". Hindi Part D passage
+  is Q75–Q79 (Q80 standalone); English Q76–80 is a reading-comprehension passage. Carried verbatim: Q32 option "Council of Minister", Q33 option
+  "Paris New Year", Q38 option "vladivostok", Q42 "(28 of 2)" / "(28 का 2)", Q47 "length 5 cm" shorter than the breadth, Q54 "Rs." in options,
+  Q67 option "chiropodist" (lower case), Q80 option C repeating Q79's option C. 7 hindi.other (Q64, Q68–Q72, Q80); Q73/Q74 (meaning) tagged
+  hindi.paryayvachi, Q61–Q63 (विराम चिह्न) hindi.vyakaran, Q65 hindi.anek-shabd.
 
 ## Checker notes (fixed in example-04-may-shift-1 on 2026-11-25)
 - checks.py: the word "times" in prose ("3 times as efficient") is no longer flagged; bare `times` is checked only inside \( \).
