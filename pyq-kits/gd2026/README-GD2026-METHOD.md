@@ -7,7 +7,7 @@ Get it at the start of every chat (git clone works from the shell; github.io / r
     # kit = /home/claude/tssc-kit/pyq-kits/gd2026
 
 At the end of every chat: mark the shift `done` in SHIFTS.md, add its line under "## Done" below, and (Ashish's
-standing yes, if given) commit + push ONLY pyq-kits/gd2026/ to main. Scripts: example-28-apr-shift-3 is the newest
+standing yes, if given) commit + push ONLY pyq-kits/gd2026/ to main. Scripts: example-29-apr-shift-3 is the newest
 (figure shift, paths are relative to the script folder); example-04-may-shift-1 is the first one.
 
 # SSC GD 2026 PYQ conversion — method (set 2026-11-25, first paper: 04 May 2026 Shift 1, live)
@@ -100,6 +100,19 @@ Questions CSV header: `qNum,subject,chapterId,exam,year,text,option_A,option_B,o
   HI Q73 key ड्यूटी डायरी (रोज़नामचा/general diary is the formal term). 6 hindi.other.
   NOTE: in this file the English cloze passage sits INSIDE each Q76–80 stem (comp is empty) — split instruction /
   passage / question in build_txt.cloze(); the Hindi passage is in comp with a trailing "[BR]उपरोक्त गद्यांश …" line.
+- 29 Apr 2026 Shift 3 — built 2026-11-26 (figure Qs Q12, Q13 — stem + 4 options each, all clean, threshold 200; every cut padded
+  with a 4 px white margin because Q12 option 1 is natively 65×58 and the docx check needs ≥ 60 px — never upscale, pad instead).
+  Figures were fetched same-origin: open one cdn.testbook.com image URL in Chrome, rebuild the page with all 10 imgs at natural
+  size (dpr 1), one zoom with save_to_disk, crop locally. All 80 EN keys and 20 HI Part D keys agreed. Corrections: Q1 option
+  "BZ1" → "BZJ" (EN + HI; ? = XVF + 4); Q37 stem "In June 2024" → "In August 2024" (EN) / "जून" → "अगस्त" (HI) — the PMAY-G
+  2 crore rural houses were approved on 9 Aug 2024, the 10 Jun 2024 decision was 3 crore rural + urban, so option 3 was arguable;
+  key 2 kept. Q71 option D "into" → "onto" ("translate from Sanskrit into English" is also right; key "to" kept); Q72 and Q75
+  underlines restored; Q73 stray punctuation removed ("felt: ill", "when; he", "he; leaned", "distance: his"); Q79 options
+  "shal" → "shall", "Wil" → "will"; Q76–80 one passage used for all five (source had uneven blank lengths/quote styles);
+  HI Q29 option "पॉन्डिक्षेरी" → "पॉन्डिचेरी"; HI Part D Q67 stray space in 'कुख्यात '; HI Q74 "<u>सही</u> … क्या होगी:" →
+  plain "सही … क्या होगी?". Hindi Part D passage is Q75–Q79 (Q80 standalone). Carried verbatim: Q24 "kalbelia", Q27 "literateur",
+  Q58 options "25 percentage", Q60 "fourth proportion", option casing in Q63/Q66/Q68. Q5 (LCM) and Q6 (notes) sit in Reasoning
+  but are tagged quant.lcm-hcf / quant.number-system. 8 hindi.other.
 
 ## Checker notes (fixed in example-04-may-shift-1 on 2026-11-25)
 - checks.py: the word "times" in prose ("3 times as efficient") is no longer flagged; bare `times` is checked only inside \( \).
