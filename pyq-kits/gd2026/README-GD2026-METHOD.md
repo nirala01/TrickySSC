@@ -7,8 +7,9 @@ Get it at the start of every chat (git clone works from the shell; github.io / r
     # kit = /home/claude/tssc-kit/pyq-kits/gd2026
 
 At the end of every chat: mark the shift `done` in SHIFTS.md, add its line under "## Done" below, and (Ashish's
-standing yes, if given) commit + push ONLY pyq-kits/gd2026/ to main. Scripts: example-30-apr-shift-2 is the newest
-(figure shift, paths are relative to the script folder; HPD_OPT there is keyed by option INDEX, not text); example-30-apr-shift-1 adds KEY_FIX (key override), HPD_OPT (Hindi
+standing yes, if given) commit + push ONLY pyq-kits/gd2026/ to main. Scripts: example-30-apr-shift-3 is the newest
+(figure shift, paths relative to the script folder; HPD_OPT keyed by option INDEX; hi_sol_4 maps option keys through NFC so
+composed/decomposed nukta letters in the source never break opt_bullets); example-30-apr-shift-2 is the one before; example-30-apr-shift-1 adds KEY_FIX (key override), HPD_OPT (Hindi
 Part D option fix) and the cloze-passage blank rebuild; example-04-may-shift-1 is the first one.
 
 # SSC GD 2026 PYQ conversion — method (set 2026-11-25, first paper: 04 May 2026 Shift 1, live)
@@ -141,6 +142,23 @@ Questions CSV header: `qNum,subject,chapterId,exam,year,text,option_A,option_B,o
   borders, so "internal" was arguable; key C kept). Hindi Part D passage is Q75–Q79 (Q80 standalone). Carried verbatim: Q23 Nati
   "fast-paced, vigorous" (best fit), option casing in Q63/Q65, Q5 (LCM) and Q6 (SI) in Reasoning tagged quant.lcm-hcf /
   quant.simple-interest. 9 hindi.other (Q64–66, Q70–74, Q80); Q67–69 tagged hindi.anek-shabd.
+- 30 Apr 2026 Shift 3 — built 2026-11-26 (figure Qs Q11, Q12 — stem + 4 options each, all clean, threshold 200, native size, no padding;
+  Q11 option 3 is a TCS snip of a different size (105×128) but a clean letter figure — shipped as is). All 80 EN and 20 HI Part D keys
+  agreed (en/hi cidx = gu cidx = source solution line). Corrections: Q7 option C was an image of the word "UNIFORM" — typed (EN + HI);
+  Q33 stem "in February 2025" → "in November 2024" (EN) / "फरवरी 2025" → "नवंबर 2024" (HI) — K. Sanjay Murthy was named CAG on 18 Nov and
+  sworn in on 21 Nov 2024; Q34 stem "The Manmohan Singh Committee (1991) is known for:" → "The economic reforms of 1991, launched under
+  Finance Minister Manmohan Singh, are mainly known for:" (EN + HI; there is no such committee, key A kept); Q38 stem reworded to "According
+  to a study published in 2024, about ___ … lack the diversity in diet suggested by the WHO" (EN + HI; it was a 2024 NMJI study, not a WHO
+  suggestion; key 77% kept); Q63 bold word restored (<u>considerable</u>); Q65 EN option "Wretchedness" → "Wrechedness" (the HI/GU copies
+  keep the misspelling the key intends; EN had all four correct); Q72 options "0n"/"ãI" → "on"/"at"; Q73 and Q75 underlines restored; Q74
+  "C. … milk. D. They looked" split onto its own line; Q76–80 one passage (Q76's copy), blanks ___A___/___B___/___C___ and "(D) <u>vibrant</u>",
+  "(E) <u>heritage</u>"; Q80 stem adds "as it is used in the passage" (inheritance is the legal sense). HI Part D: Q63 option D "ढांकना"
+  (ढाँकना is an accepted variant) → "ढ़कना" so only the key A is correct; Q72 "<u>सही</u> … क्या होगी:" → plain "सही … क्या होगी?"; Q74 stem
+  → "पुलिस विभाग के कार्य-नियमों की संकलित पुस्तक क्या कहलाती है?" (संहिता also fitted the bare stem; key नियमावली); Q75 stem → "अपराध होने पर
+  पुलिस द्वारा अपराधियों के विरुद्ध उठाया गया कदम क्या कहलाता है?" (उपाय fitted the old "अपराध रोकने के लिए" stem better; key कार्रवाई); Q77
+  zero-width space removed from option C; Q80 option "व्यापार बढाना" → "बढ़ाना"; passage "रहता है है कि" → "रहता है कि". Hindi Part D passage is
+  Q76–Q80 (Q75 standalone). Carried verbatim: Q42 "(24 of 1)" / "(24 का 1)", Q39 "did … ultimately annexed", Q46 "One of the diagonal", option
+  casing in Q63/Q65/Q67/Q68. 6 hindi.other (Q65, Q68–Q72).
 
 ## Checker notes (fixed in example-04-may-shift-1 on 2026-11-25)
 - checks.py: the word "times" in prose ("3 times as efficient") is no longer flagged; bare `times` is checked only inside \( \).
