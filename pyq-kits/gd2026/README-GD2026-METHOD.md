@@ -88,6 +88,18 @@ Questions CSV header: `qNum,subject,chapterId,exam,year,text,option_A,option_B,o
   "<u>सही</u> … क्या होगी:" → plain "सही … क्या होगी?". Hindi Part D passage is Q75–Q79 (Q80 standalone), not Q76–Q80.
   Carried verbatim: Q14 option D "U064", Q47 "What are the measure", option casing in Q64/Q65/Q78/Q80. All keys agreed.
   10 hindi.other (terminology / police-duty meaning items).
+- 29 Apr 2026 Shift 2 — built 2026-11-26 (figure Qs Q11, Q12 — stem + 4 options each; Q12 stem has serif letters, cut at
+  threshold 200, the rest at 150). All 80 EN keys and 20 HI Part D keys agreed. Corrections: Q32 stem adds "take g = 10 m/s²
+  on Earth" (EN + HI) — 117 N is 700 ÷ 6, so g = 10 was assumed; Q38 stem "schools?" → "schools." (HI "की?" → "की।");
+  Q66 options "Trivia" → "Trivial", "Usefu" → "Useful"; Q69 missing blank inserted ("blind _____ their own faults");
+  Q72 option "10" → "on" (not "to": "look to the matter" is arguable); Q73 underline restored and options "n accordance
+  for/on" → "in accordance for/on"; Q75 underline restored; Q76–80 cloze passage had bare letters for blanks — rebuilt as
+  ___A___, ___B___, ___D___ and "(C) <u>cognitive</u>", "(E) <u>influence</u>"; Q80 stem adds "as it is used in the passage"
+  (Weakness opposes the noun, Neglect the verb); HI Q72 "होगाः" → "होगी?"; HI Q77 option "एजसी" → "एजेंसी"; HI passage
+  "चेन्" → "चेन". Carried verbatim: Q25 option "Kala Aur Budhdha Chand", option casing in Q65/Q67/Q68, HI Q62 "तीरथ",
+  HI Q73 key ड्यूटी डायरी (रोज़नामचा/general diary is the formal term). 6 hindi.other.
+  NOTE: in this file the English cloze passage sits INSIDE each Q76–80 stem (comp is empty) — split instruction /
+  passage / question in build_txt.cloze(); the Hindi passage is in comp with a trailing "[BR]उपरोक्त गद्यांश …" line.
 
 ## Checker notes (fixed in example-04-may-shift-1 on 2026-11-25)
 - checks.py: the word "times" in prose ("3 times as efficient") is no longer flagged; bare `times` is checked only inside \( \).
