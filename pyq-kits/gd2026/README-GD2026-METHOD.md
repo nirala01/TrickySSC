@@ -7,7 +7,10 @@ Get it at the start of every chat (git clone works from the shell; github.io / r
     # kit = /home/claude/tssc-kit/pyq-kits/gd2026
 
 At the end of every chat: mark the shift `done` in SHIFTS.md, add its line under "## Done" below, and (Ashish's
-standing yes, if given) commit + push ONLY pyq-kits/gd2026/ to main. Scripts: example-04-may-shift-3 is the newest
+standing yes, if given) commit + push ONLY pyq-kits/gd2026/ to main. Scripts: example-05-may-shift-1 is the newest and the
+FIRST NO-FIGURE example (FIGQ = set(), checks.py fails if a figures.docx is present or [FIGURE-BASED] appears, docx controls
+replaced by a 'stray figures docx' control; RC passage Q76–80 with the generic instruction line dropped; OPT_FIX_EN keys may be
+'value#L' to fix one of two identical options); example-04-may-shift-3 is the one before
 (figure shift; figures fetched same-origin from cdn.testbook.com, laid out absolutely, one zoom save_to_disk; Hindi Part D passage
 label Q75–Q79 set in build_txt; cloze words (D)/(E) rebuilt as "(D) <u>pacing</u>"); example-04-may-shift-2 is the one before
 (figure shift; REP_EN / REP_HI for language-specific stem anchors such as a source KaTeX fraction that only one language has;
@@ -196,6 +199,27 @@ Questions CSV header: `qNum,subject,chapterId,exam,year,text,option_A,option_B,o
   standalone). Carried verbatim: Q42 "(28 of 1)" (EN + HI), Q45/Q46 "One of the diagonal", Q57 "two number", Q66 option "sore" and Q68 option
   casing, Q70 key "Take the injured man…" (imperative active), Q73 "something alarming, her suitcase" comma splice. Q5 and Q6 sit in Reasoning
   but are tagged quant.number-system / quant.average. 8 hindi.other (Q64–66, Q69, Q71–74).
+- 05 May 2026 Shift 1 — built 2026-11-26 (NO figure questions, so no figures.docx; zero figures confirmed three ways: no <img> in
+  en[0..79] text/opts/comp or hi[0..99], no [FIGURE-BASED], keyword sweep). All 80 EN and 20 HI Part D keys agreed (en/hi cidx = gu cidx
+  on all 100). Corrections: Q2 option A "N" was truncated in the source (EN + HI) — rebuilt as "NY" (does not fit; key C NX kept); Q22
+  option A "Dhol, Harmonium, and Manjira" → "Dhol and Tirududi (jingle sticks)" (EN) / "ढोल और तिरुडुडी (घुँघरू वाली छड़ियाँ)" (HI) —
+  harmonium and manjira are not the Gaur Maria accompaniment; key A kept; Q33 stem "Fred Darrington Award for Excellence in Art and
+  Culture" → "Fred Darrington Sand Master Award" (EN + HI; the real name, Weymouth UK, April 2025; key A kept); Q34 stem adds "the
+  longest river of peninsular India" (EN + HI; the Cauvery is also called Dakshin Ganga in some books; key Godavari kept); Q63
+  options C and D were both "Exaggerate" (GU too) — C → "Exagerate" so only the key D is correct; Q66 option "Professiona" →
+  "Professional"; Q7/Q40 statement II moved to its own line; Q68 "following. Something" → "following.||Something"; Q73/Q74
+  jumbled sentences split onto their own lines; Q75 underline restored (<u>from the flea market with a gilded frame</u>); Q43/Q45/
+  Q46/Q53–Q57 KaTeX rebuilt (EN plain "2 : 1", "(7/5)", "12\(\sqrt{3}\)" made like the HI paper); HI Q16 note "1 and 3" →
+  "1 और 3"; HI Q51 option D 4900 → 4850 (as in EN/GU). HI Part D: Q67 stem → "…अच्छे कार्य के लिए प्रशंसा-पत्र या पदक दिया जाता है…"
+  (key पुरस्कार); Q72 option B "गवाह से दोबारा पूछताछ" (sounded like re-examination) → "गवाह से विरोधी पक्ष द्वारा पूछताछ (जिरह)"
+  (key B kept); Q73 stem → "अपराध होते समय घटनास्थल पर मौजूद रहकर घटना को अपनी आँखों से देखने वाले व्यक्ति…" (आरोपी/संदिग्ध also
+  fitted "मौजूद व्यक्ति"; key साक्षी); Q74 stem "…किया गया कार्य…" → "किसी मामले में पुलिस द्वारा कानून के अनुसार उठाया गया कदम…"
+  (option कार्य fitted the old stem; key कार्रवाई); Q75 stem "अतिरिक्त सुरक्षा लगाना" → "शांति बनाए रखने के लिए पुलिस बल की तैनाती और
+  ज़रूरी प्रबंध करना" (सुरक्षा विस्तार also fitted; key सुरक्षा व्यवस्था); passage "विश्वास विश्वास" → "विश्वास"; Q77 option "शिक्षा
+  शिक्षा का" → "शिक्षा का". Hindi Part D passage is Q76–Q80 (Q75 standalone). English Q76–80 is a reading-comprehension passage
+  (not a cloze), tagged eng.reading-comprehension. Carried verbatim: Q5/Q6 hypothetical calendar data, Q42 "(33 of 2)", Q60 "fourth
+  proportion", Q56 "two number", option casing in Q66/Q67/Q72, Q58/Q59 "Rs." in options, HI Q61–Q63 underlined अशुद्ध/शुद्ध. Q12
+  (heads and legs) sits in Reasoning but is tagged quant.algebra. 9 hindi.other (Q64–Q72).
 
 ## Checker notes (fixed in example-04-may-shift-1 on 2026-11-25)
 - checks.py: the word "times" in prose ("3 times as efficient") is no longer flagged; bare `times` is checked only inside \( \).
