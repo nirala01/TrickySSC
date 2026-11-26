@@ -107,8 +107,8 @@ control('hard-coded Option (X)', [('solutions-EN', cell(12, 'explanation', lambd
 control('hard-coded विकल्प (X)', [('solutions-HI', cell(12, 'trick', lambda v: v + ' विकल्प (B)'))])
 control('Devanagari in EN file', [('solutions-EN', cell(20, 'trick', lambda v: v + ' काम'))])
 control('Devanagari in HI Q66-90', [('solutions-HI', cell(75, 'trick', lambda v: v + ' त्रुटि'))])
-control('HI Q66-90 stem differs', [('questions-HI', cell(77, 'text', lambda v: v.replace('English', 'Hindi', 1)))])
-control('HI Q66-90 explanation differs', [('solutions-HI', cell(77, 'explanation', lambda v: v.replace('passive', 'active', 1)))])
+control('HI Q66-90 stem differs', [('questions-HI', cellp('text', lambda q, v: q >= 66 and ' the ' in v, lambda v: v.replace(' the ', ' teh ', 1)))])
+control('HI Q66-90 explanation differs', [('solutions-HI', cellp('explanation', lambda q, v: q >= 66 and ' the ' in v, lambda v: v.replace(' the ', ' teh ', 1)))])
 control('HI stem loses Devanagari', [('questions-HI', cell(13, 'text', lambda v: 'What is the unit digit of the product?'))])
 def copy_en(h, rows):
     he, re_ = load(TMP_SRC, 'solutions-EN'); en = {r[0]: r for r in re_}
@@ -116,7 +116,7 @@ def copy_en(h, rows):
 TMP_SRC = SRC
 control('HI solution copies EN', [('solutions-HI', copy_en)])
 control('HI stem loses ||', [('questions-HI', cell(23, 'text', lambda v: v.replace('||', ' ')))])
-control('HI option digit set broken', [('questions-HI', cell(10, 'option_A', lambda v: v.replace('1', '7', 1)))])
+control('HI option digit set broken', [('questions-HI', cellp('option_A', lambda q, v: q <= 65 and re.search(r'[0-68-9]', v), lambda v: re.sub(r'[0-68-9]', '7', v, count=1)))])
 def swap_opt(h, rows):
     i = find(rows, h, 'option_A', lambda q, v: q == 46); a, b = h.index('option_A'), h.index('option_B')
     he, re_ = load(SRC, 'questions-EN'); en = {r[0]: r for r in re_}
