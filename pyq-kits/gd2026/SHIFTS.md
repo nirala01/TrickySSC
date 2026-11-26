@@ -9,7 +9,7 @@ The NEXT shift = the first row marked `todo`. Update this file in every chat and
 | 2 | 28 April 2026 Shift 1 | ssc-gd-2026-28-apr-shift-1 | done | built 2026-11-25 (no figures) |
 | 3 | 28 April 2026 Shift 2 | ssc-gd-2026-28-apr-shift-2 | done | built 2026-11-25 (no figures; HI Q71 replaced, misprints fixed) |
 | 4 | 28 April 2026 Shift 3 | ssc-gd-2026-28-apr-shift-3 | done | built 2026-11-25 (figures Q11, Q12; Q11 opt1 rebuilt; corrections in README) |
-| 5 | 29 April 2026 Shift 1 | ssc-gd-2026-29-apr-shift-1 | todo |  |
+| 5 | 29 April 2026 Shift 1 | ssc-gd-2026-29-apr-shift-1 | done | built 2026-11-25 (figures Q12, Q13; Q36 stem reworded, HI Q63 option fixed; corrections in README) |
 | 6 | 29 April 2026 Shift 2 | ssc-gd-2026-29-apr-shift-2 | todo |  |
 | 7 | 29 April 2026 Shift 3 | ssc-gd-2026-29-apr-shift-3 | todo |  |
 | 8 | 30 April 2026 Shift 1 | ssc-gd-2026-30-apr-shift-1 | todo |  |

@@ -79,6 +79,15 @@ Questions CSV header: `qNum,subject,chapterId,exam,year,text,option_A,option_B,o
   Q78 option D "S0" → "too" (intended "so" would also have been correct); HI Q70 option A completed ("… इकट्ठा करना");
   HI Q72 "होगा:" → "होगी?"; HI Q74 stem reworded to "आधिकारिक लिखित रिपोर्ट" (पंचनामा was arguable); HI Q79 option D
   "गति और समयबद्धता से" → "सटीकता और समयबद्धता दोनों से". Carried verbatim: Q6 "atleast", Q42 "29 of 2". 6 hindi.other.
+- 29 Apr 2026 Shift 1 — built 2026-11-25 (figure Qs Q12, Q13 — stem + 4 options each, all clean, threshold 150). Source Q68
+  option A was a 10×11 px image of the word "in" — typed as text. Corrections: Q36 stem "largest saltwater lake" →
+  "largest brackish-water (saltwater) lagoon" (EN) / "खारे पानी की लैगून झील" (HI) — Sambhar is the largest inland salt lake,
+  so the old stem was arguable; key C Chilika kept. Q71 missing blank inserted ("tripped _____ the heap"); Q72 and Q75
+  underlines restored (<u>aimed at bringing up</u>, <u>reaffirmed again his commitment</u>); Q78 option "shal" → "shall";
+  HI Q63 option C "अकसर" (an accepted variant spelling of अक्सर) → "अकसार" so only the key B is correct; HI Q74
+  "<u>सही</u> … क्या होगी:" → plain "सही … क्या होगी?". Hindi Part D passage is Q75–Q79 (Q80 standalone), not Q76–Q80.
+  Carried verbatim: Q14 option D "U064", Q47 "What are the measure", option casing in Q64/Q65/Q78/Q80. All keys agreed.
+  10 hindi.other (terminology / police-duty meaning items).
 
 ## Checker notes (fixed in example-04-may-shift-1 on 2026-11-25)
 - checks.py: the word "times" in prose ("3 times as efficient") is no longer flagged; bare `times` is checked only inside \( \).
