@@ -2,7 +2,7 @@
 
 Exam held 4–18 Feb 2026 (SSC calls it "SSC MTS 2025"). 16 shifts in the source (GitHub repo akarohitmishra/repeatermock-subjectwise-db).
 The NEXT shift = the first row marked `todo`. Update this file in every chat.
-Figures? = how many figure questions the shift has. A shift with figures needs Ashish's upload of its Testbook PDF (link in the last column).
+Figures? = how many figure questions the shift has. EVERY shift needs Ashish's upload of its Testbook PDF (link in the last column): the GitHub data lacks the RC passage and has cut stems, and figure shifts need the pictures.
 
 | # | Paper | Prefix | Figures? | Status | Testbook PDF |
 |---|---|---|---|---|---|
