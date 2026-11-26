@@ -153,6 +153,9 @@ body{font-family:'Noto Sans',sans-serif;background:var(--bg);color:var(--text);m
 .course-tbl .c-paid{color:var(--orange);}
 .course-tbl .c-free{color:#9CA3AF;}
 .course-tbl .c-att{color:var(--muted);}
+.course-tbl tr.c-yr td{font-size:0.74rem;padding-top:0.28rem;padding-bottom:0.28rem;opacity:0.85;}   /* TSSC-PYQYEAR-V1: year rows under a course */
+.course-tbl tr.c-yr td:first-child{padding-left:1.6rem;font-weight:500;color:var(--muted);}
+.course-tbl tr.c-yr .c-tot{font-size:0.85rem;}
 .course-empty{font-size:0.8rem;color:var(--muted);font-style:italic;margin-top:0.6rem;}
 .course-scroll{overflow-x:auto;}
 .drill-tag.paid{background:rgba(255,107,0,0.22);color:var(--orange);}
@@ -404,6 +407,14 @@ body{font-family:'Noto Sans',sans-serif;background:var(--bg);color:var(--text);m
       </div>
       <div class="course-scroll" id="courseMockBody"><div class="course-empty">Loading…</div></div>
     </div>
+    <!-- TSSC-COURSEPYQ-V1: PYQ tests today, course by course — same columns as the mock card above -->
+    <div class="stat-card course-card">
+      <div class="stat-head">
+        <div class="stat-label" style="margin-bottom:0;">📄 PYQ Tests by Course Today</div>
+        <div class="stat-sub" id="coursePyqSub" style="margin-top:0;">—</div>
+      </div>
+      <div class="course-scroll" id="coursePyqBody"><div class="course-empty">Loading…</div></div>
+    </div>
   </div>
 
   <!-- Controls (revealed once the candidate list is actually loaded) -->
@@ -627,11 +638,12 @@ const MOCK_COURSES = [
   { key:'mts',      label:'SSC MTS',                       re:/^ssc-mts_/i,             module:'ssc-mts-mocks' },
   { key:'cpo',      label:'SSC CPO',                       re:/^ssc-cpo_/i,             module:'ssc-cpo-mocks' },
   { key:'ntpc',     label:'RRB NTPC',                      re:/^rrb-ntpc_/i,            module:'rrb-ntpc-mocks' },
+  { key:'ntpc-ug',  label:'RRB NTPC UG',                   re:/^rrb-ntpc-ug_/i,         module:'rrb-ntpc-ug-mocks' },
   { key:'sm',       label:'RRB Station Master',            re:/^rrb-sm_/i,              module:'rrb-sm-mocks' },
   { key:'groupd',   label:'RRB Group D',                   re:/^rrb-(group-?d|grpd)_/i, module:'rrb-group-d-mocks' }
 ];
 const COURSE_BY_KEY = Object.fromEntries(MOCK_COURSES.map(c => [c.key, c]));
-const COURSE_EXAM_FALLBACK = { 'ssc-cgl':'cgl-t1', 'ssc-chsl':'chsl-t1', 'ssc-gd':'gd', 'ssc-mts':'mts', 'ssc-cpo':'cpo', 'rrb-ntpc':'ntpc', 'rrb-sm':'sm' };
+const COURSE_EXAM_FALLBACK = { 'ssc-cgl':'cgl-t1', 'ssc-chsl':'chsl-t1', 'ssc-gd':'gd', 'ssc-mts':'mts', 'ssc-cpo':'cpo', 'rrb-ntpc':'ntpc', 'rrb-ntpc-ug':'ntpc-ug', 'rrb-sm':'sm' };
 
 function mockCourse(a){
   const id = String(a.baseMockId || a.mockId || '').trim();
@@ -641,6 +653,48 @@ function mockCourse(a){
   if(key && /^ssc-(cgl|chsl)$/.test(ex) && String(a.tier || '').toLowerCase() === 'tier2') key = key.replace('-t1','-t2');
   if(key) return COURSE_BY_KEY[key];
   return { key:'other', label:'Other / untagged', module:null };
+}
+
+// ── TSSC-COURSEPYQ-V1: which course a PYQ attempt belongs to ────────────────
+// Read from the paper id the players write (ssc-cgl_2024_tier1_shift-1_2024-09-09_en,
+// sectional papers add __quant…; basePaperId is the id without that suffix),
+// falling back to the exam + tier fields on attempts saved without a paper id.
+// `module` is that exam's mock pass — "paid" here means the candidate holds it
+// (PYQs themselves are free). A new exam only needs one line here.
+const PYQ_EXAMS = {
+  'ssc-cgl':     { label:'SSC CGL',            tiers:true,  module:'ssc-cgl-mocks' },
+  'ssc-chsl':    { label:'SSC CHSL',           tiers:true,  module:'ssc-chsl-mocks' },
+  'ssc-gd':      { label:'SSC GD',             tiers:false, module:'ssc-gd-mocks' },
+  'ssc-mts':     { label:'SSC MTS',            tiers:false, module:'ssc-mts-mocks' },
+  'ssc-cpo':     { label:'SSC CPO',            tiers:false, module:'ssc-cpo-mocks' },
+  'rrb-ntpc':    { label:'RRB NTPC',           tiers:false, module:'rrb-ntpc-mocks' },
+  'rrb-ntpc-ug': { label:'RRB NTPC UG',        tiers:false, module:'rrb-ntpc-ug-mocks' },
+  'rrb-sm':      { label:'RRB Station Master', tiers:false, module:'rrb-sm-mocks' },
+  'rrb-group-d': { label:'RRB Group D',        tiers:false, module:'rrb-group-d-mocks' }
+};
+const PYQ_OTHER = { key:'other', label:'Other / untagged', module:null };
+function pyqCourseByKey(key){
+  const t2 = /-t2$/.test(key);
+  const ex = PYQ_EXAMS[t2 ? key.slice(0,-3) : key];
+  if(!ex) return PYQ_OTHER;
+  return { key, label: ex.label + (ex.tiers ? (t2 ? ' Tier 2' : ' Tier 1') : ''), module: ex.module };
+}
+function pyqCourse(a){
+  const id = String(a.basePaperId || a.paperId || '').toLowerCase().trim();
+  const m  = id.match(/^([a-z]+(?:-[a-z]+)*)_/);
+  let ex = m && PYQ_EXAMS[m[1]] ? m[1] : String(a.exam || '').toLowerCase().trim();
+  if(ex === 'rrb-grpd' || ex === 'rrb-groupd') ex = 'rrb-group-d';
+  if(!PYQ_EXAMS[ex]) return PYQ_OTHER;
+  const t2 = PYQ_EXAMS[ex].tiers && (/_tier-?2(_|$)/.test(id) || String(a.tier || '').toLowerCase() === 'tier2');
+  return pyqCourseByKey(ex + (t2 ? '-t2' : ''));
+}
+
+// TSSC-PYQYEAR-V1: the paper's year — the year field, else the year in the paper id.
+function pyqYear(a){
+  const y = String(a.year || '').match(/(?:19|20)\d{2}/);
+  if(y) return y[0];
+  const m = String(a.basePaperId || a.paperId || '').match(/_((?:19|20)\d{2})_/);
+  return m ? m[1] : 'Year not tagged';
 }
 
 // ── TSSC-APPWEB-V1: app vs website ─────────────────────────────────────────
@@ -1026,7 +1080,7 @@ window.loadStats = async () => {
     await resolveUsers(todaysAttempts.map(a => a.uid));
 
     // TSSC-COURSEMOCK-V1 — pass status of today's mock takers (30 docs per request).
-    await loadMockEntitlements(todaysAttempts.filter(a => attemptType(a) === 'mock').map(a => a.uid));
+    await loadMockEntitlements(todaysAttempts.filter(a => { const t = attemptType(a); return t === 'mock' || t === 'pyq'; }).map(a => a.uid));   // TSSC-COURSEPYQ-V1: PYQ takers too
 
     // Hand the same numbers to the drill-down panels.
     todayCtx = { attempts: todaysAttempts, activeUsers: activeUsersToday, newUsers: newUsersTodayList, dashUsers: dashUsersToday, mobileUsers: mobileTodayList, reportStart, reportEnd };
@@ -1121,45 +1175,71 @@ async function loadMockEntitlements(uids){
 // Course rows: unique candidates who sat a mock of that course today, and of
 // them how many joined today (new), hold that course's pass (paid) or not (free).
 // New overlaps paid/free; paid + free = candidates.
-function courseStats(){
+function courseStats(type, courseOf, yearOf){
   const rows = new Map();
+  const bump = (r, a) => { r.attempts++; if(a.uid) r.uids.add(a.uid); };
   todayCtx.attempts.forEach(a => {
-    if(attemptType(a) !== 'mock') return;
-    const c = mockCourse(a);
-    if(!rows.has(c.key)) rows.set(c.key, { course:c, uids:new Set(), attempts:0 });
+    if(attemptType(a) !== type) return;
+    const c = courseOf(a);
+    if(!rows.has(c.key)) rows.set(c.key, { course:c, uids:new Set(), attempts:0, years:new Map() });
     const r = rows.get(c.key);
-    r.attempts++;
-    if(a.uid) r.uids.add(a.uid);
+    bump(r, a);
+    if(yearOf){   // TSSC-PYQYEAR-V1
+      const y = yearOf(a);
+      if(!r.years.has(y)) r.years.set(y, { year:y, uids:new Set(), attempts:0 });
+      bump(r.years.get(y), a);
+    }
   });
-  return [...rows.values()].map(r => {
+  const fin = (r, course) => {
     const uids = [...r.uids];
-    const paid = uids.filter(u => hasCoursePass(u, r.course)).length;
+    const paid = uids.filter(u => hasCoursePass(u, course)).length;
     return { ...r, total: uids.length, newC: uids.filter(u => newTodayIds.has(u)).length, paid, free: uids.length - paid };
+  };
+  return [...rows.values()].map(r => {
+    const out = fin(r, r.course);
+    // newest year first; untagged last
+    out.years = [...r.years.values()].map(y => fin(y, r.course)).sort((a,b) => (parseInt(b.year,10)||0) - (parseInt(a.year,10)||0));
+    return out;
   }).sort((a,b) => b.total - a.total || b.attempts - a.attempts || a.course.label.localeCompare(b.course.label));
 }
 
-function renderCourseCard(){
-  const body = document.getElementById('courseMockBody');
-  const sub  = document.getElementById('courseMockSub');
+// One "by course" card. TSSC-COURSEPYQ-V1: the mock card and the PYQ card are the
+// same table — only the attempt type, the course lookup and the drill prefix differ.
+// TSSC-PYQYEAR-V1: with o.yearOf, every course row is followed by one row per paper year.
+function paintCourseCard(o){
+  const body = document.getElementById(o.bodyId);
+  const sub  = document.getElementById(o.subId);
   if(!body) return;
-  const rows = courseStats();
-  const allMockUids = new Set();
-  todayCtx.attempts.forEach(a => { if(attemptType(a) === 'mock' && a.uid) allMockUids.add(a.uid); });
-  sub.innerHTML = rows.length + ' course' + (rows.length===1?'':'s') + ' · ' + allMockUids.size + ' unique candidate' + (allMockUids.size===1?'':'s')
+  const rows = courseStats(o.type, o.courseOf, o.yearOf);
+  const allUids = new Set();
+  todayCtx.attempts.forEach(a => { if(attemptType(a) === o.type && a.uid) allUids.add(a.uid); });
+  sub.innerHTML = rows.length + ' course' + (rows.length===1?'':'s') + ' · ' + allUids.size + ' unique candidate' + (allUids.size===1?'':'s')
     + (entReadFailed ? ' · <span style="color:var(--red);">⚠ pass status not readable — paid shows 0</span>' : '');
-  if(!rows.length){ body.innerHTML = '<div class="course-empty">No mock test attempted yet in this report window</div>'; return; }
+  if(!rows.length){ body.innerHTML = '<div class="course-empty">' + o.empty + '</div>'; return; }
   const sum = k => rows.reduce((n,r) => n + r[k], 0);
-  body.innerHTML = `<table class="course-tbl">
-    <thead><tr><th>Course</th><th>Candidates</th><th>New</th><th>Paid</th><th>Free</th><th>Attempts</th></tr></thead>
-    <tbody>${rows.map(r => `<tr tabindex="0" onclick="showDrill('course:${r.course.key}')" onkeydown="if(event.key==='Enter'){showDrill('course:${r.course.key}');}" title="View candidates">
-      <td>${esc(r.course.label)}</td>
-      <td class="c-tot">${r.total}</td>
+  const cells = r => `<td class="c-tot">${r.total}</td>
       <td class="c-new">${r.newC}</td>
       <td class="c-paid">${r.paid}</td>
       <td class="c-free">${r.free}</td>
-      <td class="c-att">${r.attempts}</td></tr>`).join('')}</tbody>
+      <td class="c-att">${r.attempts}</td></tr>`;
+  const tr = (key, cls) => `<tr${cls ? ` class="${cls}"` : ''} tabindex="0" onclick="showDrill('${o.drill}${key}')" onkeydown="if(event.key==='Enter'){showDrill('${o.drill}${key}');}" title="View candidates">`;
+  body.innerHTML = `<table class="course-tbl">
+    <thead><tr><th>Course${o.yearOf ? ' / paper year' : ''}</th><th>Candidates</th><th>New</th><th${o.paidTip ? ` title="${o.paidTip}"` : ''}>Paid</th><th>Free</th><th>Attempts</th></tr></thead>
+    <tbody>${rows.map(r => tr(r.course.key) + `
+      <td>${esc(r.course.label)}</td>
+      ` + cells(r) + r.years.map(y => tr(r.course.key + '@' + encodeURIComponent(y.year), 'c-yr') + `
+      <td>↳ ${esc(y.year)}</td>
+      ` + cells(y)).join('')).join('')}</tbody>
     ${rows.length > 1 ? `<tfoot><tr><td>Total (a candidate in 2 courses counts in both)</td><td>${sum('total')}</td><td>${sum('newC')}</td><td>${sum('paid')}</td><td>${sum('free')}</td><td>${sum('attempts')}</td></tr></tfoot>` : ''}
   </table>`;
+}
+
+function renderCourseCard(){
+  paintCourseCard({ type:'mock', courseOf:mockCourse, drill:'course:', bodyId:'courseMockBody', subId:'courseMockSub',
+    empty:'No mock test attempted yet in this report window' });
+  paintCourseCard({ type:'pyq', courseOf:pyqCourse, drill:'pyqcourse:', bodyId:'coursePyqBody', subId:'coursePyqSub',
+    yearOf:pyqYear,
+    empty:'No PYQ test attempted yet in this report window', paidTip:'Holds the pass of that course (PYQs are free)' });
 }
 
 // ── HEAVY LOAD: every candidate + every attempt, on demand only ────────────
@@ -1326,6 +1406,12 @@ function drillAttempts(){
     const k = drillKind.slice(7);
     return todayCtx.attempts.filter(a => attemptType(a) === 'mock' && mockCourse(a).key === k);
   }
+  // TSSC-COURSEPYQ-V1: one course row from the "PYQ Tests by Course" card
+  if(drillKind.startsWith('pyqcourse:')){
+    const [k, yr] = drillKind.slice(10).split('@');   // TSSC-PYQYEAR-V1: optional @year
+    const y = yr === undefined ? null : decodeURIComponent(yr);
+    return todayCtx.attempts.filter(a => attemptType(a) === 'pyq' && pyqCourse(a).key === k && (y === null || pyqYear(a) === y));
+  }
   if(drillKind === 'pyq')     return todayCtx.attempts.filter(a => attemptType(a) === 'pyq');
   if(drillKind === 'mock')    return todayCtx.attempts.filter(a => attemptType(a) === 'mock');
   if(drillKind === 'chapter') return todayCtx.attempts.filter(a => attemptType(a) === 'chapter');
@@ -1405,8 +1491,11 @@ window.renderDrill = () => {
   const atts = drillAttempts();
   const body = document.getElementById('drillBody');
 
-  const _ck = drillKind.startsWith('course:') ? (COURSE_BY_KEY[drillKind.slice(7)] || { label:'Other / untagged' }) : null;
-  document.getElementById('drillTitle').textContent = _ck ? _ck.label + ' — mock tests today'
+  const _pq = drillKind.startsWith('pyqcourse:');   // TSSC-COURSEPYQ-V1
+  const _py = _pq && drillKind.includes('@') ? decodeURIComponent(drillKind.split('@')[1]) : '';   // TSSC-PYQYEAR-V1
+  const _ck = _pq ? pyqCourseByKey(drillKind.slice(10).split('@')[0])
+    : drillKind.startsWith('course:') ? (COURSE_BY_KEY[drillKind.slice(7)] || { label:'Other / untagged' }) : null;
+  document.getElementById('drillTitle').textContent = _ck ? _ck.label + (_py ? ' ' + _py : '') + (_pq ? ' — PYQ tests today' : ' — mock tests today')
     : (drillKind === 'new' && drillSrc) ? (drillSrc === 'app' ? '📲 New app candidates today' : '🌐 New website candidates today')
     : DRILL_TITLES[drillKind];
   document.getElementById('drillNote').textContent =
