@@ -1,0 +1,154 @@
+name: IndexNow ping
+
+# Tells Bing, Yandex, Seznam, Naver etc. (via IndexNow) which public pages
+# changed, so they are crawled within hours instead of weeks.
+# Only URLs that are listed in a sitemap*.xml are ever sent, so admin,
+# uploader and app-* pages (noindex, not in sitemaps) are never submitted.
+#
+# - push to main: sends the pages changed in that push
+# - after the PYQ / mock-live / app-page builds: sends pages those bots changed
+# - first run (key file added) or manual run with "all = yes": sends every sitemap URL
+#
+# The key is public by design (it must be readable at trickyssc.com/<key>.txt).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '**.html'
+      - 'sitemap*.xml'
+      - 'de60c12c0f440647f2a6b4da5ccf9497.txt'
+  workflow_run:
+    workflows:
+      - Build SSC CGL PYQ Page
+      - Build SSC CHSL PYQ page
+      - Build SSC GD PYQ page
+      - Build SSC MTS PYQ page
+      - Build RRB NTPC PYQ page
+      - Build RRB NTPC UG PYQ page
+      - Build RRB Station Master PYQ page
+      - Build chapter-wise PYQ tests
+      - Update Mock Live Count
+      - Fetch Current Affairs
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      all:
+        description: 'Send every sitemap URL (yes/no)'
+        default: 'yes'
+
+concurrency:
+  group: indexnow
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    env:
+      HOST: trickyssc.com
+      KEY: de60c12c0f440647f2a6b4da5ccf9497
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 100
+
+      - name: Work out which URLs to send
+        env:
+          EVENT: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.event.after }}
+          ALL_INPUT: ${{ github.event.inputs.all }}
+        run: |
+          python3 - <<'PY'
+          import os, re, glob, subprocess
+          host, key = os.environ["HOST"], os.environ["KEY"]
+          base = f"https://{host}/"
+          site = set()
+          for sm in glob.glob("sitemap*.xml"):
+              site |= set(re.findall(r"<loc>\s*([^<\s]+)\s*</loc>", open(sm, encoding="utf-8").read()))
+
+          def run(*a):
+              return subprocess.run(a, capture_output=True, text=True).stdout
+
+          def locmap(xml):
+              out = {}
+              for blk in re.findall(r"<url>(.*?)</url>", xml, re.S):
+                  m = re.search(r"<loc>\s*([^<\s]+)\s*</loc>", blk)
+                  if m:
+                      lm = re.search(r"<lastmod>\s*([^<\s]+)\s*</lastmod>", blk)
+                      out[m.group(1)] = lm.group(1) if lm else ""
+              return out
+
+          ev = os.environ["EVENT"]
+          send_all = False
+          b = a = None
+          if ev == "workflow_dispatch":
+              send_all = os.environ.get("ALL_INPUT", "yes").strip().lower() in ("yes", "y", "true", "1")
+          elif ev == "push":
+              b, a = os.environ.get("BEFORE", ""), os.environ.get("AFTER", "")
+              if not b or set(b) == {"0"} or not run("git", "cat-file", "-t", b).strip():
+                  send_all = True
+          else:  # workflow_run: commits the build bots made in the last 3 hours
+              revs = run("git", "rev-list", "--since=3 hours ago", "HEAD").split()
+              if revs:
+                  b, a = revs[-1] + "^", "HEAD"
+          changed = run("git", "diff", "--name-only", b, a).split() if (b and not send_all) else []
+          if f"{key}.txt" in changed:
+              send_all = True  # first run: announce the whole site once
+
+          if send_all:
+              urls = sorted(site)
+          else:
+              urls = set()
+              for f in changed:
+                  if f.endswith(".html"):
+                      urls.add(base if f == "index.html" else base + f)
+                  elif re.fullmatch(r"sitemap[\w-]*\.xml", f) and os.path.exists(f):
+                      # only URLs added to the sitemap or whose lastmod moved
+                      new_m = locmap(open(f, encoding="utf-8").read())
+                      old_m = locmap(run("git", "show", f"{b}:{f}"))
+                      urls |= {u for u, lm in new_m.items() if old_m.get(u) != lm}
+              urls = sorted(u for u in urls if u in site)
+          open("urls.txt", "w").write("\n".join(urls))
+          print(f"{len(urls)} URL(s) to send (send_all={send_all})")
+          for u in urls[:50]:
+              print("  ", u)
+          PY
+
+      - name: Wait for the key file to be live
+        run: |
+          [ -s urls.txt ] || { echo "Nothing to send"; exit 0; }
+          for i in $(seq 1 40); do
+            got=$(curl -fsSL "https://$HOST/$KEY.txt?nc=$RANDOM" || true)
+            if [ "$(echo -n "$got" | tr -d '[:space:]')" = "$KEY" ]; then echo "Key file live"; exit 0; fi
+            echo "Key file not live yet ($i/40), waiting 15s"; sleep 15
+          done
+          echo "Key file never became live"; exit 1
+
+      - name: Send to IndexNow
+        run: |
+          [ -s urls.txt ] || exit 0
+          python3 - <<'PY'
+          import os, json, urllib.request
+          host, key = os.environ["HOST"], os.environ["KEY"]
+          urls = [u for u in open("urls.txt").read().split("\n") if u]
+          ok = True
+          for i in range(0, len(urls), 10000):
+              body = json.dumps({"host": host, "key": key,
+                                 "keyLocation": f"https://{host}/{key}.txt",
+                                 "urlList": urls[i:i+10000]}).encode()
+              req = urllib.request.Request("https://api.indexnow.org/indexnow", data=body,
+                                           headers={"Content-Type": "application/json; charset=utf-8"})
+              try:
+                  with urllib.request.urlopen(req, timeout=60) as r:
+                      print("IndexNow:", r.status, f"({len(urls[i:i+10000])} URLs)")
+              except urllib.error.HTTPError as e:
+                  print("IndexNow error:", e.code, e.read()[:300])
+                  ok = e.code in (200, 202)
+          raise SystemExit(0 if ok else 1)
+          PY
