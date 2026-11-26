@@ -7,10 +7,12 @@ Get it at the start of every chat (git clone works from the shell; github.io / r
     # kit = /home/claude/tssc-kit/pyq-kits/gd2026
 
 At the end of every chat: mark the shift `done` in SHIFTS.md, add its line under "## Done" below, and (Ashish's
-standing yes, if given) commit + push ONLY pyq-kits/gd2026/ to main. Scripts: example-04-may-shift-2 is the newest
+standing yes, if given) commit + push ONLY pyq-kits/gd2026/ to main. Scripts: example-04-may-shift-3 is the newest
+(figure shift; figures fetched same-origin from cdn.testbook.com, laid out absolutely, one zoom save_to_disk; Hindi Part D passage
+label Q75–Q79 set in build_txt; cloze words (D)/(E) rebuilt as "(D) <u>pacing</u>"); example-04-may-shift-2 is the one before
 (figure shift; REP_EN / REP_HI for language-specific stem anchors such as a source KaTeX fraction that only one language has;
 checks.py exempts SSC bilingual HI options like 'आदित्य-एल1 (Aditya-L1)' from the digit-set test and knows \overline / \ldots);
-example-30-apr-shift-3 is the one before
+example-30-apr-shift-3 is the one before that
 (figure shift, paths relative to the script folder; HPD_OPT keyed by option INDEX; hi_sol_4 maps option keys through NFC so
 composed/decomposed nukta letters in the source never break opt_bullets); example-30-apr-shift-2 is the one before; example-30-apr-shift-1 adds KEY_FIX (key override), HPD_OPT (Hindi
 Part D option fix) and the cloze-passage blank rebuild; example-04-may-shift-1 is the first one.
@@ -178,6 +180,22 @@ Questions CSV header: `qNum,subject,chapterId,exam,year,text,option_A,option_B,o
   कहलाता है?" (key निरीक्षण). Hindi Part D passage is Q76–Q80 (Q75 standalone). Carried verbatim: Q42 "(28 of 2)", Q46/Q47 "One of the
   diagonal", Q57 "A car cover", Q62 option "The lightening open", Q64 option "complain", Q33 key Visvesvaraya, HI Q5 masculine verbs for
   girls, HI Q70 option "आपरेशन". 4 hindi.other (Q65, Q70–Q72).
+- 04 May 2026 Shift 3 — built 2026-11-26 (figure Qs Q12, Q13 — stem + 4 options each, all clean, threshold 200, native size, no padding).
+  All 80 EN and 20 HI Part D keys agreed (en/hi cidx = gu cidx = source solution line on all 100). Corrections: Q29 stem "St. Paul's
+  Cathedral" → "St. Paul's Cathedral, Kolkata" (EN) / "कोलकाता के सेंट पॉल्स कैथेड्रल" (HI) — Burne-Jones's west window is in Kolkata, not
+  London; Q40 stem "In 2025, IMF in its World Economic Outlook" → "In July 2025, IMF in its World Economic Outlook Update" (EN + HI; April
+  2025 said 6.2%, July 6.4%; key 6.4% kept); Q63 '"Fortunate" ?' → '"Fortunate"?'; Q64 had NO misspelt word (all four correct) — EN option A
+  "Treacherous" → "Treachearous" (the HI/GU copies keep the misspelling the key intends); Q68 missing blank inserted ("_____ hearing the
+  news"); Q72 and Q75 underlines restored; Q73 "storm. C. Entering" split onto its own line; Q76–80 one passage, blanks ___A___/___B___/___C___
+  and "(D) <u>pacing</u>", "(E) <u>examined</u>", stray " ," removed; Q78 options "nm"/"ner" → "him"/"her" (EN + HI copy). HI Part D: Q63
+  option A "कोशी" (Nepal's official spelling, an accepted variant) → "कौसी" so only the key B कोसी is correct; Q66 option D "अभियोग गठन" (also
+  meant charge framing) → "अभियोग वापसी" (key B आरोप निर्धारण); Q67 stray space in 'कार्य '; Q68 stem "जब किसी कर्मी की ड्यूटी बदल दी जाती है"
+  → "जब किसी कर्मी को उसके कार्यस्थल या पद से हटाकर दूसरे स्थान पर भेज दिया जाता है" (प्रमोशन also changes duty; key स्थानांतरण); Q74
+  "<u>सही</u> … क्या होगी:" → plain "सही … क्या होगी?"; Q79 option B "आंतरिक सुरक्षा" → "राष्ट्रीय सुरक्षा" (border security is not internal;
+  key B kept); Q80 option D "सीलिंग" (sealing IS a way to protect a scene) → "सजावट" (key B सुरक्षा). Hindi Part D passage is Q75–Q79 (Q80
+  standalone). Carried verbatim: Q42 "(28 of 1)" (EN + HI), Q45/Q46 "One of the diagonal", Q57 "two number", Q66 option "sore" and Q68 option
+  casing, Q70 key "Take the injured man…" (imperative active), Q73 "something alarming, her suitcase" comma splice. Q5 and Q6 sit in Reasoning
+  but are tagged quant.number-system / quant.average. 8 hindi.other (Q64–66, Q69, Q71–74).
 
 ## Checker notes (fixed in example-04-may-shift-1 on 2026-11-25)
 - checks.py: the word "times" in prose ("3 times as efficient") is no longer flagged; bare `times` is checked only inside \( \).
