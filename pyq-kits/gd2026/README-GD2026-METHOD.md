@@ -7,7 +7,10 @@ Get it at the start of every chat (git clone works from the shell; github.io / r
     # kit = /home/claude/tssc-kit/pyq-kits/gd2026
 
 At the end of every chat: mark the shift `done` in SHIFTS.md, add its line under "## Done" below, and (Ashish's
-standing yes, if given) commit + push ONLY pyq-kits/gd2026/ to main. Scripts: example-08-may-shift-1 is the newest (figure shift with
+standing yes, if given) commit + push ONLY pyq-kits/gd2026/ to main. Scripts: example-08-may-shift-2 is the newest (figure shift with FOUR figure Qs Q11, Q12, Q18, Q19 — 20 images + the Q3 option C
+image (typed "FA") fetched same-origin, laid out at natural size in one 1200×530 region, one zoom save_to_disk after moving the mouse away,
+threshold 200, no padding; EN RC passage Q76–80 has no instruction line; HI Part D passage is Q76–Q80 (Q61–Q75 standalone); Step headings
+with pairs like "LI : HD" trip the solution B1 check — write "LI → HD"; controls.py anchors retargeted); example-08-may-shift-1 is the one before (figure shift with
 TWO figure Qs Q9, Q10 — 10 images fetched same-origin, laid out at natural size in one 640×520 region, one zoom save_to_disk after moving the
 mouse away, threshold 200, no padding; EN RC passage instruction line stripped via INSTR; HI Part D passage is Q75–Q79 (Q80 standalone);
 checks.py whitelist adds \pm; controls.py anchors retargeted to this paper); example-07-may-shift-3 is the one before (figure shift with
@@ -419,6 +422,22 @@ Questions CSV header: `qNum,subject,chapterId,exam,year,text,option_A,option_B,o
   "Paris New Year", Q38 option "vladivostok", Q42 "(28 of 2)" / "(28 का 2)", Q47 "length 5 cm" shorter than the breadth, Q54 "Rs." in options,
   Q67 option "chiropodist" (lower case), Q80 option C repeating Q79's option C. 7 hindi.other (Q64, Q68–Q72, Q80); Q73/Q74 (meaning) tagged
   hindi.paryayvachi, Q61–Q63 (विराम चिह्न) hindi.vyakaran, Q65 hindi.anek-shabd.
+- 08 May 2026 Shift 2 — built 2026-11-26 (figure Qs Q11, Q12, Q18, Q19 — stem + 4 options each, all clean, threshold 200, native size, no padding).
+  en/hi/gu cidx agree on all 100, and all 80 EN and 20 HI Part D keys agreed with my own solving. Source image typed: Q3 option C "FA" (EN + HI).
+  Corrections: Q2 stem "ABQ : CDS : ? : RJK : RMN : TOP" (single colons) → "ABQ : CDS :: ? : RJK :: RMN : TOP" (EN + HI, the form the stem
+  describes; key PHI kept); Q28 stem "launched in 2025" → "launched by the Ministry of Ayush in 2021" (EN) / "2025 में शुरू की गई" → "आयुष मंत्रालय
+  द्वारा 2021 में शुरू की गई" (HI) — AOGUSY was approved in March 2021, key C kept; Q47 stem exponent 1/2 → 2 (EN + HI; (√320)^(1/2) ≈ 4.23
+  matched no option, key 320 needs the square); Q43/Q44/Q47/Q49 stems rebuilt as KaTeX (\frac → \dfrac), Q45 "x^{2}" put inside KaTeX and \rm
+  removed, Q49 options normalised to \( 4\sqrt{3} \) etc.; B1 wraps Q2, Q4, Q13–Q15 stems and Q20 stem + options; Q61 option D "mmigrated here" →
+  "immigrated here"; Q62 option A "resilience" → "resillience" (the underlined misspelling the key intends — the option showed the correct
+  spelling); Q70 option A "The quest" → "The guest" (as in the sentence). HI Part D: Q61 sentence "मैंने नहीं जाना।" (also a correct past tense of
+  जानना) → "मैंने घर जाना है।" and "है-" → "है?" (key सर्वनाम); Q62 "आप आपका काम करो।" (also a क्रिया error) → "आप आपका काम करें।" and "है:" → "है?"
+  (key सर्वनाम); Q69 option C देशज (ढूँढना is listed as देशज in many books) → संकर so only the key तद्भव fits; Q72 option A "साक्ष्य मिटाना" (also
+  means destroying evidence) → "साक्ष्य संकलन" (key साक्ष्य नाश); Q75 stem "'कानूनी रूप से पकड़ना' शब्द का उपयुक्त हिंदी अर्थ क्या है?" → "… के लिए
+  उपयुक्त शब्द क्या है?" (key गिरफ़्तार). Hindi Part D passage is Q76–Q80 (Q61–Q75 standalone); English Q76–80 is an RC passage (Jaipur Literature
+  Festival). Carried verbatim: Q8 hyphen minus signs, Q41 "38 of 1", Q52 "Rs." in options, Q60 "sold it a price", Q61 option "crossed the boarder",
+  Q65 stem without full stop, Q75 option "changeable" (lower case), HI Q61/Q62 "दिए गये". Q20 (ages) sits in Reasoning but is tagged quant.ages.
+  7 hindi.other (Q64–Q67, Q70–Q72); Q61–Q63 hindi.vakya-shuddhi, Q68/Q69 hindi.shabd-bhed, Q73/Q74 hindi.paryayvachi, Q75 hindi.anek-shabd.
 
 ## Checker notes (fixed in example-04-may-shift-1 on 2026-11-25)
 - checks.py: the word "times" in prose ("3 times as efficient") is no longer flagged; bare `times` is checked only inside \( \).
