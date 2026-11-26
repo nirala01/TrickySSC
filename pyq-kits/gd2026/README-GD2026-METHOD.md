@@ -7,8 +7,9 @@ Get it at the start of every chat (git clone works from the shell; github.io / r
     # kit = /home/claude/tssc-kit/pyq-kits/gd2026
 
 At the end of every chat: mark the shift `done` in SHIFTS.md, add its line under "## Done" below, and (Ashish's
-standing yes, if given) commit + push ONLY pyq-kits/gd2026/ to main. Scripts: example-29-apr-shift-3 is the newest
-(figure shift, paths are relative to the script folder); example-04-may-shift-1 is the first one.
+standing yes, if given) commit + push ONLY pyq-kits/gd2026/ to main. Scripts: example-30-apr-shift-1 is the newest
+(figure shift, paths are relative to the script folder); example-30-apr-shift-1 adds KEY_FIX (key override), HPD_OPT (Hindi
+Part D option fix) and the cloze-passage blank rebuild; example-04-may-shift-1 is the first one.
 
 # SSC GD 2026 PYQ conversion — method (set 2026-11-25, first paper: 04 May 2026 Shift 1, live)
 
@@ -113,6 +114,19 @@ Questions CSV header: `qNum,subject,chapterId,exam,year,text,option_A,option_B,o
   plain "सही … क्या होगी?". Hindi Part D passage is Q75–Q79 (Q80 standalone). Carried verbatim: Q24 "kalbelia", Q27 "literateur",
   Q58 options "25 percentage", Q60 "fourth proportion", option casing in Q63/Q66/Q68. Q5 (LCM) and Q6 (notes) sit in Reasoning
   but are tagged quant.lcm-hcf / quant.number-system. 8 hindi.other.
+- 30 Apr 2026 Shift 1 — built 2026-11-26 (figure Qs Q11, Q12 — stem + 4 options each, all clean, threshold 200, native size, no padding
+  needed). KEY: Q28 (5000 m race walk record 19:24.48) — source en/hi cidx = A "Tushar Panwar", but the source's own GU cidx = C and
+  Testbook's solution in all three languages says Nitin Gupta, who set the record (20th National Youth Athletics Championships, Patna,
+  10 Mar 2025) — so the official key is C; shipped C in EN + HI (KEY_FIX in build_txt.py). All other 79 EN and 20 HI Part D keys agreed.
+  Corrections: Q17 option "SBlU" → "SBIU" (EN + HI); Q66 option "Concea" → "Conceal"; Q72 options "al"/"ïn"/"01" → "at"/"in"/"on";
+  Q73 and Q75 underlines restored; Q76–80 passage blanks rebuilt as ___A___, ___B___, ___E___ and "(C) <u>gallantry</u>",
+  "(D) <u>conspicuous</u>" (Q78/Q79 test those words), one passage for all five (Q80's copy had "different different"); HI Q11
+  "(: :)" → "(::)" (B1); HI Q17 "रूप रूप" → "रूप"; HI Part D Q61 option A "बारात" (an accepted variant of बरात) → "बारत" so only the key
+  B is correct; HI Q72 "<u>सही</u> … क्या होगा:" → plain "सही … क्या होगी?"; HI Q75 stem reworded to "…अपने सभी थानों और कार्यालयों को एक
+  साथ भेजी जाने वाली आधिकारिक लिखित सूचना…" (key परिपत्र; the bare stem also fitted सूचना पत्र); HI Q76 stem was a copy of Q75 — replaced
+  by "गद्यांश में भारत की आंतरिक सुरक्षा के लिए तैनात किन अर्धसैनिक बलों के उदाहरण दिए गए हैं?" (options/key C unchanged). Hindi Part D
+  passage is Q76–Q80 (Q75 standalone). Carried verbatim: Q42 "(19 of 2)", Q30 option "Space tourism and station support" (best fit,
+  key C), option casing in Q66/Q67. 11 hindi.other (Q65–Q75 police/office terminology and duty-meaning items).
 
 ## Checker notes (fixed in example-04-may-shift-1 on 2026-11-25)
 - checks.py: the word "times" in prose ("3 times as efficient") is no longer flagged; bare `times` is checked only inside \( \).
@@ -126,3 +140,6 @@ Questions CSV header: `qNum,subject,chapterId,exam,year,text,option_A,option_B,o
   threshold 150 — use 200 for letter/symbol figures (the watermark sits at 240–250, so it still disappears).
 - If an option image is Testbook's annotated solution picture (arrows, handwriting, much larger than the others), do not
   ship it: rebuild that option cleanly and list it in the report.
+- KEY CROSS-CHECK (2026-11-26, 30 Apr S1): compare en/hi cidx with gu cidx for all 100 items AND with the "correct answer is …"
+  line of the source solution. A mismatch in en/hi only (gu + solution agree) is a Testbook entry error — use the gu/solution key
+  and list it. 30 Apr S1 Q28 was the first such case.
