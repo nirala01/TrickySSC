@@ -7,7 +7,10 @@ Get it at the start of every chat (git clone works from the shell; github.io / r
     # kit = /home/claude/tssc-kit/pyq-kits/gd2026
 
 At the end of every chat: mark the shift `done` in SHIFTS.md, add its line under "## Done" below, and (Ashish's
-standing yes, if given) commit + push ONLY pyq-kits/gd2026/ to main. Scripts: example-05-may-shift-2 is the newest (figure shift with
+standing yes, if given) commit + push ONLY pyq-kits/gd2026/ to main. Scripts: example-05-may-shift-3 is the newest (figure shift with
+FOUR figure Qs Q11, Q12, Q18, Q19 — 20 images laid out in one 1060×505 region, one zoom save_to_disk; Q2 option images typed via
+FIXED_OPTS; RC passage Q76–80 (comp, all five identical); HI Part D passage Q76–Q80; run the scripts WITHOUT python -I, or base.py
+cannot be imported — only the source data is untrusted and it is read as JSON); example-05-may-shift-2 is the one before (figure shift with
 THREE figure Qs Q12, Q13, Q20 — 15 images laid out in one 1100×420 region, one zoom save_to_disk, move the mouse away first
 or the cursor lands in the cut; cloze blanks "______ A ______" rebuilt; HPD_OPT used for spelling variants); example-05-may-shift-1
 is the one before and the FIRST NO-FIGURE example (FIGQ = set(), checks.py fails if a figures.docx is present or [FIGURE-BASED] appears, docx controls
@@ -240,6 +243,27 @@ Questions CSV header: `qNum,subject,chapterId,exam,year,text,option_A,option_B,o
   "Panj Piaras", Q36 "chieftains", Q46/Q47 "One of the diagonal", Q52 "is Rs. 6000 and Rs. 8000", Q56 "employed in a work", Q73 "parent’s",
   Q75 option casing ("she made …"), Q80 option "Repeat", HI Q56 "A और B … लगाया गया है". 6 hindi.other (Q65–Q67, Q73–Q75); Q69–Q72 tagged
   hindi.anek-shabd.
+
+- 05 May 2026 Shift 3 — built 2026-11-26 (figure Qs Q11, Q12, Q18, Q19 — stem + 4 options each, all clean, threshold 200, native size, no
+  padding; first shift with four figure questions). All 80 EN and 20 HI Part D keys agreed with my own solving (en/hi cidx = gu cidx on all
+  100). Source images typed as text: Q2 options A "J" and C "H" (EN + HI). Corrections: Q2 option B "∈" → "E" (EN + HI; key G kept); Q4 "? ,"
+  → "?,"; Q40 stem "What position will it naturally attain?" → "In which position will the plane of the loop naturally settle with respect to
+  the field lines?" (EN) / "क्षेत्र रेखाओं के सापेक्ष लूप का तल स्वाभाविक रूप से किस स्थिति में आ जाएगा?" (HI) — key "Perpendicular" is true of the
+  plane, not of the loop's axis; Q63 four underlines restored and option D "melodies" → "meloudies" (the misspelt word as it stands in the
+  sentence); Q64 EN option "silhouette" → "silouette" (the HI/GU copies keep the misspelling the key intends; EN had all four correct); Q71
+  option "ower" → "over"; Q74 underline restored; Q75 had NO error after Testbook's clean-up — "for hours" → "for hour" in stem and option C
+  (the error Testbook's own solution describes; key C kept); Q78 "harmfu" → "harmful"; RC passage "osteoporosis a condition" →
+  "osteoporosis—a condition" (as quoted in Q79); B1 wraps Q3/Q5/Q13/Q14/Q15/Q20/Q54; Q43/Q44/Q45/Q48/Q50 KaTeX rebuilt (\frac → \dfrac,
+  EN "x" → \times, split \sqrt spans joined); HI Q57 "5 गुना अधिक कुशल" / "3 गुना अधिक कुशल" → "5 गुना कुशल" / "3 गुना कुशल" (as in EN "5 times as
+  efficient"). HI Part D: Q62 option A "गोलियों की बाढ़" (बाढ़ = a volley of fire, also correct) → "गोलियों के बौछार"; Q63 option C "कई बैंक
+  कर्मचारियों ने प्रदर्शन किया" (also a correct sentence) → "बैंक के कई कर्मचारियों ने प्रदर्शन किए"; Q64 "कौन -सा" → "कौन-सा" and "<u>सही</u>" →
+  plain "सही"; Q65 stem → "…उसके वर्तमान कार्यस्थल से हटाकर दूसरे स्थान पर नियुक्त कर दिया जाता है…" (तैनाती also fitted "भेजा जाता है"; key
+  स्थानांतरण); Q68 stem "प्रशिक्षण देने की प्रक्रिया" (gave away the key) → "उनके काम के लिए आवश्यक कौशल, अभ्यास और जानकारी देने की प्रक्रिया" (key
+  प्रशिक्षण); Q69 stem "समय पर ड्यूटी पर नहीं आता" (= late, not absent) → "अपनी निर्धारित ड्यूटी पर आता ही नहीं" (key अनुपस्थित). Hindi Part D
+  passage is Q76–Q80. Carried verbatim: Q7 hypothetical day (21 Sep 2024 was really a Saturday), Q24 "Adhvarya", Q27 stem (3600/4000 is a
+  distractor; key 1.1 times = 1 ÷ 0.9), Q55 "employee are matriculates", Q60 "Rs." in options, Q76 option "Was", HI Q61–Q63 underlined शुद्ध,
+  HI Q72 अभियोजन दोष (the only prosecution-specific term). Q20 (ages) sits in Reasoning but is tagged quant.ages. 10 hindi.other (Q64, Q65,
+  Q68–Q75).
 
 ## Checker notes (fixed in example-04-may-shift-1 on 2026-11-25)
 - checks.py: the word "times" in prose ("3 times as efficient") is no longer flagged; bare `times` is checked only inside \( \).

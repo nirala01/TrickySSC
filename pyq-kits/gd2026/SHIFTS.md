@@ -20,7 +20,7 @@ The NEXT shift = the first row marked `todo`. Update this file in every chat and
 | 13 | 04 May 2026 Shift 3 | ssc-gd-2026-04-may-shift-3 | done | built 2026-11-26 (figures Q12, Q13; Q29/Q40 stems clarified, Q64 misspelling restored, Q78 options fixed, HI Q63/Q66/Q68/Q79/Q80 fixed; corrections in README) |
 | 14 | 05 May 2026 Shift 1 | ssc-gd-2026-05-may-shift-1 | done | built 2026-11-26 (NO figures; Q2/Q63/Q66 options fixed, Q22 option and Q33/Q34 stems corrected, HI Q51 option, HI Part D Q67/Q72–Q75 fixed; corrections in README) |
 | 15 | 05 May 2026 Shift 2 | ssc-gd-2026-05-may-shift-2 | done | built 2026-11-26 (figures Q12, Q13, Q20; Q2 stem GT : IY, Q40 IMF July 2025 Update, Q63/Q80 options fixed, HI Part D Q62–Q64/Q70/Q71 options fixed; corrections in README) |
-| 16 | 05 May 2026 Shift 3 | ssc-gd-2026-05-may-shift-3 | todo |  |
+| 16 | 05 May 2026 Shift 3 | ssc-gd-2026-05-may-shift-3 | done | built 2026-11-26 (figures Q11, Q12, Q18, Q19; Q2 options typed J/E/H, Q40 stem clarified, Q63/Q64/Q75 misspellings and error restored, HI Part D Q62/Q63 options and Q65/Q68/Q69 stems fixed; corrections in README) |
 | 17 | 06 May 2026 Shift 1 | ssc-gd-2026-06-may-shift-1 | todo |  |
 | 18 | 06 May 2026 Shift 2 | ssc-gd-2026-06-may-shift-2 | todo |  |
 | 19 | 06 May 2026 Shift 3 | ssc-gd-2026-06-may-shift-3 | todo |  |
