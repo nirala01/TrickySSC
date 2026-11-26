@@ -7,7 +7,11 @@ Get it at the start of every chat (git clone works from the shell; github.io / r
     # kit = /home/claude/tssc-kit/pyq-kits/gd2026
 
 At the end of every chat: mark the shift `done` in SHIFTS.md, add its line under "## Done" below, and (Ashish's
-standing yes, if given) commit + push ONLY pyq-kits/gd2026/ to main. Scripts: example-07-may-shift-2 is the newest (figure shift with
+standing yes, if given) commit + push ONLY pyq-kits/gd2026/ to main. Scripts: example-07-may-shift-3 is the newest (figure shift with
+FOUR figure Qs Q11, Q12, Q18, Q19 — 20 images + 6 small text-option images (Q2 A/C/D, Q4 C, Q5 A, Q66 D) laid out in one 960×480 region,
+fetched same-origin, one zoom save_to_disk, threshold 200; OPT_FIX now merges into OPT_FIX_EN/HI ('#A'-style keys work in both);
+FIXED_STEM_L for a stem that needs its own KaTeX in each language; ratio options "a : b" auto-wrapped (B1); HI Part D passage from comp;
+controls.py anchors retargeted); example-07-may-shift-2 is the one before (figure shift with
 TWO figure Qs Q9, Q10 — 10 images, fetched same-origin and laid out at natural size, one zoom save_to_disk, threshold 200; the HI Part D
 Q76–Q80 passage is MISSING in the source again — build_txt.HPD_PASSAGE holds our own; EN RC instruction line stripped via INSTR;
 Q3 option A image typed via OPT_FIX_EN/HI '#A'; controls.py anchors retargeted to this paper); example-07-may-shift-1 is the one before (figure shift with
@@ -373,6 +377,26 @@ Questions CSV header: `qNum,subject,chapterId,exam,year,text,option_A,option_B,o
   territory has", Q37 "religious group … Christian", Q54/Q55 "Rs." in options, Q66 option "ordinary" (lower case), Q67 option "Tetratlon",
   Q70 error segment, Q76–80 passage "need poor segment to participate", HI Q63 "रखियेगा", HI Q75 "का हिंदी में अर्थ". Q61 (कोष्ठक चिह्न)
   tagged hindi.vyakaran; Q67/Q68 (तत्सम/तद्भव) tagged hindi.shabd-bhed. 10 hindi.other (Q64–Q66, Q69–Q75).
+
+- 07 May 2026 Shift 3 — built 2026-11-26 (figure Qs Q11, Q12, Q18, Q19 — stem + 4 options each, all clean, threshold 200, native size, no padding).
+  en/hi/gu cidx agree on all 100. My own solving disagreed with TWO official keys — both fixed through the option texts, key letters kept:
+  Q32 (National Cooperation Policy 2025 unveiled on 24 Jul 2025; official key A was "January") → options A/B swapped to A "July", B "January"
+  (EN + HI); Q72 (Baldwin's "Thirty More Famous Stories Retold" has the order C-A-D-B; official key D was "CBAD") → options C/D swapped to
+  C "CBAD", D "CADB". Source images typed as text: Q2 A/C/D "L"/"M"/"H", Q4 C "MZ", Q5 A "UW" (EN + HI), Q66 D "laud". Corrections: Q20 stem
+  "The sum of their ages is 57.6 years ago from now, what was …" → "The sum of their ages is 57 years. What was the ratio … 6 years ago?"
+  (HI "योग 57 है" → "57 वर्ष है"); Q63 option C "discrimination" (spelt correctly) → "discrmination", the underlined misspelling the key intends;
+  B1 wraps Q3/Q4/Q13/Q14/Q15/Q20 stems and Q20/Q59/Q60 options; Q23 options "7.6 × 10^{6} s" → KaTeX; Q44/Q45/Q47/Q50 stems and Q48 (\frac →
+  \dfrac, x² + y² wrapped) rebuilt; HI Q35 "घोषित घोषणा" → "की गई घोषणा", HI Q39 option "शार्ंगदेव" → "शारंगदेव", HI Q40 "सबसे सर्वोत्तम" → "सर्वोत्तम".
+  HI Part D: Q61/Q62 "दिए गये … अशुद्धि है-/:" → "दिए गए … अशुद्धि है?"; Q61 option C "क्रिया" (the verb ले लो also changes) → "कारक" (key सर्वनाम);
+  Q63 option A "युवा अवस्था" → "युवावस्था" and stem "निम्नलिखित में वाक्य … कीजिए:" → "निम्नलिखित में से वाक्य … कीजिए।" (यौवन + अवस्था is
+  redundant; key A); Q67 stem → "पुलिस और सशस्त्र बलों में वरिष्ठ अधिकारी द्वारा जवानों की शिकायतें और समस्याएँ सीधे सुनकर … बैठक" (सभा fitted
+  the bare stem; key दरबार); Q68 stem "कार्य के मूल्यांकन को क्या कहते हैं?" (gave the key away) → "किसी कर्मचारी के कार्य की गुणवत्ता और प्रदर्शन को
+  परखकर उसका स्तर आँकने की प्रक्रिया …" (key मूल्यांकन); Q69 option B "पहचान" (a badge also identifies) → "उपस्थिति" (key रैंक और पद); Q72 option A
+  "अपराध पूर्व अभ्यास" (a literal gloss of the stem) → "अपराध पश्चात विश्लेषण" (key ड्राई रन); Q73 "है ?" → "है?". English Q76–80 is a reading-
+  comprehension passage (no instruction line); Hindi Part D passage is Q76–Q80 (Q75 standalone). Carried verbatim: Q61 option "the le monde",
+  Q62/Q65/Q78 option casing, Q75 "with one foot limping", Q60 "Rs. X", Q24 key Jupiter ("stormy planet"), HI Q28 "नरेंद्र सिंह कपानी".
+  Q20 (ages) sits in Reasoning but is tagged quant.ages; Q66 (lord/lured/load/laud) tagged eng.homonyms; Q65/Q66/Q73 tagged hindi.paryayvachi.
+  9 hindi.other (Q64, Q67–Q72, Q74, Q75).
 
 ## Checker notes (fixed in example-04-may-shift-1 on 2026-11-25)
 - checks.py: the word "times" in prose ("3 times as efficient") is no longer flagged; bare `times` is checked only inside \( \).
