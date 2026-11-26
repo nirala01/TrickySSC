@@ -7,8 +7,8 @@ Get it at the start of every chat (git clone works from the shell; github.io / r
     # kit = /home/claude/tssc-kit/pyq-kits/gd2026
 
 At the end of every chat: mark the shift `done` in SHIFTS.md, add its line under "## Done" below, and (Ashish's
-standing yes, if given) commit + push ONLY pyq-kits/gd2026/ to main. Scripts: example-30-apr-shift-1 is the newest
-(figure shift, paths are relative to the script folder); example-30-apr-shift-1 adds KEY_FIX (key override), HPD_OPT (Hindi
+standing yes, if given) commit + push ONLY pyq-kits/gd2026/ to main. Scripts: example-30-apr-shift-2 is the newest
+(figure shift, paths are relative to the script folder; HPD_OPT there is keyed by option INDEX, not text); example-30-apr-shift-1 adds KEY_FIX (key override), HPD_OPT (Hindi
 Part D option fix) and the cloze-passage blank rebuild; example-04-may-shift-1 is the first one.
 
 # SSC GD 2026 PYQ conversion — method (set 2026-11-25, first paper: 04 May 2026 Shift 1, live)
@@ -127,6 +127,20 @@ Questions CSV header: `qNum,subject,chapterId,exam,year,text,option_A,option_B,o
   by "गद्यांश में भारत की आंतरिक सुरक्षा के लिए तैनात किन अर्धसैनिक बलों के उदाहरण दिए गए हैं?" (options/key C unchanged). Hindi Part D
   passage is Q76–Q80 (Q75 standalone). Carried verbatim: Q42 "(19 of 2)", Q30 option "Space tourism and station support" (best fit,
   key C), option casing in Q66/Q67. 11 hindi.other (Q65–Q75 police/office terminology and duty-meaning items).
+- 30 Apr 2026 Shift 2 — built 2026-11-26 (figure Qs Q12, Q13 — stem + 4 options each, all clean, threshold 200, native size, no padding).
+  All 80 EN and 20 HI Part D keys agreed (en/hi cidx = gu cidx = source solution line on all 100). Corrections: Q1 options A "A" and
+  D "Y" were truncated in the source (EN + HI) — rebuilt as "IA" and "JY" (neither fits; key B IY kept); Q10 EN options "2400"/"1920"
+  → "240O"/"192O" (the HI paper already had O); Q11 option "2160" → "216O" (EN + HI); Q14 EN option "J0310" → "JO310" (as in HI) and
+  stem "?: MS710" → "? : MS710" inside the KaTeX span; Q29 stem had no distance information — added "An exoplanet orbits its star at
+  the same distance at which the Earth orbits the Sun." (EN + HI), key "Similar temperature" kept; Q64 had NO misspelt word (all four
+  correct) — option D "Unscrupulous" → "Unscrupilous" (the misspelling the key intends); Q68 "sentence ._____" → "sentence.||_____";
+  Q72 and Q75 underlines restored; Q77 option "shal" → "shall"; Q76–80 one passage (Q76's copy), blanks ___A___/___B___/___C___ and
+  "(D) <u>restriction</u>", "(E) <u>illustrates</u>". HI Part D: Q68 stem reworded to "सुरक्षा कर्मियों की ड्यूटी का समय, स्थान और कार्य
+  तय करने वाली योजना क्या कहलाती है?" (प्रक्रिया also fitted the bare stem; key ड्यूटी प्लान); Q70 duplicate option D "खेल के लिए" →
+  "यात्रा के लिए"; Q74 "<u>सही</u> … क्या होगी:" → plain "सही … क्या होगी?"; Q79 option C "आंतरिक" → "राष्ट्रीय" (BSF guards the
+  borders, so "internal" was arguable; key C kept). Hindi Part D passage is Q75–Q79 (Q80 standalone). Carried verbatim: Q23 Nati
+  "fast-paced, vigorous" (best fit), option casing in Q63/Q65, Q5 (LCM) and Q6 (SI) in Reasoning tagged quant.lcm-hcf /
+  quant.simple-interest. 9 hindi.other (Q64–66, Q70–74, Q80); Q67–69 tagged hindi.anek-shabd.
 
 ## Checker notes (fixed in example-04-may-shift-1 on 2026-11-25)
 - checks.py: the word "times" in prose ("3 times as efficient") is no longer flagged; bare `times` is checked only inside \( \).
