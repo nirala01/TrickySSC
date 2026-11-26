@@ -7,7 +7,11 @@ Get it at the start of every chat (git clone works from the shell; github.io / r
     # kit = /home/claude/tssc-kit/pyq-kits/gd2026
 
 At the end of every chat: mark the shift `done` in SHIFTS.md, add its line under "## Done" below, and (Ashish's
-standing yes, if given) commit + push ONLY pyq-kits/gd2026/ to main. Scripts: example-08-may-shift-3 is the newest (figure shift with
+standing yes, if given) commit + push ONLY pyq-kits/gd2026/ to main. Scripts: example-09-may-shift-1 is the newest (figure shift with
+FOUR figure Qs Q11, Q12, Q18, Q19 — 20 images fetched same-origin, laid out at natural size in one 960×500 region (one row per question,
+stem + 4 options), one zoom save_to_disk after moving the mouse away, threshold 200, no padding; EN RC passage Q76–80 has no instruction
+line; HI Part D passage is Q76–Q80 (Q61–Q75 standalone); padded colons inside solution PROSE (e.g. "Time of A : time of B") trip the B1
+check — reword or wrap; controls.py anchors retargeted); example-08-may-shift-3 is the one before (figure shift with
 TWO figure Qs Q9, Q10 — 10 images fetched same-origin, laid out at natural size in one 1000×240 region, one zoom save_to_disk after moving the
 mouse away, threshold 200, no padding; EN RC passage instruction line stripped via INSTR; HI Part D passage is Q73–Q77 (Q78–Q80 standalone);
 HPD_OPT used to replace arguable Hindi Part D options; controls.py anchors retargeted); example-08-may-shift-2 is the one before (figure shift with FOUR figure Qs Q11, Q12, Q18, Q19 — 20 images + the Q3 option C
@@ -457,6 +461,25 @@ Questions CSV header: `qNum,subject,chapterId,exam,year,text,option_A,option_B,o
   standalone); English Q76–80 is an RC passage (Act East Policy). Carried verbatim: Q37 "did … won", Q38 "recently is located", Q42 "(27 of 2)" /
   "18 of 2", Q49 "4 times of its breadth", Q64 option "LOSS", option casing in Q65/Q66/Q67, HI Q66 option "पराक". 9 hindi.other (Q64, Q65,
   Q68, Q69, Q71, Q72, Q78–Q80); Q61 hindi.vyakaran, Q62/Q63 hindi.vakya-shuddhi, Q66/Q67 hindi.upsarg-pratyay, Q70 hindi.sandhi.
+
+- 09 May 2026 Shift 1 — built 2026-11-26 (figure Qs Q11, Q12, Q18, Q19 — stem + 4 options each, all clean, threshold 200, native size, no
+  padding). en/hi/gu cidx agree on all 100, and all 80 EN and 20 HI Part D keys agreed with my own solving. NOTE Q12: the stem letters go
+  P → Q :: O → ?, but all four options carry the same letter "C", so only the corner shapes decide (key D kept; the solution says so).
+  Corrections: Q63 the source underlined "indigenous fauna" as one span and all four words were correctly spelt — four separate underlines
+  restored and the keyed word set to the misspelling "indigenious" (stem + option A); Q66 option C "àl" (garbage in EN/HI/GU) → "alder";
+  Q68 option B "0ff" → "off"; Q76 option C "graple" → "grapple" (the keyed form, as in the passage; all four options were otherwise wrong);
+  Q40 statement II moved to its own line (EN + HI); B1 wraps Q3, Q5, Q13, Q14, Q15, Q20 stems and Q20/Q58/Q60 options; Q43/Q44/Q47/Q48 stems
+  rebuilt as KaTeX (\frac → \dfrac, ^2 → ^{2}, "......" → \ldots, √5 → \sqrt{5}), Q45 "\rm" removed, Q47 options → KaTeX surds. HI Part D:
+  Q61/Q62 "दिए गये … <u>अशुद्धि</u> है:" → "दिए गए … अशुद्धि है?"; Q63 "निम्नलिखित में वाक्य के <u>शुद्ध</u> रूप … :" → "निम्नलिखित में से वाक्य के
+  शुद्ध रूप का चयन कीजिए।"; Q65 stem "जब कोई आदेश लिखित रूप में आता है" (gave the key away) → "जब किसी वरिष्ठ अधिकारी का ऐसा निर्देश, जिसका पालन
+  करना ज़रूरी हो, कागज़ पर लिखकर और हस्ताक्षर करके जारी किया जाता है…" (key लिखित आदेश); Q67 stem "आगंतुक का नाम दर्ज करता है" (gave the key
+  away) → "प्रवेश द्वार पर बाहर से आने वाले व्यक्ति का नाम, पता और आने का कारण रजिस्टर में लिखता है" (key आगंतुक पंजीकरण); Q71 option B completed
+  ("… निगरानी की जाती है"); Q72 stem "अपराध को दबाने के लिए झूठी कहानी" (also fitted अपराध आवरण / झूठा बहाना) → "पूछताछ में ऐसी कहानी … जो पूरी तरह
+  उसके मन से गढ़ी गई हो और जिसका कोई आधार न हो" and option C "झूठा बहाना" → "स्वीकारोक्ति" (key मनगढ़ंत कथा). Hindi Part D passage is Q76–Q80
+  (Q75 standalone); English Q76–80 is an RC passage (spaceship development, no instruction line). Carried verbatim: Q41 hyphen minus signs,
+  Q52 "Rs." in options, Q62/Q65/Q78 option casing, Q64 option "opulance" (lower case), Q73 "invalidated out of the Army" (Christie has
+  "invalided"), Q75 underline already present, HI Q73–Q75 "का उपयुक्त हिंदी अर्थ". Q20 (ages) sits in Reasoning but is tagged quant.ages.
+  7 hindi.other (Q64–Q67, Q70–Q72); Q61–Q63 hindi.vakya-shuddhi, Q68/Q69 hindi.shabd-bhed, Q73/Q75 hindi.anek-shabd, Q74 hindi.paryayvachi.
 
 ## Checker notes (fixed in example-04-may-shift-1 on 2026-11-25)
 - checks.py: the word "times" in prose ("3 times as efficient") is no longer flagged; bare `times` is checked only inside \( \).
