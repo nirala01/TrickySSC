@@ -7,8 +7,10 @@ Get it at the start of every chat (git clone works from the shell; github.io / r
     # kit = /home/claude/tssc-kit/pyq-kits/gd2026
 
 At the end of every chat: mark the shift `done` in SHIFTS.md, add its line under "## Done" below, and (Ashish's
-standing yes, if given) commit + push ONLY pyq-kits/gd2026/ to main. Scripts: example-05-may-shift-1 is the newest and the
-FIRST NO-FIGURE example (FIGQ = set(), checks.py fails if a figures.docx is present or [FIGURE-BASED] appears, docx controls
+standing yes, if given) commit + push ONLY pyq-kits/gd2026/ to main. Scripts: example-05-may-shift-2 is the newest (figure shift with
+THREE figure Qs Q12, Q13, Q20 — 15 images laid out in one 1100×420 region, one zoom save_to_disk, move the mouse away first
+or the cursor lands in the cut; cloze blanks "______ A ______" rebuilt; HPD_OPT used for spelling variants); example-05-may-shift-1
+is the one before and the FIRST NO-FIGURE example (FIGQ = set(), checks.py fails if a figures.docx is present or [FIGURE-BASED] appears, docx controls
 replaced by a 'stray figures docx' control; RC passage Q76–80 with the generic instruction line dropped; OPT_FIX_EN keys may be
 'value#L' to fix one of two identical options); example-04-may-shift-3 is the one before
 (figure shift; figures fetched same-origin from cdn.testbook.com, laid out absolutely, one zoom save_to_disk; Hindi Part D passage
@@ -220,6 +222,24 @@ Questions CSV header: `qNum,subject,chapterId,exam,year,text,option_A,option_B,o
   (not a cloze), tagged eng.reading-comprehension. Carried verbatim: Q5/Q6 hypothetical calendar data, Q42 "(33 of 2)", Q60 "fourth
   proportion", Q56 "two number", option casing in Q66/Q67/Q72, Q58/Q59 "Rs." in options, HI Q61–Q63 underlined अशुद्ध/शुद्ध. Q12
   (heads and legs) sits in Reasoning but is tagged quant.algebra. 9 hindi.other (Q64–Q72).
+- 05 May 2026 Shift 2 — built 2026-11-26 (figure Qs Q12, Q13, Q20 — stem + 4 options each, all clean, threshold 200, native size, no padding;
+  first shift with three figure questions). All 80 EN and 20 HI Part D keys agreed with my own solving (en/hi cidx = gu cidx on all 100).
+  KEY NOTE: HI Part D Q64 — Testbook's solution text names कमज़ोर (A) but en/hi/gu cidx all say B कमजोर; both spellings are standard, so
+  option A was made a misspelling and key B carried. Corrections: Q2 stem "GT : JY" → "GT : IY" (EN + HI; J is +3 while FR : HW is +2, +5,
+  so no single rule gave the key KS); Q16 nonce words "Disgarge"/"Disguse" → "Disgorge"/"Disguise" (EN + HI; order and key 12345 unchanged);
+  Q40 stem "In 2025, IMF in its World Economic Outlook" → "In July 2025, IMF in its World Economic Outlook Update" (EN + HI; April 2025 said
+  6.3% for 2026, July 6.4%; key kept); Q61 missing blank inserted ("Rahul _____ on the Army…") and option "threw in the towe" → "towel"; Q63
+  option C "Raucous" (also correctly spelt) → "Raucus"; Q64 bold word restored (<u>agony</u>); Q66 "Concea" → "Conceal"; Q71 and Q75
+  underlines restored; Q73 "warren. D. One little boy" split onto its own line; Q76–80 one cloze passage, blanks ___A___/___B___/___C___ and
+  "(D) <u>reminisce</u>", "(E) <u>evolves</u>"; Q80 option B "Grows" (evolve = develop/grow) → "Slows"; Q43/Q44/Q46/Q49/Q55/Q58/Q59 KaTeX
+  rebuilt (EN plain "4/7", "2^{5} x 3^{2}", "4:7" made like the HI paper, all four Q46 ratios padded and wrapped); HI Q33 options B–D were
+  English → "18 से 60 वर्ष" etc.; HI Q42 "22 x 2" → "22 × 2". HI Part D: Q62 option B "व्यक्ति" (a correct word) → "वयक्तिक"; Q63 options C
+  "मसजिद" (older accepted variant) → "मसजीद" and D "मस्जिदों" (correct plural) → "मस्जीद"; Q64 option A "कमज़ोर" → "कमजौर"; Q70 option D
+  "अग्रेषण" (forwarding also fitted "भेजी जाती है") → "आदेश"; Q71 option D "सील ज़ोन" (also a sealed-off area) → "पार्किंग ज़ोन"; Q75
+  "<u>सही</u> … क्या होगी:" → plain "सही … क्या होगी?". Hindi Part D passage is Q76–Q80 (Q75 standalone). Carried verbatim: Q21 option
+  "Panj Piaras", Q36 "chieftains", Q46/Q47 "One of the diagonal", Q52 "is Rs. 6000 and Rs. 8000", Q56 "employed in a work", Q73 "parent’s",
+  Q75 option casing ("she made …"), Q80 option "Repeat", HI Q56 "A और B … लगाया गया है". 6 hindi.other (Q65–Q67, Q73–Q75); Q69–Q72 tagged
+  hindi.anek-shabd.
 
 ## Checker notes (fixed in example-04-may-shift-1 on 2026-11-25)
 - checks.py: the word "times" in prose ("3 times as efficient") is no longer flagged; bare `times` is checked only inside \( \).
