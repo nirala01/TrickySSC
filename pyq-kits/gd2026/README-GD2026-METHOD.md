@@ -7,7 +7,12 @@ Get it at the start of every chat (git clone works from the shell; github.io / r
     # kit = /home/claude/tssc-kit/pyq-kits/gd2026
 
 At the end of every chat: mark the shift `done` in SHIFTS.md, add its line under "## Done" below, and (Ashish's
-standing yes, if given) commit + push ONLY pyq-kits/gd2026/ to main. Scripts: example-06-may-shift-3 is the newest (figure shift with
+standing yes, if given) commit + push ONLY pyq-kits/gd2026/ to main. Scripts: example-07-may-shift-1 is the newest (figure shift with
+FOUR figure Qs Q11, Q12, Q18, Q19 — 20 images + the Q66 option image; FASTER FIGURE ROUTE: open one cdn.testbook.com image URL in
+Chrome, fetch() every image same-origin into data URLs, lay them out at natural size (dpr 1), one zoom save_to_disk after moving the
+mouse away, crop by the logged positions, threshold 200; English RC passage Q76–80 and HI Part D passage Q76–Q80 both come from comp
+with no instruction line; REP_EN/REP_HI split "I. … II. …" statements onto their own lines; OPT_FIX_EN keys '#C' type an option image);
+example-06-may-shift-3 is the one before (figure shift with
 TWO figure Qs Q9, Q10 — 10 images + Q71 option image laid out in one 1000×240 region, one zoom save_to_disk after moving the mouse away,
 threshold 200; the HI Part D Q76–Q80 passage is MISSING in the source (comp empty in en/hi/gu) — build_txt.HPD_PASSAGE holds our own;
 EN passage instruction line stripped via INSTR; checks.py needs PROMPT-5-chapter-tagging-addendum.md copied into the script folder);
@@ -328,6 +333,24 @@ Questions CSV header: `qNum,subject,chapterId,exam,year,text,option_A,option_B,o
   surveillance) → "वाहनों की मरम्मत हेतु" (key C). Carried verbatim: Q42 "42 of 1" / "42 का 1", Q48 "is build", Q50 "One of the diagonal",
   Q52 "is to tiled", Q47 "number is", Q54 options "Rs.1680"/"Rs. 1620", option casing in Q64/Q66/Q67. Q67/Q68 (तत्सम) tagged hindi.shabd-bhed.
   10 hindi.other (Q64–66, Q69–75).
+
+- 07 May 2026 Shift 1 — built 2026-11-26 (figure Qs Q11, Q12, Q18, Q19 — stem + 4 options each, all clean, threshold 200, native size, no padding).
+  All 80 EN and 20 HI Part D keys agreed with my own solving (en/hi cidx = gu cidx on all 100). Source image typed as text: Q66 option C
+  "see". Corrections: Q35 stem "Launched in July 2025" → "Approved by the Union Cabinet in July 2025" (EN) / "जुलाई 2025 में शुरू की गई" →
+  "जुलाई 2025 में केंद्रीय मंत्रिमंडल द्वारा स्वीकृत" (HI) — Cabinet approval was 16 Jul 2025, the PM launched it on 11 Oct 2025; key 6 kept;
+  Q37 stem "December 2024" → "September 2024" (EN) / "दिसंबर" → "सितंबर" (HI) — Paryatan Mitra & Paryatan Didi was launched on World Tourism
+  Day, 27 Sep 2024 (2 Dec 2024 was only a Lok Sabha reply); Q31 option D "D. Gukesh" (the same person as option A "Gukesh") → "R. Praggnanandhaa"
+  (EN) / "आर. प्रज्ञानानंद (R. Praggnanandhaa)" (HI), key B Harikrishnan A Ra kept; Q40 statement II moved to its own line (EN + HI); Q48 EN
+  option "480 x 530" → "480 × 530" (as in HI) and stem KaTeX-wrapped; Q43/Q44/Q45/Q47 KaTeX rebuilt (\frac → \dfrac), Q56 "2/3", "1/4" → \dfrac;
+  B1 wraps Q2/Q3/Q13/Q14/Q15/Q20 stems and Q20/Q60 options; Q68 option "Uρ" (Greek rho) → "Up"; Q71 missing blank inserted ("experimenting
+  _______ new types") and option "oy" → "of" ("on" would be arguable; key "with" kept); HI Q17 "दोपहर 1 AM" → "1 AM". HI Part D: Q61/Q62
+  "दिए गये … <u>अशुद्धि</u> है:" → "दिए गए … अशुद्धि है?"; Q63 "<u>अशुद्ध</u> रूप … :" → "निम्नलिखित में से वाक्य के अशुद्ध रूप का चयन कीजिए।";
+  Q65 stem "…तो वह क्या होता है?" → "…तो वह अपने अधिकारी को लिखित रूप में क्या देता है?" (key प्रार्थना पत्र); Q68 stem → "सुरक्षा कर्मियों की रोज़ की
+  ड्यूटी का समय और पाली किस दस्तावेज़ में दर्ज की जाती है?" (तैनाती पत्र also fitted "समय निर्धारण"; key ड्यूटी चार्ट); Q71 option D stray "में"
+  removed; Q72 option B "प्रमाणिकता परीक्षण" (also means checking validity) → "साक्ष्य संकलन" (key C साक्ष्य सत्यापन). English Q76–80 is a reading-
+  comprehension passage (no instruction line); Hindi Part D passage is Q76–Q80 (Q75 standalone). Carried verbatim: Q27 "duration … including
+  breaks, in terms of innings", Q41 "(18 of 2)" / "(18 का 2)", Q58 "a another train", Q53/Q54 "Rs.", Q62/Q65 option casing, Q31 option A
+  "Gukesh". Q20 (ages) sits in Reasoning but is tagged quant.ages; Q66 (sea/see/scene) tagged eng.homonyms. 10 hindi.other (Q64, Q65, Q68–Q75).
 
 ## Checker notes (fixed in example-04-may-shift-1 on 2026-11-25)
 - checks.py: the word "times" in prose ("3 times as efficient") is no longer flagged; bare `times` is checked only inside \( \).
