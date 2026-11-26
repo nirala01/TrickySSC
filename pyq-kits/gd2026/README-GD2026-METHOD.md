@@ -35,6 +35,9 @@ standing yes, if given) commit + push ONLY pyq-kits/gd2026/ to main. Scripts: ex
   Part D can be spot-checked from the green "correct option" cells in those sheets.
 
 ## Output per shift (one folder, zip it)
+ZIP LAYOUT (Ashish, 2026-11-25): the zip holds ONE folder named <prefix>/ (added first), and inside it the files in
+this order: questions-EN.csv, questions-HI.csv, solutions-EN.csv, solutions-HI.csv, then questions-EN.txt,
+questions-HI-partD.txt, then figures.docx (if any). Do not ask the user to attach the kit — clone it as shown above.
 `ssc-gd-2026-<dd>-<mon>-shift-<n>` prefix: questions-EN.txt, questions-HI-partD.txt, figures.docx (only if
 the shift has figure Qs), questions-EN.csv, questions-HI.csv, solutions-EN.csv, solutions-HI.csv.
 PAPER line: `SSC GD Constable 2026 <Mon> <DD> Shift <n>`; docx title `SSC GD Constable 2026 – DD Mon 2026 – Shift n – Figures`.
