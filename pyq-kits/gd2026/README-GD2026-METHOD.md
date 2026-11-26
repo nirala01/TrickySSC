@@ -7,7 +7,10 @@ Get it at the start of every chat (git clone works from the shell; github.io / r
     # kit = /home/claude/tssc-kit/pyq-kits/gd2026
 
 At the end of every chat: mark the shift `done` in SHIFTS.md, add its line under "## Done" below, and (Ashish's
-standing yes, if given) commit + push ONLY pyq-kits/gd2026/ to main. Scripts: example-06-may-shift-1 is the newest (figure shift with TWO figure Qs Q9, Q10 — 10 images laid out in one 1130×264 region,
+standing yes, if given) commit + push ONLY pyq-kits/gd2026/ to main. Scripts: example-06-may-shift-2 is the newest (figure shift with
+FOUR figure Qs Q11, Q12, Q18, Q19 — 20 images laid out in one 1366×540 region, one zoom save_to_disk after moving the mouse away,
+threshold 200; source option images Q2 A / Q3 D typed via OPT_FIX keyed '' / '#D'; Hindi Part D passage is Q74–Q78; English RC passage
+has no instruction line; checks.py whitelist adds \sin); example-06-may-shift-1 is the one before (figure shift with TWO figure Qs Q9, Q10 — 10 images laid out in one 1130×264 region,
 one zoom save_to_disk, threshold 200; FIXED_STEM for a nested root; RC passage Q76–80 with the generic instruction line dropped;
 HPD_STEM/HPD_OPT for Hindi Part D fixes); example-05-may-shift-3 is the one before (figure shift with
 FOUR figure Qs Q11, Q12, Q18, Q19 — 20 images laid out in one 1060×505 region, one zoom save_to_disk; Q2 option images typed via
@@ -283,6 +286,25 @@ Questions CSV header: `qNum,subject,chapterId,exam,year,text,option_A,option_B,o
   Q76–Q80 (Q75 standalone); Q61–Q63 are karak-error items (all key A कारक, as in the source). Carried verbatim: Q42 "18 of 1" / "18 का 1",
   Q47 "is build", Q50 "join", Q58 "A and B both the left", Q33 "is a target groups", Q64 option casing, Q77 key "these pathogens" (best
   fit), HI Q72 option "non governmental organization". 10 hindi.other (Q64–Q66, Q69–Q75); Q67/Q68 tagged hindi.shabd-bhed.
+
+- 06 May 2026 Shift 2 — built 2026-11-26 (figure Qs Q11, Q12, Q18, Q19 — stem + 4 options each, all clean, threshold 200, native size, no padding;
+  Q12 option 2 is a smaller TCS snip (80×74) but a clean figure — shipped as is). All 80 EN and 20 HI Part D keys agreed with my own solving
+  except Q32 (en/hi/gu cidx all D). Source images typed as text: Q2 option A "I", Q3 option D "NN" (EN + HI). KEY: Q32 (theme states of the
+  38th Surajkund International Crafts Mela 2025) — official key D "Punjab and Haryana" is wrong; the theme states were Odisha and Madhya
+  Pradesh (then option B). Per the standing rule the key letter D was kept and the options rewritten: D → "Madhya Pradesh and Odisha",
+  B → "Uttar Pradesh and Meghalaya" (the 2026 theme states) (EN + HI). Corrections: Q25 stem "0.5°" → "0.524°" (EN + HI; 0.5° gives
+  3316 km, no option; 0.524° gives the keyed 3475 km) and "3.8×10^{8}" KaTeX-wrapped; Q28 stem "Which was the first Asian country" → "Which
+  were the first Asian countries" (EN) / "पहले एशियाई देश कौन-से थे" (HI) — key "South Korea, Japan"; Q63 option B "inconsistent" →
+  "inconsistant" (the misspelt word as it stands in the sentence); Q72 sentence C "He said in the car" → "He sat in the car"; HI Q37
+  option C "राष्ट्रीय स्वास्थ्य नीति 2010" → "राष्ट्रीय फिटनेस नीति 2010" (as in EN); HI Q57 "2/1.5 गुना अधिक कार्यकुशल" → "2/1.5 गुना कार्यकुशल"
+  (as in EN "times as efficient"); B1 wraps Q3/Q5/Q13/Q14/Q15 and Q20 options; Q43/Q44/Q45/Q47/Q50 KaTeX rebuilt (\frac → \dfrac, sup → ^{}).
+  HI Part D: Q61 "दिए गये … <u>अशुद्धि</u> है:" → "दिए गए … अशुद्धि है?"; Q63 option B "पुनरुक्ति-संबंधी" (also describes "गुप्त रहस्य")
+  → "लिंग-संबंधी" (key C अधिकपदत्व); Q70 duplicate option D "मीडिया को" → "आम जनता को"; Q72 stem "…मानसिक तैयारी में था…" (mere intent is not an
+  attempt) → "जब कोई आरोपी अपराध करने के इरादे से उसकी ओर कदम उठा लेता है, पर अपराध पूरा नहीं होता, तो कानूनी भाषा में यह क्या कहलाता है?"
+  (key प्रयास अपराध); Q80 option A "चेतावनी सूचना" (repeated the stem) → "सम्मन" (key अलर्ट). Hindi Part D passage is Q74–Q78 (Q79, Q80
+  standalone); English Q76–80 is a reading-comprehension passage with no instruction line. Carried verbatim: Q31 option "Shubhman Gill",
+  Q47 options B and D equal in value (15√15/50 = 3√15/10, both wrong), Q61 option "the sweets is made", option casing in Q62/Q68, HI Q62/Q63
+  underlined शुद्ध/अशुद्धि. Q20 (ages) sits in Reasoning but is tagged quant.ages. 10 hindi.other (Q64–66, Q69–73, Q79, Q80).
 
 ## Checker notes (fixed in example-04-may-shift-1 on 2026-11-25)
 - checks.py: the word "times" in prose ("3 times as efficient") is no longer flagged; bare `times` is checked only inside \( \).
