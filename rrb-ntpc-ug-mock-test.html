@@ -3203,7 +3203,7 @@ function ugHoldPaint() {
     o.dataset.ughold = '1';
     o.innerHTML = '<div class="lo-ico">\u{1F512}</div>'
                 + '<div class="lo-txt">Available by 1 December</div>'
-                + '<div class="lo-sub">Mock 1\u20133 are free to attempt now</div>';
+                + '<div class="lo-sub">Tap to see the plans</div>';
   });
   const b = document.getElementById('barTier1');
   if (b && b.classList.contains('soon')) b.textContent = 'Live by 1 Dec';
@@ -3414,13 +3414,9 @@ function tsscSoonToast(msg) {
 window.tsscSoonGuard = tsscSoonGuard;
 
 async function openBuy(card) {
-  if (ugHold()) {                                   /* TSSC-UGHOLD-V1: nothing is sold from this page before 1 Dec */
-    tsscSoonToast('\u{1F4C5} Available by 1 December \u2014 the RRB NTPC UG mocks open on 1 Dec. Mock 1\u20133 are free to attempt now.');
-    return;
-  }
   if (!pop) return;
   if (!enforcing()) return;                        /* TSSC-NTPC-PREPASS-V1: NTPC UG pass not live yet — no checkout */
-  if (tsscSoonGuard(card)) return;                 /* TSSC-GD-SOON-V1 */
+  if (!ugHold() && tsscSoonGuard(card)) return;    /* TSSC-GD-SOON-V1 · TSSC-UGPRICE-V1: during the 1 Dec hold a tap shows the plans */
 
   /* TSSC-LOGINFIRST-V1 — a signed-out visitor gets the LOGIN popup first, not
      the price. Reason: a paid student who happens to be logged out is not a
@@ -3563,15 +3559,23 @@ async function openBuy(card) {
   const combos = (OWN && !upgraded)
     ? P.combosFor(cat, CFG.module).filter(c => c.id !== lead.id && tsscSeries(c).length > 1 && offerable(c))
     : [];
+  /* TSSC-UGPRICE-V1 (2026-11-27) — Full Access is always one of the choices for a buyer who holds nothing */
+  const fullP = (OWN && !OWN.all && !OWN.keys.size && !upgraded && !allPass)
+    ? (cat.products || []).filter(p => p.live !== false && !P.isUpgrade(p) && (p.grants || []).indexOf('all-mocks') !== -1)
+        .sort((a, b) => a.price - b.price)[0] || null
+    : null;
+  const fullNew = !!fullP && fullP.id !== lead.id && !combos.some(c => c.id === fullP.id);
   const upKey = TSSC_UPSELL_KEY[CFG.module];
   const upsell = allPass ? null : combos.filter(c => c.grants.indexOf(upKey) !== -1).sort((a, b) => a.price - b.price)[0] || null;
   document.getElementById('mbpPerks').innerHTML =
+    (ugHold() ? '<li><b>\u{1F4C5} RRB NTPC UG mocks open on 1 December.</b> Full Access opens the mocks already uploaded today.</li>' : '') +   /* TSSC-UGHOLD-V1 */
     (lead.blurb ? '<li>' + lead.blurb + '</li>' : '') +
     '<li>One payment — not per test</li>' +
     '<li>Access for ' + (lead.durationDays || 365) + ' days</li>' +
     combos.filter(c => c !== upsell).map(c =>
       '<li><b>' + c.label + '</b> — ₹' + c.price +
       ' for ' + tsscSeries(c).length + ' mock series. Pick it in the next step.</li>').join('') +
+    (fullNew ? '<li><b>' + fullP.label + '</b> \u2014 \u20b9' + fullP.price + ' for every mock series on TrickySSC. Pick it in the next step.</li>' : '') +   /* TSSC-UGPRICE-V1 */
     ((upAll && !allPass) ? '<li><b>Or upgrade to the All Mocks Pass for \u20b9' + upAll.price + ' more</b> \u2014 every mock series, new ones included. Pick it in the next step.</li>' : '');   /* TSSC-ALLUP-V1 */
 
   if (typeof paintReleaseNote === 'function') paintReleaseNote();   /* TSSC-RELNOTE-V1 */
@@ -3581,6 +3585,7 @@ async function openBuy(card) {
   combos.forEach(c => { if (!all.some(x => x.id === c.id)) all.push(c); });
   if (!all.some(x => x.id === lead.id)) all.unshift(lead);
   if (upAll && !allPass && !all.some(x => x.id === upAll.id)) all.push(upAll);   /* TSSC-ALLUP-V1 */
+  if (fullP && !all.some(x => x.id === fullP.id)) all.push(fullP);               /* TSSC-UGPRICE-V1 */
   const sel = document.getElementById('mbpCourse');
   sel.innerHTML = all.map(c =>
     '<option value="' + c.id + '">' + c.label + ' — ₹' + c.price +
@@ -3622,7 +3627,7 @@ function paintUpsell(up, lead, cat, upgraded) {
     const reg = (window.TSSC_PRICING && window.TSSC_PRICING.bestFor) ? window.TSSC_PRICING.bestFor(cat, CFG.module) : null;
     box.innerHTML =
       '<span class="mbp-up-h">\u2705 You already hold a TrickySSC mock series</span>' +
-      'So you get all <b>40 RRB NTPC UG mocks</b> + every subject-wise test for just <b>\u20b9' + lead.price + '</b>' +
+      'So you get all <b>60 RRB NTPC UG mocks</b> + every subject-wise test for just <b>\u20b9' + lead.price + '</b>' +
       (reg && reg.price > lead.price ? ' instead of <s>\u20b9' + reg.price + '</s>' : '') + ', for a full year.' +
       '<button type="button" class="mbp-up-go" id="mbpUpGo">Pay \u20b9' + lead.price + ' for RRB NTPC UG &rarr;</button>' +
       '<span class="mbp-up-f">Special price for TrickySSC students.</span>';
@@ -3643,7 +3648,7 @@ function paintUpsell(up, lead, cat, upgraded) {
   const apart = other ? lead.price + other.price : 0;
   box.innerHTML =
     '<span class="mbp-up-h">🚆 Applying for RRB Station Master too?</span>' +
-    '<b>₹' + up.price + '</b> gets you all <b>40 RRB NTPC UG mocks</b> <b>and</b> the ' +
+    '<b>₹' + up.price + '</b> gets you all <b>60 RRB NTPC UG mocks</b> <b>and</b> the ' +
     '<b>' + up.label + '</b> for a year, in one payment' +
     (apart > up.price ? ', instead of <s>₹' + apart + '</s> for the two separately.' : '.') +
     '<button type="button" class="mbp-up-go" id="mbpUpGo">Choose the ₹' + up.price +
@@ -3669,7 +3674,7 @@ const TSSC_SERIES_NAME = { 'ssc-cgl-mocks': 'SSC CGL mocks', 'ssc-chsl-mocks': '
 /* add-on (p-upgrade-…) for series X is sold only to holders of one of these */
 const TSSC_UPGRADE_IF = { 'ssc-cgl-mocks': ['ssc-chsl-mocks'], 'ssc-chsl-mocks': ['ssc-cgl-mocks'], 'ssc-gd-mocks': ['ssc-chsl-mocks'], 'ssc-mts-mocks': [], 'rrb-ntpc-mocks': [], 'rrb-ntpc-ug-mocks': [], 'rrb-sm-mocks': [] };
 /* the combo that gets its own box in step 1 on this page */
-const TSSC_UPSELL_KEY = { 'ssc-cgl-mocks': 'ssc-chsl-mocks', 'ssc-chsl-mocks': 'ssc-cgl-mocks', 'ssc-gd-mocks': 'ssc-chsl-mocks', 'ssc-mts-mocks': 'ssc-gd-mocks', 'rrb-ntpc-mocks': 'rrb-sm-mocks', 'rrb-ntpc-ug-mocks': '', 'rrb-sm-mocks': 'rrb-ntpc-mocks' };   /* TSSC-RRBCOMBO-V1: RRB NTPC UG + Station Master */
+const TSSC_UPSELL_KEY = { 'ssc-cgl-mocks': 'ssc-chsl-mocks', 'ssc-chsl-mocks': 'ssc-cgl-mocks', 'ssc-gd-mocks': 'ssc-chsl-mocks', 'ssc-mts-mocks': 'ssc-gd-mocks', 'rrb-ntpc-mocks': 'rrb-sm-mocks', 'rrb-ntpc-ug-mocks': 'rrb-sm-mocks', 'rrb-sm-mocks': 'rrb-ntpc-mocks' };   /* TSSC-RRBCOMBO-V1: RRB NTPC UG + Station Master */
 async function ownedKeysForBuy(fresh) {
   const u = _auth.currentUser;
   if (!u) return null;

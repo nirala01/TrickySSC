@@ -584,6 +584,14 @@ class Billing with WidgetsBindingObserver {
             child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               Text('Unlock ${exam.name} mocks', style: baloo(21)),
               const Text('One payment · valid 1 year · Hindi & English · works on the website too', style: TextStyle(fontSize: 13.5, color: softMuted, fontWeight: FontWeight.w600)),
+              if (exam.held)
+                Container(
+                  margin: const EdgeInsets.only(top: 10),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                  decoration: BoxDecoration(color: const Color(0xFFFEF3C7), borderRadius: BorderRadius.circular(12)),
+                  child: Text('📅 ${exam.name} mocks open on 1 December. Full Access opens the mocks already uploaded today.',
+                      style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: Color(0xFF92400E))),
+                ),
               const SizedBox(height: 14),
               if (all != null) option(all, 'Full Access · All Mocks Pass', 'Every exam: ${exams.map((e) => e.short).join(', ')}', best: true),
               for (final e in combos.entries)

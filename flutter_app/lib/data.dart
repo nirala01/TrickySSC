@@ -47,6 +47,12 @@ class Exam {
   final List<String> chExtra; // extra chapter-test subjects: computer, finance, statistics
   final String passName; // name of the pass in My orders
   final String play; // Play product id of the pass ('' = made from the pass key)
+  /// TSSC-UGHOLD-V1: until this time (ISO, catalog key "holdUntil") the paid mocks open only with Full Access.
+  final String holdUntil;
+  bool get held {
+    final t = DateTime.tryParse(holdUntil);
+    return t != null && DateTime.now().isBefore(t);
+  }
   /// TSSC-SM-SECTEST-V1: the exam has subject / section mocks (the Subject mocks tile).
   bool get hasSubjectMocks => subjects.isNotEmpty || secTests.isNotEmpty;
   SecTest? secTest(String key) {
@@ -81,7 +87,8 @@ class Exam {
       this.pyqFs = false,
       this.chExtra = const [],
       this.passName = '',
-      this.play = ''});
+      this.play = '',
+      this.holdUntil = ''});
 
   /// One exam of catalog.json. Anything the file leaves out comes from [base] (the same exam built into this app) or the usual default.
   static Exam? fromJson(Map j, Exam? base) {
@@ -141,6 +148,7 @@ class Exam {
       chExtra: strs('chExtra', b?.chExtra ?? const []),
       passName: str('passName', b?.passName ?? ''),
       play: str('play', b?.play ?? ''),
+      holdUntil: str('holdUntil', b?.holdUntil ?? ''),
     );
   }
 }
@@ -334,6 +342,9 @@ int? expiryMs(dynamic e) {
   return null;
 }
 
+/// TSSC-UGHOLD-V1: passes this account holds for a course that is still on hold (see [Exam.held]).
+final Set<String> heldOwned = <String>{};
+
 /// The mock series this account owns (entitlement keys). Empty when nothing is owned or it cannot be read.
 /// Null when the entitlements could not be read (offline), so nothing is assumed about the student.
 Future<Set<String>?> loadOwnedOrNull(String uid) async {
@@ -344,8 +355,18 @@ Future<Set<String>?> loadOwnedOrNull(String uid) async {
     final mods = d['modules'];
     final m = mods is Map ? mods : const {};
     final all = _active(d['allAccess']) || _active(m['all-mocks']);
+    heldOwned.clear();
     for (final e in exams) {
-      if (all || _active(m[e.pass])) out.add(e.pass);
+      if (all) {
+        out.add(e.pass);
+      } else if (_active(m[e.pass])) {
+        // TSSC-UGHOLD-V1: a course on hold opens only with Full Access until its date
+        if (e.held) {
+          heldOwned.add(e.pass);
+        } else {
+          out.add(e.pass);
+        }
+      }
     }
   } catch (_) {
     return null;
