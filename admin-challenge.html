@@ -8,6 +8,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <!-- TSSC-AIC-ADMIN-V1 (2026-11-21): who has registered for the All India Challenge Mocks.
      TSSC-AIC-ADMIN-V2 (2026-11-26): Sort by rank in any opened paper; click a paper under "Papers taken" for marks and rank.
+     TSSC-AIC-ADMIN-V4 (2026-11-27): the marks and rank panel has ready links to send a student — his analysis, the leaderboard,
+     and a WhatsApp message with both (for a student who cannot find his rank or analysis).
      TSSC-AIC-ADMIN-V3 (2026-11-27): "Ratings & feedback" tab — who gave how many stars to which paper, with their other answers
      (level felt, hardest part, time, wrong question, note). Read from mock_ratings for the opened papers' test ids only.
      Read only, no new Firestore rules. A registration is users/{uid}.aic (SSC CGL Tier 2) or
@@ -63,6 +65,15 @@
   .dbox span{font-size:11px;color:#64748B;font-weight:600;}
   .dsec{font-size:12.5px;color:#475569;line-height:1.7;}
   .dsec a{color:#FF6B00;font-weight:700;text-decoration:none;}
+  /* TSSC-AIC-ADMIN-V4: links to send a student */
+  .dsend{margin-top:10px;background:#fff;border:1.5px solid #FED7AA;border-radius:10px;padding:10px 12px;font-size:12.5px;color:#475569;}
+  .dsend b.t{display:block;color:#1E293B;font-size:13px;margin-bottom:6px;}
+  .dsend .ln{display:flex;gap:6px;align-items:center;margin:5px 0;flex-wrap:wrap;}
+  .dsend .ln span{min-width:92px;font-weight:700;color:#1E293B;}
+  .dsend input{flex:1;min-width:180px;font:inherit;font-size:12px;padding:7px 9px;border:1px solid #E2E8F0;border-radius:8px;background:#F8FAFC;color:#334155;}
+  .dsend button,.dsend a.btn{font:inherit;font-size:12px;font-weight:700;padding:7px 12px;border-radius:8px;border:0;cursor:pointer;background:#1E293B;color:#fff;text-decoration:none;display:inline-block;}
+  .dsend a.btn.wab{background:#16A34A;} .dsend button.ok{background:#15803D;}
+  .dsend .act{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;} .dsend small{display:block;margin-top:6px;color:#64748B;line-height:1.5;}
   /* TSSC-AIC-ADMIN-V3: ratings and feedback */
   .tabs{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;}
   .tabs button{font:inherit;font-size:13px;font-weight:700;padding:8px 14px;border-radius:99px;border:1.5px solid #E2E8F0;background:#fff;color:#475569;cursor:pointer;}
@@ -316,8 +327,33 @@ function detailRow(r, x) {
         + (f.hardPart ? ' · Hardest part: <b>' + esc(f.hardPart) + '</b>' : '') + (timeTxt(f) ? ' · Time was short in: <b>' + esc(timeTxt(f)) + '</b>' : '')
         + (f.issue ? '<br>Wrong question reported: ' + esc(f.issue) : '') + (f.comment ? '<br>Other note: ' + esc(f.comment) : '') + '</div>'
       : '<div class="dfb" style="color:#64748B;">No rating given for this paper.</div>')
+    + sendBox(r, x, d)
     + '</td></tr>';
 }
+/* TSSC-AIC-ADMIN-V4 — links to send a student who cannot find his rank or analysis. The analysis link opens HIS OWN
+   attempt of that round once he is logged in (test-analysis.html picks it by round); the leaderboard link opens for anyone. */
+const SITE = 'https://trickyssc.com';
+function sendLinks(x) { const p = x.split(':'), s = SER[p[0]];
+  return { an: SITE + '/test-analysis.html?aic=' + p[1] + (p[0] === 'cgl' ? '' : '&aics=' + p[0]),
+           lb: SITE + '/rank.html?paper=' + encodeURIComponent(s.exam + '_aic_mock' + p[1]) + '&name=' + encodeURIComponent('SSC ' + s.name + ' All India Challenge Mock ' + p[1]),
+           out: Date.now() >= startOf(s, +p[1]) + 48 * H, resAt: startOf(s, +p[1]) + 48 * H }; }
+function sendMsg(r, x, d) { const L = sendLinks(x), pp = x.split(':'), full = SER[pp[0]].name + ' All India Challenge Mock ' + pp[1], nm = String(r.name || d.name || '').trim().split(/\s+/)[0];
+  return 'Hi' + (nm ? ' ' + nm : '') + ', ' + (L.out
+      ? 'your SSC ' + full + ' result:\nMarks: ' + num(d.marks) + (d.maxMarks ? '/' + num(d.maxMarks) : '') + '\nAll India rank: ' + d.rank + ' of ' + d.total
+      : 'the SSC ' + full + ' result comes on ' + fmtDay(L.resAt) + ' at 9 am. These links will show it from then.')
+    + '\n\nYour complete analysis:\n' + L.an + '\n\nFull leaderboard:\n' + L.lb
+    + '\n\nLog in with the same account you gave the test with' + (r.email ? ' (' + r.email + ')' : '') + '. If the link does not open inside WhatsApp, open it in Chrome.'; }
+function sendBox(r, x, d) { const L = sendLinks(x), wa = r.mobile.replace(/\D/g, ''), wan = wa.length === 10 ? '91' + wa : wa, k = esc(r.uid + '|' + x);
+  return '<div class="dsend"><b class="t">Send to this student</b>'
+    + '<div class="ln"><span>His analysis</span><input readonly value="' + esc(L.an) + '" onclick="this.select()"><button data-copy="' + esc(L.an) + '">Copy</button></div>'
+    + '<div class="ln"><span>Leaderboard</span><input readonly value="' + esc(L.lb) + '" onclick="this.select()"><button data-copy="' + esc(L.lb) + '">Copy</button></div>'
+    + '<div class="act"><button data-copymsg="' + k + '">Copy full message</button>'
+    + (wan.length >= 11 ? '<a class="btn wab" target="_blank" rel="noopener" href="https://wa.me/' + wan + '?text=' + encodeURIComponent(sendMsg(r, x, d)) + '">Send on WhatsApp</a>'
+                        : '<a class="btn wab" target="_blank" rel="noopener" href="https://wa.me/?text=' + encodeURIComponent(sendMsg(r, x, d)) + '">Share on WhatsApp</a>') + '</div>'
+    + '<small>' + (L.out ? '' : 'Result for this paper is not out yet (' + fmtDay(L.resAt) + ', 9 am) — the links show it from then. ')
+    + 'The analysis link opens his own analysis only when he is logged in with ' + (r.email ? '<b>' + esc(r.email) + '</b>' : 'the account he took the test with') + '; without login the page asks him to log in. The leaderboard link opens for anyone.</small></div>'; }
+async function copyTxt(t, b) { let ok = false; try { await navigator.clipboard.writeText(t); ok = true; } catch (e) { try { const a = document.createElement('textarea'); a.value = t; a.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(a); a.select(); ok = document.execCommand('copy'); a.remove(); } catch (_) {} }
+  if (b) { const o = b.textContent; b.textContent = ok ? 'Copied' : 'Copy failed'; b.classList.toggle('ok', ok); setTimeout(() => { b.textContent = o; b.classList.remove('ok'); }, 1400); } }
 
 /* ---- Ratings & feedback: who gave how many stars, and what else they said ---- */
 function fbList() {
@@ -394,7 +430,10 @@ function paint() {
       + (open ? detailRow(r, open) : '');
   }).join('');
 }
-$('rows').onclick = e => { const b = e.target.closest('[data-open]'); if (!b) return; OPEN = OPEN === b.dataset.open ? '' : b.dataset.open; paint(); };
+$('rows').onclick = e => {
+  const c = e.target.closest('[data-copy]'); if (c) { copyTxt(c.dataset.copy, c); return; }
+  const m = e.target.closest('[data-copymsg]'); if (m) { const k = m.dataset.copymsg, i = k.indexOf('|'), uid = k.slice(0, i), x = k.slice(i + 1), r = ROWS.find(o => o.uid === uid), d = TAKEN[x] && TAKEN[x].get(uid); if (r && d) copyTxt(sendMsg(r, x, d), m); return; }
+  const b = e.target.closest('[data-open]'); if (!b) return; OPEN = OPEN === b.dataset.open ? '' : b.dataset.open; paint(); };
 
 $('csv').onclick = () => {
   const cell = v => '"' + String(v==null?'':v).replace(/"/g, '""') + '"';
