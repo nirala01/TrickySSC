@@ -7,7 +7,7 @@ Get it at the start of every chat (git clone works from the shell; github.io / r
     # kit = /home/claude/tssc-kit/pyq-kits/gd2026
 
 At the end of every chat: mark the shift `done` in SHIFTS.md, add its line under "## Done" below, and (Ashish's
-standing yes, if given) commit + push ONLY pyq-kits/gd2026/ to main. Scripts: example-09-may-shift-3 is the newest (figure shift with FOUR figure Qs Q11, Q12, Q18, Q19 — 20 images + the Q1 option D image (typed "B") fetched same-origin, laid out at natural size in one 1000×600 region (one row per question), one zoom save_to_disk after moving the mouse away, threshold 200, no padding; the HI Part D Q76–Q80 passage is MISSING in the source again — build_txt.HPD_PASSAGE holds our own; EN RC passage Q76–80 has no instruction line; HI_STEM_FIX for a Hindi-only stem typo; controls.py anchors retargeted); example-09-may-shift-2 is the one before (figure shift with TWO figure Qs Q9, Q10 — 10 images fetched same-origin, laid out at natural size in one 1000×280 region, one zoom save_to_disk after moving the mouse away, threshold 200, no padding; EN RC passage Q76–80 instruction line stripped via INSTR; HI Part D passage is Q73–Q77 (Q61–Q72, Q78–Q80 standalone); a wrong official key is fixed by swapping option texts through OPT_FIX_EN ({'of': 'against', 'against': 'of'}); FIXED_OPTS builds 'HCF = \( \dfrac{1}{72} \), LCM = …' options; controls.py anchors retargeted); example-09-may-shift-1 is the one before (figure shift with
+standing yes, if given) commit + push ONLY pyq-kits/gd2026/ to main. Scripts: example-18-may-shift-1 is the newest (figure shift with FIVE figure Qs Q6, Q7 (figure analogy) and Q17, Q18, Q19 (figure series) — 25 images fetched same-origin, laid out at natural size in one 1000×620 region (one row per question), one zoom save_to_disk after moving the mouse away, threshold 200, no padding; EN RC passage Q76–80 instruction line "<u>Read the following passage …</u>" stripped by regex and Q76's "The following question refers to the passage provided:" prefix removed via EN_EDIT; HI Part D passage is Q74–Q78 (Q61–Q73, Q79, Q80 standalone) — build_txt takes HPD_PASSAGE from hi[93].comp; controls.py anchors retargeted); example-09-may-shift-3 is the one before (figure shift with FOUR figure Qs Q11, Q12, Q18, Q19 — 20 images + the Q1 option D image (typed "B") fetched same-origin, laid out at natural size in one 1000×600 region (one row per question), one zoom save_to_disk after moving the mouse away, threshold 200, no padding; the HI Part D Q76–Q80 passage is MISSING in the source again — build_txt.HPD_PASSAGE holds our own; EN RC passage Q76–80 has no instruction line; HI_STEM_FIX for a Hindi-only stem typo; controls.py anchors retargeted); example-09-may-shift-2 is the one before (figure shift with TWO figure Qs Q9, Q10 — 10 images fetched same-origin, laid out at natural size in one 1000×280 region, one zoom save_to_disk after moving the mouse away, threshold 200, no padding; EN RC passage Q76–80 instruction line stripped via INSTR; HI Part D passage is Q73–Q77 (Q61–Q72, Q78–Q80 standalone); a wrong official key is fixed by swapping option texts through OPT_FIX_EN ({'of': 'against', 'against': 'of'}); FIXED_OPTS builds 'HCF = \( \dfrac{1}{72} \), LCM = …' options; controls.py anchors retargeted); example-09-may-shift-1 is the one before (figure shift with
 FOUR figure Qs Q11, Q12, Q18, Q19 — 20 images fetched same-origin, laid out at natural size in one 960×500 region (one row per question,
 stem + 4 options), one zoom save_to_disk after moving the mouse away, threshold 200, no padding; EN RC passage Q76–80 has no instruction
 line; HI Part D passage is Q76–Q80 (Q61–Q75 standalone); padded colons inside solution PROSE (e.g. "Time of A : time of B") trip the B1
@@ -522,6 +522,30 @@ Questions CSV header: `qNum,subject,chapterId,exam,year,text,option_A,option_B,o
   Q37 no full stop, Q41 "28 of 2", Q54 "Rs." in the stem, Q60 "sold it a price", Q61 idiom "waiting for a raindrop in the drought" (not a
   standard idiom but the only fit; key B), option casing in Q62/Q65/Q78/Q79, HI Q61 "नये". Q20 (ages) sits in Reasoning but is tagged
   quant.ages. 7 hindi.other (Q64–Q67, Q70–Q72); Q61–Q63 hindi.vakya-shuddhi, Q68/Q69 hindi.shabd-bhed, Q73–Q75 hindi.anek-shabd.
+
+- 18 May 2026 Shift 1 — built 2026-11-27 (FIVE figure Qs Q6, Q7, Q17, Q18, Q19 — stem + 4 options each, all clean, threshold 200, native size,
+  no padding). en/hi/gu cidx agree on all 100, and all 80 EN and 20 HI Part D keys agreed with my own solving (Q17: one mark changes per step,
+  anticlockwise top → left → bottom → right; Q18: one corner circle flips per step in reading order; Q19: symbols enter bottom-left and march
+  clockwise, mirroring each step). Corrections: Q65 had NO misspelt word (all four correct) — EN option C "Miscellaneous" → "Miscellanious"
+  (the GU copy keeps the misspelling the key intends); Q66 option "Partia" → "Partial"; Q75 underline restored; Q76 stem prefix "The following
+  question refers to the passage provided:" dropped and the RC instruction line stripped; Q78 stem "In what ways does the passage reconceptualize
+  the American Dream beyond just attaining material success?" (all four options were true of the passage) → "Which of the following restates
+  what the passage directly says about the material side of the American Dream?" (key A); Q79 option B "Hard work and talent should be recognized
+  regardless of background" (a near-paraphrase of the passage) → "Luck matters more than ability or achievement" (key D); Q11 "?: 1836" → "? : 1836";
+  Q45 option A stray ")" removed and all options → \dfrac; Q44 stem/options and Q43/Q45/Q49 stems rebuilt as KaTeX; Q46 options → \( 10\sqrt{2} \)
+  etc.; B1 wraps Q8–Q11, Q20 stems and Q20/Q48 options; HI Q57 "6 गुना अधिक कुशल" → "6 गुना कुशल" (EN "6 times as good"). HI Part D: Q63 options A and C
+  were BOTH "खदान" → A "खद्दान" (key C); Q64 "कौन-सा एक उद्धरण का चिन्ह है?" → "कौन-सा उद्धरण चिह्न है?"; Q65 "का सही तकनीकी शब्द है:" → "के लिए सही
+  तकनीकी (अंग्रेज़ी) शब्द क्या है?" and option D "Pattern of offence" (a literal gloss of the stem) → "Nature of offence" (key Modus operandi); Q66
+  stem "ड्यूटी के समय का चार्ट" (समय पत्रक also fitted) → "ड्यूटी का समय, स्थान और पाली (शिफ्ट) दर्शाने वाली तालिका" (key ड्यूटी चार्ट); Q68 stem
+  "गलती पर जो चेतावनी दी जाती है" (gave the key away, सजा also fitted) → "गलती पर उसे सुधार के लिए लिखित रूप में दी जाने वाली चेतावनी" (key चेतावनी पत्र);
+  Q69 stem made specific ("अपराध होने के बाद … उसी स्थान पर पहुँचकर …") and option A छानबीन → गश्त (key घटनास्थल जांच); Q76 "इससे व्यवस्था में क्या
+  वृद्धि होती है?" → "गद्यांश के अनुसार, संस्थाओं के नैतिक मानकों पर कार्य करने से व्यवस्था में किसकी वृद्धि होती है?"; Q79 stem "दी गई सुरक्षा जानकारी"
+  (gave the key away) → "चोरी, ठगी या किसी खतरे से बचाव के बारे में दी जाने वाली जानकारी" and options A/B जन सूचना / सार्वजनिक सूचना → गुप्त सूचना /
+  अपराध सूचना (key सुरक्षा सूचना); Q80 stem "किसी कार्य की लिखित पुष्टि" (पुष्टि पत्र / सत्यापन पत्र also fitted) → "किसी दस्तावेज़ या तथ्य को जाँचकर उसके
+  सही होने की आधिकारिक पुष्टि करना" (key प्रमाणन). Hindi Part D passage is Q74–Q78 (Q79, Q80 standalone); English Q76–80 is an RC passage
+  (the American Dream). Carried verbatim: Q32 option "choliya" (lower case), Q33 option "Rae Bareilly", Q42 "(18 of 2)" / "(18 का 2)", Q53/Q55
+  "Rs." in the stem/options, Q66 option "complete" (lower case), Q64 option "ordinary" (lower case), Q4 "set of letter clusters are given". 5 hindi.other
+  (Q65, Q70–Q73); Q61–Q63 hindi.vartani, Q64 hindi.vyakaran, Q66–Q69/Q79/Q80 hindi.anek-shabd, Q74–Q78 hindi.gadyansh.
 
 ## Checker notes (fixed in example-04-may-shift-1 on 2026-11-25)
 - checks.py: the word "times" in prose ("3 times as efficient") is no longer flagged; bare `times` is checked only inside \( \).
