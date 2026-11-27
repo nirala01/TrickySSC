@@ -2000,6 +2000,35 @@ async function tgOwns(uid){
   return false;
 }
 
+/* TSSC-UGHOLD-V1 (2026-11-27) — RRB NTPC UG paid mocks are held until 1 Dec 2026. */
+async function tgOwnsFull(uid){
+  tgReadFailed=false;
+  for(let i=0;i<3;i++){
+    try{
+      const snap=await getDoc(doc(db,'entitlements',uid));
+      const d=snap.exists()?(snap.data()||{}):{};
+      return tgGrantActive(d.allAccess)||tgGrantActive((d.modules||{})['all-mocks']);
+    }catch(e){ if(i<2) await new Promise(r=>setTimeout(r,600*(i+1))); }
+  }
+  tgReadFailed=true;
+  return false;
+}
+function tgShowHold(mockNum){
+  tgGateShown=true;
+  const loader=document.getElementById('loader');
+  if(!loader) { location.href=TG_BUY_URL; return; }
+  loader.innerHTML=
+    '<div style="text-align:center;padding:2rem;max-width:340px;">'
+    +'<div style="font-size:3rem;margin-bottom:1rem;">&#128197;</div>'
+    +'<div style="font-family:\'Rajdhani\',sans-serif;font-size:1.5rem;font-weight:700;'
+    +'margin-bottom:0.6rem;">Available by 1 December</div>'
+    +'<div style="font-size:0.9rem;opacity:0.9;line-height:1.65;margin-bottom:1.5rem;">'
+    +'RRB NTPC UG Mock '+mockNum+' opens on 1 December. Mock 1 to '+TG_FREE_UP_TO+' are free to attempt now.</div>'
+    +'<a href="'+TG_BUY_URL+'" style="display:inline-block;background:white;color:#FF6B00;'
+    +'font-family:\'Rajdhani\',sans-serif;font-weight:700;font-size:1rem;padding:0.7rem 2rem;'
+    +'border-radius:10px;text-decoration:none;">&larr; Back to mock tests</a></div>';
+}
+
 function tgShowLocked(mockNum){
   tgGateShown=true;                              /* TSSC-GATEMSG-V1 */
   const loader=document.getElementById('loader');
@@ -2075,6 +2104,11 @@ async function tgAllowed(uid){
   const n=tgMockNumber();
   if(!n||n<=TG_FREE_UP_TO) return true;      // PYQ paper, or a free mock
   if(!tgEnforcing()) return true;            // before the paid launch date
+  if(TG_IS_NTPCUG && Date.now()<new Date('2026-12-01T00:00:00+05:30').getTime()){   /* TSSC-UGHOLD-V1: before 1 Dec only Full Access opens a paid NTPC UG mock */
+    if(await tgOwnsFull(uid)) return true;
+    if(tgReadFailed) tgShowCheckFailed(); else tgShowHold(n);
+    return false;
+  }
   if(TG_IS_MTS||TG_IS_NTPC||TG_IS_SM){      /* TSSC-MTS-PREPASS-V1 / TSSC-NTPC-MOCK-V1 / TSSC-SM-MOCK-V1: open until the pass is Live in admin-pricing */
     let ov=null; try{ ov=sessionStorage.getItem('tssc_paywall_override'); }catch(e){}
     if(ov!=='on' && !(await tgMtsPassLive())) return true;

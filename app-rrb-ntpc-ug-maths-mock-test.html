@@ -2754,6 +2754,42 @@ const _auth = getAuth(_app);
 const _db   = getFirestore(_app);
 
 let OWNED = false;
+/* TSSC-UGHOLD-V1 (2026-11-27) — until 1 Dec 2026 every paid RRB NTPC UG mock is
+   held: only Full Access (allAccess / all-mocks) opens the mocks already
+   uploaded; everyone else sees "Available by 1 December". Free mocks are not
+   touched. From 1 Dec this block switches itself off — no edit needed. */
+const TSSC_UG_HOLD_UNTIL = '2026-12-01T00:00:00+05:30';
+const ugHold = () => Date.now() < new Date(TSSC_UG_HOLD_UNTIL).getTime();
+let UG_FULL = false;
+try { UG_FULL = sessionStorage.getItem('tssc_ug_full') === '1'; } catch (e) {}
+const ugOwns = () => OWNED && (!ugHold() || UG_FULL);
+onAuthStateChanged(_auth, async u => {
+  if (!ugHold()) return;
+  let full = false;
+  if (u) {
+    try {
+      const sn = await getDoc(doc(_db, 'entitlements', u.uid));
+      const d = sn.exists() ? (sn.data() || {}) : {};
+      full = grantActive(d.allAccess) || grantActive((d.modules || {})['all-mocks']);
+    } catch (e) { full = UG_FULL; }
+  }
+  UG_FULL = full;
+  try { sessionStorage.setItem('tssc_ug_full', full ? '1' : '0'); } catch (e) {}
+  try { applyEntitlement(); } catch (e) {}
+});
+function ugHoldPaint() {
+  if (!ugHold()) return;
+  document.querySelectorAll('.mock-card .mc-lock span').forEach(s => { s.innerHTML = '&#128197; Live by 1 Dec'; });
+  document.querySelectorAll('.mock-card .mc-lockover').forEach(o => {
+    if (o.dataset.ughold) return;
+    o.dataset.ughold = '1';
+    o.innerHTML = '<div class="lo-ico">\u{1F512}</div>'
+                + '<div class="lo-txt">Available by 1 December</div>'
+                + '<div class="lo-sub">Mock 1\u20133 are free to attempt now</div>';
+  });
+  const b = document.getElementById('barTier1');
+  if (b && b.classList.contains('soon')) b.textContent = 'Live by 1 Dec';
+}
 /* TSSC-ENTFAST-V1 — PENDING: signed in on this device before, pass not read yet.
    ENT_READY resolves the moment the real answer is known. */
 let PENDING = false;
@@ -2784,6 +2820,7 @@ const enforcing = () => {
   try { o = sessionStorage.getItem('tssc_paywall_override'); } catch (e) {}
   if (o === 'on')  return true;   // testing: paywall live for THIS browser only
   if (o === 'off') return false;
+  if (ugHold()) return true;           /* TSSC-UGHOLD-V1 */
   if (!NTPC_PASS_LIVE) return false;   /* TSSC-NTPC-PREPASS-V1 */
   return !CFG.enforceFrom || Date.now() >= new Date(CFG.enforceFrom).getTime();
 };
@@ -2831,11 +2868,12 @@ function applyEntitlement() {
   document.body.classList.toggle('tssc-ent-pending', PENDING);        /* TSSC-ENTFAST-V1 */
   if (!PENDING) document.body.classList.add('tssc-ent-resolved');
   document.body.classList.toggle('tssc-enforce', enforcing());
-  document.body.classList.toggle('tssc-owned-user', OWNED);
+  document.body.classList.toggle('tssc-owned-user', ugOwns());   /* TSSC-UGHOLD-V1 */
   document.querySelectorAll('.mock-card.tssc-premium')
-    .forEach(c => c.classList.toggle('tssc-owned', OWNED));
+    .forEach(c => c.classList.toggle('tssc-owned', ugOwns()));
   /* TSSC-LOCKOVERLAY-V1 — repaint panels whenever ownership changes. */
   try { if (window.tsscPaintLockOverlays) window.tsscPaintLockOverlays(); } catch (e) {}
+  try { ugHoldPaint(); } catch (e) {}                /* TSSC-UGHOLD-V1 */
 }
 window.tsscApplyEntitlement = applyEntitlement;
 
@@ -2958,6 +2996,10 @@ function tsscSoonToast(msg) {
 window.tsscSoonGuard = tsscSoonGuard;
 
 async function openBuy(card) {
+  if (ugHold()) {                                   /* TSSC-UGHOLD-V1: nothing is sold from this page before 1 Dec */
+    tsscSoonToast('\u{1F4C5} Available by 1 December \u2014 the RRB NTPC UG mocks open on 1 Dec. Mock 1\u20133 are free to attempt now.');
+    return;
+  }
   if (!pop) return;
   if (!enforcing()) return;                        /* TSSC-NTPC-PREPASS-V1: NTPC UG pass not live yet — no checkout */
   if (tsscSoonGuard(card)) return;                 /* TSSC-GD-SOON-V1 */
@@ -3668,6 +3710,7 @@ function tsscPaintLockOverlays() {
   });
   document.querySelectorAll('.mock-card.tssc-owned .mc-lockover')
           .forEach(o => o.remove());
+  try { ugHoldPaint(); } catch (e) {}                /* TSSC-UGHOLD-V1 */
 }
 window.tsscPaintLockOverlays = tsscPaintLockOverlays;
 document.addEventListener('DOMContentLoaded', tsscPaintLockOverlays);
