@@ -7,7 +7,7 @@ Get it at the start of every chat (git clone works from the shell; github.io / r
     # kit = /home/claude/tssc-kit/pyq-kits/gd2026
 
 At the end of every chat: mark the shift `done` in SHIFTS.md, add its line under "## Done" below, and (Ashish's
-standing yes, if given) commit + push ONLY pyq-kits/gd2026/ to main. Scripts: example-09-may-shift-2 is the newest (figure shift with TWO figure Qs Q9, Q10 — 10 images fetched same-origin, laid out at natural size in one 1000×280 region, one zoom save_to_disk after moving the mouse away, threshold 200, no padding; EN RC passage Q76–80 instruction line stripped via INSTR; HI Part D passage is Q73–Q77 (Q61–Q72, Q78–Q80 standalone); a wrong official key is fixed by swapping option texts through OPT_FIX_EN ({'of': 'against', 'against': 'of'}); FIXED_OPTS builds 'HCF = \( \dfrac{1}{72} \), LCM = …' options; controls.py anchors retargeted); example-09-may-shift-1 is the one before (figure shift with
+standing yes, if given) commit + push ONLY pyq-kits/gd2026/ to main. Scripts: example-09-may-shift-3 is the newest (figure shift with FOUR figure Qs Q11, Q12, Q18, Q19 — 20 images + the Q1 option D image (typed "B") fetched same-origin, laid out at natural size in one 1000×600 region (one row per question), one zoom save_to_disk after moving the mouse away, threshold 200, no padding; the HI Part D Q76–Q80 passage is MISSING in the source again — build_txt.HPD_PASSAGE holds our own; EN RC passage Q76–80 has no instruction line; HI_STEM_FIX for a Hindi-only stem typo; controls.py anchors retargeted); example-09-may-shift-2 is the one before (figure shift with TWO figure Qs Q9, Q10 — 10 images fetched same-origin, laid out at natural size in one 1000×280 region, one zoom save_to_disk after moving the mouse away, threshold 200, no padding; EN RC passage Q76–80 instruction line stripped via INSTR; HI Part D passage is Q73–Q77 (Q61–Q72, Q78–Q80 standalone); a wrong official key is fixed by swapping option texts through OPT_FIX_EN ({'of': 'against', 'against': 'of'}); FIXED_OPTS builds 'HCF = \( \dfrac{1}{72} \), LCM = …' options; controls.py anchors retargeted); example-09-may-shift-1 is the one before (figure shift with
 FOUR figure Qs Q11, Q12, Q18, Q19 — 20 images fetched same-origin, laid out at natural size in one 960×500 region (one row per question,
 stem + 4 options), one zoom save_to_disk after moving the mouse away, threshold 200, no padding; EN RC passage Q76–80 has no instruction
 line; HI Part D passage is Q76–Q80 (Q61–Q75 standalone); padded colons inside solution PROSE (e.g. "Time of A : time of B") trip the B1
@@ -502,6 +502,26 @@ Questions CSV header: `qNum,subject,chapterId,exam,year,text,option_A,option_B,o
   "=सच्चरित्र". Q37 key Devdutt Pattanaik kept (his "Indian Wisdom" box set, 2023; Monier-Williams's 1875 classic is not an option).
   8 hindi.other (Q64, Q67–Q69, Q72, Q78–Q80); Q61 hindi.vartani, Q62/Q63 hindi.vakya-shuddhi, Q65/Q66 hindi.upsarg-pratyay, Q70 hindi.sandhi,
   Q71 hindi.anek-shabd.
+
+- 09 May 2026 Shift 3 — built 2026-11-26 (figure Qs Q11, Q12, Q18, Q19 — stem + 4 options each, all clean, threshold 200, native size, no
+  padding). en/hi/gu cidx agree on all 100, and all 80 EN and 20 HI Part D keys agreed with my own solving. The Hindi Part D Q76–Q80 passage
+  is MISSING in the source (comp empty in en/hi/gu) — our own passage (क्षेत्रीय विश्लेषण / स्थानीय सुरक्षा रणनीति) written to fit the five
+  questions and their keys. Corrections: Q1 option D was an image of the letter "B" — typed (EN + HI); Q4 option A "L" was truncated (the
+  other three are two-letter clusters) → "LT" (does not fit; key D LU kept); Q5 option C "{EI, GO, IN}" → "(EI, GO, IN)"; Q14 stem
+  "CRT280 : ?: : RSV200" → "? ::" inside the KaTeX span; Q58 option A "3:2" padded and wrapped like the other three; Q63 four underlines
+  restored (prolonged, cereals, promting, diversified); Q75 underline restored on "The employees, having completing the rigorous training
+  program,"; HI Q24 "पुरस्कर" → "पुरस्कार"; B1 wraps Q2, Q4, Q13–Q15, Q20 stems and Q20/Q58 options; Q42/Q43/Q46 stems and Q44/Q48 stems
+  rebuilt as KaTeX (\frac → \dfrac, √ → \sqrt), Q56 options → \dfrac. HI Part D: Q61/Q62 "दिए गये … है:" → "दिए गए … है?"; Q63 "चयन
+  करें:" → "चयन कीजिए।" and option C "गूथ" (an accepted variant of गूँथ) → "गूँध" (गूँधना = to knead) so only the key A is correct; Q64 "है:"
+  → "क्या है?"; Q65 stem "लगाए गए नियमों" (आदेश also fitted) → "लिखित रूप में तय किए गए नियमों के संग्रह" (key नियमावली); Q67 stem
+  now says he left "अधिकारी के स्पष्ट आदेश के बावजूद बिना अनुमति" (key अवज्ञा; leaving early alone is not disobedience); Q72 stem
+  "कानून की सीमाओं का उल्लंघन" (कानूनी अतिक्रमण / कानून भंग also fitted) → "'Violation of an Act' के लिए उपयुक्त हिंदी पारिभाषिक शब्द"
+  (key अधिनियम उल्लंघन); Q75 option B "कानून की उपशाखा" → "कानून की किसी धारा का उप-भाग" (key B, now precise). English Q76–80 is an RC
+  passage (India's startup ecosystem, no instruction line). Carried verbatim: Q10 "There is one children" / "sitting at left end" (they
+  are standing), Q22 "The small percentage of argon", Q29 "…, is celebrated in which state?", Q32/Q35 "Which of the following year/country",
+  Q37 no full stop, Q41 "28 of 2", Q54 "Rs." in the stem, Q60 "sold it a price", Q61 idiom "waiting for a raindrop in the drought" (not a
+  standard idiom but the only fit; key B), option casing in Q62/Q65/Q78/Q79, HI Q61 "नये". Q20 (ages) sits in Reasoning but is tagged
+  quant.ages. 7 hindi.other (Q64–Q67, Q70–Q72); Q61–Q63 hindi.vakya-shuddhi, Q68/Q69 hindi.shabd-bhed, Q73–Q75 hindi.anek-shabd.
 
 ## Checker notes (fixed in example-04-may-shift-1 on 2026-11-25)
 - checks.py: the word "times" in prose ("3 times as efficient") is no longer flagged; bare `times` is checked only inside \( \).

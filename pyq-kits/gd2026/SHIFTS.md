@@ -32,7 +32,7 @@ The NEXT shift = the first row marked `todo`. Update this file in every chat and
 | 25 | 08 May 2026 Shift 3 | ssc-gd-2026-08-may-shift-3 | done | built 2026-11-26 (figures Q9, Q10; Q35 stem "about", Q39/Q65 options fixed, Q76 stem, HI Part D Q62/Q63/Q78 options and Q61/Q64/Q69/Q72/Q79 stems fixed; corrections in README) |
 | 26 | 09 May 2026 Shift 1 | ssc-gd-2026-09-may-shift-1 | done | built 2026-11-26 (figures Q11, Q12, Q18, Q19; Q63 misspelling and underlines restored, Q66/Q68/Q76 options fixed, HI Part D Q61–Q63 stems, Q65/Q67/Q72 stems and Q71/Q72 options fixed; corrections in README) |
 | 27 | 09 May 2026 Shift 2 | ssc-gd-2026-09-may-shift-2 | done | built 2026-11-26 (figures Q9, Q10; Q71 wrong key fixed via options, Q65 misspelling restored, Q78 stem/option B sharpened, HI Part D Q61/Q78 options and Q62–Q64/Q67/Q69/Q72/Q74/Q75/Q79/Q80 stems fixed; corrections in README) |
-| 28 | 09 May 2026 Shift 3 | ssc-gd-2026-09-may-shift-3 | todo |  |
+| 28 | 09 May 2026 Shift 3 | ssc-gd-2026-09-may-shift-3 | done | built 2026-11-26 (figures Q11, Q12, Q18, Q19; HI Part D passage missing in source — our own written; Q1 option image typed, Q4/Q5 options fixed, Q14 "?: :" fixed, Q63/Q75 underlines restored, HI Part D Q63/Q75 options and Q61–Q65/Q67/Q72 stems fixed; corrections in README) |
 | 29 | 18 May 2026 Shift 1 | ssc-gd-2026-18-may-shift-1 | todo |  |
 | 30 | 18 May 2026 Shift 2 | ssc-gd-2026-18-may-shift-2 | todo |  |
 | 31 | 18 May 2026 Shift 3 | ssc-gd-2026-18-may-shift-3 | todo |  |
