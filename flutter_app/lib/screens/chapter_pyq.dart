@@ -28,7 +28,7 @@ const _subjects = [
 
 const _tagFg = [Color(0xFF1D4ED8), Color(0xFFBE185D), Color(0xFF15803D)];
 const _tagBg = [Color(0xFFDBEAFE), Color(0xFFFCE7F3), Color(0xFFDCFCE7)];
-const _examShort = {'ssc-cgl': 'CGL', 'ssc-chsl': 'CHSL', 'ssc-gd': 'GD', 'ssc-mts': 'MTS', 'ssc-rrb-ntpc': 'NTPC', 'rrb-ntpc': 'NTPC', 'rrb-sm': 'Station Master'};
+const _examShort = {'ssc-cgl': 'CGL', 'ssc-chsl': 'CHSL', 'ssc-gd': 'GD', 'ssc-mts': 'MTS', 'ssc-rrb-ntpc': 'NTPC', 'rrb-ntpc': 'NTPC', 'rrb-ntpc-ug': 'NTPC UG', 'rrb-sm': 'Station Master'};
 
 class _Ch {
   final String id, name, subject;
