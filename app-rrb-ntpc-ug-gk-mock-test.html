@@ -2754,39 +2754,15 @@ const _auth = getAuth(_app);
 const _db   = getFirestore(_app);
 
 let OWNED = false;
-/* TSSC-UGHOLD-V1 (2026-11-27) — until 1 Dec 2026 every paid RRB NTPC UG mock is
-   held: only Full Access (allAccess / all-mocks) opens the mocks already
-   uploaded; everyone else sees "Available by 1 December". Free mocks are not
-   touched. From 1 Dec this block switches itself off — no edit needed. */
+/* TSSC-UGHOLD-V2 (2026-11-27) — mocks already uploaded are sold and opened as usual.
+   Only a mock that is NOT uploaded yet says "Available by 1 December" / "Live by
+   1 Dec" instead of "Releasing soon", until 1 Dec 2026. */
 const TSSC_UG_HOLD_UNTIL = '2026-12-01T00:00:00+05:30';
 const ugHold = () => Date.now() < new Date(TSSC_UG_HOLD_UNTIL).getTime();
-let UG_FULL = false;
-try { UG_FULL = sessionStorage.getItem('tssc_ug_full') === '1'; } catch (e) {}
-const ugOwns = () => OWNED && (!ugHold() || UG_FULL);
-onAuthStateChanged(_auth, async u => {
-  if (!ugHold()) return;
-  let full = false;
-  if (u) {
-    try {
-      const sn = await getDoc(doc(_db, 'entitlements', u.uid));
-      const d = sn.exists() ? (sn.data() || {}) : {};
-      full = grantActive(d.allAccess) || grantActive((d.modules || {})['all-mocks']);
-    } catch (e) { full = UG_FULL; }
-  }
-  UG_FULL = full;
-  try { sessionStorage.setItem('tssc_ug_full', full ? '1' : '0'); } catch (e) {}
-  try { applyEntitlement(); } catch (e) {}
-});
 function ugHoldPaint() {
   if (!ugHold()) return;
   document.querySelectorAll('.mock-card .mc-lock span').forEach(s => { s.innerHTML = '&#128197; Live by 1 Dec'; });
-  document.querySelectorAll('.mock-card .mc-lockover').forEach(o => {
-    if (o.dataset.ughold) return;
-    o.dataset.ughold = '1';
-    o.innerHTML = '<div class="lo-ico">\u{1F512}</div>'
-                + '<div class="lo-txt">Available by 1 December</div>'
-                + '<div class="lo-sub">Tap to see the plans</div>';
-  });
+  document.querySelectorAll('.mock-card .mc-lockover .lo-soon').forEach(s => { s.innerHTML = '&#128197; Available by 1 December'; });
   const b = document.getElementById('barTier1');
   if (b && b.classList.contains('soon')) b.textContent = 'Live by 1 Dec';
 }
@@ -2820,7 +2796,6 @@ const enforcing = () => {
   try { o = sessionStorage.getItem('tssc_paywall_override'); } catch (e) {}
   if (o === 'on')  return true;   // testing: paywall live for THIS browser only
   if (o === 'off') return false;
-  if (ugHold()) return true;           /* TSSC-UGHOLD-V1 */
   if (!NTPC_PASS_LIVE) return false;   /* TSSC-NTPC-PREPASS-V1 */
   return !CFG.enforceFrom || Date.now() >= new Date(CFG.enforceFrom).getTime();
 };
@@ -2868,9 +2843,9 @@ function applyEntitlement() {
   document.body.classList.toggle('tssc-ent-pending', PENDING);        /* TSSC-ENTFAST-V1 */
   if (!PENDING) document.body.classList.add('tssc-ent-resolved');
   document.body.classList.toggle('tssc-enforce', enforcing());
-  document.body.classList.toggle('tssc-owned-user', ugOwns());   /* TSSC-UGHOLD-V1 */
+  document.body.classList.toggle('tssc-owned-user', OWNED);
   document.querySelectorAll('.mock-card.tssc-premium')
-    .forEach(c => c.classList.toggle('tssc-owned', ugOwns()));
+    .forEach(c => c.classList.toggle('tssc-owned', OWNED));
   /* TSSC-LOCKOVERLAY-V1 — repaint panels whenever ownership changes. */
   try { if (window.tsscPaintLockOverlays) window.tsscPaintLockOverlays(); } catch (e) {}
   try { ugHoldPaint(); } catch (e) {}                /* TSSC-UGHOLD-V1 */
@@ -2972,7 +2947,7 @@ function tsscSoonGuard(card) {
   const ok = card ? released(card) : !!document.querySelector('.mock-card:not(.locked)');
   if (ok) return false;
   tsscSoonToast(card
-    ? '\u{1F4C5} Releasing soon \u2014 this mock is not out yet. Get the RRB NTPC UG pass from any live mock and this one opens for you the day it goes live.'
+    ? (ugHold() ? '\u{1F4C5} Available by 1 December' : '\u{1F4C5} Releasing soon') + ' \u2014 this mock is not out yet. Get the RRB NTPC UG pass from any live mock and this one opens for you the day it goes live.'
     : '\u{1F4C5} Releasing soon \u2014 the RRB NTPC UG mocks have not started releasing yet. Mock 1\u20133 will be free; the pass opens with them.');
   return true;
 }
@@ -2998,7 +2973,7 @@ window.tsscSoonGuard = tsscSoonGuard;
 async function openBuy(card) {
   if (!pop) return;
   if (!enforcing()) return;                        /* TSSC-NTPC-PREPASS-V1: NTPC UG pass not live yet — no checkout */
-  if (!ugHold() && tsscSoonGuard(card)) return;    /* TSSC-GD-SOON-V1 · TSSC-UGPRICE-V1: during the 1 Dec hold a tap shows the plans */
+  if (tsscSoonGuard(card)) return;                 /* TSSC-GD-SOON-V1 */
 
   /* TSSC-LOGINFIRST-V1 — a signed-out visitor gets the LOGIN popup first, not
      the price. Reason: a paid student who happens to be logged out is not a
@@ -3135,7 +3110,7 @@ async function openBuy(card) {
   const upKey = TSSC_UPSELL_KEY[CFG.module];
   const upsell = combos.filter(c => c.grants.indexOf(upKey) !== -1).sort((a, b) => a.price - b.price)[0] || null;
   document.getElementById('mbpPerks').innerHTML =
-    (ugHold() ? '<li><b>\u{1F4C5} RRB NTPC UG mocks open on 1 December.</b> Full Access opens the mocks already uploaded today.</li>' : '') +   /* TSSC-UGHOLD-V1 */
+    (ugHold() ? '<li>Every mock already uploaded opens right after payment; the rest will be live by 1 December.</li>' : '') +   /* TSSC-UGHOLD-V2 */
     (lead.blurb ? '<li>' + lead.blurb + '</li>' : '') +
     '<li>One payment — not per test</li>' +
     '<li>Access for ' + (lead.durationDays || 365) + ' days</li>' +
