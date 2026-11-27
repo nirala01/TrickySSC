@@ -740,6 +740,8 @@ const AI_ENDPOINT   = AI_CFG.endpoint;
 const AI_MODEL      = AI_CFG.model;
 const AI_NAME       = AI_CFG.name;
 const AI_EFFORT     = "medium";            // OpenAI reasoning effort: low | medium | high | xhigh
+const AI_IMAGES     = true;                // TSSC-AI-IMAGES-V1: send the question's figures (imageUrl, optionImages, solutionImage) to the AI
+const AI_IMAGES_MAX = 10;
 const AI_THINKING   = true;                // Claude: think before answering (dropped automatically if the API refuses it)
 // Reasoning / thinking is counted inside the output cap, so the caps stay generous.
 // You are only billed for tokens actually used, not for the cap.
@@ -1624,13 +1626,59 @@ function parseAI(raw){
 // stop_reason, so never rely on it alone.
 const looksCut = raw => !/}\s*$/.test(stripFences(raw));
 
+/* ── TSSC-AI-IMAGES-V1 (2026-11-27) — the AI gets the figures too ──
+   Every figure of the documents in hand (question figure, option figures,
+   solution figure, and any <img> inside the text or solution) is attached to
+   the request as an image, and the prompt lists them in order. If the API
+   refuses the images (a link it cannot open, or a worker that only takes
+   text), the same request goes again without them and the AI is told so.   */
+const IMG_URL_RE = /^https?:\/\/\S+$/i;
+function figsOf(docs){
+  const out = [], seen = new Set();
+  const add = (url, label) => {
+    url = String(url||'').trim().replace(/&amp;/g,'&');
+    if(!IMG_URL_RE.test(url) || /\.svg(\?|#|$)/i.test(url) || seen.has(url) || out.length >= AI_IMAGES_MAX) return;
+    seen.add(url); out.push({url, label});
+  };
+  (docs||[]).forEach(d => {
+    const x = (d && d.data) || {};
+    add(x.imageUrl, 'the QUESTION figure');
+    const oi = x.optionImages;
+    if(oi && typeof oi === 'object') ['A','B','C','D'].forEach((L,i) => add(Array.isArray(oi) ? oi[i] : (oi[L] || oi[L.toLowerCase()]), `the figure of OPTION ${L}`));
+    add(x.solutionImage, 'the SOLUTION figure');
+    Object.entries(x).forEach(([k,v]) => {
+      if(typeof v !== 'string' || v.indexOf('<img') < 0) return;
+      for(const m of v.matchAll(/<img[^>]+src=["']([^"']+)["']/gi)) add(m[1], `a figure inside the "${k}" field`);
+    });
+  });
+  return out;
+}
+const figNote = figs => "\n\n### FIGURES ATTACHED — you CAN see them\n" +
+  "The images attached to this message are this question's figures, in this order:\n" +
+  figs.map((f,i) => `${i+1}. ${f.label}`).join("\n") +
+  "\nLook at them carefully and use them when you solve and judge the question. This overrides every line above that says you cannot see the figure. " +
+  "You still cannot change a figure: never put imageUrl / optionImages / solutionImage in your changes. If a figure itself is wrong, unreadable or missing, say so plainly for the human reviewer.";
+const figTag = r => !r || !r.figs ? '' : (r.figsSent ? `🖼 AI saw ${r.figs} figure${r.figs===1?'':'s'}` : `⚠ ${r.figs} figure${r.figs===1?'':'s'} NOT seen by the AI`);
+const FIG_FAIL_NOTE = "\n\n### FIGURES\nThis question has figures, but they could not be attached. You CANNOT see them — follow the lines above about figures you cannot see.";
+
 // ── One API call — goes to whichever provider AI_PROVIDER picks ──
-async function callAI(prompt, maxTokens){
-  return AI_PROVIDER === 'openai' ? callOpenAI(prompt, maxTokens) : callClaude(prompt, maxTokens);
+// docs (optional): the documents the prompt is about — their figures are attached.
+async function callAI(prompt, maxTokens, docs){
+  const call = AI_PROVIDER === 'openai' ? callOpenAI : callClaude;
+  const figs = AI_IMAGES ? figsOf(docs) : [];
+  if(!figs.length) return {...await call(prompt, maxTokens, []), figs:0, figsSent:true};
+  try{
+    return {...await call(prompt + figNote(figs), maxTokens, figs), figs:figs.length, figsSent:true};
+  }catch(e){
+    // sign-in, permission and rate-limit failures are not about the images — do not spend a second call
+    if(!/^HTTP 4\d\d/.test(e.message||'') || /^HTTP (401|403|429)/.test(e.message||'')) throw e;
+    console.warn('[AI] request with figures refused — sending again without them:', e.message);
+    return {...await call(prompt + FIG_FAIL_NOTE, maxTokens, []), figs:figs.length, figsSent:false, figErr:String(e.message||e)};
+  }
 }
 
 // OpenAI Responses API through the trickyssc-openai worker
-async function callOpenAI(prompt, maxTokens){
+async function callOpenAI(prompt, maxTokens, figs){
   const user = auth.currentUser;
   if(!user) throw new Error('Not signed in — sign in again and retry.');
   const token = await user.getIdToken();          // the worker checks this is an admin
@@ -1638,7 +1686,10 @@ async function callOpenAI(prompt, maxTokens){
     method:'POST',
     headers:{'Content-Type':'application/json', 'Authorization':'Bearer '+token},
     body: JSON.stringify({ model: AI_MODEL, max_output_tokens: maxTokens,
-      reasoning:{effort: AI_EFFORT}, input: prompt })
+      reasoning:{effort: AI_EFFORT},
+      input: (figs && figs.length)
+        ? [{ role:'user', content:[{type:'input_text', text:prompt}, ...figs.map(f => ({type:'input_image', image_url:f.url}))] }]
+        : prompt })
   });
   const j = await res.json().catch(()=>null);
   if(!res.ok){
@@ -1659,10 +1710,12 @@ async function callOpenAI(prompt, maxTokens){
 
 // Anthropic Messages API through the trickyssc-ai worker
 let AI_THINK_OK = AI_THINKING;
-async function callClaude(prompt, maxTokens){
+async function callClaude(prompt, maxTokens, figs){
   if(!auth.currentUser) throw new Error('Not signed in — sign in again and retry.');
   const post = async think => {
-    const body = { model: AI_MODEL, max_tokens: maxTokens, messages:[{role:'user', content: prompt}] };
+    const body = { model: AI_MODEL, max_tokens: maxTokens, messages:[{role:'user', content: (figs && figs.length)
+      ? [...figs.map(f => ({type:'image', source:{type:'url', url:f.url}})), {type:'text', text:prompt}]
+      : prompt}] };
     if(think) body.thinking = {type:'adaptive'};
     const res = await fetch(AI_ENDPOINT, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
     return {res, j: await res.json().catch(()=>null)};
@@ -1717,7 +1770,7 @@ function mkChange(c, d, i){
 
 async function runAI(mode){
   FIX.mode = (mode==='solution') ? 'solution' : (mode==='rewrite' ? 'rewrite' : 'fix');
-  FIX.truncated = []; FIX.changes = []; FIX.warn = ''; FIX.verify = null;
+  FIX.truncated = []; FIX.changes = []; FIX.warn = ''; FIX.verify = null; FIX.fig = null;
   if(FIX.mode !== 'rewrite') FIX.from = null;
   if(FIX.mode === 'solution') return runSolutionRewrite();
   if(FIX.mode === 'rewrite')  return runQuestionRewrite();
@@ -1731,11 +1784,11 @@ const SHORT_FIELD = f => /^(correct|answer|correct_option|correctOption|key|ans)
 async function runCorrection(){
   busyPane('Analysing', 'The AI is solving the question and checking the stored content…');
   let r;
-  try{ r = await callAI(buildPrompt(), AI_MAX_TOKENS); }
+  try{ r = await callAI(buildPrompt(), AI_MAX_TOKENS, FIX.docs); }
   catch(e){ return fail(aiFailMsg(e)); }
   const p = parseAI(r.raw);
   if(!p) return fail(truncFail(r, AI_MAX_TOKENS, 'AI_MAX_TOKENS'));
-  FIX.ai = p.ai;
+  FIX.ai = p.ai; FIX.fig = {figs:r.figs, figsSent:r.figsSent, figErr:r.figErr};
   if(p.truncated) FIX.truncated.push('the diagnosis');
 
   // TSSC-QREWRITE-V1 — the question is beyond a small edit: hand over to the question rewrite
@@ -1783,7 +1836,7 @@ async function runCorrection(){
       `Writing ${String(d.lang).toUpperCase()} — document ${n+1} of ${byDoc.length}…`,
       `${esc(fields.map(f=>f.field).join(', '))} · one document per call, so nothing gets cut off`);
     let fr;
-    try{ fr = await callAI(buildFieldPrompt(d, fields, {...ctx, ref}), SOL_MAX_TOKENS); }
+    try{ fr = await callAI(buildFieldPrompt(d, fields, {...ctx, ref}), SOL_MAX_TOKENS, [d]); }
     catch(e){ warn = `The ${String(d.lang).toUpperCase()} field request failed: ${esc(e.message||e)} — press ↻ to retry.`; break; }
     const fp = parseAI(fr.raw);
     if(!fp){ warn = `The ${String(d.lang).toUpperCase()} field reply could not be parsed — press ↻ to retry.`; break; }
@@ -1811,7 +1864,7 @@ async function runSolutionRewrite(){
       `Rewriting ${String(d.lang).toUpperCase()} — document ${n+1} of ${order.length}…`,
       `${esc(d.coll)}/${esc(d.id)} · one document per call, so nothing gets cut off`);
     let r;
-    try{ r = await callAI(buildSolutionPrompt(d, ref ? {...ref, keyNote} : (keyNote?{keyNote}:null)), SOL_MAX_TOKENS); }
+    try{ r = await callAI(buildSolutionPrompt(d, ref ? {...ref, keyNote} : (keyNote?{keyNote}:null)), SOL_MAX_TOKENS, [d]); }
     catch(e){ return results.length ? finishRewrite(results, `The ${String(d.lang).toUpperCase()} call failed: ${esc(e.message||e)}`) : fail(aiFailMsg(e)); }
 
     const p = parseAI(r.raw);
@@ -1882,7 +1935,7 @@ async function runQuestionRewrite(){
       `${esc(d.coll)}/${esc(d.id)}${d._pi && d._pi.passage ? ` · passage found (${d._pi.passage.length} characters, ${d._pi.siblings.length} sibling question(s)) — it will not be touched` : ''}`);
 
     let r;
-    try{ r = await callAI(buildRewritePrompt(d, ref), RW_MAX_TOKENS); }
+    try{ r = await callAI(buildRewritePrompt(d, ref), RW_MAX_TOKENS, [d]); }
     catch(e){
       if(FIX !== me) return;
       if(!results.length) return fail(aiFailMsg(e));
@@ -1941,13 +1994,14 @@ async function runQuestionRewrite(){
 async function verifyRewrite(d){
   const me = FIX;
   if(!textFieldOf(d.data)) return;
-  if(hasFigure(d.data)){ FIX.verify = {na:'the question shows a figure, which the checker cannot see'}; return; }
+  if(hasFigure(d.data) && !AI_IMAGES){ FIX.verify = {na:'the question shows a figure, which the checker cannot see'}; return; }
   const q = finalQuestion(d);
   busyPane('Checking the new question', 'A second pass is solving the rewritten question blind — no key, no solution shown…',
     'if it lands on a different option, you are told before anything is published');
   try{
-    const r = await callAI(buildVerifyPrompt(q), VERIFY_MAX_TOKENS);
+    const r = await callAI(buildVerifyPrompt(q), VERIFY_MAX_TOKENS, [d]);
     if(FIX !== me) return;
+    if(r.figs && !r.figsSent){ FIX.verify = {na:'the question shows a figure, which could not be sent to the checker'}; return; }
     const p = parseAI(r.raw);
     if(!p || !p.ai){ FIX.verify = {na:'its reply could not be read'}; return; }
     const ans  = String(p.ai.answer||'').trim().toUpperCase();
@@ -2065,7 +2119,7 @@ function renderStage3(){
          : '? Unclear — needs your eyes';
   }
   let html = `<div class="steps">1 · Located → 2 · ${sol?'Rewritten':(rw?'Question rewritten':'Analysed')} → <b>3 · Review</b> → 4 · Publish</div>
-    <div class="verdict ${cls}"><b>${head}</b> <span class="muted">(confidence: ${esc(ai.confidence||'?')})</span>
+    <div class="verdict ${cls}"><b>${head}</b> <span class="muted">(confidence: ${esc(ai.confidence||'?')})</span>${FIX.fig && FIX.fig.figs ? ` <span class="muted" ${FIX.fig.figsSent ? '' : `style="color:#B45309" title="${esc(FIX.fig.figErr||'')}"`}>· ${figTag(FIX.fig)}</span>` : ''}
       <div style="margin-top:6px;">${esc(ai.diagnosis||'')}</div>
       ${ai.correct_answer?`<div style="margin-top:6px;"><span class="lbl">${rw?'Answer key of the final question':'Independently derived answer'}</span> <b>${esc(ai.correct_answer)}</b></div>`:''}
       ${ai.reporter_assessment?`<div class="why">Reporter: ${esc(ai.reporter_assessment)}</div>`:''}
@@ -2770,7 +2824,7 @@ async function revScan(keys){
     }
     const job = (async () => {
       try {
-        const r = await callAI(buildReviewPrompt(it, docs), REV_MAX_TOKENS);
+        const r = await callAI(buildReviewPrompt(it, docs), REV_MAX_TOKENS, docs);
         const p = parseAI(r.raw), ai = p && p.ai;
         if(!ai || !ai.verdict) throw new Error(r.stop === 'max_tokens' || looksCut(r.raw) ? 'The AI reply was cut off — press ↻ to try again.' : 'The AI reply could not be read — press ↻ to try again.');
         const lines = {};
@@ -2779,7 +2833,8 @@ async function revScan(keys){
           lines[rep.id] = { right: String(x.right || '').toLowerCase(), line: String(x.line || '') };
         });
         it.res = { verdict: String(ai.verdict), confidence: String(ai.confidence || ''), correct_answer: ai.correct_answer || '',
-                   diagnosis: String(ai.diagnosis || ''), explanation: String(ai.explanation || ''), lines };
+                   diagnosis: String(ai.diagnosis || ''), explanation: String(ai.explanation || ''), lines,
+                   figs: r.figs || 0, figsSent: r.figsSent !== false };
         it.state = 'done'; it.fixed = false; it.t = Date.now(); it.err = '';
         if(REV_RUN) REV_RUN.fail = 0;
       } catch(e){
@@ -2845,6 +2900,7 @@ function revItemHtml(k){
     <div class="rv-head"><code>${esc(it.mockId)}</code> <b>Q${esc(it.qNum)}</b> ${tag}
       ${done && res.correct_answer ? `<span class="muted">AI's answer: <b>${esc(res.correct_answer)}</b></span>` : ''}
       ${done && res.confidence ? `<span class="muted">confidence: ${esc(res.confidence)}</span>` : ''}
+      ${done && res.figs ? `<span class="muted" ${res.figsSent ? '' : 'style="color:#B45309"'}>${figTag(res)}</span>` : ''}
       ${it.live === false ? '<span class="rv-tag un">reports cleared</span>' : ''}
       <span class="sp"><button class="view" ${qa} title="Open the question, options, key and solution">👁 Open</button><button class="fix" ${qa} title="The same AI correction as before — preview, approve, publish">${fix && !it.fixed ? '✨ Correct it' : '✨ AI Fix'}</button><button class="rvre" data-rev-re="${esc(k)}" title="Review this question again">↻</button></span></div>
     ${it.state === 'error' ? `<div class="rv-diag" style="color:#B91C1C">${esc(it.err || 'Failed')}</div>` : ''}
