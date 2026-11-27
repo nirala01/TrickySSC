@@ -302,7 +302,8 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getFirestore, initializeFirestore, collection, getDocs, doc, deleteDoc,
-         getDoc, updateDoc, addDoc, query, where, limit, serverTimestamp }
+         getDoc, updateDoc, addDoc, query, where, limit, serverTimestamp,
+         enableNetwork, disableNetwork }
   from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut }
   from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
@@ -320,6 +321,59 @@ const app = initializeApp({
 });
 let db; try{ db = initializeFirestore(app,{experimentalAutoDetectLongPolling:true}); }catch(_){ db = getFirestore(app); }
 const auth = getAuth(app);
+
+/* ── TSSC-REST-READ-V1 (2026-11-27) — a document read that survives a dropped Firestore link ──
+   On a phone the live Firestore connection often drops (tab in the background, network
+   change) and every getDoc then fails with "unavailable". qDoc reads through the normal
+   connection first; if that is down it reads the same document over plain HTTPS (REST)
+   with the admin's sign-in, and nudges the live connection to reconnect for the writes. */
+let SDK_DOWN_UNTIL = 0, SDK_KICK_AT = 0;
+const isOfflineErr = e => /unavailable|offline|deadline|network|failed to get document/i.test(String((e && (e.code || '')) + ' ' + (e && e.message || '')));
+function restVal(v){
+  if(!v || typeof v !== 'object') return null;
+  if('stringValue' in v)  return v.stringValue;
+  if('integerValue' in v) return Number(v.integerValue);
+  if('doubleValue' in v)  return Number(v.doubleValue);
+  if('booleanValue' in v) return v.booleanValue;
+  if('nullValue' in v)    return null;
+  if('timestampValue' in v) return v.timestampValue;
+  if('mapValue' in v)   { const o = {}; Object.entries(v.mapValue.fields || {}).forEach(([k,x]) => o[k] = restVal(x)); return o; }
+  if('arrayValue' in v)   return (v.arrayValue.values || []).map(restVal);
+  if('referenceValue' in v) return v.referenceValue;
+  if('geoPointValue' in v)  return v.geoPointValue;
+  if('bytesValue' in v)     return v.bytesValue;
+  return null;
+}
+async function restDoc(coll, id){
+  const h = {};
+  try{ if(auth.currentUser) h.Authorization = 'Bearer ' + await auth.currentUser.getIdToken(); }catch(_){}
+  const url = `https://firestore.googleapis.com/v1/projects/${app.options.projectId}/databases/(default)/documents/${coll}/${encodeURIComponent(id)}`;
+  const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), 12000);
+  let res;
+  try{ res = await fetch(url, {headers:h, signal:ctl.signal}); } finally { clearTimeout(tm); }
+  // 403 too: the rules answer a missing document with "permission denied"
+  if(res.status === 404 || res.status === 403) return {id, exists:() => false, data:() => undefined};
+  if(!res.ok) throw new Error('REST ' + res.status);
+  const j = await res.json(), d = {};
+  Object.entries(j.fields || {}).forEach(([k,x]) => d[k] = restVal(x));
+  return {id, exists:() => true, data:() => d, viaRest:true};
+}
+function kickFirestore(){
+  if(Date.now() - SDK_KICK_AT < 30000) return;
+  SDK_KICK_AT = Date.now();
+  disableNetwork(db).then(() => enableNetwork(db)).then(() => { SDK_DOWN_UNTIL = 0; }).catch(() => {});
+}
+async function qDoc(coll, id){
+  if(Date.now() >= SDK_DOWN_UNTIL){
+    try{ return await getDoc(doc(db, coll, id)); }
+    catch(e){
+      if(!isOfflineErr(e)) throw e;
+      SDK_DOWN_UNTIL = Date.now() + 20000;      // don't wait on the dead link for every id tried
+      kickFirestore();
+    }
+  }
+  return restDoc(coll, id);
+}
 const $ = id => document.getElementById(id);
 const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const fmtTime = ts => { try{ const d=ts?.toDate?ts.toDate():(ts?new Date(ts):null); return d?d.toLocaleString():''; }catch(_){ return ''; } };
@@ -797,7 +851,7 @@ async function findOne(coll, baseId, qn){
   // 1) deterministic doc id
   for(const cand of idCandidates(baseId, qn)){
     try{
-      const snap = await getDoc(doc(db, coll, cand));
+      const snap = await qDoc(coll, cand);
       if(snap.exists()) return {coll, id:snap.id, data:snap.data()};
     }catch(e){ locErr(coll+'/'+cand, e); }
   }
@@ -894,7 +948,7 @@ async function findChapterQ(coll, ct, qn){
   for(const cand of ctIdCandidates(ct, qn)){
     CT_TRIED.push(coll+'/'+cand);
     try{
-      const snap = await getDoc(doc(db, coll, cand));
+      const snap = await qDoc(coll, cand);
       if(snap.exists()) return {coll, id:snap.id, data:snap.data()};
     }catch(_){}
   }
@@ -952,7 +1006,7 @@ const pyqShift = v => String(v||'').trim().toLowerCase().replace(/\s+/g,'-');
 
 async function pyqMeta(baseId){
   try{
-    const c = await getDoc(doc(db, 'papers', baseId));
+    const c = await qDoc('papers', baseId);
     if(c.exists()){
       const d = c.data() || {};
       if(d.exam && d.year) return { exam:String(d.exam), year:String(d.year), tier:String(d.tier||''), shift:String(d.shift||''),
@@ -1000,7 +1054,7 @@ async function findPyqLegacy(coll, baseId, qn){
   const hit  = hits.find(r => r.pid === baseId) || hits.find(r => r.pid) || hits[0];
   if(!hit) return null;
   try{
-    const snap = await getDoc(doc(db, coll, hit.id));           // fresh copy — never a cached one
+    const snap = await qDoc(coll, hit.id);           // fresh copy — never a cached one
     if(snap.exists()) return {coll, id:snap.id, data:snap.data()};
   }catch(e){ locErr(coll+'/'+hit.id, e); }
   return null;
@@ -1101,7 +1155,7 @@ async function neighbourDocs(d){
     const pad = m[2].length;
     await Promise.all(nums.map(async k => {
       try{
-        const s = await getDoc(doc(db, d.coll, m[1] + String(k).padStart(pad,'0')));
+        const s = await qDoc(d.coll, m[1] + String(k).padStart(pad,'0'));
         if(s.exists()) out.push({n:k, data:s.data()});
       }catch(_){}
     }));
