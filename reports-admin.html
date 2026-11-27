@@ -1026,7 +1026,12 @@ async function locateDocs(baseId, qn){
 // may be scanning while an AI Fix or 👁 Open is asked for.
 let LOC_LOCK = Promise.resolve();
 function locateLocked(baseId, qn){
-  const p = LOC_LOCK.then(() => locateDocs(baseId, qn));
+  // a read that failed (weak mobile network) is tried once more before saying "not found"
+  const p = LOC_LOCK.then(async () => {
+    let d = await locateDocs(baseId, qn);
+    if(!d.length && LOC_ERRS.length){ await new Promise(r => setTimeout(r, 1500)); d = await locateDocs(baseId, qn); }
+    return d;
+  });
   LOC_LOCK = p.catch(() => {});
   return p;
 }
