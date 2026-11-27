@@ -38,7 +38,7 @@ The NEXT shift = the first row marked `todo`. Update this file in every chat and
 | 31 | 18 May 2026 Shift 3 | ssc-gd-2026-18-may-shift-3 | done | built 2026-11-27 (FIVE figures Q6, Q7, Q17, Q18, Q19; Q1 series term DV → DY, Q3 option G| → GI, Q40 China EPI rank 156th → 154th, Q54/Q56 stems clarified, Q63 misspelling restored, HI Part D Q63/Q79 options and Q64–Q66/Q68/Q79 stems fixed; corrections in README) |
 | 32 | 19 May 2026 Shift 1 | ssc-gd-2026-19-may-shift-1 | done | built 2026-11-27 (figures Q18, Q19, Q20; Q23 Lonar stem corrected to impact crater, Q3/Q32 options fixed, Q67 blank inserted, Q72/Q75 underlines, HI Part D Q62/Q73/Q74 options and Q65–Q67/Q69/Q71/Q72 stems fixed; corrections in README) |
 | 33 | 19 May 2026 Shift 2 | ssc-gd-2026-19-may-shift-2 | done | built 2026-11-27 (FIVE figures Q6, Q7, Q17, Q18, Q19 + Q38 photo stem with text options; Q30 wrong key fixed via options (84,902), Q3 term GJ → GI, Q44 radicand fixed, Q22/Q25/Q56 stems reworded, Q2/Q12/Q63/Q69 options fixed, RC repeated sentence dropped, HI Part D Q64/Q65/Q67/Q79 stems and Q72/Q79/Q80 options fixed; corrections in README) |
-| 34 | 19 May 2026 Shift 3 | ssc-gd-2026-19-may-shift-3 | todo |  |
+| 34 | 19 May 2026 Shift 3 | ssc-gd-2026-19-may-shift-3 | done | built 2026-11-27 (figures Q18, Q19, Q20; Q33 award name, Q37 C-in-C stem, Q75 "Irregardless" restored, Q76 duplicate option replaced, Q63/Q70 underlines, Q71 blank + option, HI Part D passage moved to Q73–Q77, Q64/Q67/Q79/Q80 stems and Q71/Q78/Q80 options fixed; corrections in README) |
 | 35 | 20 May 2026 Shift 1 | ssc-gd-2026-20-may-shift-1 | todo |  |
 | 36 | 20 May 2026 Shift 2 | ssc-gd-2026-20-may-shift-2 | todo |  |
 | 37 | 20 May 2026 Shift 3 | ssc-gd-2026-20-may-shift-3 | todo |  |
