@@ -35,7 +35,7 @@ The NEXT shift = the first row marked `todo`. Update this file in every chat and
 | 28 | 09 May 2026 Shift 3 | ssc-gd-2026-09-may-shift-3 | done | built 2026-11-26 (figures Q11, Q12, Q18, Q19; HI Part D passage missing in source — our own written; Q1 option image typed, Q4/Q5 options fixed, Q14 "?: :" fixed, Q63/Q75 underlines restored, HI Part D Q63/Q75 options and Q61–Q65/Q67/Q72 stems fixed; corrections in README) |
 | 29 | 18 May 2026 Shift 1 | ssc-gd-2026-18-may-shift-1 | done | built 2026-11-27 (FIVE figures Q6, Q7, Q17, Q18, Q19; Q65 misspelling restored, Q66/Q79 options and Q78 stem fixed, HI Q57, HI Part D Q63 duplicate option and Q64–Q66/Q68/Q69/Q76/Q79/Q80 fixed; corrections in README) |
 | 30 | 18 May 2026 Shift 2 | ssc-gd-2026-18-may-shift-2 | done | built 2026-11-27 (figures Q11, Q12, Q18, Q19 + Q39 photo stem with text options; Q36 stem, Q38/Q75 options, Q46 option 5.06, Q63/Q64 misspellings, HI Q30 intra-state, HI Part D Q61–Q63/Q65–Q67/Q72/Q77/Q79 fixed; corrections in README) |
-| 31 | 18 May 2026 Shift 3 | ssc-gd-2026-18-may-shift-3 | todo |  |
+| 31 | 18 May 2026 Shift 3 | ssc-gd-2026-18-may-shift-3 | done | built 2026-11-27 (FIVE figures Q6, Q7, Q17, Q18, Q19; Q1 series term DV → DY, Q3 option G| → GI, Q40 China EPI rank 156th → 154th, Q54/Q56 stems clarified, Q63 misspelling restored, HI Part D Q63/Q79 options and Q64–Q66/Q68/Q79 stems fixed; corrections in README) |
 | 32 | 19 May 2026 Shift 1 | ssc-gd-2026-19-may-shift-1 | todo |  |
 | 33 | 19 May 2026 Shift 2 | ssc-gd-2026-19-may-shift-2 | todo |  |
 | 34 | 19 May 2026 Shift 3 | ssc-gd-2026-19-may-shift-3 | todo |  |
