@@ -8,6 +8,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <!-- TSSC-AIC-ADMIN-V1 (2026-11-21): who has registered for the All India Challenge Mocks.
      TSSC-AIC-ADMIN-V2 (2026-11-26): Sort by rank in any opened paper; click a paper under "Papers taken" for marks and rank.
+     TSSC-AIC-ADMIN-V3 (2026-11-27): "Ratings & feedback" tab — who gave how many stars to which paper, with their other answers
+     (level felt, hardest part, time, wrong question, note). Read from mock_ratings for the opened papers' test ids only.
      Read only, no new Firestore rules. A registration is users/{uid}.aic (SSC CGL Tier 2) or
      users/{uid}.aicChsl (SSC CHSL Tier 1), with a mirror row on leaderboards/aic-registered and
      leaderboards/aic-chsl-registered. This page reads the user records (name, email, mobile) the
@@ -61,6 +63,16 @@
   .dbox span{font-size:11px;color:#64748B;font-weight:600;}
   .dsec{font-size:12.5px;color:#475569;line-height:1.7;}
   .dsec a{color:#FF6B00;font-weight:700;text-decoration:none;}
+  /* TSSC-AIC-ADMIN-V3: ratings and feedback */
+  .tabs{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;}
+  .tabs button{font:inherit;font-size:13px;font-weight:700;padding:8px 14px;border-radius:99px;border:1.5px solid #E2E8F0;background:#fff;color:#475569;cursor:pointer;}
+  .tabs button.on{background:#1E293B;border-color:#1E293B;color:#fff;}
+  .stars{color:#F59E0B;font-size:15px;letter-spacing:1px;white-space:nowrap;} .stars i{color:#CBD5E1;font-style:normal;}
+  .fbsum{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px;margin-bottom:12px;}
+  .fbsum .card{margin:0;font-size:13px;line-height:1.7;color:#334155;}
+  .fbsum .big{font-family:'Rajdhani';font-weight:700;font-size:26px;color:#1E293B;line-height:1;}
+  .fbnote{max-width:260px;white-space:normal;word-break:break-word;}
+  .dfb{margin-top:8px;padding-top:8px;border-top:1px dashed #CBD5E1;font-size:12.5px;color:#334155;line-height:1.7;}
 </style>
 </head>
 <body>
@@ -75,7 +87,9 @@
   <div id="main" class="hidden">
     <div class="stats" id="stats"></div>
     <div class="card next" id="next"></div>
+    <div class="tabs"><button id="tabStu" class="on">Students</button><button id="tabFb">Ratings &amp; feedback</button></div>
     <input class="filter" id="q" placeholder="Search name, email or mobile">
+    <div id="viewStu">
     <div class="bar">
       <span id="count"></span>
       <span style="flex:1"></span>
@@ -86,6 +100,19 @@
     </div>
     <div class="say" id="say"></div>
     <div class="tw"><table><thead><tr><th id="headNo">#</th><th>Student</th><th>Mobile</th><th>Registered for</th><th>Registered on</th><th>First paper</th><th>Papers taken <span style="text-transform:none;letter-spacing:0;font-weight:500;">(click for marks and rank)</span></th></tr></thead><tbody id="rows"></tbody></table></div>
+    </div>
+    <div id="viewFb" class="hidden">
+      <div class="fbsum" id="fbsum"></div>
+      <div class="bar">
+        <span id="fbcount"></span>
+        <span style="flex:1"></span>
+        <select class="sort" id="fbpaper"></select>
+        <select class="sort" id="fbstar"><option value="">All stars</option><option value="5">5 stars</option><option value="4">4 stars</option><option value="3">3 stars</option><option value="2">2 stars</option><option value="1">1 star</option><option value="low">3 stars or less</option><option value="text">With a written note</option></select>
+        <select class="sort" id="fbsort"><option value="new">Newest first</option><option value="lo">Lowest stars first</option><option value="hi">Highest stars first</option></select>
+        <button class="btn btn-orange" id="fbcsv">Download CSV</button>
+      </div>
+      <div class="tw"><table><thead><tr><th>#</th><th>Student</th><th>Paper</th><th>Stars</th><th>Level felt</th><th>Hardest part</th><th>Time was short in</th><th>Wrong question reported</th><th>Other note</th><th>Marks · rank</th><th>Given on</th></tr></thead><tbody id="fbrows"></tbody></table></div>
+    </div>
   </div>
 </div>
 
@@ -132,6 +159,10 @@ const fmtDay = ms => new Date(ms).toLocaleDateString('en-IN', Object.assign({ we
 function say(t, cls){ $('say').textContent = t||''; $('say').className = 'say'+(cls?' '+cls:''); }
 
 let ROWS = [], FILTER = 'all', TAKEN = {};   // TAKEN: 'chsl:1' -> Map(uid -> score row with .rank and .total)
+let FB = {}, VIEW = 'stu';                   // FB: 'chsl:1' -> Map(uid -> the rating and questionnaire answers that student gave)
+const starHtml = n => { n = Math.max(0, Math.min(5, Math.round(Number(n) || 0))); return '<span class="stars">' + '★'.repeat(n) + '<i>' + '★'.repeat(5 - n) + '</i></span>'; };
+const fbOf = (uid, x) => FB[x] ? FB[x].get(uid) : null;
+const timeTxt = f => (Array.isArray(f.timeShort) ? f.timeShort : (f.timeShort ? [f.timeShort] : [])).join(', ');
 let SORT = 'reg', OPEN = '';                 // SORT: 'reg' or a paper key 'chsl:1' · OPEN: 'uid|chsl:1' = the detail row shown
 const paperName = x => { const p = x.split(':'); return SER[p[0]].name + ' Mock ' + p[1]; };
 const num = v => { const n = Number(v) || 0; return String(Math.round(n * 100) / 100); };
@@ -153,6 +184,10 @@ $('so').onclick = () => signOut(auth);
 $('reload').onclick = async () => { $('reload').disabled = true; await load(); $('reload').disabled = false; };
 $('q').oninput = paint;
 $('sort').onchange = () => { SORT = $('sort').value; OPEN = ''; paint(); };
+$('q').addEventListener('input', () => paintFb());
+function setView(v) { VIEW = v; $('tabStu').classList.toggle('on', v === 'stu'); $('tabFb').classList.toggle('on', v === 'fb'); $('viewStu').classList.toggle('hidden', v !== 'stu'); $('viewFb').classList.toggle('hidden', v !== 'fb'); }
+$('tabStu').onclick = () => setView('stu'); $('tabFb').onclick = () => { setView('fb'); paintFb(); };
+['fbpaper', 'fbstar', 'fbsort'].forEach(id => $(id).onchange = () => paintFb());
 
 async function load() {
   say('Loading…');
@@ -187,6 +222,16 @@ async function load() {
         const map = new Map();
         list.forEach((x, i) => { x.rank = (i && list[i-1].marks === x.marks) ? list[i-1].rank : i + 1; x.total = list.length; map.set(x.uid, x); });
         TAKEN[k + ':' + n] = map;
+        /* the star rating + questionnaire of this paper: mock_ratings rows of its English and Hindi test ids only */
+        try {
+          const fm = new Map(), base = s.exam + '_aic_mock' + n;
+          (await getDocs(query(collection(db, 'mock_ratings'), where('mockId', 'in', [base + '_en', base + '_hi', base])))).forEach(d => {
+            const x = d.data() || {}; if (!x.uid || !(Number(x.stars) > 0)) return;
+            x.at = tsMs(x.createdAt); x.lang = /_hi$/.test(String(x.mockId)) ? 'Hindi' : 'English';
+            const old = fm.get(x.uid); if (!old || x.at >= old.at) fm.set(x.uid, x);
+          });
+          FB[k + ':' + n] = fm;
+        } catch (e) { problems.push(s.name + ' Mock ' + n + ' ratings: ' + (e.code || e.message)); }
       } catch (e) { problems.push(s.name + ' Mock ' + n + ' board: ' + (e.code || e.message)); }
     }
   }
@@ -199,7 +244,12 @@ async function load() {
     + keys.map(x => '<option value="' + x + '">Rank in ' + esc(paperName(x)) + ' (' + TAKEN[x].size + ' took it)</option>').join('')
     + (keys.length ? '' : '<option disabled>Rank options appear when a paper opens</option>');
   $('sort').value = SORT;
-  paintStats(); paintNext(); paint();
+  const fp = $('fbpaper').value;
+  $('fbpaper').innerHTML = '<option value="">All papers</option>' + keys.map(x => '<option value="' + x + '">' + esc(paperName(x)) + '</option>').join('');
+  $('fbpaper').value = keys.includes(fp) ? fp : '';
+  const nfb = Object.keys(FB).reduce((t, x) => t + FB[x].size, 0);
+  $('tabFb').textContent = 'Ratings & feedback (' + nfb + ')';
+  paintStats(); paintNext(); paint(); paintFb();
 }
 
 function paintStats() {
@@ -249,7 +299,7 @@ const takenList = r => takenKeys(r).map(x => { const d = TAKEN[x].get(r.uid); re
 
 /* the marks and rank panel under a student, for one paper */
 function detailRow(r, x) {
-  const d = TAKEN[x].get(r.uid), p = x.split(':'), s = SER[p[0]];
+  const d = TAKEN[x].get(r.uid), p = x.split(':'), s = SER[p[0]], f = fbOf(r.uid, x);
   const pct = d.total > 1 ? Math.round((d.total - d.rank) / (d.total - 1) * 1000) / 10 : 100;
   const box = (v, l) => '<div><b>' + v + '</b><span>' + l + '</span></div>';
   const sm = d.subjectMarks && typeof d.subjectMarks === 'object' ? Object.keys(d.subjectMarks) : [];
@@ -261,8 +311,67 @@ function detailRow(r, x) {
     + (d.timeUsed != null ? box(fmtDur(d.timeUsed), 'Time used') : '') + '</div>'
     + '<div class="dsec">' + (sm.length ? 'Section marks: ' + sm.map(k => esc(k) + ' <b>' + num(d.subjectMarks[k]) + '</b>').join(' · ') + '<br>' : '')
     + (at ? 'Submitted ' + fmtWhen(at) + ' · ' : '')
-    + '<a target="_blank" rel="noopener" href="/rank.html?paper=' + encodeURIComponent(s.exam + '_aic_mock' + p[1]) + '&name=' + encodeURIComponent('SSC ' + s.name + ' All India Challenge Mock ' + p[1]) + '">Full leaderboard →</a></div></td></tr>';
+    + '<a target="_blank" rel="noopener" href="/rank.html?paper=' + encodeURIComponent(s.exam + '_aic_mock' + p[1]) + '&name=' + encodeURIComponent('SSC ' + s.name + ' All India Challenge Mock ' + p[1]) + '">Full leaderboard →</a></div>'
+    + (f ? '<div class="dfb"><b>Their rating:</b> ' + starHtml(f.stars) + (f.difficulty ? ' · Level felt: <b>' + esc(f.difficulty) + '</b>' : '')
+        + (f.hardPart ? ' · Hardest part: <b>' + esc(f.hardPart) + '</b>' : '') + (timeTxt(f) ? ' · Time was short in: <b>' + esc(timeTxt(f)) + '</b>' : '')
+        + (f.issue ? '<br>Wrong question reported: ' + esc(f.issue) : '') + (f.comment ? '<br>Other note: ' + esc(f.comment) : '') + '</div>'
+      : '<div class="dfb" style="color:#64748B;">No rating given for this paper.</div>')
+    + '</td></tr>';
 }
+
+/* ---- Ratings & feedback: who gave how many stars, and what else they said ---- */
+function fbList() {
+  const q = $('q').value.trim().toLowerCase(), pap = $('fbpaper').value, st = $('fbstar').value, so = $('fbsort').value;
+  const who = {}; ROWS.forEach(r => who[r.uid] = r);
+  let out = [];
+  Object.keys(FB).forEach(x => { if (pap && pap !== x) return; FB[x].forEach((f, uid) => {
+    const r = who[uid] || {}; out.push({ x, uid, f, name: r.name || f.name || 'Student', email: r.email || '', mobile: r.mobile || '', sc: TAKEN[x] ? TAKEN[x].get(uid) : null });
+  }); });
+  out = out.filter(o => {
+    const n = Number(o.f.stars) || 0;
+    if (st === 'low' && n > 3) return false;
+    if (st === 'text' && !(o.f.issue || o.f.comment)) return false;
+    if (/^[1-5]$/.test(st) && n !== Number(st)) return false;
+    return !q || (o.name + ' ' + o.email + ' ' + o.mobile + ' ' + (o.f.issue || '') + ' ' + (o.f.comment || '')).toLowerCase().includes(q);
+  });
+  out.sort((a, b) => so === 'lo' ? (a.f.stars - b.f.stars) || (b.f.at - a.f.at) : so === 'hi' ? (b.f.stars - a.f.stars) || (b.f.at - a.f.at) : b.f.at - a.f.at);
+  return out;
+}
+function paintFb() {
+  const keys = Object.keys(FB);
+  /* one summary card per paper: average, how many gave each star, the common answers */
+  const tally = (list, get) => { const m = {}; list.forEach(f => [].concat(get(f) || []).forEach(v => { if (v) m[v] = (m[v] || 0) + 1; })); return Object.keys(m).sort((a, b) => m[b] - m[a]).map(v => esc(v) + ' <b>' + m[v] + '</b>').join(' · '); };
+  $('fbsum').innerHTML = keys.filter(x => FB[x].size).map(x => {
+    const list = [...FB[x].values()], n = list.length, avg = list.reduce((t, f) => t + (Number(f.stars) || 0), 0) / n;
+    const took = TAKEN[x] ? TAKEN[x].size : 0;
+    return '<div class="card"><b>' + esc(paperName(x)) + '</b><br><span class="big">' + (Math.round(avg * 10) / 10) + '</span> / 5 ' + starHtml(avg) + ' · ' + n + ' rating' + (n === 1 ? '' : 's') + (took ? ' from ' + took + ' who took it' : '')
+      + '<br>' + [5, 4, 3, 2, 1].map(k => k + '★ <b>' + list.filter(f => Math.round(f.stars) === k).length + '</b>').join(' · ')
+      + (tally(list, f => f.difficulty) ? '<br>Level felt: ' + tally(list, f => f.difficulty) : '')
+      + (tally(list, f => f.hardPart) ? '<br>Hardest part: ' + tally(list, f => f.hardPart) : '')
+      + (tally(list, f => f.timeShort) ? '<br>Time short in: ' + tally(list, f => f.timeShort) : '') + '</div>';
+  }).join('');
+  const list = fbList(), all = keys.reduce((t, x) => t + FB[x].size, 0);
+  $('fbcount').textContent = list.length + ' of ' + all + ' ratings';
+  if (!list.length) { $('fbrows').innerHTML = '<tr><td colspan="11" class="empty">' + (all ? 'No rating matches.' : (keys.length ? 'No student has rated a challenge paper yet.' : 'Ratings appear here once the first challenge paper opens and students submit it.')) + '</td></tr>'; return; }
+  const dash = '<span class="em">—</span>';
+  $('fbrows').innerHTML = list.map((o, i) => { const f = o.f;
+    return '<tr><td>' + (i + 1) + '</td><td><b>' + esc(o.name) + '</b>' + (o.email ? '<div class="em">' + esc(o.email) + '</div>' : '') + (o.mobile ? '<div class="em">' + esc(o.mobile) + '</div>' : '') + '</td>'
+      + '<td><span class="pill p-' + o.x.split(':')[0] + '">' + esc(paperName(o.x)) + '</span><div class="em">' + f.lang + '</div></td>'
+      + '<td>' + starHtml(f.stars) + ' <b>' + esc(f.stars) + '</b></td><td>' + (esc(f.difficulty) || dash) + '</td><td>' + (esc(f.hardPart) || dash) + '</td><td>' + (esc(timeTxt(f)) || dash) + '</td>'
+      + '<td class="fbnote">' + (esc(f.issue) || dash) + '</td><td class="fbnote">' + (esc(f.comment) || dash) + '</td>'
+      + '<td>' + (o.sc ? num(o.sc.marks) + (o.sc.maxMarks ? '/' + num(o.sc.maxMarks) : '') + ' · rank ' + o.sc.rank : '<span class="em">not in live rank</span>') + '</td>'
+      + '<td>' + (f.at ? fmtWhen(f.at) : '') + '</td></tr>'; }).join('');
+}
+$('fbcsv').onclick = () => {
+  const cell = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+  const head = ['Name', 'Email', 'Mobile', 'Paper', 'Language', 'Stars', 'Level felt', 'Hardest part', 'Time was short in', 'Wrong question reported', 'Other note', 'Marks', 'Rank', 'Given on'];
+  const lines = [head.map(cell).join(',')].concat(fbList().map(o => [o.name, o.email, o.mobile, paperName(o.x), o.f.lang, o.f.stars, o.f.difficulty, o.f.hardPart, timeTxt(o.f), o.f.issue, o.f.comment,
+    o.sc ? num(o.sc.marks) : '', o.sc ? o.sc.rank : '', o.f.at ? fmtWhen(o.f.at) : ''].map(cell).join(',')));
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(['\ufeff' + lines.join('\r\n')], { type: 'text/csv' }));
+  a.download = 'challenge-feedback-' + new Date(Date.now() + 19800000).toISOString().slice(0, 10) + '.csv';
+  document.body.appendChild(a); a.click(); a.remove();
+};
 const firstList = r => Object.keys(SER).filter(k => r.reg[k]).map(k => { const n = firstRound(SER[k], r.reg[k]); return SER[k].name + ': ' + (n ? 'Mock ' + n + ' (' + fmtDay(startOf(SER[k], n)) + ')' : 'none left'); });
 
 function paint() {
@@ -281,7 +390,7 @@ function paint() {
       + '<td>' + ['chsl','cgl'].filter(k => r.reg[k]).map(k => '<span class="pill p-' + k + '">' + SER[k].name + '</span>' + (r.src[k] === 'app' ? '<span class="pill p-app">app</span>' : '')).join('') + '</td>'
       + '<td>' + ['chsl','cgl'].filter(k => r.reg[k] > 1).map(k => '<div>' + SER[k].name + ': ' + fmtWhen(r.reg[k]) + '</div>').join('') + '</td>'
       + '<td>' + firstList(r).map(x => '<div>' + esc(x) + '</div>').join('') + '</td>'
-      + '<td>' + (tk.map(x => { const d = TAKEN[x].get(r.uid); return '<button class="pill p-done' + (OPEN === r.uid + '|' + x ? ' on' : '') + '" data-open="' + esc(r.uid + '|' + x) + '" title="Show marks and rank">' + esc(paperName(x)) + ' · Rank ' + d.rank + '</button>'; }).join('') || '<span class="em">—</span>') + '</td></tr>'
+      + '<td>' + (tk.map(x => { const d = TAKEN[x].get(r.uid); return '<button class="pill p-done' + (OPEN === r.uid + '|' + x ? ' on' : '') + '" data-open="' + esc(r.uid + '|' + x) + '" title="Show marks and rank">' + esc(paperName(x)) + ' · Rank ' + d.rank + (fbOf(r.uid, x) ? ' · ' + fbOf(r.uid, x).stars + '★' : '') + '</button>'; }).join('') || '<span class="em">—</span>') + '</td></tr>'
       + (open ? detailRow(r, open) : '');
   }).join('');
 }
