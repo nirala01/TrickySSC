@@ -7,7 +7,7 @@ Get it at the start of every chat (git clone works from the shell; github.io / r
     # kit = /home/claude/tssc-kit/pyq-kits/gd2026
 
 At the end of every chat: mark the shift `done` in SHIFTS.md, add its line under "## Done" below, and (Ashish's
-standing yes, if given) commit + push ONLY pyq-kits/gd2026/ to main. Scripts: example-09-may-shift-1 is the newest (figure shift with
+standing yes, if given) commit + push ONLY pyq-kits/gd2026/ to main. Scripts: example-09-may-shift-2 is the newest (figure shift with TWO figure Qs Q9, Q10 — 10 images fetched same-origin, laid out at natural size in one 1000×280 region, one zoom save_to_disk after moving the mouse away, threshold 200, no padding; EN RC passage Q76–80 instruction line stripped via INSTR; HI Part D passage is Q73–Q77 (Q61–Q72, Q78–Q80 standalone); a wrong official key is fixed by swapping option texts through OPT_FIX_EN ({'of': 'against', 'against': 'of'}); FIXED_OPTS builds 'HCF = \( \dfrac{1}{72} \), LCM = …' options; controls.py anchors retargeted); example-09-may-shift-1 is the one before (figure shift with
 FOUR figure Qs Q11, Q12, Q18, Q19 — 20 images fetched same-origin, laid out at natural size in one 960×500 region (one row per question,
 stem + 4 options), one zoom save_to_disk after moving the mouse away, threshold 200, no padding; EN RC passage Q76–80 has no instruction
 line; HI Part D passage is Q76–Q80 (Q61–Q75 standalone); padded colons inside solution PROSE (e.g. "Time of A : time of B") trip the B1
@@ -480,6 +480,28 @@ Questions CSV header: `qNum,subject,chapterId,exam,year,text,option_A,option_B,o
   Q52 "Rs." in options, Q62/Q65/Q78 option casing, Q64 option "opulance" (lower case), Q73 "invalidated out of the Army" (Christie has
   "invalided"), Q75 underline already present, HI Q73–Q75 "का उपयुक्त हिंदी अर्थ". Q20 (ages) sits in Reasoning but is tagged quant.ages.
   7 hindi.other (Q64–Q67, Q70–Q72); Q61–Q63 hindi.vakya-shuddhi, Q68/Q69 hindi.shabd-bhed, Q73/Q75 hindi.anek-shabd, Q74 hindi.paryayvachi.
+
+- 09 May 2026 Shift 2 — built 2026-11-26 (figure Qs Q9, Q10 — stem + 4 options each, all clean, threshold 200, native size, no padding).
+  en/hi/gu cidx agree on all 100. My own solving disagreed with ONE official key — fixed through the option texts, key letter kept: Q71
+  ("The police could not collect sufficient evidence ___ him to prove him guilty" needs "against"; official key C was "of") → options C/D
+  swapped to C "against", D "of". All other 79 EN and 20 HI Part D keys agreed. Corrections: Q65 had NO misspelt word (all four correct) —
+  EN option C "Ludicrous" → "Ludicurous" (the GU copy keeps the misspelling the key intends); Q78 stem "Why are …" → "According to the
+  passage, why are …" and option B "within freshwater and marine ecosystems" (a near-paraphrase of the passage) → "only within marine
+  ecosystems" (key D kept); Q76–80 RC passage instruction line dropped; Q26/Q33/Q40 statement II moved to its own line (EN + HI); B1 wraps
+  Q11–Q14 stems and Q56/Q60 options; Q43 stem/options, Q44/Q46/Q48 stems and Q46/Q58 options rebuilt as KaTeX (\frac → \dfrac, ^3 → ^{3},
+  "1/72" → \dfrac), Q45 "\rm" removed, Q47/Q57/Q58 stem fractions → \dfrac. HI Part D: Q61 option D "आवाारा" (doubled matra) → "आवरा"; Q61/Q72
+  "<u>शुद्ध</u>"/"<u>सही</u>" → plain, Q72 "क्या होगा:" → "क्या होगी?"; Q62/Q63 "<u>अशुद्धि</u>" → plain and the sentence quoted ("मुझे मजा आती है" —
+  इस वाक्य में …); Q64 "का सही शब्द" → "का सही अंग्रेज़ी शब्द"; Q67 stem "तय की गई कार्य प्रणाली" (नीति also fitted) → "किसी कार्य को करने का पहले से
+  तय, चरण-दर-चरण तरीका" (key प्रक्रिया); Q69 stem "विधिवत पूछताछ" gave the key away → "अपराध के बारे में विधिवत सवाल-जवाब" (key पूछताछ); Q74/Q75
+  stems made self-contained ("जोखिम मूल्यांकन में पहला चरण …", "खतरों की पहचान के बाद किसका विश्लेषण …"); Q78 option C अभिलेखन (also means
+  official recording) → अन्वेषण (key पंजीकरण); Q79 stem "जाँच और मूल्यांकन" (निरीक्षण/जांच also fitted) → "किए गए पुलिस कार्य को दोबारा देखकर उसकी
+  कमियों और उपलब्धियों का आकलन" (key समीक्षा); Q80 stem "कार्य रिकॉर्ड" (literally अभिलेख) → "रोज़ के कार्य और घटनाएँ क्रम से लिखने के लिए रखी
+  जाने वाली बंधी हुई पुस्तक" (key रजिस्टर). Hindi Part D passage is Q73–Q77 (Q78–Q80 standalone); English Q76–80 is an RC passage (Pacific
+  Salmon). Carried verbatim: Q22/Q32/Q33 "Which of the following organ/tiger reserve", Q35 "did … took place", Q40 "all the district", Q53
+  "Rs." in options, Q66 option "LIFTED", Q64 option "offer" (lower case), Q80 stem "Discuss … which includes:", HI Q61 option "आ'वारा", HI Q70
+  "=सच्चरित्र". Q37 key Devdutt Pattanaik kept (his "Indian Wisdom" box set, 2023; Monier-Williams's 1875 classic is not an option).
+  8 hindi.other (Q64, Q67–Q69, Q72, Q78–Q80); Q61 hindi.vartani, Q62/Q63 hindi.vakya-shuddhi, Q65/Q66 hindi.upsarg-pratyay, Q70 hindi.sandhi,
+  Q71 hindi.anek-shabd.
 
 ## Checker notes (fixed in example-04-may-shift-1 on 2026-11-25)
 - checks.py: the word "times" in prose ("3 times as efficient") is no longer flagged; bare `times` is checked only inside \( \).
