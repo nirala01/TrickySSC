@@ -56,6 +56,12 @@ EXAM = "rrb-sm"
 EXAM_NAME = "RRB Station Master"
 
 
+def cyc(p):
+    """Year the paper is listed under. The Section Controller CBT of CEN 04/2025 was held in
+    Feb 2026, so those shifts go under 2025; the Oct 2026 shifts (and everything else) keep their year."""
+    return "2025" if p["year"] == "2026" and "2026-01-01" <= (p["heldOn"] or "") < "2026-07-01" else p["year"]
+
+
 def pname(year):
     """Section Controller for the 2026 papers, Station Master from 2027 on."""
     return "RRB Station Master" if str(year).isdigit() and int(year) >= 2027 else "RRB Section Controller"
@@ -214,8 +220,8 @@ def row_html(p):
     shift = p["shift"] or "Full Paper"
     s_num = re.search(r"Shift[- ]?(\d+)", p["shift"] or "", re.I)
     pick = re.sub(r"\s+", "-", "-".join([EXAM, "t1", p["year"], p["shift"] or "full", p["heldOn"] or ""]))
-    title = f"{pname(p['year'])} CBT {p['year']} · {shift}" + (f" · {date}" if date else "")
-    label = f"{pname(p['year'])} CBT {p['year']} {shift}" + (f" ({date})" if date else "")
+    title = f"{pname(p['year'])} CBT {cyc(p)} · {shift}" + (f" · {date}" if date else "")
+    label = f"{pname(p['year'])} CBT {cyc(p)} {shift}" + (f" ({date})" if date else "")
     en_url = test_url(p, "en") if p["en"] else ""
     hi_url = test_url(p, "hi") if p["hi"] else ""
     attrs = ['class="pyq-attempt-btn"', f'href="{e(en_url or hi_url)}"', f'data-pick="{e(pick)}"']
@@ -262,7 +268,7 @@ def list_html(papers):
         return empty_html("CBT-1 shifts")
     grouped = defaultdict(list)
     for p in papers:
-        grouped[p["year"] or "Other"].append(p)
+        grouped[cyc(p) or "Other"].append(p)
     years = sorted(grouped, key=lambda y: int(y) if y.isdigit() else -1, reverse=True)
     out = ["\n"]
     for yi, year in enumerate(years):
@@ -306,7 +312,7 @@ def subj_row_html(p, key, label, q, mins):
     shift = p["shift"] or "Full Paper"
     s_num = re.search(r"Shift[- ]?(\d+)", p["shift"] or "", re.I)
     pick = re.sub(r"\s+", "-", "-".join([EXAM, "t1", p["year"], p["shift"] or "full", p["heldOn"] or "", key]))
-    title = f"{pname(p['year'])} CBT {p['year']} · {shift}" + (f" · {date}" if date else "") + f" · {label}"
+    title = f"{pname(p['year'])} CBT {cyc(p)} · {shift}" + (f" · {date}" if date else "") + f" · {label}"
     en_url = subj_url(p, "en", key) if p["en"] else ""
     hi_url = subj_url(p, "hi", key) if p["hi"] else ""
     c1, c2 = SUBJ_BTN.get(key, ("#FF6B00", "#FF8C38"))
@@ -341,7 +347,7 @@ def subj_list_html(key, papers):
         return empty_html(f"{label} tests")
     grouped = defaultdict(list)
     for p in papers:
-        grouped[p["year"] or "Other"].append(p)
+        grouped[cyc(p) or "Other"].append(p)
     years = sorted(grouped, key=lambda y: int(y) if y.isdigit() else -1, reverse=True)
     out = ["\n"]
     for yi, year in enumerate(years):
@@ -411,7 +417,7 @@ def build(page_path, sitemap_path=None, dry_run=False, subject_pages=True):
     html = between(html, "<!-- ITEMLIST:START -->", "<!-- ITEMLIST:END -->", "\n" + item_list_json(papers) + "\n")
     html = re.sub(r"window\.__PYQ_SIG = '[^']*';/\*SIG\*/", f"window.__PYQ_SIG = '{sig}';/*SIG*/", html, count=1)
 
-    years = sorted({int(p["year"]) for p in papers if p["year"].isdigit()})
+    years = sorted({int(cyc(p)) for p in papers if p["year"].isdigit()})
     span = f"{years[0]}–{years[-1]}" if len(years) > 1 else (str(years[0]) if years else "")
     html = set_text(html, "t1-count", f"{len(papers)} Paper{'s' if len(papers) != 1 else ''}")
     html = set_text(html, "heroCount", f"{len(papers)} Paper{'s' if len(papers) != 1 else ''}" if papers else "Papers being added")
