@@ -7,6 +7,7 @@
 <title>Challenge registrations — TrickySSC Admin</title>
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <!-- TSSC-AIC-ADMIN-V1 (2026-11-21): who has registered for the All India Challenge Mocks.
+     TSSC-AIC-ADMIN-V2 (2026-11-26): Sort by rank in any opened paper; click a paper under "Papers taken" for marks and rank.
      Read only, no new Firestore rules. A registration is users/{uid}.aic (SSC CGL Tier 2) or
      users/{uid}.aicChsl (SSC CHSL Tier 1), with a mirror row on leaderboards/aic-registered and
      leaderboards/aic-chsl-registered. This page reads the user records (name, email, mobile) the
@@ -48,6 +49,18 @@
   .p-done{background:#DCFCE7;color:#15803D;} .p-app{background:#F1F5F9;color:#475569;}
   .say{font-size:13px;color:#64748B;margin:6px 0;} .say.err{color:#DC2626;font-weight:600;}
   a.wa{color:#16A34A;font-weight:700;text-decoration:none;font-size:12px;}
+  /* TSSC-AIC-ADMIN-V2: rank sort + marks and rank per paper */
+  select.sort{font-size:13px;font-weight:600;padding:8px 10px;border-radius:9px;border:1.5px solid #E2E8F0;background:#fff;color:#1E293B;max-width:100%;}
+  button.pill{border:0;cursor:pointer;font-family:inherit;}
+  button.pill:hover,button.pill.on{background:#15803D;color:#fff;}
+  .rk{font-family:'Rajdhani';font-weight:700;font-size:16px;color:#FF6B00;}
+  tr.det td{background:#F8FAFC;padding:12px 14px;}
+  .dbox{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 6px;}
+  .dbox div{background:#fff;border:1px solid #E2E8F0;border-radius:10px;padding:8px 12px;min-width:104px;}
+  .dbox b{display:block;font-family:'Rajdhani';font-size:21px;line-height:1.1;color:#1E293B;}
+  .dbox span{font-size:11px;color:#64748B;font-weight:600;}
+  .dsec{font-size:12.5px;color:#475569;line-height:1.7;}
+  .dsec a{color:#FF6B00;font-weight:700;text-decoration:none;}
 </style>
 </head>
 <body>
@@ -66,11 +79,13 @@
     <div class="bar">
       <span id="count"></span>
       <span style="flex:1"></span>
+      <label for="sort" style="font-weight:600;">Sort by</label>
+      <select class="sort" id="sort"><option value="reg">Newest registration</option></select>
       <button class="btn btn-ghost" id="reload">Refresh</button>
       <button class="btn btn-orange" id="csv">Download CSV</button>
     </div>
     <div class="say" id="say"></div>
-    <div class="tw"><table><thead><tr><th>#</th><th>Student</th><th>Mobile</th><th>Registered for</th><th>Registered on</th><th>First paper</th><th>Papers taken</th></tr></thead><tbody id="rows"></tbody></table></div>
+    <div class="tw"><table><thead><tr><th id="headNo">#</th><th>Student</th><th>Mobile</th><th>Registered for</th><th>Registered on</th><th>First paper</th><th>Papers taken <span style="text-transform:none;letter-spacing:0;font-weight:500;">(click for marks and rank)</span></th></tr></thead><tbody id="rows"></tbody></table></div>
   </div>
 </div>
 
@@ -116,7 +131,11 @@ const fmtWhen = ms => ms ? new Date(ms).toLocaleString('en-IN', Object.assign({ 
 const fmtDay = ms => new Date(ms).toLocaleDateString('en-IN', Object.assign({ weekday:'short', day:'numeric', month:'short' }, IST));
 function say(t, cls){ $('say').textContent = t||''; $('say').className = 'say'+(cls?' '+cls:''); }
 
-let ROWS = [], FILTER = 'all', TAKEN = {};   // TAKEN: 'chsl:1' -> Set(uid)
+let ROWS = [], FILTER = 'all', TAKEN = {};   // TAKEN: 'chsl:1' -> Map(uid -> score row with .rank and .total)
+let SORT = 'reg', OPEN = '';                 // SORT: 'reg' or a paper key 'chsl:1' · OPEN: 'uid|chsl:1' = the detail row shown
+const paperName = x => { const p = x.split(':'); return SER[p[0]].name + ' Mock ' + p[1]; };
+const num = v => { const n = Number(v) || 0; return String(Math.round(n * 100) / 100); };
+const fmtDur = sec => { sec = Math.round(Number(sec) || 0); const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s2 = sec % 60; return (h ? h + ' h ' : '') + m + ' min ' + s2 + ' s'; };
 
 onAuthStateChanged(auth, async user => {
   if (!user) {
@@ -133,6 +152,7 @@ onAuthStateChanged(auth, async user => {
 $('so').onclick = () => signOut(auth);
 $('reload').onclick = async () => { $('reload').disabled = true; await load(); $('reload').disabled = false; };
 $('q').oninput = paint;
+$('sort').onchange = () => { SORT = $('sort').value; OPEN = ''; paint(); };
 
 async function load() {
   say('Loading…');
@@ -161,14 +181,24 @@ async function load() {
     /* 3. who has taken each paper that has opened */
     for (const n of openedRounds(s)) {
       try {
-        const set = new Set();
-        (await getDocs(collection(db, 'leaderboards', s.exam + '_aic_mock' + n, 'scores'))).forEach(d => set.add(d.id));
-        TAKEN[k + ':' + n] = set;
+        const list = [];
+        (await getDocs(collection(db, 'leaderboards', s.exam + '_aic_mock' + n, 'scores'))).forEach(d => { const x = d.data() || {}; x.uid = d.id; x.marks = Number(x.marks) || 0; list.push(x); });
+        list.sort((a, b) => b.marks - a.marks);
+        const map = new Map();
+        list.forEach((x, i) => { x.rank = (i && list[i-1].marks === x.marks) ? list[i-1].rank : i + 1; x.total = list.length; map.set(x.uid, x); });
+        TAKEN[k + ':' + n] = map;
       } catch (e) { problems.push(s.name + ' Mock ' + n + ' board: ' + (e.code || e.message)); }
     }
   }
   ROWS = Object.values(by).sort((a, b) => Math.max(b.reg.chsl||0, b.reg.cgl||0) - Math.max(a.reg.chsl||0, a.reg.cgl||0));
   say(problems.length ? 'Some data could not be read: ' + problems.join(' · ') : '', problems.length ? 'err' : '');
+  /* the Sort by list: one entry per paper that has opened */
+  const keys = Object.keys(TAKEN).sort((a, b) => a.split(':')[0].localeCompare(b.split(':')[0]) * -1 || (a.split(':')[1] - b.split(':')[1]));
+  if (SORT !== 'reg' && !TAKEN[SORT]) SORT = 'reg';
+  $('sort').innerHTML = '<option value="reg">Newest registration</option>'
+    + keys.map(x => '<option value="' + x + '">Rank in ' + esc(paperName(x)) + ' (' + TAKEN[x].size + ' took it)</option>').join('')
+    + (keys.length ? '' : '<option disabled>Rank options appear when a paper opens</option>');
+  $('sort').value = SORT;
   paintStats(); paintNext(); paint();
 }
 
@@ -202,32 +232,60 @@ function paintNext() {
 function visible() {
   const q = $('q').value.trim().toLowerCase();
   const day = new Date(Date.now()+19800000).toISOString().slice(0,10);
-  return ROWS.filter(r => {
+  const out = ROWS.filter(r => {
     if (FILTER==='chsl' && !r.reg.chsl) return false;
     if (FILTER==='cgl' && !r.reg.cgl) return false;
     if (FILTER==='both' && !(r.reg.chsl && r.reg.cgl)) return false;
     if (FILTER==='today' && !['chsl','cgl'].some(k => r.reg[k] > 1 && new Date(r.reg[k]+19800000).toISOString().slice(0,10) === day)) return false;
     return !q || (r.name + ' ' + r.email + ' ' + r.mobile).toLowerCase().includes(q);
   });
+  /* by rank in one paper: best rank first, students who did not take that paper after them */
+  const B = SORT !== 'reg' && TAKEN[SORT];
+  if (B) out.sort((a, b) => { const x = B.get(a.uid), y = B.get(b.uid); return (x ? x.rank : 1e9) - (y ? y.rank : 1e9) || ((x && y) ? (x.timeUsed || 0) - (y.timeUsed || 0) : 0); });
+  return out;
 }
-const takenList = r => Object.keys(TAKEN).filter(x => TAKEN[x].has(r.uid)).map(x => { const p = x.split(':'); return SER[p[0]].name + ' Mock ' + p[1]; });
+const takenKeys = r => Object.keys(TAKEN).filter(x => TAKEN[x].has(r.uid));
+const takenList = r => takenKeys(r).map(x => { const d = TAKEN[x].get(r.uid); return paperName(x) + ': ' + num(d.marks) + (d.maxMarks ? '/' + num(d.maxMarks) : '') + ' marks, rank ' + d.rank + ' of ' + d.total; });
+
+/* the marks and rank panel under a student, for one paper */
+function detailRow(r, x) {
+  const d = TAKEN[x].get(r.uid), p = x.split(':'), s = SER[p[0]];
+  const pct = d.total > 1 ? Math.round((d.total - d.rank) / (d.total - 1) * 1000) / 10 : 100;
+  const box = (v, l) => '<div><b>' + v + '</b><span>' + l + '</span></div>';
+  const sm = d.subjectMarks && typeof d.subjectMarks === 'object' ? Object.keys(d.subjectMarks) : [];
+  const at = tsMs(d.submittedAt);
+  return '<tr class="det"><td></td><td colspan="6"><b>' + esc(r.name || d.name || 'Student') + ' · ' + esc(paperName(x)) + '</b>'
+    + '<div class="dbox">' + box(num(d.marks) + (d.maxMarks ? ' / ' + num(d.maxMarks) : ''), 'Marks')
+    + box(d.rank + ' / ' + d.total, 'All India rank') + box(pct + '%', 'Percentile')
+    + (d.accuracy != null ? box(num(d.accuracy) + '%', 'Accuracy') : '')
+    + (d.timeUsed != null ? box(fmtDur(d.timeUsed), 'Time used') : '') + '</div>'
+    + '<div class="dsec">' + (sm.length ? 'Section marks: ' + sm.map(k => esc(k) + ' <b>' + num(d.subjectMarks[k]) + '</b>').join(' · ') + '<br>' : '')
+    + (at ? 'Submitted ' + fmtWhen(at) + ' · ' : '')
+    + '<a target="_blank" rel="noopener" href="/rank.html?paper=' + encodeURIComponent(s.exam + '_aic_mock' + p[1]) + '&name=' + encodeURIComponent('SSC ' + s.name + ' All India Challenge Mock ' + p[1]) + '">Full leaderboard →</a></div></td></tr>';
+}
 const firstList = r => Object.keys(SER).filter(k => r.reg[k]).map(k => { const n = firstRound(SER[k], r.reg[k]); return SER[k].name + ': ' + (n ? 'Mock ' + n + ' (' + fmtDay(startOf(SER[k], n)) + ')' : 'none left'); });
 
 function paint() {
   const list = visible();
-  $('count').textContent = list.length + ' of ' + ROWS.length + ' students';
+  const B = SORT !== 'reg' && TAKEN[SORT];
+  $('headNo').textContent = B ? 'Rank' : '#';
+  $('count').textContent = list.length + ' of ' + ROWS.length + ' students' + (B ? ' · ' + list.filter(r => B.has(r.uid)).length + ' took ' + paperName(SORT) : '');
   if (!list.length) { $('rows').innerHTML = '<tr><td colspan="7" class="empty">' + (ROWS.length ? 'No student matches.' : 'No registrations yet.') + '</td></tr>'; return; }
   $('rows').innerHTML = list.map((r, i) => {
     const wa = r.mobile.replace(/\D/g, ''); const wan = wa.length === 10 ? '91' + wa : wa;
-    return '<tr><td>' + (i+1) + '</td>'
+    const tk = takenKeys(r), open = tk.find(x => OPEN === r.uid + '|' + x);
+    const sd = B ? B.get(r.uid) : null;   /* sorted by a paper: the first column is the rank in it */
+    return '<tr><td>' + (B ? (sd ? '<span class="rk">' + sd.rank + '</span>' : '<span class="em">—</span>') : (i+1)) + '</td>'
       + '<td><b>' + esc(r.name || 'Student') + '</b>' + (r.email ? '<div class="em">' + esc(r.email) + '</div>' : (r.full ? '' : '<div class="em">record not readable — name only</div>')) + '</td>'
       + '<td>' + (r.mobile ? esc(r.mobile) + (wan.length >= 11 ? '<br><a class="wa" target="_blank" rel="noopener" href="https://wa.me/' + wan + '">WhatsApp</a>' : '') : '<span class="em">—</span>') + '</td>'
       + '<td>' + ['chsl','cgl'].filter(k => r.reg[k]).map(k => '<span class="pill p-' + k + '">' + SER[k].name + '</span>' + (r.src[k] === 'app' ? '<span class="pill p-app">app</span>' : '')).join('') + '</td>'
       + '<td>' + ['chsl','cgl'].filter(k => r.reg[k] > 1).map(k => '<div>' + SER[k].name + ': ' + fmtWhen(r.reg[k]) + '</div>').join('') + '</td>'
       + '<td>' + firstList(r).map(x => '<div>' + esc(x) + '</div>').join('') + '</td>'
-      + '<td>' + (takenList(r).map(x => '<span class="pill p-done">' + esc(x) + '</span>').join('') || '<span class="em">—</span>') + '</td></tr>';
+      + '<td>' + (tk.map(x => { const d = TAKEN[x].get(r.uid); return '<button class="pill p-done' + (OPEN === r.uid + '|' + x ? ' on' : '') + '" data-open="' + esc(r.uid + '|' + x) + '" title="Show marks and rank">' + esc(paperName(x)) + ' · Rank ' + d.rank + '</button>'; }).join('') || '<span class="em">—</span>') + '</td></tr>'
+      + (open ? detailRow(r, open) : '');
   }).join('');
 }
+$('rows').onclick = e => { const b = e.target.closest('[data-open]'); if (!b) return; OPEN = OPEN === b.dataset.open ? '' : b.dataset.open; paint(); };
 
 $('csv').onclick = () => {
   const cell = v => '"' + String(v==null?'':v).replace(/"/g, '""') + '"';
