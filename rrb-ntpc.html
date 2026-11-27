@@ -344,7 +344,7 @@ function tsscHideDrop(li){ var m=li.querySelector('.nav-drop-menu'); if(m)m.styl
               <h3 style="font-family:'Rajdhani',sans-serif;font-size:1.05rem;font-weight:700;color:#1A202C;margin:0 0 0.5rem;line-height:1.4;"><span style="display:block;min-height:2.95rem;">RRB NTPC PYQ Tests <span style="color:#FF6B00;">(CBT-1, shift-wise)</span></span></h3>
               <p style="font-size:0.78rem;color:#718096;margin:0 0 0.5rem;min-height:2.2rem;">Real Graduate-level previous year papers with answer keys &amp; solutions</p>
               <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.75rem;flex-wrap:wrap;">
-                <span style="font-size:0.82rem;color:#4A5568;font-weight:600;" data-pyqch="papers">20 papers &middot; 1,970 questions</span>
+                <span style="font-size:0.82rem;color:#4A5568;font-weight:600;" data-pyqch="papers">20 papers &middot; 2,000 questions</span>
                 <span style="color:#CBD5E0;">|</span>
                 <span style="font-size:0.82rem;color:#00A86B;font-weight:700;">&#9989; All free</span>
               </div>
@@ -434,9 +434,12 @@ function tsscHideDrop(li){ var m=li.querySelector('.nav-drop-menu'); if(m)m.styl
       var list=names.length>1 ? names.slice(0,-1).join(', ')+' & '+names[names.length-1] : names.join('');
       set('count', t>0 ? fmt(t)+' '+SHORT+' PYQs \u00b7 '+n+' chapters' : fmt(all)+' PYQs \u00b7 '+chs.length+' chapters');
       set('sub', fmt(all)+' PYQs from '+list+' papers, sorted by chapter'+(t>0 ? '' : '; '+SHORT+' papers join as they are uploaded'));
-      var ex=(d.exams||{})[EXAM]||(d.exams||{})[OLD];
-      if(ex && ex.papers>0) set('papers', fmt(ex.papers)+' papers \u00b7 '+fmt(ex.questions)+' questions');
     }).catch(function(e){ console.warn('[TrickySSC] chapter-wise PYQ counts:', e && e.message); });
+    /* TSSC-PYQCOUNTS-V1: papers and questions come from /pyq-counts.json (counted from the PYQ page, no Firestore reads) */
+    fetch('/pyq-counts.json', { cache: 'no-cache' }).then(function(r){ if(!r.ok) throw new Error(r.status); return r.json(); }).then(function(c){
+      var ex=(c.exams||{})[EXAM];
+      if(ex && ex.papers>0) set('papers', fmt(ex.papers)+' papers \u00b7 '+fmt(ex.questions)+' questions');
+    }).catch(function(e){ console.warn('[TrickySSC] PYQ paper counts:', e && e.message); });
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', go); else go();
 })();

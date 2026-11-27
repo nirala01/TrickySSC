@@ -317,7 +317,7 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;}
   var ORDER = ['cgl','chsl','mts','gd','ntpc'];
   var OTHER = [['👮','SSC CPO','Central Police · Sub-Inspector','/ssc-cpo.html'],['✍️','SSC JHT','Junior Hindi Translator','/ssc-jht.html'],['⚙️','SSC JE','Junior Engineer','/ssc-je.html']];
   var CHEV = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>';
-  var PAPERS = {};   // exam key -> papers count, from /pyq-chapters/index.json
+  var PAPERS = {};   // exam key -> papers count, from /pyq-counts.json (TSSC-PYQCOUNTS-V1: counted from the PYQ pages, no Firestore reads)
   var EXAM_KEY = 'tssc_app_exam';
 
   function $(id){ return document.getElementById(id); }
@@ -686,10 +686,11 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;}
     });
   }
   function loadPapers(){
-    try{ var c=JSON.parse(sessionStorage.getItem('tssc_app_papers')||'null'); if(c){ PAPERS=c; applyPapers(); return; } }catch(e){}
-    fetch('/pyq-chapters/index.json').then(function(r){ if(!r.ok) throw 0; return r.json(); }).then(function(d){
+    try{ var c=JSON.parse(sessionStorage.getItem('tssc_app_papers2')||'null'); if(c){ PAPERS=c; applyPapers(); return; } }catch(e){}
+    fetch('/pyq-counts.json', { cache: 'no-cache' }).then(function(r){ if(!r.ok) throw 0; return r.json(); }).then(function(d){
       var ex=d.exams||{}, o={}; Object.keys(ex).forEach(function(k){ if(ex[k] && ex[k].papers) o[k]=ex[k].papers; });
-      PAPERS=o; try{ sessionStorage.setItem('tssc_app_papers', JSON.stringify(o)); }catch(e){}
+      if(o['rrb-ntpc'] && !o['ssc-rrb-ntpc']) o['ssc-rrb-ntpc']=o['rrb-ntpc'];   /* this page keys RRB NTPC as ssc-rrb-ntpc */
+      PAPERS=o; try{ sessionStorage.setItem('tssc_app_papers2', JSON.stringify(o)); }catch(e){}
       applyPapers();
     }).catch(function(){});
   }

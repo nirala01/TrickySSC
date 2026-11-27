@@ -32,6 +32,13 @@ jobs:
       - name: Generate ssc-cgl-pyq.html + ssc-cgl-tier-2-pyq.html
         run: python3 scripts/build_pyq_page.py
 
+      # TSSC-PYQCOUNTS-V1: recount papers / questions / years from the baked PYQ pages into
+      # pyq-counts.json (home page cards, app home, exam hubs). Reads repo files only: no Firestore reads.
+      - name: Refresh PYQ counts (pyq-counts.json)
+        run: |
+          python3 scripts/build_pyq_counts.py
+          git add pyq-counts.json
+
       - name: Commit changes if the page changed
         run: |
           git config user.name  "github-actions[bot]"
