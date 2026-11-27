@@ -533,6 +533,8 @@ const _pdb = getFirestore(_papp);
 const EXAM      = 'rrb-sm';
 const EXAM_NAME = 'RRB Station Master';
 /* TSSC-SM-PYQ-V1: papers held up to 2026 under this exam are RRB Section Controller shifts (same pattern); a paper of 2027 or later is a Station Master paper */
+/* Feb 2026 shifts belong to CEN 04/2025: listed under 2025 (same rule as build_sm_pyq_page.py) */
+function cyc(p){ const h=String(p.heldOn||''); return (String(p.year)==='2026' && h>='2026-01-01' && h<'2026-07-01') ? '2025' : p.year; }
 function pname(y){ return parseInt(y,10)>=2027 ? 'RRB Station Master' : 'RRB Section Controller'; }
 const ENGINE    = 'https://trickyssc.com/test-sm.html';
 const MINS = 120, PER_Q = 1;
@@ -569,7 +571,7 @@ function rowHtml(p){
   const qCount=Math.max(p.en,p.hi), marks=qCount*PER_Q, date=fmtDate(p.heldOn), shift=p.shift||'Full Paper';
   const sNum=String(p.shift||'').match(/Shift[- ]?(\d+)/i);
   const pick=[EXAM,'t1',p.year,(p.shift||'full'),(p.heldOn||'')].join('-').replace(/\s+/g,'-');
-  const title=`${pname(p.year)} CBT ${p.year} · ${shift}${date?' · '+date:''}`, label=`${pname(p.year)} CBT ${p.year} ${shift}${date?' ('+date+')':''}`;
+  const title=`${pname(p.year)} CBT ${cyc(p)} · ${shift}${date?' · '+date:''}`, label=`${pname(p.year)} CBT ${cyc(p)} ${shift}${date?' ('+date+')':''}`;
   const enUrl=p.en?testUrl(p,'en'):'', hiUrl=p.hi?testUrl(p,'hi'):'';
   const attrs=['class="pyq-attempt-btn"',`href="${esc(enUrl||hiUrl)}"`,`data-pick="${esc(pick)}"`,
     enUrl?`data-en="${esc(enUrl)}" data-pid-en="${esc(paperId(p,'en'))}"`:'', hiUrl?`data-hi="${esc(hiUrl)}" data-pid-hi="${esc(paperId(p,'hi'))}"`:'',
@@ -583,7 +585,7 @@ function renderAll(papers){
   const list=document.getElementById('t1-list'), count=document.getElementById('t1-count');
   if(!list) return;
   if(!papers.length){ if(count) count.textContent='0 Papers'; return; }
-  const grouped={}; papers.forEach(p=>{ (grouped[p.year||'Other']=grouped[p.year||'Other']||[]).push(p); });
+  const grouped={}; papers.forEach(p=>{ const y=cyc(p)||'Other'; (grouped[y]=grouped[y]||[]).push(p); });
   const years=Object.keys(grouped).sort((a,b)=>(parseInt(b)||0)-(parseInt(a)||0));
   let html='';
   years.forEach((year,yi)=>{
