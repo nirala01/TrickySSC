@@ -797,7 +797,7 @@ async function findOne(coll, baseId, qn){
     try{
       const snap = await getDoc(doc(db, coll, cand));
       if(snap.exists()) return {coll, id:snap.id, data:snap.data()};
-    }catch(_){}
+    }catch(e){ locErr(coll+'/'+cand, e); }
   }
   // 2) query fallback (legacy random-id docs)
   const sch = await probeSchema(coll, baseId);
@@ -928,8 +928,84 @@ async function locateChapterDocs(ct, qn){
   return found;
 }
 
+/* ── PYQ PAPERS — TSSC-PYQ-LOCATE-V1 (2026-11-27) ───────────────────
+   A PYQ report carries the paper card id  <exam>_<year>_<tier>_<shift>_<heldOn>_<lang>.
+   Papers put in by the batch uploader have docs  <paperId>_qNNN  and are found
+   above. Papers put in by the older CSV import have random doc ids and NO paperId
+   field, so neither the id nor the paperId query can find them — the test page
+   itself falls back to exam + year + heldOn for these. Do the same here.      */
+// <exam>_<year>_<tier>[_<shift>][_<yyyy-mm-dd>]_<lang>  →  its parts (used when the paper card is missing)
+function parsePaperId(id){
+  const p = String(id||'').trim().split('_');
+  if(p.length < 4 || !/^\d{4}$/.test(p[1]) || !/^tier\d+$/i.test(p[2]) || !/^(en|hi|english|hindi)$/i.test(p[p.length-1])) return null;
+  const rest = p.slice(3, -1);
+  const heldOn = (rest.length && /^\d{4}-\d{2}-\d{2}$/.test(rest[rest.length-1])) ? rest.pop() : '';
+  return { exam:p[0].toLowerCase(), year:p[1], tier:p[2].toLowerCase(), shift:rest.join('_'), heldOn, lang:pyqLang(p[p.length-1]), card:false };
+}
+const PYQ_IDX = new Map();                 // "coll|exam|year|heldOn" -> [{id,lang,shift,tier,n,pid}]  (ids only — the doc is re-read fresh)
+let   PYQ_DIAG = null, LOC_ERRS = [];      // for the "not found" diagnostic
+const locErr  = (what, e) => { const m = `${what}: ${e && (e.code || e.message) || e}`; if(!LOC_ERRS.includes(m)) LOC_ERRS.push(m); };
+const pyqLang  = v => { const l = String(v||'').trim().toLowerCase(); return (/^h/.test(l) || /^हि/.test(l)) ? 'hi' : 'en'; };
+const pyqShift = v => String(v||'').trim().toLowerCase().replace(/\s+/g,'-');
+
+async function pyqMeta(baseId){
+  try{
+    const c = await getDoc(doc(db, 'papers', baseId));
+    if(c.exists()){
+      const d = c.data() || {};
+      if(d.exam && d.year) return { exam:String(d.exam), year:String(d.year), tier:String(d.tier||''), shift:String(d.shift||''),
+        heldOn:String(d.heldOn||''), lang:pyqLang(d.language || (isHi(baseId) ? 'hi' : 'en')), card:true };
+    }
+  }catch(e){ locErr('papers/'+baseId, e); }
+  return parsePaperId(baseId);
+}
+
+async function pyqRows(coll, meta){
+  const key = [coll, meta.exam, meta.year, meta.heldOn].join('|');
+  if(PYQ_IDX.has(key)) return PYQ_IDX.get(key);
+  const out = [], seen = new Set();
+  const yNum = parseInt(meta.year, 10);
+  for(const yv of (isNaN(yNum) ? [meta.year] : [meta.year, yNum])){
+    try{
+      const cons = [where('exam','==',meta.exam), where('year','==',yv)];
+      if(meta.heldOn) cons.push(where('heldOn','==',meta.heldOn));
+      const s = await getDocs(query(collection(db, coll), ...cons));
+      s.forEach(x => {
+        if(seen.has(x.id)) return; seen.add(x.id);
+        const d = x.data() || {};
+        out.push({ id:x.id, lang:pyqLang(d.language ?? d.lang), shift:pyqShift(d.shift), tier:String(d.tier||'').toLowerCase(),
+                   n:parseInt(ctQNumOf(d), 10), pid:String(d.paperId||'') });
+      });
+    }catch(e){ locErr(`${coll} (exam + year + heldOn)`, e); }
+    if(out.length) break;
+  }
+  if(out.length) PYQ_IDX.set(key, out);    // an empty result is not kept — the paper may be uploaded later
+  return out;
+}
+
+async function findPyqLegacy(coll, baseId, qn){
+  const meta = await pyqMeta(baseId);
+  if(!meta) return null;
+  const n = parseInt(qn, 10);
+  const rows = (await pyqRows(coll, meta)).filter(r =>
+    r.lang === meta.lang &&
+    (!meta.shift || !r.shift || r.shift === pyqShift(meta.shift)) &&
+    (!meta.tier  || !r.tier  || r.tier  === meta.tier.toLowerCase()));
+  if(!PYQ_DIAG || isEn(baseId) || !PYQ_DIAG.count)
+    PYQ_DIAG = { base:baseId, meta, count:rows.length, nums:rows.map(r => r.n).filter(x => !isNaN(x)).sort((a,b)=>a-b) };
+  if(isNaN(n)) return null;
+  const hits = rows.filter(r => r.n === n);
+  const hit  = hits.find(r => r.pid === baseId) || hits.find(r => r.pid) || hits[0];
+  if(!hit) return null;
+  try{
+    const snap = await getDoc(doc(db, coll, hit.id));           // fresh copy — never a cached one
+    if(snap.exists()) return {coll, id:snap.id, data:snap.data()};
+  }catch(e){ locErr(coll+'/'+hit.id, e); }
+  return null;
+}
+
 async function locateDocs(baseId, qn){
-  CT_TRIED = []; CT_CACHE.clear();
+  CT_TRIED = []; CT_CACHE.clear(); PYQ_DIAG = null; LOC_ERRS = [];
   const ct = parseChapterTestId(baseId);
   if(ct) return locateChapterDocs(ct, qn);      // chapter test — different id convention
   const bases = [baseId];
@@ -938,7 +1014,8 @@ async function locateDocs(baseId, qn){
   const found = [];
   for(const b of bases){
     for(const coll of [...Q_COLLECTIONS, ...X_COLLECTIONS]){
-      const hit = await findOne(coll, b, qn);
+      let hit = await findOne(coll, b, qn);
+      if(!hit && Q_COLLECTIONS.includes(coll)) hit = await findPyqLegacy(coll, b, qn);   // TSSC-PYQ-LOCATE-V1
       if(hit) found.push({...hit, base:b, lang: isHi(b) ? 'hi' : (isEn(b) ? 'en' : '?')});
     }
   }
@@ -1149,8 +1226,13 @@ window.openFix = async function(mockId, qNum){
            If that count is 0 the questions are stored under a different <code>chapterId</code>.</div>
          <details style="margin-top:6px;"><summary class="muted" style="cursor:pointer;">Doc ids tried</summary>
            <pre style="font-size:11px;white-space:pre-wrap;">${esc(CT_TRIED.join('\n'))}</pre></details>`
+      : PYQ_DIAG
+      ? `<div class="muted" style="margin-top:6px;">Read as a PYQ PAPER — ${esc(PYQ_DIAG.meta.exam)} ${esc(PYQ_DIAG.meta.year)}, ${esc(PYQ_DIAG.meta.heldOn || 'no date')}, ${esc(PYQ_DIAG.meta.shift || 'no shift')}, ${esc(PYQ_DIAG.meta.lang)}.
+           Tried the <code>${esc(mockId)}_q…</code> ids, a <code>paperId</code> query, and an exam + year + date scan:
+           <b>${PYQ_DIAG.count}</b> question${PYQ_DIAG.count === 1 ? '' : 's'} found for this paper${PYQ_DIAG.count ? ` (numbers ${PYQ_DIAG.nums[0]}–${PYQ_DIAG.nums[PYQ_DIAG.nums.length-1]}; Q${esc(qNum)} is not among them — it may have been deleted or renumbered)` : ' — this paper is not in the database under these details'}.</div>`
       : `<span class="muted">Check the collection names / id convention in the config block at the top of the AI AUTO-CORRECT section.</span>`;
-    return fail(`Couldn't find a document for <code>${esc(mockId)}</code> Q${esc(qNum)} in ${[...Q_COLLECTIONS,...X_COLLECTIONS].join(', ')}.<br>${extra}`);
+    const errs = LOC_ERRS.length ? `<div class="muted" style="margin-top:6px;">⚠️ Some database reads failed, so the question may exist — check your connection and try again:<br>${LOC_ERRS.slice(0,4).map(esc).join('<br>')}</div>` : '';
+    return fail(`Couldn't find a document for <code>${esc(mockId)}</code> Q${esc(qNum)} in ${[...Q_COLLECTIONS,...X_COLLECTIONS].join(', ')}.<br>${extra}${errs}`);
   }
   renderStage2();
 };
