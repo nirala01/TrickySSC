@@ -21,7 +21,10 @@ class PyqPaper {
   PyqPaper(this.en, this.hi, this.title, this.tier);
 
   String get base => lbBase(en.isNotEmpty ? en : hi);
-  String get year => RegExp(r'^[a-z-]+_(\d{4})_').firstMatch(base)?.group(1) ?? '';
+  /// The year the website lists the paper under (first part of its title, e.g. "RRB Section Controller CBT 2025"
+  /// for the Feb 2026 shifts of CEN 04/2025); the year in the paper id when the title has none.
+  String get year =>
+      RegExp(r'\b(20\d{2})\b').firstMatch(title.split('·').first)?.group(1) ?? RegExp(r'^[a-z-]+_(\d{4})_').firstMatch(base)?.group(1) ?? '';
   String get shift {
     final parts = title.split('·').map((e) => e.trim()).toList();
     return parts.length >= 3 ? '${parts[1]} · ${parts[2]}' : title;
