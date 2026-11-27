@@ -208,7 +208,7 @@
               <option value="solution">Solution reports only</option>
             </select>
             <button class="btn btn-ghost" onclick="downloadCsv('reports')">Download CSV</button>
-            <button class="btn btn-indigo" id="revAllBtn" onclick="openReviewAll()" title="Claude Opus checks every reported question and drafts a reply to each student who reported it">🤖 Review all</button>
+            <button class="btn btn-indigo" id="revAllBtn" onclick="openReviewAll()" title="The AI checks every reported question and drafts a reply to each student who reported it">🤖 Review all</button>
           </div>
           <h2>Most-flagged questions &amp; solutions</h2>
           <div id="reportAgg" class="muted">Loading…</div>
@@ -721,18 +721,27 @@ document.addEventListener('click', async (e)=>{
 
 /* ══════════════════════════════════════════════════════════════════
    AI AUTO-CORRECT
-   Locate the flagged question doc(s) → send to the AI (Claude Opus) with the
+   Locate the flagged question doc(s) → send to the AI (OpenAI or Claude — see AI_PROVIDER) with the
    candidate's complaint → preview an editable field-level diff →
    approve → write to Firestore + audit log.
    ══════════════════════════════════════════════════════════════════ */
 
 // ── Config: adjust these if your worker/collections differ ──
-// TSSC-CLAUDE-V2 (2026-11-25): back on Claude — Claude Opus through the trickyssc-ai worker
-// (Anthropic Messages API; the worker holds the Anthropic key). Was OpenAI (TSSC-OPENAI-V1, 2026-10-27).
-const AI_ENDPOINT   = "https://trickyssc-ai.nirala01.workers.dev/";
-const AI_MODEL      = "claude-opus-5-5";   // Claude Opus. A cheaper option: "claude-sonnet-5-5"
-const AI_THINKING   = true;                // let Opus think before it answers (dropped automatically if the API refuses it)
-// The thinking is counted inside the output cap, so the caps stay generous.
+// TSSC-AI-SWITCH-V1 (2026-11-27): one switch picks the AI.
+//   "openai" → OpenAI Responses API through the trickyssc-openai worker (holds the OpenAI key, admins only)
+//   "claude" → Claude Opus through the trickyssc-ai worker (holds the Anthropic key)
+// On OpenAI until the Claude API credits reset on 1 Dec 2026 — then set this back to "claude".
+const AI_PROVIDER   = "openai";
+const AI_CFG = {
+  openai: { endpoint:"https://trickyssc-openai.nirala01.workers.dev", model:"gpt-6.1-sol", name:"OpenAI" },   // model must be in the worker's ALLOWED_MODELS (gpt-6-astra = stronger, gpt-6.1-terra = cheaper)
+  claude: { endpoint:"https://trickyssc-ai.nirala01.workers.dev/",   model:"claude-opus-5-5", name:"Claude Opus" } // cheaper: "claude-sonnet-5-5"
+}[AI_PROVIDER];
+const AI_ENDPOINT   = AI_CFG.endpoint;
+const AI_MODEL      = AI_CFG.model;
+const AI_NAME       = AI_CFG.name;
+const AI_EFFORT     = "medium";            // OpenAI reasoning effort: low | medium | high | xhigh
+const AI_THINKING   = true;                // Claude: think before answering (dropped automatically if the API refuses it)
+// Reasoning / thinking is counted inside the output cap, so the caps stay generous.
 // You are only billed for tokens actually used, not for the cap.
 const AI_MAX_TOKENS  = 16000;        // correctness pass — short reply
 const SOL_MAX_TOKENS = 32000;        // solution rewrite — one document per call
@@ -1528,9 +1537,42 @@ function parseAI(raw){
 // stop_reason, so never rely on it alone.
 const looksCut = raw => !/}\s*$/.test(stripFences(raw));
 
-// ── One API call (Anthropic Messages API through the trickyssc-ai worker) ──
-let AI_THINK_OK = AI_THINKING;
+// ── One API call — goes to whichever provider AI_PROVIDER picks ──
 async function callAI(prompt, maxTokens){
+  return AI_PROVIDER === 'openai' ? callOpenAI(prompt, maxTokens) : callClaude(prompt, maxTokens);
+}
+
+// OpenAI Responses API through the trickyssc-openai worker
+async function callOpenAI(prompt, maxTokens){
+  const user = auth.currentUser;
+  if(!user) throw new Error('Not signed in — sign in again and retry.');
+  const token = await user.getIdToken();          // the worker checks this is an admin
+  const res = await fetch(AI_ENDPOINT, {
+    method:'POST',
+    headers:{'Content-Type':'application/json', 'Authorization':'Bearer '+token},
+    body: JSON.stringify({ model: AI_MODEL, max_output_tokens: maxTokens,
+      reasoning:{effort: AI_EFFORT}, input: prompt })
+  });
+  const j = await res.json().catch(()=>null);
+  if(!res.ok){
+    const m = j?.error?.message || j?.error || JSON.stringify(j||'');
+    throw new Error(`HTTP ${res.status} — ${String(typeof m==='string' ? m : JSON.stringify(m)).slice(0,300)}`);
+  }
+  // Collect the assistant text; if the model labels a final answer, use only that.
+  const msgs = Array.isArray(j?.output) ? j.output.filter(o => o && o.type==='message') : [];
+  const fin  = msgs.filter(o => o.phase==='final_answer');
+  const raw  = msgs.length
+    ? (fin.length ? fin : msgs).flatMap(o => o.content||[])
+        .filter(c => c && (c.type==='output_text' || c.type==='text')).map(c => c.text).join('\n')
+    : (typeof j?.output_text==='string' ? j.output_text : '');
+  const stop = (j?.status==='incomplete' && /max_output_tokens/.test(j?.incomplete_details?.reason||''))
+    ? 'max_tokens' : String(j?.status || '');
+  return {raw, stop};
+}
+
+// Anthropic Messages API through the trickyssc-ai worker
+let AI_THINK_OK = AI_THINKING;
+async function callClaude(prompt, maxTokens){
   if(!auth.currentUser) throw new Error('Not signed in — sign in again and retry.');
   const post = async think => {
     const body = { model: AI_MODEL, max_tokens: maxTokens, messages:[{role:'user', content: prompt}] };
@@ -1555,7 +1597,7 @@ async function callAI(prompt, maxTokens){
   return {raw, stop: String(j?.stop_reason || '')};
 }
 
-const aiFailMsg = e => `AI request failed: ${esc(e.message||e)}<br><span class="muted">Check that the <code>${esc(AI_ENDPOINT)}</code> worker is live, that its Anthropic API key is valid and has credit, and that it allows the model <code>${esc(AI_MODEL)}</code>.</span>`;
+const aiFailMsg = e => `AI request failed: ${esc(e.message||e)}<br><span class="muted">Check that the <code>${esc(AI_ENDPOINT)}</code> worker is live, that its ${AI_PROVIDER==='openai' ? 'OPENAI_API_KEY secret is set and your OpenAI account has credit' : 'Anthropic API key is valid and has credit'}, and that it allows the model <code>${esc(AI_MODEL)}</code>.</span>`;
 
 function busyPane(stepLabel, line, sub){
   $('fixBody').innerHTML = `<div class="steps">1 · Located → <b>2 · ${stepLabel}</b> → 3 · Review → 4 · Publish</div>
@@ -2389,7 +2431,7 @@ function fcOpen(ch, rk, rec, draft){
   $('fcSubjFld').style.display = wa ? 'none' : '';
   $('fcTpl').innerHTML = MSG_KEYS.filter(k => MSG_TEMPLATES[k].for === rk)
     .map(k => `<option value="${k}">${esc(MSG_TEMPLATES[k].label)}</option>`).join('');
-  if(FC.draft) $('fcTpl').insertAdjacentHTML('afterbegin', '<option value="ai">★ AI review reply (drafted by Claude)</option>');
+  if(FC.draft) $('fcTpl').insertAdjacentHTML('afterbegin', '<option value="ai">★ AI review reply (drafted by ' + AI_NAME + ')</option>');
   const key = FC.draft ? 'ai' : msgPick(rec, rk);
   $('fcTpl').value = key;
   fcFill(key);
@@ -2456,7 +2498,7 @@ $('fcSend').onclick = async () => {
 };
 
 /* ============================================ TSSC-REVIEWALL-V1 (2026-11-25)
-   🤖 Review all — Claude Opus checks EVERY reported question (one call per
+   🤖 Review all — the AI checks EVERY reported question (one call per
    question) and drafts a reply to each student who reported it.
      Question / solution WRONG → verdict + "✨ Correct it", which is the same
                                  AI Fix flow as before (nothing is written until
@@ -2736,7 +2778,7 @@ function revPaintHead(msg){
         bad = n(it => it.state === 'error'), todo = n(it => it.state === 'new' || it.state === 'queued' || it.state === 'busy');
   let drafts = 0, sent = 0;
   all.forEach(it => it.reports.forEach((r, i) => { if(revDraft(it, i)){ drafts++; const s = MSG_SENT['r:' + r.id]; if(s && (s.ml || s.wa)) sent++; } }));
-  $('revSub').textContent = `${all.length} question${all.length === 1 ? '' : 's'} · ${AI_MODEL}`;
+  $('revSub').textContent = `${all.length} question${all.length === 1 ? '' : 's'} · ${AI_NAME} (${AI_MODEL})`;
   $('revSum').innerHTML = `<div style="margin-bottom:10px">
       <span class="rv-tag fix">Wrong: ${wrong}</span> <span class="rv-tag ok">Corrected: ${corr}</span> <span class="rv-tag ok">Correct as given: ${right}</span>
       <span class="rv-tag un">Unclear: ${uncl}</span> ${bad ? `<span class="rv-tag err">Failed: ${bad}</span>` : ''} ${todo ? `<span class="rv-tag wait">To review: ${todo}</span>` : ''}
@@ -2755,7 +2797,7 @@ function revPaintHead(msg){
   const b = id => $(id);
   if(b('revStop')) b('revStop').onclick = () => { if(REV_RUN){ REV_RUN.stop = true; revPaintHead(); } };
   if(b('revGo'))   b('revGo').onclick   = () => revScan(pend);
-  if(b('revRedo')) b('revRedo').onclick = () => { if(confirm(`Send all ${all.length} questions to Claude Opus again? Each one is a paid API call.`)) revScan(Object.keys(REV).filter(k => REV[k].live !== false)); };
+  if(b('revRedo')) b('revRedo').onclick = () => { if(confirm(`Send all ${all.length} questions to ${AI_NAME} again? Each one is a paid API call.`)) revScan(Object.keys(REV).filter(k => REV[k].live !== false)); };
 }
 function revPaint(msg){
   if(!revOpen()) return;
