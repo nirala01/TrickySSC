@@ -29,7 +29,7 @@ S[24] = dict(raw=r"""-> J. J. Thomson, a British physicist, discovered the elect
 -> Ernest Rutherford discovered the nucleus in 1911 (gold-foil experiment), Niels Bohr gave his model of the atom in 1913, and James Chadwick discovered the neutron in 1932.
 -> Thomson received the Nobel Prize in Physics in 1906; the charge of the electron (about \(1.6 \times 10^{-19}\) coulomb) was measured later by Millikan.
 ## Exam Facts
--> Eugen Goldstein discovered the proton through anode (canal) rays in 1886.
+-> Eugen Goldstein discovered canal (anode) rays in 1886, which led to the discovery of the proton.
 -> The word “electron” was coined by George Johnstone Stoney.""", trick=r"1897 cathode rays → Thomson (electron); 1911 → Rutherford (nucleus); 1932 → Chadwick (neutron).")
 S[25] = dict(raw=r"""-> Indo-Gothic or Indo-Saracenic architecture was a style of the British period that mixed Gothic, Mughal, Hindu and other Indian features.
 -> The Chhatrapati Shivaji Maharaj Vastu Sangrahalaya in Mumbai (earlier the Prince of Wales Museum) was designed by the architect George Wittet and opened in 1922.
@@ -40,7 +40,7 @@ S[25] = dict(raw=r"""-> Indo-Gothic or Indo-Saracenic architecture was a style o
 -> The Victoria Memorial in Kolkata, designed by William Emerson, is another famous Indo-Saracenic building.
 -> George Wittet also designed the Gateway of India in Mumbai, completed in 1924.""", trick=r"British-era blend of Gothic and Mughal styles = Indo-Gothic / Indo-Saracenic → Mumbai's museum.")
 S[26] = dict(raw=r"""-> Kho-Kho is a traditional Indian tag game played between two teams, one chasing and the other defending.
--> Each team has 12 players in the squad and 9 take the field; in each turn three defenders of the defending team enter the field at a time.
+-> In the standard nine-a-side format each team has 12 players and 9 take the field; in each turn three defenders of the defending team enter the field at a time.
 -> As soon as the batch of three is out, the next batch enters, until all defenders have gone in.
 -> Eight chasers sit in the squares along the central lane, facing alternate sides, and a ninth chaser is active.
 -> The chaser says “Kho” to give the chase to a sitting player; a defender is out when touched by an active chaser. The other numbers, two, four and five, are not the size of a batch.
@@ -57,7 +57,7 @@ S[27] = dict(raw=r"""-> NCERT mentions maize as a crop used both as food and as 
 -> India is the second largest producer of sugarcane in the world, after Brazil.""", trick=r"Maize = food + fodder (NCERT).")
 S[28] = dict(raw=r"""-> Harichandra, a Brahmin and a ruler of the early Pratihara line, founded a kingdom at Mandore (Mandavyapura) near modern Jodhpur in Rajasthan in about the 6th century CE.
 -> So Statement II (Rajasthan) is correct, and Statement I (Tamil Nadu) is wrong, because the Pratiharas never ruled there.
--> The line of Harichandra's descendants ruled Marwar and Mandore for a long time, and the later imperial Pratiharas of Avanti and Kannauj came from the same Gurjara-Pratihara family.
+-> The line of Harichandra's descendants ruled Marwar and Mandore for a long time, and the later imperial Pratiharas of Avanti and Kannauj were another branch of the Gurjara-Pratiharas.
 -> The imperial line was founded by Nagabhata I (c. 730 CE), who checked the Arab advance from Sindh.
 -> Mihira Bhoja (836–885 CE) was the greatest ruler; he made Kannauj his capital and fought the Palas and the Rashtrakutas in the Tripartite Struggle.
 ## Exam Facts
@@ -69,7 +69,7 @@ S[29] = dict(raw=r"""-> On 30 April 2025 the Government reconstituted the Nation
 -> The NSAB is an advisory body that gives policy inputs to the National Security Council Secretariat; it was set up in 1998.
 -> Ajit Doval is the National Security Adviser, Shivshankar Menon was NSA from 2010 to 2014 and Brajesh Mishra was India's first NSA, so none of them was named chairman of the NSAB in April 2025.
 ## Exam Facts
--> The National Security Council (NSC) was also created in 1998, with the National Security Adviser as its secretary-level head.
+-> The National Security Council (NSC) was also created in 1998; it is chaired by the Prime Minister, with the National Security Adviser as its secretary.
 -> The NSAB prepared the draft of India's Nuclear Doctrine in 1999.""", trick=r"April 2025 NSAB chairman = Alok Joshi (ex-R&AW chief).")
 S[30] = dict(raw=r"""-> Prem Singh Tamang (also known as P. S. Golay) was sworn in as Chief Minister of Sikkim for a second consecutive term on 10 June 2024.
 -> The oath was administered by Governor Lakshman Prasad Acharya at Paljor Stadium in Gangtok.
@@ -90,7 +90,7 @@ S[31] = dict(raw=r"""-> One Nation One Subscription (ONOS) gives access to more 
 S[32] = dict(raw=r"""-> Questions are asked during Question Hour, the first hour of a sitting in Parliament, to hold the Government answerable.
 -> A Starred Question is marked with an asterisk, needs an oral answer, and allows supplementary questions.
 -> An Unstarred Question needs a written answer only and has no supplementary questions.
--> A Short Notice Question is asked with less than the usual ten clear days' notice, on a matter of urgent public importance, and is answered orally.
+-> A Short Notice Question is asked by giving a notice of less than ten days, on a matter of urgent public importance, and is answered orally.
 -> There is no separate type called “Urgent Question” in India; urgent matters are raised through other devices such as short notice questions, calling attention and adjournment motions.
 ## Exam Facts
 -> Zero Hour is an Indian parliamentary innovation (from 1962) and is not mentioned in the Rules of Procedure.
@@ -127,7 +127,7 @@ S[36] = dict(raw=r"""-> New Delhi hosted the World Para Athletics Championships 
 ## Exam Facts
 -> At Kobe 2024 India had won 17 medals, which it aimed to beat in New Delhi.
 -> The stadium was fitted with a new Mondo track for the event.""", trick=r"Para Athletics Worlds 2025 = New Delhi (first time in India).")
-S[37] = dict(raw=r"""-> The Secretary-General of the United Nations is appointed for a term of 5 years, and the term can be renewed.
+S[37] = dict(raw=r"""-> The Secretary-General of the United Nations is appointed for a term of 5 years (set by a General Assembly resolution of 1946; the Charter itself names no term), and the term can be renewed.
 -> The General Assembly appoints the Secretary-General on the recommendation of the Security Council, where the five permanent members can use their veto.
 -> The Secretary-General is the chief administrative officer of the UN under Article 97 of the UN Charter.
 -> The first Secretary-General was Trygve Lie of Norway (1946 to 1952).

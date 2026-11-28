@@ -144,7 +144,7 @@ The shape sits at the bottom-right ray, bottom ray, bottom-left ray, then the le
 Step 4: Pick the matching figure
 The correct figure has the arrow at the bottom-left ray and a solid diamond at the top-left ray. The figure that repeats the first figure (arrow top-right, diamond bottom-right) is wrong, the one with a square at the left ray has the wrong shape and position, and the one with the arrow at the right ray and a diamond at the bottom-left ray is out of sequence.""", trick=r"Arrow and shape each move 45° clockwise; the shape alternates diamond, square → diamond at the top-left.")
 S[19] = dict(raw=r"""Step 1: Spot the change from figure to figure
-Each figure has one long line with a short cross-bar near one end, an arrow at the other end, a solid shape on a short stem and a small side arrow. The whole figure keeps turning.
+Each figure has one long line with an arrowhead at one end and a short cross-bar just below it, a solid shape on a short stem and a small side arrow. The whole figure keeps turning.
 Step 2: Find the angle of turning
 The line is upright in the first figure, slants like “/” in the second, lies flat in the third and slants like “\” in the fourth. So the figure turns 45° clockwise each step.
 Step 3: Verify with two steps
