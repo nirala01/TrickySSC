@@ -5,6 +5,7 @@ import '../ui/nav.dart';
 import '../data.dart';
 import '../test/engine.dart';
 import '../test/test_screen.dart';
+import '../ui/sect_note.dart';
 import '../ui/soft.dart';
 import '../ui/soft_list.dart';
 import 'dash/logic.dart' show shortDate, n1, marksOf, maxOf;
@@ -169,6 +170,8 @@ class _SubjectMocksScreenState extends State<SubjectMocksScreen> {
     final mins = mocks.isEmpty ? 15 : subjectMockMinutes(_minKey, _subject);
     final done = mocks.where(_done).length;
     final list = ListView(padding: widget.embedded ? const EdgeInsets.fromLTRB(16, 8, 16, 14) : EdgeInsets.fromLTRB(12, 10, 12, 16 + MediaQuery.of(context).padding.bottom), children: [
+          // TSSC-SECTNOTE-V2: first thing on the list, blinking
+          const SectNote(text: SectNote.list, margin: EdgeInsets.only(bottom: 12)),
           SoftSummary(
             icon: 'puzzle',
             title: '${subj.$2} · $done of ${mocks.length} done',
@@ -199,16 +202,6 @@ class _SubjectMocksScreenState extends State<SubjectMocksScreen> {
             selected: _subject,
             accent: exam.c1,
             onTap: (k) => k.isEmpty ? widget.onFull?.call() : setState(() => _subject = k),
-          ),
-          // TSSC-SECTNOTE-V1: section tests are sections of the full mocks, not new questions
-          Container(
-            margin: const EdgeInsets.only(top: 12),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-            decoration: BoxDecoration(color: const Color(0xFFFFFBEB), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFFDE68A))),
-            child: const Text(
-              'Please note: these are not new questions. Each test is one section of the same-numbered full mock, given as a separate timed test. One pass unlocks both.',
-              style: TextStyle(fontSize: 13, height: 1.35, fontWeight: FontWeight.w600, color: Color(0xFF92400E)),
-            ),
           ),
           if (mocks.isEmpty) const Padding(padding: EdgeInsets.all(30), child: Center(child: Text('Mocks are loading or not released yet.'))),
           for (var i = 0; i < mocks.length; i++) _row(mocks[i], i),

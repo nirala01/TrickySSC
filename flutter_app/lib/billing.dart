@@ -11,6 +11,7 @@ import 'package:in_app_purchase/in_app_purchase.dart';
 
 import 'data.dart';
 import 'profile.dart';
+import 'ui/sect_note.dart';
 import 'ui/soft.dart';
 
 const String playApi = 'https://trickyssc-play.nirala01.workers.dev';
@@ -418,13 +419,8 @@ class Billing with WidgetsBindingObserver {
               decoration: BoxDecoration(color: const Color(0xFFFFFBEB), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFFDE68A))),
               child: Text(q.validity, style: const TextStyle(fontSize: 13, color: Color(0xFF92400E), fontWeight: FontWeight.w700, height: 1.35)),
             ),
-            // TSSC-SECTNOTE-V1
-            if (exams.any((e) => e.hasSubjectMocks))
-              const Padding(
-                padding: EdgeInsets.only(top: 8),
-                child: Text('Please note: subject (section) mocks are the same full mocks, only split into sections. They are not separate or extra tests.',
-                    textAlign: TextAlign.center, style: TextStyle(fontSize: 12.5, height: 1.35, color: Color(0xFF92400E), fontWeight: FontWeight.w700)),
-              ),
+            // TSSC-SECTNOTE-V2
+            if (exams.any((e) => e.hasSubjectMocks)) const SectNote(margin: EdgeInsets.only(top: 10)),
             const SizedBox(height: 12),
             FilledButton(
               onPressed: () {
@@ -591,6 +587,8 @@ class Billing with WidgetsBindingObserver {
             child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               Text('Unlock ${exam.name} mocks', style: baloo(21)),
               const Text('One payment · valid 1 year · Hindi & English · works on the website too', style: TextStyle(fontSize: 13.5, color: softMuted, fontWeight: FontWeight.w600)),
+              // TSSC-SECTNOTE-V2: top of the sheet, blinking
+              if (exam.hasSubjectMocks) const SectNote(margin: EdgeInsets.only(top: 10)),
               if (exam.held)
                 Container(
                   margin: const EdgeInsets.only(top: 10),
@@ -611,15 +609,6 @@ class Billing with WidgetsBindingObserver {
                     available ? 'Passes are not on sale in this version of the app yet. Please update the app from the Play Store.' : 'Google Play is not available on this phone right now. Please try again later.',
                     style: const TextStyle(fontSize: 15, color: softInk, fontWeight: FontWeight.w600),
                   ),
-                ),
-              // TSSC-SECTNOTE-V1
-              if (exam.hasSubjectMocks)
-                Container(
-                  margin: const EdgeInsets.only(top: 4, bottom: 8),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-                  decoration: BoxDecoration(color: const Color(0xFFFFFBEB), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFFDE68A))),
-                  child: const Text('Please note: subject (section) mocks are the same full mocks, only split into sections. They are not separate or extra tests.',
-                      style: TextStyle(fontSize: 13, height: 1.35, fontWeight: FontWeight.w700, color: Color(0xFF92400E))),
                 ),
               const Text('Payment is handled by Google Play.', textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: softMuted)),
             ]),

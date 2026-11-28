@@ -8,6 +8,7 @@ import 'package:in_app_purchase/in_app_purchase.dart';
 import '../billing.dart';
 import '../data.dart';
 import '../test/engine.dart' show freeLimit, paidLimit;
+import '../ui/sect_note.dart';
 import '../ui/soft.dart';
 
 class _Cat {
@@ -109,16 +110,8 @@ class _PlansTabState extends State<PlansTab> {
           const SizedBox(height: 4),
           const Text('One payment · valid 1 year · Hindi & English · same login on the app and trickyssc.com',
               style: TextStyle(fontSize: 13.5, color: softMuted, fontWeight: FontWeight.w600, height: 1.35)),
-          // TSSC-SECTNOTE-V1: say it before any pass is bought
-          if (!_all) ...[
-            const SizedBox(height: 10),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-              decoration: BoxDecoration(color: const Color(0xFFFFFBEB), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFFDE68A))),
-              child: const Text('Please note: subject (section) mocks are the same full mocks, only split into sections. They are not separate or extra tests.',
-                  style: TextStyle(fontSize: 13, height: 1.35, fontWeight: FontWeight.w700, color: Color(0xFF92400E))),
-            ),
-          ],
+          // TSSC-SECTNOTE-V2: say it before any pass is bought, blinking
+          if (!_all) const SectNote(margin: EdgeInsets.only(top: 12)),
           const SizedBox(height: 14),
           if (mine.isNotEmpty) _yours(mine),
           if (mine.isNotEmpty && !_all) ...[
