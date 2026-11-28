@@ -140,7 +140,7 @@
         '<p class="gdf-p">Attempt every full-length mock and every Reasoning, GK, Maths and English ' +
           'subject-wise test at no cost until <b>7 November</b>.</p>' +
         '<div class="gdf-box">From <b>8 November</b>: Mock 1 and Mock 2 stay free. ' +
-          'The full SSC GD series &mdash; all 60 mocks + every subject-wise test &mdash; ' +
+          'The full SSC GD series &mdash; all 60 mocks + every subject-wise test (sections of the same mocks) &mdash; ' +
           'is <b>' + RUPEE + PRICE + ' for one full year</b>.</div>' +
         '<p class="gdf-hi" lang="hi">7 नवंबर तक सभी SSC GD मॉक बिल्कुल फ्री। 8 नवंबर से मॉक 1&ndash;2 फ्री रहेंगे, ' +
           'पूरी सीरीज़ सिर्फ़ ' + RUPEE + PRICE + ' में (1 साल के लिए)।</p>' +

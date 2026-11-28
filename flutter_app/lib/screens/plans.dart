@@ -109,6 +109,16 @@ class _PlansTabState extends State<PlansTab> {
           const SizedBox(height: 4),
           const Text('One payment · valid 1 year · Hindi & English · same login on the app and trickyssc.com',
               style: TextStyle(fontSize: 13.5, color: softMuted, fontWeight: FontWeight.w600, height: 1.35)),
+          // TSSC-SECTNOTE-V1: say it before any pass is bought
+          if (!_all) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+              decoration: BoxDecoration(color: const Color(0xFFFFFBEB), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFFDE68A))),
+              child: const Text('Please note: subject (section) mocks are the same full mocks, only split into sections. They are not separate or extra tests.',
+                  style: TextStyle(fontSize: 13, height: 1.35, fontWeight: FontWeight.w700, color: Color(0xFF92400E))),
+            ),
+          ],
           const SizedBox(height: 14),
           if (mine.isNotEmpty) _yours(mine),
           if (mine.isNotEmpty && !_all) ...[
@@ -304,7 +314,7 @@ class _PlansTabState extends State<PlansTab> {
       catPrice: c?.price,
       points: [
         'Full mock series of ${exams.map((e) => e.name.replaceFirst('SSC ', '')).join(', ')}',
-        'Subject-wise mocks for every exam',
+        'Subject-wise mocks for every exam (sections of the same mocks)',
         'Up to $paidLimit tests a day (free: $freeLimit)',
         'Valid ${(c?.days ?? 365) >= 365 ? '1 year' : '${c!.days} days'} from purchase',
         if (c != null && c.blurb.isNotEmpty) c.blurb,
@@ -337,7 +347,7 @@ class _PlansTabState extends State<PlansTab> {
       catPrice: c.price,
       points: [
         for (final e in inc) '${e.name}: ${_mockLine(e).replaceFirst('All ', 'all ')}',
-        'Subject-wise mocks of each',
+        'Subject-wise mocks of each (sections of the same mocks)',
         'Up to $paidLimit tests a day · valid ${(c.days ?? 365) >= 365 ? '1 year' : '${c.days} days'}',
         if (c.blurb.isNotEmpty) c.blurb,
       ],
@@ -357,7 +367,7 @@ class _PlansTabState extends State<PlansTab> {
       catPrice: c?.price,
       points: [
         _mockLine(e),
-        'Subject-wise mocks',
+        'Subject-wise mocks (sections of the same mocks)',
         'Detailed solutions, all-India rank and section analysis',
         'Up to $paidLimit tests a day · valid ${(c?.days ?? 365) >= 365 ? '1 year' : '${c!.days} days'}',
         if (c != null && c.blurb.isNotEmpty) c.blurb,

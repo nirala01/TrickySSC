@@ -200,6 +200,16 @@ class _SubjectMocksScreenState extends State<SubjectMocksScreen> {
             accent: exam.c1,
             onTap: (k) => k.isEmpty ? widget.onFull?.call() : setState(() => _subject = k),
           ),
+          // TSSC-SECTNOTE-V1: section tests are sections of the full mocks, not new questions
+          Container(
+            margin: const EdgeInsets.only(top: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+            decoration: BoxDecoration(color: const Color(0xFFFFFBEB), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFFDE68A))),
+            child: const Text(
+              'Please note: these are not new questions. Each test is one section of the same-numbered full mock, given as a separate timed test. One pass unlocks both.',
+              style: TextStyle(fontSize: 13, height: 1.35, fontWeight: FontWeight.w600, color: Color(0xFF92400E)),
+            ),
+          ),
           if (mocks.isEmpty) const Padding(padding: EdgeInsets.all(30), child: Center(child: Text('Mocks are loading or not released yet.'))),
           for (var i = 0; i < mocks.length; i++) _row(mocks[i], i),
         ]);
