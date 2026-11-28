@@ -220,6 +220,11 @@
       <label class="chk"><input type="checkbox" id="optPublish" checked> publish immediately</label>
       <label class="chk"><input type="checkbox" id="optDryRun"> dry run (write nothing)</label>
     </div>
+    <!-- TSSC-PATCH-V1 (2026-11-28): rework of a live mock — the CSVs hold only the replaced questions -->
+    <div class="toolbar">
+      <label class="chk" style="font-weight:700"><input type="checkbox" id="optPatch"> patch mode: replace ONLY the questions in these CSVs</label>
+      <span class="hint" style="margin:0">For reworking a mock that is already live. Only the qNums in the CSVs are rewritten (EN + HI, with solutions); every other question, the mock card, its question count and marks stay as they are. A replaced question that is no longer figure-based has its old figure removed. Nothing is ever deleted in this mode.</span>
+    </div>
     <div class="toolbar">
       <label class="fld">duration (min) <input class="narrow" type="number" id="optDuration" value="60" min="1"></label>
       <label class="fld">marks per question <input class="narrow" type="number" id="optMarks" value="2" min="1" step="0.5"></label>
@@ -772,7 +777,16 @@ function validateMock(p) {
     const clash = qEn.filter(r => hiKey[parseInt(r.qNum)] && hiKey[parseInt(r.qNum)] !== (r.correct || '').trim());
     if (clash.length) errs.push(`answer key differs between EN and HI at Q${clash.map(r => r.qNum).join(', Q')}`);
   }
-  if (qEn.length && qEn.length !== 100) warns.push(`${qEn.length} questions — a Tier I mock normally has 100`);
+  if (isPatch()) {
+    /* TSSC-PATCH-V1 */
+    warns.push(`PATCH MODE — only Q${qEn.map(r => parseInt(r.qNum)).join(', Q')} will be rewritten; the mock card is not touched`);
+    if (p.dupMode === 'replace') errs.push('patch mode cannot be combined with "Delete + reimport" — set this mock back to overwrite');
+    if (p.existing) {
+      if (!p.existing.en.count && !p.existing.hi.count) errs.push('patch mode: this mock is not in Firestore yet — upload the full mock first');
+      const rndP = (p.existing.en.random || 0) + (p.existing.hi.random || 0);
+      if (rndP) errs.push(`patch mode: ${rndP} existing question(s) have random IDs, so single rows cannot be replaced safely — re-upload the full mock instead`);
+    }
+  } else if (qEn.length && qEn.length !== 100) warns.push(`${qEn.length} questions — a Tier I mock normally has 100`);
 
   for (const [sk, qk, label] of [['sEn','qEn','EN'],['sHi','qHi','HI']]) {
     const s = p.rows[sk] || [], q = p.rows[qk] || [];
@@ -868,7 +882,7 @@ window.validateAll = async () => {
 
     // Random-ID leftovers can only be cleaned by a delete pass — pick it for them.
     const rnd = p.existing.en.random + p.existing.hi.random;
-    if (rnd && p.dupMode === 'overwrite') {
+    if (rnd && p.dupMode === 'overwrite' && !isPatch()) {
       p.dupMode = 'replace';
       const sel = document.getElementById('dup-' + i);
       if (sel) sel.value = 'replace';
@@ -983,7 +997,14 @@ async function deleteExisting(mid) {
   return await deleteRefs(refs);
 }
 
-function buildDocs(p, lang, imgUrls, isNew) {
+/* TSSC-PATCH-V1 — patch mode: the CSVs carry only the questions being replaced in a live mock */
+function isPatch() { const e = document.getElementById('optPatch'); return !!(e && e.checked); }
+function isFigureRow(r) {
+  return /\[FIGURE-BASED\]/i.test(r.text || '') || /Refer to the figure of Q\.\d+/i.test(r.text || '') ||
+    /\(\s*figure\s*\d\s*\)/i.test([r.option_A, r.option_B, r.option_C, r.option_D].join(' '));
+}
+
+function buildDocs(p, lang, imgUrls, isNew, patch) {
   const qRows = p.rows[lang === 'en' ? 'qEn' : 'qHi'] || [];
   const sRows = document.getElementById('optSolutions').checked
     ? (p.rows[lang === 'en' ? 'sEn' : 'sHi'] || []) : [];
@@ -1031,6 +1052,11 @@ function buildDocs(p, lang, imgUrls, isNew) {
       data.imageUrl      = im.q || '';
       data.optionImages  = { A: im.optA || '', B: im.optB || '', C: im.optC || '', D: im.optD || '' };
       data.solutionImage = im.sol || '';
+    } else if (patch && !isFigureRow(r)) {
+      /* TSSC-PATCH-V1: the replaced question has no figure — clear the old question's figure so it cannot show under the new text */
+      data.imageUrl      = '';
+      data.optionImages  = { A: '', B: '', C: '', D: '' };
+      data.solutionImage = '';
     }
     return { id: `${mid}_q${String(qNum).padStart(3, '0')}`, data };
   });
@@ -1047,7 +1073,8 @@ async function commitDocs(docs) {
 window.runAll = async () => {
   const dry = document.getElementById('optDryRun').checked;
   const doImg = document.getElementById('optImages').checked;
-  const doCard = document.getElementById('optMockDoc').checked;
+  const patch = isPatch();                                                    /* TSSC-PATCH-V1 */
+  const doCard = document.getElementById('optMockDoc').checked && !patch;     // a patch never rewrites the mock card
   const publish = document.getElementById('optPublish').checked;
   const duration = parseInt(document.getElementById('optDuration').value) || 60;
   const perMark = parseFloat(document.getElementById('optMarks').value) || 2;
@@ -1094,9 +1121,14 @@ window.runAll = async () => {
     const rec = { prefix: p.prefix, mockId: buildMockId(p.meta, 'en'), images: 0, en: 0, hi: 0, deleted: 0, skipped: false, error: null };
 
     try {
-      const mode = p.dupMode || 'overwrite';
+      const mode = patch ? 'overwrite' : (p.dupMode || 'overwrite');
       if (!p.existing) await checkExisting(p);
       const already = p.existing.en.count || p.existing.hi.count;
+      if (patch) {
+        /* TSSC-PATCH-V1: only ever merge onto documents that are already there, by their own IDs */
+        if (!already) throw new Error('patch mode: this mock is not in Firestore — nothing to patch');
+        if ((p.existing.en.random || 0) + (p.existing.hi.random || 0)) throw new Error('patch mode: existing questions have random IDs — re-upload the full mock instead');
+      }
       if (mode === 'skip' && already) {
         log(`${p.prefix}: already in Firestore — skipped`, 'warn');
         rec.skipped = true; report.push(rec);
@@ -1138,12 +1170,13 @@ window.runAll = async () => {
 
       // 2 + 3. Questions merged with solutions and image URLs, both languages.
       for (const lang of ['en','hi']) {
-        const isNew = mode === 'replace' || !(p.existing[lang] && p.existing[lang].count);
-        const docs = buildDocs(p, lang, imgUrls, isNew);
+        const isNew = !patch && (mode === 'replace' || !(p.existing[lang] && p.existing[lang].count));
+        const docs = buildDocs(p, lang, imgUrls, isNew, patch);
         if (!docs.length) continue;
         if (!dry) await commitDocs(docs);
         rec[lang] = docs.length;
-        log(`${p.prefix}: ${dry ? 'would write' : 'wrote'} ${docs.length} ${lang.toUpperCase()} questions (with solutions + images + mockId)`, 'ok');
+        log(patch ? `${p.prefix}: PATCH — ${dry ? 'would replace' : 'replaced'} ${docs.length} ${lang.toUpperCase()} question(s): Q${docs.map(d => d.data.qNum).join(', Q')}`
+                  : `${p.prefix}: ${dry ? 'would write' : 'wrote'} ${docs.length} ${lang.toUpperCase()} questions (with solutions + images + mockId)`, 'ok');
         setProg(base + (lang === 'en' ? 40 : 75) / list.length, `${p.prefix}: ${lang.toUpperCase()} committed`);
       }
 
