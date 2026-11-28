@@ -596,7 +596,7 @@ class Billing with WidgetsBindingObserver {
                   margin: const EdgeInsets.only(top: 10),
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
                   decoration: BoxDecoration(color: const Color(0xFFFEF3C7), borderRadius: BorderRadius.circular(12)),
-                  child: Text('📅 ${exam.name} mocks open on 1 December. Full Access opens the mocks already uploaded today.',
+                  child: Text('📅 ${exam.name} mocks open on 10 December. Full Access opens the mocks already uploaded today.',
                       style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: Color(0xFF92400E))),
                 ),
               const SizedBox(height: 14),

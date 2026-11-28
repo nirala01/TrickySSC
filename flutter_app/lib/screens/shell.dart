@@ -219,7 +219,7 @@ class _AppShellState extends State<AppShell> {
   void _buy() {
     // TSSC-UGHOLD-V1: already holds this course's pass, but the course is on hold
     if (widget.exam.held && heldOwned.contains(widget.exam.pass)) {
-      _say('Available by 1 December. Your ${widget.exam.name} pass opens these mocks on 1 Dec.');
+      _say('Available by 10 December. Your ${widget.exam.name} pass opens these mocks on 10 Dec.');
       return;
     }
     Billing.I.showBuySheet(context, widget.exam);

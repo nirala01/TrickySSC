@@ -137,7 +137,7 @@
       '<a class="rp-all" href="' + H + 'ssc-chsl-mock-test.html?pass=all">' +
         '<span class="rp-who"><span class="rp-tag">ALL ACCESS PASS</span>' +
           '<span class="rp-nm">All Mocks Pass \u00B7 1 year</span>' +
-          '<span class="rp-ct">SSC CGL + CHSL + GD + MTS + RRB NTPC + Station Master \u00B7 440 mocks</span>' +
+          '<span class="rp-ct">SSC CGL + CHSL + GD + MTS + RRB NTPC + Station Master \u00B7 480 mocks</span>' +
           '<span class="rp-up">New mock series join automatically</span></span>' +
         '<span class="rp-pr"><span class="rp-was">' + R + '294</span><span class="rp-now">' + R + '99</span>' +
           '<span class="rp-sv">SAVE ' + R + '195</span></span>' +
@@ -146,12 +146,12 @@
       '<a class="rp-cb rp-rail" data-rp-grants="rrb-ntpc-mocks rrb-sm-mocks" href="' + H + 'rrb-station-master-mock-test.html?combo=1">' +
         '<span class="rp-who"><span class="rp-tag">NEW \u00B7 RAILWAY COMBO</span>' +
           '<span class="rp-nm">RRB NTPC + Station Master</span>' +
-          '<span class="rp-ct">120 mocks \u00B7 60 NTPC + 60 Station Master</span></span>' +
+          '<span class="rp-ct">160 mocks \u00B7 60 NTPC + 100 Station Master</span></span>' +
         '<span class="rp-pr"><span class="rp-was">' + R + '98</span><span class="rp-now">' + R + '79</span><span class="rp-sv">SAVE ' + R + '19</span></span>' +
       '</a>' +
       '<div class="rp-sgs rp-rails">' +
         single('ntpc', 'rrb-ntpc-mocks', '', 'rrb-ntpc-mock-test.html', 'RRB NTPC', '60 mocks \u00B7 Graduate') +
-        single('sm', 'rrb-sm-mocks', '', 'rrb-station-master-mock-test.html', 'Station Master', '60 mocks \u00B7 new pattern') +
+        single('sm', 'rrb-sm-mocks', '', 'rrb-station-master-mock-test.html', 'Station Master', '100 mocks \u00B7 new pattern') +
       '</div>' +
       '<div class="rp-lbl" data-rp-lbl="combo">COMBO OFFERS \u00B7 2 EXAMS</div>' +
       '<div class="rp-cbs" data-rp-group="combo">' +

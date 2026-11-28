@@ -3119,16 +3119,16 @@ const _db   = getFirestore(_app);
 
 let OWNED = false;
 /* TSSC-UGHOLD-V2 (2026-11-27) — mocks already uploaded are sold and opened as usual.
-   Only a mock that is NOT uploaded yet says "Available by 1 December" / "Live by
-   1 Dec" instead of "Releasing soon", until 1 Dec 2026. */
-const TSSC_UG_HOLD_UNTIL = '2026-12-01T00:00:00+05:30';
+   Only a mock that is NOT uploaded yet says "Available by 10 December" / "Live by
+   10 Dec" instead of "Releasing soon", until 10 Dec 2026. */
+const TSSC_UG_HOLD_UNTIL = '2026-12-11T00:00:00+05:30';
 const ugHold = () => Date.now() < new Date(TSSC_UG_HOLD_UNTIL).getTime();
 function ugHoldPaint() {
   if (!ugHold()) return;
-  document.querySelectorAll('.mock-card .mc-lock span').forEach(s => { s.innerHTML = '&#128197; Live by 1 Dec'; });
-  document.querySelectorAll('.mock-card .mc-lockover .lo-soon').forEach(s => { s.innerHTML = '&#128197; Available by 1 December'; });
+  document.querySelectorAll('.mock-card .mc-lock span').forEach(s => { s.innerHTML = '&#128197; Live by 10 Dec'; });
+  document.querySelectorAll('.mock-card .mc-lockover .lo-soon').forEach(s => { s.innerHTML = '&#128197; Available by 10 December'; });
   const b = document.getElementById('barTier1');
-  if (b && b.classList.contains('soon')) b.textContent = 'Live by 1 Dec';
+  if (b && b.classList.contains('soon')) b.textContent = 'Live by 10 Dec';
 }
 /* TSSC-ENTFAST-V1 — PENDING: signed in on this device before, pass not read yet.
    ENT_READY resolves the moment the real answer is known. */
@@ -3311,7 +3311,7 @@ function tsscSoonGuard(card) {
   const ok = card ? released(card) : !!document.querySelector('.mock-card:not(.locked)');
   if (ok) return false;
   tsscSoonToast(card
-    ? (ugHold() ? '\u{1F4C5} Available by 1 December' : '\u{1F4C5} Releasing soon') + ' \u2014 this mock is not out yet. Get the RRB NTPC UG pass from any live mock and this one opens for you the day it goes live.'
+    ? (ugHold() ? '\u{1F4C5} Available by 10 December' : '\u{1F4C5} Releasing soon') + ' \u2014 this mock is not out yet. Get the RRB NTPC UG pass from any live mock and this one opens for you the day it goes live.'
     : '\u{1F4C5} Releasing soon \u2014 the RRB NTPC UG mocks have not started releasing yet. Mock 1\u20133 will be free; the pass opens with them.');
   return true;
 }
@@ -3474,7 +3474,7 @@ async function openBuy(card) {
   const upKey = TSSC_UPSELL_KEY[CFG.module];
   const upsell = combos.filter(c => c.grants.indexOf(upKey) !== -1).sort((a, b) => a.price - b.price)[0] || null;
   document.getElementById('mbpPerks').innerHTML =
-    (ugHold() ? '<li>Every mock already uploaded opens right after payment; the rest will be live by 1 December.</li>' : '') +   /* TSSC-UGHOLD-V2 */
+    (ugHold() ? '<li>Every mock already uploaded opens right after payment; the rest will be live by 10 December.</li>' : '') +   /* TSSC-UGHOLD-V2 */
     (lead.blurb ? '<li>' + lead.blurb + '</li>' : '') +
     '<li>One payment — not per test</li>' +
     '<li>Access for ' + (lead.durationDays || 365) + ' days</li>' +
