@@ -7,6 +7,7 @@
 <title>Challenge registrations — TrickySSC Admin</title>
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <!-- TSSC-AIC-ADMIN-V1 (2026-11-21): who has registered for the All India Challenge Mocks.
+     TSSC-AIC-ADMIN-V5 (2026-11-28): Started / giving now / submitted counts for every opened paper, refreshed every minute on challenge day.
      TSSC-AIC-ADMIN-V2 (2026-11-26): Sort by rank in any opened paper; click a paper under "Papers taken" for marks and rank.
      TSSC-AIC-ADMIN-V4 (2026-11-27): the marks and rank panel has ready links to send a student — his analysis, the leaderboard,
      and a WhatsApp message with both (for a student who cannot find his rank or analysis).
@@ -74,6 +75,14 @@
   .dsend button,.dsend a.btn{font:inherit;font-size:12px;font-weight:700;padding:7px 12px;border-radius:8px;border:0;cursor:pointer;background:#1E293B;color:#fff;text-decoration:none;display:inline-block;}
   .dsend a.btn.wab{background:#16A34A;} .dsend button.ok{background:#15803D;}
   .dsend .act{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;} .dsend small{display:block;margin-top:6px;color:#64748B;line-height:1.5;}
+  /* TSSC-AIC-ADMIN-V5: live counts */
+  .live{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 4px;}
+  .live div{background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:8px 14px;min-width:120px;}
+  .live b{display:block;font-family:'Rajdhani';font-size:24px;line-height:1.1;color:#1E293B;}
+  .live span{font-size:11px;color:#64748B;font-weight:600;}
+  .live div.now{background:#ECFDF5;border-color:#6EE7B7;} .live div.now b{color:#047857;}
+  .live div.sub{background:#FFF7ED;border-color:#FED7AA;} .live div.sub b{color:#C2410C;}
+  .livenote{font-size:11.5px;color:#64748B;}
   /* TSSC-AIC-ADMIN-V3: ratings and feedback */
   .tabs{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;}
   .tabs button{font:inherit;font-size:13px;font-weight:700;padding:8px 14px;border-radius:99px;border:1.5px solid #E2E8F0;background:#fff;color:#475569;cursor:pointer;}
@@ -169,6 +178,7 @@ const fmtWhen = ms => ms ? new Date(ms).toLocaleString('en-IN', Object.assign({ 
 const fmtDay = ms => new Date(ms).toLocaleDateString('en-IN', Object.assign({ weekday:'short', day:'numeric', month:'short' }, IST));
 function say(t, cls){ $('say').textContent = t||''; $('say').className = 'say'+(cls?' '+cls:''); }
 
+let STARTED = {};                            // TSSC-AIC-ADMIN-V5: 'chsl:1' -> Map(uid -> the time that student started the live paper)
 let ROWS = [], FILTER = 'all', TAKEN = {};   // TAKEN: 'chsl:1' -> Map(uid -> score row with .rank and .total)
 let FB = {}, VIEW = 'stu';                   // FB: 'chsl:1' -> Map(uid -> the rating and questionnaire answers that student gave)
 const starHtml = n => { n = Math.max(0, Math.min(5, Math.round(Number(n) || 0))); return '<span class="stars">' + '★'.repeat(n) + '<i>' + '★'.repeat(5 - n) + '</i></span>'; };
@@ -227,12 +237,7 @@ async function load() {
     /* 3. who has taken each paper that has opened */
     for (const n of openedRounds(s)) {
       try {
-        const list = [];
-        (await getDocs(collection(db, 'leaderboards', s.exam + '_aic_mock' + n, 'scores'))).forEach(d => { const x = d.data() || {}; x.uid = d.id; x.marks = Number(x.marks) || 0; list.push(x); });
-        list.sort((a, b) => b.marks - a.marks);
-        const map = new Map();
-        list.forEach((x, i) => { x.rank = (i && list[i-1].marks === x.marks) ? list[i-1].rank : i + 1; x.total = list.length; map.set(x.uid, x); });
-        TAKEN[k + ':' + n] = map;
+        await readBoards(k, n);
         /* the star rating + questionnaire of this paper: mock_ratings rows of its English and Hindi test ids only */
         try {
           const fm = new Map(), base = s.exam + '_aic_mock' + n;
@@ -261,6 +266,45 @@ async function load() {
   const nfb = Object.keys(FB).reduce((t, x) => t + FB[x].size, 0);
   $('tabFb').textContent = 'Ratings & feedback (' + nfb + ')';
   paintStats(); paintNext(); paint(); paintFb();
+  if (!_tick) _tick = setInterval(liveTick, 60000);
+}
+
+/* TSSC-AIC-ADMIN-V5 — the submitted rows (with rank) and the "started" rows of one paper */
+async function readBoards(k, n) {
+  const s = SER[k], list = [];
+  (await getDocs(collection(db, 'leaderboards', s.exam + '_aic_mock' + n, 'scores'))).forEach(d => { const x = d.data() || {}; x.uid = d.id; x.marks = Number(x.marks) || 0; list.push(x); });
+  list.sort((a, b) => b.marks - a.marks);
+  const map = new Map();
+  list.forEach((x, i) => { x.rank = (i && list[i-1].marks === x.marks) ? list[i-1].rank : i + 1; x.total = list.length; map.set(x.uid, x); });
+  TAKEN[k + ':' + n] = map;
+  try {
+    const st = new Map();
+    (await getDocs(collection(db, 'leaderboards', 'aic-start-' + k + '-' + n, 'scores'))).forEach(d => st.set(d.id, tsMs((d.data() || {}).submittedAt) || Date.now()));
+    STARTED[k + ':' + n] = st;
+  } catch (e) { if (!STARTED[k + ':' + n]) STARTED[k + ':' + n] = new Map(); }
+}
+const PAPER_MIN = { chsl: 70, cgl: 145 };   /* the hard stop of a live attempt, counted from its start */
+const isLive = (s, n) => Date.now() >= startOf(s, n) && Date.now() < startOf(s, n) + 15.5*H;
+/* → { started, giving, submitted, left } for one paper */
+function counts(k, n) {
+  const sub = TAKEN[k + ':' + n] || new Map(), st = STARTED[k + ':' + n] || new Map(), s = SER[k];
+  let giving = 0, left = 0, extra = 0;
+  st.forEach((at, uid) => { if (sub.has(uid)) return; extra++; if (Date.now() - at < PAPER_MIN[k]*60000 && Date.now() < startOf(s, n) + 15.5*H) giving++; else left++; });
+  return { started: sub.size + extra, giving, submitted: sub.size, left };
+}
+function countsHtml(k, n) {
+  const c = counts(k, n), s = SER[k], live = isLive(s, n);
+  const box = (v, l, cls) => '<div' + (cls ? ' class="' + cls + '"' : '') + '><b>' + v + '</b><span>' + l + '</span></div>';
+  return '<div class="live">' + box(c.started, 'Started the test') + (live ? box(c.giving, 'Giving the test now', 'now') : '')
+    + box(c.submitted, 'Have submitted', 'sub') + box(c.left, live ? 'Time over, not submitted' : 'Started but did not submit') + '</div>';
+}
+/* on challenge day the counts refresh by themselves every minute */
+let _tick = 0;
+async function liveTick() {
+  if (document.hidden) return;
+  let any = false;
+  for (const k of Object.keys(SER)) for (const n of openedRounds(SER[k])) if (isLive(SER[k], n)) { any = true; try { await readBoards(k, n); } catch (e) {} }
+  if (any) { paintNext(); paint(); }
 }
 
 function paintStats() {
@@ -278,16 +322,20 @@ function paintNext() {
   const lines = [];
   for (const k of Object.keys(SER)) {
     const s = SER[k]; let n = 1; while (hasRound(s, n) && Date.now() >= startOf(s, n) + 15*H) n++;
-    if (!hasRound(s, n)) { lines.push('<b>' + s.name + ':</b> the series is over.'); continue; }
+    /* papers already over: how many started and how many submitted */
+    const past = openedRounds(s).filter(m => m < n).map(m => { const c = counts(k, m); return 'Mock ' + m + ': <b>' + c.started + '</b> started, <b>' + c.submitted + '</b> submitted' + (c.left ? ', ' + c.left + ' did not submit' : ''); });
+    const pastLine = past.length ? '<div class="livenote">Earlier papers · ' + past.join(' · ') + '</div>' : '';
+    if (!hasRound(s, n)) { lines.push('<b>' + s.name + ':</b> the series is over.' + pastLine); continue; }
     const close = startOf(s, n) - 9*H;
     const inTime = ROWS.filter(r => r.reg[k] && r.reg[k] < close).length;
     const late = ROWS.filter(r => r.reg[k] && r.reg[k] >= close).length;
-    const taken = TAKEN[k + ':' + n] ? TAKEN[k + ':' + n].size : 0;
+    const open = Date.now() >= startOf(s, n);
     lines.push('<b>' + s.name + ' · Challenge Mock ' + n + '</b> on ' + fmtDay(startOf(s, n)) + ': <b>' + inTime + '</b> student' + (inTime===1?'':'s') + ' can take it'
       + (late ? ' (' + late + ' more registered after the closing time and start from the next paper)' : '')
-      + (Date.now() >= startOf(s, n) ? ' · <b>' + taken + '</b> have submitted so far' : ' · registration closes ' + fmtWhen(close - 60000)) + '.');
+      + (open ? ' · <b style="color:#047857;">LIVE NOW</b>' : ' · registration closes ' + fmtWhen(close - 60000)) + '.'
+      + (open ? countsHtml(k, n) + '<div class="livenote">Updates by itself every minute · last updated ' + fmtWhen(Date.now()) + '</div>' : '') + pastLine);
   }
-  $('next').innerHTML = lines.join('<br>');
+  $('next').innerHTML = lines.join('<div style="height:10px"></div>');
 }
 
 function visible() {

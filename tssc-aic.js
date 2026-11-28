@@ -275,7 +275,23 @@ function makeSeries(D) {
   /* ── a student's round ── */
   const doneKey  = (n, uid) => K + 'done_' + n + '_' + uid;
   const startKey = (n, uid) => K + 'start_' + n + '_' + uid;
-  function markStarted(n, uid) { if (uid && !lsGet(startKey(n, uid))) lsSet(startKey(n, uid), String(now())); }
+  function markStarted(n, uid) {
+    if (!uid) return;
+    if (!lsGet(startKey(n, uid))) lsSet(startKey(n, uid), String(now()));
+    /* TSSC-AICLIVE-V1 (2026-11-28) — one "started" row per student per round on its own board
+       (leaderboards/aic-start-<series>-<N>/scores/{uid}, the same write the registration uses), so
+       admin-challenge.html can show how many are giving the paper right now. Never the owner's test runs. */
+    const bk = startKey(n, uid) + '_b';
+    if (lsGet(bk) || isAicAdmin()) return;
+    (async () => {
+      try {
+        const board = 'aic-start-' + D.key + '-' + n;
+        const lb = await import('/leaderboard.js');
+        await lb.recordScore({ uid, displayName: auth.currentUser && auth.currentUser.displayName, paperId: board, paperName: D.name + ' All India Challenge Mock ' + n + ' started', marks: 0, maxMarks: 0 });
+        if ((await getDoc(doc(db, 'leaderboards', board, 'scores', uid))).exists()) lsSet(bk, '1');
+      } catch (e) { console.warn('[aic] start row:', e && e.message); }
+    })();
+  }
   function startedAt(n, uid) { const v = parseInt(lsGet(startKey(n, uid)) || '', 10); return isFinite(v) ? v : 0; }
   function markDone(n, uid, attemptId) { if (uid) lsSet(doneKey(n, uid), JSON.stringify({ id: attemptId || '', at: now() })); }
   /* → { id } when this student has a LIVE attempt in round n, else null */
