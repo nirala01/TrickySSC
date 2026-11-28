@@ -223,7 +223,7 @@
     <!-- TSSC-PATCH-V1 (2026-11-28): rework of a live mock — the CSVs hold only the replaced questions -->
     <div class="toolbar">
       <label class="chk" style="font-weight:700"><input type="checkbox" id="optPatch"> patch mode: replace ONLY the questions in these CSVs</label>
-      <span class="hint" style="margin:0">For reworking a mock that is already live. Only the qNums in the CSVs are rewritten (EN + HI, with solutions); every other question, the mock card, its question count and marks stay as they are. A replaced question that is no longer figure-based has its old figure removed. Nothing is ever deleted in this mode.</span>
+      <span class="hint" style="margin:0">For reworking a mock that is already live. Only the qNums in the CSVs are rewritten (EN + HI, with solutions); every other question, the mock card, its question count and marks stay as they are. A replaced question that is no longer figure-based has its old figure removed. A figures .docx may also carry figures (for example solution diagrams under a "Solution:" line) for questions that are not in the CSVs: those get the figure only, their text is not touched. Nothing is ever deleted in this mode.</span>
     </div>
     <div class="toolbar">
       <label class="fld">duration (min) <input class="narrow" type="number" id="optDuration" value="60" min="1"></label>
@@ -1062,6 +1062,27 @@ function buildDocs(p, lang, imgUrls, isNew, patch) {
   });
 }
 
+/* TSSC-PATCHFIG-V1 (2026-11-28) — patch mode: a figure in the .docx for a question that is NOT in the CSVs
+   (for example a solution diagram for a question whose text is not being changed) is attached on its own:
+   only the image fields of that question are written, nothing else. A qNum beyond the questions the mock
+   already has is skipped, so a typo can never create a stray document. */
+function figureOnlyDocs(p, lang, figMap, docs) {
+  const out = [], skipped = [];
+  const have = new Set(docs.map(d => d.data.qNum));
+  const count = (p.existing && p.existing[lang] && p.existing[lang].count) || 0;
+  const mid = buildMockId(p.meta, lang);
+  Object.keys(figMap || {}).map(n => parseInt(n)).filter(n => !have.has(n)).sort((a, b) => a - b).forEach(n => {
+    if (!(n >= 1 && n <= count)) { skipped.push(n); return; }
+    const im = figMap[n] || {};
+    const data = { updatedAt: new Date() };
+    if (im.sol) data.solutionImage = im.sol;
+    if (im.q)   data.imageUrl = im.q;
+    if (im.optA || im.optB || im.optC || im.optD) data.optionImages = { A: im.optA || '', B: im.optB || '', C: im.optC || '', D: im.optD || '' };
+    if (Object.keys(data).length > 1) out.push({ id: `${mid}_q${String(n).padStart(3, '0')}`, data });
+  });
+  return { docs: out, skipped };
+}
+
 async function commitDocs(docs) {
   for (let i = 0; i < docs.length; i += 400) {
     const b = writeBatch(db);
@@ -1172,10 +1193,21 @@ window.runAll = async () => {
       for (const lang of ['en','hi']) {
         const isNew = !patch && (mode === 'replace' || !(p.existing[lang] && p.existing[lang].count));
         const docs = buildDocs(p, lang, imgUrls, isNew, patch);
+        if (patch && p.docx) {
+          /* TSSC-PATCHFIG-V1: figures for questions outside the CSVs — image fields only. In a dry run there are
+             no uploaded URLs yet, so the slots found in the .docx stand in for them (nothing is written). */
+          const figMap = imgUrls || Object.fromEntries(p.docx.questions.map(q => [q.qNum, q.imgs]));
+          const fo = figureOnlyDocs(p, lang, figMap, docs);
+          if (fo.docs.length) {
+            log(`${p.prefix}: PATCH — ${dry ? 'would attach' : 'attaching'} figures only (no text change) to ${lang.toUpperCase()} Q${fo.docs.map(d => parseInt(d.id.slice(-3))).join(', Q')}`, 'ok');
+            if (!dry) docs.push(...fo.docs);
+          }
+          if (fo.skipped.length) log(`${p.prefix}: figures for Q${fo.skipped.join(', Q')} skipped — the mock has no such question`, 'warn');
+        }
         if (!docs.length) continue;
         if (!dry) await commitDocs(docs);
         rec[lang] = docs.length;
-        log(patch ? `${p.prefix}: PATCH — ${dry ? 'would replace' : 'replaced'} ${docs.length} ${lang.toUpperCase()} question(s): Q${docs.map(d => d.data.qNum).join(', Q')}`
+        log(patch ? `${p.prefix}: PATCH — ${dry ? 'would replace' : 'replaced'} ${docs.filter(d => d.data.qNum).length} ${lang.toUpperCase()} question(s): Q${docs.filter(d => d.data.qNum).map(d => d.data.qNum).join(', Q')}`
                   : `${p.prefix}: ${dry ? 'would write' : 'wrote'} ${docs.length} ${lang.toUpperCase()} questions (with solutions + images + mockId)`, 'ok');
         setProg(base + (lang === 'en' ? 40 : 75) / list.length, `${p.prefix}: ${lang.toUpperCase()} committed`);
       }
