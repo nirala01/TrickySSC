@@ -3289,7 +3289,7 @@ function _fracLeft(str,slash){
 function _fracRight(str,slash){
   var i=slash+1;while(i<str.length&&str[i]===' ')i++;if(i>=str.length)return null;
   if(str[i]==='('){var d=0,j=i;for(;j<str.length;j++){if(str[j]==='(')d++;else if(str[j]===')'){d--;if(d===0){j++;break;}}}return {end:j,text:str.slice(i+1,j-1),grouped:true};}
-  var j2=i;while(j2<str.length&&_fracTerm(str[j2]))j2++;if(j2===i)return null;return {end:j2,text:str.slice(i,j2),grouped:false};
+  var j2=i;while(j2<str.length&&_fracTerm(str[j2]))j2++;while(j2>i&&str[j2-1]==='.')j2--;/* TSSC-FRACDOT-V1: a full stop that ends the sentence is not a decimal point */if(j2===i)return null;return {end:j2,text:str.slice(i,j2),grouped:false};
 }
 function _vfracHTML(num,den){return '<span class="vfrac"><span class="vf-num">'+_radEsc(num)+'</span><span class="vf-den">'+_radEsc(den)+'</span></span>';}
 function dressFractions(root){
